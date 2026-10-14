@@ -52,7 +52,11 @@ Future<T?> _scanFlow<T>(
   required T Function(ScanImporter importer, List<PageSpec> specs) store,
 }) async {
   final services = AppScope.read(context);
-  final session = ScanSession();
+  final settings = services.settings;
+  final session = ScanSession(
+    filter: ScanFilter.parse(settings.scanFilter),
+    onFilterChanged: (f) => settings.scanFilter = f.name,
+  );
   final route = MaterialPageRoute<bool>(
     builder: (_) =>
         ScanScreen(session: session, doneLabel: doneLabel, sources: sources ?? ScanSources.current),

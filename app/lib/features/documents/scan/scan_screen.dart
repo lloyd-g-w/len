@@ -11,6 +11,7 @@ import '../../../ui/menus.dart';
 import '../../../ui/messages.dart';
 import 'scan_controls.dart';
 import 'scan_corner_editor.dart';
+import 'scan_result_view.dart';
 import 'scan_session.dart';
 import 'scan_sources.dart';
 
@@ -157,6 +158,15 @@ class _ScanScreenState extends State<ScanScreen> {
         child: CallbackShortcuts(
           bindings: {
             const SingleActivator(LogicalKeyboardKey.escape): () => unawaited(_close()),
+            const SingleActivator(LogicalKeyboardKey.space): _session.toggleResult,
+            const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
+                _session.select(_session.index - 1),
+            const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
+                _session.select(_session.index + 1),
+            const SingleActivator(LogicalKeyboardKey.arrowLeft, control: true): () =>
+                _session.moveCurrent(-1),
+            const SingleActivator(LogicalKeyboardKey.arrowRight, control: true): () =>
+                _session.moveCurrent(1),
             const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
               if (count > 0 && !busy) _done();
             },
@@ -184,13 +194,28 @@ class _ScanScreenState extends State<ScanScreen> {
                     onCamera: widget.sources.hasCamera ? _camera : null,
                     onPick: _pick,
                   )
-                : ScanCornerEditor(
-                    key: ObjectKey(page),
-                    photo: _session.display,
-                    photoSize: Size(page.photo.width.toDouble(), page.photo.height.toDouble()),
-                    quad: page.quad,
-                    onChanged: (quad, {required done}) =>
-                        done ? _session.updatePreview() : _session.setQuad(quad, preview: false),
+                : AnimatedSwitcher(
+                    duration: Motion.fast,
+                    child: _session.showsResult
+                        ? ScanResultView(
+                            key: const ValueKey('result'),
+                            image: _session.result,
+                            preview: page.preview,
+                            aspect: page.aspect,
+                            onTap: _session.toggleResult,
+                          )
+                        : ScanCornerEditor(
+                            key: ObjectKey(page),
+                            photo: _session.display,
+                            photoSize: Size(
+                              page.photo.width.toDouble(),
+                              page.photo.height.toDouble(),
+                            ),
+                            quad: page.quad,
+                            onChanged: (quad, {required done}) => done
+                                ? _session.updatePreview()
+                                : _session.setQuad(quad, preview: false),
+                          ),
                   ),
           ),
         ),

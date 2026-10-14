@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:cross_file/cross_file.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +12,8 @@ import 'package:len/domain/paper.dart';
 import 'package:len/features/documents/scan/scan_corner_editor.dart';
 import 'package:len/features/documents/scan/scan_import.dart';
 import 'package:len/features/documents/scan/scan_job.dart';
+import 'package:len/features/documents/scan/scan_photo.dart';
+import 'package:len/features/documents/scan/scan_result_view.dart';
 import 'package:len/features/documents/scan/scan_screen.dart';
 import 'package:len/features/documents/scan/scan_sources.dart';
 import 'package:len/features/editor/editor_screen.dart';
@@ -144,6 +149,136 @@ void main() {
     expect(await tester.runAsync(() => services.blobs.has(background.blob)), isTrue);
     // Turned a quarter: the page is now landscape.
     expect(pages.single.size.width, greaterThan(pages.single.size.height));
+  }, variant: noCamera);
+
+  testWidgets('the look picked last time is where the next scan starts', (tester) async {
+    final services = await pumpLibrary(tester);
+    services.settings.scanFilter = ScanFilter.greyscale.name;
+    ScanSources.debugSources = fakeSources(
+      picks: [
+        [photoFile('page.png')],
+      ],
+    );
+    await scanFromLibrary(tester);
+    final s = scan(tester);
+    await s.untilPages(1);
+    final session = tester.widget<ScanScreen>(find.byType(ScanScreen)).session;
+    expect(session.filter, ScanFilter.greyscale);
+    final look = tester.widget<SegmentedButton<ScanFilter>>(
+      find.byKey(const ValueKey('scan-filter')),
+    );
+    expect(look.selected, {ScanFilter.greyscale});
+
+    // Picked even if the scan is then discarded.
+    await s.tap(find.text('B&W'));
+    expect(services.settings.scanFilter, ScanFilter.blackWhite.name);
+    await s.tap(find.byTooltip('Close'));
+    await s.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
+    expect(services.settings.scanFilter, ScanFilter.blackWhite.name);
+  }, variant: noCamera);
+
+  testWidgets('tapping the current page shows it cleaned up, large; tapping that, the corners', (
+    tester,
+  ) async {
+    await pumpLibrary(tester);
+    ScanSources.debugSources = fakeSources(
+      picks: [
+        [photoFile('a.png'), photoFile('b.png')],
+      ],
+    );
+    await scanFromLibrary(tester);
+    final s = scan(tester);
+    await s.untilPages(2);
+    final session = tester.widget<ScanScreen>(find.byType(ScanScreen)).session;
+    expect(session.index, 1);
+
+    await s.tap(find.bySemanticsLabel('Page 2'));
+    expect(session.showsResult, isTrue);
+    expect(find.byType(ScanResultView), findsOneWidget);
+    expect(find.byType(ScanCornerEditor), findsNothing);
+    await pumpUntil(tester, () => session.result != null, reason: 'the large result');
+    final small = session.current!.preview!, large = session.result!;
+    expect(large.width, greaterThan(small.width));
+    expect(large.width / large.height, closeTo(small.width / small.height, 0.02));
+
+    // It follows the look and turns.
+    await s.tap(find.text('Rotate'));
+    await pumpUntil(tester, () => session.result!.width > session.result!.height);
+
+    // Another page keeps the view; tapping the result goes back to the corners.
+    await s.tap(find.bySemanticsLabel('Page 1'));
+    expect(session.index, 0);
+    expect(session.showsResult, isTrue);
+    await pumpUntil(tester, () => session.result != null);
+    await s.tap(find.byType(ScanResultView));
+    expect(session.showsResult, isFalse);
+    expect(session.result, isNull);
+    expect(find.byType(ScanCornerEditor), findsOneWidget);
+
+    // Preview and Space switch too.
+    await s.tap(find.text('Preview'));
+    expect(session.showsResult, isTrue);
+    await pumpUntil(tester, () => session.result != null);
+    await s.tap(find.text('Preview'));
+    expect(session.showsResult, isFalse);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(session.showsResult, isTrue);
+    await pumpUntil(tester, () => session.result != null);
+    await s.tap(find.byTooltip('Close'));
+    await s.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
+  }, variant: noCamera);
+
+  testWidgets('pages reorder by dragging them in the strip and with Ctrl+arrows', (tester) async {
+    await pumpLibrary(tester);
+    ScanSources.debugSources = fakeSources(
+      picks: [
+        [photoFile('a.png'), photoFile('b.png'), photoFile('c.png')],
+      ],
+    );
+    await scanFromLibrary(tester);
+    final s = scan(tester);
+    await s.untilPages(3);
+    final session = tester.widget<ScanScreen>(find.byType(ScanScreen)).session;
+    final [a, b, c] = session.pages;
+    expect(session.current, c);
+
+    // Drag page 1 past page 3 (with a mouse, at once).
+    final from = tester.getCenter(find.bySemanticsLabel('Page 1'));
+    final to = tester.getCenter(find.bySemanticsLabel('Page 3'));
+    final drag = await tester.startGesture(from, kind: PointerDeviceKind.mouse);
+    for (var i = 1; i <= 10; i++) {
+      await drag.moveTo(Offset.lerp(from, to + const Offset(40, 0), i / 10)!);
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await drag.up();
+    await tester.pumpAndSettle();
+    expect(session.pages, [b, c, a]);
+    expect(session.current, c, reason: 'the current page stays current');
+
+    // ← / → pick the page before / after; Ctrl moves the current one.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(session.current, a);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft); // Already first.
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(session.pages, [a, b, c]);
+    expect(session.index, 0);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    expect(session.index, 0);
+
+    // A tap still selects.
+    await s.tap(find.bySemanticsLabel('Page 2'));
+    expect(session.current, b);
+    await s.tap(find.byTooltip('Close'));
+    await s.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
   }, variant: noCamera);
 
   testWidgets('cancelling the first pick leaves without creating anything', (tester) async {
@@ -299,6 +434,35 @@ void main() {
     await tester.pump();
     await corner.up();
     expect(quad.topRight, const Offset(400, 0));
+  });
+
+  testWidgets('photos are kept no larger than the pages need', (tester) async {
+    bool isJpeg(Uint8List b) => b[0] == 0xFF && b[1] == 0xD8;
+    await tester.runAsync(() async {
+      // Too big: re-encoded at the largest size used, the page found in it.
+      final big = await ScanPhoto.load(deskPhoto(width: 600, height: 800), maxEdge: 400);
+      expect((big.width, big.height), (300, 400));
+      expect(isJpeg(big.bytes), isTrue);
+      expect(big.detected!.topLeft.dx, closeTo(300 * 0.2, 4));
+      expect(big.detected!.topLeft.dy, closeTo(400 * 0.12, 4));
+
+      // Small but heavy (a noisy PNG): a JPEG of the same size.
+      final rnd = math.Random(5);
+      final noise = img.Image(width: 120, height: 90);
+      for (final p in noise) {
+        p.setRgb(rnd.nextInt(256), rnd.nextInt(256), rnd.nextInt(256));
+      }
+      final png = img.encodePng(noise);
+      final heavy = await ScanPhoto.load(png, maxEdge: 400);
+      expect((heavy.width, heavy.height), (120, 90));
+      expect(isJpeg(heavy.bytes), isTrue);
+      expect(heavy.bytes.length, lessThan(png.length));
+
+      // Small and light: kept as it is.
+      final jpeg = img.encodeJpg(img.decodePng(deskPhoto(width: 240, height: 320))!);
+      final kept = await ScanPhoto.load(jpeg, maxEdge: 400);
+      expect(identical(kept.bytes, jpeg), isTrue);
+    });
   });
 
   test('scanned pages are A4 or Letter when they are that shape, else A4-sized', () {

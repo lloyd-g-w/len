@@ -903,9 +903,19 @@ SYNC_PROTOCOL). All pure Dart, so it works on every platform.
   ones and strong-edge (Sobel) ones covering ≥ 15 % of the photo become
   convex hulls, simplified; the largest inscribed quadrilateral wins if its
   sides show a clear step in brightness, the same way round, all round.
+  `QuadRefiner` then fits each side at the input's resolution (≤ 1600 px):
+  the strongest step across it, the same way round, located to a fraction
+  of a pixel along ~100 normals, a robust line (Theil–Sen, then least
+  squares over the points within 1.5 px) and the corners where the lines
+  meet (to ~0.1 px on synthetic photos; implausible results keep the
+  coarse quad), then moved 1 px inside (`QuadDetector.inset`): soft or
+  stepped paper edges leave no hairline of desk on the white page.
   `ScanPhoto.load` measures the photo (EXIF-upright through the engine),
-  decodes an 800-px working copy and runs `detectScanQuad` on it; no
-  convincing page → the whole photo.
+  keeps it as a JPEG (quality 92) of at most 3200 px when it is larger or
+  heavier than a byte a pixel (so a long scan holds no more than the pages
+  need: per page that JPEG and an 800-px RGBA working copy), decodes the
+  working copy and runs `detectScanQuad` on it; no convincing page → the
+  whole photo.
 - **Flattening** (`ScanJob`, `scan_warp`, `scan_enhance`): a perspective
   warp of the quad (bilinear, supersampled when shrinking) to a page whose
   sides are the quad's (long side ≤ 2500 px, from the photo decoded at ≤
@@ -920,11 +930,19 @@ SYNC_PROTOCOL). All pure Dart, so it works on every platform.
   The corner editor drags corners and side middles (folds refused, corners
   kept on the photo) and shows a 3× loupe in the top corner away from the
   finger while a corner moves; the outline's preview re-renders when the
-  drag ends. Commands: Rotate, Whole photo (toggles with the page found),
-  Retake (camera) / Replace… (files), Remove, + (camera or files), and the
-  look for all pages. Without a camera the file picker opens at once
-  (nothing picked → the screen closes); with one (Android, `image_picker`)
-  the screen starts by offering both. Leaving with pages asks first.
+  drag ends. Preview (or tapping the current page in the strip, or Space)
+  switches to its result (`ScanResultView`, `ScanResultRenderer`): the page flattened
+  and cleaned up at 1600 px from the photo decoded at that size (kept only
+  while shown), re-rendered on every change; tapping it goes back.
+  The strip (`ScanPageStrip`) reorders by drag (at once with a mouse,
+  after a long press on touch); ← / → pick a page, Ctrl+← / → move it.
+  Commands: Preview, Rotate, Whole photo (toggles with the page found), Retake
+  (camera) / Replace… (files), Remove, + (camera or files), and the look
+  for all pages (remembered for the next scan:
+  `SettingsRepository.scanFilter`). Without a camera the file picker opens
+  at once (nothing picked → the screen closes); with one (Android,
+  `image_picker`) the screen starts by offering both. Leaving with pages
+  asks first.
   `ScanSources` is the seam for tests (`ScanSources.debugSources`).
 - **Import** (`scan_flow`, `ScanImporter`): after Done, each page is
   flattened at full size and stored as a blob behind a cancellable progress

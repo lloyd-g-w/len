@@ -32,23 +32,35 @@ class ScanPhoto {
   /// for a 2500-px page without wasting memory on a 50-MP photo.
   static const int sourceEdge = 3200;
 
+  /// JPEG quality of photos re-encoded on intake.
+  static const int intakeQuality = 92;
+
   /// Reads [bytes] and looks for the document in it; throws
   /// [ScanPhotoException] if they are no image.
-  static Future<ScanPhoto> load(Uint8List bytes) async {
-    final int width, height;
+  ///
+  /// A photo larger than [maxEdge] on its long side (or encoded at more
+  /// than a byte a pixel, e.g. a PNG) is kept as a JPEG at most that big:
+  /// a long scan holds no more than the pages need.
+  static Future<ScanPhoto> load(Uint8List bytes, {int maxEdge = sourceEdge}) async {
+    int width, height;
     try {
       (:width, :height) = await ElementImages.measure(bytes);
     } on Object {
       throw const ScanPhotoException('Unsupported or damaged image');
     }
     if (width <= 0 || height <= 0) throw const ScanPhotoException('Empty image');
+    if (math.max(width, height) > maxEdge || bytes.length > width * height) {
+      final source = await decodeRgba(bytes, width, height, maxEdge);
+      bytes = await encodeScanJpeg(source, quality: intakeQuality);
+      (width, height) = (source.width, source.height);
+    }
     final work = await decodeRgba(bytes, width, height, workEdge);
     final found = await detectScanQuad(work);
     final s = width / work.width;
     return ScanPhoto._(bytes, width, height, work, found?.scaled(s));
   }
 
-  /// The encoded photo.
+  /// The encoded photo (at most [sourceEdge] on its long side).
   final Uint8List bytes;
 
   /// Upright width in pixels.
@@ -109,9 +121,19 @@ class ScanPhoto {
     required int quarterTurns,
     required ScanFilter filter,
     required int maxEdge,
+  }) => jobOn(work, quad, quarterTurns: quarterTurns, filter: filter, maxEdge: maxEdge);
+
+  /// A job for a page [maxEdge] pixels on its long side, from [source]
+  /// (this photo decoded at any size).
+  ScanJob jobOn(
+    RgbaImage source,
+    Quad quad, {
+    required int quarterTurns,
+    required ScanFilter filter,
+    required int maxEdge,
   }) => ScanJob(
-    source: work,
-    quad: quad.scaled(work.width / width).rotated(quarterTurns),
+    source: source,
+    quad: quad.scaled(source.width / width).rotated(quarterTurns),
     filter: filter,
     maxEdge: maxEdge,
   );

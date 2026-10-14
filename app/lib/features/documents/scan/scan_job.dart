@@ -94,18 +94,22 @@ class ScanJob {
   }
 
   /// Encodes [page] as a JPEG of [jpegQuality].
-  ScanOutput encode(RgbaImage page) {
-    final image = img.Image.fromBytes(
-      width: page.width,
-      height: page.height,
-      bytes: page.pixels.buffer,
-      bytesOffset: page.pixels.offsetInBytes,
-      numChannels: 4,
-      order: img.ChannelOrder.rgba,
-    );
-    return ScanOutput(img.encodeJpg(image, quality: jpegQuality), page.width, page.height);
-  }
+  ScanOutput encode(RgbaImage page) =>
+      ScanOutput(encodeJpeg(page, quality: jpegQuality), page.width, page.height);
 }
+
+/// [image] as a JPEG of [quality] (1..100), alpha dropped.
+Uint8List encodeJpeg(RgbaImage image, {required int quality}) => img.encodeJpg(
+  img.Image.fromBytes(
+    width: image.width,
+    height: image.height,
+    bytes: image.pixels.buffer,
+    bytesOffset: image.pixels.offsetInBytes,
+    numChannels: 4,
+    order: img.ChannelOrder.rgba,
+  ),
+  quality: quality,
+);
 
 /// The state of one rendering: the page and the maps building it.
 class _Render {

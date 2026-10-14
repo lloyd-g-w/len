@@ -4,6 +4,7 @@ import 'dart:ui' show Offset;
 
 import 'quad_hull.dart';
 import 'quad_raster.dart';
+import 'quad_refine.dart';
 import 'scan_geometry.dart';
 import 'scan_image.dart';
 
@@ -36,11 +37,34 @@ abstract final class QuadDetector {
     );
   }
 
+  /// The long side corners are refined at; larger input is shrunk first.
+  static const int refineEdge = 1600;
+
   /// The document's outline in [photo] in its pixel coordinates, or null
-  /// (see [detect]).
+  /// (see [locate]).
   static Quad? find(RgbaImage photo) {
-    final g = luminance(photo.pixels, photo.width, photo.height, maxEdge: workingEdge);
-    return detect(g.grey, g.width, g.height)?.scaled(g.scale);
+    final g = luminance(photo.pixels, photo.width, photo.height, maxEdge: refineEdge);
+    return locate(g.grey, g.width, g.height)?.scaled(g.scale);
+  }
+
+  /// How far inside the edges found [locate] keeps the outline, in pixels
+  /// of its input: a paper edge is soft (and on cheap photos stepped), and
+  /// a hairline of desk on a white page shows far more than the same
+  /// hairline of paper cropped.
+  static const double inset = 1;
+
+  /// [detect]'s outline with its sides fitted to the edges in [grey] at
+  /// its own resolution, to a fraction of a pixel (`QuadRefiner`), then
+  /// moved [inset] inward.
+  static Quad? locate(Uint8List grey, int width, int height) {
+    final coarse = detect(grey, width, height);
+    if (coarse == null) return null;
+    // Detection works f times smaller, and its corners may be cut.
+    final f = math.max(1, (math.max(width, height) / workingEdge).ceil());
+    final smooth = GreyOps.blur(grey, width, height);
+    final refined = QuadRefiner.refine(smooth, width, height, coarse, radius: 3.0 * f + 3);
+    final inside = refined.inset(inset);
+    return inside.isConvex ? inside : refined;
   }
 
   /// The document's outline in [grey] (8-bit luminance, row major, [width]
