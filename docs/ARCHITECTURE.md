@@ -1591,8 +1591,8 @@ Page with template…).
   which opens the HSV picker in place, a palette, recent colours). Sections:
   inks (`InkOptions`: live preview, the selected slot's colour — the pen
   palette, or `ColorSwatches.highlighter`'s light hues — and Size, a
-  logarithmic slider in mm, then *Feel* collapsed (ending in "Reset feel",
-  which keeps the quick colours and sizes; inks have no whole-tool Reset),
+  logarithmic slider in mm, then *Feel* collapsed (the header's Reset resets the feel only and
+  keeps the quick colours and sizes),
   then *Toolbar* collapsed ("3 colours · 3 sizes": "Quick colours / Quick
   sizes − n +"); the pen palette is 2 × 7 (`ColorSwatches.palette`, holding
   the pen and text defaults), the highlighter's 2 × 5); `EraserOptionsPanel`;

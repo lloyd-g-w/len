@@ -180,7 +180,7 @@ class StabiliserSlider extends StatelessWidget {
 
 /// An ink settings panel's title row with Reset (restores the feel
 /// defaults). Inside an [EmbeddedOptions] (the options popover's Feel
-/// section, whose header resets everything) it shows nothing.
+/// section; the popover's own header has Reset) it shows nothing.
 class FeelHeader extends StatelessWidget {
   const FeelHeader(this.title, {super.key, required this.tools, required this.ink});
 

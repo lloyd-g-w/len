@@ -311,7 +311,7 @@ column (11 strings). Effort S.
   first row becomes Rename….
 - Effort S.
 
-**R9-8 P2 · Tool popovers reset in two ways.**
+**R9-8 P2 · Tool popovers reset in two ways.** ✅
 - *What:* "Reset feel" sits at the end of the collapsed Feel
   (`pen/ink_options.dart:183`), while "Reset" sits in the header of the
   eraser and laser popovers.
