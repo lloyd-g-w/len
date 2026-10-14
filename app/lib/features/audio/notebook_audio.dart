@@ -95,6 +95,11 @@ class NotebookAudio extends ChangeNotifier {
 
   bool _disposed = false;
 
+  /// Set by [dispose] when it stopped a recording: completes once that
+  /// recording is saved (or failed to save).
+  Future<void>? get saving => _saving;
+  Future<void>? _saving;
+
   /// Shows a message about something that happened without the user
   /// asking (a recording stopped and saved, or lost, in the background).
   void Function(String message)? onNotice;
@@ -259,7 +264,10 @@ class NotebookAudio extends ChangeNotifier {
     _lifecycle.dispose();
     unawaited(_remote.cancel());
     // Saving continues after the editor is gone; services outlive it.
-    unawaited(recorder.shutdown());
+    final recording = recorder.state != RecorderState.idle;
+    final shutdown = recorder.shutdown();
+    if (recording) _saving = shutdown;
+    unawaited(shutdown);
     recorder.dispose();
     playback.removeListener(_onPlayback);
     session.dispose();
