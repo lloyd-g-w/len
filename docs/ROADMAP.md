@@ -76,7 +76,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Trimming (GoodNotes-style handles on the player's waveform, preview, Cancel / Save, "Reset
   trim"): non-destructive, synced (`trimStartMs` / `trimEndMs`); playback, list durations, ink
   replay, markers and export (raw AAC cut at frame boundaries) keep to the kept audio
-- ⬜ Playback in the background (media notification)
+- ✅ Playback in the background: Android media notification and lock screen (recording,
+  notebook; play / pause, ±10 s, seek, stop; `mediaPlayback` foreground service), headset and
+  Bluetooth buttons, audio focus (pauses for calls and other apps, resumes after a call, ducks),
+  pauses when headphones are unplugged; MPRIS on Linux (GNOME / KDE controls, media keys);
+  the browser's Media Session; media keys on Windows while Len is in front
+- ⬜ Windows system media controls (SMTC) for playback
 - ✅ Trimming that frees storage: "Free up 12 MB…" in a recording's menu drops the 5-minute
   parts wholly outside the trim on every device (confirmed, Undo in the message; blob GC frees
   them after its grace). Trimmed browser recordings export only the parts the trim touches
@@ -203,7 +208,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Scale: 1,000-notebook libraries, 500-page notebooks, a first sync of a large library and a
   years-old database stay responsive (no library-sized work before the first frame or in one
   event-loop turn; bounded memory in long sessions); benchmarks and numbers in `PERFORMANCE.md`
-- ⬜ Scale: decode first-sync pages off the UI thread; lighter page-overview tiles
+- ✅ Scale: decode first-sync pages off the UI thread; lighter page-overview tiles
 - ✅ Theme mode (system/light/dark)
 - ✅ App shell: sidebar (tablet/desktop), drawer (phone), context menus,
   keyboard shortcuts (a grouped reference: Ctrl/⌘+/ or Settings → General), redesigned settings
