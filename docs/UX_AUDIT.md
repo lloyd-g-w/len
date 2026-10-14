@@ -23,7 +23,7 @@ and **failure copy** (every PDF failure blamed on the file). Paths are under
 ### Prioritised items
 
 **R10-1 P0 (desktop) · Editing keys don't work in the editor's search
-field; Ctrl+Z there undoes ink.** ⬜
+field; Ctrl+Z there undoes ink.** ✅
 - *What:* the editor's `CallbackShortcuts` sit above the search bar
   (`editor_layers.dart`). A matching binding consumes the key even when
   `unlessTyping` skips the action, so Backspace, Delete, arrows, Home / End

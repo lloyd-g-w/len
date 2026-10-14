@@ -104,22 +104,27 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
         const SingleActivator(LogicalKeyboardKey.keyF, control: true): _focusField,
         const SingleActivator(LogicalKeyboardKey.keyF, meta: true): _focusField,
       },
-      // A slip over the page (lifted, like a popover), not chrome.
-      child: OverlaySurface(
-        child: Padding(
-          padding: const EdgeInsets.all(Gaps.xs),
-          child: ListenableBuilder(
-            listenable: Listenable.merge([_c, _c.search]),
-            builder: (context, _) => Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _fieldRow(context, showList: showList, compact: compact),
-                if (showList && _c.query.trim().isNotEmpty) ...[
-                  const Divider(height: Gaps.sm),
-                  _results(context, compact: compact),
+      // A slip over the page (lifted, like a popover), not chrome. The text
+      // editing shortcuts are restated here, below the editor's own: else
+      // the editor's Backspace, arrows, Ctrl+A and Ctrl+Z bindings would
+      // swallow those keys before they reach the field.
+      child: DefaultTextEditingShortcuts(
+        child: OverlaySurface(
+          child: Padding(
+            padding: const EdgeInsets.all(Gaps.xs),
+            child: ListenableBuilder(
+              listenable: Listenable.merge([_c, _c.search]),
+              builder: (context, _) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _fieldRow(context, showList: showList, compact: compact),
+                  if (showList && _c.query.trim().isNotEmpty) ...[
+                    const Divider(height: Gaps.sm),
+                    _results(context, compact: compact),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
