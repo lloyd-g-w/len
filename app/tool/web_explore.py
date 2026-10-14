@@ -21,8 +21,9 @@ stored) → undo / redo → add a page → lasso and move → a text box with bo
 export it as PDF (download) → keyboard shortcuts (tools, go to page, focus
 mode, Ctrl+/) → settings and the dark theme → back up the library →
 offline reload → phone width and sideways phone → open and close a
-notebook a few times (memory). Then a second fresh profile restores that
-backup made big (big_backup: ~20 MB, 4000 strokes, large images, read in
+notebook a few times (memory) → a folder and the list view (cards, folder
+tiles and rows are named buttons for screen readers). Then a second fresh
+profile restores that backup made big (big_backup: ~20 MB, 4000 strokes, large images, read in
 slices on the web) and opens the big notebook at a page with an image and
 at its last page.
 
@@ -388,6 +389,28 @@ _NODES = '''() => [...document.querySelectorAll('flt-semantics-host flt-semantic
     .join(' | ')).filter((l) => l.replace(/[ |]/g, ''))'''
 
 
+async def expect_items(page, names):
+    """Each of [names] is a button whose label starts with it and holds no
+    other button, before and while the mouse is over it; as many ⋯ as
+    items, whether shown or not."""
+    async def check(name, hovered):
+        item = page.get_by_role('button', name=re.compile('^' + re.escape(name) + r'\b')).first
+        await item.wait_for(timeout=15000)
+        inner = await item.get_by_role('button').count()
+        more = await page.get_by_role('button', name='More', exact=True).count()
+        w.expect(inner == 0 and more >= len(names),
+                 f'"{name}" is a named button{" (hovered)" if hovered else ""}: '
+                 f'{inner} button(s) inside, {more} ⋯')
+        return item
+
+    for name in names:
+        item = await check(name, False)
+        box = await item.bounding_box()
+        await page.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+        await page.wait_for_timeout(300)
+        await check(name, True)
+
+
 # --- The walk ----------------------------------------------------------------
 
 class Walk:
@@ -648,6 +671,24 @@ class Walk:
         if heaps[0] is not None:
             w.expect(heaps[-1] - heaps[0] < HEAP_GROWTH_MB, f'the heap settles: {heaps} MB')
 
+    async def library_semantics(self):
+        """Cards, folder tiles and list rows stay buttons named by their
+        title for screen readers, hovered or not, each beside its own ⋯
+        (reachable while hidden)."""
+        page = self.page
+        await tap(page, 'New folder')
+        await type_text(page, 'Walk folder')
+        await page.keyboard.press('Enter')
+        await expect_text(page, 'Walk folder')
+        await expect_items(page, ['Walk folder', 'Explore', 'fix'])
+        await tap(page, 'View')
+        await tap(page, 'List', role='menuitem')
+        await page.keyboard.press('Escape')
+        await expect_items(page, ['Walk folder', 'Explore', 'fix'])
+        await tap(page, 'View')
+        await tap(page, 'Grid', role='menuitem')
+        await page.keyboard.press('Escape')
+
     async def restore(self):
         """A fresh profile (a new device) restores the backup, made big."""
         page = self.page
@@ -692,7 +733,7 @@ class Walk:
         return [self.first_launch, self.new_notebook, self.draw_mouse, self.draw_pen, self.undo_redo,
                 self.add_page, self.lasso_move, self.text_box, self.insert_image, self.view_menu,
                 self.import_pdf, self.search, self.export_pdf, self.shortcuts, self.settings,
-                self.backup, self.offline_reload, self.phone, self.memory]
+                self.backup, self.offline_reload, self.phone, self.memory, self.library_semantics]
 
 
 async def launch(p, browser, profile):
