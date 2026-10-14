@@ -10,6 +10,7 @@ import '../../sync/sync_engine.dart';
 import '../documents/export/export_flow.dart' show ExportSaver;
 import 'backends/audio_backends.dart';
 import 'playback_controller.dart';
+import 'playback_session.dart';
 import 'recording_controller.dart';
 import 'recording_export.dart';
 import 'recording_overview.dart';
@@ -23,7 +24,8 @@ import 'trim_release.dart';
 /// as long as the notebook is open: a recording continues across page
 /// changes and is stopped and saved when its last editor closes, and — on
 /// mobile, where a backgrounded app loses the microphone — when the app is
-/// paused unless a foreground service keeps it going (Android).
+/// paused unless a foreground service keeps it going (Android). Playback
+/// likewise goes on in the background with the system's media controls.
 class NotebookAudio extends ChangeNotifier {
   NotebookAudio(
     this.services, {
@@ -46,6 +48,11 @@ class NotebookAudio extends ChangeNotifier {
       blobs: services.blobs,
       fetch: services.sync.fetchBlob,
     );
+    session = PlaybackSession(
+      playback,
+      create: backends.mediaControls,
+      album: () => services.notebooks.get(notebookId)?.title ?? '',
+    );
     overviews = RecordingOverviews(
       blobs: services.blobs,
       fetch: services.sync.fetchBlob,
@@ -63,6 +70,10 @@ class NotebookAudio extends ChangeNotifier {
 
   late final RecordingController recorder;
   late final PlaybackController playback;
+
+  /// The system's media controls for [playback] (notification, lock
+  /// screen, media keys); with them up, playback goes on in the background.
+  late final PlaybackSession session;
 
   /// Waveforms and ink activity of the recordings, for the scrubber.
   late final RecordingOverviews overviews;
@@ -224,7 +235,8 @@ class NotebookAudio extends ChangeNotifier {
   /// records silence). With its foreground service running (see
   /// `RecordingKeepAlive`) an Android recording continues — screen off,
   /// another app in front — controlled from its notification; otherwise it
-  /// is stopped and saved.
+  /// is stopped and saved. Playback continues while its media controls are
+  /// up (Android's media session service), else it pauses.
   void _onAppPaused() {
     if (_platform == TargetPlatform.android || _platform == TargetPlatform.iOS) {
       if (recorder.state.isActive && !recorder.recordsInBackground) {
@@ -237,7 +249,7 @@ class NotebookAudio extends ChangeNotifier {
           }),
         );
       }
-      if (playback.playing) unawaited(playback.pause());
+      if (playback.playing && !session.background) unawaited(playback.pause());
     }
   }
 
@@ -250,6 +262,7 @@ class NotebookAudio extends ChangeNotifier {
     unawaited(recorder.shutdown());
     recorder.dispose();
     playback.removeListener(_onPlayback);
+    session.dispose();
     playback.dispose();
     overviews.dispose();
     stripHeight.dispose();

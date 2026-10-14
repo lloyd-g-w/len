@@ -7,6 +7,7 @@ import 'package:len/data/spool_storage.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/features/audio/adts.dart';
 import 'package:len/features/audio/backends/audio_backends.dart';
+import 'package:len/platform/media_controls_api.dart';
 
 /// Raw AAC: [count] ADTS frames of silence at [sampleRate] (16 kHz: 64 ms
 /// per frame).
@@ -154,6 +155,9 @@ class FakePlayback implements AudioPlayback {
   Future<void> setRate(double rate) async => log.add('rate $rate');
 
   @override
+  Future<void> setVolume(double volume) async => log.add('volume $volume');
+
+  @override
   Stream<Duration> get positions => _positions.stream;
 
   @override
@@ -198,6 +202,42 @@ class FakeKeepAlive implements RecordingKeepAlive {
   Future<void> dispose() async => log.add('keepalive dispose');
 }
 
+/// The system's media controls, logging what they show; tests send
+/// what the user (or the system) asks for with [send].
+class FakeMediaControls implements MediaControls {
+  FakeMediaControls(this.log, {this.background = true});
+
+  final List<String> log;
+
+  /// Whether playback continues in the background once shown.
+  bool background;
+  NowPlaying? shown;
+  final StreamController<MediaCommand> _commands = StreamController.broadcast(sync: true);
+
+  void send(MediaEvent event, [int? positionMs]) =>
+      _commands.add((event: event, positionMs: positionMs));
+
+  @override
+  Stream<MediaCommand> get commands => _commands.stream;
+
+  @override
+  Future<bool> show(NowPlaying now) async {
+    final state = now.playing ? 'playing' : 'paused';
+    log.add('controls ${now.title} · ${now.album} $state ${now.positionMs}/${now.durationMs}');
+    shown = now;
+    return background;
+  }
+
+  @override
+  Future<void> hide() async {
+    log.add('controls hide');
+    shown = null;
+  }
+
+  @override
+  Future<void> dispose() async => log.add('controls dispose');
+}
+
 /// Fake backends sharing one [log]; [captures] / [players] are the
 /// instances handed out.
 class FakeAudio {
@@ -208,7 +248,12 @@ class FakeAudio {
     this.canShow = true,
     this.adts = false,
     this.spool,
+    this.mediaControls = false,
   });
+
+  /// Whether the platform has media controls ([controls]) at all.
+  final bool mediaControls;
+  final List<FakeMediaControls> controls = [];
 
   /// Whether captures record raw AAC (as natively) rather than MP4.
   final bool adts;
@@ -251,6 +296,13 @@ class FakeAudio {
             final keepAlive = FakeKeepAlive(log, canShow: canShow);
             keepAlives.add(keepAlive);
             return keepAlive;
+          }
+        : null,
+    mediaControls: mediaControls
+        ? () {
+            final created = FakeMediaControls(log);
+            controls.add(created);
+            return created;
           }
         : null,
     spool: () async => spool,
