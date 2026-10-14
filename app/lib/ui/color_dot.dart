@@ -15,6 +15,7 @@ class ColorDot extends StatelessWidget {
     this.size = 32,
     this.target,
     this.tooltip,
+    this.child,
   });
 
   /// ARGB colour shown.
@@ -39,6 +40,9 @@ class ColorDot extends StatelessWidget {
   /// Optional tooltip; also the accessibility label (else the colour's
   /// name, [colorName]).
   final String? tooltip;
+
+  /// Drawn centred on the swatch (a "none" glyph).
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
@@ -87,6 +91,7 @@ class ColorDot extends StatelessWidget {
           color: scheme.outline.withValues(alpha: _nearSurface(scheme) ? 0.9 : 0.35),
         ),
       ),
+      child: child == null ? null : Center(child: child),
     ),
   );
 

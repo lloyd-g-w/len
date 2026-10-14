@@ -28,6 +28,7 @@ class ColorChoices extends StatefulWidget {
     required this.onChanged,
     this.palette = ColorSwatches.palette,
     this.recent = const [],
+    this.title = 'Colour',
   });
 
   /// The current colour (ARGB; its alpha is ignored).
@@ -37,6 +38,9 @@ class ColorChoices extends StatefulWidget {
 
   /// Colours picked recently, most recent first; one row of them shows.
   final List<int> recent;
+
+  /// The heading ("Colour"; "Fill colour" under a fill).
+  final String title;
 
   @override
   State<ColorChoices> createState() => _ColorChoicesState();
@@ -91,7 +95,7 @@ class _ColorChoicesState extends State<ColorChoices> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             GroupHeader(
-              'Colour',
+              widget.title,
               trailing: EndTextButton(
                 onPressed: () => setState(() => _customOpen = !_customOpen),
                 icon: _customOpen ? Symbols.expand_less_sharp : Symbols.palette_sharp,

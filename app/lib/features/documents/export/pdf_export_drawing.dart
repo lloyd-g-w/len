@@ -119,6 +119,7 @@ Future<void> _drawPattern(
 }
 
 void _drawStroke(_Pen pen, Stroke stroke) {
+  _drawFill(pen, stroke);
   // Same colour and opacity as on screen.
   final base = Color(stroke.color);
   final color = base.withValues(alpha: base.a * stroke.style.opacity);
@@ -136,6 +137,27 @@ void _drawStroke(_Pen pen, Stroke stroke) {
     g.closePath();
   }
   g
+    ..fillPath()
+    ..restoreContext();
+}
+
+/// A filled shape's fill ([Stroke.fill]), beneath its outline: the
+/// polygon of its points, as on screen.
+void _drawFill(_Pen pen, Stroke stroke) {
+  final fill = stroke.fill;
+  if (fill == null) return;
+  final color = Color(fill);
+  final g = pen.g
+    ..saveContext()
+    ..setGraphicState(PdfGraphicState(fillOpacity: color.a))
+    ..setFillColor(PdfColor.fromInt(fill | 0xFF000000));
+  final points = stroke.points;
+  pen.moveTo(points.first.offset);
+  for (var i = 1; i < points.length; i++) {
+    pen.lineTo(points[i].offset);
+  }
+  g
+    ..closePath()
     ..fillPath()
     ..restoreContext();
 }

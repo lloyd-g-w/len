@@ -24,7 +24,8 @@ abstract final class StrokeSplitter {
   /// Returns null when nothing is erased, otherwise the surviving fragments
   /// (possibly none), each a new stroke with an id from [newId]. Fragments
   /// keep the original's creation time and style, so they paint in the
-  /// same order and look.
+  /// same order and look; only the outline is cut (a filled shape's
+  /// fragments are open and have no fill).
   static List<Stroke>? erase(
     Stroke stroke,
     Offset a,
@@ -32,7 +33,7 @@ abstract final class StrokeSplitter {
     double radius, {
     required String Function() newId,
   }) {
-    if (!StrokeHitTest.sweepHits(stroke, a, b, radius)) return null;
+    if (!StrokeHitTest.sweepHits(stroke, a, b, radius, fill: false)) return null;
     // Points are cut where the eraser touches the ink's edge (which depends
     // on the pressure there), so fragment end caps line up with the eraser
     // circle.
@@ -60,9 +61,11 @@ abstract final class StrokeSplitter {
     // Fragments keep the scale the original was shaped at (estimated from
     // its first points when not recorded).
     final spec = StrokeRenderer.specFor(stroke.tool, stroke.width, stroke.style);
-    final base = stroke.style.unit > 0
-        ? stroke.style
-        : stroke.style.copyWith(unit: StrokeOutline.unitOf(stroke.points, spec));
+    // Fragments are open, so a filled shape's pieces have no fill.
+    final style = stroke.style.withFill(null);
+    final base = style.unit > 0
+        ? style
+        : style.copyWith(unit: StrokeOutline.unitOf(stroke.points, spec));
     StrokeShaper? shaped;
 
     final fragments = <Stroke>[];

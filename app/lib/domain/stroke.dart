@@ -105,6 +105,24 @@ class Stroke {
     return Rect.fromLTRB(minX - pad, minY - pad, maxX + pad, maxY + pad);
   }
 
+  /// Whether the stroke is a closed outline (it ends where it starts, as
+  /// the closed shapes of the Shape tool and hold to snap do), so it can
+  /// have a fill ([StrokeStyle.fill]). Hand-drawn loops never end exactly
+  /// where they began.
+  bool get isClosed {
+    if (points.length < 4) return false;
+    final a = points.first, b = points.last;
+    return (a.x - b.x).abs() <= closeTolerance && (a.y - b.y).abs() <= closeTolerance;
+  }
+
+  /// How far apart (world units) a closed outline's ends may be (float32
+  /// storage and transforms round them).
+  static const double closeTolerance = 0.01;
+
+  /// The fill colour painted beneath the outline, if any: only a closed
+  /// stroke ([isClosed]) shows its [StrokeStyle.fill].
+  int? get fill => isClosed ? style.fill : null;
+
   /// A stroke like this one but with other [points] (and optionally [id] /
   /// [style]); used to split strokes (pixel eraser) or straighten them.
   Stroke withPoints(List<StrokePoint> points, {String? id, StrokeStyle? style}) => Stroke(

@@ -25,7 +25,7 @@ class StoredRasters {
 
   /// Version of how chunks are drawn; bump it when rendering changes
   /// (pens, text, layering), so rasters drawn before are not shown.
-  static const int format = 1;
+  static const int format = 2;
 
   /// The finest level stored (a view coarser than this one reads chunks
   /// from storage; finer views load them anyway).

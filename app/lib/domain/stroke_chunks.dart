@@ -31,8 +31,13 @@ abstract final class StrokeChunks {
   static const double _maxPieces = 200000;
 
   /// The chunks of a committed stroke (memoised per instance; read-only).
-  static Set<ChunkKey> of(Stroke stroke) =>
-      _memo[stroke] ??= Set.unmodifiable(along(stroke.points, stroke.width));
+  /// A filled shape ([Stroke.fill]) covers its inside too: every chunk its
+  /// bounds overlap.
+  static Set<ChunkKey> of(Stroke stroke) => _memo[stroke] ??= Set.unmodifiable(
+    stroke.fill != null
+        ? ChunkGrid.rangeFor(stroke.bounds).keys.toSet()
+        : along(stroke.points, stroke.width),
+  );
 
   /// The chunks touched by ink of width [width] drawn through [points].
   static Set<ChunkKey> along(List<StrokePoint> points, double width) {

@@ -1344,6 +1344,15 @@ surface.
   constant pressure, with no stabiliser
   (`shapes/shape_builder.dart`), so they render, erase, select and sync
   like ink. The Shape tool drags out a box (Shift: square / 15° lines).
+  **Fill:** a closed stroke (`Stroke.isClosed`: last point = first, as
+  closed shapes are built) shows `StrokeStyle.fill` (ARGB, translucent for
+  tints) beneath its outline as the polygon of its points
+  (`StrokeRenderer.fillPathOf`; the PDF writes the same polygon). The
+  Shape tool takes `ToolSettings.shapeFill` (`ShapeFill`: none, three tints
+  of the ink, solid; `FillChoices`), the selection's Style sets it
+  (`SelectionController.refill`; a tint follows a recolour). A filled
+  stroke is indexed in every chunk its bounds cover; taps select it by its
+  fill, erasers only take the outline (cut pieces are open, so unfilled).
 - **Lasso** (`selection/`): a stroke is selected when at least half of its
   *length* is inside the lasso polygon (segments are subdivided and weighted
   by length, so sampling density does not matter); an element when its
@@ -1633,7 +1642,7 @@ with a template is "Add page after" held down in the page menu).
   the pen and text defaults), the highlighter's 2 × 5); `EraserOptionsPanel`;
   none for the lasso (`ToolDescriptor.options` null: tapping it again does
   nothing; a one-time tip explains it); Shapes (`ShapeOptionsPanel`: seven
-  kinds in one row, and a caption pointing to hold to snap in Settings →
+  kinds in one row, the fill (`FillChoices`), and a caption pointing to hold to snap in Settings →
   Writing, or saying it is off there);
   `TextOptionsPanel`;
   `LaserOptionsPanel` (`ToolSettings.laser`: dot / trail, colours, size,
