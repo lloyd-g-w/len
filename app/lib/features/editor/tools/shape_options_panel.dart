@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../pen/option_controls.dart';
+import 'fill_choices.dart';
 import 'tool_icons.dart';
 
 /// Picks the shape the Shape tool draws: one row of kinds, the selected
-/// one on the neutral pressed plate. Shapes use the pen's colour and size.
+/// one on the neutral pressed plate. Shapes use the pen's colour and size;
+/// closed ones get the [FillChoices] fill.
 /// A caption points to "Hold to snap" in Settings → Writing, the one home
 /// of that writing gesture (it turns a held pen or highlighter stroke into
 /// a shape), and says when it is off.
@@ -54,7 +57,14 @@ class ShapeOptionsPanel extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: Gaps.sm),
+          const SizedBox(height: Gaps.md),
+          FillChoices(
+            fill: tools.shapeFill,
+            ink: tools.configOf(InkTool.ballpoint).color,
+            recent: tools.recentColors,
+            onChanged: (f, {required fromBlock}) => tools.shapeFill = f,
+          ),
+          const SizedBox(height: Gaps.md),
           Text('Drag to draw, in the pen’s colour and size', style: text.bodySmall),
           // Only a keyboard has Shift.
           if (!Targets.touchFirst)

@@ -5,6 +5,8 @@ import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/app_services.dart';
+import 'package:len/domain/notebook.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
@@ -14,7 +16,7 @@ import 'package:len/ink/pen/pen_config.dart';
 import 'package:len/ink/shapes/shape_builder.dart';
 import 'package:len/ink/shapes/shape_kind.dart';
 
-import 'content_tools_ui_test.dart' show key, mouseDrag, openCanvas;
+import 'content_tools_ui_test.dart' show key, liveStrokes, mouseDrag, openCanvas;
 
 /// Handwriting-like loops ("llll") with natural pressure swell, sampled
 /// like a stylus (~1.5 units apart).
@@ -54,7 +56,7 @@ Future<void> loadFonts() async {
   await load('MaterialIcons', ['MaterialIcons-Regular.otf']);
 }
 
-Stroke shape(String id, ShapeKind kind, Offset a, Offset b, int color) {
+Stroke shape(String id, ShapeKind kind, Offset a, Offset b, int color, {int? fill}) {
   final config = PenConfig.defaultsFor(InkTool.ballpoint);
   return Stroke(
     id: id,
@@ -64,7 +66,7 @@ Stroke shape(String id, ShapeKind kind, Offset a, Offset b, int color) {
     width: 3,
     points: ShapeBuilder.points(ShapeBuilder.outline(kind, a, b)),
     createdAt: 2,
-    style: ShapeBuilder.styleFor(config.styleFor(InkTool.ballpoint)),
+    style: ShapeBuilder.styleFor(config.styleFor(InkTool.ballpoint)).withFill(fill),
   );
 }
 
@@ -79,9 +81,9 @@ SurfaceElement text(String surface, Offset at, TextData data, {double width = 26
       data: data.toJson(),
     );
 
-Future<void> seededCanvas(WidgetTester tester) async {
+Future<(AppServices, Notebook)> seededCanvas(WidgetTester tester) async {
   await loadFonts();
-  await openCanvas(
+  return openCanvas(
     tester,
     seed: (s, nb) {
       Stroke on(Stroke st) => Stroke(
@@ -113,6 +115,8 @@ Future<void> seededCanvas(WidgetTester tester) async {
             const Offset(140, 180),
             const Offset(360, 320),
             0xFF1C7ED6,
+            // A tint of its ink.
+            fill: 0x401C7ED6,
           ),
         ),
         on(
@@ -122,6 +126,7 @@ Future<void> seededCanvas(WidgetTester tester) async {
             const Offset(420, 180),
             const Offset(620, 320),
             0xFFE03131,
+            fill: 0x1FE03131,
           ),
         ),
         on(
@@ -140,6 +145,8 @@ Future<void> seededCanvas(WidgetTester tester) async {
             const Offset(920, 170),
             const Offset(1080, 320),
             0xFFF59F00,
+            // Solid.
+            fill: 0xFFFACC15,
           ),
         ),
         on(
@@ -243,6 +250,69 @@ void main() {
       find.byType(Directionality).first,
       matchesGoldenFile('goldens/content_text_edit.png'),
     );
+  });
+
+  testWidgets('content: a filled shape while it is drawn, over earlier ink', (tester) async {
+    final (services, notebook) = await seededCanvas(tester);
+    // The first tap selects the tool, the second opens its options.
+    await tester.tap(find.byTooltip('Shapes (S)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Shapes (S)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('shape-ellipse')));
+    await tester.tap(find.byTooltip('Medium tint'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(
+      const Offset(100, 470),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveTo(const Offset(250, 520));
+    await gesture.moveTo(const Offset(420, 590));
+    await tester.pump();
+    await expectLater(
+      find.byType(Directionality).first,
+      matchesGoldenFile('goldens/content_fill_live.png'),
+    );
+    await gesture.up();
+    await tester.pump();
+    final drawn = liveStrokes(services, notebook.id).where((s) => s.style.fill != null);
+    // The ellipse, with the seeded rectangle, ellipse and star.
+    expect(drawn, hasLength(4));
+  });
+
+  testWidgets('content: a tap on a fill selects the shape; Style changes its fill', (tester) async {
+    final (services, notebook) = await seededCanvas(tester);
+    int? fillOf(String colour) => liveStrokes(
+      services,
+      notebook.id,
+    ).singleWhere((s) => s.color == int.parse(colour)).style.fill;
+    await key(tester, LogicalKeyboardKey.keyL);
+    // Inside the tinted rectangle, far from its outline.
+    await mouseDrag(tester, const [Offset(250, 250)]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Style'));
+    await tester.pumpAndSettle();
+    expect(find.text('Medium tint'), findsOneWidget);
+    await expectLater(
+      find.byType(Directionality).first,
+      matchesGoldenFile('goldens/content_fill_style.png'),
+    );
+    await tester.tap(find.byTooltip('Solid colour'));
+    await tester.pumpAndSettle();
+    expect(fillOf('0xFF1C7ED6'), 0xFF1C7ED6);
+    expect(find.text('Fill colour'), findsOneWidget);
+    await tester.tap(find.byTooltip('No fill'));
+    await tester.pumpAndSettle();
+    expect(fillOf('0xFF1C7ED6'), isNull);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(fillOf('0xFF1C7ED6'), 0xFF1C7ED6);
   });
 
   testWidgets('content: toolbar and shape picker on a phone', (tester) async {
