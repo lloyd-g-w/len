@@ -5,6 +5,7 @@ import 'dart:ui' show Offset;
 import 'quad_hull.dart';
 import 'quad_raster.dart';
 import 'scan_geometry.dart';
+import 'scan_image.dart';
 
 /// A downsampled 8-bit luminance image; multiply its coordinates by
 /// [scale] to get the full image's.
@@ -33,6 +34,13 @@ abstract final class QuadDetector {
       height: height ~/ f,
       scale: f.toDouble(),
     );
+  }
+
+  /// The document's outline in [photo] in its pixel coordinates, or null
+  /// (see [detect]).
+  static Quad? find(RgbaImage photo) {
+    final g = luminance(photo.pixels, photo.width, photo.height, maxEdge: workingEdge);
+    return detect(g.grey, g.width, g.height)?.scaled(g.scale);
   }
 
   /// The document's outline in [grey] (8-bit luminance, row major, [width]
