@@ -9,11 +9,14 @@ import '../../../ink/surface_model.dart';
 
 /// A deleted page and its content, kept so the deletion can be undone.
 class DeletedPage {
-  const DeletedPage(this.page, this.strokes, [this.elements = const []]);
+  const DeletedPage(this.page, this.strokes, this.elements, {this.index});
 
   final NotebookPage page;
   final List<Stroke> strokes;
   final List<SurfaceElement> elements;
+
+  /// Its position in the notebook when it was deleted.
+  final int? index;
 }
 
 /// Page management for one notebook: insert, duplicate, delete (with
@@ -60,8 +63,9 @@ class PageActions {
     return services.database.transaction(() {
       final strokes = _copier.loadAll(page.id);
       final elements = _copier.loadAllElements(page.id);
+      final index = pages.indexWhere((p) => p.id == page.id);
       services.notebooks.deletePage(page.id);
-      return DeletedPage(page, strokes, elements);
+      return DeletedPage(page, strokes, elements, index: index < 0 ? null : index);
     });
   }
 
@@ -73,13 +77,15 @@ class PageActions {
   /// Undoes [delete].
   void restore(DeletedPage deleted) => restoreAll([deleted]);
 
-  /// Undoes [deleteAll] (or several [delete]s) in one transaction; not
-  /// once the notebook itself is deleted (its snack bar may outlive it).
+  /// Undoes [deleteAll] (or several [delete]s, in the order made) in one
+  /// transaction; not once the notebook itself is deleted (its snack bar
+  /// may outlive it). Each page goes back where it was (last deleted
+  /// first, so the positions hold).
   void restoreAll(List<DeletedPage> deleted) {
     if (services.notebooks.get(notebookId) == null) return;
     services.database.transaction(() {
-      for (final d in deleted) {
-        services.pages.restore(d.page.id);
+      for (final d in deleted.reversed) {
+        services.pages.restore(d.page.id, index: d.index);
         services.strokes.save(d.strokes);
         if (d.elements.isNotEmpty) services.elements.save(d.elements);
       }
