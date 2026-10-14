@@ -21,10 +21,12 @@ import 'selection_reach.dart';
 import 'selection_surfaces.dart';
 import 'transform_items.dart';
 
+part 'selection_controller_commits.dart';
 part 'selection_controller_actions.dart';
 
 /// The state of a [SelectionController]: what is selected, where it is
-/// stored, the gesture preview and the commit machinery. The actions live
+/// stored, the gesture preview and the commit machinery (the commits in
+/// `selection_controller_commits.dart`). The actions live
 /// in `selection_controller_actions.dart`.
 abstract class _SelectionCore extends ChangeNotifier {
   _SelectionCore({required this._model, required this.clipboard, required this.clock}) {
@@ -195,111 +197,9 @@ abstract class _SelectionCore extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Internals
 
-  void _paste(List<Stroke> strokes, List<SurfaceElement> elements, Rect bounds, Offset at) {
-    final t = Affine.translation(at - bounds.center);
-    final now = clock.nowMs();
-    final ordered = [...strokes]..sort(Stroke.paintOrder);
-    final orderedElements = [...elements]..sort(SurfaceElement.paintOrder);
-    final z = ElementOrder.pasted(
-      orderedElements,
-      top: _model.topZ,
-      topBelowInk: _model.topBelowInkZ,
-    );
-    final newStrokes = [
-      for (var i = 0; i < ordered.length; i++)
-        _onSurface(TransformItems.stroke(ordered[i], t, id: clock.newId()), now + i),
-    ];
-    final newElements = [
-      for (var i = 0; i < orderedElements.length; i++)
-        TransformItems.element(
-          orderedElements[i],
-          t,
-        ).copyWith(id: clock.newId(), surfaceId: _model.surfaceId, z: z[i], createdAt: now),
-    ];
-    final plan = SelectionPlan(_model);
-    for (final s in newStrokes) {
-      plan.addStroke(s, to: _target(s.bounds.center, null, transfer: true));
-    }
-    for (final e in newElements) {
-      plan.addElement(e, to: _target(e.rect.center, null, transfer: true));
-    }
-    _apply(plan);
-  }
-
-  Stroke _onSurface(Stroke s, int createdAt) => Stroke(
-    id: s.id,
-    surfaceId: _model.surfaceId,
-    tool: s.tool,
-    color: s.color,
-    width: s.width,
-    points: s.points,
-    createdAt: createdAt,
-    style: s.style,
-  );
-
-  /// Replaces the selected items with [strokes] (one per selected stroke,
-  /// in order; or the very same list to keep them) and [elements] (matched
-  /// by id) as one undoable edit, each on the surface it was stored on —
-  /// or, with [transfer], on the page under its centre.
-  void _replace(
-    List<Stroke> strokes,
-    List<SurfaceElement> elements, {
-    SelectionFrame? frame,
-    bool transfer = false,
-  }) {
-    final plan = SelectionPlan(_model);
-    final same = identical(strokes, _strokes);
-    for (var i = 0; i < _strokes.length; i++) {
-      final source = _sources[_strokes[i].id];
-      same ? plan.keepStroke(_strokes[i], source) : plan.removeStroke(_strokes[i], source);
-    }
-    if (!same) {
-      for (var i = 0; i < strokes.length; i++) {
-        final from = i < _strokes.length ? _sources[_strokes[i].id] : null;
-        plan.addStroke(strokes[i], to: _target(strokes[i].bounds.center, from, transfer: transfer));
-      }
-    }
-    for (final e in _elements) {
-      plan.removeElement(e, _sources[e.id]);
-    }
-    for (final e in elements) {
-      final from = _sources[e.id];
-      plan.addElement(
-        e,
-        to: _target(e.rect.center, from, transfer: transfer),
-        from: from,
-      );
-    }
-    _apply(plan, frame: frame);
-  }
-
-  /// Where an item centred on [centre] goes: with [transfer] the page under
-  /// it, else (or when it is on no page) the surface it came [from].
-  ShiftedSurface? _target(Offset centre, SelectionSource? from, {required bool transfer}) {
-    final here = transfer ? surfaces?.at(_model, centre) : null;
-    return here ?? from?.surface;
-  }
-
-  /// Commits [plan] and selects what it leaves selected.
-  void _apply(SelectionPlan plan, {SelectionFrame? frame}) {
-    _commit(plan);
-    select(plan.strokes, plan.elements, frame: frame, sources: plan.sources);
-  }
-
   /// The surface edited by the last commit when it was the only one, and a
   /// surface whose previous undo step the next commit joins (see `nudge`).
   SurfaceModel? _committedTo, _mergeInto;
-
-  /// Commits [plan] (one undo step) without the change listener dropping
-  /// the selection.
-  void _commit(SelectionPlan plan) {
-    _editing = true;
-    try {
-      _committedTo = plan.commit(surfaces?.batch ?? (edits) => edits(), mergeInto: _mergeInto);
-    } finally {
-      _editing = false;
-    }
-  }
 
   /// Drops the selection when its content changes underneath it (undo,
   /// redo, erasing, a sync reload).
