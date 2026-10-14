@@ -61,7 +61,12 @@ class ContentTools {
   final LassoPath lassoPath = LassoPath();
   final LaserTrail laser = LaserTrail();
 
-  late final LassoTool lasso = LassoTool(selection: selection, viewport: viewport, path: lassoPath);
+  late final LassoTool lasso = LassoTool(
+    selection: selection,
+    viewport: viewport,
+    path: lassoPath,
+    config: () => tools.lasso,
+  );
   late final ShapeTool shape = ShapeTool(
     model: () => model,
     live: live,

@@ -27,6 +27,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Editing tools
 - ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate
+- ✅ Lasso options: freehand or rectangle; select what it touches, what is mostly inside or only
+  what is wholly inside; which items (ink, highlighter, text, images); remembered with the tools;
+  the side-button lasso and taps follow them, a rectangle from PDF text selects the text
 - ✅ Selection across pages (continuous scrolling): a lasso drawn across pages selects on each; the
   selection moves, resizes, recolours, restyles, deletes, copies and duplicates as one; items dropped
   so their centre lands on another page move to that page (ink re-added, elements re-parented) — one
@@ -54,6 +57,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;
   synced as blobs; in thumbnails and PNG/PDF export
 - ✅ Laser pointer
+- ✅ Laser "Fade: When I stop": everything written stays until ~2 s (adjustable) after the last
+  pen-up; writing again within that time keeps it all (mouse, pen or finger; presenting too)
 - ✅ Zoom window (⋯ → View, `M`): a frame on the page magnified in a box docked above the bottom
   toolbar; writing in the box writes small into the frame, which moves on along the line as you
   reach the box's right end, wraps to the next ruled line (↵ too) and on to the next page (adding

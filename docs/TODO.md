@@ -13,9 +13,11 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   endpoints, ellipse bounds, star/polygon vertices; one undo step per drag; synced).
 
 ## Lasso / selection
-- 🚧 (feat/lasso-laser) **Selection options**: what to select (ink, highlighter, text, images, shapes),
+- ✅ **Selection options**: what to select (ink, highlighter, text, images, shapes),
   **partial vs whole** (touching vs fully enclosed), and **selection shapes** (freehand lasso,
-  rectangle).
+  rectangle). Lasso popover: Shape (Freehand / Rectangle), Select (Touching / Mostly / Whole;
+  Mostly, the old rule, stays the default), Items (Ink, Highlighter, Text, Images; shapes are
+  ink, links go with images).
 
 ## Highlighter
 - 🚧 (feat/ink-engine) **Same engine as the pen**, with the same customisability where it makes sense
@@ -34,8 +36,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   duplicate of the quick colour and width slots.
 
 ## Laser pointer
-- 🚧 (feat/lasso-laser) **Keep-while-writing option**: the trail stays until about 2 s after pen-up; writing
-  again within that time keeps everything showing (nothing fades between strokes).
+- ✅ **Keep-while-writing option**: the trail stays until about 2 s after pen-up; writing
+  again within that time keeps everything showing (nothing fades between strokes). Laser
+  popover: Fade (Each stroke / When I stop), "Fades after" 0.5–5 s (default 2 s).
 
 ## Infinite canvas
 - ✅ **Minimap, polished** (feat/minimap): shows roughly where content is, the current view,

@@ -2,7 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
-/// The lasso being drawn (world coordinates), shown by the selection layer.
+/// The lasso being drawn (world coordinates), shown by the selection layer:
+/// a freehand loop, or a rectangle's four corners.
 class LassoPath extends ChangeNotifier {
   final List<Offset> _points = [];
 
@@ -18,6 +19,14 @@ class LassoPath extends ChangeNotifier {
 
   void add(Offset world) {
     _points.add(world);
+    notifyListeners();
+  }
+
+  /// Makes the path the rectangle with corners [from] and [to].
+  void rectangle(Offset from, Offset to) {
+    _points
+      ..clear()
+      ..addAll([from, Offset(to.dx, from.dy), to, Offset(from.dx, to.dy)]);
     notifyListeners();
   }
 

@@ -15,6 +15,7 @@ import 'pen/pen_options_panel.dart';
 import 'toolbar/tool_options_popover.dart';
 import 'tools/laser_options_panel.dart';
 import 'tools/laser_strip.dart';
+import 'tools/lasso_options_panel.dart';
 import 'tools/shape_options_panel.dart';
 import 'tools/shape_strip.dart';
 import 'tools/text_options_panel.dart';
@@ -69,8 +70,7 @@ class ToolDescriptor {
   final double Function(double slot)? stripWidth;
 
   /// The tool's section of the options popover (tap the active tool);
-  /// null for a tool with nothing to set (the lasso), whose taps then do
-  /// nothing.
+  /// null for a tool with nothing to set, whose taps then do nothing.
   final WidgetBuilder? options;
 
   String get tooltip => shortcut == null ? label : '$label ($shortcut)';
@@ -137,6 +137,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
       icon: const Icon(lassoIcon),
       label: 'Lasso',
       shortcut: 'L',
+      options: (_) => LassoOptionsPanel(tools: tools),
     ),
     ToolDescriptor(
       settings: tools,

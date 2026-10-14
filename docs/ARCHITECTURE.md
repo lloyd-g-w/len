@@ -809,7 +809,8 @@ search highlights use the same boxes.
   is the lasso's `LassoText`, `ink/tools/lasso_tool.dart`): where no ink or
   element is hit, a tap on text selects the word, a press held still
   selects it and dragging on extends it, and a quick open drag (not a
-  loop) that selects no ink selects the text it spans; a loop starting on
+  loop; with the rectangle lasso, any drag) that selects no ink selects the
+  text it spans; a loop starting on
   text still selects the ink it circles. Dragging the selection's handles (`PdfSelectionHandles`,
   touch targets over the painted knobs that keep the press from the canvas)
   extends it — also onto other PDF pages: `PdfSelection` is a list of
@@ -1208,7 +1209,7 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
 - **Stylus** draws; the **eraser end** erases; the **side button held** (S Pen) does
   the user's `PenButtonAction` (`input/stylus_buttons.dart`): erase, lasso (a selection
   made that way stays live — pressing on it moves it, pressing elsewhere drops it and
-  draws again) or nothing.
+  draws again; it follows the lasso options, a rectangle included) or nothing.
   A stylus touching down cancels a stroke a resting palm may have started.
 - **Touch**: with *stylus only* (palm rejection) on, fingers pan/zoom; off,
   one finger draws and a second finger turns it into a pinch.
@@ -1455,10 +1456,19 @@ surface.
   (`SelectionController.refill`; a tint follows a recolour). A filled
   stroke is indexed in every chunk its bounds cover; taps select it by its
   fill, erasers only take the outline (cut pieces are open, so unfilled).
-- **Lasso** (`selection/`): a stroke is selected when at least half of its
+- **Lasso** (`selection/`): its options (`LassoConfig` in `ToolSettings.lasso`,
+  the Lasso popover, read at each press) set the shape (a freehand loop, or a
+  rectangle dragged corner to corner: `LassoPath.rectangle`), how much of an
+  item must be inside (`LassoCover`) and which kinds it takes (`LassoKind`:
+  ink, which includes shapes; highlighter; text; images, with links). By
+  default (*mostly*) a stroke is selected when at least half of its
   *length* is inside the lasso polygon (segments are subdivided and weighted
   by length, so sampling density does not matter); an element when its
-  centre (or most of its outline) is. A tap selects the topmost item.
+  centre (or most of its outline) is. *Whole* needs every point inside and
+  no segment crossing the outline; *touching*, a point inside or a crossing
+  (an image beneath the ink is not touched by a lasso drawn within it). A
+  tap selects the topmost item of the kinds taken. A rectangle that selects
+  no ink and started on PDF text selects the text from corner to corner.
   `SelectionController` hides the selection from the committed layer
   (`SurfaceModel.setHidden`, which only invalidates the affected chunks) and
   records it once into a picture; dragging, resizing (corners keep the
@@ -1511,8 +1521,13 @@ surface.
   glow, a bright core whitened in the middle — lanes transparent at the edges, so no blur
   filter), narrowing and fading with age (smoothstep), plus a radial-gradient dot at the pointer.
   `LaserConfig` (in `ToolSettings`, persisted): dot or trail mode, colour (six presets or
-  custom), size and trail duration (0.3–3 s), set in the tool's options popup
-  (`LaserOptionsPanel`, with a live preview). The old painter drew two lines per sample, one
+  custom), size and when the trail fades (`LaserFade`): each point a set time after it was
+  drawn (0.3–3 s), or, *when I stop*, all of it together once `hold` (0.5–5 s, default 2 s)
+  has passed since the last lift (`LaserTrail.holding`: the trail and dot stay in full while
+  writing, a press within the hold keeps everything, then a 400-ms fade; frames during the hold
+  repaint nothing, and a hovering mouse doesn't stop the countdown; the same with a mouse,
+  pen or finger and presenting with F5, `test/laser_hold_input_test.dart`). Set in the tool's options
+  popup (`LaserOptionsPanel`, with a live preview). The old painter drew two lines per sample, one
   with a blur mask filter — hundreds of blurs per frame; `test/perf/laser_perf_test.dart`
   measures a move (0 rebuilds, 1 paint) and a full trail against it.
 
