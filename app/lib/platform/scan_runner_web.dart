@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../features/documents/scan/quad_detector.dart';
 import '../features/documents/scan/scan_job.dart';
 
@@ -13,6 +15,12 @@ Future<RgbaImage> renderScanPreview(ScanJob job) => job.renderSliced(_yield);
 Future<Quad?> detectScanQuad(RgbaImage photo) async {
   await _yield();
   return QuadDetector.find(photo);
+}
+
+/// [image] as a JPEG of [quality], encoded on the UI thread in one go.
+Future<Uint8List> encodeScanJpeg(RgbaImage image, {required int quality}) async {
+  await _yield();
+  return encodeJpeg(image, quality: quality);
 }
 
 Future<void> _yield() => Future<void>.delayed(Duration.zero);

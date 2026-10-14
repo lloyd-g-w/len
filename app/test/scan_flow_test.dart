@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
@@ -10,6 +12,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/features/documents/scan/scan_corner_editor.dart';
 import 'package:len/features/documents/scan/scan_import.dart';
 import 'package:len/features/documents/scan/scan_job.dart';
+import 'package:len/features/documents/scan/scan_photo.dart';
 import 'package:len/features/documents/scan/scan_result_view.dart';
 import 'package:len/features/documents/scan/scan_screen.dart';
 import 'package:len/features/documents/scan/scan_sources.dart';
@@ -426,6 +429,35 @@ void main() {
     await tester.pump();
     await corner.up();
     expect(quad.topRight, const Offset(400, 0));
+  });
+
+  testWidgets('photos are kept no larger than the pages need', (tester) async {
+    bool isJpeg(Uint8List b) => b[0] == 0xFF && b[1] == 0xD8;
+    await tester.runAsync(() async {
+      // Too big: re-encoded at the largest size used, the page found in it.
+      final big = await ScanPhoto.load(deskPhoto(width: 600, height: 800), maxEdge: 400);
+      expect((big.width, big.height), (300, 400));
+      expect(isJpeg(big.bytes), isTrue);
+      expect(big.detected!.topLeft.dx, closeTo(300 * 0.2, 4));
+      expect(big.detected!.topLeft.dy, closeTo(400 * 0.12, 4));
+
+      // Small but heavy (a noisy PNG): a JPEG of the same size.
+      final rnd = math.Random(5);
+      final noise = img.Image(width: 120, height: 90);
+      for (final p in noise) {
+        p.setRgb(rnd.nextInt(256), rnd.nextInt(256), rnd.nextInt(256));
+      }
+      final png = img.encodePng(noise);
+      final heavy = await ScanPhoto.load(png, maxEdge: 400);
+      expect((heavy.width, heavy.height), (120, 90));
+      expect(isJpeg(heavy.bytes), isTrue);
+      expect(heavy.bytes.length, lessThan(png.length));
+
+      // Small and light: kept as it is.
+      final jpeg = img.encodeJpg(img.decodePng(deskPhoto(width: 240, height: 320))!);
+      final kept = await ScanPhoto.load(jpeg, maxEdge: 400);
+      expect(identical(kept.bytes, jpeg), isTrue);
+    });
   });
 
   test('scanned pages are A4 or Letter when they are that shape, else A4-sized', () {

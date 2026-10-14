@@ -838,8 +838,11 @@ SYNC_PROTOCOL). All pure Dart, so it works on every platform.
   meet, so no sliver of desk is left (to ~0.1 px on synthetic photos;
   implausible results keep the coarse quad).
   `ScanPhoto.load` measures the photo (EXIF-upright through the engine),
-  decodes an 800-px working copy and runs `detectScanQuad` on it; no
-  convincing page → the whole photo.
+  keeps it as a JPEG (quality 92) of at most 3200 px when it is larger or
+  heavier than a byte a pixel (so a long scan holds no more than the pages
+  need: per page that JPEG and an 800-px RGBA working copy), decodes the
+  working copy and runs `detectScanQuad` on it; no convincing page → the
+  whole photo.
 - **Flattening** (`ScanJob`, `scan_warp`, `scan_enhance`): a perspective
   warp of the quad (bilinear, supersampled when shrinking) to a page whose
   sides are the quad's (long side ≤ 2500 px, from the photo decoded at ≤
