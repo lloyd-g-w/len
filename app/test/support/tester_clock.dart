@@ -11,12 +11,13 @@ class TesterClock extends Clock {
   int nowMs() => TestWidgetsFlutterBinding.instance.clock.now().millisecondsSinceEpoch;
 }
 
-/// The app clock stopped at [at]: dates the app shows don't depend on when
-/// the test runs (e.g. the days in this month around midnight at its end).
+/// The app clock stopped at [at] (tests move it by hand): dates the app
+/// shows don't depend on when the test runs (e.g. the days in this month
+/// around midnight at its end).
 class FixedClock extends Clock {
-  const FixedClock(this.at);
+  FixedClock(this.at);
 
-  final DateTime at;
+  DateTime at;
 
   @override
   int nowMs() => at.millisecondsSinceEpoch;

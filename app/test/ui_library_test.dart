@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/library/library_screen.dart';
@@ -221,6 +222,20 @@ void main() {
       ),
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('card captions date notebooks by the app clock', (tester) async {
+    final clock = FixedClock(DateTime(2026, 10, 14, 9));
+    final services = AppServices.create(AppDatabase.inMemory(), clock: clock);
+    services.notebooks.create(
+      title: 'Lecture',
+      kind: NotebookKind.canvas,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    clock.at = DateTime(2026, 10, 15, 9);
+    await pumpLibrary(tester, services: services);
+    expect(find.text('Yesterday, canvas'), findsOneWidget);
   });
 
   testWidgets('infinite canvas opens on a narrow phone without overflow', (tester) async {

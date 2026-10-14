@@ -149,7 +149,7 @@ Future<bool> backupLibraryFlow(
   @visibleForTesting LenExport export = exportLenFlow,
 }) async {
   final services = AppScope.read(context);
-  final now = DateTime.now();
+  final now = services.clock.nowDate();
   final written = await export(
     context,
     const LenScope.library(),

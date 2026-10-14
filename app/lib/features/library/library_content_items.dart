@@ -7,7 +7,10 @@ extension _LibraryItems on _LibraryContentState {
   /// its recordings too ("Saturday, 3 pages, 2 recordings"; cards show a
   /// mic glyph instead).
   String _subtitle(Notebook n, {bool list = false}) {
-    if (n.isTrashed) return trashLeftLabel(n.trashedAt!, NotebookRepository.trashKeptFor);
+    final now = _c.services.clock.nowDate();
+    if (n.isTrashed) {
+      return trashLeftLabel(n.trashedAt!, NotebookRepository.trashKeptFor, now: now);
+    }
     if (_c.isSearching) {
       // Found by a recording: say which ("Recording “Lecture 4”").
       if (_c.recordingMatchOf(n) case final title?) return 'Recording “$title”';
@@ -15,8 +18,8 @@ extension _LibraryItems on _LibraryContentState {
     }
     final kind = n.kind == NotebookKind.canvas ? 'canvas' : pageCountLabel(_c.pageCountOf(n.id));
     final date = _c.sort == LibrarySort.created
-        ? libraryDateAfter('Created', n.createdAt)
-        : formatLibraryDate(n.editedAt);
+        ? libraryDateAfter('Created', n.createdAt, now: now)
+        : formatLibraryDate(n.editedAt, now: now);
     final recordings = _c.recordingCountOf(n.id);
     // Commas, not a `·` chain (DESIGN §2): "Saturday, 3 pages".
     return [

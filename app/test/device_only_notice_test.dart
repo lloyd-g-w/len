@@ -7,19 +7,21 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/library/library_notice.dart';
 
-class _DaysAgo extends Clock {
-  const _DaysAgo(this.days);
-
-  final int days;
+/// The app's clock, moved on by hand.
+class _Clock extends Clock {
+  int ms = DateTime(2026, 10, 14, 9).millisecondsSinceEpoch;
 
   @override
-  int nowMs() => DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
-}
+  int nowMs() => ms;
 
-int _daysAgo(int days) => DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
+  /// [days] before now, by this clock.
+  int daysAgo(int days) => ms - Duration(days: days).inMilliseconds;
+}
 
 void main() {
   const title = 'Your notes are only on this device';
+  late _Clock clock;
+  setUp(() => clock = _Clock());
 
   Future<AppServices> pump(
     WidgetTester tester, {
@@ -32,18 +34,18 @@ void main() {
       ..physicalSize = window
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final services = AppServices.create(
-      AppDatabase.inMemory(),
-      clock: oldNotes ? _DaysAgo(notesAge) : const Clock(),
-    );
+    final services = AppServices.create(AppDatabase.inMemory(), clock: clock);
     addTearDown(services.dispose);
-    services.settings.lastBackupAt = lastBackupAt;
+    // Notes [notesAge] days old: written then, and the clock moved on.
+    if (oldNotes) clock.ms = clock.daysAgo(notesAge);
     services.notebooks.create(
       title: 'Lecture',
       kind: NotebookKind.paged,
       paper: PaperStyle.blank,
       coverColor: 0,
     );
+    if (oldNotes) clock.ms += Duration(days: notesAge).inMilliseconds;
+    services.settings.lastBackupAt = lastBackupAt;
     await tester.pumpWidget(
       AppScope(
         services: services,
@@ -70,7 +72,7 @@ void main() {
   testWidgets('a backup made elsewhere (Settings) takes the notice down', (tester) async {
     final services = await pump(tester, oldNotes: true);
     expect(find.text(title), findsOneWidget);
-    services.settings.lastBackupAt = DateTime.now().millisecondsSinceEpoch;
+    services.settings.lastBackupAt = clock.nowMs();
     services.lenFiles.changed();
     await tester.pump();
     expect(find.text(title), findsNothing);
@@ -83,7 +85,7 @@ void main() {
 
   testWidgets('not once backed up', (tester) async {
     final services = await pump(tester, oldNotes: true);
-    services.settings.lastBackupAt = _daysAgo(0);
+    services.settings.lastBackupAt = clock.daysAgo(0);
     await tester.pumpWidget(
       AppScope(
         services: services,
@@ -108,10 +110,10 @@ void main() {
   });
 
   testWidgets('comes back once when the last backup is stale (R8-8)', (tester) async {
-    final stale = _daysAgo(40);
+    final stale = clock.daysAgo(40);
     final services = await pump(tester, oldNotes: false, lastBackupAt: stale);
     expect(find.text(title), findsOneWidget);
-    expect(find.textContaining('Your last backup is from'), findsOneWidget);
+    expect(find.textContaining('Your last backup is from 4 Sep.'), findsOneWidget);
     await tester.tap(find.byTooltip('Dismiss'));
     await tester.pump();
     expect(services.settings.seenTips, contains('${LibraryNotices.deviceOnlyTip}@$stale'));
@@ -129,7 +131,7 @@ void main() {
   });
 
   testWidgets('not when nothing changed since a stale backup', (tester) async {
-    await pump(tester, oldNotes: true, notesAge: 60, lastBackupAt: _daysAgo(40));
+    await pump(tester, oldNotes: true, notesAge: 60, lastBackupAt: clock.daysAgo(40));
     expect(find.text(title), findsNothing);
   });
 }
