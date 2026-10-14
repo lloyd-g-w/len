@@ -67,7 +67,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   /// day), or a backup under [staleAfter] old, or nothing changed since.
   String? _deviceOnlyTip() {
     final notebooks = _services.notebooks.list();
-    final now = DateTime.now().millisecondsSinceEpoch;
+    final now = _services.clock.nowMs();
     final last = _services.settings.lastBackupAt;
     final String tip;
     if (last == null) {
@@ -184,7 +184,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
       shortTitle: deviceOnlyCaption,
       body: last == null
           ? 'Back up your library now and then, or set up sync'
-          : 'Your last backup is from ${formatLibraryDate(last)}. Back up your library now '
+          : 'Your last backup is from ${formatLibraryDate(last, now: _services.clock.nowDate())}. Back up your library now '
                 'and then, or set up sync',
       tone: NoticeTone.info,
       actions: [

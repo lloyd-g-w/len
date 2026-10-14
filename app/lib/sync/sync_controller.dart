@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/clock.dart';
 import '../data/settings_repository.dart';
 import '../data/sync_token_store.dart';
 import 'blob_sync.dart';
@@ -20,6 +21,7 @@ class SyncController extends ChangeNotifier {
     required this.tokens,
     this.interval = const Duration(seconds: 45),
     this.apiFactory = _defaultApi,
+    this.clock = const Clock(),
   }) {
     _state = isConfigured ? SyncState.idle : SyncState.disabled;
     if (settings.syncLastSuccess case final ms?) {
@@ -35,6 +37,10 @@ class SyncController extends ChangeNotifier {
   /// The access token (in the secure store, see [SyncTokenStore]).
   final SyncTokenStore tokens;
   final Duration interval;
+
+  /// The app's clock: when syncs worked or began failing, and how long ago
+  /// that is (the captions and alerts read it too).
+  final Clock clock;
 
   /// Creates the API client for one sync run; may throw [SyncException]
   /// for an invalid URL.
@@ -100,7 +106,7 @@ class SyncController extends ChangeNotifier {
   bool failingFor(Duration after, {DateTime? now}) {
     if (waitsForSettings) return true;
     final since = _failingSince;
-    return since != null && (now ?? DateTime.now()).difference(since) >= after;
+    return since != null && (now ?? clock.nowDate()).difference(since) >= after;
   }
 
   List<({String sha, int size})> _tooLarge = const [];

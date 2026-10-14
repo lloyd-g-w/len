@@ -194,7 +194,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(saved.title), findsOneWidget);
     expect(find.text('1 recording, 1\u00A0min'), findsOneWidget);
-    expect(find.textContaining(RegExp(r'^\d+ Jan 1970, \d\d:\d\d$')), findsOneWidget);
+    // Recorded by the app's clock, which still says the same day.
+    expect(find.textContaining(RegExp(r'^Today, \d\d:\d\d$')), findsOneWidget);
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Rename…'));

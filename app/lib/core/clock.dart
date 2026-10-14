@@ -9,6 +9,9 @@ class Clock {
   /// Milliseconds since the Unix epoch.
   int nowMs() => DateTime.now().millisecondsSinceEpoch;
 
+  /// The local date and time now (by [nowMs]).
+  DateTime nowDate() => DateTime.fromMillisecondsSinceEpoch(nowMs());
+
   /// A new random (v4) identifier.
   String newId() => _uuid.v4();
 }

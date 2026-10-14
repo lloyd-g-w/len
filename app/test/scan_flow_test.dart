@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:len/app_services.dart';
+import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
@@ -20,6 +22,7 @@ import 'package:len/features/editor/editor_screen.dart';
 
 import 'import_flow_ui_test.dart' show openFromLibrary;
 import 'support/real_async.dart';
+import 'support/tester_clock.dart';
 import 'ui_library_test.dart' show pumpLibrary;
 
 /// A photo of a light page (a slightly skewed quad) on a dark desk.
@@ -110,7 +113,14 @@ void main() {
   testWidgets('without a camera: picked photos become a new notebook of scanned pages', (
     tester,
   ) async {
-    final services = await pumpLibrary(tester);
+    // Titled after the app's date.
+    final services = await pumpLibrary(
+      tester,
+      services: AppServices.create(
+        AppDatabase.inMemory(),
+        clock: FixedClock(DateTime(2026, 10, 14, 9)),
+      ),
+    );
     ScanSources.debugSources = fakeSources(
       picks: [
         [photoFile('page1.png')],
@@ -140,7 +150,7 @@ void main() {
     await pumpUntil(tester, () => find.byType(EditorScreen).evaluate().isNotEmpty);
     await tester.pumpAndSettle();
     final notebook = services.notebooks.list().single;
-    expect(notebook.title, startsWith('Scan '));
+    expect(notebook.title, 'Scan Oct 14');
     expect(notebook.kind, NotebookKind.paged);
     final pages = services.pages.pagesOf(notebook.id);
     expect(pages, hasLength(1));

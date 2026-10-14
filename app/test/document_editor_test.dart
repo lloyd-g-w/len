@@ -18,6 +18,7 @@ import 'package:len/ink/render/ink_painters.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'support/page_actions.dart';
+import 'support/tester_clock.dart';
 
 /// A notebook with three differently shaped pages, some with ink.
 Future<(AppServices, Notebook)> pumpEditor(
@@ -29,7 +30,8 @@ Future<(AppServices, Notebook)> pumpEditor(
     ..physicalSize = size
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  final services = AppServices.create(AppDatabase.inMemory());
+  // The app's time follows the test's fake time (the tips' budget).
+  final services = AppServices.create(AppDatabase.inMemory(), clock: const TesterClock());
   addTearDown(services.dispose);
   if (placement != null) services.preferences.toolbarPlacement = placement;
   final nb = services.notebooks.create(

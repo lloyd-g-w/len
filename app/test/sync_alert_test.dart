@@ -13,10 +13,15 @@ import 'package:len/sync/sync_api.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'support/fake_server.dart';
+import 'support/tester_clock.dart';
 import 'ui_library_test.dart' show pumpLibrary;
 
+/// The app's time in these tests.
+final _today = DateTime(2026, 10, 14, 9);
+
 /// A device whose syncs fail: the server refuses its token ([auth]), or
-/// can't be reached. [lastSuccess] is when it last synced, as kept.
+/// can't be reached. [lastSuccess] is when it last synced, as kept. Its
+/// clock stands at [_today].
 AppServices _failing({bool auth = false, DateTime? lastSuccess}) {
   final db = AppDatabase.inMemory();
   if (lastSuccess != null) {
@@ -25,6 +30,7 @@ AppServices _failing({bool auth = false, DateTime? lastSuccess}) {
   final server = FakeServer();
   final s = AppServices.create(
     db,
+    clock: FixedClock(_today),
     syncApiFactory: (url, t) => auth
         ? SyncApi(baseUrl: url, token: t, client: server.client)
         : throw SyncException.unreachable(Exception('Connection refused')),
@@ -40,8 +46,10 @@ void main() {
   test('failing since: kept through retries, cleared by a sync that works', () async {
     final server = FakeServer();
     var down = true;
+    final clock = FixedClock(_today);
     final s = AppServices.create(
       AppDatabase.inMemory(),
+      clock: clock,
       syncApiFactory: (url, t) => down
           ? throw SyncException.unreachable(Exception('Connection refused'))
           : SyncApi(baseUrl: url, token: t, client: server.client),
@@ -50,11 +58,10 @@ void main() {
     s.sync.configure(url: 'http://sync.test', token: FakeServer.token);
     await s.sync.syncNow();
     final since = s.sync.failingSince!;
+    expect(since, _today);
     expect(s.sync.failingFor(const Duration(minutes: 15)), isFalse); // A moment offline.
-    expect(
-      s.sync.failingFor(const Duration(minutes: 15), now: since.add(const Duration(minutes: 16))),
-      isTrue,
-    );
+    clock.at = _today.add(const Duration(minutes: 16));
+    expect(s.sync.failingFor(const Duration(minutes: 15)), isTrue);
     await s.sync.syncNow();
     expect(s.sync.failingSince, since); // Retrying doesn't restart the clock.
 
@@ -62,6 +69,7 @@ void main() {
     await s.sync.syncNow();
     expect(s.sync.failingSince, isNull);
     // When it last worked is kept for the next launch.
+    expect(s.sync.lastSuccess, clock.at);
     expect(s.settings.syncLastSuccess, s.sync.lastSuccess!.millisecondsSinceEpoch);
   });
 
@@ -104,13 +112,13 @@ void main() {
   });
 
   testWidgets('a day without syncing is said once, with Settings', (tester) async {
-    final s = _failing(lastSuccess: DateTime.now().subtract(const Duration(days: 3)));
+    final s = _failing(lastSuccess: DateTime(2026, 10, 11, 9));
     addTearDown(s.dispose);
     await tester.pumpWidget(LenApp(services: s));
     await tester.pumpAndSettle();
     await tester.runAsync(s.sync.syncNow);
     await tester.pump();
-    expect(find.textContaining('Not synced since'), findsOneWidget);
+    expect(find.textContaining('Not synced since Sunday'), findsOneWidget);
     expect(find.widgetWithText(SnackBarAction, 'Settings'), findsOneWidget);
     await tester.pumpAndSettle(); // In, then its time runs out.
     await tester.pump(const Duration(seconds: 10));
@@ -121,7 +129,7 @@ void main() {
   });
 
   test('offline is grey and says so; a refused token is red (R8-12)', () async {
-    final offline = _failing(lastSuccess: DateTime.now());
+    final offline = _failing(lastSuccess: _today);
     addTearDown(offline.dispose);
     await offline.sync.syncNow();
     final quiet = syncAlert(offline.sync);

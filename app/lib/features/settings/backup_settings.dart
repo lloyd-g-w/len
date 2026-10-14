@@ -88,7 +88,9 @@ class _BackupSettingsState extends State<BackupSettings> {
         SettingsTile(
           icon: Symbols.backup_sharp,
           title: 'Back up library…',
-          subtitle: empty ? 'Nothing to back up yet' : BackupSettings.lastBackup(last),
+          subtitle: empty
+              ? 'Nothing to back up yet'
+              : BackupSettings.lastBackup(last, now: _services.clock.nowDate()),
           onTap: empty ? null : () => unawaited(_backUp()),
         ),
         SettingsTile(

@@ -36,7 +36,7 @@ class _Device {
   int? lastShownAt;
 
   /// The app's snack bars (app-wide: every notebook's editor sees them).
-  late final messages = MessageActivity(nowMs: _FakeClock(async).nowMs);
+  late final messages = MessageActivity(clock: _FakeClock(async));
   final tools = ToolSettings();
   final pen = LiveInk();
   final lasso = LassoPath();
@@ -422,8 +422,12 @@ void main() {
 
     Future<List<PointerDeviceKind>> pumpBanner(WidgetTester tester) async {
       device = _Device(FakeAsync());
-      tips = TipsController(seen: (_) => false, markSeen: (_) {}, messages: device.messages)
-        ..followTools(device.tools, pen: device.pen);
+      tips = TipsController(
+        seen: (_) => false,
+        markSeen: (_) {},
+        clock: _FakeClock(device.async),
+        messages: device.messages,
+      )..followTools(device.tools, pen: device.pen);
       addTearDown(tips.dispose);
       final page = <PointerDeviceKind>[];
       await tester.pumpWidget(

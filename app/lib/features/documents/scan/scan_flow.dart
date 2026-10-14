@@ -17,7 +17,8 @@ import 'scan_sources.dart';
 /// e.g. "Scan Oct 14". Returns it, or null if the user left or it failed
 /// (they have then been told why).
 Future<Notebook?> scanToNewNotebookFlow(BuildContext context, {ScanSources? sources}) {
-  final title = 'Scan ${MaterialLocalizations.of(context).formatShortMonthDay(DateTime.now())}';
+  final today = AppScope.read(context).clock.nowDate();
+  final title = 'Scan ${MaterialLocalizations.of(context).formatShortMonthDay(today)}';
   return _scanFlow(
     context,
     doneLabel: 'Create notebook',

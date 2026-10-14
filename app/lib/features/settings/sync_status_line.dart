@@ -42,7 +42,9 @@ class SyncStatusLine extends StatelessWidget {
           SyncState.idle => (
             Symbols.cloud_done_sharp,
             scheme.primary,
-            last == null ? 'Ready' : 'Last synced ${formatEdited(last.millisecondsSinceEpoch)}',
+            last == null
+                ? 'Ready'
+                : 'Last synced ${formatEdited(last.millisecondsSinceEpoch, now: sync.clock.nowDate())}',
           ),
         };
         // A plain status line, its icon in the settings rows' icon column.

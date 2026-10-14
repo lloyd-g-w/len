@@ -47,11 +47,13 @@ import 'platform/stroke_reader.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
 import 'sync/sync_engine.dart';
+import 'ui/messages.dart';
 import 'ui/route_owners.dart';
 
 /// Composition root: constructs and owns the app's long-lived services.
 class AppServices {
   AppServices._({
+    required this.clock,
     required this.database,
     required this.settings,
     required this.preferences,
@@ -149,7 +151,10 @@ class AppServices {
     );
     recognition.indexer.onIndexed = search.contentChanged;
     unawaited(recognition.start());
+    // App-wide, so the latest services' clock (tests: their fake time).
+    MessageQueue.activity.clock = clock;
     return AppServices._(
+      clock: clock,
       database: database,
       settings: settings,
       preferences: AppPreferences(settings),
@@ -161,12 +166,13 @@ class AppServices {
       blobs: blobs,
       elements: elements,
       sync: syncApiFactory == null
-          ? SyncController(engine: engine, settings: settings, tokens: tokens)
+          ? SyncController(engine: engine, settings: settings, tokens: tokens, clock: clock)
           : SyncController(
               engine: engine,
               settings: settings,
               tokens: tokens,
               apiFactory: syncApiFactory,
+              clock: clock,
             ),
       search: search,
       recognition: recognition,
@@ -182,6 +188,10 @@ class AppServices {
       rasterStore: rasterStore,
     );
   }
+
+  /// The app's time and identifiers: read the time through it (not
+  /// `DateTime.now`) wherever tests need to control it.
+  final Clock clock;
 
   final AppDatabase database;
 

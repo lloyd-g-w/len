@@ -31,7 +31,7 @@ class SyncAttention {
   bool get _failingLong {
     if (sync.state != SyncState.error) return false;
     final since = sync.lastSuccess ?? sync.failingSince;
-    return since != null && DateTime.now().difference(since) >= longFailure;
+    return since != null && sync.clock.nowDate().difference(since) >= longFailure;
   }
 
   void _changed() {
