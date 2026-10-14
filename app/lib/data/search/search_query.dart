@@ -5,15 +5,20 @@
 class SearchQuery {
   SearchQuery._(this.raw, this.terms);
 
-  /// Parses [input]; words are runs of letters and digits.
+  /// Parses [input]; words are runs of letters and digits. Combining
+  /// accents (decomposed input: `e` + U+0301) belong to their word and are
+  /// dropped, as the index drops them.
   factory SearchQuery(String input) {
     final folded = SearchText.fold(input);
-    final terms = <String>{for (final m in _word.allMatches(folded)) m.group(0)!}.toList()
-      ..sort((a, b) => b.length.compareTo(a.length)); // Longest first.
+    final terms = <String>{
+      for (final m in _word.allMatches(folded))
+        if (m.group(0)!.replaceAll(_mark, '') case final t when t.isNotEmpty) t,
+    }.toList()..sort((a, b) => b.length.compareTo(a.length)); // Longest first.
     return SearchQuery._(input, terms);
   }
 
-  static final _word = RegExp(r'[\p{L}\p{N}]+', unicode: true);
+  static final _word = RegExp(r'[\p{L}\p{N}\p{M}]+', unicode: true);
+  static final _mark = RegExp(r'\p{M}', unicode: true);
 
   final String raw;
 
@@ -174,23 +179,27 @@ abstract final class SearchText {
 
   static final _letterOrDigit = RegExp(r'[\p{L}\p{N}\p{M}]', unicode: true);
 
+  /// Letters with a decomposable accent only, as FTS5's `unicode61
+  /// remove_diacritics 2` folds them: it keeps letters like ø, ł, đ, ħ,
+  /// ı, ŧ, so folding them here would make queries (`kobenhavn` for
+  /// København) that the index never matches.
   static Map<int, int> _buildFoldTable() {
     const groups = {
       'a': 'àáâãäåāăąǎ',
       'c': 'çćĉċč',
-      'd': 'ďđ',
+      'd': 'ď',
       'e': 'èéêëēĕėęě',
       'g': 'ĝğġģ',
-      'h': 'ĥħ',
-      'i': 'ìíîïĩīĭįı',
+      'h': 'ĥ',
+      'i': 'ìíîïĩīĭį',
       'j': 'ĵ',
       'k': 'ķ',
-      'l': 'ĺļľŀł',
-      'n': 'ñńņňŉ',
-      'o': 'òóôõöøōŏőǒ',
+      'l': 'ĺļľ',
+      'n': 'ñńņň',
+      'o': 'òóôõöōŏőǒ',
       'r': 'ŕŗř',
       's': 'śŝşšș',
-      't': 'ţťŧț',
+      't': 'ţťț',
       'u': 'ùúûüũūŭůűųǔ',
       'w': 'ŵ',
       'y': 'ýÿŷ',
