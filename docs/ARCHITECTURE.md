@@ -831,6 +831,12 @@ SYNC_PROTOCOL). All pure Dart, so it works on every platform.
   ones and strong-edge (Sobel) ones covering ≥ 15 % of the photo become
   convex hulls, simplified; the largest inscribed quadrilateral wins if its
   sides show a clear step in brightness, the same way round, all round.
+  `QuadRefiner` then fits each side at the input's resolution (≤ 1600 px):
+  the strongest step across it, the same way round, located to a fraction
+  of a pixel along ~100 normals, a robust line (Theil–Sen, then least
+  squares over the points within 1.5 px) and the corners where the lines
+  meet, so no sliver of desk is left (to ~0.1 px on synthetic photos;
+  implausible results keep the coarse quad).
   `ScanPhoto.load` measures the photo (EXIF-upright through the engine),
   decodes an 800-px working copy and runs `detectScanQuad` on it; no
   convincing page → the whole photo.
