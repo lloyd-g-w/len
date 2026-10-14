@@ -30,15 +30,10 @@ Future<void> createNotebook(WidgetTester tester, String title, {bool canvas = fa
   await settle(tester);
 }
 
-/// Right-click on the page → Add page after (⋯ → Page no longer has it:
-/// one home per command).
+/// ⋯ → Page → Add page after (the page's context menu is content only).
 Future<void> addPageAfter(WidgetTester tester) async {
-  await tester.tapAt(
-    tester.getCenter(find.byType(PagedDocumentView)),
-    buttons: kSecondaryMouseButton,
-    kind: PointerDeviceKind.mouse,
-  );
-  await settle(tester);
+  await tapTooltip(tester, 'More options');
+  await tapText(tester, 'Page');
   await tapText(tester, 'Add page after', last: true);
 }
 
