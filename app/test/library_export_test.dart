@@ -20,6 +20,7 @@ class _FakeExporter extends NotebookExporter {
   _FakeExporter(super.services);
 
   final pdfCalls = <(String?, int)>[];
+  Object? fails;
 
   @override
   Future<Uint8List> pdf(
@@ -31,6 +32,7 @@ class _FakeExporter extends NotebookExporter {
     ExportReport? report,
   }) async {
     pdfCalls.add((title, pages.length));
+    if (fails case final error?) throw error;
     return Uint8List.fromList([1]);
   }
 }
@@ -93,6 +95,40 @@ void main() {
     expect(exporter.pdfCalls, [('Lab', 3), ('Lab', 2), ('Physics', 4)]);
     expect(saved, ['Lab.pdf', 'Lab (2).pdf', 'Physics.pdf']);
     expect(find.text('Shared 3 files'), findsOneWidget);
+  });
+
+  testWidgets('a folder of one notebook says “1 notebook” when its export fails', (tester) async {
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    final folder = services.folders.create(name: 'Lab', color: 0);
+    final a = addNotebook(services, 'Optics');
+    services.notebooks.moveTo(a.id, folder.id);
+    final exporter = _FakeExporter(services)..fails = StateError('disk full');
+    await tester.pumpWidget(
+      AppScope(
+        services: services,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => exportNotebooks(
+                  context,
+                  [services.notebooks.get(a.id)!],
+                  folder: folder,
+                  exporter: exporter,
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('export-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Couldn’t export 1 notebook'), findsOneWidget);
   });
 
   testWidgets('the notebook menu and the selection bar export (R7-8)', (tester) async {

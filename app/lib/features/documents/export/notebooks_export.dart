@@ -57,7 +57,7 @@ Future<void> exportNotebooks(
       ? (scope: LenScope.notebooks([for (final n in notebooks) n.id]), title: count, whole: count)
       : (scope: LenScope.folder(folder.id), title: folder.name, whole: 'Whole folder');
   try {
-    await _exportSeveral(context, services, notebooks, worker, save, len, lenExport);
+    await _exportSeveral(context, services, notebooks, count, worker, save, len, lenExport);
   } finally {
     if (exporter == null) await worker.dispose();
   }
@@ -67,6 +67,7 @@ Future<void> _exportSeveral(
   BuildContext context,
   AppServices services,
   List<Notebook> notebooks,
+  String subject,
   NotebookExporter worker,
   ExportSaver save,
   ({LenScope scope, String title, String whole}) len,
@@ -105,7 +106,6 @@ Future<void> _exportSeveral(
     return candidate;
   }
 
-  final subject = '${notebooks.length} notebooks';
   try {
     final files = await runWithSteps(context, 'Exporting', subject: subject, cancellable: true, (
       progress,
