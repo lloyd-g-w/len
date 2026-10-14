@@ -10,6 +10,7 @@ import '../../audio/notebook_audio.dart';
 import '../../audio/recording_controller.dart';
 import '../../documents/pdf/pdf_background_cache.dart';
 import '../document/document_controller.dart';
+import '../document/notebook_backgrounds.dart';
 import '../document/page_models.dart';
 import '../pdf/pdf_page_info.dart';
 import '../pdf/pdf_page_info_cache.dart';
@@ -84,14 +85,19 @@ class SharedNotebook extends ChangeNotifier {
   PageModels get pages => _pages ??= PageModels();
   PageModels? _pages;
 
+  /// Page backgrounds: rendered PDF pages ([pdfBackgrounds]) and scans.
+  NotebookBackgrounds get backgrounds => _backgrounds ??= NotebookBackgrounds(
+    pdf: PdfBackgroundCache(blobs: services.blobs, fetch: services.sync.fetchBlob),
+    images: services.images,
+  );
+  NotebookBackgrounds? _backgrounds;
+
   /// Rendered PDF page backgrounds.
-  PdfBackgroundCache get backgrounds =>
-      _backgrounds ??= PdfBackgroundCache(blobs: services.blobs, fetch: services.sync.fetchBlob);
-  PdfBackgroundCache? _backgrounds;
+  PdfBackgroundCache get pdfBackgrounds => backgrounds.pdf;
 
   /// Text, links and outlines of the PDF pages.
   PdfPageInfoCache get pdfInfo =>
-      _pdfInfo ??= PdfPageInfoCache(PdfrxInfoSource(backgrounds.renderer, services.blobs));
+      _pdfInfo ??= PdfPageInfoCache(PdfrxInfoSource(pdfBackgrounds.renderer, services.blobs));
   PdfPageInfoCache? _pdfInfo;
 
   // ---------------------------------------------------------------------------
@@ -164,7 +170,7 @@ class SharedNotebook extends ChangeNotifier {
         services.pages.addPage(id, paper: _notebook.paper);
       }
       _reloadPages();
-      _backgrounds?.retryMissing(); // New pages may bring new PDFs.
+      _backgrounds?.pdf.retryMissing(); // New pages may bring new PDFs.
       _pdfInfo?.retry();
     }
     changes.strokeSurfaces.forEach(reloadSurface);

@@ -31,7 +31,7 @@ export 'new_notebook/new_notebook_request.dart';
 part 'new_notebook/new_notebook_layout.dart';
 
 /// What the phone's new-notebook sheet imports instead.
-enum SheetImport { pdf, len }
+enum SheetImport { scan, pdf, len }
 
 /// Creates a notebook or an infinite canvas, in one column: title; the
 /// saved notebook styles (each fills in the rest at once; "Save as
@@ -42,8 +42,8 @@ enum SheetImport { pdf, len }
 class NewNotebookSheet extends StatefulWidget {
   const NewNotebookSheet({super.key, this.wide = false, this.today, this.onImport});
 
-  /// Offers "Import PDF…" and "Import Len file…" as quiet links at the
-  /// sheet's foot, under Create, which close the sheet and call this: where
+  /// Offers "Scan document…", "Import PDF…" and "Import Len file…" as
+  /// quiet links at the sheet's foot, under Create, which close the sheet and call this: where
   /// phones, which have no ⊕▾, find importing.
   final ValueChanged<SheetImport>? onImport;
 

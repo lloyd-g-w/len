@@ -62,7 +62,7 @@ Future<RelinkResult> relinkPdfFlow(
     // The pages that used the missing PDF, and the furthest page they use.
     final used = [
       for (final page in services.pages.pagesOf(notebookId))
-        if (page.background case final bg? when bg.blob == missing) bg.pageIndex,
+        if (page.pdf case final bg? when bg.blob == missing) bg.pageIndex,
     ];
     if (used.isEmpty) return await _discard(importer, renderer, sha);
     final needed = used.reduce((a, b) => a > b ? a : b) + 1;

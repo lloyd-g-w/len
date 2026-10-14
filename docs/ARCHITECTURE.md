@@ -859,6 +859,48 @@ search highlights use the same boxes.
   crop edges, dragging inside pans it, and committing keeps the visible part
   exactly where it was on the surface.
 
+## Document scans (`features/documents/scan/`, `platform/scan_runner*`)
+
+Photos of paper pages become notebook pages whose background is the
+flattened, cleaned-up photo (`PageBackground.image`, a JPEG blob; see
+SYNC_PROTOCOL). All pure Dart, so it works on every platform.
+
+- **Detection** (`QuadDetector`, `QuadHull`, `GreyOps`): luminance at ≤ 400
+  px, blurred; bright regions (Otsu's threshold and a stricter one), dark
+  ones and strong-edge (Sobel) ones covering ≥ 15 % of the photo become
+  convex hulls, simplified; the largest inscribed quadrilateral wins if its
+  sides show a clear step in brightness, the same way round, all round.
+  `ScanPhoto.load` measures the photo (EXIF-upright through the engine),
+  decodes an 800-px working copy and runs `detectScanQuad` on it; no
+  convincing page → the whole photo.
+- **Flattening** (`ScanJob`, `scan_warp`, `scan_enhance`): a perspective
+  warp of the quad (bilinear, supersampled when shrinking) to a page whose
+  sides are the quad's (long side ≤ 2500 px, from the photo decoded at ≤
+  3200), turned in quarter turns, then a `ScanFilter`: a coarse paper
+  brightness map flattens shading and white-balances; tone curves per
+  filter (Colour, Greyscale, B&W). `scan_runner` runs jobs and detection on
+  a worker isolate natively and in yielding slices on the web.
+- **Screen** (`ScanScreen`, `ScanSession`, `ScanCornerEditor`,
+  `ScanControls`): a full-screen route over a session of `ScanPageDraft`s
+  (photo, quad, turns; a small flattened preview each, re-rendered latest
+  wins; only the current page's photo is decoded for display, at 1600 px).
+  The corner editor drags corners and side middles (folds refused, corners
+  kept on the photo) and shows a 3× loupe in the top corner away from the
+  finger while a corner moves; the outline's preview re-renders when the
+  drag ends. Commands: Rotate, Whole photo (toggles with the page found),
+  Retake (camera) / Replace… (files), Remove, + (camera or files), and the
+  look for all pages. Without a camera the file picker opens at once
+  (nothing picked → the screen closes); with one (Android, `image_picker`)
+  the screen starts by offering both. Leaving with pages asks first.
+  `ScanSources` is the seam for tests (`ScanSources.debugSources`).
+- **Import** (`scan_flow`, `ScanImporter`): after Done, each page is
+  flattened at full size and stored as a blob behind a cancellable progress
+  dialog; then one transaction creates the notebook (titled "Scan <date>",
+  blank paper) or inserts the pages after the current one
+  (`DocumentCommands.insertScan`, undoable as one edit). Cancelled or failed
+  imports drop the blobs nothing references. Page size: A4 or Letter (either
+  way round) within 3 % of the scan's shape, else A4's area at its shape.
+
 ## Opening files from other apps (`features/documents/import/`, `platform/incoming_files*`)
 
 "Open with Len" / "Share to Len" for PDFs and images, GoodNotes-style.

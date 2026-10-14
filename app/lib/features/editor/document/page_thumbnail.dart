@@ -92,7 +92,7 @@ class _ThumbnailPainter extends CustomPainter {
       paperImages: (blob, _) => cache.paperImage(blob, size.width * dpr),
     );
     if (bg != null && image == null && (backgrounds?.isMissing(bg) ?? false)) {
-      paintMissingPdf(canvas, page.size);
+      paintMissingPdf(canvas, page.size, scan: !bg.isPdf);
     }
     final raster = cache.rasterOf(
       page.id,

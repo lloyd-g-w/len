@@ -46,7 +46,7 @@ class _MissingPdfNoticeState extends State<MissingPdfNotice> {
     if (missing.isEmpty) return const [];
     return {
       for (final page in widget.doc.pages)
-        if (page.background?.blob case final blob?)
+        if (page.pdf?.blob case final blob?)
           if (missing.contains(blob) && !_dismissed.contains(blob)) blob,
     }.toList();
   }

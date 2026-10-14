@@ -67,7 +67,7 @@ abstract final class PdfLinkWriter {
         }
       }
 
-      final pdf = page.background;
+      final pdf = page.pdf;
       if (pdf == null || i >= backgroundLinks.length) continue;
       for (final link in backgroundLinks[i]) {
         final target = link.page;
@@ -96,7 +96,7 @@ abstract final class PdfLinkWriter {
   static int? _exportedPage(List<ExportPage> pages, int from, String blob, int pdfPage) {
     for (var n = 1; n <= pages.length; n++) {
       final j = (from + n) % pages.length;
-      final bg = pages[j].page.background;
+      final bg = pages[j].page.pdf;
       if (bg != null && bg.blob == blob && bg.pageIndex == pdfPage) return j;
     }
     return null;
