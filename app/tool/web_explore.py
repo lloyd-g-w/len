@@ -49,7 +49,8 @@ web_offline_check.py does. Screenshots of every step go to $LEN_EXPLORE_OUT
 cross-origin isolated (README). Environment:
   LEN_EXPLORE_BROWSERS=chromium,firefox  browsers (default both; Firefox if installed)
   LEN_EXPLORE_BACKUP=<file.len>          only restore this backup (made big) and open it
-  LEN_EXPLORE_PROFILE=1                  CPU profile per step, its hottest functions printed
+  LEN_EXPLORE_PROFILE=1                  CPU profile per step, its hottest functions printed, and
+                                         per long task where its time went (a trace's tasks)
   LEN_EXPLORE_CYCLES=5                   open/close cycles of the memory step
   LEN_EXPLORE_CEILING_MS=500             longest task allowed in the big notebook (WebAssembly)
   LEN_EXPLORE_BUNDLED=1                  Playwright's own Chromium (CI), not the PATH's
@@ -265,6 +266,59 @@ def print_hot(profile, top=12):
         print(f'    {ms:8.0f} ms  {key[:150]}')
 
 
+# Frames that say nothing about who ran (the event loop, futures, the
+# framework's build / layout / paint walks), skipped when naming one.
+_PLUMBING = re.compile(r'^(call\$|runUnary|_microtask|_startMicrotask|_Future|_complete|_async|complete\$|'
+                       r'invoke$|_callDart|_invokeFrame|handleDrawFrame|_handleDrawFrame|drawFrame|then\$|'
+                       r'_handlePersistent|_rootRun|_wrapJs|_propagate|_scheduleImmediate|_rootHandle)')
+
+
+_TASKS = {'RunTask', 'ThreadControllerImpl::RunTask'}  # A task in a trace, by Chromium version.
+
+
+def print_long_tasks(profile, trace):
+    """Each long task of the page's main thread (from the trace) with where
+    its time went (the profile's samples in it): the frames that took the
+    time themselves, and the app's own functions under which it went."""
+    main = {(e['pid'], e['tid']) for e in trace
+            if e.get('ph') == 'M' and e.get('name') == 'thread_name'
+            and e.get('args', {}).get('name') == 'CrRendererMain'}
+    tasks = sorted((e['ts'], e['dur']) for e in trace if e.get('ph') == 'X' and e.get('name') in _TASKS
+                   and (e['pid'], e['tid']) in main and e.get('dur', 0) > LONG_TASK_MS * 1000)
+    nodes = {n['id']: n for n in profile['nodes']}
+    parent = {c: n['id'] for n in profile['nodes'] for c in n.get('children', [])}
+    times, t = [], profile['startTime']
+    for d in profile.get('timeDeltas', []):
+        t += d
+        times.append(t)
+    samples = list(zip(times, profile.get('samples', []), profile.get('timeDeltas', [])[1:] + [0]))
+    for start, length in tasks:
+        own, under, total = {}, {}, 0
+        for at, sample, delta in samples:
+            if not start <= at < start + length:
+                continue
+            total += delta
+            frame = nodes[sample]['callFrame']
+            key = frame['functionName'] or '(anonymous)'
+            own[key] = own.get(key, 0) + delta
+            seen, node = set(), sample
+            while node is not None:
+                f = nodes[node]['callFrame']
+                name = f['functionName']
+                if 'main.dart' in f['url'] and name and not _PLUMBING.search(name) and name not in seen:
+                    seen.add(name)
+                    under[name] = under.get(name, 0) + delta
+                node = parent.get(node)
+        if not total:
+            continue
+        top = lambda d, n: ', '.join(f'{k} {v / 1000:.0f}' for k, v in sorted(d.items(), key=lambda kv: -kv[1])[:n])
+        print(f'    task {length / 1000:.0f} ms: own {top(own, 4)}')
+        # The innermost app functions holding most of it: those under which
+        # at least half the task went, deepest first.
+        held = sorted((v, k) for k, v in under.items() if v >= total / 2)
+        print(f'      under: {", ".join(f"{k} {v / 1000:.0f}" for v, k in held[:8])}')
+
+
 async def heap_mb(page, cdp):
     """JS heap after a forced GC, in MB (Chromium; None elsewhere)."""
     if cdp is None:
@@ -449,6 +503,14 @@ class Walk:
         if self.cdp and PROFILE:
             await self.cdp.send('Profiler.enable')
             await self.cdp.send('Profiler.start')
+            trace, traced = [], asyncio.get_running_loop().create_future()
+            collect = lambda e: trace.extend(x for x in e['value'] if x.get('ph') == 'M' or (
+                x.get('name') in _TASKS and x.get('dur', 0) > LONG_TASK_MS * 1000))
+            complete = lambda e: traced.done() or traced.set_result(True)
+            self.cdp.on('Tracing.dataCollected', collect)
+            self.cdp.on('Tracing.tracingComplete', complete)
+            await self.cdp.send('Tracing.start', {'categories': 'toplevel',
+                                                  'transferMode': 'ReportEvents'})
         try:
             await body()
         except (w.CheckFailed, PlaywrightTimeout) as e:
@@ -478,6 +540,11 @@ class Walk:
             with open(os.path.join(OUT, f'{self.name}-{self.n:02}-{title}.cpuprofile'), 'w') as f:
                 json.dump(profile, f)
             print_hot(profile)
+            await self.cdp.send('Tracing.end')
+            await asyncio.wait_for(traced, 30)
+            self.cdp.remove_listener('Tracing.dataCollected', collect)
+            self.cdp.remove_listener('Tracing.tracingComplete', complete)
+            print_long_tasks(profile, trace)
         new = [t for t in tasks[self.tasks_seen:] if not t[2]]
         long = [t for t in new if t[1] > LONG_TASK_MS]
         self.tasks_seen = len(tasks)
