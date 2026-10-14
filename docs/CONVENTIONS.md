@@ -142,6 +142,9 @@ migrations needs no manual cleanup — but don't rely on it once we ship.
   `test/support/real_async.dart`, `settle` in `canvas_fixtures.dart`), use fake
   time (`tester.pump(duration)`, `fake_async`), and keep timing checks relative
   (best of interleaved batches, generous limits); benchmarks go in `test/perf/`.
+- Run the full suite on a tree nothing changes meanwhile (no merge, checkout or
+  golden update in that checkout until it ends): files are compiled and goldens
+  read at different times, so a merge mid-run fails tests that pass alone.
 - Format with `dart format -l 100`.
 
 ## Tooling (NixOS)
