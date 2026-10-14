@@ -211,6 +211,10 @@ class RecordingController extends ChangeNotifier {
     lastError = null;
     _switching = true;
     try {
+      // A split restarts the recorder on some platforms (Linux, web): a
+      // pause sent meanwhile would be lost, the "paused" audio kept.
+      await _work;
+      if (_state != RecorderState.recording) return false; // Stopped meanwhile.
       await _capture?.pause();
     } on Object catch (e) {
       // (Called from the notification too: never an unhandled error.)
@@ -292,7 +296,10 @@ class RecordingController extends ChangeNotifier {
   /// Moves on to the next part once the current one holds [partMs] of
   /// audio (checked by the ticker; tests call it directly).
   Future<void> nextPartIfDue() async {
-    if (_state == RecorderState.recording && _work == null && elapsedMs - _fileStartMs >= partMs) {
+    if (_state == RecorderState.recording &&
+        !_switching &&
+        _work == null &&
+        elapsedMs - _fileStartMs >= partMs) {
       try {
         await (_work = _split());
       } finally {

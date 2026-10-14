@@ -81,9 +81,13 @@ class FakeCapture implements AudioCapture {
     log.add('resume');
   }
 
+  /// A split waits for this (a recorder restarting, as on Linux).
+  Future<void>? holdSplit;
+
   @override
   Future<CapturedAudio?> split(String? nextPath) async {
     log.add('split');
+    await holdSplit;
     final finished = _finish();
     paths.add(nextPath);
     return finished;

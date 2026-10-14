@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -217,6 +218,38 @@ void main() {
       expect(await s.blobs.read(saved.parts.last.blob), adtsFrames(5));
       expect(spool.files, isEmpty); // Journal and files gone.
       expect(RecordingController.active, isEmpty);
+      c.dispose();
+    });
+
+    test('pause waits for a split (it may restart the recorder); no split while pausing', () async {
+      final c = controller();
+      expect(await c.start(), isTrue);
+      audio.capture.write(adtsFrames(16));
+      clock.now += 1000;
+      final restarted = Completer<void>();
+      audio.capture.holdSplit = restarted.future;
+      final split = c.nextPartIfDue();
+      await pumpEventQueue();
+      expect(audio.log.last, 'split');
+      final paused = c.pause(); // Pressed while the recorder restarts.
+      await pumpEventQueue();
+      expect(audio.log.last, 'split'); // Paused only once it runs again.
+      restarted.complete();
+      await split;
+      expect(await paused, isTrue);
+      expect(audio.log.last, 'pause');
+      expect(c.state, RecorderState.paused);
+
+      // Nor does a split start while a pause is under way.
+      clock.now += 5000; // Paused: not counted.
+      expect(await c.resume(), isTrue);
+      clock.now += 1000; // A part's worth again.
+      final pausedAgain = c.pause();
+      await c.nextPartIfDue();
+      expect(await pausedAgain, isTrue);
+      expect(audio.log.where((l) => l == 'split'), hasLength(1));
+      expect(audio.log.last, 'pause');
+      await c.stop();
       c.dispose();
     });
   });
