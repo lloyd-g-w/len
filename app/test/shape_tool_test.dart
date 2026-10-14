@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
@@ -12,11 +13,14 @@ import 'package:len/ink/render/live_stroke.dart';
 import 'package:len/ink/render/stroke_outline.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
+import 'package:len/ink/shapes/polyline.dart';
 import 'package:len/ink/shapes/shape_builder.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/tools/content_tools.dart';
 import 'package:len/ink/viewport.dart';
+
+import 'document_editor_test.dart' show pumpEditor;
 
 /// The Shape tool driven through the input controller as the editor drives
 /// it: every kind, with a mouse, a pen and a finger, at several zooms.
@@ -189,5 +193,53 @@ void main() {
       ..handleUp(const PointerUpEvent(pointer: 3, kind: k, position: Offset(100, 150)));
     expect(content.selection.strokes.single.id, ellipse.id);
     expect(tools.tool, EditorTool.shape);
+  });
+
+  testWidgets('on a page of a notebook, in the editor, with the pen', (tester) async {
+    final (services, nb) = await pumpEditor(tester, size: const Size(1000, 1300));
+    final page = services.pages.pagesOf(nb.id).first;
+    var i = 0;
+    for (final kind in ShapeKind.drawable) {
+      // Pick it in the Shapes options (the second tap on the tool opens them).
+      if (find.byKey(ValueKey('shape-${kind.name}')).evaluate().isEmpty) {
+        await tester.tap(find.byTooltip('Shapes (S)'));
+        await tester.pumpAndSettle();
+      }
+      if (find.byKey(ValueKey('shape-${kind.name}')).evaluate().isEmpty) {
+        await tester.tap(find.byTooltip('Shapes (S)'));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.byKey(ValueKey('shape-${kind.name}')));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      final a = Offset(180.0 + 160 * (i % 4), 420.0 + 260 * (i ~/ 4));
+      final g = await tester.startGesture(a, kind: PointerDeviceKind.stylus);
+      for (var k = 1; k <= 10; k++) {
+        await g.moveTo(a + const Offset(120, 180) * (k / 10));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await g.up();
+      await tester.pump();
+      i++;
+    }
+    final shapes = services.strokes
+        .loadChunks(page.id, [
+          for (var x = -1; x <= 2; x++)
+            for (var y = -1; y <= 2; y++) (x: x, y: y),
+        ])
+        .where((s) => s.shape != null)
+        .toList();
+    expect(shapes.map((s) => s.shape!.kind).toSet(), ShapeKind.drawable.toSet());
+    final sizes = {for (final s in shapes) Polyline.bounds(ShapeBuilder.outline(s.shape!)).size};
+    // All dragged alike: one size on the page (whatever its zoom), the outline their points.
+    expect(sizes.map((s) => (s.width / s.height * 100).round()).toSet(), {67});
+    for (final s in shapes) {
+      // (Points are stored as float32.)
+      expect(
+        (s.points.first.offset - ShapeBuilder.outline(s.shape!).first).distance,
+        lessThan(1e-3),
+      );
+    }
   });
 }
