@@ -6,7 +6,13 @@ import '../domain/stroke.dart';
 /// A change of what a surface renders: the [chunks] whose rendering is
 /// stale (null: everything).
 class SurfaceChange {
-  const SurfaceChange(this.chunks, {this.appended, this.loaded = false, this.areas});
+  const SurfaceChange(
+    this.chunks, {
+    this.appended,
+    this.underlaid,
+    this.loaded = false,
+    this.areas,
+  });
 
   final Set<ChunkKey>? chunks;
 
@@ -18,6 +24,12 @@ class SurfaceChange {
   /// in [chunks] (pen ink, nothing above it there): a rendering of the
   /// chunks from before plus these strokes, in order, is up to date.
   final List<Stroke>? appended;
+
+  /// Set when the change only adds these highlighter strokes, which paint
+  /// beneath the pen ink: a rendering from before with them drawn beneath
+  /// it looks as the live highlighter did (beneath the committed ink), so
+  /// it may stand in until a new rendering is made.
+  final List<Stroke>? underlaid;
 
   /// Set when the change only brings in stored content (a load): a
   /// rendering from before may stand in until a new one is made, as the

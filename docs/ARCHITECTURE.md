@@ -166,6 +166,14 @@ draws a few dozen images, however much ink is on screen.
   frame, and each such tile is re-rendered as *old image + stroke* off the
   frame. So committed ink never vanishes or flickers at pen-up, and a
   pen-up never re-records a chunk picture or replays a page of ink.
+- **Highlighter pen-up** (`SurfaceChange.underlaid`): a highlighter
+  paints beneath the pen ink, so it is no append; the tiles it crosses
+  keep their images, stale, and draw it as a vector *beneath* them — as
+  the live highlighter was drawn, beneath the committed ink — until they
+  are re-rendered (urgently, from the chunk pictures). Before, a highlight
+  over more than two tiles vanished for the frame or two until they were
+  (`test/pen_up_frames_test.dart` checks every frame around pen-up, pen
+  and highlighter, at 1× and 2×).
 - **Loads** (`SurfaceChange.loaded`: stored content arriving) keep the
   images of the tiles they touch as stale stand-ins until re-rendered (that
   content was not on screen yet), so a loading canvas never drops to

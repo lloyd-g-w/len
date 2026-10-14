@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 
 import '../../../domain/chunk_grid.dart';
+import '../../../domain/stroke.dart';
 import '../../lab/perf_probe.dart';
 import '../../surface_model.dart';
 import '../chunk_picture_cache.dart';
@@ -200,6 +201,7 @@ class InkTileCache extends ChangeNotifier {
                 TileSpace.size.toDouble(),
               )
             : view.toDevice(rect);
+        if (tile.underlay.isNotEmpty) _drawUnderlay(canvas, view, tile);
         _drawImage(canvas, image, dst, exact: same);
         pool.touch(tile);
         lastPaint.images++;

@@ -9,6 +9,7 @@ class TilePaintStats {
   int images = 0;
   int vectorTiles = 0;
   int overlayStrokes = 0;
+  int underlayStrokes = 0;
 
   /// Images drawn that predate a change (standing in until re-rendered).
   int staleImages = 0;
@@ -20,7 +21,7 @@ class TilePaintStats {
   double vectorPixels = 0;
 
   void reset() {
-    images = vectorTiles = overlayStrokes = staleImages = 0;
+    images = vectorTiles = overlayStrokes = underlayStrokes = staleImages = 0;
     vectorPixels = blankPixels = 0;
   }
 }
@@ -41,6 +42,10 @@ class InkTile implements PooledTile {
 
   /// Pen strokes appended since [image] was rendered, in paint order.
   final List<Stroke> overlay = [];
+
+  /// Highlighter strokes added since [image] was rendered (which is then
+  /// stale): drawn beneath it until the tile is rendered again.
+  final List<Stroke> underlay = [];
 
   /// Bumped when the content changes in other ways than appends, so a
   /// render in flight is discarded.
@@ -76,6 +81,7 @@ class InkTile implements PooledTile {
     blank = null;
     stale = false;
     overlay.clear();
+    underlay.clear();
     _dropImage();
   }
 
@@ -85,6 +91,7 @@ class InkTile implements PooledTile {
     version++;
     stale = false;
     overlay.clear();
+    underlay.clear();
     _dropImage();
   }
 
@@ -93,6 +100,7 @@ class InkTile implements PooledTile {
     image?.dispose();
     image = null;
     stale = false;
+    underlay.clear(); // Only ever drawn beneath an image.
     // An evicted tile with pending strokes is rendered in full next time.
   }
 

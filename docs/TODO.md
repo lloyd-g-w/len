@@ -22,7 +22,10 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   (round vs flat ends, pressure, …). Explain or unify. It always was the pen's engine
   (sampling, smoothing, stabiliser, outline), but forced flat ends and hid pressure; its
   popover now offers pressure sensitivity and flat (default) or round ends too.
-- ⬜ **Highlighter flickers on pen-up**: fix.
+- ✅ **Highlighter flickers on pen-up**: fix. A highlight crossing more than two tiles
+  vanished for a frame or two at pen-up (its tiles kept their old images until re-rendered);
+  they now draw it beneath their images meanwhile, as the live stroke was drawn. The pen was
+  fine (checked by the same frame-by-frame test).
 
 ## Eraser
 - ✅ **Scribble to erase takes too many scribbles**: trigger after fewer zig-zags (1–2
