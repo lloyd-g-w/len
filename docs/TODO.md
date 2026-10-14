@@ -50,9 +50,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Input
 - ✅ **Mouse strokes zoomed out are squiggly (web and Linux)**: mouse ink at low zoom must be
   as smooth as at 100 %. Mouse positions are whole pixels; the outline's smoothing is bounded
-  by the pen's width, so zoomed out it could not level the steps. Mouse paths are now
-  smoothed on the screen first (`MouseSmoother`): as smooth at 10 % as at 100 %, and smoother
-  than before at 100 % too.
+  by the pen's width, so zoomed out it could not level the steps. Mouse paths of a pen under
+  2.5 px on screen are now smoothed on the screen first (`MouseSmoother`, as much as the
+  outline lacks): as smooth at 10 % as at 100 %; at 100 % mouse ink is unchanged, no lag.
 
 ## Done earlier this round
 - ✅ Shape fill, zoom window, document scan, keyboard accessibility, round 10 audit,

@@ -153,7 +153,10 @@ class InkDrawing {
       _endFollowsSpeed = config.ends.endFollowsSpeed;
       live.add(_sampler.first(e));
       _byMouse = e.kind == PointerDeviceKind.mouse;
-      if (_byMouse) _mouse.begin(e.localPosition, StrokeSampler.msOf(e.timeStamp));
+      if (_byMouse) {
+        final ms = StrokeSampler.msOf(e.timeStamp);
+        _mouse.begin(e.localPosition, ms, width: config.width * viewport.scale);
+      }
       _liftSpeed.add(e.localPosition, StrokeSampler.msOf(e.timeStamp));
       _scribble.begin(model, e.localPosition, StrokeSampler.msOf(e.timeStamp));
       _straighten.begin(

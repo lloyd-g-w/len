@@ -1735,10 +1735,13 @@ does not grow with the stroke's length.
    pixels (web, desktops), a staircase that zoomed out — the pen a fraction
    of a pixel wide on screen — showed as squiggles the outline's smoothing
    (bounded relative to the pen's width, which keeps its geometry exact)
-   cannot level; so its path is first resampled every pixel and smoothed
-   with a centred 2 px Gaussian in screen space (`MouseSmoother`): the
-   same at any zoom, trailing the mouse by 6 px like the stabiliser, the
-   ends where the mouse went down and up (`test/mouse_zoom_smoothness_test.dart`).
+   cannot level; so when the pen is under 2.5 px wide on screen its path
+   is first resampled every pixel and smoothed with a centred Gaussian in
+   screen space (`MouseSmoother`: what the outline lacks, up to 2 px for a
+   hairline, trailing the mouse by at most 6 px like the stabiliser, the
+   ends where the mouse went down and up). Wider pens (the default at 100 %)
+   get the mouse's positions unchanged, without lag
+   (`test/mouse_zoom_smoothness_test.dart`).
    **Ink shows from the first sample**, under the nib
    (latency beats purity): every contact is drawn from pen-down, even one
    that turns out to be a bounce (`BounceFilter.isBounce`, decided at its
