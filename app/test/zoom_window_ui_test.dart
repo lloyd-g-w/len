@@ -9,11 +9,13 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/features/editor/document/document_layout.dart';
 import 'package:len/features/editor/editor_canvas.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_session.dart';
 import 'package:len/features/editor/zoom/zoom_box.dart';
 import 'package:len/features/editor/zoom/zoom_frame.dart';
+import 'package:len/features/editor/zoom/zoom_frame_overlay.dart';
 import 'package:len/features/editor/zoom/zoom_window.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -293,6 +295,31 @@ void main() {
     expect(ink, hasLength(1), reason: 'only the pen wrote');
     expect(zoom.frameRect!.contains(ink.single.bounds.center), isTrue);
     expect(view.offset, offset);
+    await closeEditor(tester);
+  });
+
+  testWidgets('one page at a time, the next line past the bottom turns the page', (tester) async {
+    final (s, nb) = await pumpEditor(tester);
+    final session = _session(tester);
+    session.doc!.setFlow(PageFlow.single);
+    await tester.pumpAndSettle();
+    expect(session.doc!.flow, PageFlow.single);
+    final zoom = await _open(tester);
+    final pages = s.pages.pagesOf(nb.id);
+    final down = zoom.host.boundsOf(pages[0].id)!.bottom - zoom.frameRect!.bottom;
+    zoom.dragBy(Offset(0, down * zoom.host.main.scale));
+    zoom.dragEnd();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Next line'));
+    await tester.pumpAndSettle();
+    expect(session.doc!.currentPage, 1);
+    expect(zoom.frame!.surfaceId, pages[1].id);
+    // The frame shows on the page turned to, and writing lands there.
+    expect(zoom.host.onScreen(pages[1].id, zoom.frameRect!), isNotNull);
+    expect(find.byType(ZoomFrameOverlay), findsOneWidget);
+    await _write(tester, const Offset(0.1, 0.5));
+    await tester.pumpAndSettle();
+    expect(inkOf(s, pages[1]).where((st) => st.id != 'w2'), hasLength(1));
     await closeEditor(tester);
   });
 }
