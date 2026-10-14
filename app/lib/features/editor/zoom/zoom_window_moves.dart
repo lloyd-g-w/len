@@ -21,6 +21,10 @@ mixin _ZoomMoves {
   /// Whether the frame was placed (it waits for the box's size).
   bool _placed = false;
 
+  /// Whether the frame, once the box is laid out, stays where it was put
+  /// (kept from before) rather than being placed afresh.
+  bool _resume = false;
+
   /// Where lines begin and end (surface x).
   double _lineStart = 0, _lineEnd = 0;
 
@@ -64,6 +68,19 @@ mixin _ZoomMoves {
   void _reveal() {
     final rect = frameRect;
     if (rect != null) host.reveal(_frame!.surfaceId, rect);
+  }
+
+  /// Places the frame once the box is laid out: where it was kept, or
+  /// afresh.
+  void _layOut() {
+    if (!_resume) return _place();
+    _resume = false;
+    final frame = _frame!;
+    final sized = frame.copyWith(scale: _rules.scaleForWidth(_box.width / frame.scale));
+    _set(sized.copyWith(origin: _rules.clamp(sized, sized.origin)));
+    _placed = true;
+    _startLine();
+    _reveal();
   }
 
   /// Frames where writing goes on in view: below the ink that shows (its

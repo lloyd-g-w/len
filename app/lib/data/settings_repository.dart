@@ -207,6 +207,12 @@ class SettingsRepository {
   void setEditorView(String notebookId, String? value) =>
       value == null ? _remove('editor_view.$notebookId') : _set('editor_view.$notebookId', value);
 
+  /// The zoom window as notebook [notebookId] left it (an opaque string
+  /// owned by the editor), or null.
+  String? zoomWindow(String notebookId) => _get('zoom_window.$notebookId');
+  void setZoomWindow(String notebookId, String? value) =>
+      value == null ? _remove('zoom_window.$notebookId') : _set('zoom_window.$notebookId', value);
+
   /// Notebooks opened lately (ids), most recent first.
   List<String> get recentNotebooks => [
     for (final part in (_get('recent_notebooks') ?? '').split(','))

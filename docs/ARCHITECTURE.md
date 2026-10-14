@@ -486,7 +486,11 @@ or deleted pages in order with ink. Snack bars' Undo calls
   `least` and clear of `pageRoom` of the page. Palm: a stylus in the box tells the page's input
   (`InkInputController.stylusElsewhere`: a finger drawing or panning there stops, new ones
   are ignored as between strokes) and `ZoomWindow.blocksPage` absorbs new page touches for
-  `palmQuiet` after the pen lifts. The window is per session and not persisted.
+  `palmQuiet` after the pen lifts. Each notebook keeps its window (`ZoomWindowState`: the frame
+  while open, the chosen box height) in the settings (`zoom_window.<id>`, written with
+  `editor_view.<id>`); it reopens there (`ZoomWindow.restore`: the frame kept on its page and
+  lines starting at it; a page since deleted opens afresh). The second pane neither keeps nor
+  restores it.
 - **Opening where you left off**: `EditorViewState` (`tabs/open_notebooks.dart`: zoom,
   pan, current page, viewport size, page fit) is kept per tab in memory and per notebook
   in the settings (`editor_view.<id>`, written on dispose and when the app is hidden).

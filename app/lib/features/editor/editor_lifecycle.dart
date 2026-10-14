@@ -68,10 +68,14 @@ class EditorLifecycle {
     _app; // Starts listening.
   }
 
-  /// Remembers this notebook's page, zoom and pan for the next launch.
+  /// Remembers this notebook's page, zoom and pan, and its zoom window,
+  /// for the next launch.
   void saveView() {
     if (closing || secondPane || services.database.isClosed) return;
-    services.settings.setEditorView(_notebook.id, session.viewState.encode());
+    final settings = services.settings;
+    settings.setEditorView(_notebook.id, session.viewState.encode());
+    final zoom = session.zoomState;
+    if (zoom != null) settings.setZoomWindow(_notebook.id, zoom.isEmpty ? null : zoom.encode());
   }
 
   /// The notebook was deleted (or [trashed]) on another device: closes

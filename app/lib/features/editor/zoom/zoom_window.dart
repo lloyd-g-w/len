@@ -11,6 +11,9 @@ import '../../../ui/design_tokens.dart';
 import 'zoom_box_viewport.dart';
 import 'zoom_frame.dart';
 import 'zoom_host.dart';
+import 'zoom_window_state.dart';
+
+export 'zoom_window_state.dart';
 
 part 'zoom_window_moves.dart';
 
@@ -73,17 +76,34 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
   final ValueNotifier<double?> boxHeight = ValueNotifier(null);
 
   /// Opens the window on the page in view (or the canvas), framing the
-  /// start of the visible lines once the box is laid out.
-  void open() {
+  /// start of the visible lines once the box is laid out; or [at] a frame
+  /// kept from before (when its page is still there), kept on its page.
+  void open({ZoomFrame? at}) {
     if (isOpen) return;
-    final id = host.current;
-    _frame = ZoomFrame(surfaceId: id, origin: Offset.zero, scale: 1);
+    final resume = at != null && host.has(at.surfaceId);
+    final id = resume ? at.surfaceId : host.current;
+    _frame = resume ? at : ZoomFrame(surfaceId: id, origin: Offset.zero, scale: 1);
     _placed = false;
+    _resume = resume;
     _attach(id);
     host.changes.addListener(_onHost);
-    if (!_box.isEmpty) _place();
+    if (!_box.isEmpty) _layOut();
     opened.value = true;
     notifyListeners();
+  }
+
+  /// What a notebook keeps of the window for the next time it opens.
+  ZoomWindowState get state {
+    final frame = _frame;
+    final settled = frame == null || _glide == null ? frame : frame.copyWith(origin: _glideEnd);
+    return ZoomWindowState(frame: settled, boxHeight: boxHeight.value);
+  }
+
+  /// Takes up a [state] kept from before: the box's height, and the frame
+  /// if the window was open.
+  void restore(ZoomWindowState state) {
+    boxHeight.value = state.boxHeight;
+    if (state.frame case final frame?) open(at: frame);
   }
 
   /// Closes the window; the ink written stays.
@@ -109,7 +129,7 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
     if (size == _box || size.isEmpty) return;
     _box = size;
     if (!isOpen) return;
-    if (!_placed) return _place();
+    if (!_placed) return _layOut();
     _set(_frame!.copyWith(origin: _rules.clamp(_frame!, _frame!.origin)));
     _reveal();
   }
@@ -194,6 +214,7 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
     _detach();
     _frame = frame.copyWith(surfaceId: host.current);
     _attach(host.current);
+    _resume = false;
     _place();
   }
 
