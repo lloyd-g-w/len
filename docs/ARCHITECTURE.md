@@ -273,6 +273,27 @@ bounds from the outermost chunks) or "back to start": their only menu), keyboard
 paper colour (`notebooks.paper_color`). Paged documents glide too (single-page flow
 only when zoomed in; at the whole page it settles back or turns the page).
 
+**Minimap** (`canvas/canvas_minimap.dart`, a layer of `EditorLayers`; "⋯" → View →
+*Minimap*, Shift+M; local settings `canvas_minimap`, `minimap_in_focus`): a `FloatingPanel`
+window onto the paper in the bottom-right corner, clear of the chrome and the audio strip
+(`ChromeLayout.covered`), shaped like the free area (1:1 to 16:10; 176 dp, 120 on phones).
+Content comes from storage — `StrokeReader.chunkDensity` (items per populated chunk, in the
+background reader), re-read 500 ms after a non-load `SurfaceChange` (the model flushed
+first) — and `MinimapContent` merges the chunks into at most 48 × 48 soft blocks, shaded by
+density, so painting costs the same on any canvas; per frame only the painter runs
+(blocks, origin cross, the view's frame in the accent for the paper's brightness).
+`MinimapFrame` picks the world area shown: content ∪ the visible area
+(`CanvasNavigation.visibleArea`, the screen minus the chrome) with 12 % room, held still
+while the view moves inside it and refitted (gliding, `Motion.medium`) when the view leaves
+it or it grows 1.8× larger than needed. Input (touch, pen, mouse): a tap glides there
+(`CanvasNavigation.centreOn`); a drag moves the view live, the map frozen under the finger
+(grabbing the frame keeps the grabbed point under it, elsewhere centres the view there);
+two fingers pan and pinch (`zoomBy`); a mouse wheel zooms in steps (`zoomStep`, claimed
+through the pointer-signal resolver); long-press / right-click opens its menu (*Keep in
+focus mode*, *Hide minimap*). It fades out (`ChromeFade`) while the pen draws (back
+1.2 s after it lifts, not between strokes), on an empty canvas and in focus mode unless kept
+there. Paged documents have none (the page overview and navigator serve them).
+
 World coordinates are stored as `float32`, which stays sub-unit precise to
 roughly ±8 million units from the origin — thousands of screens in every
 direction.
@@ -512,7 +533,7 @@ or deleted pages in order with ink. Snack bars' Undo calls
   Ctrl/⌘+E export, Ctrl/⌘+G go to page (paged), Ctrl+F search;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases (`canvas/canvas_shortcuts.dart`):
   arrows move around (15 % of the screen, gliding), `+` / `-` (also with Ctrl/⌘),
-  `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks
+  `0` 100 %, Shift+1 fit content, **Home back to start**, Shift+M minimap. Paged notebooks
   (`document/document_shortcuts.dart`): ← / → and Page Up / Down turn pages, ↑ / ↓
   scroll (turn pages in single-page flow), `+` / `-` zoom 1.25× steps, **Home first
   page**, End last page. Single keys are ignored while text is edited.
@@ -1692,7 +1713,7 @@ with a template is "Add page after" held down in the page menu).
   removed), which may move the toolbar between the bar and its row.
 
 Shortcuts: P / H / E / L / S / T / K, 1–5 colour slots, [ / ] thinner /
-thicker (plus the canvas keys `+` `-` `0` Shift+1 Home). Palm rejection is
+thicker (plus the canvas keys `+` `-` `0` Shift+1 Home Shift+M). Palm rejection is
 automatic (on at the first stylus contact); "⋯" → *Draw with finger* turns it
 off once a stylus has been seen.
 
