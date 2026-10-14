@@ -328,7 +328,8 @@ column (11 strings). Effort S.
 form.** Move them under Create (or into the empty state and ⊕'s long
 press only). Effort S.
 
-**R9-11 P2 · "Follow pen speed" is a switch nobody will tune.** Make it
+**R9-11 P2 · "Follow pen speed" is a switch nobody will tune.** ✅ (always on;
+`PenEnds.followSpeed` is gone) Make it
 the default for tapered ends (on) and drop the switch
 (`pen/pen_ends_options.dart`). The pen's Feel loses a control. Effort S.
 

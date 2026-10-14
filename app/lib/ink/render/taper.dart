@@ -22,7 +22,7 @@ abstract final class Taper {
   static const double maxEndShare = 0.5;
 
   // ---------------------------------------------------------------------------
-  // Following the pen's speed (`PenEnds.followSpeed`)
+  // Following the pen's speed (`PenEnds.endFollowsSpeed`)
 
   /// The end taper's scale for a lift at [speed] (screen px per ms): like
   /// a fountain pen, a quick flick leaves a long tail and a stop a short
