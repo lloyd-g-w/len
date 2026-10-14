@@ -1312,7 +1312,9 @@ follows the pen; closed ones (ends within 30 % of the bounding diagonal)
 an ellipse/circle or a polygon, whichever fits better: the polygon's
 corners are RDP vertices (two closer than 10 % of the diagonal are one
 rounded corner) moved to where the sides, fitted as lines, meet
-(`Polyline.fitCorners`: a hand rounds corners off), then 3 → triangle, 4
+(`Polyline.fitCorners`: a hand rounds corners off), less any corner a fit
+with one fewer matches within 0.4 % of the diagonal (a bowed side, the
+overshoot closing the loop: long rectangles stay rectangles), then 3 → triangle, 4
 → diamond (diagonals along the axes), rectangle (right angles; rotated or,
 within 6°, axis-aligned, each side midway between its corners), else
 polygon. Closed strokes under 48 screen px stay as written (letters such as
@@ -1389,7 +1391,8 @@ surface.
   with round ends (`ShapeBuilder.styleFor`: no pressure, taper, flat ends
   or stabiliser). The Shape tool (`tools/shape_tool.dart`) previews the
   shape from the press to the pointer on every move (Shift, pressed or
-  released at any time: square / 15° lines) and commits exactly the shape
+  released at any time: regular shapes — squares, circles, equilateral
+  triangles, regular stars (`ShapeBuilder.regularAspect`) — and 15° lines) and commits exactly the shape
   last shown; a tap on a shape selects it. The live outline is rebuilt
   whenever the live points are replaced rather than extended
   (`LiveInk.generation`; the incremental builder would otherwise keep the
@@ -1428,10 +1431,15 @@ surface.
   corners, a star's five points — turning and sizing it about its centre —
   and a small solid dot setting its inner radius). Rectangles and
   ellipses keep their side directions (the opposite corner stays); lines
-  and arrows have no frame (their ends move and turn them; Shift: 15°),
-  closed shapes keep the rotate handle. Handles are 6.5 px knobs like the
-  frame's, hit within `SelectionChrome.hitRadius`, grabbed where they are
-  (no jump). Dragging one (`LassoTool`, mode reshape) shows the shape
+  and arrows have no frame (their ends move and turn them; Shift: 15°)
+  and move only from near the stroke (`SelectionChrome.grabs`), closed
+  shapes keep the rotate handle; Shift on a rectangle's or ellipse's corner
+  keeps its proportions. A turned rectangle, ellipse or star gets a frame
+  turned with it (`ShapeHandles.angleOf`, `SelectionFrame.around`), so the
+  handles sit on it. Handles are 6.5 px knobs like the frame's, reached
+  within `SelectionChrome.shapeHitRadius` (24 px, a fingertip; inside a
+  small shape's frame less, so it still moves by its middle; the rotate
+  handle wins when nearer), grabbed where they are (no jump). Dragging one (`LassoTool`, mode reshape) shows the shape
   rebuilt (`ShapeBuilder.reshaped`: outline 2 px apart at its zoom, same
   look and fill) as the selection's picture; the release commits it as one
   `InkEdit` (remove + add, so it syncs), keeping it selected. During moves
