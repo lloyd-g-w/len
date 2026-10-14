@@ -91,4 +91,16 @@ void main() {
     // the zip's structure.
     expect(peak, lessThan(2.5 * (1 << 20)), reason: 'of ${whole.length} bytes');
   });
+
+  test('a slice kept after one it overlaps still finds every kept byte', () async {
+    final whole = Uint8List.fromList([for (var i = 0; i < 1000; i++) i & 0xFF]);
+    final file = RangedFile(whole.length, (start, end) async => whole.sublist(start, end));
+    await file.load(0, 300, keep: true);
+    await file.load(100, 1000, keep: true);
+    expect(file.byteAt(50), 50); // Looked up last: the first slice.
+    // Inside the second slice, but not the one looked up last.
+    await file.load(200, 500, keep: true);
+    expect(file.byteAt(700), 700 & 0xFF);
+    expect(file.bytes(0, 1000), whole);
+  });
 }

@@ -34,7 +34,7 @@ class RangedFile {
   Future<void> load(int start, int end, {bool keep = false}) async {
     start = start.clamp(0, size);
     end = end.clamp(start, size);
-    if (end == start || _covered(start, end)) return;
+    if (end == start || (keep ? _keeps : _covered)(start, end)) return;
     final bytes = await _read(start, end);
     if (bytes.length != end - start) {
       throw StateError('Read ${bytes.length} bytes of $start…$end');
@@ -48,9 +48,11 @@ class RangedFile {
     _keep(slice);
   }
 
-  /// Adds [slice] to [_kept], dropping those inside it (so the last slice
-  /// starting at or before a byte is the one to look in).
+  /// Adds [slice] to [_kept] unless a kept one holds it, dropping those
+  /// inside it: no kept slice lies inside another, so the last one starting
+  /// at or before a byte is the one to look in.
   void _keep(_Slice slice) {
+    if (_keeps(slice.start, slice.end)) return;
     _kept.removeWhere((k) => k.start >= slice.start && k.end <= slice.end);
     final at = _kept.indexWhere((k) => k.start > slice.start);
     _kept.insert(at < 0 ? _kept.length : at, slice);
@@ -73,14 +75,14 @@ class RangedFile {
     }
     final todo = [
       for (final (s, e) in joined)
-        if (!_covered(s, e)) (s, e),
+        if (!_keeps(s, e)) (s, e),
     ];
     for (var i = 0; i < todo.length; i += 16) {
       final batch = todo.sublist(i, math.min(i + 16, todo.length));
       final read = await Future.wait([for (final (s, e) in batch) _read(s, e)]);
       for (final (k, (s, e)) in batch.indexed) {
         if (read[k].length != e - s) throw StateError('Read ${read[k].length} bytes of $s…$e');
-        if (!_covered(s, s + read[k].length)) _keep(_Slice(s, read[k]));
+        _keep(_Slice(s, read[k]));
       }
     }
   }
@@ -90,12 +92,24 @@ class RangedFile {
     return slice != null && slice.end >= end;
   }
 
+  /// Whether a kept slice holds bytes [start] to [end] (the content slice
+  /// is dropped when the next one loads, so it does not count).
+  bool _keeps(int start, int end) {
+    final slice = _keptAt(start);
+    return slice != null && slice.end >= end;
+  }
+
   _Slice? _sliceAt(int at) {
     final last = _last;
     if (last != null && last.contains(at)) return last;
     final content = _content;
     if (content != null && content.contains(at)) return _last = content;
-    // The last kept slice starting at or before [at].
+    if (_keptAt(at) case final kept?) return _last = kept;
+    return null;
+  }
+
+  /// The kept slice holding byte [at]: the last starting at or before it.
+  _Slice? _keptAt(int at) {
     var lo = 0, hi = _kept.length - 1, found = -1;
     while (lo <= hi) {
       final mid = (lo + hi) >> 1;
@@ -106,8 +120,7 @@ class RangedFile {
         hi = mid - 1;
       }
     }
-    if (found >= 0 && _kept[found].contains(at)) return _last = _kept[found];
-    return null;
+    return found >= 0 && _kept[found].contains(at) ? _kept[found] : null;
   }
 
   /// The byte at [at].
