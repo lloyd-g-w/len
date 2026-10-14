@@ -43,6 +43,7 @@ extension _SelectionCommits on _SelectionCore {
     points: s.points,
     createdAt: createdAt,
     style: s.style,
+    shape: s.shape,
   );
 
   /// Replaces the selected items with [strokes] (one per selected stroke,

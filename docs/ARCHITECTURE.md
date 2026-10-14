@@ -1303,11 +1303,26 @@ Markers for system traces (atrace app `dev.len.len`; event times are
 `tool/wet_ink_check/latency_trace.cfg` (Perfetto) and `latency.sql`
 (trace_processor) turn a trace into the latency table of `docs/INK_LAB.md`.
 
-Resting the pen for 600 ms at the end of a stroke snaps it
+Resting the pen for 600 ms at the end of a stroke snaps it, in place
 (`input/hold_to_straighten.dart` + `shapes/shape_recognizer.dart`): open
-strokes become a line (whose end then follows the pen) or an arrow, closed
-ones a rectangle (axis-aligned or rotated), ellipse/circle, triangle or
-polygon; scribbles stay freehand. Only the clean shape is committed.
+strokes become an arrow (a straight shaft and a wing on each side of its
+tip) or, if nearly straight already (no point off the chord by more than
+8 % of it, the path at most 1.15 × the chord), a line whose end then
+follows the pen; closed ones (ends within 30 % of the bounding diagonal)
+an ellipse/circle or a polygon, whichever fits better: the polygon's
+corners are RDP vertices (two closer than 10 % of the diagonal are one
+rounded corner) moved to where the sides, fitted as lines, meet
+(`Polyline.fitCorners`: a hand rounds corners off), then 3 → triangle, 4
+→ diamond (diagonals along the axes), rectangle (right angles; rotated or,
+within 6°, axis-aligned, each side midway between its corners), else
+polygon. Closed strokes under 48 screen px stay as written (letters such as
+"o" or "0"), and handwriting, curves and scribbles are never recognised.
+Snapped shapes have the shape look (`ShapeBuilder.styleFor`) and their
+geometry (`LiveInk.shape` → `Stroke.shape`); only the clean shape is
+committed. The recogniser is tested on hand-drawn samples
+(`test/support/hand_shapes.dart`: rounded corners, bowed sides, gaps and
+overshoots, landing hooks, tilt) and on simulated handwriting that must not
+snap.
 
 **Scribble to erase** (`input/scribble_detector.dart`, on by default, a
 switch in Settings → Writing): a pen (ballpoint) stroke holding a fast
@@ -1362,9 +1377,23 @@ surface.
 ## Editing tools
 
 - **Shapes** are ordinary strokes whose points trace a clean outline at
-  constant pressure, with no stabiliser
-  (`shapes/shape_builder.dart`), so they render, erase, select and sync
-  like ink. The Shape tool drags out a box (Shift: square / 15° lines).
+  constant pressure (`shapes/shape_builder.dart`), so they render, erase,
+  select and sync like ink, and that carry their geometry
+  (`Stroke.shape`, `domain/shape_geometry.dart`: the kind and its control
+  points — line ends, corners, vertices, an ellipse's centre and conjugate
+  semi-axes, a star's frame and inner radius), so they stay editable.
+  Every kind is described by points an affine map takes to the same kind,
+  so moving, scaling and rotating a selection maps them
+  (`TransformItems.stroke`); the pixel eraser's pieces are free-hand ink.
+  A shape's look is the pen's colour, width and opacity as an even line
+  with round ends (`ShapeBuilder.styleFor`: no pressure, taper, flat ends
+  or stabiliser). The Shape tool (`tools/shape_tool.dart`) previews the
+  shape from the press to the pointer on every move (Shift, pressed or
+  released at any time: square / 15° lines) and commits exactly the shape
+  last shown; a tap on a shape selects it. The live outline is rebuilt
+  whenever the live points are replaced rather than extended
+  (`LiveInk.generation`; the incremental builder would otherwise keep the
+  outline of an earlier preview).
   **Fill:** a closed stroke (`Stroke.isClosed`: last point = first, as
   closed shapes are built) shows `StrokeStyle.fill` (ARGB, translucent for
   tints) beneath its outline as the polygon of its points
@@ -2623,8 +2652,8 @@ again.
   it matches no ink; two Android devices online at once may both read new
   ink before either's record arrives); a changed surface is re-clustered from all its strokes (cheap per
   page, heavier on huge canvases); a phrase is found only within one line;
-  shapes drawn with the pen are recognised like writing (usually as
-  nonsense); no pause while on battery.
+  drawings made free-hand with the pen are recognised like writing (usually
+  as nonsense; shapes, `Stroke.shape`, are left out); no pause while on battery.
 - Search: PDF text is only
   extracted for PDFs present on the device (fetched when a page is viewed);
   FTS5's

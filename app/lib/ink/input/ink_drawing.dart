@@ -222,12 +222,15 @@ class InkDrawing {
       // A snapped shape's end follows no speed (the pen rested to snap it),
       // and it is no scribble.
       final snapped = live.straightened;
+      final shape = live.shape;
       if (snapped) _endFollowsSpeed = false;
-      final points = StrokeSampler.settleEnd(live.finish());
+      // A shape's points are its outline, as shown.
+      final finished = live.finish();
+      final points = shape != null ? finished : StrokeSampler.settleEnd(finished);
       // A bounce was shown while it touched (under the nib, where the pen
       // just lifted, for less than `BounceFilter.maxContact`) and goes now.
       if (points.isNotEmpty && !_isBounce(liftTime) && !_scribble.erase(model, snapped: snapped)) {
-        _commit(points, liftTime, snapped: snapped);
+        _commit(points, liftTime, snapped: snapped, shape: shape);
       }
       _recordLift(liftTime);
     }

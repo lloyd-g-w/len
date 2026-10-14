@@ -107,8 +107,9 @@ abstract final class Polyline {
 
   /// Corners of a closed loop (not repeating its start): RDP on both halves
   /// of the loop, then dropping vertices that barely turn (e.g. the start
-  /// point when the shape was begun mid-edge) until all turn by > 30°.
-  static List<Offset> corners(List<Offset> loop, double epsilon) {
+  /// point when the shape was begun mid-edge) until all turn by > 30°, and
+  /// one of any two closer than [merge] (a rounded corner taken as two).
+  static List<Offset> corners(List<Offset> loop, double epsilon, {double merge = 0}) {
     var far = 0;
     for (var i = 1; i < loop.length; i++) {
       if ((loop[i] - loop[0]).distance > (loop[far] - loop[0]).distance) far = i;
@@ -133,12 +134,86 @@ abstract final class Polyline {
           weakest = i;
         }
       }
+      if (weakest == -1) weakest = _crowded(vertices, merge);
       if (weakest != -1) {
         vertices.removeAt(weakest);
         changed = true;
       }
     }
     return vertices;
+  }
+
+  /// Of the closest two neighbouring [vertices], if closer than [merge],
+  /// the one turning less; else -1.
+  static int _crowded(List<Offset> vertices, double merge) {
+    final n = vertices.length;
+    var closest = -1, closestDistance = merge;
+    for (var i = 0; i < n; i++) {
+      final d = (vertices[(i + 1) % n] - vertices[i]).distance;
+      if (d < closestDistance) {
+        closestDistance = d;
+        closest = i;
+      }
+    }
+    if (closest == -1) return -1;
+    double turn(int i) => _turn(vertices[(i - 1 + n) % n], vertices[i], vertices[(i + 1) % n]);
+    final next = (closest + 1) % n;
+    return turn(closest) < turn(next) ? closest : next;
+  }
+
+  /// [corners] of the closed [loop] moved to where its sides, fitted as
+  /// straight lines, meet: a hand rounds corners off, cutting them short.
+  /// Each side is fitted to the loop points nearest to it, leaving out
+  /// those near its ends; a corner whose sides are nearly parallel, or
+  /// that would move more than [reach], stays.
+  static List<Offset> fitCorners(List<Offset> loop, List<Offset> corners, double reach) {
+    final n = corners.length;
+    final sides = List.generate(n, (_) => <Offset>[]);
+    for (final p in loop) {
+      var best = 0, bestDistance = double.infinity;
+      for (var i = 0; i < n; i++) {
+        final d = distanceToSegment(p, corners[i], corners[(i + 1) % n]);
+        if (d < bestDistance) {
+          bestDistance = d;
+          best = i;
+        }
+      }
+      final a = corners[best], b = corners[(best + 1) % n];
+      final ab = b - a, lengthSq = ab.distanceSquared;
+      if (lengthSq == 0) continue;
+      final t = ((p - a).dx * ab.dx + (p - a).dy * ab.dy) / lengthSq;
+      if (t > 0.2 && t < 0.8) sides[best].add(p);
+    }
+    final lines = [
+      for (var i = 0; i < n; i++)
+        sides[i].length >= 4 ? _fitLine(sides[i]) : (corners[i], corners[(i + 1) % n] - corners[i]),
+    ];
+    return [
+      for (var i = 0; i < n; i++)
+        () {
+          final (p, u) = lines[(i - 1 + n) % n];
+          final (q, v) = lines[i];
+          final cross = u.dx * v.dy - u.dy * v.dx;
+          if (cross.abs() < 0.2 * u.distance * v.distance) return corners[i];
+          final t = ((q - p).dx * v.dy - (q - p).dy * v.dx) / cross;
+          final meet = p + u * t;
+          return (meet - corners[i]).distance <= reach ? meet : corners[i];
+        }(),
+    ];
+  }
+
+  /// The least-squares line through [points]: a point on it and its
+  /// direction.
+  static (Offset, Offset) _fitLine(List<Offset> points) {
+    final c = centroid(points);
+    var sxx = 0.0, syy = 0.0, sxy = 0.0;
+    for (final p in points) {
+      final d = p - c;
+      sxx += d.dx * d.dx;
+      syy += d.dy * d.dy;
+      sxy += d.dx * d.dy;
+    }
+    return (c, Offset.fromDirection(0.5 * math.atan2(2 * sxy, sxx - syy)));
   }
 
   /// Mean distance of [points] to the closed polygon [corners].

@@ -19,6 +19,7 @@ import 'package:len/ui/app_theme.dart';
 Future<(AppServices, Notebook)> openCanvas(
   WidgetTester tester, {
   Size size = const Size(1280, 800),
+  double scale = 1,
   void Function(AppServices services, Notebook notebook)? seed,
 }) async {
   tester.view
@@ -36,8 +37,8 @@ Future<(AppServices, Notebook)> openCanvas(
     coverColor: 0xFF3B5BDB,
   );
   seed?.call(services, notebook);
-  // World = screen coordinates: open at the origin, 100 %.
-  pinCanvasView(services, notebook.id, size);
+  // World = screen coordinates (at [scale] 1): open at the origin.
+  pinCanvasView(services, notebook.id, size, scale: scale);
   await tester.pumpWidget(
     AppScope(
       services: services,
@@ -51,10 +52,13 @@ Future<(AppServices, Notebook)> openCanvas(
   return (services, notebook);
 }
 
-/// Makes canvas [notebookId] open at the origin at 100 % on a [size]
-/// screen (instead of centred on its content).
-void pinCanvasView(AppServices services, String notebookId, Size size) => services.settings
-    .setEditorView(notebookId, EditorViewState(scale: 1, offset: Offset.zero, size: size).encode());
+/// Makes canvas [notebookId] open at the origin at [scale] (100 %) on a
+/// [size] screen (instead of centred on its content).
+void pinCanvasView(AppServices services, String notebookId, Size size, {double scale = 1}) =>
+    services.settings.setEditorView(
+      notebookId,
+      EditorViewState(scale: scale, offset: Offset.zero, size: size).encode(),
+    );
 
 /// A horizontal ink stroke from (100, 400) to (200, 400).
 Stroke seedStroke(String surface) => Stroke(

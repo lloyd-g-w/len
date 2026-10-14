@@ -6,17 +6,19 @@ import '../../domain/stroke.dart';
 import '../geometry/straighten.dart';
 import '../shapes/polyline.dart';
 import '../shapes/shape_builder.dart';
-import '../shapes/shape_kind.dart';
 import '../shapes/shape_recognizer.dart';
 import 'live_ink.dart';
 
 /// "Hold to snap": when the pen rests for [holdDuration] at the end of a
-/// live stroke, the stroke is recognised ([ShapeRecognizer]) and replaced:
-///  * an open stroke becomes a straight line — moving on then moves the
-///    line's end — or an arrow;
-///  * a closed stroke becomes a clean rectangle, ellipse, triangle or
-///    polygon (which then stays put until the pen lifts);
-///  * an unrecognisable closed stroke (a scribble) is left alone.
+/// live stroke, the stroke is recognised ([ShapeRecognizer]) and replaced,
+/// in place, by a clean shape with editable geometry ([LiveInk.shape]):
+///  * a nearly straight open stroke becomes a line — moving on then moves
+///    the line's end — and one ending in a head an arrow;
+///  * a closed stroke at least [minShape] across becomes a clean
+///    rectangle, ellipse, triangle, diamond or polygon (which then stays
+///    put until the pen lifts);
+///  * anything else (handwriting, a curve, a scribble, a small letter "o")
+///    is left alone.
 /// Only the clean shape is ever committed, so a single undo removes it.
 ///
 /// An ink with [PenConfig.straight] is straight from the start: [begin]
@@ -34,6 +36,10 @@ class HoldToStraighten {
 
   /// Strokes shorter than this (screen pixels) are never straightened.
   static const double minLength = 24;
+
+  /// Closed strokes smaller than this (screen pixels, their longest side)
+  /// stay as written: letters and digits ("o", "0", "8").
+  static const double minShape = 48;
 
   /// The shortest open stroke (screen pixels) [wouldSnap] counts as a
   /// line someone might have wanted straight, and the smallest closed one.
@@ -92,9 +98,11 @@ class HoldToStraighten {
     if (_shaped) return true;
     final from = _from;
     if (from != null) {
-      live.replaceAll(
-        Straighten.line([from, StrokePoint(point.x, point.y, _pressure)], spacing: 2 / _scale),
-      );
+      live
+        ..shape = ShapeGeometry(ShapeKind.line, [from.offset, point.offset])
+        ..replaceAll(
+          Straighten.line([from, StrokePoint(point.x, point.y, _pressure)], spacing: 2 / _scale),
+        );
       return true;
     }
     final anchor = _anchor;
@@ -121,20 +129,21 @@ class HoldToStraighten {
     _timer = null;
     final points = live.points;
     if (!live.isDrawing || Straighten.pathLength(points) * _scale < minLength) return;
-    final shape = ShapeRecognizer.recognize([for (final p in points) p.offset]);
+    final offsets = [for (final p in points) p.offset];
+    final shape = ShapeRecognizer.recognize(offsets);
     if (shape == null) return;
+    if (shape.kind.isClosed && Polyline.bounds(offsets).longestSide * _scale < minShape) return;
     _pressure = Straighten.medianPressure(points);
+    live
+      ..straightened = true
+      ..style = ShapeBuilder.styleFor(live.style)
+      ..shape = shape;
     if (shape.kind == ShapeKind.line) {
       _from = points.first;
-      live
-        ..straightened = true
-        ..replaceAll(Straighten.line(points, spacing: 2 / _scale));
+      live.replaceAll(Straighten.line(points, spacing: 2 / _scale));
     } else {
       _shaped = true;
-      live
-        ..straightened = true
-        ..style = ShapeBuilder.styleFor(live.style)
-        ..replaceAll(ShapeBuilder.points(shape.outline, spacing: 2 / _scale, pressure: _pressure));
+      live.replaceAll(ShapeBuilder.pointsOf(shape, spacing: 2 / _scale, pressure: _pressure));
     }
     unawaited(HapticFeedback.selectionClick());
   }

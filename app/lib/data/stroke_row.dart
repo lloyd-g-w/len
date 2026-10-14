@@ -36,9 +36,23 @@ class StrokeRow {
     width: stroke.width,
     points: StrokeCodec.encode(stroke.points),
     createdAt: stroke.createdAt,
-    style: jsonEncode(stroke.style.toJson()),
+    style: jsonEncode(styleJson(stroke.style, stroke.shape)),
     chunks: StrokeChunks.of(stroke).toList(growable: false),
   );
+
+  /// The `style` column and record field: [style], with a shape's
+  /// [shape] under `sh`.
+  static Map<String, Object?> styleJson(StrokeStyle style, ShapeGeometry? shape) => {
+    ...style.toJson(),
+    if (shape != null) 'sh': shape.toJson(),
+  };
+
+  /// The shape stored in a decoded `style` field, if any; throws
+  /// [FormatException] when it is malformed.
+  static ShapeGeometry? shapeOf(Object? style) => switch (style) {
+    {'sh': final Object sh} => ShapeGeometry.fromJson(sh),
+    _ => null,
+  };
 
   /// The row of the live stroke record [id] with payload [data]; throws
   /// [FormatException] (or a [TypeError] / [ArgumentError] a value check
@@ -75,7 +89,7 @@ class StrokeRow {
           width: width.toDouble(),
           points: bytes,
           createdAt: createdAt,
-          style: jsonEncode(StrokeStyle.fromJson(data['style']).toJson()),
+          style: jsonEncode(styleJson(StrokeStyle.fromJson(data['style']), shapeOf(data['style']))),
           chunks: [key],
         );
       }
@@ -159,6 +173,7 @@ class StrokeRow {
       points: decoded,
       createdAt: createdAt,
       style: StrokeStyle.fromJson(data['style']),
+      shape: shapeOf(data['style']),
     );
   }
 }

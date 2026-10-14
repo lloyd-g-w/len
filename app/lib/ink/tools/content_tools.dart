@@ -69,6 +69,7 @@ class ContentTools {
     live: live,
     tools: tools,
     viewport: viewport,
+    selection: selection,
     clock: clock,
   );
   late final TextTool textTool = TextTool(session: text, tools: tools, viewport: viewport);

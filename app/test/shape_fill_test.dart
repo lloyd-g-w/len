@@ -40,7 +40,8 @@ Stroke shape(
   tool: InkTool.ballpoint,
   color: 0xFFD32F2F,
   width: 2,
-  points: ShapeBuilder.points(ShapeBuilder.outline(kind, box.topLeft, box.bottomRight)),
+  points: ShapeBuilder.pointsOf(ShapeBuilder.dragged(kind, box.topLeft, box.bottomRight)),
+  shape: ShapeBuilder.dragged(kind, box.topLeft, box.bottomRight),
   createdAt: createdAt,
   style: ShapeBuilder.styleFor(const StrokeStyle()).withFill(fill),
 );

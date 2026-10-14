@@ -39,7 +39,7 @@ class _ShapeGlyphPainter extends CustomPainter {
     // Lines and arrows run corner to corner; closed shapes fill the box.
     final a = Offset(inset, open ? size.height - inset : inset);
     final b = Offset(size.width - inset, open ? inset : size.height - inset);
-    final pts = ShapeBuilder.outline(kind, a, b);
+    final pts = ShapeBuilder.outline(ShapeBuilder.dragged(kind, a, b));
     canvas.drawPath(
       Path()..addPolygon(pts, false),
       Paint()

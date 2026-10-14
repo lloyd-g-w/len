@@ -58,11 +58,12 @@ abstract final class InkClustering {
   /// Strokes shorter than this many units count as small (dots, accents).
   static const double smallFactor = 0.45;
 
-  /// Lines of [strokes], top to bottom (then left to right).
+  /// Lines of [strokes], top to bottom (then left to right). Highlights
+  /// and shapes ([Stroke.shape]) are no writing and left out.
   static List<InkLine> lines(Iterable<Stroke> strokes) {
     final items = [
       for (final s in strokes)
-        if (!s.tool.isHighlighter) _Item(s, inkBounds(s)),
+        if (!s.tool.isHighlighter && s.shape == null) _Item(s, inkBounds(s)),
     ]..sort((a, b) => Stroke.paintOrder(a.stroke, b.stroke));
     if (items.isEmpty) return const [];
     final unit = _unit(items);

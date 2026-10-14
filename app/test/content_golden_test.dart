@@ -14,7 +14,6 @@ import 'package:len/features/editor/toolbar/tool_switcher.dart';
 import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/ink/pen/pen_config.dart';
 import 'package:len/ink/shapes/shape_builder.dart';
-import 'package:len/ink/shapes/shape_kind.dart';
 
 import 'content_tools_ui_test.dart' show key, liveStrokes, mouseDrag, openCanvas;
 
@@ -58,15 +57,17 @@ Future<void> loadFonts() async {
 
 Stroke shape(String id, ShapeKind kind, Offset a, Offset b, int color, {int? fill}) {
   final config = PenConfig.defaultsFor(InkTool.ballpoint);
+  final geometry = ShapeBuilder.dragged(kind, a, b);
   return Stroke(
     id: id,
     surfaceId: '',
     tool: InkTool.ballpoint,
     color: color,
     width: 3,
-    points: ShapeBuilder.points(ShapeBuilder.outline(kind, a, b)),
+    points: ShapeBuilder.pointsOf(geometry),
     createdAt: 2,
     style: ShapeBuilder.styleFor(config.styleFor(InkTool.ballpoint)).withFill(fill),
+    shape: geometry,
   );
 }
 
