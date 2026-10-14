@@ -179,9 +179,11 @@ class _LibraryHeaderState extends State<LibraryHeader> {
         // No empty caption line: the title then centres on the ☰ and tools.
         if (caption.isNotEmpty) ...[
           const SizedBox(height: Gaps.xxs),
+          // Two lines before it gives up: with large text on a phone,
+          // "…, deleted after 30 days" lost the part that matters.
           Text(
             caption,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall,
           ),
