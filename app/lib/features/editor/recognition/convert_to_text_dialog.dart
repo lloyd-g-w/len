@@ -12,6 +12,7 @@ import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/chip_surface.dart';
 import '../../../ui/messages.dart';
+import '../../../ui/section_label.dart';
 
 /// What the user chose in the "Convert to text" dialog.
 sealed class _Choice {
@@ -278,7 +279,7 @@ class _ConvertDialogState extends State<_ConvertDialog> {
         ),
         if (r.alternatives.isNotEmpty) ...[
           const SizedBox(height: Gaps.md),
-          Text('Other readings', style: theme.textTheme.bodySmall),
+          const SectionLabel('Other readings'),
           const SizedBox(height: Gaps.xs),
           ChipSurface(
             child: Wrap(

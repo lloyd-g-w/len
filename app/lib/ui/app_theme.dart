@@ -210,6 +210,10 @@ abstract final class Palette {
   /// themed).
   static const Color bookmark = Color(0xFFE8590C);
 
+  /// Shades what a crop cuts away (image crop, scan corners): over a photo,
+  /// not the chrome, so the same in both themes.
+  static const Color cropShade = Color(0x99000000);
+
   static const List<int> covers = [
     0xFF3B5BDB, // ink blue
     0xFF0CA678, // teal

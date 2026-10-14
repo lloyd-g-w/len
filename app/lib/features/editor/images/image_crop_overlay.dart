@@ -254,14 +254,14 @@ class _CropPainter extends CustomPainter {
         ..fillType = PathFillType.evenOdd
         ..addRect(image)
         ..addRect(crop),
-      Paint()..color = const Color(0x99000000),
+      Paint()..color = Palette.cropShade,
     );
     canvas.restore();
 
     final outline = Paint()
       ..color = accent
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = Hairline.rule;
     Offset at(double fx, double fy) => viewport.toScreen(
       session.toWorld.apply(Offset(crop.left + crop.width * fx, crop.top + crop.height * fy)),
     );
@@ -269,7 +269,7 @@ class _CropPainter extends CustomPainter {
     // Rule-of-thirds guides.
     final guide = Paint()
       ..color = const Color(0x88FFFFFF)
-      ..strokeWidth = 1;
+      ..strokeWidth = Hairline.width;
     for (final f in const [1 / 3, 2 / 3]) {
       canvas
         ..drawLine(at(f, 0), at(f, 1), guide)

@@ -12,6 +12,7 @@ import '../../../ui/color_picker/color_choices.dart';
 import '../../../ui/group_header.dart';
 import '../../../ui/roving_focus.dart';
 import '../pen/option_controls.dart';
+import '../pen/stroke_preview.dart';
 
 /// The laser pointer's settings: dot or trail, colour, size, when the
 /// trail fades (each stroke on its own, or all of it once the writing
@@ -168,7 +169,10 @@ class LaserPreview extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.sm),
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
-      child: SizedBox(height: 64, child: CustomPaint(painter: _PreviewPainter(config))),
+      child: SizedBox(
+        height: PreviewCard.defaultHeight,
+        child: CustomPaint(painter: _PreviewPainter(config)),
+      ),
     );
   }
 }
