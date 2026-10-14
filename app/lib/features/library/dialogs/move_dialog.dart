@@ -107,7 +107,7 @@ class _FolderRow extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       style: theme.textTheme.labelLarge?.copyWith(
         color: scheme.onSurface,
-        fontWeight: current ? FontWeight.w600 : null,
+        fontWeight: current ? AppTheme.currentWeight : null,
       ),
     );
     // The current location carries the margin rule (DESIGN §6.3) and is not

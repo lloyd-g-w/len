@@ -56,7 +56,7 @@ class _TabRow extends StatelessWidget {
           tab.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: current ? const TextStyle(fontWeight: FontWeight.w600) : null,
+          style: current ? const TextStyle(fontWeight: AppTheme.currentWeight) : null,
         ),
         trailing: IconButton(
           tooltip: 'Close tab',

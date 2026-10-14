@@ -14,6 +14,12 @@ export 'tones.dart';
 /// in a six-role scale, Material Symbols Sharp, flat chrome with hairlines,
 /// and depth only for paper ([Shadows]).
 abstract final class AppTheme {
+  /// The weight of the current or chosen row's label in a list (the
+  /// sidebar, Move, the pickers, the outline, the overview, the tab
+  /// switcher): with the margin rule, "a bold label" (DESIGN §6). Selected
+  /// chips and segments, on an Ink plate, stay semibold.
+  static const FontWeight currentWeight = FontWeight.w700;
+
   /// The accent: ruling blue (light theme).
   static const Color seed = Color(0xFF0068C9);
 

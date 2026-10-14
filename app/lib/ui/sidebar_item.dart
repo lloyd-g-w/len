@@ -110,7 +110,7 @@ class _SidebarItemState extends State<SidebarItem> {
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.labelLarge?.copyWith(
                               color: foreground,
-                              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                              fontWeight: selected ? AppTheme.currentWeight : FontWeight.w500,
                             ),
                           ),
                         ),

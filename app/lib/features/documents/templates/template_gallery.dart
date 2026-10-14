@@ -323,7 +323,7 @@ class TemplateTile extends StatelessWidget {
     final theme = Theme.of(context);
     return theme.textTheme.bodySmall?.copyWith(
       color: selected ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
-      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+      fontWeight: selected ? AppTheme.currentWeight : FontWeight.w500,
     );
   }
 

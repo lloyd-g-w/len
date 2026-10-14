@@ -271,7 +271,7 @@ class _StripPage extends StatelessWidget {
                 '$number',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: target ? scheme.onSurface : null,
-                  fontWeight: target ? FontWeight.w700 : null,
+                  fontWeight: target ? AppTheme.currentWeight : null,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),

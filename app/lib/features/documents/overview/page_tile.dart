@@ -262,7 +262,7 @@ class _Footer extends StatelessWidget {
               '${tile.index + 1}',
               style: theme.textTheme.labelLarge?.copyWith(
                 color: current ? scheme.onSurface : scheme.onSurfaceVariant,
-                fontWeight: current ? FontWeight.w700 : null,
+                fontWeight: current ? AppTheme.currentWeight : null,
                 fontFeatures: AppTheme.tabularFigures,
               ),
             ),

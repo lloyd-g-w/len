@@ -184,7 +184,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
           style: (row.depth == 0 ? theme.textTheme.labelLarge : theme.textTheme.bodyMedium)
               ?.copyWith(
                 color: theme.colorScheme.onSurface,
-                fontWeight: marked ? FontWeight.w700 : null,
+                fontWeight: marked ? AppTheme.currentWeight : null,
               ),
         ),
         subtitle: page == null ? const Text('Page deleted') : null,
