@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:cross_file/cross_file.dart';
@@ -9,6 +10,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/features/documents/pdf/pdf_background_cache.dart';
 import 'package:len/features/documents/pdf/pdf_import.dart';
+import 'package:len/features/documents/pdf/pdf_renderer.dart';
 import 'package:len/features/documents/pdf/pdf_tiles.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:pdf/pdf.dart' as pw;
@@ -17,6 +19,47 @@ import 'package:pdfrx/pdfrx.dart';
 import 'pdf_test.dart' show pdfium, pixel;
 
 const a4 = Size(794, 1123);
+
+/// Records the widths whole pages and tiles are rendered at.
+class _SizeRecorder extends PdfRenderer {
+  _SizeRecorder(super.blobs);
+
+  final pages = <int>[];
+  final tiles = <int>[];
+
+  @override
+  Future<ui.Image?> render(
+    String sha,
+    int index,
+    int pixelWidth, {
+    bool Function()? stillWanted,
+  }) async {
+    pages.add(pixelWidth);
+    return _image();
+  }
+
+  @override
+  Future<ui.Image?> renderArea(
+    String sha,
+    int index, {
+    required int fullWidth,
+    required int fullHeight,
+    required int x,
+    required int y,
+    required int width,
+    required int height,
+    bool Function()? stillWanted,
+  }) async {
+    tiles.add(fullWidth);
+    return _image();
+  }
+
+  static Future<ui.Image> _image() {
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder);
+    return recorder.endRecording().toImage(1, 1);
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +70,14 @@ void main() {
       expect(PdfTiling.levelFor(4096), 4096);
       expect(PdfTiling.levelFor(4097), 8192);
       expect(PdfTiling.levelFor(1e9), PdfTiling.maxLevel);
+      expect(PdfTiling.levelFor(100, above: 150), 256);
+      expect(PdfTiling.levelFor(300, above: 150), 512);
+    });
+
+    test('a whole page is never taller than the limit', () {
+      expect(PdfTiling.wholePageWidth(a4), PdfTiling.wholePageMax);
+      expect(PdfTiling.wholePageWidth(const Size(1000, 20000)), PdfTiling.wholePageTall ~/ 20);
+      expect(PdfTiling.wholePageWidth(const Size(1, 1e9)), 1);
     });
 
     test('tiles cover the page exactly; only visible ones are listed', () {
@@ -50,6 +101,47 @@ void main() {
       expect(last.x + last.width, width);
       expect(last.y + last.height, PdfTiling.heightAt(width, a4));
     });
+  });
+
+  test('a very tall page is rendered whole at most the limit tall, tiles beyond', () async {
+    final dir = Directory.systemTemp.createTempSync('len_pdf_tall_');
+    final services = AppServices.create(
+      AppDatabase.inMemory(),
+      blobBackend: FileBlobBackend(dir.path),
+    );
+    addTearDown(() {
+      services.dispose();
+      dir.deleteSync(recursive: true);
+    });
+    final sha = await services.blobs.putBytes(Uint8List(8), mime: 'application/pdf');
+    final renderer = _SizeRecorder(services.blobs);
+    final cache = PdfBackgroundCache(
+      blobs: services.blobs,
+      fetch: (_) async => true,
+      renderer: renderer,
+    );
+    addTearDown(cache.dispose);
+    final background = PageBackground.pdf(blob: sha, pageIndex: 0);
+    const tall = Size(800, 16000); // A long receipt or web page.
+    Future<void> paint(double ppu, Rect visible) async {
+      final recorder = ui.PictureRecorder();
+      cache.paint(Canvas(recorder), background, tall, visible, ppu);
+      recorder.endRecording().dispose();
+      while (cache.isBusy) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    // 1600 px wide (32000 px tall whole), the top 1600 × 1200 px in view.
+    await paint(2, const Rect.fromLTWH(0, 0, 800, 600));
+    expect(renderer.pages, isNotEmpty);
+    for (final width in renderer.pages) {
+      expect(PdfTiling.heightAt(width, tall), lessThanOrEqualTo(PdfTiling.wholePageTall));
+    }
+    // The part in view comes sharp from tiles, a few of them.
+    expect(renderer.tiles, isNotEmpty);
+    expect(renderer.tiles.length, lessThan(16));
+    expect(renderer.tiles.every((w) => w >= 1600), isTrue);
   });
 
   group('rendering', () {

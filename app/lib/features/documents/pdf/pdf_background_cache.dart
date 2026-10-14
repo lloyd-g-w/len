@@ -18,7 +18,7 @@ typedef _PageImage = ({PageBackground background, int width});
 /// Renders PDF page backgrounds on demand, at a resolution matching the
 /// current zoom, and caches the results (least recently used first out).
 ///
-/// Whole pages are rendered up to [PdfTiling.wholePageMax] pixels wide, at
+/// Whole pages are rendered up to [PdfTiling.wholePageWidth] pixels wide, at
 /// widths quantised to steps of √2, so zooming re-renders a page only a few
 /// times. Deeper zoom renders just the visible tiles of the page
 /// ([PdfTiling]); until they arrive, the best whole-page image and any
@@ -68,16 +68,20 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
   static const int minWidth = 256;
   static const int maxWidth = PdfTiling.wholePageMax;
 
-  /// The rendering width used for a requested [pixelWidth] (whole pages).
-  static int bucketFor(double pixelWidth) {
-    if (!pixelWidth.isFinite || pixelWidth <= minWidth) return minWidth;
+  /// The rendering width used for a requested [pixelWidth] (whole pages),
+  /// at most [max].
+  static int bucketFor(double pixelWidth, {int max = maxWidth}) {
+    if (!pixelWidth.isFinite || pixelWidth <= minWidth) return math.min(minWidth, max);
     final steps = (2 * math.log(pixelWidth / minWidth) / math.ln2).ceil();
-    return math.min(maxWidth, (minWidth * math.pow(math.sqrt2, steps)).round());
+    return math.min(max, (minWidth * math.pow(math.sqrt2, steps)).round());
   }
 
   @override
-  ui.Image? imageFor(PageBackground background, double pixelWidth) {
-    final key = (background: background, width: bucketFor(pixelWidth));
+  ui.Image? imageFor(PageBackground background, double pixelWidth) =>
+      _imageFor(background, pixelWidth, maxWidth);
+
+  ui.Image? _imageFor(PageBackground background, double pixelWidth, int max) {
+    final key = (background: background, width: bucketFor(pixelWidth, max: max));
     final hit = _touch(key);
     if (hit != null) return hit;
     _request(key);
@@ -93,16 +97,21 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
     double pixelsPerUnit,
   ) {
     final pixelWidth = page.width * pixelsPerUnit;
-    final base = imageFor(background, math.min(pixelWidth, maxWidth.toDouble()));
+    final whole = PdfTiling.wholePageWidth(page);
+    final base = _imageFor(background, pixelWidth, whole);
     if (base == null && isMissing(background)) {
       paintMissingPdf(canvas, page);
       return;
     }
     if (base != null) _draw(canvas, base, ui.Offset.zero & page, antiAlias: true);
-    if (pixelWidth <= maxWidth) return;
-    final level = PdfTiling.levelFor(pixelWidth);
+    if (pixelWidth <= whole) return;
+    final level = PdfTiling.levelFor(pixelWidth, above: whole);
     // What is cached meanwhile: coarser levels first, then the finer one.
-    for (var width = maxWidth * 2; width <= math.min(level * 2, PdfTiling.maxLevel); width *= 2) {
+    for (
+      var width = PdfTiling.levelFor(0, above: whole);
+      width <= math.min(level * 2, PdfTiling.maxLevel);
+      width *= 2
+    ) {
       if (width != level) _drawTiles(canvas, background, page, visible, width, request: false);
     }
     _drawTiles(canvas, background, page, visible, level, request: true);
