@@ -304,6 +304,12 @@ void main() {
     await tester.tap(find.byTooltip('Show results'));
     await tester.pumpAndSettle();
     expect(find.textContaining('structure', findRichText: true), findsOneWidget);
+    // Rows are touch targets (UX_AUDIT R5-16).
+    final row = find.ancestor(
+      of: find.textContaining('structure', findRichText: true),
+      matching: find.byType(InkWell),
+    );
+    expect(tester.getSize(row.first).height, greaterThanOrEqualTo(Targets.touch));
   });
 
   testWidgets('phone: stepping to a match folds the list and scrolls without panning sideways', (

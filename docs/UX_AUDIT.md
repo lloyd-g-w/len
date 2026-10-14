@@ -2390,13 +2390,15 @@ open (or reveal the current match below it). *Files:*
 `features/search/editor/editor_search_host.dart`,
 `features/search/editor/editor_search_layer.dart`.
 
-**R5-16 P2 · Search result rows are 36 dp tall on touch.** `_MatchTile`
+**R5-16 P2 · Search result rows are 36 dp tall on touch.** ✅ `_MatchTile`
 (`features/search/editor/editor_search_bar.dart:259`): one line plus 8 dp
 padding top and bottom. The "Page 3" label is `labelSmall` (bold overline)
 pinned to the top, so it outweighs the snippet. *Fix:* rows at least
 `Targets.menuRowHeight`; the location as `bodySmall`, aligned with the first
 line's baseline. Add the search panel to `accessibility_test.dart`. *Files:*
 `editor_search_bar.dart`.
+*Done (`fix/r10-open`):* rows are at least `Targets.menuRowHeight`; the page
+sits on the snippet's first line (`editor_search_results.dart`).
 
 **R5-17 P2 · Recording: paused looks like recording, and dark mode shouts.**
 `e_audio_paused_tablet_*`: the pill stays red-tinted with a dimmed red dot,
