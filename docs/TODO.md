@@ -27,10 +27,11 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   back-and-forths), without false positives in normal writing.
 
 ## Notebooks
-- ⬜ **Default notebook style**: set the default template, paper, size and cover for new
+- ✅ **Default notebook style**: set the default template, paper, size and cover for new
   notebooks.
-- ⬜ **Own presets / styles**: save and reuse notebook styles (template + paper + size +
-  cover), and pen presets.
+- ✅ **Own presets / styles**: save and reuse notebook styles (template + paper + size +
+  cover). Pen presets left out on purpose: favourite pens were removed (SIMPLIFY #10) as a
+  duplicate of the quick colour and width slots.
 
 ## Laser pointer
 - 🚧 (feat/lasso-laser) **Keep-while-writing option**: the trail stays until about 2 s after pen-up; writing

@@ -2252,12 +2252,26 @@ expect.
   in favourites, trash, search, selection or list layout); ⊕▾ creates everywhere else. Phones
   get the FAB instead, hidden while an empty state offers its own button.
 - **New notebook sheet** (`new_notebook_sheet.dart`, `new_notebook/`): one column (title,
-  Notebook / Canvas, Template (`PaperRow`, "Background" for a canvas) with the recent papers and "All templates…" → the template
+  Styles, Notebook / Canvas, Template (`PaperRow`, "Background" for a canvas) with the recent papers and "All templates…" → the template
   picker, `CoverRow`, page size) with `NotebookPreview` beside it in the dialog and as a strip
   on phones. The papers come from `recentPapers` (`AppPreferences.recentPapers`, filled up with
   defaults; canvases only tiling papers); creating a notebook records its paper. Where the
   library has no ⊕▾ (phones), "Import PDF…" and "Import Len file…" are quiet links at the
   sheet's foot, under Create.
+- **Notebook styles** (`notebook_styles` collection, `NotebookStyleRepository`,
+  `domain/notebook_style.dart`): a `NotebookChoice` (notebook or canvas, a built-in template
+  and its look, paper colour, page format and orientation, cover colour; never a user's image
+  template) under a name. The sheet's Styles row (`StyleRow`, `style_actions.dart`) shows them
+  as chips that fill in the whole form at once, the one matching the form selected; "Save as
+  style…" names the current choice (hidden when it matches a style). Tapping the selected chip
+  again, a long press, a right click or the Menu key opens its menu: "Default for new
+  notebooks" (checked; one default, `setDefault` clears the others; after concurrent marks the
+  latest wins), Rename…, Delete…. The sheet starts from the default style, else from
+  `AppPreferences.lastNotebookChoice` (what the last *notebook*, not canvas, was made as,
+  recorded by `LibraryActions.createNotebook`), else college ruled. Notebooks copy the values,
+  so later edits to a style change nothing made with it; new pages in a notebook keep following
+  the notebook's own paper. Library backups carry styles (not added twice; a restored default
+  only where none is set).
 - **Live covers.** `ThumbnailRenderer` draws the first page (paged) or the content nearest
   the origin (canvas) with the editor's own `PaperPainter` and `StrokeRenderer` into a
   `ui.Image`. `ThumbnailCache` keys previews by a cheap per-surface fingerprint
@@ -2412,7 +2426,8 @@ searches it.
 `SettingsRepository`: theme mode (the app's `ThemeData` are built once, with a fixed ink-blue accent),
 stylus-only, finger-tap undo and redo (one switch), stylus side-button action
 (`PenButtonAction.eraser|lasso|none`), editor toolbar placement (docked / floating, and the floating position),
-library layout and sort, and the papers of the latest new notebooks. Getters always read
+library layout and sort, the papers of the latest new notebooks and what the last new
+notebook was made as (`lastNotebookChoice`). Getters always read
 the store, so values written elsewhere are never stale.
 
 ## UI design system (`ui/`)
