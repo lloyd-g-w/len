@@ -1,8 +1,10 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/domain/link_target.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
@@ -149,6 +151,55 @@ void main() {
     expect(find.byType(EditorWorkspace), findsNothing);
     expect(find.byType(LibraryScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a link to a page of another notebook opens it at that page', (tester) async {
+    tester.view
+      ..physicalSize = const Size(1280, 800)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final s = AppServices.create(AppDatabase.inMemory());
+    addTearDown(s.dispose);
+    final notes = s.notebooks.create(
+      title: 'Notes',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    final physics = s.notebooks.create(
+      title: 'Physics',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    for (var i = 0; i < 3; i++) {
+      s.pages.addPage(physics.id);
+    }
+    final target = s.pages.pagesOf(physics.id)[2];
+    final page = s.pages.pagesOf(notes.id).single;
+    s.elements.save([
+      LinkElements.create(
+        id: 'link',
+        surfaceId: page.id,
+        rect: Offset.zero & page.size,
+        target: PageLinkTarget(notebookId: physics.id, pageId: target.id),
+        createdAt: 1,
+        z: -1,
+      ),
+    ]);
+    s.preferences.stylusOnly = true; // A finger tap follows links.
+    await tester.pumpWidget(
+      AppScope(
+        services: s,
+        child: MaterialApp(theme: AppTheme.light(), home: const LibraryScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await openCard(tester, 'Notes');
+    await tester.tapAt(const Offset(640, 450), kind: PointerDeviceKind.touch);
+    await tester.pumpAndSettle();
+    expect(s.openNotebooks.active?.id, physics.id);
+    expect(find.text('3 / 4'), findsOneWidget);
   });
 
   for (final (size, strip, top) in const [
