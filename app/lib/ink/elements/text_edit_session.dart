@@ -117,7 +117,9 @@ class TextEditSession extends ChangeNotifier {
     );
   }
 
-  /// Whether the user changed the box in this session.
+  /// Whether the user changed the box in this session (until then it
+  /// follows changes made elsewhere).
+  bool get isEdited => _edited;
   bool _edited = false;
 
   void _update(SurfaceElement element) {

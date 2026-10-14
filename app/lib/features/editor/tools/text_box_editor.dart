@@ -84,6 +84,11 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
       }
       // List items wrap with hanging indents at the box width.
       if (element != null) _text.wrapWidth = element.rect.width;
+      // Not typed in yet: it follows the box changed elsewhere (sync, the
+      // other pane).
+      if (id != null && !_session.isEdited && _session.data != _text.data) {
+        _text.load(_session.data);
+      }
       return;
     }
     if (element != null) _text.wrapWidth = element.rect.width;
