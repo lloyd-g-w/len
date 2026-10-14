@@ -38,6 +38,8 @@ EditorMenuActions editorMenuActions(
     onPlacement: (p) => prefs.toolbarPlacement = p,
     onSettings: onSettings,
     onSearch: onSearch,
+    zoomWindow: session.zoomWindow.isOpen,
+    onZoomWindow: session.toggleZoomWindow,
     bookmarked: page?.bookmarked ?? false,
     onOverview: paged ? () => openPageOverview(context, session) : null,
     onPageCommand: paged ? (c) => commands.run(context, c, page) : null,

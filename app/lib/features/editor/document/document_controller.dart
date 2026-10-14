@@ -200,6 +200,16 @@ class DocumentController extends _DocumentState with _DocumentViewport {
   /// The index of the first page with template [paper], or -1.
   int indexOfPaper(Paper paper) => _pages.indexWhere((p) => p.paper.sameSheet(paper));
 
+  /// Makes page [index] the active page (in single-page flow, turning to
+  /// it: only the page shown can be active).
+  void activate(int index) {
+    if (index < 0 || index >= _pages.length) return;
+    if (_flow == PageFlow.single && index != _current) return goToPage(index);
+    if (index == _active) return;
+    _activate(index);
+    notifyListeners();
+  }
+
   /// Makes the page under [screen] (or nearest to it) the active page.
   void activateAt(Offset screen) {
     final world = viewport.toWorld(screen);

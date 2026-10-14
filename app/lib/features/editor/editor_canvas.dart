@@ -104,9 +104,14 @@ class EditorCanvas extends StatelessWidget {
         if (!focusNode.hasFocus) focusNode.requestFocus();
       },
       // While a menu is open, a tap on the canvas only closes it.
+      // A hand writing in the zoom window rests on the page: it neither
+      // draws nor scrolls there.
       child: ListenableBuilder(
-        listenable: guard,
-        builder: (context, child) => AbsorbPointer(absorbing: guard.blocking, child: child),
+        listenable: Listenable.merge([guard, session.zoomWindow.blocksPage]),
+        builder: (context, child) => AbsorbPointer(
+          absorbing: guard.blocking || session.zoomWindow.blocksPage.value,
+          child: child,
+        ),
         child: surface,
       ),
     );

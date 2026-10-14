@@ -113,17 +113,7 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
   PageSurface surfaceOf(String pageId) {
     final existing = _surfaces[pageId];
     if (existing != null) return existing;
-    final model = models.acquire(
-      pageId,
-      () => SurfaceModel(
-        surfaceId: pageId,
-        repository: repository,
-        elementRepository: elements,
-        images: images,
-        writeBehind: true,
-        outlines: outlines,
-      ),
-    )..addListener(notifyListeners);
+    final model = acquireModel(pageId)..addListener(notifyListeners);
     // Content an owner lifted out (a selection, a text editor) repaints
     // the ink painter, unless the owner is this view's own (see self).
     void onLifted() {
@@ -138,6 +128,23 @@ class DocumentSurfaces extends ChangeNotifier implements UndoTarget {
     surface.rasters.addListener(_rendered.notifyListeners);
     return surface;
   }
+
+  /// The model of page [pageId], held (beside this view's surfaces) until
+  /// [releaseModel]: for a view of the page of its own (the zoom window).
+  SurfaceModel acquireModel(String pageId) => models.acquire(
+    pageId,
+    () => SurfaceModel(
+      surfaceId: pageId,
+      repository: repository,
+      elementRepository: elements,
+      images: images,
+      writeBehind: true,
+      outlines: outlines,
+    ),
+  );
+
+  /// Lets go of a model taken with [acquireModel].
+  void releaseModel(String pageId) => models.release(pageId);
 
   /// The page receiving input; its surface is never released while idle
   /// (the input controller and editing tools hold on to it).

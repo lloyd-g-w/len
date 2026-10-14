@@ -29,6 +29,10 @@ import 'pdf/pdf_highlight_snap.dart';
 import 'pdf/pdf_interaction.dart';
 import 'shared/shared_notebook.dart';
 import 'tabs/open_notebooks.dart';
+import 'zoom/zoom_box_viewport.dart';
+import 'zoom/zoom_host.dart';
+import 'zoom/zoom_hosts.dart';
+import 'zoom/zoom_window.dart';
 
 /// The engine side of one open editor: tool settings, input routing, the
 /// content tools, undo, and either one infinite-canvas surface or a paged
@@ -148,6 +152,24 @@ class EditorSession {
     activateAt: doc?.activateAt,
   );
 
+  /// The zoom window: writing small through a magnified box.
+  late final ZoomWindow zoomWindow = () {
+    _zoomCreated = true;
+    return ZoomWindow(host: _zoomHost(), input: _zoomInput);
+  }();
+  bool _zoomCreated = false;
+
+  /// Opens the zoom window (with the pen, unless the highlighter or the
+  /// eraser is in hand: the box writes and erases), or closes it.
+  void toggleZoomWindow() {
+    final zoom = zoomWindow;
+    if (!zoom.isOpen) {
+      final tool = tools.tool;
+      if (tool != EditorTool.highlighter && tool != EditorTool.eraser) tools.tool = EditorTool.pen;
+    }
+    zoom.toggle();
+  }
+
   /// Page and web links: finding, following and making them.
   late final EditorLinks links = EditorLinks(this);
 
@@ -238,6 +260,55 @@ class EditorSession {
     penButtonAction: () => services.preferences.penButtonAction,
   );
 
+  ZoomHost _zoomHost() {
+    final doc = this.doc;
+    if (doc != null) {
+      return DocumentZoomHost(
+        doc: doc,
+        animator: docAnimator!,
+        chromeInsets: () => _chromeInsets,
+        addPageAfter: commands!.addPageAfter,
+      );
+    }
+    return CanvasZoomHost(
+      surfaceId: shared.notebook.id,
+      model: canvas!,
+      main: canvasViewport!,
+      animator: canvasNav!.animator,
+      paper: () => shared.notebook.paper,
+      chromeInsets: () => _chromeInsets,
+    );
+  }
+
+  /// The zoom window's input: the editor's tools and live ink, seen through
+  /// the box (its own palm rejection, no canvas gestures or pointer tools).
+  /// The low-latency overlay draws in screen pixels: the box's view, moved
+  /// to where the box lies on the screen.
+  InkInputController _zoomInput(SurfaceModel model, ZoomBoxViewport view) => InkInputController(
+    model: model,
+    viewport: view,
+    tools: tools,
+    live: live,
+    samples: openStylusSamples(
+      wetInk: () => WetInkStyle.of(live, view.scale),
+      wetInkNext: () => WetInkStyle.forNextStroke(tools, view.scale),
+      wetInkView: () {
+        final origin = zoomWindow.boxOrigin;
+        var clip = origin & view.size;
+        if (zoomWindow.host.boundsOf(model.surfaceId) case final page?) {
+          clip = clip.intersect(
+            Rect.fromPoints(
+              view.toScreen(page.topLeft),
+              view.toScreen(page.bottomRight),
+            ).shift(origin),
+          );
+        }
+        return WetInkView(clip: clip, scale: view.scale, offset: view.offset + origin);
+      },
+    ),
+    penButtonAction: () => services.preferences.penButtonAction,
+  );
+
   /// Keeps document content scrollable clear of the chrome covering
   /// [covered] of the screen, and fits keep canvas content clear of it.
   /// Applied after the frame (it moves the viewport, which notifies).
@@ -266,6 +337,7 @@ class EditorSession {
   void dispose() {
     _disposed = true;
     input.cancelDraw(); // Stops a stroke's or tool's pending timers.
+    if (_zoomCreated) zoomWindow.dispose();
     images.dispose();
     content.dispose();
     gestures.dispose();

@@ -18,6 +18,8 @@ class EditorMenuActions {
     required this.onPlacement,
     required this.onSettings,
     required this.onSearch,
+    required this.zoomWindow,
+    required this.onZoomWindow,
     this.bookmarked = false,
     this.onOverview,
     this.onPageCommand,
@@ -46,6 +48,10 @@ class EditorMenuActions {
 
   /// Opens in-notebook search (Ctrl+F).
   final VoidCallback onSearch;
+
+  /// Whether the zoom window is open; [onZoomWindow] opens or closes it.
+  final bool zoomWindow;
+  final VoidCallback onZoomWindow;
 
   // Paged notebooks.
   /// Whether the current page is bookmarked (the page menu's Bookmark

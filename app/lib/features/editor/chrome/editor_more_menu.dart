@@ -173,6 +173,13 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           () => a.onPlacement(ToolbarPlacement.floating),
         ),
         const Divider(),
+        MenuItemButton(
+          leadingIcon: const Icon(Symbols.pageview_sharp),
+          trailingIcon: _MenuSwitch(value: a.zoomWindow),
+          shortcut: Targets.touchFirst ? null : const SingleActivator(LogicalKeyboardKey.keyM),
+          onPressed: a.onZoomWindow,
+          child: const Text('Zoom window'),
+        ),
         _item(
           Symbols.fullscreen_sharp,
           'Focus mode',
