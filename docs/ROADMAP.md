@@ -32,6 +32,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   so their centre lands on another page move to that page (ink re-added, elements re-parented) — one
   undo step. Single-page flow keeps per-page selections
 - ✅ Shapes: draw-and-hold to snap (line, arrow, rectangle, ellipse, triangle, polygon); Shape tool (line, arrow, rectangle, ellipse, triangle, diamond, star)
+- ✅ Shape fill: closed shapes (drawn or snapped) filled with none, a light / medium / strong tint
+  of their ink or a solid colour — picked in the Shapes options, changed on a selection's Style;
+  live, tiles, thumbnails, replay, PDF / PNG export, synced (`style.f`), undoable
 - ✅ Text boxes (synced `elements`): rich text within a box — bold, italic, underline,
   strikethrough, colour, highlight, size and font per character; headings; bulleted, numbered
   and checklist items (tap to tick, Tab to indent) with hanging indents when they wrap (canvas,
