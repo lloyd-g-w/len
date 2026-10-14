@@ -96,6 +96,7 @@ Future<(AppServices, Notebook)> seededCanvas(WidgetTester tester) async {
         points: st.points,
         createdAt: st.createdAt,
         style: st.style,
+        shape: st.shape,
       );
       s.strokes.save([
         on(

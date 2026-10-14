@@ -11,6 +11,7 @@ import '../../domain/text/text_data.dart';
 import '../elements/element_order.dart';
 import '../geometry/affine.dart';
 import '../render/content_painter.dart';
+import '../shapes/shape_builder.dart';
 import '../surface_model.dart';
 import '../undo_history.dart';
 import 'ink_clipboard.dart';
@@ -58,7 +59,7 @@ abstract class _SelectionCore extends ChangeNotifier {
     _imageChanges = _model.images?.changes.listen((blob) {
       if (_picture == null || !_elements.any((e) => e.data['blob'] == blob)) return;
       _picture!.dispose();
-      _picture = _record();
+      _picture = _record(_reshaped == null ? _strokes : [_reshaped!]);
       notifyListeners();
     });
   }
@@ -98,6 +99,23 @@ abstract class _SelectionCore extends ChangeNotifier {
   /// The selected content as recorded at selection time (world coords).
   ui.Picture? get picture => _picture;
 
+  /// The selected stroke when it is a single shape stored here, whose
+  /// points can be dragged ([reshape]).
+  Stroke? get shapeStroke {
+    if (_strokes.length != 1 || _elements.isNotEmpty || _sources.isNotEmpty) return null;
+    return _strokes.single.shape == null ? null : _strokes.single;
+  }
+
+  /// The geometry of [shapeStroke] as shown (with a reshape, move, resize
+  /// or rotation in progress); null when no single shape is selected.
+  ShapeGeometry? get shape => _reshaped?.shape ?? shapeStroke?.shape?.map(_preview.apply);
+
+  /// Whether a gesture is changing the selection (its menu steps aside).
+  bool get isChanging => _reshaped != null || !_preview.isIdentity;
+
+  /// [shapeStroke] reshaped by the drag in progress.
+  Stroke? _reshaped;
+
   /// Selects [strokes] and [elements] (replacing any previous selection).
   /// Items stored on other surfaces are given in this surface's
   /// coordinates, with their [sources] (by id).
@@ -112,10 +130,11 @@ abstract class _SelectionCore extends ChangeNotifier {
     _sources = Map.unmodifiable(sources);
     _preview = Affine.identity;
     _previewFrame = null;
+    _reshaped = null;
     _picture?.dispose();
     _picture = null;
     _frame = isEmpty ? null : frame ?? _frameAround(_strokes, _elements);
-    if (!isEmpty) _picture = _record();
+    if (!isEmpty) _picture = _record(_strokes);
     _hide();
     // Other views of this surface (split view) draw the selection from
     // here instead of a hole where it was.
@@ -194,6 +213,44 @@ abstract class _SelectionCore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Shows [shapeStroke] reshaped to [shape] (a handle being dragged)
+  /// without committing anything.
+  void reshape(ShapeGeometry shape) {
+    final stroke = shapeStroke;
+    if (stroke == null) return;
+    final reshaped = _reshaped = ShapeBuilder.reshaped(stroke, shape, id: stroke.id);
+    _picture?.dispose();
+    _picture = _record([reshaped]);
+    _previewFrame = _frameAround([reshaped], const []);
+    notifyListeners();
+  }
+
+  /// Commits the shape [reshape] showed as one undoable edit (its fill and
+  /// look kept), and keeps it selected.
+  void commitReshape() {
+    final reshaped = _reshaped;
+    if (reshaped == null) return;
+    final frame = _previewFrame;
+    _reshaped = null;
+    if (reshaped.shape == _strokes.single.shape) return cancelReshape();
+    _replace(
+      [reshaped.withPoints(reshaped.points, id: clock.newId(), shape: reshaped.shape)],
+      const [],
+      frame: frame,
+    );
+  }
+
+  /// Drops the shape [reshape] showed.
+  void cancelReshape() {
+    final wasReshaped = _reshaped != null || _previewFrame != null;
+    _reshaped = null;
+    if (!wasReshaped || isEmpty) return;
+    _picture?.dispose();
+    _picture = _record(_strokes);
+    _previewFrame = null;
+    notifyListeners();
+  }
+
   // ---------------------------------------------------------------------------
   // Internals
 
@@ -217,11 +274,11 @@ abstract class _SelectionCore extends ChangeNotifier {
     return identical(lookup(source?.surface.model ?? _model), source?.original ?? item);
   }
 
-  ui.Picture _record() {
+  ui.Picture _record(List<Stroke> strokes) {
     final recorder = ui.PictureRecorder();
     ContentPainter.paint(
       Canvas(recorder),
-      _strokes,
+      strokes,
       _elements,
       images: _model.images,
       pixelScale: pixelScale,

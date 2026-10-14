@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+import '../../domain/shape_geometry.dart';
+import '../shapes/shape_handles.dart';
 import '../viewport.dart';
 import 'selection_frame.dart';
 
@@ -21,8 +23,14 @@ abstract final class SelectionChrome {
   static const double edgeInset = 12;
 
   /// Screen positions of the handles shown for [frame] (kept [edgeInset]
-  /// inside the view).
-  static Map<SelectionHandle, Offset> handles(SelectionFrame frame, ViewportController viewport) {
+  /// inside the view). Around a single [shape] its own points are the
+  /// handles ([shapeHandles]): the frame only keeps its rotate handle, and
+  /// lines and arrows not even that (their ends turn them).
+  static Map<SelectionHandle, Offset> handles(
+    SelectionFrame frame,
+    ViewportController viewport, {
+    ShapeGeometry? shape,
+  }) {
     final size = viewport.size;
     final inside = size.width > 4 * edgeInset && size.height > 4 * edgeInset
         ? (Offset.zero & size).deflate(edgeInset)
@@ -36,8 +44,9 @@ abstract final class SelectionChrome {
     final width = frame.rect.width * viewport.scale;
     final height = frame.rect.height * viewport.scale;
     final result = <SelectionHandle, Offset>{};
+    if (shape != null && !shape.kind.isClosed) return result;
     for (final h in SelectionHandle.values) {
-      if (h == SelectionHandle.rotate) continue;
+      if (h == SelectionHandle.rotate || shape != null) continue;
       final small = width < minEdgeHandleSpan || height < minEdgeHandleSpan;
       if (!h.isCorner && small) continue;
       result[h] = at(h.fraction);
@@ -55,15 +64,40 @@ abstract final class SelectionChrome {
   /// The handle under [screen], if any (the rotate handle and corners win
   /// over edges when they overlap). Inside the frame the reach is shorter,
   /// so small selections can still be dragged by their middle.
-  static SelectionHandle? hit(SelectionFrame frame, ViewportController viewport, Offset screen) {
+  static SelectionHandle? hit(
+    SelectionFrame frame,
+    ViewportController viewport,
+    Offset screen, {
+    ShapeGeometry? shape,
+  }) {
     SelectionHandle? best;
     final inside = frame.contains(viewport.toWorld(screen));
     var bestDistance = inside ? hitRadius / 2 : hitRadius;
-    for (final entry in handles(frame, viewport).entries) {
+    for (final entry in handles(frame, viewport, shape: shape).entries) {
       final d = (entry.value - screen).distance;
       final preferred = entry.key == SelectionHandle.rotate || entry.key.isCorner;
       if (d < bestDistance || (preferred && !inside && d <= hitRadius && d < bestDistance + 4)) {
         best = entry.key;
+        bestDistance = d;
+      }
+    }
+    return best;
+  }
+
+  /// Screen positions of [shape]'s handles ([ShapeHandles.of]).
+  static List<Offset> shapeHandles(ShapeGeometry shape, ViewportController viewport) => [
+    for (final p in ShapeHandles.of(shape)) viewport.toScreen(p),
+  ];
+
+  /// The index of [shape]'s handle nearest to [screen] within [hitRadius],
+  /// if any.
+  static int? shapeHandleAt(ShapeGeometry shape, ViewportController viewport, Offset screen) {
+    int? best;
+    var bestDistance = hitRadius;
+    for (final (i, p) in shapeHandles(shape, viewport).indexed) {
+      final d = (p - screen).distance;
+      if (d <= bestDistance) {
+        best = i;
         bestDistance = d;
       }
     }

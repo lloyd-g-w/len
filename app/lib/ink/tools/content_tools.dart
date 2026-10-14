@@ -139,7 +139,9 @@ class ContentTools {
   bool holds(Offset screen) {
     final frame = selection.frame;
     if (frame == null || selection.isEmpty) return false;
-    return SelectionChrome.hit(frame, viewport, screen) != null ||
+    final shape = selection.shape;
+    return SelectionChrome.hit(frame, viewport, screen, shape: shape) != null ||
+        (shape != null && SelectionChrome.shapeHandleAt(shape, viewport, screen) != null) ||
         frame.contains(viewport.toWorld(screen));
   }
 

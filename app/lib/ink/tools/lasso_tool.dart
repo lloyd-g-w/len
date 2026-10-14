@@ -1,15 +1,19 @@
 import 'dart:async';
-import 'dart:ui';
 
+import 'package:flutter/services.dart';
+
+import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
 import '../selection/lasso.dart';
 import '../selection/lasso_path.dart';
 import '../selection/selection_chrome.dart';
 import '../selection/selection_controller.dart';
 import '../selection/selection_frame.dart';
+import '../shapes/shape_handles.dart';
 import '../viewport.dart';
 import 'content_hit_test.dart';
 import 'pointer_tool.dart';
+import 'shape_tool.dart';
 
 /// Where a selection dragged by the lasso may be dropped besides its own
 /// surface: another editor of a split view. Positions are in the lasso's
@@ -42,7 +46,9 @@ abstract interface class LassoText {
 }
 
 /// The lasso: draw a loop to select, tap to select one item, drag the
-/// selection to move it, drag its handles to resize or rotate it. A long
+/// selection to move it, drag its handles to resize or rotate it — or,
+/// for a single shape, its own points to reshape it (one undo step per
+/// drag; Shift keeps a line's end on 15° steps). A long
 /// press on empty space asks to paste ([onLongPress]); a double tap on a
 /// text box edits it ([onEditText]).
 ///
@@ -93,6 +99,10 @@ class LassoTool implements PointerTool {
 
   /// From the pointer to the grabbed resize handle's true spot (world).
   Offset _grab = Offset.zero;
+
+  /// The shape whose point [_point] is being dragged.
+  ShapeGeometry? _shape;
+  int _point = 0;
   Timer? _longPressTimer;
   ({String id, int time})? _lastTap;
 
@@ -106,8 +116,18 @@ class LassoTool implements PointerTool {
     _startWorld = _lastWorld = p.world;
     _dragged = false;
     final frame = selection.frame;
+    final shape = selection.shape;
+    if (shape != null) {
+      if (SelectionChrome.shapeHandleAt(shape, viewport, p.screen) case final point?) {
+        _mode = _Mode.reshape;
+        _shape = shape;
+        _point = point;
+        _grab = ShapeHandles.of(shape)[point] - p.world;
+        return;
+      }
+    }
     if (frame != null && !selection.isEmpty) {
-      final handle = SelectionChrome.hit(frame, viewport, p.screen);
+      final handle = SelectionChrome.hit(frame, viewport, p.screen, shape: shape);
       if (handle != null || frame.contains(p.world)) {
         _mode = _Mode.transform;
         _handle = handle;
@@ -159,9 +179,19 @@ class LassoTool implements PointerTool {
         };
         selection.setPreview(result.transform, result.frame);
         if (_handle == null) dragOut?.dragging(p.screen, _centreOnScreen);
+      case _Mode.reshape:
+        selection.reshape(ShapeHandles.drag(_shape!, _point, _reshapeTarget(p.world + _grab)));
       case _Mode.idle:
         break;
     }
+  }
+
+  /// Where a dragged shape point goes for the pointer at [world]: a
+  /// line's or arrow's end keeps to 15° steps around the other with Shift.
+  Offset _reshapeTarget(Offset world) {
+    final shape = _shape!;
+    if (shape.kind.isClosed || !HardwareKeyboard.instance.isShiftPressed) return world;
+    return ShapeTool.constrain(shape.kind, shape.points[1 - _point], world);
   }
 
   @override
@@ -193,10 +223,13 @@ class LassoTool implements PointerTool {
           selection.cancelPreview();
           _tap(_lastWorld, keepSelection: true);
         }
+      case _Mode.reshape:
+        _dragged ? selection.commitReshape() : selection.cancelReshape();
       case _Mode.idle:
         break;
     }
     _mode = _Mode.idle;
+    _shape = null;
   }
 
   /// Where the centre of the selection being moved is on screen.
@@ -216,8 +249,11 @@ class LassoTool implements PointerTool {
     if (_mode == _Mode.transform) dragOut?.end();
     _longPressTimer?.cancel();
     path.clear();
-    selection.cancelPreview();
+    selection
+      ..cancelPreview()
+      ..cancelReshape();
     _mode = _Mode.idle;
+    _shape = null;
   }
 
   /// Whether ink or an element lies under [world]. Highlights don't count:
@@ -289,4 +325,4 @@ class LassoTool implements PointerTool {
   }
 }
 
-enum _Mode { idle, lasso, text, transform }
+enum _Mode { idle, lasso, text, transform, reshape }

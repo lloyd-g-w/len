@@ -1419,6 +1419,23 @@ surface.
   gestures. The clipboard (`InkClipboard`) lives in `AppServices`, so paste
   works across pages and notebooks; paste goes to the screen centre
   (Ctrl+V, menu) or a long-press position.
+- **Editing a shape's points**: a single shape selected on its own surface
+  (`SelectionController.shapeStroke`, by the lasso or a tap — with the
+  lasso, or the Shape tool on a shape) shows its control points as handles
+  instead of the frame's resize handles (`ShapeHandles`,
+  `SelectionChrome.shapeHandles`: line and arrow ends, rectangle and
+  diamond and triangle corners, polygon vertices, an ellipse's bounding
+  corners, a star's five points — turning and sizing it about its centre —
+  and a small solid dot setting its inner radius). Rectangles and
+  ellipses keep their side directions (the opposite corner stays); lines
+  and arrows have no frame (their ends move and turn them; Shift: 15°),
+  closed shapes keep the rotate handle. Handles are 6.5 px knobs like the
+  frame's, hit within `SelectionChrome.hitRadius`, grabbed where they are
+  (no jump). Dragging one (`LassoTool`, mode reshape) shows the shape
+  rebuilt (`ShapeBuilder.reshaped`: outline 2 px apart at its zoom, same
+  look and fill) as the selection's picture; the release commits it as one
+  `InkEdit` (remove + add, so it syncs), keeping it selected. During moves
+  and rotations the handles follow the preview transform.
 - **Selections across pages** (paged notebooks, continuous flow): the
   selection stays bound to the active page's surface, but
   `SelectionController.surfaces` (a `SelectionSurfaces`, given by
