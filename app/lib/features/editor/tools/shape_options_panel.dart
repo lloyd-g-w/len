@@ -73,16 +73,19 @@ class ShapeOptionsPanel extends StatelessWidget {
           // between kinds) but is dimmed and inert.
           IgnorePointer(
             ignoring: !tools.shape.isClosed,
-            child: ExcludeSemantics(
+            child: ExcludeFocus(
               excluding: !tools.shape.isClosed,
-              child: AnimatedOpacity(
-                duration: Motion.fast,
-                opacity: tools.shape.isClosed ? 1 : 0.38,
-                child: FillChoices(
-                  fill: tools.shapeFill,
-                  ink: tools.configOf(InkTool.ballpoint).color,
-                  recent: tools.recentColors,
-                  onChanged: (f, {required fromBlock}) => tools.shapeFill = f,
+              child: ExcludeSemantics(
+                excluding: !tools.shape.isClosed,
+                child: AnimatedOpacity(
+                  duration: Motion.fast,
+                  opacity: tools.shape.isClosed ? 1 : 0.38,
+                  child: FillChoices(
+                    fill: tools.shapeFill,
+                    ink: tools.configOf(InkTool.ballpoint).color,
+                    recent: tools.recentColors,
+                    onChanged: (f, {required fromBlock}) => tools.shapeFill = f,
+                  ),
                 ),
               ),
             ),

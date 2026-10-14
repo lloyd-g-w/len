@@ -57,7 +57,10 @@ class _MatchTile extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(Radii.xs),
         onTap: onTap,
-        child: Padding(
+        // A touch target, like menu rows; longer snippets grow it.
+        child: Container(
+          constraints: BoxConstraints(minHeight: Targets.menuRowHeight(context)),
+          alignment: AlignmentDirectional.centerStart,
           padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.sm),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,20 +68,34 @@ class _MatchTile extends StatelessWidget {
               SearchHitIcon(hit: match.hit),
               const SizedBox(width: Gaps.sm),
               Expanded(
-                child: HighlightedText(
-                  SearchSnippet.of(match.hit.body, query, around: match.range.start, length: 90),
-                  style: theme.textTheme.bodyMedium,
+                // The page sits on the snippet's first line.
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(
+                      child: HighlightedText(
+                        SearchSnippet.of(
+                          match.hit.body,
+                          query,
+                          around: match.range.start,
+                          length: 90,
+                        ),
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                    const SizedBox(width: Gaps.sm),
+                    if (match.pageIndex != null)
+                      Text(
+                        hitLocation(match.hit),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontFeatures: AppTheme.tabularFigures,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              const SizedBox(width: Gaps.sm),
-              if (match.pageIndex != null)
-                Text(
-                  hitLocation(match.hit),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontFeatures: AppTheme.tabularFigures,
-                  ),
-                ),
             ],
           ),
         ),

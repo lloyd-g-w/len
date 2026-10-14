@@ -37,6 +37,14 @@ class FillChoices extends StatelessWidget {
 
   static const List<String> _tintNames = ['Light tint', 'Medium tint', 'Strong tint'];
 
+  /// [fill]'s place in the row: none, the tints, solid.
+  static int? _index(ShapeFill? fill) {
+    if (fill == null) return null;
+    if (fill.isNone) return 0;
+    if (fill.isTint) return 1 + ShapeFill.tints.indexOf(fill.tint);
+    return 1 + ShapeFill.tints.length;
+  }
+
   String _label(ShapeFill? fill) {
     if (fill == null) return 'Mixed';
     if (fill.isNone) return 'None';
@@ -71,12 +79,7 @@ class FillChoices extends StatelessWidget {
         RovingGroup(
           axis: Axis.horizontal,
           single: true,
-          selected: switch (current) {
-            null => null,
-            final f when f.isNone => 0,
-            final f when f.isTint => 1 + ShapeFill.tints.indexOf(f.tint),
-            _ => 1 + ShapeFill.tints.length,
-          },
+          selected: _index(current),
           child: Wrap(
             children: [
               dot(

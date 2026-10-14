@@ -100,14 +100,15 @@ can't see. *Fix:* select the shown pages; trim the selection when the
 filter changes. Paths: `documents/overview/page_overview.dart:107,184-197`.
 Effort S.
 
-**R10-10 P1 · "Edit text" from the lasso menu leaves the Text tool on.** ⬜
+**R10-10 P1 · "Edit text" from the lasso menu leaves the Text tool on.** ✅
 - *What:* `_editText` switches to `EditorTool.text` and never back; the
   next stylus stroke does nothing (a drag is ignored by the text tool),
   which reads as a dead pen.
 - *Fix:* restore the previous tool when that edit session ends (unless the
   user picked another tool meanwhile).
-- Paths: `editor/tools/content_layer.dart:136` (tools/* is busy on other
-  branches: left open). Effort S.
+- Paths: `editor/tools/content_layer.dart:136`. Effort S.
+- *Done:* `ContentTools.editText` (lasso menu and double tap) brings the
+  tool used before back when the edit ends; a tool picked meanwhile stays.
 
 **R10-11 P2 · Android back during a library search leaves the app.** ✅
 `canPop` ignores `isSearching`. *Fix:* back clears the search first.
@@ -143,17 +144,24 @@ Settings tile passes the intent, so failures say "Couldn’t restore".
 Paths: `backup/len_import_flow.dart:190-250`. Effort S.
 
 **R10-17 P2 · Opening a big backup shows nothing, and the tile can be
-tapped again.** ⬜ (half done: the Settings tile waits while a restore runs; the progress dialog still opens only after the file is read) `lenFiles.open` (which reads the contents) runs before
+tapped again.** ✅ `lenFiles.open` (which reads the contents) runs before
 the progress dialog. *Fix:* open inside the progress dialog; guard the
 flow against running twice. Paths: `backup/len_import_flow.dart:190-208`.
 Effort M.
+*Done:* the file is read behind an "Opening" progress dialog (modal, so
+nothing behind takes a second tap; Cancel abandons it and closes the file);
+the Settings tile waits while a restore runs.
 
 **R10-18 P2 · A huge PDF can't be cancelled while its pages are measured;
-a batch of PDFs can't be cancelled as a whole.** ⬜ `pageSizes` and the
+a batch of PDFs can't be cancelled as a whole.** ✅ `pageSizes` and the
 blob write take no cancel token; the batch loop opens the next dialog
 straight after a Cancel. *Fix:* pass the token through; a Cancel stops the
 batch. Paths: `documents/pdf/pdf_import.dart:46-70`,
 `documents/import/import_flow.dart:63-72`. Effort M.
+*Done:* measuring waits behind the dialog's Cancel (`CancellationToken.race`),
+the copy checks it while hashing and while storing, and a Cancel in any
+file's dialog (PDF, inserted PDF, Len file) stops the rest of the batch;
+the files done before it stay.
 
 **R10-19 P2 · New folder lands out of view with no feedback** (while
 searching inside a folder, or from Favourites / Trash via Ctrl+Shift+N). ✅
@@ -1250,7 +1258,7 @@ template typography.**
 
 ### Whole app
 
-**R8-34 P2 · New surfaces have no screenshots.**
+🟡 **R8-34 P2 · New surfaces have no screenshots.**
 - *What:* nothing in `test/screenshots/` renders:
   - the move or copy picker;
   - "New notebook…";
@@ -1276,6 +1284,10 @@ library sideways) and moving or copying from the editor (`o_page_menu_move_phone
 `o_move_copy_only_phone`, `o_move_new_notebook_phone`; the overview's picker
 was already in `overview_move_*`). Backup progress and the restore result
 are `fix/r8-data`'s; the scribble preview `fix/r8-pen`'s.
+*Since:* `app_surfaces3_screenshot_test.dart` renders the restore question
+and result (`restore_confirm`, `restore_gaps`) and progress dialogs
+(`s_import_progress_*`); `organise_screenshot_test.dart` "New notebook…".
+Still unrendered: the notice on a short window without notebooks.
 
 **✅ R8-35 P2 · Small drift from DESIGN.md.**
 - *What:*
@@ -1407,7 +1419,7 @@ counts are approximate):
 
 ### Writing
 
-**R7-1 P1 · A pen can't select PDF text.** The text selection that Copy,
+✅ **R7-1 P1 · A pen can't select PDF text.** The text selection that Copy,
 Highlight and link creation need starts only from the canvas long-press
 menu (`features/editor/editor_gestures.dart:24`, `selectWordAt`). Long
 presses are recognised only for a navigating finger with no pen nearby
@@ -1428,7 +1440,7 @@ and a drag extends it, and a quick open drag that circles no ink selects the
 text it spans. Loops starting on text still lasso ink. Finger long-press is
 unchanged. The tip says "…; tap PDF text to select it".
 
-**R7-2 P1 · Phones: the only quick tool slot goes to the eraser the S Pen
+✅ **R7-2 P1 · Phones: the only quick tool slot goes to the eraser the S Pen
 button already gives.** The phone bar is `[tool▾][previous]` plus the
 strip (`features/editor/toolbar/tool_switcher.dart:97-150`).
 `ToolSettings._previous` starts as the eraser and follows the last tool
@@ -1442,7 +1454,7 @@ then one tap each way. No setting needed.
 *Done (`fix/r7-pen`):* `ToolSettings.previousTool` skips the eraser while
 `stylusOnly` and `penButtonErases` (kept in step with the preference).
 
-**R7-3 P2 · "Hold to snap shapes" changes every pen stroke but lives in the
+✅ **R7-3 P2 · "Hold to snap shapes" changes every pen stroke but lives in the
 Shapes options.** `ShapeOptionsPanel` holds the only switch for
 `tools.holdToStraighten` (`features/editor/tools/shape_options_panel.dart:62-67`).
 It applies to pen and highlighter strokes held for 600 ms
@@ -1456,7 +1468,7 @@ the end of a stroke").
 (`pen/pen_gestures.dart`, after "Reset feel", which doesn't touch it). Shapes
 says "Hold the pen still to snap a shape — Pen › Feel".
 
-**R7-4 P2 · PDF "Highlight" uses whatever colour the highlighter last
+✅ **R7-4 P2 · PDF "Highlight" uses whatever colour the highlighter last
 had.** `PdfInteraction.highlightSelection` takes
 `tools.configOf(InkTool.highlighter).color`
 (`features/editor/pdf/pdf_interaction.dart:238-254`). The selection pill
@@ -1470,7 +1482,7 @@ highlights in that colour. One undo, as now.
 a quiet highlighter glyph, the current one ringed; Copy loses its label on
 phones so the row fits.
 
-**R7-5 P2 · The lasso's first-use tip covers the selection for 10 s.** The
+✅ **R7-5 P2 · The lasso's first-use tip covers the selection for 10 s.** The
 tip stays for `visibleFor` (`features/editor/chrome/editor_tips.dart:45,
 119`) even after the user has done what it says. In every
 `e_convert_*`, `e_image_selected_*` and `e_shape_selected_*` render it sits
@@ -1567,12 +1579,15 @@ titles so a search for "Lecture 4" finds the notebook.
 and the library search matches recording titles (in `LibraryController`,
 not the full-text index).
 
-**R7-11 P2 · Export is two taps deep on every size.** Tablet and desktop
+✅ **R7-11 P2 · Export is two taps deep on every size.** Tablet and desktop
 top bars have ← ⊞ title | tools | 🎤 ↶ ↷ ⋯ (`editor_tablet_light.png`;
 nothing export-related in `chrome/editor_top_bar*.dart`). Sharing a page is
 something students do daily. *Fix:* on wide bars (`ToolbarDock.inline`) add
 a Share glyph (`Symbols.ios_share_sharp`) before ⋯ that opens the export
 sheet. Phones keep it in ⋯.
+*Closed without change (`fix/r10-open`):* round 9's simplicity inventory
+(#15) keeps Export in ⋯ with Ctrl+E, and the library offers it on every
+card, folder and selection (R7-8): a bar glyph would be a second home.
 
 ### Delight and trust
 
@@ -1627,7 +1642,7 @@ editor's bar opens Settings → Sync; the ☰ dot that lit at the first failure
 is gone. After a day without a working sync `SyncAttention` says "Not
 synced since …" once. The last success is kept across launches.
 
-**R7-15 P2 · ROADMAP still lists removed features.** "Customisable
+✅ **R7-15 P2 · ROADMAP still lists removed features.** "Customisable
 toolbar … favourite pens … edit mode" and "synced favourite pens"
 (`docs/ROADMAP.md:207-208,216`) were removed (SIMPLIFY #9, #10). *Done in
 this branch:* the lines now describe the fixed toolbar.
@@ -1713,7 +1728,8 @@ Not repeated (`design/followups` is on them): 48-dp hit areas for popover
 Reset/Custom and the sheet ✕, the split pane fading ink swatches, the
 settings Handwriting/Sync structure, phone Cancel buttons in import dialogs,
 the teal ∞ cover badge, the ⋯-menu switch overhang. Still-open round 5 items
-(R5-11, R5-16, R5-17, R5-20, R5-21, R5-22, R5-30) are not restated.
+(R5-11, R5-16, R5-17, R5-20, R5-21, R5-22, R5-30; all but R5-21 since
+fixed) are not restated.
 Harness artefacts aren't reported (the import question naming a notebook
 while the library is shown; "Take photo" and Share on desktop renders).
 
@@ -2342,7 +2358,7 @@ which reads as "download" (`e_page_menu_*`). The canvas long-press menu uses
 `PageCommand.icon`, used by both menus. *Files:* `page_commands.dart`,
 `editor_gestures.dart`.
 
-**R5-11 P2 · Zoom menu labels are 6 dp out of line.** `e_zoom_menu_*`: the
+**R5-11 P2 · Zoom menu labels are 6 dp out of line.** ✅ (the rows reserve `Glyphs.menu`) `e_zoom_menu_*`: the
 50 / 100 / 200 % rows reserve `SizedBox(width: 24)` for the check
 (`canvas/zoom_indicator.dart:127`), but the icons are 18 dp, so "Fit content"
 and "Back to start" start 6 dp further left. *Fix:* reserve `Glyphs.menu`
@@ -2382,15 +2398,17 @@ open (or reveal the current match below it). *Files:*
 `features/search/editor/editor_search_host.dart`,
 `features/search/editor/editor_search_layer.dart`.
 
-**R5-16 P2 · Search result rows are 36 dp tall on touch.** `_MatchTile`
+**R5-16 P2 · Search result rows are 36 dp tall on touch.** ✅ `_MatchTile`
 (`features/search/editor/editor_search_bar.dart:259`): one line plus 8 dp
 padding top and bottom. The "Page 3" label is `labelSmall` (bold overline)
 pinned to the top, so it outweighs the snippet. *Fix:* rows at least
 `Targets.menuRowHeight`; the location as `bodySmall`, aligned with the first
 line's baseline. Add the search panel to `accessibility_test.dart`. *Files:*
 `editor_search_bar.dart`.
+*Done (`fix/r10-open`):* rows are at least `Targets.menuRowHeight`; the page
+sits on the snippet's first line (`editor_search_results.dart`).
 
-**R5-17 P2 · Recording: paused looks like recording, and dark mode shouts.**
+**R5-17 P2 · Recording: paused looks like recording, and dark mode shouts.** ✅ (the controls are flat in the bar; only the dot is red, grey while paused)
 `e_audio_paused_tablet_*`: the pill stays red-tinted with a dimmed red dot,
 and only the word "Paused" changes. `e_audio_recording_*_dark`: the deep red
 fill is the loudest thing on screen, and the level meter is dark red on dark
@@ -2424,7 +2442,7 @@ the text needs more lines than the ink had, shrink the font (down to a floor,
 for example 70 %) until it fits the ink's height, and only then wrap.
 *Files:* `ink/recognition/convert_to_text.dart` (`textBox`).
 
-**R5-20 P2 · Text boxes have no inner padding.** `e_text_editing_*`,
+**R5-20 P2 · Text boxes have no inner padding.** ✅ (the frame sits 6 dp outside the text) `e_text_editing_*`,
 `e_text_colour_*`: "Exam on Friday!" touches the selection frame, and the
 caret sits on the right edge. *Fix:* draw the editing frame outset by
 `Gaps.xs` (chrome only, so the text's layout and position don't change).
@@ -2440,7 +2458,7 @@ ghost it at 40 %) and draw the moving copy only in the target. *Files:*
 
 ### Pages, templates and overview
 
-**R5-22 P2 · The outline's header and list don't share an edge on tablets.**
+**R5-22 P2 · The outline's header and list don't share an edge on tablets.** ✅ (the outline column starts on the filter's margin)
 `o_outline_panel_tablet_*`, `pdf_outline_tablet_*`: round 4 centred the
 outline list in a 640-dp column (P2-14), but the title and the All /
 Bookmarked / Outline control stay at the left edge, so nothing lines up and
@@ -2467,11 +2485,12 @@ selected label stays `onSurface` (the ring and check carry the selection).
 *Files:* `domain/templates/paper_style.dart`,
 `features/documents/templates/template_gallery.dart`.
 
-**R5-25 P2 · The planner's "More options" is a Material `ExpansionTile`.**
+**R5-25 P2 · The planner's "More options" is a Material `ExpansionTile`.** ✅
 `templates_*_planner`: its chevron, padding and type differ from Feel's
 `OptionDisclosure` and the settings rows next to it. *Fix:* use
 `OptionDisclosure` (moved to `ui/`) for both. *Files:*
 `documents/templates/planner_options.dart:76`, `editor/pen/option_sections.dart`.
+*Done (`fix/r10-open`):* `OptionDisclosure` lives in `ui/` and folds both.
 
 ### Settings, sync, handwriting
 
@@ -2516,7 +2535,7 @@ Lay the actions out in a `Wrap` with one start edge. *Files:*
 
 ### Consistency and copy
 
-**R5-30 P2 · The accent marks plain states.** Accent is for primary buttons,
+**R5-30 P2 · The accent marks plain states.** ✅ Accent is for primary buttons,
 focus, handles, links, switches, progress and the selected sidebar row.
 It also shows on:
 - ✅ the palette's selection ring (R5-3);
@@ -2529,6 +2548,10 @@ It also shows on:
   (`s_import_progress_*`, `features/documents/progress_dialog.dart:188`).
 
 *Fix:* `onSurface` with `fill: 1` or the pressed plate, as for tools.
+*Done (`fix/r10-open`):* tap-to-play on is the ink plate, a changed speed
+reads in Ink, and `AppDialog`'s icon is Graphite. The active tab and the
+selected template keep their 2-dp accent rule: that is the margin rule
+(DESIGN §1.2), not a plain state.
 
  **R5-31 P2 · "Could not" and raw reasons in user templates.** `documents/templates/user_templates.dart:65`:
 "Could not import x: <FormatException message>" (everywhere else says
@@ -2552,7 +2575,7 @@ library (not in `fix/library-r4`'s list): "Select…" opens no question
 that greps `Text('…')` literals for a single sentence ending in "." would
 keep this from creeping back.
 
-**R5-34 P2 · Dark mode: the HUD pill is light lavender.** `e_hud_phone_dark`,
+**R5-34 P2 · Dark mode: the HUD pill is light lavender.** ✅ (the HUD is the inverse slab with a Pencil edge, like snack bars, which are light in dark mode too) `e_hud_phone_dark`,
 `e_hud_tablet_dark`: "Nothing to undo" is a pale pill, while the tip banner
 and snacks are dark. Over cream paper it barely separates. *Fix:* the HUD on
 `Surfaces.overlay` (dark in dark mode), like the other floating messages.
@@ -2615,7 +2638,7 @@ Pages in the renders are harness artefacts and are not reported.
 Code paths are under `app/lib/` (`features/editor/` is often left out for
 editor files: `chrome/…`, `tools/…`, `pen/…`, `document/…`).
 
-Status: ⬜ open (all items).
+Status: per item (✅ fixed, 🟡 partly fixed).
 
 ### Top 10 (fix first)
 
@@ -2953,7 +2976,7 @@ the All filter has Select but no ←. *Fix:* cap the list at 640 dp, centred; on
 app bar for all filters. *Files:* `features/documents/overview/page_overview.dart`.
 → ✅ The outline is a centred 640-dp column. The app bar is already one for all filters (Select is hidden on Outline only).
 
-🟡 **P2-15 Planner pages mix languages and fade their labels.** `paper_daily_tr*`,
+✅ **P2-15 Planner pages mix languages and fade their labels.** `paper_daily_tr*`,
 `paper_weekly_sunday_ru*`: weekdays and months are localised but "Week 41",
 "SCHEDULE", "PRIORITIES", "TO DO", "NOTES" stay English; labels are tiny
 light-grey caps (worst on A5); a week across two months shows only one month.

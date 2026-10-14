@@ -59,19 +59,21 @@ class ImportFlow {
     }
     final plan = ImportRouter.plan(files, into: into);
     final created = <Notebook>[];
+    final batch = CancellationToken(); // A Cancel stops the rest of the files.
     ({Notebook notebook, List<XFile> files})? canvas;
     for (final step in plan.steps) {
       if (!context.mounted) return;
+      if (batch.isCancelled) break;
       switch (step) {
         case InsertPdfPages(:final file):
-          await target!.insertPdf(file);
+          await target!.insertPdf(file, batch: batch);
         case InsertImages(:final files):
           await target!.insertImages(files);
         case NewPdfNotebook(:final file):
-          final notebook = await importPdfFlow(context, file: file);
+          final notebook = await importPdfFlow(context, file: file, batch: batch);
           if (notebook != null) created.add(adopt(notebook));
         case ImportLenFile(:final file):
-          final result = await importLenFlow(context, file: file);
+          final result = await importLenFlow(context, file: file, batch: batch);
           // A notebook goes where the library is (and opens); folders and
           // backups show in the library.
           if (result != null && result.manifest.kind == LenArchiveKind.notebook) {

@@ -50,7 +50,7 @@ class TextEditSession extends ChangeNotifier {
   /// middle), formatted like [style]. Without a [width] the box is as wide
   /// as its text (growing up to [autoWidthLimit], then wrapping).
   void create(Offset at, {required TextData style, double? width}) {
-    end();
+    _end(notify: false);
     _edited = false;
     final data = style.copyWith(text: '', autoWidth: width == null);
     final w = width ?? TextLayout.naturalWidth(data);
@@ -74,7 +74,7 @@ class TextEditSession extends ChangeNotifier {
   /// Starts editing an existing text box.
   void edit(SurfaceElement element) {
     if (identical(element, _original)) return;
-    end();
+    _end(notify: false);
     _original = element;
     _current = element;
     _edited = false;
@@ -134,7 +134,11 @@ class TextEditSession extends ChangeNotifier {
   }
 
   /// Ends editing, committing any change as one undoable edit.
-  void end() {
+  void end() => _end(notify: true);
+
+  /// Ends editing; [notify] is off when another box starts straight away
+  /// (listeners see one change, not a moment without a box).
+  void _end({required bool notify}) {
     final original = _original;
     final current = _current;
     if (current == null) return;
@@ -150,7 +154,7 @@ class TextEditSession extends ChangeNotifier {
       _model.commit(InkEdit(removedElements: [original], addedElements: [current]));
     }
     _model.setHidden(const {}, owner: this);
-    notifyListeners();
+    if (notify) notifyListeners();
   }
 
   /// Abandons the session without storing anything.

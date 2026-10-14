@@ -35,6 +35,7 @@ List<Widget> _three() => [
 ];
 
 void main() {
+  _iconTests();
   testWidgets('actions that fit sit in one end-aligned row', (tester) async {
     await _show(tester, 1000, _three());
     final cancel = tester.getRect(find.widgetWithText(TextButton, 'Cancel'));
@@ -111,5 +112,18 @@ void main() {
     final primary = tester.getRect(find.byType(FilledButton));
     expect(field.left, moreOrLessEquals(title.left));
     expect(field.right, moreOrLessEquals(primary.right));
+  });
+}
+
+void _iconTests() {
+  testWidgets('a dialog\'s icon is Graphite: the accent marks state only (R5-30)', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: const AppDialog(icon: Icons.hourglass_top, title: 'Importing'),
+      ),
+    );
+    final scheme = AppTheme.light().colorScheme;
+    expect(tester.widget<Icon>(find.byIcon(Icons.hourglass_top)).color, scheme.onSurfaceVariant);
   });
 }

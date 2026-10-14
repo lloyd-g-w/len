@@ -331,13 +331,14 @@ class DocumentCommands {
   }
 
   /// Inserts the pages of PDF [file] (picked by the user if null) after
-  /// the current page.
-  Future<void> insertPdf(BuildContext context, {XFile? file}) async {
+  /// the current page; a Cancel there cancels [batch].
+  Future<void> insertPdf(BuildContext context, {XFile? file, CancellationToken? batch}) async {
     final inserted = await insertPdfPagesFlow(
       context,
       notebookId: notebook().id,
       after: _current,
       file: file,
+      batch: batch,
     );
     if (inserted == null || inserted.isEmpty) return;
     edits.added(inserted);

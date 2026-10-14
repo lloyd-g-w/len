@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../domain/paper.dart';
 import '../../../ui/app_switch.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/option_disclosure.dart';
 import '../../../ui/roving_focus.dart';
 import '../../../ui/section_label.dart';
 import '../../../ui/segment_label.dart';
@@ -75,16 +76,9 @@ class PlannerOptions extends StatelessWidget {
       children: [
         if (generate) ..._range(context) else ..._date(),
         if (generate && _style.period == PlannerPeriod.month) ..._monthSwitches(context),
-        ExpansionTile(
+        _MoreOptions(
           key: const ValueKey('planner-more'),
-          title: const Text('More options'),
-          tilePadding: EdgeInsets.zero,
-          childrenPadding: const EdgeInsets.only(bottom: Gaps.sm),
-          dense: true,
-          trailing: const Icon(Symbols.expand_more_sharp, size: Glyphs.bar),
-          shape: const Border(),
-          collapsedShape: const Border(),
-          children: [_CalendarRow(calendar: selection.plan.calendar, onChanged: _setCalendar)],
+          child: _CalendarRow(calendar: selection.plan.calendar, onChanged: _setCalendar),
         ),
       ],
     );
@@ -167,6 +161,32 @@ class PlannerOptions extends StatelessWidget {
 }
 
 /// "Week starts on": Monday or Sunday.
+/// "More options", closed at first: the calendar's first weekday and
+/// language. Folds like the pens' Feel.
+class _MoreOptions extends StatefulWidget {
+  const _MoreOptions({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<_MoreOptions> createState() => _MoreOptionsState();
+}
+
+class _MoreOptionsState extends State<_MoreOptions> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) => OptionDisclosure(
+    label: 'More options',
+    open: _open,
+    onToggle: () => setState(() => _open = !_open),
+    child: Padding(
+      padding: const EdgeInsets.only(bottom: Gaps.sm),
+      child: widget.child,
+    ),
+  );
+}
+
 class _CalendarRow extends StatelessWidget {
   const _CalendarRow({required this.calendar, required this.onChanged});
 
