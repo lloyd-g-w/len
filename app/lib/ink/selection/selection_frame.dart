@@ -97,9 +97,10 @@ class SelectionFrame {
       final lenSq = from.distanceSquared;
       final s = lenSq == 0 ? 1.0 : (to.dx * from.dx + to.dy * from.dy) / lenSq;
       // The long side keeps at least the smallest extent (the short one
-      // may be thinner already: a straight line).
-      final minS = minExtent / math.max(1e-9, math.max(rect.width, rect.height));
-      sx = sy = math.max(s, minS);
+      // may be thinner already: a straight line). A frame without extent
+      // has no size to keep.
+      final longest = math.max(rect.width, rect.height);
+      sx = sy = longest > 0 ? math.max(s, minExtent / longest) : 1;
     } else if (handle.fraction.dx != 0.5) {
       sx = from.dx == 0 ? 1 : math.max(to.dx / from.dx, minExtent / math.max(rect.width, 1e-9));
     } else {

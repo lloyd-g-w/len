@@ -224,7 +224,8 @@ class _HtmlReader {
         kind = ListKind.check;
         checked = li.checked!;
       }
-      level = li.listLevel ?? (depth - 1);
+      // (A stray `<li>` outside any list is a top-level item.)
+      level = li.listLevel ?? (depth - 1).clamp(0, ParaStyle.maxIndent);
     }
     return ParaStyle(heading: heading, list: kind, checked: checked, indent: level);
   }

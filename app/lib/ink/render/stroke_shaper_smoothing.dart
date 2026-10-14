@@ -89,20 +89,24 @@ extension _Smoothing on StrokeShaper {
   double _filtered(DoubleBuffer v, int i, int lo, int hi) {
     if (i == lo || i == hi || hi - lo < 2) return v[i];
     final w = p.kernel, k = p.kernelK;
+    // A stretch shorter than the fit has no shape to continue (a quadratic
+    // through a few samples of a tiny back-and-forth flings the line
+    // pen-widths away): it is held at its ends instead.
+    final fit = hi - lo >= p.fit ? p.fit : 0;
     var sum = 0.0;
     final inLo = math.max(lo, i - k), inHi = math.min(hi, i + k);
     for (var m = inLo; m <= inHi; m++) {
       sum += w[m - i + k] * v[m];
     }
     if (i - k < lo) {
-      final (a, c) = LineFilters.endFit(v, lo, 1, math.min(p.fit, hi - lo));
+      final (a, c) = LineFilters.endFit(v, lo, 1, fit);
       for (var m = i - k; m < lo; m++) {
         final j = (lo - m).toDouble();
         sum += w[m - i + k] * (v[lo] + a * j + c * j * j);
       }
     }
     if (i + k > hi) {
-      final (a, c) = LineFilters.endFit(v, hi, -1, math.min(p.fit, hi - lo));
+      final (a, c) = LineFilters.endFit(v, hi, -1, fit);
       for (var m = hi + 1; m <= i + k; m++) {
         final j = (m - hi).toDouble();
         sum += w[m - i + k] * (v[hi] + a * j + c * j * j);

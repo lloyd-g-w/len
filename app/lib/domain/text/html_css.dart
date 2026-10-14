@@ -154,7 +154,9 @@ int? parseColor(String? css) {
     }
     if (hex.length == 6) rgb = int.tryParse(hex, radix: 16);
   } else if (RegExp(r'^rgba?\(').hasMatch(v)) {
-    final parts = v.substring(v.indexOf('(') + 1, v.lastIndexOf(')')).split(RegExp(r'[,\s/]+'));
+    final close = v.lastIndexOf(')');
+    final inner = v.substring(v.indexOf('(') + 1, close < 0 ? v.length : close);
+    final parts = inner.split(RegExp(r'[,\s/]+'));
     final n = [for (final p in parts) num.tryParse(p.replaceAll('%', ''))];
     if (n.length < 3 || n.take(3).any((x) => x == null)) return null;
     if (n.length > 3 && n[3] != null && n[3] == 0) return null;
