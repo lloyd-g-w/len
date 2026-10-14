@@ -346,6 +346,45 @@ void main() {
       expect(model.loadedStrokeCount, 2);
     });
 
+    testWidgets('a palm resting next to the pen is not a two-finger hold', (tester) async {
+      var holds = 0;
+      input.gestures!.onTwoFingerHold = () => holds++;
+      const k = PointerDeviceKind.stylus;
+      // Writing, the palm lands as two still contacts.
+      input
+        ..handleDown(down(1, const Offset(10, 10), kind: k))
+        ..handleDown(down(5, const Offset(500, 500), t: 50))
+        ..handleDown(down(6, const Offset(560, 520), t: 60))
+        ..handleMove(move(1, const Offset(100, 10), kind: k, t: 300));
+      await tester.pump(ms(700));
+      input
+        ..handleUp(up(1, const Offset(100, 10), kind: k, t: 700))
+        ..handleUp(up(5, const Offset(500, 500), t: 720))
+        ..handleUp(up(6, const Offset(560, 520), t: 720));
+      // The pen hovering, the palm lands again.
+      input
+        ..handleHover(
+          const PointerHoverEvent(
+            kind: k,
+            position: Offset(100, 10),
+            timeStamp: Duration(milliseconds: 900),
+          ),
+        )
+        ..handleDown(down(7, const Offset(500, 500), t: 950))
+        ..handleDown(down(8, const Offset(560, 520), t: 960));
+      await tester.pump(ms(700));
+      input
+        ..handleUp(up(7, const Offset(500, 500), t: 1700))
+        ..handleUp(up(8, const Offset(560, 520), t: 1700));
+      expect(holds, 0);
+      // Fingers alone still hold.
+      input
+        ..handleDown(down(9, const Offset(300, 300), t: 5000))
+        ..handleDown(down(10, const Offset(400, 300), t: 5010));
+      await tester.pump(ms(700));
+      expect(holds, 1);
+    });
+
     test('a cancelled stylus contact does not block finger taps for good', () {
       const k = PointerDeviceKind.stylus;
       input

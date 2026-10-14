@@ -1143,9 +1143,9 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   with a second finger down — so two-finger taps stay undo) → **double-tap zoom**
   (`features/editor/double_tap_zoom.dart`: the page fit — 100 % on canvases — ⇄ 2× or
   the zoom last left this way, about the tap, animated). Fingers that draw (palm
-  rejection off) never zoom: their taps are dots. Palm safety: taps, double taps and
-  long presses are ignored while a stylus touches, or was seen touching or hovering
-  within 600 ms. The recognisers live in `CanvasGestures`, so
+  rejection off) never zoom: their taps are dots. Palm safety: taps, double taps,
+  two-finger holds and long presses are ignored while a stylus touches, or was seen
+  touching or hovering within 600 ms. The recognisers live in `CanvasGestures`, so
   `ink_input_controller.dart` is unchanged.
 
 Stroke outlines come from the in-house engine in `ink/render/` (see *Ink
