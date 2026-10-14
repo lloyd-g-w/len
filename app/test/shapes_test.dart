@@ -237,6 +237,16 @@ void main() {
           ),
           (ShapeKind.line, h.line(const Offset(100, 200), Offset(500, 260.0 + seed * 5))),
           (ShapeKind.arrow, h.arrow(const Offset(100, 450), Offset(480, 200.0 + seed * 4))),
+          // Long and thin: a bowed side or the closing overshoot is no fifth corner.
+          (
+            ShapeKind.rectangle,
+            h.polygon(const [
+              Offset(120, 250),
+              Offset(480, 250),
+              Offset(480, 370),
+              Offset(120, 370),
+            ], angle: tilt),
+          ),
         ];
         for (final (kind, pts) in cases) {
           final shape = ShapeRecognizer.recognize(pts);

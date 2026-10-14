@@ -16,7 +16,9 @@ import 'polyline.dart';
 ///   good enough (errors are measured as mean distance relative to the
 ///   shape's size; polygons with five or more corners must beat the
 ///   ellipse clearly). A polygon's corners are where its fitted sides
-///   meet (not where the hand rounded them off). 3 corners → triangle; 4 →
+///   meet (not where the hand rounded them off), and a corner the fit
+///   barely needs (a bowed side, the overshoot closing the loop) is
+///   dropped. 3 corners → triangle; 4 →
 ///   diamond with diagonals along the axes, rectangle when right-angled
 ///   (axis-aligned when nearly so); up to 8 → polygon. Nearly round
 ///   ellipses become circles. Anything else (a scribble) is not recognised.
@@ -100,8 +102,10 @@ abstract final class ShapeRecognizer {
     final loop = Polyline.resample(Polyline.trimOverlap(points), 96);
     final ellipse = _fitEllipse(loop);
     var corners = Polyline.corners(loop, 0.045 * diagonal, merge: 0.1 * diagonal);
-    if (corners.length >= 3) corners = Polyline.fitCorners(loop, corners, 0.2 * diagonal);
-    final polygonError = corners.length >= 3 && corners.length <= 8
+    // More corners than a polygon has: a scribble.
+    final polygon = corners.length >= 3 && corners.length <= 8;
+    if (polygon) corners = _fewest(loop, corners, diagonal);
+    final polygonError = polygon
         ? Polyline.meanDistanceToPolygon(loop, corners) / diagonal
         : double.infinity;
     final ellipseError = ellipse == null ? double.infinity : ellipse.error / diagonal;
@@ -111,6 +115,36 @@ abstract final class ShapeRecognizer {
     if (ellipseError * bias <= polygonError) return ellipse!.shape;
     return _polygonShape(corners);
   }
+
+  /// [corners] fitted to [loop] ([Polyline.fitCorners]), less any corner
+  /// the fit barely needs: a bowed side or a closing overshoot can look
+  /// like one more corner, which a shape with one corner fewer fits about
+  /// as well (within [cornerSlack] of the diagonal, mean distance).
+  static List<Offset> _fewest(List<Offset> loop, List<Offset> corners, double diagonal) {
+    List<Offset> fit(List<Offset> c) => Polyline.fitCorners(loop, c, 0.2 * diagonal);
+    var best = fit(corners);
+    var error = Polyline.meanDistanceToPolygon(loop, best);
+    while (best.length > 3) {
+      List<Offset>? fewer;
+      var fewerError = double.infinity;
+      for (var i = 0; i < best.length; i++) {
+        final c = fit([...best]..removeAt(i));
+        final e = Polyline.meanDistanceToPolygon(loop, c);
+        if (e < fewerError) {
+          fewer = c;
+          fewerError = e;
+        }
+      }
+      if (fewerError > error + cornerSlack * diagonal) break;
+      best = fewer!;
+      error = fewerError;
+    }
+    return best;
+  }
+
+  /// How much worse (mean distance, share of the diagonal) a fit with one
+  /// corner fewer may be and still be preferred.
+  static const double cornerSlack = 0.004;
 
   static ShapeGeometry _polygonShape(List<Offset> corners) {
     if (corners.length == 3) return ShapeGeometry(ShapeKind.triangle, corners);
