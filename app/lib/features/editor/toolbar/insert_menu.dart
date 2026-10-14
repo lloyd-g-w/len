@@ -6,19 +6,21 @@ import '../../../ui/menus.dart';
 import '../chrome/canvas_guard.dart';
 
 /// What Insert ⊕ offers: an image, a photo (Android), and in paged
-/// notebooks pages from a PDF. Null entries are left out. (A page with a
+/// notebooks scanned pages and pages from a PDF. Null entries are left out. (A page with a
 /// template: hold "Add page after" in the page menu, UX_AUDIT R9-3.)
 @immutable
 class InsertActions {
-  const InsertActions({required this.image, this.photo, this.pdfPages});
+  const InsertActions({required this.image, this.photo, this.scan, this.pdfPages});
 
   final VoidCallback image;
   final VoidCallback? photo;
+  final VoidCallback? scan;
   final VoidCallback? pdfPages;
 
   List<(IconData, String, VoidCallback)> get _entries => [
     (Symbols.image_sharp, 'Image…', image),
     if (photo case final photo?) (Symbols.photo_camera_sharp, 'Take photo', photo),
+    if (scan case final scan?) (Symbols.document_scanner_sharp, 'Scan document…', scan),
     if (pdfPages case final pdf?) (Symbols.picture_as_pdf_sharp, 'Pages from PDF…', pdf),
   ];
 

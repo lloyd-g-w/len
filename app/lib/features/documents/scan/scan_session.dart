@@ -34,10 +34,19 @@ class ScanPageDraft {
 /// them: the model behind the scan screen. Previews of the flattened
 /// pages render in the background (on a worker isolate natively).
 class ScanSession extends ChangeNotifier {
-  ScanSession({this.previewEdge = 320});
+  ScanSession({this.previewEdge = 320, this.displayEdge = 1600});
 
   /// The long side of the page previews, in pixels.
   final int previewEdge;
+
+  /// The long side the current page's photo is decoded at for the corner
+  /// editor, in pixels.
+  final int displayEdge;
+
+  /// The current page's photo as shown in the corner editor (only that
+  /// page's is kept: photos are big); null while it decodes.
+  ui.Image? get display => _display?.photo == current?.photo ? _display?.image : null;
+  ({ScanPhoto photo, ui.Image image})? _display;
 
   final List<ScanPageDraft> _pages = [];
 
@@ -57,12 +66,26 @@ class ScanSession extends ChangeNotifier {
 
   bool _disposed = false;
 
-  /// Adds photos [photo] as a new page after the others and makes it the
+  /// Adds [photo] as a new page after the others and makes it the
   /// current one.
   void add(ScanPhoto photo) {
     _pages.add(ScanPageDraft(photo));
     _index = _pages.length - 1;
     _refresh(_pages.last);
+    _showCurrent();
+  }
+
+  /// Replaces the current page's photo with [photo] (a retake), keeping
+  /// its turns.
+  void replaceCurrent(ScanPhoto photo) {
+    final old = current;
+    if (old == null) return;
+    final page = ScanPageDraft(photo)..turns = old.turns;
+    old.preview?.dispose();
+    old._version++;
+    _pages[_index] = page;
+    _refresh(page);
+    _showCurrent();
   }
 
   /// Makes page [i] the current one.
@@ -70,6 +93,7 @@ class ScanSession extends ChangeNotifier {
     if (i == _index || i < 0 || i >= _pages.length) return;
     _index = i;
     notifyListeners();
+    _showCurrent();
   }
 
   /// Removes the current page.
@@ -81,6 +105,7 @@ class ScanSession extends ChangeNotifier {
     page._version++; // A preview on its way is dropped.
     if (_index >= _pages.length) _index = _pages.length - 1;
     notifyListeners();
+    _showCurrent();
   }
 
   /// Moves the current page's outline to [quad] (while a corner is dragged:
@@ -131,6 +156,32 @@ class ScanSession extends ChangeNotifier {
     if (_pages.isEmpty) notifyListeners();
   }
 
+  /// Decodes the current page's photo for the corner editor (dropping the
+  /// one shown before).
+  void _showCurrent() {
+    final photo = current?.photo;
+    if (_display?.photo == photo) return;
+    _display?.image.dispose();
+    _display = null;
+    if (photo != null) unawaited(_decode(photo));
+  }
+
+  Future<void> _decode(ScanPhoto photo) async {
+    final ui.Image image;
+    try {
+      image = await photo.decode(displayEdge);
+    } on Object catch (e) {
+      debugPrint('Scan photo decode failed: $e');
+      return;
+    }
+    if (_disposed || current?.photo != photo || _display != null) {
+      image.dispose();
+      return;
+    }
+    _display = (photo: photo, image: image);
+    notifyListeners();
+  }
+
   /// Renders [page]'s preview anew (the latest request wins).
   void _refresh(ScanPageDraft page) {
     final version = ++page._version;
@@ -176,6 +227,7 @@ class ScanSession extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _display?.image.dispose();
     for (final page in _pages) {
       page.preview?.dispose();
     }

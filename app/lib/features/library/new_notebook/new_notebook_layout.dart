@@ -14,7 +14,7 @@ extension _NewNotebookLayout on _NewNotebookSheetState {
     onClose: widget.wide ? null : () => Navigator.of(context).pop(),
   );
 
-  /// "Import PDF…" and "Import Len file…" as quiet links at the foot,
+  /// "Scan document…", "Import PDF…" and "Import Len file…" as quiet links at the foot,
   /// apart from the form (UX_AUDIT R9-10); null without [onImport].
   Widget? _importLinks(BuildContext context) {
     final onImport = widget.onImport;
@@ -27,6 +27,7 @@ extension _NewNotebookLayout on _NewNotebookSheetState {
       spacing: Gaps.sm,
       children: [
         for (final (kind, label) in const [
+          (SheetImport.scan, 'Scan document…'),
           (SheetImport.pdf, 'Import PDF…'),
           (SheetImport.len, 'Import Len file…'),
         ])
