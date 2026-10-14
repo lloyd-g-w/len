@@ -1,5 +1,354 @@
 # Len — UX/UI audit
 
+## Round 9 audit — simplicity (`review/round9`)
+
+Lens: after eight feature rounds, is Len still *elegantly simple*? Every
+user-facing setting, menu row, tip, notice, gesture and mode was listed
+from the code, checked for need, discoverability, naming and "one home",
+and all screenshot suites were rendered (751 images, every suite passed)
+and viewed downscaled, looking for clutter.
+
+Summary: Len is calm where it matters. The editor's chrome is the
+quietest of the three apps. There are 8 real preferences, and only one
+menu (⋯ → View) runs past 7 rows. The drift is in three places:
+- **Tips:** five one-time tips with no budget. A new S Pen user can get
+  a snack bar and two tips in the first two minutes of writing.
+- **Page commands:** they live in five places, each with a different
+  subset and different names.
+- **Vocabulary:** a dozen small name splits (zoom names, "needs"/"keeps",
+  "Retry"/"Try again", "Star"/"favourite", "Paper"/"template").
+
+Nothing here needs a new setting. Every fix is a removal, a merge, a
+rename or a budget. Paths are under `app/lib/` unless noted.
+
+### Inventory (settings, menus, modes)
+
+Counts are for Android on a tablet, a paged notebook, sync off.
+
+| Area | Len | GoodNotes 6 / Notewise (approx., from their UI) |
+|---|---|---|
+| Settings: preferences | 8: theme, draw with finger, side button, tap to undo, hold to snap, scribble to erase, search handwriting, handwriting language | GoodNotes about 20 across ~8 sections; Notewise 40+ on one long page |
+| Settings: rows shown | 17 (General 2, Writing 5, Handwriting 3, Sync 3, Backup 2, About 2) | – |
+| Remembered view choices | 5: toolbar docked / floating, page flow, page fit, library sort, grid / list | similar |
+| Editor ⋯ (all levels) | 24: 7 top + Page 6 + View 8 + Split 3 | GoodNotes ⋯ ~14 flat |
+| Library card ⋯ | 9 | GoodNotes ~9 |
+| Pen popover | colour (14 + Custom + Recent), size, Feel ▸ (pressure, stabiliser, ends: style, taper length, start / end / both, follow pen speed, Reset feel), Toolbar ▸ (quick colours, quick sizes) | GoodNotes: colours, 3 sizes, pressure, tip; Notewise more |
+| Canvas long press | up to 7 | GoodNotes 3–4 |
+| One-time editor tips | 5 | GoodNotes: an onboarding tour, then almost none |
+
+| # | Item | Home(s) | Needed · discoverable · named | Verdict | Effort |
+|---|---|---|---|---|---|
+| **Settings** | | | | | |
+| 1 | Theme (System / Light / Dark) | Settings → General | yes · yes · yes | Keep | – |
+| 2 | Keyboard shortcuts | Settings → General, Ctrl+/ | yes · yes · its names drift from the menus (glossary: zoom) | Keep | – |
+| 3 | Draw with finger | Settings → Writing **and** ⋯ | yes · yes · yes | Keep both: the only deliberate twin. GoodNotes also puts Stylus & Palm Rejection in its document ⋯ and in Settings | – |
+| 4 | Side button (Erases / Selects / Nothing) | Settings → Writing | yes · tip · yes | Keep | – |
+| 5 | Tap to undo and redo | Settings → Writing | yes · tip + HUD · yes | Keep the switch; remove its tip (R9-1) | S |
+| 6 | Hold to snap | Settings → Writing | yes · tip · yes | Keep | – |
+| 7 | Scribble to erase | Settings → Writing | yes · tip + eraser caption · yes | Keep | – |
+| 8 | Search handwriting, language, model | Settings → Handwriting (Android) | yes · yes · yes | Keep | – |
+| 9 | Sync (URL, token, set up another device, turn off) | Settings → Sync, sidebar status | yes · yes · yes | Keep | – |
+| 10 | Back up library…, Restore from backup… | Settings → Backup, library notice | yes · yes · "Restore" also restores from the trash (glossary: restore) | Keep | – |
+| 11 | Storage (web) | Settings → Storage | yes · yes · yes | Keep | – |
+| 12 | Ink Lab (7 taps on the version) | About | lead decision | Keep | – |
+| **Editor chrome** | | | | | |
+| 13 | Back, All pages, title (tap: rename) | top bar | yes · yes · yes | Keep | – |
+| 14 | 🎙▾ Record audio / Recordings | top bar (phones: ⋯) | yes · yes · yes | Keep | – |
+| 15 | Search in notebook, Export… | ⋯, Ctrl+F, Ctrl+E | yes · yes · yes | Keep | – |
+| 16 | ⋯ → Page (Duplicate page, Move or copy page…, Bookmark page, Change template…, Save as template…, Delete page) | ⋯, and in part the overview tile ⋯, the overview selection and the canvas long press | yes · yes · four label sets | Merge into one `PageCommand` list (R9-3) | S |
+| 17 | ⋯ → View: Scroll pages / One page at a time, Fit page / Fit width / Automatic zoom, Toolbar docked / floating, Focus mode | ⋯ | yes · yes · 8 rows, the longest menu | Keep (each pair is a real choice); fix the names (glossary: zoom) | S |
+| 18 | Split view (open, swap, close) | ⋯ ▸, tab menu | yes · yes · yes | Keep | – |
+| 19 | Tabs / Open notebooks (n) | tab strip (wide), ⋯ (phones) | yes · yes · yes | Keep | – |
+| 20 | Focus mode (F11), presenting (F5 = focus + laser) | ⋯ → View, keys, puck | yes · F5 only through the shortcut sheet | Keep | – |
+| 21 | Page indicator (tap: Go to page; long press: overview) | over the page | yes · peeks · yes | Keep | – |
+| 22 | Canvas long press: Paste here, Select all on page, Add text here, **Add page after, Bookmark page, Change template…** | canvas | content rows yes; the page rows are a third home | Merge the page rows into ⋯ → Page (R9-3) | S |
+| 23 | Zoom pill (Fit content, Back to start) | canvas | yes · yes · yes | Keep | – |
+| 24 | Gesture HUD, "Draw anywhere" hint | canvas | yes · – · yes | Keep | – |
+| **Tools** | | | | | |
+| 25 | Pen, Highlighter, Eraser, Lasso, Shapes, Text, Laser, Insert ⊕ | toolbar | parity · yes · yes | Keep | – |
+| 26 | Quick colours and sizes | toolbar slots | yes · yes · yes | Keep | – |
+| 27 | "Toolbar ▸ Quick colours n, Quick sizes n" | pen and highlighter popovers | rarely · collapsed · **"Toolbar" also names docked / floating** | Rename the disclosure "Quick colours and sizes" | S |
+| 28 | Pen ends: style, taper length, start / end / both, **follow pen speed** | Pen ▸ Feel | lead decision · collapsed · yes | Keep; make "Follow pen speed" a default (on) and drop its switch | S |
+| 29 | Reset feel (pen, highlighter: at the end of Feel) vs Reset (eraser, laser: top right) | popovers | yes · two places · two names | Merge: one "Reset" in the header for every tool | S |
+| 30 | Highlighter: Straight lines | highlighter Feel | yes (GoodNotes has it) · yes · yes | Keep | – |
+| 31 | Eraser: Whole stroke / Partial, size, highlighter only | eraser popover | parity · yes · yes | Keep | – |
+| 32 | Laser: Dot / Trail, colour, size, trail length | laser popover | lead decision | Keep | – |
+| 33 | Lasso pill: Style, Cut, Copy, Delete, ⋯ (Duplicate, Paste, Convert to text, Link…, Crop, Bring to front, Send to back) | selection | yes · yes · yes | Keep (arranging shows only where things overlap: good) | – |
+| 34 | Insert ⊕: Image…, Take photo, Pages from PDF…, Page with template… | toolbar | yes · yes · "Page with template…" is a fifth home for adding a page | Keep; see R9-3 | – |
+| **Library** | | | | | |
+| 35 | ⊕▾: New notebook, **New canvas**, Import PDF…, Import Len file…, New folder… | header (wide); phone ⊕ (long press) | New canvas duplicates the sheet's Notebook / Canvas switch | Merge: drop the ⊕▾ row | S |
+| 36 | New notebook tile + ⊕▾ + Ctrl+N (wide); FAB (phones) | library | one primary action per screen holds on phones; wide has tile **and** ⊕▾ | Keep (the tile is the obvious path; ⊕▾ holds the other four) | – |
+| 37 | Sheet: Import PDF…, Import Len file… (phones) | new-notebook sheet | yes on phones (long press is hidden) · yes | Keep | – |
+| 38 | ⇅ View: Sort by (3), Show as (2), Select | header | yes · yes · yes | Keep | – |
+| 39 | Card ⋯: **Open**, Rename…, Add to favourites, Change cover…, Duplicate, Move to folder…, Export…, Select, Move to trash | card | "Open" repeats the tap | Remove "Open" (card and folder) | S |
+| 40 | Folder ⋯: Open, Edit folder…, Move to folder…, Export…, Delete folder | folder | "Edit folder…" vs notebook's "Rename…" + "Change cover…" (glossary: edit an object) | Keep; rename | S |
+| 41 | Recent row | library root | yes · yes · only when one of them is in a folder (good) | Keep | – |
+| 42 | Sidebar: Library, Favourites, Trash, folder tree, Settings, sync status | wide; drawer on phones | yes · yes · yes | Keep | – |
+| 43 | Selection bar: Favourite, Move to folder…, Export…, Trash | library | yes · yes · differs in shape from the overview's (R8-13, open) | Keep; one bar (R8-13) | M |
+| **Pages** | | | | | |
+| 44 | Overview: All / Bookmarked / Outline, Select, Add page tile, tile ⋯ (7), selection (6) | ▦ | yes · yes · see R9-3 | Keep | – |
+| 45 | Outline panel and entries | overview → Outline | lead decision | Keep | – |
+| 46 | Multi-page Delete asks **and** offers Undo | overview selection | the library trashes and deletes folders with Undo only | Remove the confirmation (R9-6) | S |
+| **Gestures** (no settings unless listed) | | | | | |
+| 47 | Pen draws; finger draws until a stylus is seen; two fingers pan and zoom; double-tap zoom; two- / three-finger tap (setting); long press (canvas menu); hold to snap (setting); scribble to erase (setting); side button (setting); lasso tap on PDF text; highlighter snaps to PDF text; tap title (rename); long-press page indicator (overview); long-press phone ⊕ (New menu); drag and drop; file drop | – | 16 gestures; the invisible ones are each taught once (tips) or sit in captions | Keep; teach on a budget (R9-1) | – |
+
+Modes: focus, presenting, split view, tabs, three selection modes
+(library, overview, recordings), text editing, crop, search, recording
+and playback. Each has one way in and Esc (or ✕) out. Keep.
+
+### Tips and notices
+
+All of them, from the code:
+
+| Kind | Message | When | Where | Once? |
+|---|---|---|---|---|
+| Tip | "Hold the pen’s side button to erase" (or "…to select with the lasso") | first stylus contact in an editor, after the stylus snack closes | editor bottom, 10 s | per device |
+| Tip | "Hold the pen still at the end of a line or shape to snap it clean" | a hand-drawn line or shape, then the pen rests 2 s | editor bottom, 10 s | per device |
+| Tip | "Circle ink, text or images to select them[; tap PDF text…]" | first pick of the lasso | editor bottom, until a selection is made | per device |
+| Tip | "Or scribble over ink with the pen to erase it" | second pick of the eraser | editor bottom, 10 s | per device |
+| Tip | "Tap with two fingers to undo, three to redo" | third ↶ tap on touch | editor bottom, 10 s | per device |
+| Snack | "Stylus detected: fingers now pan and zoom" [Keep finger drawing] | first stylus contact ever | 4 s | once |
+| Snack | "Scribble erases ink only" | a scribble over a text box or image | 4 s | each time |
+| Snack | "Sync stopped: the server refused the access token" / "Not synced since …" [Settings] | token refused; a day of failures | 8 s | until sync works again |
+| Notice | Unsaved changes (full browser storage); files not kept (private window) | web, while true | library top | persistent |
+| Notice | "Len started fresh" | storage from another version | library top | once |
+| Notice | "This browser may clear your notebooks" [Keep data] | web, sync off, not persisted | library top | once |
+| Notice | "Your notes are only on this device" [Back up…] [Set up sync…] | sync off, a notebook ≥ 1 day old, no backup (again after a backup is 30 days old) | library top | once (per stale backup) |
+| Notice | Missing PDF [Locate file…]; parked pane [Show] [Stop] | editor | top of the canvas | while true |
+| Note | Access token kept with Len's data | Settings → Sync | inline | once |
+| Hint | "Draw anywhere" | an empty canvas | centre | until the first edit |
+| Status | Sync alert ("Offline: not synced since …") | top bar | while failing | – |
+
+What holds:
+- Library notices never stack. `LibraryNotices._notice`
+  (`features/library/library_notice.dart:116-155`) picks one by priority.
+- Editor notices and tips step aside while a snack bar shows
+  (`MessageQueue.stepAside`, `ui/messages.dart:147`).
+- Only one tip shows at a time (`TipsController.value`).
+- The device-only notice waits a day, so it never greets a new user.
+
+What doesn't:
+- **No budget.** `TipsController.offer`
+  (`features/editor/chrome/editor_tips.dart:144-193`) shows any unseen tip
+  at once. A new tip *replaces* the one on screen.
+- **Tips can be lost.** A tip is marked seen when it is offered
+  (`markSeen` at :188), not when it was read. If it is replaced after a
+  second, or hidden for its whole 10 s behind a snack bar (`stepAside`
+  hides it; its timer keeps running), it never comes back.
+- **Tips sit on the writing.** They are on the page's bottom lines for
+  10 s, and don't fade while the pen is down. Pen input that lands on the
+  card goes to the card, not the page.
+- **Tips can come mid-writing.** Only hold to snap waits for a calm
+  pen (`calmFor`). The side-button tip follows the stylus snack, which
+  comes *during* the first stroke (`editor_screen_actions.dart:8-31`).
+
+**First hour, simulated** (new install, Android tablet with S Pen, paged
+notebook; from the triggers above):
+
+| Time | Event | What appears |
+|---|---|---|
+| 0:00 | Library opens, empty | Empty state ("Import PDF…", "Set up sync…"). On the web, also "This browser may clear your notebooks" (two sync nudges on the first screen). |
+| 0:01 | First stroke with the S Pen | Snack "Stylus detected…" (4 s, bottom, 3 lines on a phone), **then** the side-button tip (10 s), while the user is writing the first lines |
+| ~0:02 | Underlines a heading, pauses 2 s | Hold to snap tip. It **replaces** the side-button tip if that is still up; the side-button tip is spent anyway |
+| ~0:05 | Taps ↶ three times | Finger-tap undo tip |
+| ~0:08 | Picks the lasso | Lasso tip |
+| ~0:15 | Picks the eraser a second time | Scribble tip (the eraser popover already has the same caption) |
+| any | Scribbles over a text box | Snack "Scribble erases ink only" |
+| 24 h later | Library | "Only on this device" notice (correct) |
+
+The result is 1 snack and 5 tips in about 15 minutes, and 3 messages in
+the first 2 minutes. GoodNotes front-loads a short tour, then stays
+quiet. Len's contextual tips are the better idea, but they need a
+budget.
+
+**Proposed calm budget (R9-1):**
+1. At most **one tip per editor session** (opening a notebook). At
+   least **10 minutes** between tips, and none within 60 s of a snack
+   bar. Keep `lastTipAt` in `SettingsRepository`, next to `tips_seen`.
+2. Offer a tip only when the pen has rested ≥ 2 s (`calmFor` for every
+   tip, not just hold to snap). Fade it while the pen is down, and pause
+   its timer.
+3. Mark a tip seen only after it has been visible for ≥ 3 s. A tip that
+   is replaced or hidden stays unseen and waits for its next trigger.
+4. A tip never replaces another tip. The later one waits for its next
+   trigger.
+5. Priority when several are due: side button > hold to snap > lasso >
+   scribble.
+6. **Remove the finger-tap undo tip.** The HUD names Undo and Redo when
+   the gesture happens. The Settings row says it. SIMPLIFY #38 (lead
+   approved) removed it, and R6-14 brought it back.
+7. The side-button tip doesn't follow the stylus snack. Under rule 1,
+   it goes to the next session.
+
+With the budget, the first hour is: the stylus snack in session 1, hold
+to snap or lasso in session 1, the side button in session 2, and so on.
+At most one teaching message per notebook opening, never while the pen
+moves. Effort S (all in `editor_tips.dart`, `editor_screen_actions.dart`
+and `settings_repository.dart`), plus tests in `test/gesture_tips_test.dart`.
+
+### Glossary (one noun, one verb, one string)
+
+| Concept | Use | Found instead (fix) |
+|---|---|---|
+| notebook / canvas | "notebook" (paged), "canvas" (infinite); "notebook" for both in counts | ✓ |
+| page design | **template** ("Change template…", "All templates", "My templates") | "Paper" heading in the new-notebook sheet (`library/new_notebook_sheet.dart:238`); export "Page templates" (`documents/export/export_sheet.dart:255`) → "Template", "Templates". "Paper" stays for its colour only ("Paper colour"). Canvas "Background…" stays (a canvas has no pages) |
+| favourite | "Add to favourites", "Favourite" | "Star notebooks you use often…" (`library/library_empty_state.dart:63`) → "Add notebooks you use often to favourites…" |
+| trash | "Move to trash", "moved to the trash"; "Trash" only as the section's name | "went to the Trash" (`editor/document/page_transfer_flow.dart:59`) → "the trash" |
+| delete | "Delete" (undoable, no question), "Delete…" (asks), "Delete forever…" | ✓, except R9-6 |
+| one page left | "A notebook needs at least one page" | "keeps" (`page_transfer_flow.dart:28,44`) → "needs" |
+| retry | "Try again" | "Retry" (`settings/sync_status_line.dart:127`) |
+| failure | "Couldn’t …" | "Could not …" (`audio/recording_controller.dart:158,205,230`, `audio/backends/record_capture.dart:84`) |
+| page zoom | "Fit page", "Fit width", "Automatic zoom" (`document/page_fit.dart`) | Shortcut sheet: "Whole page", "Page width" (`settings/keyboard_shortcuts.dart:132-133`) |
+| canvas zoom | "Fit content", "Back to start" (zoom pill) | Shortcut sheet: "Fit the content", "Back to the start" (`keyboard_shortcuts.dart:141,150`) |
+| page commands | inside a page-scoped menu (⋯ → Page, tile ⋯, page selection): bare verbs ("Duplicate", "Bookmark", "Move or copy…", "Change template…", "Delete"); in a mixed menu (canvas long press): with "page" | ⋯ → Page says "Duplicate page", "Move or copy page…", "Bookmark page", "Delete page" (`chrome/editor_more_menu.dart:134-145`); the selection bar says "Template…" (`overview_selection.dart:79`) |
+| restore | "Restore" = out of the trash | "Restore from backup…" also brings back a backup (as a copy, "nothing here is replaced"). Keep: users look for that word, and the subtitle says what it does |
+| edit an object | "Rename…" + one appearance row | Notebook: "Rename…" + "Change cover…"; folder: "Edit folder…" (name and colour in one dialog). Call the folder row "Rename…" too (its dialog keeps the colour), so both objects answer to the same verb |
+| stylus | "pen" in tips and tools; "S Pen (or stylus)" only in the Side button row | "Stylus detected" snack: fine (it is about the device) |
+| quick slots | "quick colours", "quick sizes" | Disclosure "Toolbar" in the pen popover (`pen/ink_options.dart:118`) collides with "Toolbar docked / floating" |
+
+One interaction model per object:
+- **Notebook:** tap opens; ⋯ / right-click / long press opens the menu;
+  trash with Undo. ✓
+- **Folder:** the same, but its ⋯ says "Edit folder…" (glossary) and "Delete
+  folder" (undoable, ✓).
+- **Page:** five homes with different subsets (R9-3).
+- **Selection:**
+  - The lasso pill and the library and overview bars use the same verbs.
+  - The two bars differ in shape (R8-13, open).
+  - Page delete asks; notebook trash doesn't (R9-6).
+- **Recording:** 🎙▾, the sheet's ⋯ (Rename…, Trim…, Reset trim, Save to
+  device…, Delete…) and its selection. The same verbs as notebooks. ✓
+
+### Clutter (screenshots)
+
+- **Editor:** calm everywhere. Tablet bar: 8 tools, 3 + 3 slots, 🎙, ↶ ↷,
+  ⋯. The phone bar: 2 tools and the slots. Only ⋯ → View is long (8
+  rows), with radio groups that read well.
+- **Library, wide:** five rows stack above the first cover:
+  - the notice;
+  - the title with search, ⊕▾ and ⇅;
+  - Recent;
+  - folders;
+  - the New tile.
+
+  It is acceptable because the notice comes after a day and Recent only
+  when it adds something. But on a wide screen, "Only on this device" is
+  said twice at once (the notice and the sidebar status). Keep both: the
+  notice can be dismissed, and the status is ambient.
+- **New-notebook sheet (phone):** "Import PDF…" and "Import Len file…"
+  sit between Notebook / Canvas and Paper, and break the form. Move them
+  under Create, as quiet links (P2).
+- **Pen popover:** four groups; Feel and Toolbar are collapsed. Fine. Its
+  Reset differs from the eraser's and the laser's (row 29).
+- **Overview selection bar:** 6 actions on two rows. The library's bar
+  has 4 actions on one row. Same job, two shapes (R8-13).
+
+### Prioritised items
+
+**R9-1 P1 · Tips have no budget, can be lost, and sit on the writing.**
+See "Proposed calm budget" above. Effort S.
+
+**R9-2 P1 · The first stroke gets the stylus snack, then the side-button
+tip.**
+- *What:* `_onStylusDetected` (`editor/editor_screen_actions.dart:8-31`)
+  chains the side-button tip onto the snack's close.
+- *Why:* the first 14 s of a new user's first page have messages over
+  the bottom lines.
+- *Fix:* the tip goes to the next editor session (R9-1, rule 7).
+- Effort S.
+
+**R9-3 P1 · Page commands live in five places with four label sets.**
+- *What:* the five places:
+  - ⋯ → Page (6 rows, no "Add page after");
+  - the overview tile ⋯ (7 rows);
+  - the overview selection (6);
+  - the canvas long press (Add page after, Bookmark page, Change
+    template…);
+  - adding a page from the footer, Insert ⊕ "Page with template…", the
+    overview tile and the canvas menu.
+- *Why:* the same command has different names, and different places
+  offer different commands. A user who learned "Add page after" in the
+  overview won't find it in ⋯.
+- *Fix:*
+  - One list, `PageCommand.values`, in one order with one label set
+    (bare verbs, glossary). It is shown whole in ⋯ → Page and in the
+    tile ⋯. The selection shows the multi-page subset.
+  - The canvas long press keeps content actions only: Paste here,
+    Select all, Add text here, links.
+  - Adding a page keeps two homes: the footer / overview tile "Add page",
+    and "Add page after" in the page menu. Insert ⊕ "Page with
+    template…" goes; "Add page after" opens the same template choice on
+    long press.
+- Files: `chrome/editor_more_menu.dart`, `editor/editor_gestures.dart`,
+  `documents/overview/page_commands.dart`, `overview_selection.dart`,
+  `toolbar/insert_menu.dart`.
+- Effort S.
+
+**R9-4 P2 · Vocabulary drift.** Apply the glossary's "Found instead"
+column (11 strings). Effort S.
+
+**R9-5 P2 · Two homes for "New canvas".**
+- *What:* the ⊕▾ row (`library/library_new_menu.dart:24`) and the
+  sheet's Notebook / Canvas switch.
+- *Fix:* drop the row. ⊕▾ becomes New notebook, Import PDF…, Import Len
+  file…, New folder….
+- Effort S.
+
+**R9-6 P2 · Deleting several pages asks, then also offers Undo.**
+- *What:* `overview_selection.dart:43-55` asks, and
+  `document_commands.dart:219-226` offers Undo.
+- *Why:* nothing else in Len both asks and offers Undo. Notebooks,
+  folders and single pages only offer Undo.
+- *Fix:* drop the confirmation.
+- Effort S.
+
+**R9-7 P2 · Card and folder menus start with "Open".**
+- *What:* `library/library_menus.dart:44,76`.
+- *Why:* tapping the card does the same. The menu gets shorter, and the
+  first row becomes Rename….
+- Effort S.
+
+**R9-8 P2 · Tool popovers reset in two ways.**
+- *What:* "Reset feel" sits at the end of the collapsed Feel
+  (`pen/ink_options.dart:183`), while "Reset" sits in the header of the
+  eraser and laser popovers.
+- *Fix:* one "Reset" in every popover's header. For pens and
+  highlighters it resets the feel and keeps the quick slots, as now.
+- Effort S.
+
+**R9-9 P2 · The pen popover's "Toolbar" disclosure.**
+- *What:* the name collides with ⋯ → View "Toolbar docked / floating".
+- *Fix:* rename it "Quick colours and sizes" (summary "3 and 3").
+- Effort S.
+
+**R9-10 P2 · Phone new-notebook sheet: the import links break the
+form.** Move them under Create (or into the empty state and ⊕'s long
+press only). Effort S.
+
+**R9-11 P2 · "Follow pen speed" is a switch nobody will tune.** Make it
+the default for tapered ends (on) and drop the switch
+(`pen/pen_ends_options.dart`). The pen's Feel loses a control. Effort S.
+
+### Remove / Default
+
+| What | Verdict | Effort |
+|---|---|---|
+| Finger-tap undo tip (`EditorTip.gestureUndo`) | Remove | S |
+| Side-button tip chained to the stylus snack | Default: next session | S |
+| Canvas long press: Add page after, Bookmark page, Change template… | Merge into ⋯ → Page | S |
+| Insert ⊕ "Page with template…" | Merge into "Add page after" (long press: choose template) | S |
+| ⊕▾ "New canvas" | Merge into the sheet's Notebook / Canvas | S |
+| Card and folder ⋯ "Open" | Remove | S |
+| Multi-page delete confirmation | Remove (Undo is there) | S |
+| "Follow pen speed" switch | Default on | S |
+| "Reset feel" at the end of Feel | Merge into a header "Reset" like the other tools | S |
+| Pen popover "Toolbar" disclosure | Rename "Quick colours and sizes" | S |
+
+Kept on purpose: "Draw with finger" in ⋯ and Settings, Restore from
+backup… in Settings (a shortcut to Import Len file…), Recent, the
+sidebar sync status beside the device-only notice, and the 8 rows of
+View.
+
 ## Web walk-through (`test/web-explore`)
 
 `app/tool/web_explore.py` walked the release web build (JS and `--wasm`) in
