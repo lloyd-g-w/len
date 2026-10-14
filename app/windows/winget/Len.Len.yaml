@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.10.0.schema.json
+# winget manifest template, filled by fill.sh in the release workflow (see
+# docs/PACKAGING.md "Windows"). TODO(owner): PackageIdentifier "Len.Len" is
+# <Publisher>.<Name>; pick the publisher name for good before the first
+# submission (it cannot change later without a new package).
+PackageIdentifier: Len.Len
+PackageVersion: "{{VERSION}}"
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.10.0

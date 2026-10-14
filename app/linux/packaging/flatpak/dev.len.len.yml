@@ -6,9 +6,15 @@
 #
 # CI (.github/workflows/release.yml, job "flatpak") does the same and attaches
 # len-X.Y.Z-linux-x64.flatpak to the release. For Flathub, replace the
-# archive's `path` with the release tarball's `url` + `sha256`.
+# archive's `path` with the release tarball's `url` + `sha256` (see
+# docs/PACKAGING.md "Flathub").
+#
+# Audio recording: the runtime has `parecord` and an `ffmpeg` with the AAC
+# encoder, which record_linux runs (PATH /app/bin:/usr/bin); the PulseAudio
+# socket gives the microphone. check-runtime-recording.sh checks a new
+# runtime-version for them.
 id: dev.len.len
-runtime: org.gnome.Platform # GTK 3 (the Flutter embedder) and GStreamer
+runtime: org.gnome.Platform # GTK 3 (the Flutter embedder), GStreamer, parecord, ffmpeg
 runtime-version: '51'
 sdk: org.gnome.Sdk
 command: len
@@ -17,7 +23,7 @@ finish-args:
   - --socket=fallback-x11
   - --socket=wayland
   - --device=dri # GPU rendering, stylus / tablet input
-  - --socket=pulseaudio # audio recording and playback
+  - --socket=pulseaudio # audio recording (parecord) and playback (GStreamer)
   - --share=network # sync with a self-hosted server
   # Files: the file chooser and "Open with" go through portals; no
   # --filesystem access is needed.

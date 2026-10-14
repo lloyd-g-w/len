@@ -1,0 +1,24 @@
+Len is a calm, handwriting-first notes app. Write with a stylus (Samsung S Pen and other active pens), your finger or a mouse, on paper that feels like paper and a canvas that never ends.
+
+<b>Notebooks and canvases</b>
+• Paged notebooks with paper templates (ruled, grid, dotted, Cornell, music staff, planners) and covers
+• A truly infinite canvas that stays fast however much you draw
+• Import PDFs to annotate them, or add their pages to a notebook
+• Folders, favourites, recent notes and a trash you can restore from
+
+<b>A pen that keeps up</b>
+• Low-latency ink with pressure, palm rejection and a stabiliser
+• Pens, highlighter, eraser (or flip the S Pen / hold its button), lasso and shapes
+• Every edit can be undone
+
+<b>Everything a note needs</b>
+• Text boxes, images and audio recordings next to your writing
+• Search, page overview, bookmarks and presentation mode with a laser pointer
+• Export to PDF and PNG, or share whole notebooks as Len files
+
+<b>Your notes stay yours</b>
+• No account, no ads, no tracking
+• Works offline; back up the whole library to one file
+• Optional sync between your devices through a small server you host yourself
+
+Len also runs on Windows, Linux and in the browser.

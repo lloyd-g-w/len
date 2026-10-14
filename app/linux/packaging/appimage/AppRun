@@ -1,0 +1,18 @@
+#!/bin/sh
+# Entry point of the Len AppImage (see build-appimage.sh). The AppDir is the
+# Linux release bundle as is, so the runner finds lib/, data/ and its window
+# icon (share/icons) next to its executable.
+#   Len.AppImage [files or len:// links…]   run Len (files open in it)
+#   Len.AppImage --install-desktop-entry    add Len to the application menu,
+#                                           with "Open with" for PDFs, images
+#                                           and .len files and the len:// links
+#   Len.AppImage --uninstall-desktop-entry  remove that again
+set -eu
+here="$(dirname "$(readlink -f "$0")")"
+case "${1:-}" in
+  --install-desktop-entry)
+    LEN_EXEC="${APPIMAGE:?run this from the AppImage}" exec "$here/install-desktop-entry.sh" ;;
+  --uninstall-desktop-entry)
+    exec "$here/install-desktop-entry.sh" --uninstall ;;
+esac
+exec "$here/len" "$@"

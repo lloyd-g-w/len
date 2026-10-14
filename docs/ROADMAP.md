@@ -246,8 +246,13 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   single-instance forwarding over a named pipe, remembered window placement
 - ✅ Linux: Flatpak manifest from the release tarball (release job), AppStream metadata, remembered
   window size / position / maximised state
-- ⬜ Store listings (Play / F-Droid / Flathub / winget), signed Windows installer, AppImage, audio
-  recording inside the Flatpak
+- ✅ AppImage (release job, `--install-desktop-entry`, zsync updates); audio recording inside the
+  Flatpak (the GNOME runtime's `parecord` + `ffmpeg`, checked by a script); store metadata ready:
+  Flathub AppStream (screenshots, release notes, OARS), fastlane texts + phone / tablet
+  screenshots for Play and F-Droid, winget manifests filled per release (docs/PACKAGING.md)
+- ⬜ Publishing (needs the owner): a licence, then Flathub (app id domain), Play (account, AAB),
+  F-Droid (`foss` flavor without ML Kit, PDFium / SQLite from source), winget submission, a
+  code-signing certificate for the Windows installer
 
 ## Sync
 - ✅ Self-hosted LWW record sync
