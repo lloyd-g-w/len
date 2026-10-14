@@ -64,7 +64,9 @@ class ReplayStep {
 ///
 /// The caller owns [model], [live] and [viewport] (the Ink Lab replays into
 /// its visible surface; tests into in-memory ones) and paints or measures
-/// between [step]s. Hold-to-straighten is off: it needs real timers.
+/// between [step]s. Hold to snap is off unless [holdToSnap]: it runs on
+/// timers, which only fire at the recording's times when [advance] runs
+/// them (a test's fake clock).
 class ReplayDriver {
   ReplayDriver(
     this.recording, {
@@ -73,13 +75,15 @@ class ReplayDriver {
     required this.viewport,
     PenSettings? pen,
     PenEnds? ends,
+    bool holdToSnap = false,
+    this.advance,
   }) : pen = pen ?? recording.meta.pen,
        clock = ReplayClock(recording.meta.createdAtMs) {
     final meta = recording.meta;
     viewport
       ..setSize(meta.viewSize)
       ..setView(scale: meta.viewScale, offset: meta.viewOffset);
-    tools = ToolSettings(stylusOnly: meta.stylusOnly)..holdToStraighten = false;
+    tools = ToolSettings(stylusOnly: meta.stylusOnly)..holdToStraighten = holdToSnap;
     applyPen(tools, this.pen, ends: ends);
     controller = InkInputController(
       model: model,
@@ -98,6 +102,10 @@ class ReplayDriver {
   /// The pen the recording is replayed with (the recorded one by default).
   final PenSettings pen;
   final ReplayClock clock;
+
+  /// Called with each entry's recording time (µs) before it is handled,
+  /// to run timers due by then (`FakeAsync.elapse` in tests).
+  final void Function(int tUs)? advance;
   late final ToolSettings tools;
   late final InkInputController controller;
 
@@ -116,6 +124,7 @@ class ReplayDriver {
     var commitTime = Duration.zero;
     while (!done) {
       final entry = recording.entries[_next++];
+      advance?.call(entry.t);
       clock.nowUs = entry.t;
       switch (entry) {
         case FrameEntry():

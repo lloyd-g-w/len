@@ -9,11 +9,16 @@ import 'handwriting.dart';
 /// rounded corners, bowed and wobbly sides, ends that miss or overshoot
 /// the start, a little hook where the pen lands, slight rotation, sampled
 /// at 240 Hz with jitter and the app's minimum spacing. Deterministic for
-/// a [seed].
+/// a [seed]. Not [sampled], the shapes are the hand's dense paths (points
+/// about 2 apart), to be drawn with a real stroke's timing and jitter
+/// (`RealProfile.apply`).
 class HandShapes {
-  HandShapes(int seed) : _rng = math.Random(seed);
+  HandShapes(int seed, {this.sampled = true}) : _rng = math.Random(seed);
 
   final math.Random _rng;
+
+  /// Whether shapes come sampled like a stylus (hook, jitter, spacing).
+  final bool sampled;
 
   double _between(double a, double b) => a + (b - a) * _rng.nextDouble();
 
@@ -157,6 +162,7 @@ class HandShapes {
     final d0 = path.length > 3 ? path[3] - path[0] : const Offset(1, 0);
     final hookDir = _rotate(d0 / math.max(d0.distance, 1e-9), _between(1.6, 2.6));
     out.add(path.first + hookDir * _between(1, 3));
+    if (!sampled) return [...out, ...path];
     for (final p in path) {
       final q = p + Offset(_gauss(), _gauss()) * 0.3;
       if ((q - out.last).distance >= 0.75) out.add(q);
