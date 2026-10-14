@@ -34,7 +34,14 @@ class ScanPageDraft {
 /// them: the model behind the scan screen. Previews of the flattened
 /// pages render in the background (on a worker isolate natively).
 class ScanSession extends ChangeNotifier {
-  ScanSession({this.previewEdge = 320, this.displayEdge = 1600});
+  /// A session starting with [filter]; [onFilterChanged] hears the user
+  /// pick another (e.g. to remember it for the next scan).
+  ScanSession({
+    this.previewEdge = 320,
+    this.displayEdge = 1600,
+    this._filter = ScanFilter.colour,
+    this.onFilterChanged,
+  });
 
   /// The long side of the page previews, in pixels.
   final int previewEdge;
@@ -62,7 +69,10 @@ class ScanSession extends ChangeNotifier {
 
   /// How the pages are cleaned up.
   ScanFilter get filter => _filter;
-  ScanFilter _filter = ScanFilter.colour;
+  ScanFilter _filter;
+
+  /// Hears every new [filter].
+  final ValueChanged<ScanFilter>? onFilterChanged;
 
   bool _disposed = false;
 
@@ -150,6 +160,7 @@ class ScanSession extends ChangeNotifier {
   set filter(ScanFilter value) {
     if (value == _filter) return;
     _filter = value;
+    onFilterChanged?.call(value);
     for (final page in _pages) {
       _refresh(page);
     }

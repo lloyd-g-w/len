@@ -214,6 +214,12 @@ class SettingsRepository {
   ];
   set recentNotebooks(List<String> ids) => _set('recent_notebooks', ids.join(','));
 
+  /// The look of scanned pages (a `ScanFilter` name, owned by the scan
+  /// screen), or null until one is picked.
+  String? get scanFilter => _get('scan_filter');
+  set scanFilter(String? value) =>
+      value == null ? _remove('scan_filter') : _set('scan_filter', value);
+
   /// The editor's open tabs while it is shown (an opaque string owned by
   /// the editor), or null once the user went back to the library.
   String? get workspace => _get('workspace');

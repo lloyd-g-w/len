@@ -113,7 +113,11 @@ enum ScanFilter {
   greyscale,
 
   /// Black ink on white paper.
-  blackWhite,
+  blackWhite;
+
+  /// The filter named [value], else [colour].
+  static ScanFilter parse(String? value) =>
+      values.firstWhere((f) => f.name == value, orElse: () => colour);
 }
 
 /// Turns rows [y0, y1) of [img] into the document look of [filter], in

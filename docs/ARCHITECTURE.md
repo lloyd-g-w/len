@@ -856,7 +856,7 @@ SYNC_PROTOCOL). All pure Dart, so it works on every platform.
   finger while a corner moves; the outline's preview re-renders when the
   drag ends. Commands: Rotate, Whole photo (toggles with the page found),
   Retake (camera) / Replace… (files), Remove, + (camera or files), and the
-  look for all pages. Without a camera the file picker opens at once
+  look for all pages (remembered for the next scan: `SettingsRepository.scanFilter`). Without a camera the file picker opens at once
   (nothing picked → the screen closes); with one (Android, `image_picker`)
   the screen starts by offering both. Leaving with pages asks first.
   `ScanSources` is the seam for tests (`ScanSources.debugSources`).

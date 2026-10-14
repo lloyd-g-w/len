@@ -146,6 +146,33 @@ void main() {
     expect(pages.single.size.width, greaterThan(pages.single.size.height));
   }, variant: noCamera);
 
+  testWidgets('the look picked last time is where the next scan starts', (tester) async {
+    final services = await pumpLibrary(tester);
+    services.settings.scanFilter = ScanFilter.greyscale.name;
+    ScanSources.debugSources = fakeSources(
+      picks: [
+        [photoFile('page.png')],
+      ],
+    );
+    await scanFromLibrary(tester);
+    final s = scan(tester);
+    await s.untilPages(1);
+    final session = tester.widget<ScanScreen>(find.byType(ScanScreen)).session;
+    expect(session.filter, ScanFilter.greyscale);
+    final look = tester.widget<SegmentedButton<ScanFilter>>(
+      find.byKey(const ValueKey('scan-filter')),
+    );
+    expect(look.selected, {ScanFilter.greyscale});
+
+    // Picked even if the scan is then discarded.
+    await s.tap(find.text('B&W'));
+    expect(services.settings.scanFilter, ScanFilter.blackWhite.name);
+    await s.tap(find.byTooltip('Close'));
+    await s.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
+    expect(services.settings.scanFilter, ScanFilter.blackWhite.name);
+  }, variant: noCamera);
+
   testWidgets('cancelling the first pick leaves without creating anything', (tester) async {
     final services = await pumpLibrary(tester);
     ScanSources.debugSources = fakeSources();
