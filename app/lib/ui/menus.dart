@@ -23,8 +23,13 @@ class MenuRow<T> extends PopupMenuItem<T> {
     this.checked = false,
     this.filledIcon = false,
     this.shortcut,
+    this.alternate,
     super.enabled,
   }) : super(child: null, height: Targets.menuRow);
+
+  /// Chosen instead of [value] by a long press or a secondary click
+  /// ("Add page after" held: with a template).
+  final T? alternate;
 
   final IconData? icon;
 
@@ -60,6 +65,19 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
     final scheme = Theme.of(context).colorScheme;
     final base = widget.destructive ? scheme.error : scheme.onSurface;
     final color = widget.enabled ? base : base.withValues(alpha: 0.38);
+    final row = _row(context, scheme, color);
+    final alternate = widget.alternate;
+    if (alternate == null || !widget.enabled) return row;
+    void choose() => Navigator.pop<T>(context, alternate);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onLongPress: choose,
+      onSecondaryTap: choose,
+      child: row,
+    );
+  }
+
+  Widget _row(BuildContext context, ColorScheme scheme, Color color) {
     return ConstrainedBox(
       constraints: BoxConstraints(minHeight: Targets.menuRowHeight(context)),
       child: Row(

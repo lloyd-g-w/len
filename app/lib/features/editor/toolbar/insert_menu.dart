@@ -6,22 +6,20 @@ import '../../../ui/menus.dart';
 import '../chrome/canvas_guard.dart';
 
 /// What Insert ⊕ offers: an image, a photo (Android), and in paged
-/// notebooks pages from a PDF and a page with a template. Null entries
-/// are left out.
+/// notebooks pages from a PDF. Null entries are left out. (A page with a
+/// template: hold "Add page after" in the page menu, UX_AUDIT R9-3.)
 @immutable
 class InsertActions {
-  const InsertActions({required this.image, this.photo, this.pdfPages, this.templatePage});
+  const InsertActions({required this.image, this.photo, this.pdfPages});
 
   final VoidCallback image;
   final VoidCallback? photo;
   final VoidCallback? pdfPages;
-  final VoidCallback? templatePage;
 
   List<(IconData, String, VoidCallback)> get _entries => [
     (Symbols.image_sharp, 'Image…', image),
     if (photo case final photo?) (Symbols.photo_camera_sharp, 'Take photo', photo),
     if (pdfPages case final pdf?) (Symbols.picture_as_pdf_sharp, 'Pages from PDF…', pdf),
-    if (templatePage case final page?) (Symbols.note_add_sharp, 'Page with template…', page),
   ];
 
   /// The entries as menu items of a [ChromeMenuAnchor].

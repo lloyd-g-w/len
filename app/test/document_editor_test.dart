@@ -275,9 +275,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('page-tile-0')));
     await tester.tap(find.byKey(const ValueKey('page-tile-1')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.tap(find.text('Delete')); // No question: Undo is offered.
     await tester.pumpAndSettle();
     expect(s.pages.pagesOf(nb.id).map((p) => p.id), [original[2].id]);
     expect(find.text('2 pages deleted'), findsOneWidget);

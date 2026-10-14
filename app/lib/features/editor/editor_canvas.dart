@@ -57,7 +57,12 @@ class EditorCanvas extends StatelessWidget {
       children: [
         _surface(context),
         Positioned.fill(child: LinkLayer(session: session)),
-        if (doc != null) AddPageFooter(doc: doc, onAdd: session.commands!.addPage),
+        if (doc != null)
+          AddPageFooter(
+            doc: doc,
+            onAdd: session.commands!.addPage,
+            onAddWithTemplate: () => session.commands!.addPageWithTemplate(context),
+          ),
         MediaQuery(
           data: MediaQuery.of(context).copyWith(padding: chromeInsets),
           child: _contentLayer(),

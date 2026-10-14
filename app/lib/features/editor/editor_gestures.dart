@@ -5,7 +5,6 @@ import '../../domain/paper.dart';
 import '../../ink/tool_settings.dart';
 import 'chrome/canvas_context_menu.dart';
 import 'chrome/gesture_hud.dart';
-import 'document/page_overview.dart';
 import 'editor_session.dart';
 import 'links/link_actions.dart';
 
@@ -22,26 +21,17 @@ EditorMenu? canvasMenuAt(
   required void Function(Paper target) onFollowLink,
 }) {
   if (session.pdf?.selectWordAt(at) ?? false) return null;
-  final doc = session.doc;
-  final actions = canvasActions(
-    session,
-    at,
-    bookmarked: doc?.activePageData.bookmarked ?? false,
-    onPageCommand: (c) => session.commands!.run(context, c, doc!.activePageData),
-    onFollowLink: onFollowLink,
-  );
+  final actions = canvasActions(session, at, onFollowLink: onFollowLink);
   if (openLinkAction(context, session, at) case final link?) actions.insert(0, link);
   return (at: at, actions: actions);
 }
 
 /// The entries of the canvas context menu for a long press at [screen]:
-/// paste there, select everything on the page (or in view), add a text box
-/// there and, in paged notebooks, a few page commands.
+/// paste there, select everything on the page (or in view) and add a text
+/// box there. Content only: page commands live in ⋯ → Page (UX_AUDIT R9-3).
 List<CanvasAction> canvasActions(
   EditorSession session,
   Offset screen, {
-  required void Function(PageCommand command) onPageCommand,
-  required bool bookmarked,
   void Function(Paper target)? onFollowLink,
 }) {
   final doc = session.doc;
@@ -70,24 +60,6 @@ List<CanvasAction> canvasActions(
       tools.tool = EditorTool.text;
       content.textTool.startBox(world);
     }),
-    if (doc != null) ...[
-      CanvasAction(
-        PageCommand.insertAfter.icon,
-        PageCommand.insertAfter.label,
-        () => onPageCommand(PageCommand.insertAfter),
-        dividerBefore: true,
-      ),
-      CanvasAction(
-        bookmarked ? Symbols.bookmark_remove_sharp : Symbols.bookmark_add_sharp,
-        bookmarked ? 'Remove bookmark' : 'Bookmark page',
-        () => onPageCommand(PageCommand.bookmark),
-      ),
-      CanvasAction(
-        PageCommand.template.icon,
-        PageCommand.template.label,
-        () => onPageCommand(PageCommand.template),
-      ),
-    ],
   ];
 }
 

@@ -5,7 +5,8 @@ import '../../../ui/selection_bar.dart';
 import 'page_commands.dart';
 
 /// What can be done to the pages selected in the overview.
-enum SelectionAction { bookmark, duplicate, send, template, export, delete }
+/// In the page menu's order ([PageCommand.menu]), Export before Delete.
+enum SelectionAction { duplicate, send, bookmark, template, export, delete }
 
 /// The overview's selection mode in the shared [SelectionBar] (the
 /// library's too, UX_AUDIT R8-13): done, count, select all, and the
@@ -43,26 +44,25 @@ class PageSelectionBar extends StatelessWidget {
 
   SelectionCommand _command(SelectionAction a) => switch (a) {
     SelectionAction.bookmark => SelectionCommand(
-      icon: allBookmarked ? Symbols.bookmark_remove_sharp : Symbols.bookmark_sharp,
+      icon: PageCommand.bookmark.iconFor(bookmarked: allBookmarked),
       label: allBookmarked ? 'Remove bookmark' : 'Bookmark',
       overflow: 2,
       onPressed: () => onAction(a),
     ),
     SelectionAction.duplicate => SelectionCommand(
-      icon: Symbols.library_add_sharp,
+      icon: PageCommand.duplicate.iconFor(),
       label: 'Duplicate',
       overflow: 3,
       onPressed: () => onAction(a),
     ),
     SelectionAction.send => SelectionCommand(
-      icon: PageCommand.moveTo.icon,
-      label: PageCommand.moveTo.label,
+      icon: PageCommand.moveTo.iconFor(),
+      label: 'Move or copy…',
       onPressed: () => onAction(a),
     ),
     SelectionAction.template => SelectionCommand(
-      icon: Symbols.grid_on_sharp,
-      label: 'Template…',
-      tooltip: 'Change template…',
+      icon: PageCommand.template.iconFor(),
+      label: 'Change template…',
       overflow: 1,
       onPressed: () => onAction(a),
     ),
@@ -72,7 +72,7 @@ class PageSelectionBar extends StatelessWidget {
       onPressed: () => onAction(a),
     ),
     SelectionAction.delete => SelectionCommand(
-      icon: Symbols.delete_sharp,
+      icon: PageCommand.delete.iconFor(),
       label: 'Delete',
       destructive: true,
       // No question: the deletion offers Undo (UX_AUDIT R9-6).

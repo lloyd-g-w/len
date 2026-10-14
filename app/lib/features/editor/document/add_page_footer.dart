@@ -9,12 +9,19 @@ import 'document_layout.dart';
 
 /// "＋ Add page" below the last page of a continuous document, following
 /// the page as the document scrolls and zooms (GoodNotes' end-of-document
-/// affordance).
+/// affordance). Held down (or right-clicked), it asks for a template, like
+/// "Add page after" in the page menu.
 class AddPageFooter extends StatelessWidget {
-  const AddPageFooter({super.key, required this.doc, required this.onAdd});
+  const AddPageFooter({
+    super.key,
+    required this.doc,
+    required this.onAdd,
+    required this.onAddWithTemplate,
+  });
 
   final DocumentController doc;
   final VoidCallback onAdd;
+  final VoidCallback onAddWithTemplate;
 
   static const double height = 52, gap = 24;
 
@@ -36,7 +43,7 @@ class AddPageFooter extends StatelessWidget {
               top: top,
               width: width,
               height: height,
-              child: _AddButton(onAdd: onAdd),
+              child: _AddButton(onAdd: onAdd, onAddWithTemplate: onAddWithTemplate),
             ),
           ],
         );
@@ -46,24 +53,29 @@ class AddPageFooter extends StatelessWidget {
 }
 
 class _AddButton extends StatelessWidget {
-  const _AddButton({required this.onAdd});
+  const _AddButton({required this.onAdd, required this.onAddWithTemplate});
 
   final VoidCallback onAdd;
+  final VoidCallback onAddWithTemplate;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     // A Pencil-edged outline with an Ink +, like the library's New tile.
-    return OutlinedButton.icon(
-      onPressed: onAdd,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: scheme.onSurface,
-        backgroundColor: Colors.transparent,
-        side: BorderSide(color: scheme.outline),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm)),
+    return GestureDetector(
+      onSecondaryTap: onAddWithTemplate,
+      child: OutlinedButton.icon(
+        onPressed: onAdd,
+        onLongPress: onAddWithTemplate,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: scheme.onSurface,
+          backgroundColor: Colors.transparent,
+          side: BorderSide(color: scheme.outline),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm)),
+        ),
+        icon: const Icon(Symbols.add_sharp),
+        label: const Text('Add page'),
       ),
-      icon: const Icon(Symbols.add_sharp),
-      label: const Text('Add page'),
     );
   }
 }

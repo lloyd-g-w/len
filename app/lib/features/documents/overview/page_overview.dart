@@ -238,7 +238,10 @@ class _PageOverviewState extends State<PageOverview> {
                 itemCount: shown.length + (addTile ? 1 : 0),
                 itemBuilder: (context, i) {
                   if (i == shown.length) {
-                    return AddPageTile(onTap: () => _run(PageCommand.insertAfter, _pages.last));
+                    return AddPageTile(
+                      onTap: () => _run(PageCommand.insertAfter, _pages.last),
+                      onLongPress: () => _run(PageCommand.insertWithTemplate, _pages.last),
+                    );
                   }
                   final index = shown[i];
                   final page = _pages[index];

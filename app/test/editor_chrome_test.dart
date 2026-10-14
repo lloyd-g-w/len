@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/preferences.dart';
+import 'package:len/features/documents/overview/page_commands.dart';
 import 'package:len/features/editor/chrome/canvas_context_menu.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/editor_screen.dart';
@@ -79,6 +80,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Add text here'), findsOneWidget);
+    // Content only: page commands live in ⋯ → Page.
+    expect(find.text('Add page after'), findsNothing);
+    expect(find.text('Bookmark page'), findsNothing);
     await tester.tapAt(const Offset(700, 1200));
     await tester.pumpAndSettle();
     expect(find.byType(CanvasContextMenu), findsNothing);
@@ -274,19 +278,37 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('Page ▸ is about this page: adding pages lives elsewhere', (tester) async {
-    await pumpEditor(tester, size: const Size(1280, 800));
-    await tester.tap(find.byTooltip('More options'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Page'));
-    await tester.pumpAndSettle();
-    expect(find.text('Duplicate page'), findsOneWidget);
-    expect(find.text('Add page after'), findsNothing);
+  testWidgets('Page ▸ is the one page menu; "Add page after" held asks for a template', (
+    tester,
+  ) async {
+    final (s, nb) = await pumpEditor(tester, size: const Size(1280, 800));
+    final pages = s.pages.pagesOf(nb.id).length;
+    Future<void> openPageMenu() async {
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Page'));
+      await tester.pumpAndSettle();
+    }
+
+    await openPageMenu();
+    for (final c in PageCommand.menu) {
+      expect(find.text(c.labelFor()), findsOneWidget, reason: c.name);
+    }
     expect(find.text('Add page with template…'), findsNothing);
     expect(find.text('Add page to outline…'), findsNothing);
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.longPress(find.text('Add page after'));
+    await tester.pumpAndSettle();
+    expect(find.text('Duplicate page'), findsNothing, reason: 'the menu closed');
+    expect(find.text('Music staff'), findsWidgets, reason: 'the template chooser');
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
+    expect(find.text('Music staff'), findsNothing, reason: 'Esc closes the chooser');
+    expect(s.pages.pagesOf(nb.id), hasLength(pages));
+
+    await openPageMenu();
+    await tester.tap(find.text('Add page after'));
+    await tester.pumpAndSettle();
+    expect(s.pages.pagesOf(nb.id), hasLength(pages + 1));
     await closeEditor(tester);
   });
 

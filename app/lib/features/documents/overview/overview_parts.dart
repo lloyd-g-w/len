@@ -120,11 +120,13 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-/// The last tile of the overview: adds a page at the end.
+/// The last tile of the overview: adds a page at the end; held down (or
+/// right-clicked), with a template.
 class AddPageTile extends StatelessWidget {
-  const AddPageTile({super.key, required this.onTap});
+  const AddPageTile({super.key, required this.onTap, this.onLongPress});
 
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -150,6 +152,8 @@ class AddPageTile extends StatelessWidget {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(Radii.sm),
                     onTap: onTap,
+                    onLongPress: onLongPress,
+                    onSecondaryTap: onLongPress,
                     child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
