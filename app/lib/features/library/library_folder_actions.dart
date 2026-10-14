@@ -46,8 +46,6 @@ mixin _FolderActions {
 
   Future<void> onFolderAction(BuildContext context, Folder folder, FolderAction action) async {
     switch (action) {
-      case FolderAction.open:
-        controller.openFolder(folder.id);
       case FolderAction.edit:
         final details = await showFolderDialog(
           context,

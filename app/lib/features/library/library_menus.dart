@@ -8,9 +8,9 @@ import '../../ui/section_label.dart';
 
 export '../../ui/menus.dart';
 
-/// Actions offered on a notebook (card menu, context menu).
+/// Actions offered on a notebook (card menu, context menu). Opening is a
+/// tap, not a row (UX_AUDIT R9-7).
 enum NotebookAction {
-  open,
   rename,
   favorite,
   duplicate,
@@ -24,7 +24,7 @@ enum NotebookAction {
 }
 
 /// Actions offered on a folder.
-enum FolderAction { open, edit, move, export, delete }
+enum FolderAction { edit, move, export, delete }
 
 /// Menu items for [notebook]; trashed notebooks only restore or delete.
 List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
@@ -41,7 +41,6 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
     ];
   }
   return [
-    const MenuRow(value: NotebookAction.open, icon: Symbols.open_in_new_sharp, label: 'Open'),
     const MenuRow(value: NotebookAction.rename, icon: Symbols.edit_sharp, label: 'Rename…'),
     MenuRow(
       value: NotebookAction.favorite,
@@ -73,7 +72,6 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
 }
 
 const List<PopupMenuEntry<FolderAction>> folderMenuItems = [
-  MenuRow(value: FolderAction.open, icon: Symbols.folder_open_sharp, label: 'Open'),
   MenuRow(value: FolderAction.edit, icon: Symbols.edit_sharp, label: 'Edit folder…'),
   MenuRow(value: FolderAction.move, icon: Symbols.drive_file_move_sharp, label: 'Move to folder…'),
   // A folder exports as a Len file (one name for every Export, R8-20).
