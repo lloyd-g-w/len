@@ -118,7 +118,8 @@ class LassoTool implements PointerTool {
     final frame = selection.frame;
     final shape = selection.shape;
     if (shape != null) {
-      if (SelectionChrome.shapeHandleAt(shape, viewport, p.screen) case final point?) {
+      if (SelectionChrome.shapeHandleAt(shape, viewport, p.screen, frame: frame)
+          case final point?) {
         _mode = _Mode.reshape;
         _shape = shape;
         _point = point;
@@ -128,7 +129,7 @@ class LassoTool implements PointerTool {
     }
     if (frame != null && !selection.isEmpty) {
       final handle = SelectionChrome.hit(frame, viewport, p.screen, shape: shape);
-      if (handle != null || frame.contains(p.world)) {
+      if (handle != null || SelectionChrome.grabs(frame, viewport, p.screen, shape: shape)) {
         _mode = _Mode.transform;
         _handle = handle;
         _startFrame = frame;
@@ -186,12 +187,25 @@ class LassoTool implements PointerTool {
     }
   }
 
-  /// Where a dragged shape point goes for the pointer at [world]: a
-  /// line's or arrow's end keeps to 15° steps around the other with Shift.
+  /// Where a dragged shape point goes for the pointer at [world]. With
+  /// Shift, a line's or arrow's end keeps to 15° steps around the other,
+  /// and a rectangle's or ellipse's corner to its diagonal (proportions
+  /// kept).
   Offset _reshapeTarget(Offset world) {
     final shape = _shape!;
-    if (shape.kind.isClosed || !HardwareKeyboard.instance.isShiftPressed) return world;
-    return ShapeTool.constrain(shape.kind, shape.points[1 - _point], world);
+    if (!HardwareKeyboard.instance.isShiftPressed) return world;
+    switch (shape.kind) {
+      case ShapeKind.line || ShapeKind.arrow:
+        return ShapeTool.constrain(shape.kind, shape.points[1 - _point], world);
+      case ShapeKind.rectangle || ShapeKind.ellipse:
+        final corners = ShapeHandles.of(shape);
+        final opposite = corners[(_point + 2) % 4], diagonal = corners[_point] - opposite;
+        final d = world - opposite;
+        final t = (d.dx * diagonal.dx + d.dy * diagonal.dy) / diagonal.distanceSquared;
+        return diagonal == Offset.zero ? world : opposite + diagonal * t;
+      case ShapeKind.triangle || ShapeKind.diamond || ShapeKind.polygon || ShapeKind.star:
+        return world;
+    }
   }
 
   @override

@@ -1,6 +1,8 @@
 import 'dart:ui';
 
 import '../../domain/shape_geometry.dart';
+import '../shapes/polyline.dart';
+import '../shapes/shape_builder.dart';
 import '../shapes/shape_handles.dart';
 import '../viewport.dart';
 import 'selection_frame.dart';
@@ -89,11 +91,26 @@ abstract final class SelectionChrome {
     for (final p in ShapeHandles.of(shape)) viewport.toScreen(p),
   ];
 
-  /// The index of [shape]'s handle nearest to [screen] within [hitRadius],
-  /// if any.
-  static int? shapeHandleAt(ShapeGeometry shape, ViewportController viewport, Offset screen) {
+  /// Reach of a shape's handles (pixels): a finger-sized target.
+  static const double shapeHitRadius = 24;
+
+  /// The index of [shape]'s handle nearest to [screen], if any is within
+  /// reach: [shapeHitRadius] outside the [frame], less inside it (so a
+  /// small shape can still be moved by its middle), and not when the
+  /// frame's rotate handle is nearer.
+  static int? shapeHandleAt(
+    ShapeGeometry shape,
+    ViewportController viewport,
+    Offset screen, {
+    SelectionFrame? frame,
+  }) {
+    var reach = shapeHitRadius;
+    if (frame != null && frame.contains(viewport.toWorld(screen))) {
+      final side = frame.rect.shortestSide * viewport.scale;
+      reach = (side / 4).clamp(hitRadius / 2, shapeHitRadius);
+    }
     int? best;
-    var bestDistance = hitRadius;
+    var bestDistance = reach;
     for (final (i, p) in shapeHandles(shape, viewport).indexed) {
       final d = (p - screen).distance;
       if (d <= bestDistance) {
@@ -101,6 +118,27 @@ abstract final class SelectionChrome {
         bestDistance = d;
       }
     }
+    final rotate = frame == null
+        ? null
+        : handles(frame, viewport, shape: shape)[SelectionHandle.rotate];
+    if (rotate != null && (rotate - screen).distance < bestDistance) return null;
     return best;
+  }
+
+  /// Whether a press at [screen] grabs the selection in [frame] to move
+  /// it: anywhere inside the frame, but only near the stroke itself for a
+  /// single line or arrow (its frame, not shown, may span much of the view).
+  static bool grabs(
+    SelectionFrame frame,
+    ViewportController viewport,
+    Offset screen, {
+    ShapeGeometry? shape,
+  }) {
+    if (shape == null || shape.kind.isClosed) return frame.contains(viewport.toWorld(screen));
+    final outline = [for (final p in ShapeBuilder.outline(shape)) viewport.toScreen(p)];
+    for (var i = 1; i < outline.length; i++) {
+      if (Polyline.distanceToSegment(screen, outline[i - 1], outline[i]) <= hitRadius) return true;
+    }
+    return false;
   }
 }

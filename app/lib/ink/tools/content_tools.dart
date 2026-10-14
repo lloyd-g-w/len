@@ -141,8 +141,9 @@ class ContentTools {
     if (frame == null || selection.isEmpty) return false;
     final shape = selection.shape;
     return SelectionChrome.hit(frame, viewport, screen, shape: shape) != null ||
-        (shape != null && SelectionChrome.shapeHandleAt(shape, viewport, screen) != null) ||
-        frame.contains(viewport.toWorld(screen));
+        (shape != null &&
+            SelectionChrome.shapeHandleAt(shape, viewport, screen, frame: frame) != null) ||
+        SelectionChrome.grabs(frame, viewport, screen, shape: shape);
   }
 
   /// Called before [pasteAtCentre] pastes, e.g. to make the page in the
