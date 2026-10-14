@@ -104,6 +104,20 @@ class _PageOverviewState extends State<PageOverview> {
     if (!s.remove(page.id)) s.add(page.id);
   });
 
+  /// The pages the filter shows: what "Select all" picks.
+  List<NotebookPage> get _shownPages => [
+    for (final p in _pages)
+      if (!_bookmarksOnly || p.bookmarked) p,
+  ];
+
+  /// Changes the filter; selected pages it hides are deselected (else
+  /// Delete or Export would act on pages out of sight).
+  void _setFilter(OverviewFilter filter) => setState(() {
+    _filter = filter;
+    final shown = {for (final p in _shownPages) p.id};
+    _selection?.retainWhere(shown.contains);
+  });
+
   List<NotebookPage> get _selected => [
     for (final p in _pages)
       if (_selection?.contains(p.id) ?? false) p,
@@ -154,7 +168,7 @@ class _PageOverviewState extends State<PageOverview> {
             await widget.handlers.command(context, PageCommand.delete, p);
           }
         }
-        setState(() => _selection = null);
+        if (mounted) setState(() => _selection = null);
     }
     _reload();
   }
@@ -181,7 +195,7 @@ class _PageOverviewState extends State<PageOverview> {
           compact: compact,
           outline: widget.outline != null,
           textScale: MediaQuery.textScalerOf(context).scale(1),
-          onFilter: (f) => setState(() => _filter = f),
+          onFilter: _setFilter,
           onSelect: _filter == OverviewFilter.outline || _selecting
               ? null
               : () => setState(() => _selection = {}),
@@ -189,11 +203,11 @@ class _PageOverviewState extends State<PageOverview> {
         bottomNavigationBar: _selecting
             ? PageSelectionBar(
                 count: _selection!.length,
-                total: _pages.length,
+                total: shown.length,
                 onClose: () => setState(() => _selection = null),
                 onSelectAll: () => setState(() {
-                  final all = _selection!.length == _pages.length;
-                  _selection = all ? {} : {for (final p in _pages) p.id};
+                  final all = _selection!.length == shown.length;
+                  _selection = all ? {} : {for (final p in _shownPages) p.id};
                 }),
                 allBookmarked: _selected.isNotEmpty && _selected.every((p) => p.bookmarked),
                 offered: {

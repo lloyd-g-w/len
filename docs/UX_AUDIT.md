@@ -95,7 +95,7 @@ not a PDF".** ⬜
   `documents/pdf/pdf_open_failure.dart`. Effort S.
 
 **R10-9 P1 · Overview "Select all" under the Bookmarked filter selects
-hidden pages.** ⬜ Duplicate / Delete / Export then act on pages the user
+hidden pages.** ✅ Duplicate / Delete / Export then act on pages the user
 can't see. *Fix:* select the shown pages; trim the selection when the
 filter changes. Paths: `documents/overview/page_overview.dart:107,184-197`.
 Effort S.
@@ -167,7 +167,7 @@ isn't wrapped in `unlessTyping`. Paths: `editor/pdf/pdf_layer.dart:23-32`.
 Effort S.
 
 **R10-21 P2 · Overview delete calls `setState` after an await without a
-`mounted` check.** ⬜ Paths: `documents/overview/page_overview.dart:157`.
+`mounted` check.** ✅ Paths: `documents/overview/page_overview.dart:157`.
 Effort S.
 
 **R10-22 P2 · Copy.** ⬜
