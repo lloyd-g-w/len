@@ -18,7 +18,7 @@ extension _SyncRun on SyncController {
       final changes = await engine.sync(api, isCancelled: cancelled);
       if (cancelled()) return;
       _refreshTooLarge();
-      _lastSuccess = DateTime.now();
+      _lastSuccess = clock.nowDate();
       settings.syncLastSuccess = _lastSuccess!.millisecondsSinceEpoch;
       final failed = engine.failedBlobUploads;
       if (failed == 0) {
@@ -71,7 +71,7 @@ extension _SyncRun on SyncController {
     _lastError = message;
     _lastErrorDetails = details;
     _lastFailure = kind;
-    _failingSince ??= DateTime.now();
+    _failingSince ??= clock.nowDate();
     _setState(SyncState.error);
   }
 }

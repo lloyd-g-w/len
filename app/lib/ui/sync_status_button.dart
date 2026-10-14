@@ -127,7 +127,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
               ),
               icon: glyph,
               label: Text(
-                syncCaption(sync.state, sync.lastSuccess, DateTime.now()),
+                syncCaption(sync.state, sync.lastSuccess, sync.clock.nowDate()),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

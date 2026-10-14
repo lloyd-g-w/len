@@ -11,7 +11,11 @@ import 'settings_screen.dart';
 /// "Not synced since Monday", "…since just now" (or "Not synced yet"),
 /// from [sync]'s last success.
 String notSyncedSince(SyncController sync) => switch (sync.lastSuccess) {
-  final last? => libraryDateAfter('Not synced since', last.millisecondsSinceEpoch),
+  final last? => libraryDateAfter(
+    'Not synced since',
+    last.millisecondsSinceEpoch,
+    now: sync.clock.nowDate(),
+  ),
   null => 'Not synced yet',
 };
 

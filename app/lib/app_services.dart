@@ -166,12 +166,13 @@ class AppServices {
       blobs: blobs,
       elements: elements,
       sync: syncApiFactory == null
-          ? SyncController(engine: engine, settings: settings, tokens: tokens)
+          ? SyncController(engine: engine, settings: settings, tokens: tokens, clock: clock)
           : SyncController(
               engine: engine,
               settings: settings,
               tokens: tokens,
               apiFactory: syncApiFactory,
+              clock: clock,
             ),
       search: search,
       recognition: recognition,
