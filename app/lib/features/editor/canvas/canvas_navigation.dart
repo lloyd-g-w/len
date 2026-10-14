@@ -154,6 +154,41 @@ class CanvasNavigation extends ChangeNotifier {
     }
   }
 
+  /// The screen area the chrome leaves free (where fits centre).
+  Rect get _freeArea {
+    final area = _insets.deflateRect(Offset.zero & viewport.size);
+    return area.width < 1 || area.height < 1 ? Offset.zero & viewport.size : area;
+  }
+
+  /// The world area on screen and not under the chrome.
+  Rect get visibleArea {
+    final area = _freeArea;
+    return Rect.fromPoints(viewport.toWorld(area.topLeft), viewport.toWorld(area.bottomRight));
+  }
+
+  /// Brings [world] to the middle of the free area: gliding there, or at
+  /// once (dragging on the minimap). The zoom stays.
+  void centreOn(Offset world, {bool animate = true}) {
+    final offset = _freeArea.center - world * viewport.scale;
+    if (animate) return animator.animateTo(scale: viewport.scale, offset: offset);
+    animator.stop();
+    viewport.setView(scale: viewport.scale, offset: offset);
+  }
+
+  /// Zooms by [factor] at once about the middle of the free area (pinching
+  /// on the minimap).
+  void zoomBy(double factor) {
+    animator.stop();
+    viewport.zoomAt(_freeArea.center, factor);
+  }
+
+  /// Zooms one step in ([steps] > 0) or out about the middle of the free
+  /// area (scrolling on the minimap).
+  void zoomStep(int steps) {
+    final centre = _freeArea.center;
+    steps > 0 ? zoomIn(focal: centre) : zoomOut(focal: centre);
+  }
+
   /// Back to where a new canvas starts: the origin at the top left (below
   /// the chrome), 100 %.
   void goToOrigin() => animator.animateTo(scale: 1, offset: Offset(_insets.left, _insets.top));

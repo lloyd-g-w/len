@@ -29,6 +29,8 @@ class EditorMenuActions {
     this.fit,
     this.onFit,
     this.onBackground,
+    this.minimap,
+    this.onMinimap,
   });
 
   final VoidCallback onBack;
@@ -74,6 +76,10 @@ class EditorMenuActions {
   // Infinite canvases.
   /// Opens the background picker (template and paper colour).
   final VoidCallback? onBackground;
+
+  /// Whether the minimap shows (null: not a canvas); [onMinimap] toggles it.
+  final bool? minimap;
+  final VoidCallback? onMinimap;
 
   bool get isPaged => onPageCommand != null;
 }

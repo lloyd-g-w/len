@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
+import '../../ui/app_theme.dart';
 import '../audio/audio_layer.dart';
 import '../audio/notebook_audio.dart';
 import '../search/editor/editor_search_controller.dart';
 import '../search/editor/editor_search_layer.dart';
 import 'canvas/canvas_empty_hint.dart';
+import 'canvas/canvas_minimap.dart';
 import 'chrome/canvas_context_menu.dart';
 import 'chrome/canvas_guard.dart';
 import 'chrome/editor_chrome.dart';
@@ -22,8 +24,8 @@ import 'zoom/zoom_box.dart';
 import 'zoom/zoom_frame_overlay.dart';
 
 /// The editor's layers, bottom to top: the surface, PDF text, the zoom
-/// window's frame, the empty canvas hint, image drops, audio, the zoom
-/// window's box, the chrome and search, and on top the split view's drop
+/// window's frame, the empty canvas hint, image drops, audio, the
+/// canvas's minimap, the zoom window's box, the chrome and search, and on top the split view's drop
 /// highlight and the canvas context menu.
 ///
 /// A feature that shows something over the surface adds its layer here.
@@ -61,6 +63,45 @@ class EditorLayers extends StatelessWidget {
 
   final EditorMenu? menu;
   final VoidCallback onCloseMenu;
+
+  /// The canvas's minimap, in the bottom-right corner clear of the chrome
+  /// (and of the audio strip); in focus mode only when kept there.
+  Widget? _minimap() {
+    final nav = session.canvasNav;
+    final model = session.canvas;
+    final prefs = session.services.preferences;
+    if (nav == null || model == null || !prefs.canvasMinimap) return null;
+    final covered = layout.covered;
+    return ValueListenableBuilder(
+      valueListenable: audio.stripHeight,
+      builder: (context, strip, _) {
+        final screen = MediaQuery.sizeOf(context);
+        final free = covered.deflateSize(screen);
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            layout.safe.left + Gaps.md,
+            covered.top + Gaps.md,
+            layout.safe.right + Gaps.md,
+            covered.bottom + strip + Gaps.md,
+          ),
+          child: Align(
+            alignment: Alignment.bottomRight,
+            child: CanvasMinimap(
+              navigation: nav,
+              model: model,
+              live: session.live,
+              paperColor: notebook.paperColor,
+              size: minimapSize(free, phone: layout.phone),
+              visible: !layout.focus || prefs.minimapInFocus,
+              pinned: prefs.minimapInFocus,
+              onPinned: (on) => prefs.minimapInFocus = on,
+              onHide: () => prefs.canvasMinimap = false,
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +144,7 @@ class EditorLayers extends StatelessWidget {
             canvasPaper: notebook.paperColor,
           ),
         ),
+        if (_minimap() case final minimap?) Positioned.fill(child: minimap),
         if (session.zoomWindow.isOpen)
           Positioned(
             left: 0,
