@@ -73,7 +73,7 @@ class NewNotebookSheet extends StatefulWidget {
 class _NewNotebookSheetState extends State<NewNotebookSheet> {
   final _title = TextEditingController();
   NotebookKind _kind = NotebookKind.paged;
-  late final DateTime _today = widget.today ?? DateTime.now();
+  late final DateTime _today = widget.today ?? AppScope.read(context).clock.nowDate();
   late TemplateSelection _selection = initialSelection(
     PageTemplate.of(_canvas ? PaperStyle.dotted : PaperStyle.collegeRuled),
     _today,

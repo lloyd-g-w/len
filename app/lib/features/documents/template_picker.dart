@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app_services.dart';
+import '../../core/clock.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/dialog_or_sheet.dart';
@@ -110,7 +112,7 @@ class TemplatePicker extends StatefulWidget {
 class _TemplatePickerState extends State<TemplatePicker> {
   late TemplateSelection _s = initialSelection(
     widget.initial,
-    widget.today ?? DateTime.now(),
+    widget.today ?? (AppScope.maybeRead(context)?.clock ?? const Clock()).nowDate(),
     calendar: defaultPlannerCalendar(),
   );
 

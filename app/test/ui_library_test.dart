@@ -13,6 +13,7 @@ import 'package:len/ui/app_theme.dart';
 
 import 'support/fake_server.dart' show FakeServer;
 import 'support/page_actions.dart';
+import 'support/tester_clock.dart';
 
 /// Pumps the library with fresh in-memory services. Sync stays unconfigured
 /// and is never started (that would leave a periodic timer running).
@@ -184,7 +185,12 @@ void main() {
   });
 
   testWidgets('a new notebook from a planner template gets one page per day', (tester) async {
-    final services = await pumpLibrary(tester);
+    // The app's date, fixed: the last minute of a 29-day month.
+    final now = DateTime(2028, 2, 29, 23, 59, 59);
+    final services = await pumpLibrary(
+      tester,
+      services: AppServices.create(AppDatabase.inMemory(), clock: FixedClock(now)),
+    );
     await tester.tap(find.text('New notebook'));
     await tester.pumpAndSettle();
     // Planners come from the full chooser.
@@ -196,8 +202,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Use template'));
     await tester.pumpAndSettle();
-    final now = DateTime.now();
-    final days = PlannerDates.daysInMonth(now.year, now.month);
+    const days = 29;
     expect(find.text('Daily planner, white, A4 portrait, $days pages'), findsOneWidget);
 
     await tester.tap(find.text('Create'));
@@ -210,7 +215,7 @@ void main() {
       pages.first.paper,
       Paper.planner(
         PaperStyle.dailyPlanner,
-        DateTime.utc(now.year, now.month),
+        DateTime.utc(2028, 2),
         // The test device is set to US English.
         calendar: PlannerCalendar.forLocale('en', 'US'),
       ),
