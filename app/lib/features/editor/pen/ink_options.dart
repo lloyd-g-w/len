@@ -6,6 +6,7 @@ import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_picker/color_choices.dart';
 import '../../../ui/color_picker/color_swatches.dart';
+import '../../../ui/option_disclosure.dart';
 import 'ink_slots.dart';
 import 'option_controls.dart';
 import 'option_sections.dart';

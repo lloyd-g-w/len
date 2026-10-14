@@ -2475,11 +2475,12 @@ selected label stays `onSurface` (the ring and check carry the selection).
 *Files:* `domain/templates/paper_style.dart`,
 `features/documents/templates/template_gallery.dart`.
 
-**R5-25 P2 · The planner's "More options" is a Material `ExpansionTile`.**
+**R5-25 P2 · The planner's "More options" is a Material `ExpansionTile`.** ✅
 `templates_*_planner`: its chevron, padding and type differ from Feel's
 `OptionDisclosure` and the settings rows next to it. *Fix:* use
 `OptionDisclosure` (moved to `ui/`) for both. *Files:*
 `documents/templates/planner_options.dart:76`, `editor/pen/option_sections.dart`.
+*Done (`fix/r10-open`):* `OptionDisclosure` lives in `ui/` and folds both.
 
 ### Settings, sync, handwriting
 
