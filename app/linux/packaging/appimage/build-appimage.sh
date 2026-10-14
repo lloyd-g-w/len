@@ -5,8 +5,8 @@
 #   e.g. … build/linux/x64/release/bundle /tmp/len-0.1.0-linux-x64.AppImage
 #
 # The AppDir is the bundle itself plus AppRun (this directory), the desktop
-# entry and icon at its root and usr/share → share (AppStream metadata for
-# appimagetool's check). Like the tarball, it bundles Flutter, SQLite and
+# entry and icon at its root and usr/share → share (where AppImage
+# tools look for the AppStream metadata). Like the tarball, it bundles Flutter, SQLite and
 # Len; GTK 3, libsecret, GStreamer, parecord and ffmpeg come from the
 # system (README "Install"; docs/PACKAGING.md says why).
 #
