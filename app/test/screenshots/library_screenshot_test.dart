@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/features/library/library_screen.dart';
+import 'package:len/features/library/notebook_card.dart';
+import 'package:len/features/library/recent_row.dart';
 import 'package:len/features/settings/settings_screen.dart';
 
 import 'screenshot_harness.dart';
@@ -170,4 +173,38 @@ void main() {
       });
     }
   }
+
+  // The keyboard's focus ring (DESIGN §0: the margin rule marks where you
+  // are) on the controls Tab reaches first: the sidebar, a Recent tile, a
+  // cover.
+  for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+    testWidgets('keyboard focus desktop ${mode.name}', (tester) async {
+      setWindow(tester, desktop);
+      final services = seededServices();
+      addTearDown(services.dispose);
+      await pumpApp(tester, services, const LibraryScreen(), mode: mode);
+      for (final (shot, type) in [('recent', RecentTile), ('card', NotebookCard)]) {
+        await tabUntil(tester, find.byType(type));
+        await shoot(tester, 'focus_${shot}_${mode.name}');
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+}
+
+/// Presses Tab until the focused control lies inside [target] (the first
+/// match), so the screenshot shows the focus ring there.
+Future<void> tabUntil(WidgetTester tester, Finder target) async {
+  for (var i = 0; i < 40; i++) {
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await settle(tester);
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused == null) continue;
+    final inside = find.descendant(
+      of: target.first,
+      matching: find.byElementPredicate((e) => e == focused),
+    );
+    if (inside.evaluate().isNotEmpty) return;
+  }
+  fail('Tab never reached $target');
 }

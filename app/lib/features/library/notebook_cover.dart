@@ -80,17 +80,8 @@ class NotebookCover extends StatelessWidget {
                   ),
           ),
           if (_paged && !pending) _Spine(color: base, onPreview: preview != null),
-          if (!_paged && preview != null) const Positioned.fill(child: _CanvasTag()),
-          if (!_paged && preview == null && !pending)
-            Positioned(
-              right: 10,
-              bottom: 10,
-              child: Icon(
-                Symbols.all_inclusive_sharp,
-                color: Colors.white.withValues(alpha: 0.9),
-                size: 20,
-              ),
-            ),
+          // A canvas carries its ∞ badge with or without a preview.
+          if (!_paged && !pending) const Positioned.fill(child: _CanvasTag()),
           if (favorite) const Positioned(top: 8, right: 8, child: _FavoriteBadge()),
           // Hairline edge so light previews separate from the background.
           DecoratedBox(
@@ -144,10 +135,10 @@ class _Spine extends StatelessWidget {
   }
 }
 
-/// Marks a canvas over its preview: a badge printed on the cover like
-/// [_FavoriteBadge], a paper plate with an Ink ∞ (DESIGN §1: badges are
-/// neutral; the cover colour stays on the cover), in its bottom-left
-/// corner; smaller on small thumbnails, so it never fills them.
+/// Marks a canvas, over its preview or its plain cover: a badge printed on
+/// the cover like [_FavoriteBadge], a paper plate with an Ink ∞ (DESIGN §1:
+/// badges are neutral; the cover colour stays on the cover), in its
+/// bottom-left corner; smaller on small thumbnails, so it never fills them.
 class _CanvasTag extends StatelessWidget {
   const _CanvasTag();
 

@@ -88,7 +88,7 @@ class RecentRow extends StatelessWidget {
                       child: RecentTile(
                         key: ValueKey('recent-${n.id}'),
                         notebook: n,
-                        caption: actions.controller.folderPathOf(n),
+                        caption: actions.controller.locationOf(n),
                         onOpen: () => unawaited(actions.openNotebook(context, n)),
                       ),
                     ),
@@ -106,8 +106,9 @@ class RecentRow extends StatelessWidget {
 }
 
 /// A notebook in the Recent row: a small cover in its colour (with the
-/// darker spine), its title and the folder it lives in (none at the top
-/// level); opens on tap.
+/// darker spine), its title and where it lives (its folder, or "Library":
+/// every tile has two lines, so the titles share a baseline); opens on
+/// tap.
 class RecentTile extends StatefulWidget {
   const RecentTile({
     super.key,
