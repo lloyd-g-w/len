@@ -27,6 +27,22 @@ abstract final class ShapeHandles {
     };
   }
 
+  /// How far [shape] is turned (radians): the direction of a rectangle's
+  /// first side, of an ellipse's or star's first axis; 0 for the others,
+  /// which have no sides of their own to align a frame with.
+  static double angleOf(ShapeGeometry shape) {
+    final p = shape.points;
+    final d = switch (shape.kind) {
+      ShapeKind.rectangle || ShapeKind.ellipse || ShapeKind.star => p[1] - p[0],
+      _ => null,
+    };
+    if (d == null || d.distance == 0) return 0;
+    // Within ±45°: a rectangle turned by 90° is the same rectangle.
+    const quarter = math.pi / 2;
+    final a = d.direction;
+    return a - (a / quarter).round() * quarter;
+  }
+
   /// The star vertex whose handle sets the inner radius (between the top
   /// point and the next).
   static const int innerVertex = 1;

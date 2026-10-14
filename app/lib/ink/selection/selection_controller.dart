@@ -12,6 +12,7 @@ import '../elements/element_order.dart';
 import '../geometry/affine.dart';
 import '../render/content_painter.dart';
 import '../shapes/shape_builder.dart';
+import '../shapes/shape_handles.dart';
 import '../surface_model.dart';
 import '../undo_history.dart';
 import 'ink_clipboard.dart';
@@ -293,6 +294,16 @@ abstract class _SelectionCore extends ChangeNotifier {
     if (strokes.isEmpty && elements.length == 1) {
       final e = elements.single;
       return SelectionFrame(e.rect.inflate(framePadding), e.rotation);
+    }
+    // A single shape: turned with it, so its handles sit on the frame.
+    if (strokes.length == 1 && elements.isEmpty && strokes.single.shape != null) {
+      final s = strokes.single;
+      final angle = ShapeHandles.angleOf(s.shape!);
+      return SelectionFrame.around(
+        [for (final p in s.points) p.offset],
+        angle,
+        framePadding + s.width / 2,
+      );
     }
     return SelectionFrame(SelectionController.boundsOf(strokes, elements).inflate(framePadding));
   }

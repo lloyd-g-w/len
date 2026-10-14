@@ -99,6 +99,12 @@ void main() {
     );
     final corners = rect.shape!.points;
     drag([screen(Offset.lerp(corners[0], corners[1], 0.5)!)]); // selects it
+    // Its frame turns with it: the corners (handles) sit just inside the frame's.
+    final frame = content.selection.frame!;
+    expect(frame.angle, closeTo(0.5, 1e-6));
+    for (final (i, c) in frame.corners.indexed) {
+      expect((c - corners[i]).distance, lessThan(20));
+    }
     final corner = screen(corners[2]);
     drag([corner, corner + const Offset(20, 5), corner + const Offset(60, 10)]);
     final reshaped = content.selection.strokes.single;
