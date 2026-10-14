@@ -85,7 +85,7 @@ now".** ✅
 - Paths: `settings/sync_settings_views.dart:39-58`. Effort S.
 
 **R10-8 P1 · Every PDF import failure says the file "may be damaged, or
-not a PDF".** ⬜
+not a PDF".** ✅
 - *What:* errors from storing the file (disk full, lost content-URI
   permission, browser quota) go through `pdfOpenFailure` too; the user
   retries a good file. No Details action, unlike Len import.
