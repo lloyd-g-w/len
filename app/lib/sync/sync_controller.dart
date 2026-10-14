@@ -199,10 +199,19 @@ class SyncController extends ChangeNotifier {
     if (blobs == null) return false;
     if (await blobs.has(sha)) return true;
     if (!isConfigured || _disposed) return false;
+    // Switching servers (or one losing its history) resets the uploaded
+    // marks; a download still under way must not mark it on the new one.
+    final generation = _configGeneration;
+    final serverId = settings.syncServerId;
     SyncApi? api;
     try {
       api = apiFactory(settings.syncUrl, tokens.token);
-      return await BlobSync(blobs).download(api, sha);
+      return await BlobSync(blobs).download(
+        api,
+        sha,
+        fromCurrentServer: () =>
+            generation == _configGeneration && serverId == settings.syncServerId,
+      );
     } on SyncException catch (e) {
       debugPrint('Cannot fetch blob $sha: ${e.message}');
       return false;
