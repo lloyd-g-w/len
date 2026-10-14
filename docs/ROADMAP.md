@@ -123,8 +123,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Document scanning ("Scan document…" in the library's ⊕▾ / new-notebook sheet → a new
   notebook; Insert ⊕ in paged notebooks → pages after the current one, one Undo): photos from
   files (every platform) or the camera (Android); the page's edges are found (pure Dart, on an
-  isolate), four corners and four sides to drag with a loupe, rotate, whole photo, retake, remove,
-  more pages; Colour / Greyscale / B&W clean-up (white paper, even light, crisp ink); pages are
+  isolate) to a fraction of a pixel, four corners and four sides to drag with a loupe, a large
+  Preview of the cleaned-up page, rotate, whole photo, retake, remove, more pages, reorder (drag in
+  the strip, Ctrl+← / →); Colour / Greyscale / B&W clean-up (white paper, even light, crisp ink),
+  remembered for the next scan; big photos kept at 3200 px so long scans stay light; pages are
   flattened JPEG backgrounds (A4 / Letter when they're that shape), synced as blobs, exported
 - ✅ Progress for import / export: stage, file name, "Page x of n" bar
 - ✅ Export options sheet: PDF / PNG, current / all pages / page range, page templates and PDF
