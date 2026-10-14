@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -10,11 +11,14 @@ import '../playback_controller.dart';
 /// shortcuts (so ← / → skip instead of turning pages while the player is
 /// open): Space plays / pauses, ← / → skip 10 s, Shift+← / → jump to the
 /// previous / next burst of writing. Ignored without an open recording,
-/// with Ctrl / Alt / ⌘ held, and while text is being edited.
+/// with Ctrl / Alt / ⌘ held, and while text is being edited. On desktops
+/// the keyboard's media keys work too (see [_mediaKey]).
 KeyEventResult handlePlaybackKey(NotebookAudio audio, KeyEvent event) {
   final playback = audio.playback;
   final recording = playback.recording;
-  if (recording == null || event is KeyUpEvent || _typing()) return KeyEventResult.ignored;
+  if (recording == null || event is KeyUpEvent) return KeyEventResult.ignored;
+  if (_mediaKey(playback, event)) return KeyEventResult.handled;
+  if (_typing()) return KeyEventResult.ignored;
   final keyboard = HardwareKeyboard.instance;
   if (keyboard.isControlPressed || keyboard.isAltPressed || keyboard.isMetaPressed) {
     return KeyEventResult.ignored;
@@ -40,6 +44,38 @@ KeyEventResult handlePlaybackKey(NotebookAudio audio, KeyEvent event) {
   }
   return KeyEventResult.handled;
 }
+
+/// The keyboard's media keys while Len is in front on Windows (no system
+/// media controls there) and on Linux without MPRIS (with it, the desktop
+/// takes the keys and sends them through MPRIS): play / pause, stop
+/// (pause), next / previous and fast forward / rewind ±10 s. Android and
+/// browsers hand them to their media sessions.
+bool _mediaKey(PlaybackController playback, KeyEvent event) {
+  if (kIsWeb || !_desktops.contains(defaultTargetPlatform)) return false;
+  final key = event.logicalKey;
+  final skip = _mediaSkips[key];
+  if (skip != null) {
+    unawaited(playback.skip(skip));
+  } else if (key == LogicalKeyboardKey.mediaPlayPause) {
+    if (event is KeyDownEvent) unawaited(playback.toggle());
+  } else if (key == LogicalKeyboardKey.mediaPlay) {
+    unawaited(playback.play());
+  } else if (key == LogicalKeyboardKey.mediaPause || key == LogicalKeyboardKey.mediaStop) {
+    unawaited(playback.pause());
+  } else {
+    return false;
+  }
+  return true;
+}
+
+const _desktops = {TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS};
+
+final _mediaSkips = {
+  LogicalKeyboardKey.mediaTrackNext: PlaybackController.skipMs,
+  LogicalKeyboardKey.mediaFastForward: PlaybackController.skipMs,
+  LogicalKeyboardKey.mediaTrackPrevious: -PlaybackController.skipMs,
+  LogicalKeyboardKey.mediaRewind: -PlaybackController.skipMs,
+};
 
 /// Whether a text field (or text box being edited) has the keyboard.
 bool _typing() {

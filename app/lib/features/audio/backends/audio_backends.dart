@@ -5,6 +5,7 @@ import 'package:cross_file/cross_file.dart';
 import '../../../data/blob_store.dart';
 import '../../../data/spool_storage.dart';
 import '../../../domain/recording.dart';
+import '../../../platform/media_controls_api.dart';
 
 /// A finished capture file: the audio (a file natively, a blob URL in
 /// browsers), its MIME type and, when the backend knows it exactly (ADTS
@@ -79,6 +80,9 @@ abstract interface class AudioPlayback {
   /// Plays at [rate] × normal speed (pitch kept where the platform can).
   Future<void> setRate(double rate);
 
+  /// Plays at [volume] (0…1) of the recording's loudness (ducking).
+  Future<void> setVolume(double volume);
+
   /// The playback position, a few times a second while playing.
   Stream<Duration> get positions;
 
@@ -124,6 +128,7 @@ class AudioBackends {
     required this.playback,
     this.unavailable,
     this.keepAlive,
+    this.mediaControls,
     this.spool,
   });
 
@@ -136,6 +141,10 @@ class AudioBackends {
   /// Keeps recordings alive in the background, where a platform needs it
   /// (Android); null elsewhere.
   final RecordingKeepAlive Function()? keepAlive;
+
+  /// The system's media controls for the player (Android's notification
+  /// and lock screen, MPRIS, the browser's); null where there are none.
+  final MediaControls Function()? mediaControls;
 
   /// Opens the directory recordings in progress are written to, so they
   /// can be recovered after the app was killed; null (or returning null)

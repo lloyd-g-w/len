@@ -71,6 +71,23 @@ class PlaybackController extends ChangeNotifier {
     if (_recording != null && !_loading) await _player?.setRate(rate);
   }
 
+  /// Counts jumps of the position ([seek], [skip]), so media controls
+  /// that extrapolate it (lock screen, notification) can follow.
+  int get seeks => _seeks;
+  int _seeks = 0;
+
+  /// Plays quieter while another app's sound is mixed over it (ducking).
+  Future<void> setDucked(bool ducked) async {
+    if (ducked == _ducked) return;
+    _ducked = ducked;
+    await _player?.setVolume(ducked ? duckedVolume : 1);
+  }
+
+  bool _ducked = false;
+
+  /// The volume while [setDucked].
+  static const double duckedVolume = 0.2;
+
   /// How far [skip] buttons and ← / → jump.
   static const int skipMs = 10000;
 
@@ -214,6 +231,7 @@ class PlaybackController extends ChangeNotifier {
     final recording = _recording;
     if (recording == null) return;
     _positionMs = positionMs.clamp(startMs, math.max(startMs, endMs));
+    _seeks++;
     notifyListeners();
     await _player?.seek(Duration(milliseconds: _positionMs));
   }

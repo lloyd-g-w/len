@@ -16,6 +16,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- Playback continues in the background with media controls (lock
+         screen, notification, headset buttons) in a foreground service of
+         type "mediaPlayback" (PlaybackService.kt); media notifications need
+         no notification permission. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <!-- ML Kit's model downloads (WorkManager) would reschedule after a
          reboot; WorkManager does so at Len's next start anyway, and Len needs
          no "run at startup". -->
@@ -126,6 +131,10 @@
             android:name=".RecordingService"
             android:exported="false"
             android:foregroundServiceType="microphone"/>
+        <service
+            android:name=".PlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback"/>
         <!-- Samsung DeX: keep the process alive (no restart) when moving
              between the phone screen and the DeX display / changing density. -->
         <meta-data

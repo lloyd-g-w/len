@@ -978,6 +978,39 @@ replayed in step with the ink.
   are created only when the user records or plays, so platforms and tests
   that never do never touch the audio plugins (`AudioBackends`; tests use
   fakes).
+- **Background playback and media controls** (`PlaybackSession`,
+  `platform/media_controls*`, `AudioBackends.mediaControls`). Once a
+  recording first plays, the system's media controls show it (title, the
+  notebook as album; position and length in the kept audio) until the player
+  closes: Android's media session and notification, MPRIS on Linux
+  (`org.mpris.MediaPlayer2.len`: GNOME / KDE controls, media keys,
+  `playerctl`), the Media Session API in browsers. They are updated on play /
+  pause, seeks (`PlaybackController.seeks`), speed and title — not on every
+  position, which the system extrapolates — and send back play, pause,
+  ±10 s (a headset's next / previous too: a lecture has no tracks), seek
+  and stop (closes the player). One owner per app: the notebook that showed
+  last. **Android** (`PlaybackService.kt`, `PlaybackServicePlugin.kt` on
+  `len/playback_service`, Dart `platform/media_controls_android.dart`): a
+  foreground service of type `mediaPlayback`, started when playback starts
+  (Len in front, as Android 12+ requires) and kept while the player is open,
+  paused or not (resuming from the notification needs no new start); a
+  platform `MediaSession` (lock screen, Android 13+ media controls with ±10 s
+  and stop as custom actions, Bluetooth buttons), a `MediaStyle`
+  notification with the same buttons for Android ≤ 12 (no permission asked:
+  media notifications are exempt), and a partial wake lock while playing.
+  `PlaybackFocus.kt` holds audio focus (spoken media; `audioplayers` is set
+  to `AndroidAudioFocus.none` so Dart's play state is the only one) and
+  reports `focusLoss` (another app: pause), `focusLossTransient` (a call:
+  pause, play again at `focusGain` unless the user played or paused in
+  between), `duck` (Android ≤ 7 only; 8+ ducks by itself; volume 0.2) and
+  `noisy` (headphones unplugged: pause); the decisions live in Dart
+  (`PlaybackSession`), the plain mappings in `PlaybackEvents.kt` (JVM
+  tests). With the service up, a paused app keeps playing (`NotebookAudio`);
+  the position keeps arriving, so the ink replay is in step on return.
+  Swiping Len away from the recent apps closes the player. **Windows** has
+  no system controls (SMTC would need a native plugin with a Rust or C++
+  toolchain); there and on Linux without a session bus, the keyboard's media
+  keys work while Len is in front (`playback_keys.dart`).
 - **Trimming** (non-destructive). A recording's row keeps the audio range
   it plays, `trimStartMs`…`trimEndMs` (positions in the whole audio; `0`
   and the duration when untrimmed), synced with it. Positions stay those of
@@ -1869,7 +1902,8 @@ the web:
 | Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
 | Stylus samples (`stylus_samples`, `low_latency_ink`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
 | Secrets (`secure_store`) | `flutter_secure_storage`: Android Keystore-wrapped keys, Linux Secret Service via libsecret (the desktop keyring; in a Flatpak the secret portal), Windows DPAPI | none: the sync token stays in the database (see *Sync token*) |
-| Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, ExoPlayer, foreground service for background recording; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
+| Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, MediaPlayer, foreground service for background recording; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
+| Media controls (`media_controls`) | Android: media session + notification in a `mediaPlayback` foreground service (`PlaybackService.kt`); Linux: MPRIS on the session bus (`mpris_native.dart`, `package:dbus`); Windows: none (media keys as key events) | Media Session API |
 
 **Why web canvas reads are not in a Web Worker.** The IndexedDB VFS keeps
 the database in the main thread's WebAssembly memory and writes changes
@@ -2058,6 +2092,11 @@ and mapping inspected), **not** on hardware.
   forever when the activity went away, and failed on providers without
   `"wt"`. Handwriting recognition rejected whole-number writing areas.
   `RECEIVE_BOOT_COMPLETED` (from ML Kit's WorkManager) removed.
+- **Added (2026-10):** background playback, FGS type `mediaPlayback` with
+  `FOREGROUND_SERVICE_MEDIA_PLAYBACK` (no runtime prerequisite on Android 14),
+  started only from a play in front; a failed start reports `failed` and
+  playback pauses with the app as before. Not yet checked on hardware: see
+  checklist 14–18.
 - **Checked, fine:** FGS type `microphone` with `FOREGROUND_SERVICE_MICROPHONE`,
   started only while visible after `RECORD_AUDIO` is granted (Android 14's
   while-in-use rule; failures report `failed`); `POST_NOTIFICATIONS` asked once;
@@ -2111,6 +2150,22 @@ expect.
 13. Settings → Apps → Len → Back up (or `adb shell bmgr backupnow dev.len.len`),
     uninstall, reinstall and restore → notebooks back; sync needs its token
     again (not backed up) and runs as a new device.
+14. Play a recording, press home, lock the screen 2 min → audio goes on;
+    lock screen and notification show the recording and notebook, position
+    moving; play / pause, ±10 s, the seek bar and stop work (Android 12 and
+    14+); unlock and return → the ink veil matches what is heard.
+15. While playing: receive a call (or start the assistant) → pauses; hang up →
+    plays on. Start music in another app → Len pauses and stays paused. A
+    notification sound → Len ducks briefly, keeps playing.
+16. Wired or Bluetooth headphones: unplug / switch off while playing →
+    pauses, never blares from the speaker. Headset buttons: play / pause;
+    next / previous (where the headset has them) → ±10 s.
+17. Pause from the notification, wait 10 min with the screen off, play from
+    the lock screen → resumes where it was. Close the player in Len → the
+    notification goes; swipe Len from recents while playing → audio stops,
+    notification gone.
+18. Record while a recording plays (or the reverse), and two notebooks in
+    split screen each playing → each notification drives its own; no crash.
 
 ## Library (`features/library/`)
 

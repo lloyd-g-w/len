@@ -22,6 +22,20 @@ class AudioplayersPlayback implements AudioPlayback {
   AudioplayersPlayback() {
     _player.onPositionChanged.listen((p) => _positions.add(p + _startOf(_index)));
     _player.onPlayerComplete.listen((_) => unawaited(_next()));
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      // Spoken audio; audio focus is the media session's (PlaybackFocus.kt),
+      // which tells Dart to pause, so the plugin must not pause by itself.
+      unawaited(
+        _player.setAudioContext(
+          AudioContext(
+            android: const AudioContextAndroid(
+              contentType: AndroidContentType.speech,
+              audioFocus: AndroidAudioFocus.none,
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   final AudioPlayer _player = AudioPlayer();
@@ -129,6 +143,9 @@ class AudioplayersPlayback implements AudioPlayback {
 
   @override
   Future<void> setRate(double rate) => _player.setPlaybackRate(rate);
+
+  @override
+  Future<void> setVolume(double volume) => _player.setVolume(volume);
 
   @override
   Stream<Duration> get positions => _positions.stream;
