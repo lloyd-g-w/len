@@ -1720,8 +1720,15 @@ does not grow with the stroke's length.
    the `PressureCurve` (`4p / (3p + 1)`: handwriting presses lightly, so
    device pressure 0.2 is medium, the pen's nominal width; fingers and the
    mouse are 0.5, medium too) and is filtered (`PressureFilter`); the
-   overlay's Kotlin model applies the same. **Ink shows from the first
-   sample**, under the nib
+   overlay's Kotlin model applies the same. A **mouse** reports whole
+   pixels (web, desktops), a staircase that zoomed out — the pen a fraction
+   of a pixel wide on screen — showed as squiggles the outline's smoothing
+   (bounded relative to the pen's width, which keeps its geometry exact)
+   cannot level; so its path is first resampled every pixel and smoothed
+   with a centred 2 px Gaussian in screen space (`MouseSmoother`): the
+   same at any zoom, trailing the mouse by 6 px like the stabiliser, the
+   ends where the mouse went down and up (`test/mouse_zoom_smoothness_test.dart`).
+   **Ink shows from the first sample**, under the nib
    (latency beats purity): every contact is drawn from pen-down, even one
    that turns out to be a bounce (`BounceFilter.isBounce`, decided at its
    lift: it showed as a dot where the pen just lifted for < 80 ms and is

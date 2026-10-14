@@ -19,6 +19,7 @@ import 'hold_to_straighten.dart';
 import 'ink_events.dart';
 import 'lift_speed.dart';
 import 'live_ink.dart';
+import 'mouse_smoother.dart';
 import 'sample_source.dart';
 import 'scribble_erase.dart';
 import 'stroke_sampler.dart';
@@ -29,8 +30,9 @@ part 'ink_drawing_commit.dart';
 /// The drawing contact of `InkInputController`: one pointer at a time that
 /// inks, erases or drives a pointer tool from [content].
 ///
-/// Ink goes pen-down → points ([StrokeSampler]: thinned, pressure
-/// normalised and smoothed, end settled) → commit at pen-up, with stylus
+/// Ink goes pen-down → points (a mouse's whole-pixel steps levelled,
+/// [MouseSmoother]; [StrokeSampler]: thinned, pressure normalised and
+/// smoothed, end settled) → commit at pen-up, with stylus
 /// bounces dropped, [HoldToStraighten] snapping a resting pen, a pen
 /// scribble over ink erasing it ([ScribbleErase]) and highlights over
 /// PDF text snapping to it ([highlightSnap]).
@@ -71,6 +73,12 @@ class InkDrawing {
 
   /// Thins and pressure-filters the ink's samples.
   late final StrokeSampler _sampler = StrokeSampler(viewport, _keep);
+
+  /// Levels a mouse's whole-pixel steps before they are sampled.
+  late final MouseSmoother _mouse = MouseSmoother(
+    (at, ms) => _inkTo(at, 0.5, Duration(milliseconds: ms)),
+  );
+  bool _byMouse = false;
 
   /// Erases what a pen scribble crosses.
   late final ScribbleErase _scribble = ScribbleErase(viewport: viewport, tools: tools, live: live)
@@ -144,6 +152,8 @@ class InkDrawing {
       );
       _endFollowsSpeed = config.ends.endFollowsSpeed;
       live.add(_sampler.first(e));
+      _byMouse = e.kind == PointerDeviceKind.mouse;
+      if (_byMouse) _mouse.begin(e.localPosition, StrokeSampler.msOf(e.timeStamp));
       _liftSpeed.add(e.localPosition, StrokeSampler.msOf(e.timeStamp));
       _scribble.begin(model, e.localPosition, StrokeSampler.msOf(e.timeStamp));
       _straighten.begin(
@@ -169,6 +179,7 @@ class InkDrawing {
       _eraseTo(e.localPosition);
       return;
     }
+    if (_byMouse) return _mouse.add(e.localPosition, StrokeSampler.msOf(e.timeStamp));
     _addSamplesBefore(e);
     _inkTo(e.localPosition, StrokeSampler.pressureOf(e), e.timeStamp, synthesized: e.synthesized);
   }
@@ -219,6 +230,7 @@ class InkDrawing {
     } else if (_erasing) {
       showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
     } else {
+      if (_byMouse) _mouse.finish(); // The ink catches up with the mouse.
       // A snapped shape's end follows no speed (the pen rested to snap it),
       // and it is no scribble.
       final snapped = live.straightened;
@@ -254,6 +266,7 @@ class InkDrawing {
     _committedTaper = 0;
     _drawPointer = null;
     _drawKind = null;
+    _byMouse = false;
     _erasing = false;
     _lastScreen = null;
   }
