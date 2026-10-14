@@ -319,7 +319,7 @@ void main() {
       await _close(tester);
     });
 
-    testWidgets('hidden in focus mode unless kept there; its menu hides it', (tester) async {
+    testWidgets('hidden in focus mode; its menu hides it', (tester) async {
       final services = await _pumpCanvas(tester);
       await tester.sendKeyEvent(LogicalKeyboardKey.f11);
       await tester.pumpAndSettle();
@@ -328,16 +328,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(_mapShown(tester), isTrue);
 
-      // Long-press: keep it in focus mode.
+      // Its menu holds one row (R12-1: no "Keep in focus mode").
       await tester.longPressAt(tester.getCenter(_mapPaint));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Keep in focus mode'));
-      await tester.pumpAndSettle();
-      expect(services.settings.minimapInFocus, isTrue);
-      await tester.sendKeyEvent(LogicalKeyboardKey.f11);
-      await tester.pumpAndSettle();
-      expect(_mapShown(tester), isTrue);
-      await tester.sendKeyEvent(LogicalKeyboardKey.f11);
+      expect(find.text('Keep in focus mode'), findsNothing);
+      expect(find.text('Hide minimap'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
 
       // Right-click: hide it.

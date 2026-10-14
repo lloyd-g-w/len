@@ -69,7 +69,7 @@ notebook choice. Settings itself: unchanged (8 preferences, as round 9).
 ### Prioritised items
 
 **R12-1 P2 · The minimap's "Keep in focus mode" is a preference nobody
-will find.** ⬜
+will find.** ✅
 - *What:* a switch inside the map's long-press menu
   (`editor/canvas/minimap_menu.dart`), stored as `minimap_in_focus`.
 - *Why:* focus mode means "no chrome"; the map is chrome and already
@@ -107,8 +107,7 @@ has none.** ⬜
   heading and a lone "+ Save as style…" chip whenever the form can be
   saved, i.e. always for a new user, between Title and Notebook / Canvas.
 - *Why:* the second thing a first-time user reads is about saving
-  presets, before choosing what to make. GoodNotes hides its templates'
-  "favourites" until there are some.
+  presets, before choosing what to make.
 - *Fix:* the Styles row shows only once a style exists and lists only
   styles; "Save as style…" moves under the form (after Page size), a
   quiet link as the sheet's import links, its one home: pick a style at

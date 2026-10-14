@@ -54,10 +54,6 @@ class AppPreferences extends ChangeNotifier {
   bool get canvasMinimap => _settings.canvasMinimap;
   set canvasMinimap(bool value) => _update(() => _settings.canvasMinimap = value);
 
-  /// Whether the minimap stays shown in focus mode ("pinned").
-  bool get minimapInFocus => _settings.minimapInFocus;
-  set minimapInFocus(bool value) => _update(() => _settings.minimapInFocus = value);
-
   /// Centre of the floating toolbar, as fractions of the editor's size.
   (double, double)? get toolbarFloat => _settings.toolbarFloat;
   set toolbarFloat((double, double)? value) => _update(() => _settings.toolbarFloat = value);
