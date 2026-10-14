@@ -83,7 +83,7 @@ void main() {
         await tap(tester, find.byTooltip('New folder'));
       });
       await back(tester); // Closes the drawer.
-      await capture('edit_folder', () => folderMenu('Edit folder…'));
+      await capture('edit_folder', () => folderMenu('Rename…'));
       // Deleting a folder asks nothing: its message offers Undo.
       await folderMenu('Delete folder');
       await shoot(tester, 's_snackbar_delete_folder_phone_$suffix');

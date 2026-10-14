@@ -252,7 +252,7 @@ class _ExportSheetState extends State<ExportSheet> {
 
   List<Widget> _includes(bool hasBackground) => [
     _switch(
-      widget.canvas ? 'Background' : 'Page templates',
+      widget.canvas ? 'Background' : 'Templates',
       _templates ? 'Lines, grid or dots and paper colour' : 'Plain white paper',
       _templates,
       (v) => _templates = v,

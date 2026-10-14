@@ -22,10 +22,10 @@ extension PageTransferFlow on DocumentCommands {
     final destination = await pickPageDestination(
       context,
       title: 'Move or copy $what',
-      // Every page: a notebook keeps at least one, so only Copy (R8-3).
+      // Every page: a notebook needs at least one, so only Copy (R8-3).
       noMove: pages.length < actions.pages.length
           ? null
-          : 'A notebook keeps at least one page, so '
+          : 'A notebook needs at least one page, so '
                 '${pages.length == 1 ? 'this one' : 'these'} can only be copied',
       notebooks: _destinations(here),
       caption: _locations(),
@@ -41,7 +41,7 @@ extension PageTransferFlow on DocumentCommands {
     if (sent.isEmpty) return;
     final copy = destination.copy;
     if (!copy && sent.length == live.length) {
-      showMessage(context, 'A notebook keeps at least one page'); // Changed meanwhile.
+      showMessage(context, 'A notebook needs at least one page'); // Changed meanwhile.
       return;
     }
     final to = destination.notebook;
@@ -56,7 +56,7 @@ extension PageTransferFlow on DocumentCommands {
         if (!context.mounted) return;
         final title = services.notebooks.get(id)?.title ?? destination.title;
         showMessage(context, switch (kept) {
-          TransferKept.trashed => '“$title” changed since, so it went to the Trash',
+          TransferKept.trashed => '“$title” changed since, so it went to the trash',
           TransferKept.copies => 'The copies in “$title” changed since, so they stay',
         });
       },

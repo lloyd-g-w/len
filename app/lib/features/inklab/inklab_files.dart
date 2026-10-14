@@ -27,7 +27,7 @@ Future<void> saveRecording(BuildContext context, InputRecording recording) async
       mime: RecordingCodec.mime,
     );
   } catch (e) {
-    if (context.mounted) showMessage(context, 'Could not save the recording: $e');
+    if (context.mounted) showMessage(context, 'Couldn’t save the recording: $e');
   }
 }
 
@@ -41,7 +41,7 @@ Future<InputRecording?> openRecording(BuildContext context) async {
   } on FormatException catch (e) {
     if (context.mounted) showMessage(context, 'Not an Ink Lab recording: ${e.message}');
   } catch (e) {
-    if (context.mounted) showMessage(context, 'Could not open the recording: $e');
+    if (context.mounted) showMessage(context, 'Couldn’t open the recording: $e');
   }
   return null;
 }

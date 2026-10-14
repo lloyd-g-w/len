@@ -46,10 +46,10 @@ mixin _FolderActions {
 
   Future<void> onFolderAction(BuildContext context, Folder folder, FolderAction action) async {
     switch (action) {
-      case FolderAction.edit:
+      case FolderAction.rename:
         final details = await showFolderDialog(
           context,
-          title: 'Edit folder',
+          title: 'Rename folder',
           confirmLabel: 'Save',
           initialName: folder.name,
           initialColor: folder.color,

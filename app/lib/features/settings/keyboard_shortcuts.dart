@@ -129,8 +129,8 @@ final List<ShortcutGroup> shortcutGroups = [
       SingleActivator(LogicalKeyboardKey.digit0),
       _ctrl(LogicalKeyboardKey.digit0),
     ]),
-    ShortcutHelp('Whole page', [SingleActivator(LogicalKeyboardKey.digit1, shift: true)]),
-    ShortcutHelp('Page width', [SingleActivator(LogicalKeyboardKey.digit2, shift: true)]),
+    ShortcutHelp('Fit page', [SingleActivator(LogicalKeyboardKey.digit1, shift: true)]),
+    ShortcutHelp('Fit width', [SingleActivator(LogicalKeyboardKey.digit2, shift: true)]),
   ]),
   ShortcutGroup('Canvas', [
     ShortcutHelp('Zoom in / out', const [
@@ -138,16 +138,14 @@ final List<ShortcutGroup> shortcutGroups = [
       SingleActivator(LogicalKeyboardKey.minus),
     ], shown: '+ / −'),
     const ShortcutHelp('100 %', [SingleActivator(LogicalKeyboardKey.digit0)]),
-    const ShortcutHelp('Fit the content', [
-      SingleActivator(LogicalKeyboardKey.digit1, shift: true),
-    ]),
+    const ShortcutHelp('Fit content', [SingleActivator(LogicalKeyboardKey.digit1, shift: true)]),
     const ShortcutHelp('Move around', [
       SingleActivator(LogicalKeyboardKey.arrowLeft),
       SingleActivator(LogicalKeyboardKey.arrowUp),
       SingleActivator(LogicalKeyboardKey.arrowRight),
       SingleActivator(LogicalKeyboardKey.arrowDown),
     ], shown: '← ↑ → ↓'),
-    const ShortcutHelp('Back to the start', [SingleActivator(LogicalKeyboardKey.home)]),
+    const ShortcutHelp('Back to start', [SingleActivator(LogicalKeyboardKey.home)]),
   ]),
   ShortcutGroup('Text boxes', [
     ShortcutHelp('Bold / italic / underline', [

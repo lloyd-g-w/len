@@ -225,7 +225,11 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
           ],
         ),
       const SizedBox(height: Gaps.xl),
-      PickerLabel('Paper', key: const ValueKey('template-summary'), trailing: _summary),
+      PickerLabel(
+        _canvas ? 'Background' : 'Template',
+        key: const ValueKey('template-summary'),
+        trailing: _summary,
+      ),
       PaperRow(
         selection: _canvas
             ? _selection.copyWith(

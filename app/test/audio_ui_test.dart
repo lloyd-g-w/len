@@ -152,7 +152,7 @@ void main() {
     await _settleAsync(tester);
     expect(find.text('Paused'), findsNothing);
     expect(find.byTooltip('Pause recording'), findsOneWidget);
-    expect(find.text('Could not pause the recording'), findsOneWidget);
+    expect(find.text('Couldn’t pause the recording'), findsOneWidget);
     e.audio.capture.failSwitch = false;
 
     await tester.tap(find.byTooltip('Pause recording'));

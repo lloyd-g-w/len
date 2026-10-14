@@ -153,7 +153,7 @@ void main() {
           await tester.longPress(find.text('Work').last);
           await settle(tester);
         }
-        expect(find.text('Edit folder…'), findsOneWidget);
+        expect(find.text('Rename…'), findsOneWidget);
         await shoot(tester, 's_library_folder_menu_${name}_$m');
         await dismiss(tester);
 
