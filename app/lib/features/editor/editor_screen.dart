@@ -164,6 +164,7 @@ class _EditorScreenState extends State<_EditorView> {
         selected: () =>
             !_session.content.selection.isEmpty || !(_session.pdf?.selection.isEmpty ?? true),
         pen: _session.live,
+        lasso: _session.content.lassoPath,
         penButton: () => _services.preferences.penButtonAction,
       );
 

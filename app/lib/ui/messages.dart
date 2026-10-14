@@ -112,17 +112,46 @@ void showMessage(
   MessageQueue.show(messenger, appSnackBar(context, message, action: action, duration: duration));
 }
 
+/// Whether a snack bar is up anywhere in the app ([value]), and when one
+/// last was ([lastUpAt]), so the editor's tips keep away from snack bars in
+/// every notebook, also one opened after the snack bar went.
+class MessageActivity extends ValueNotifier<bool> {
+  MessageActivity({int Function()? nowMs}) : _now = nowMs ?? _wallClock, super(false);
+
+  final int Function() _now;
+  int? _lastUpAt;
+
+  static int _wallClock() => DateTime.now().millisecondsSinceEpoch;
+
+  /// When (ms since the epoch, by the clock given) a snack bar was last up:
+  /// now while one is, else when the last one went; null if none yet.
+  int? get lastUpAt => value ? _now() : _lastUpAt;
+
+  /// Whether a snack bar is up now.
+  set up(bool up) {
+    if (up == value) return;
+    _lastUpAt = _now();
+    value = up;
+  }
+
+  void _reset() {
+    _lastUpAt = null;
+    value = false;
+  }
+}
+
 /// The snack bars up (shown or waiting) on each messenger, so standing
 /// notices step aside while one shows ([MessageQueue.stepAside]): one
 /// message at a time. Show snack bars through [show] (or [showMessage]).
 abstract final class MessageQueue {
   static final _counts = Expando<int>();
   static final _changes = ValueNotifier(0);
-  static final _anyUp = ValueNotifier(false);
+  static final _anyUp = MessageActivity();
   static int _up = 0;
 
-  /// Whether a snack bar is up anywhere (the editor's tips keep away).
-  static ValueListenable<bool> get anyShowing => _anyUp;
+  /// Whether a snack bar is up anywhere, and when one last was (the
+  /// editor's tips keep away).
+  static MessageActivity get activity => _anyUp;
 
   /// Shows [bar] on [messenger], counting it until it closes.
   static ScaffoldFeatureController<SnackBar, SnackBarClosedReason> show(
@@ -131,16 +160,25 @@ abstract final class MessageQueue {
   ) {
     final shown = messenger.showSnackBar(bar);
     _counts[messenger] = (_counts[messenger] ?? 0) + 1;
-    _anyUp.value = ++_up > 0;
+    _anyUp.up = ++_up > 0;
     _changes.value++;
     unawaited(
       shown.closed.whenComplete(() {
         _counts[messenger] = (_counts[messenger] ?? 1) - 1;
-        _anyUp.value = --_up > 0;
+        _anyUp.up = --_up > 0;
         _changes.value++;
       }),
     );
     return shown;
+  }
+
+  /// Forgets every snack bar (between tests: one left up by a test's torn
+  /// down app never closes).
+  @visibleForTesting
+  static void debugReset() {
+    _up = 0;
+    _anyUp._reset();
+    _changes.value++;
   }
 
   /// Whether a snack bar is up on [context]'s messenger.
