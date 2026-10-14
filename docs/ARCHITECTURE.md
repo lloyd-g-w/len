@@ -234,7 +234,7 @@ Two more things keep pen-up and first show off the frame:
   in slices of ≤ 8 ms with a turn of the event loop between them
   (`SlicedOutlinePreparer`): opening a 4 000-stroke notebook no longer
   blocks the tab for 0.4–0.6 s per page (`tool/web_explore.py` fails a
-  WebAssembly build whose big notebook has a task over 500 ms).
+  WebAssembly build with a task over 500 ms once started).
 - **Reads in blocks** (`SurfaceLoader`): a range of more than 36 chunks (a
   canvas seen from afar) is read in 4 × 4-chunk blocks, middle first, so
   the first ink shows within a second rather than after reading (and

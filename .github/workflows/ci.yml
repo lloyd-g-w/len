@@ -211,7 +211,7 @@ jobs:
     # The web builds walked through like a user in Chromium and Firefox
     # (app/tool/web_explore.py, README "Develop"): any console error,
     # exception or failed request fails it; in the WebAssembly build so
-    # does a task over 500 ms in a big notebook.
+    # does a task over 500 ms once the page has started.
     name: Web · walk-through (${{ matrix.build }}; Chromium, Firefox)
     needs: [build-web, build-web-wasm]
     runs-on: ubuntu-latest
