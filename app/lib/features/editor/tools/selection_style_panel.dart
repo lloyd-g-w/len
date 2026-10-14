@@ -206,14 +206,17 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
       const SizedBox(height: Gaps.sm),
       GroupHeader('Size', value: formatWidth(width)),
       // The pen popover's log scale: fine pens get as much travel as broad.
-      Slider(
-        value: scale.toSlider(width),
-        semanticFormatterCallback: (t) => formatWidth(scale.toWidth(t)),
-        onChanged: (t) => setState(() => _dragWidth = scale.toWidth(t)),
-        onChangeEnd: (t) {
-          _sel.restyleInk(width: scale.toWidth(t));
-          setState(() => _dragWidth = null);
-        },
+      Semantics(
+        label: 'Size',
+        child: Slider(
+          value: scale.toSlider(width),
+          semanticFormatterCallback: (t) => formatWidth(scale.toWidth(t)),
+          onChanged: (t) => setState(() => _dragWidth = scale.toWidth(t)),
+          onChangeEnd: (t) {
+            _sel.restyleInk(width: scale.toWidth(t));
+            setState(() => _dragWidth = null);
+          },
+        ),
       ),
     ];
   }

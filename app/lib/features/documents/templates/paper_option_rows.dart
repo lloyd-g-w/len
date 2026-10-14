@@ -61,12 +61,15 @@ class PaperSliderRow extends StatelessWidget {
           child: SliderTheme(
             data: SliderTheme.of(context)
                 .copyWith(overlayShape: const RoundSliderOverlayShape(overlayRadius: 14)),
-            child: Slider(
-              value: value.clamp(min, max),
-              min: min,
-              max: max,
-              onChanged: onChanged,
-              semanticFormatterCallback: display,
+            child: Semantics(
+              label: label,
+              child: Slider(
+                value: value.clamp(min, max),
+                min: min,
+                max: max,
+                onChanged: onChanged,
+                semanticFormatterCallback: display,
+              ),
             ),
           ),
         ),
