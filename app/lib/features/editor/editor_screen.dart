@@ -9,6 +9,7 @@ import '../../domain/paper.dart';
 import '../../domain/preferences.dart';
 import '../../ink/tool_settings.dart';
 import '../../platform/fullscreen.dart';
+import '../../ui/context_menu_keys.dart';
 import '../../ui/messages.dart';
 import '../audio/notebook_audio.dart';
 import '../audio/ui/playback_keys.dart';
@@ -16,6 +17,7 @@ import '../documents/export/export_flow.dart';
 import '../search/editor/editor_search_controller.dart';
 import '../settings/keyboard_shortcuts.dart';
 import '../settings/settings_screen.dart';
+import 'chrome/canvas_context_menu.dart';
 import 'chrome/canvas_guard.dart';
 import 'chrome/editor_chrome.dart';
 import 'chrome/editor_tips.dart';
@@ -37,6 +39,7 @@ import 'split/split_controller.dart';
 import 'split/split_view.dart';
 import 'split/split_view_menu.dart';
 import 'tabs/open_notebooks.dart';
+import 'zoom/zoom_window_state.dart';
 
 part 'editor_screen_actions.dart';
 part 'editor_screen_layout.dart';
@@ -120,6 +123,10 @@ class _EditorScreenState extends State<_EditorView> {
         ? _services.openNotebooks.splitView
         : _services.openNotebooks.viewOf(widget.notebook.id) ??
               EditorViewState.decode(_services.settings.editorView(widget.notebook.id)),
+    // The second pane leaves the zoom window to the first.
+    initialZoom: widget.secondPane
+        ? null
+        : ZoomWindowState.decode(_services.settings.zoomWindow(widget.notebook.id)),
   );
 
   /// App lifecycle, remote changes, remembering the view, closing.
@@ -355,7 +362,12 @@ class _EditorScreenState extends State<_EditorView> {
   }
 
   void _closeMenu() {
-    if (_menu != null) setState(() => _menu = null);
+    if (_menu == null) return;
+    // Opened from the keyboard: focus goes back to the page.
+    final inMenu = FocusManager.instance.primaryFocus?.context
+        ?.findAncestorWidgetOfExactType<CanvasContextMenu>();
+    setState(() => _menu = null);
+    if (inMenu != null) _focusNode.requestFocus();
   }
 
   // ---------------------------------------------------------------------------

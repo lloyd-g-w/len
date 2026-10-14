@@ -238,6 +238,16 @@ void main() {
     expect(find('afe'), isEmpty, reason: 'terms match word prefixes only');
   });
 
+  test('words with ø, ł, đ or a decomposed accent are found as typed', () {
+    final nb = paged('Trip');
+    final page = s.pages.pagesOf(nb.id).single;
+    s.elements.save([textBox('t', page.id, 'København, Łódź, Đakovo, éclair')]);
+    for (final typed in ['København', 'københ', 'ŁÓDŹ', 'łodz', 'Đakovo', 'E\u0301cl']) {
+      expect(find(typed).map((h) => h.refId), ['t'], reason: typed);
+      expect(SearchQuery(typed).matches('København, Łódź, Đakovo, éclair'), isTrue, reason: typed);
+    }
+  });
+
   test('records applied by sync are indexed (element, notebook, tombstones)', () {
     final nb = paged('Remote');
     final page = s.pages.pagesOf(nb.id).single;
@@ -422,7 +432,9 @@ void main() {
 
   group('SearchQuery', () {
     test('folds case and accents, keeps offsets', () {
-      expect(SearchText.fold('Ça Éclaire ŁÓDŹ'), 'ca eclaire lodz');
+      // Ł keeps its stroke: the index (unicode61) only drops accents that
+      // decompose, and the two must agree.
+      expect(SearchText.fold('Ça Éclaire ŁÓDŹ'), 'ca eclaire łodz');
       final q = SearchQuery('ecl');
       expect(q.ranges('Ça Éclaire'), [(start: 3, end: 6)]);
     });

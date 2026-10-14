@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -80,6 +81,10 @@ class SyncApi {
   /// connections make progress.
   static const pushBytesTarget = 4 * 1024 * 1024;
 
+  /// The push body size aimed at: [pushBytesTarget], less after a proxy
+  /// refused a body as too large.
+  int _pushBytes = pushBytesTarget;
+
   /// Largest single encoded record that is sent at all (server body limit
   /// minus room for the envelope).
   static const maxRecordBytes = 32 * 1024 * 1024 - 1024;
@@ -131,15 +136,28 @@ class SyncApi {
     var batch = <({SyncRecord record, String json})>[];
     var batchBytes = 0;
 
-    Future<void> flush() async {
-      final sending = batch;
-      batch = [];
-      batchBytes = 0;
+    Future<void> send(List<({SyncRecord record, String json})> sending) async {
       while (sending.isNotEmpty) {
         final body = '{"since":$since,"records":[${sending.map((r) => r.json).join(',')}]}';
         final response = await _request(
           () => _client.post(_uri('v1/push'), headers: _headers, body: body),
         );
+        if (response.statusCode == 413) {
+          // A reverse proxy in front of the server may allow smaller bodies
+          // than the server (nginx: 1 MiB by default): send less at a time,
+          // and skip a record that cannot pass on its own (it stays dirty).
+          _pushBytes = min(_pushBytes, body.length ~/ 2);
+          if (sending.length == 1) {
+            final record = sending.single.record;
+            debugPrint('Too large for the sync server: ${record.collection}/${record.id}');
+            unsent.add(record);
+            return;
+          }
+          final half = sending.length ~/ 2;
+          await send(sending.sublist(0, half));
+          await send(sending.sublist(half));
+          return;
+        }
         final rejected = _rejectedIndex(response, sending.length);
         if (rejected == null) {
           _expectOk(response);
@@ -153,6 +171,13 @@ class SyncApi {
         );
         unsent.add(record);
       }
+    }
+
+    Future<void> flush() async {
+      final sending = batch;
+      batch = [];
+      batchBytes = 0;
+      await send(sending);
     }
 
     for (final record in records) {
@@ -173,7 +198,7 @@ class SyncApi {
         unsent.add(record);
         continue;
       }
-      if (batch.length >= maxPushRecords || batchBytes + bytes > pushBytesTarget) {
+      if (batch.length >= maxPushRecords || batchBytes + bytes > _pushBytes) {
         await flush();
       }
       batch.add((record: record, json: encoded));

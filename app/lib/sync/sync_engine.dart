@@ -7,6 +7,7 @@ import '../data/deletion_conflicts.dart';
 import '../data/element_repository.dart';
 import '../data/folder_repository.dart';
 import '../data/notebook_repository.dart';
+import '../data/notebook_style_repository.dart';
 import '../data/outline_repository.dart';
 import '../data/page_repository.dart';
 import '../data/recognised_text_repository.dart';
@@ -43,6 +44,7 @@ class SyncEngine {
     required this.elements,
     required this.recordings,
     required this.templates,
+    required this.notebookStyles,
     required this.outline,
     required this.recognisedText,
   });
@@ -63,6 +65,9 @@ class SyncEngine {
 
   /// The user's own templates (their images travel as blobs).
   final TemplateRepository templates;
+
+  /// The user's notebook styles.
+  final NotebookStyleRepository notebookStyles;
 
   /// Notebooks' own outlines.
   final OutlineRepository outline;
@@ -97,6 +102,11 @@ class SyncEngine {
     return reason;
   }
 
+  /// What pulls applied in syncs that failed afterwards (a dropped
+  /// connection on a later page): carried into the next sync's result, so
+  /// open screens still refresh and deletion conflicts are still resolved.
+  RemoteChanges? _unannounced;
+
   /// Consecutive failed upload attempts per blob in this app run.
   final Map<String, int> _uploadFailures = {};
 
@@ -114,6 +124,7 @@ class SyncEngine {
     for (final s in <SyncableStore>[
       folders,
       templates,
+      notebookStyles,
       notebooks,
       pages,
       outline,
@@ -157,7 +168,10 @@ class SyncEngine {
     final cancelled = isCancelled ?? () => false;
     for (var attempt = 0; ; attempt++) {
       try {
-        return await _cycle(api, cancelled);
+        final changes = await _cycle(api, cancelled);
+        // A cancelled run's changes are not announced (see SyncController).
+        if (!cancelled()) _unannounced = null;
+        return changes;
       } on SyncException catch (e) {
         if (e.kind != SyncFailure.historyLost || attempt > 0 || cancelled()) rethrow;
         debugPrint('The sync server lost changes; uploading everything again');

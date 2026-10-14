@@ -134,7 +134,7 @@ class PageRepository extends SyncableTable {
     final changed = <String>[];
     database.transaction(() {
       for (final page in pagesOf(notebookId)) {
-        final bg = page.background;
+        final bg = page.pdf;
         if (bg == null || bg.blob != from) continue;
         final relinked = PageBackground.pdf(blob: to, pageIndex: bg.pageIndex);
         _update(page.id, 'background = ?', [jsonEncode(relinked.toJson())]);
@@ -152,8 +152,41 @@ class PageRepository extends SyncableTable {
   void delete(String pageId, {int? version}) =>
       _update(pageId, 'deleted = 1', const [], version: version);
 
-  /// Revives a page deleted with [delete] (undo).
-  void restore(String pageId) => _update(pageId, 'deleted = 0', const []);
+  /// Revives a page deleted with [delete] (undo): at [index] of its
+  /// notebook's live pages if given, else where its old key puts it.
+  /// (Pages moved meanwhile, and moved back by undo, get new keys, so the
+  /// old key may put it elsewhere or tie with another page's.)
+  void restore(String pageId, {int? index}) {
+    database.transaction(() {
+      final key = index == null ? null : _restoredKey(pageId, index);
+      if (key == null) return _update(pageId, 'deleted = 0', const []);
+      _update(pageId, 'deleted = 0, sort_key = ?', [key]);
+    });
+  }
+
+  /// A key putting the deleted page [pageId] at [index] of its notebook;
+  /// null when its old key does.
+  double? _restoredKey(String pageId, int index) {
+    final rows = db.select('SELECT notebook_id, sort_key FROM pages WHERE id = ?', [pageId]);
+    if (rows.isEmpty) return null;
+    final notebookId = rows.first['notebook_id'] as String;
+    final old = (rows.first['sort_key'] as num).toDouble();
+    ({double? before, double? after}) around() {
+      final keys = [
+        for (final p in pagesOf(notebookId))
+          if (p.id != pageId) p.sortKey,
+      ];
+      final i = index.clamp(0, keys.length);
+      return (before: i > 0 ? keys[i - 1] : null, after: i < keys.length ? keys[i] : null);
+    }
+
+    var (:before, :after) = around();
+    if ((before == null || old > before) && (after == null || old < after)) return null;
+    if (PageOrder.between(before, after) case final key?) return key;
+    _renumber(notebookId);
+    (:before, :after) = around();
+    return PageOrder.between(before, after)!;
+  }
 
   /// Tombstones all pages of [notebookId], at [version] if given; returns
   /// their ids.

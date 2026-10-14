@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/dialog_or_sheet.dart';
+import '../../ui/roving_focus.dart';
 import '../../ui/segment_label.dart';
 import '../../ui/sheet_parts.dart';
 import 'templates/page_setup.dart';
@@ -247,15 +248,17 @@ class _TemplatePickerState extends State<TemplatePicker> {
     if (widget.mode != TemplatePickerMode.change) {
       return widget.wide ? buttons : SizedBox(height: Targets.touch, child: primary);
     }
-    final scope = SegmentedButton<bool>(
-      key: const ValueKey('template-scope'),
-      showSelectedIcon: false,
-      segments: const [
-        ButtonSegment(value: false, label: SegmentLabel('This page')),
-        ButtonSegment(value: true, label: SegmentLabel('All pages')),
-      ],
-      selected: {_allPages},
-      onSelectionChanged: (s) => setState(() => _allPages = s.single),
+    final scope = RovingSegments(
+      SegmentedButton<bool>(
+        key: const ValueKey('template-scope'),
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment(value: false, label: SegmentLabel('This page')),
+          ButtonSegment(value: true, label: SegmentLabel('All pages')),
+        ],
+        selected: {_allPages},
+        onSelectionChanged: (s) => setState(() => _allPages = s.single),
+      ),
     );
     if (!widget.wide) {
       return Column(

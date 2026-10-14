@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/context_menu_keys.dart';
 import 'cover_locator.dart';
 import 'library_actions.dart';
 import 'library_drag.dart';
@@ -200,7 +201,7 @@ class _NotebookListTileState extends State<NotebookListTile> {
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
-        child: row,
+        child: ContextMenuKeys(onMenu: () => unawaited(_showMenu()), child: row),
       ),
     );
   }

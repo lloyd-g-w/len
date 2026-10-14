@@ -43,7 +43,7 @@ void main() {
     return XFile.fromData(Uint8List.fromList(out.getBytes()), name: name);
   }
 
-  Future<void> start(WidgetTester tester, XFile file) async {
+  Future<void> start(WidgetTester tester, XFile file, {bool restore = false}) async {
     await tester.pumpWidget(
       AppScope(
         services: target,
@@ -52,7 +52,7 @@ void main() {
           home: Scaffold(
             body: Builder(
               builder: (context) => TextButton(
-                onPressed: () => importLenFlow(context, file: file),
+                onPressed: () => importLenFlow(context, file: file, restore: restore),
                 child: const Text('Go'),
               ),
             ),
@@ -85,6 +85,16 @@ void main() {
     expect(target.notebooks.list().single.title, 'Mine');
     expect(target.notebooks.trashed().single.title, 'Physics');
     expect(target.folders.list(), isEmpty);
+  });
+
+  testWidgets('a damaged file picked to restore says “Couldn’t restore”', (tester) async {
+    final file = XFile.fromData(Uint8List.fromList([1, 2, 3]), path: '/tmp/old.len');
+    await start(tester, file, restore: true);
+    for (var i = 0; i < 20 && find.byType(SnackBar).evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump();
+    }
+    expect(find.textContaining('Couldn’t restore “old.len”'), findsOneWidget);
   });
 
   testWidgets('cancelling the question restores nothing', (tester) async {

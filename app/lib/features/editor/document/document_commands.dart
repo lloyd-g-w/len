@@ -13,6 +13,7 @@ import '../../documents/pdf/pdf_background_cache.dart';
 import '../../documents/pdf/pdf_import_flow.dart';
 import '../../documents/pdf/pdf_relink_flow.dart';
 import '../../documents/progress_dialog.dart';
+import '../../documents/scan/scan_flow.dart';
 import '../../documents/template_picker.dart';
 import '../../documents/templates/user_templates.dart';
 import 'document_controller.dart';
@@ -337,6 +338,18 @@ class DocumentCommands {
       notebookId: notebook().id,
       after: _current,
       file: file,
+    );
+    if (inserted == null || inserted.isEmpty) return;
+    edits.added(inserted);
+  }
+
+  /// Scans pages (the scan screen) and inserts them after the current
+  /// page.
+  Future<void> insertScan(BuildContext context) async {
+    final inserted = await scanIntoNotebookFlow(
+      context,
+      notebookId: notebook().id,
+      after: _current,
     );
     if (inserted == null || inserted.isEmpty) return;
     edits.added(inserted);

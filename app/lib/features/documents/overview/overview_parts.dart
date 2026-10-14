@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/context_menu_keys.dart';
 import '../../../ui/messages.dart';
+import '../../../ui/roving_focus.dart';
 
 export 'overview_selection.dart';
 
@@ -81,37 +83,39 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
           padding: EdgeInsets.fromLTRB(side, 0, side, Gaps.sm),
           child: Align(
             alignment: AlignmentDirectional.centerStart,
-            child: SegmentedButton<OverviewFilter>(
-              key: const ValueKey('overview-filter'),
-              showSelectedIcon: false,
-              style: const ButtonStyle(visualDensity: VisualDensity.compact),
-              segments: [
-                for (final f in OverviewFilter.values)
-                  if (outline || f != OverviewFilter.outline)
-                    ButtonSegment(
-                      value: f,
-                      // One line always: large text scales it down rather
-                      // than breaking a word.
-                      label: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(f.label, maxLines: 1, softWrap: false),
+            child: RovingSegments(
+              SegmentedButton<OverviewFilter>(
+                key: const ValueKey('overview-filter'),
+                showSelectedIcon: false,
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                segments: [
+                  for (final f in OverviewFilter.values)
+                    if (outline || f != OverviewFilter.outline)
+                      ButtonSegment(
+                        value: f,
+                        // One line always: large text scales it down rather
+                        // than breaking a word.
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(f.label, maxLines: 1, softWrap: false),
+                        ),
+                        // Phones: labels only, so three fit.
+                        icon: compact
+                            ? null
+                            : Icon(
+                                f.icon,
+                                size: 18,
+                                fill: f == filter ? 1 : 0,
+                                // The bookmark's colour, as on the pages and tiles.
+                                color: f == OverviewFilter.bookmarked && f == filter
+                                    ? Palette.bookmark
+                                    : null,
+                              ),
                       ),
-                      // Phones: labels only, so three fit.
-                      icon: compact
-                          ? null
-                          : Icon(
-                              f.icon,
-                              size: 18,
-                              fill: f == filter ? 1 : 0,
-                              // The bookmark's colour, as on the pages and tiles.
-                              color: f == OverviewFilter.bookmarked && f == filter
-                                  ? Palette.bookmark
-                                  : null,
-                            ),
-                    ),
-              ],
-              selected: {filter},
-              onSelectionChanged: (s) => onFilter(s.single),
+                ],
+                selected: {filter},
+                onSelectionChanged: (s) => onFilter(s.single),
+              ),
             ),
           ),
         ),
@@ -149,19 +153,22 @@ class AddPageTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(Radii.sm),
                     side: BorderSide(color: scheme.outline),
                   ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(Radii.sm),
-                    onTap: onTap,
-                    onLongPress: onLongPress,
-                    onSecondaryTap: onLongPress,
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Symbols.add_sharp, size: Glyphs.empty, color: scheme.onSurface),
-                          const SizedBox(height: Gaps.xs),
-                          Text('Add page', style: theme.textTheme.labelLarge),
-                        ],
+                  child: ContextMenuKeys(
+                    onMenu: onLongPress,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(Radii.sm),
+                      onTap: onTap,
+                      onLongPress: onLongPress,
+                      onSecondaryTap: onLongPress,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Symbols.add_sharp, size: Glyphs.empty, color: scheme.onSurface),
+                            const SizedBox(height: Gaps.xs),
+                            Text('Add page', style: theme.textTheme.labelLarge),
+                          ],
+                        ),
                       ),
                     ),
                   ),

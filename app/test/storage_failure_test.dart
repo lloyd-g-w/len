@@ -79,13 +79,13 @@ void main() {
       );
       expect(services.blobsArePersistent, isFalse);
       await pumpLibrary(tester, services: services);
-      expect(find.text('Files you add won\'t be kept in this browser window'), findsOneWidget);
+      expect(find.text('Files you add won’t be kept in this browser window'), findsOneWidget);
     });
 
     testWidgets('no notice with real storage', (tester) async {
       final services = await pumpLibrary(tester);
       expect(services.blobsArePersistent, isTrue);
-      expect(find.textContaining('won\'t be kept'), findsNothing);
+      expect(find.textContaining('won’t be kept'), findsNothing);
     });
 
     testWidgets('the first file stored warns once', (tester) async {
@@ -100,7 +100,7 @@ void main() {
         () => services.blobs.putBytes(Uint8List.fromList([1, 2, 3]), mime: 'image/png'),
       );
       await tester.pump();
-      const warning = 'This browser won\'t keep this file once the tab is closed';
+      const warning = 'This browser won’t keep this file once the tab is closed';
       expect(find.text(warning), findsOneWidget);
       await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 11));
@@ -132,7 +132,7 @@ void main() {
           onRetry: () async => retries++,
         ),
       );
-      expect(find.text('Len couldn\'t open your notes'), findsOneWidget);
+      expect(find.text('Len couldn’t open your notes'), findsOneWidget);
       // The raw error stays out of sight, in the details.
       expect(find.textContaining('database is locked'), findsNothing);
       await tester.tap(find.text('Copy details'));

@@ -190,16 +190,16 @@ void main() {
       await s.commands!.relinkPdf(
         tester.element(find.byType(MissingPdfNotice)),
         shaOf(bytes),
-        s.backgrounds!,
+        s.pdfBackgrounds!,
         file: XFile(file.path),
       );
     });
     await pumpUntil(
       tester,
-      () => s.backgrounds!.missingBlobs.isEmpty && find.text('Locate file…').evaluate().isEmpty,
+      () => s.pdfBackgrounds!.missingBlobs.isEmpty && find.text('Locate file…').evaluate().isEmpty,
       reason: 'the PDF to be found',
     );
-    expect(s.backgrounds!.missingBlobs, isEmpty);
+    expect(s.pdfBackgrounds!.missingBlobs, isEmpty);
     expect(find.text('Locate file…'), findsNothing);
     expect(find.text('PDF found'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
@@ -219,7 +219,7 @@ void main() {
       // [settle] waits in real time.
       var finished = false;
       final done = s.commands!
-          .relinkPdf(context, missing, s.backgrounds!, file: XFile(file.path))
+          .relinkPdf(context, missing, s.pdfBackgrounds!, file: XFile(file.path))
           .whenComplete(() => finished = true);
       Future<void> settle(bool Function() until) => pumpUntil(tester, until);
 
@@ -246,7 +246,7 @@ void main() {
       () => s.commands!.relinkPdf(
         tester.element(find.byType(MissingPdfNotice)),
         missing,
-        s.backgrounds!,
+        s.pdfBackgrounds!,
         file: XFile(file.path),
       ),
     );

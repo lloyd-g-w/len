@@ -233,8 +233,18 @@ class PageModels extends ChangeNotifier implements UndoTarget {
     }
   }
 
+  bool _disposed = false;
+
+  /// Page edits outlive the editors (a snack bar's Undo pressed back in
+  /// the library still restores pages): nothing to tell once disposed.
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   @override
   void dispose() {
+    _disposed = true;
     for (final id in [..._models.keys]) {
       _dispose(id);
     }

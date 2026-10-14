@@ -15,6 +15,7 @@ import 'data/blob_store.dart';
 import 'data/element_repository.dart';
 import 'data/folder_repository.dart';
 import 'data/notebook_repository.dart';
+import 'data/notebook_style_repository.dart';
 import 'data/outline_repository.dart';
 import 'data/page_repository.dart';
 import 'data/raster_store.dart';
@@ -69,6 +70,7 @@ class AppServices {
     required this.audio,
     required this.incomingFiles,
     required this.templates,
+    required this.notebookStyles,
     required this.outlines,
     required this.outline,
     required this.writes,
@@ -105,6 +107,7 @@ class AppServices {
     final recordings = RecordingRepository(database, deviceId: deviceId, clock: clock);
     final pages = PageRepository(database, deviceId: deviceId, clock: clock);
     final outline = OutlineRepository(database, deviceId: deviceId, clock: clock);
+    final recognisedText = RecognisedTextRepository(database, deviceId: deviceId, clock: clock);
     final notebooks = NotebookRepository(
       database,
       deviceId: deviceId,
@@ -113,11 +116,12 @@ class AppServices {
       elements: elements,
       recordings: recordings,
       outline: outline,
+      recognisedText: recognisedText,
       clock: clock,
     );
     final folders = FolderRepository(database, deviceId: deviceId, clock: clock);
     final templates = TemplateRepository(database, deviceId: deviceId, clock: clock);
-    final recognisedText = RecognisedTextRepository(database, deviceId: deviceId, clock: clock);
+    final notebookStyles = NotebookStyleRepository(database, deviceId: deviceId, clock: clock);
     final blobs = BlobStore(database, blobBackend ?? MemoryBlobBackend(), clock: clock);
     final engine = SyncEngine(
       database: database,
@@ -130,6 +134,7 @@ class AppServices {
       elements: elements,
       recordings: recordings,
       templates: templates,
+      notebookStyles: notebookStyles,
       outline: outline,
       recognisedText: recognisedText,
     );
@@ -170,6 +175,7 @@ class AppServices {
       audio: audio ?? platformAudioBackends(),
       incomingFiles: IncomingFiles(incomingFiles, incomingLinks),
       templates: templates,
+      notebookStyles: notebookStyles,
       outlines: outlines,
       outline: outline,
       writes: writes ?? StorageWrites(),
@@ -220,6 +226,9 @@ class AppServices {
   /// The user's own templates (images as blobs).
   final TemplateRepository templates;
 
+  /// The user's notebook styles (what new notebooks start as).
+  final NotebookStyleRepository notebookStyles;
+
   /// Builds the outlines of strokes loaded into editors (natively on
   /// worker isolates, see `platform/outline_preparer`).
   final OutlinePreparer outlines;
@@ -269,7 +278,17 @@ class AppServices {
 
   /// Len files: notebooks, folders and library backups (see `LenFormat`).
   late final LenArchives lenFiles = LenArchives(
-    tables: [folders, templates, notebooks, pages, outline, recordings, strokes, elements],
+    tables: [
+      folders,
+      templates,
+      notebookStyles,
+      notebooks,
+      pages,
+      outline,
+      recordings,
+      strokes,
+      elements,
+    ],
     blobs: blobs,
     deviceId: strokes.deviceId,
     openBlobFile: openFileInput,

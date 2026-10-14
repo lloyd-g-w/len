@@ -479,11 +479,29 @@ or deleted pages in order with ink. Snack bars' Undo calls
   is what the window needs of the editor: bounds, paper and margin, models (held with
   `DocumentSurfaces.acquireModel`), activating the frame's page (its live ink shows there),
   and `reveal` so the main view follows the frame. `ZoomFrameOverlay` draws the frame on the
-  page (a 2-dp accent rule, the zone's hairline, a corner handle): drag it to move (lines then
-  start there), drag the handle to size it. Palm: a stylus in the box tells the page's input
+  page (an accent hairline over a 5 % wash, the zone washed deeper, a tab on the top edge at
+  the left, a square at the corner): drag the tab to move it (lines then start there), the
+  square to size it. Only the two handles take pointers (their targets mostly outside the
+  frame), so the pen writes inside the frame on the page as anywhere. While an advance waits
+  for the pen to rest, `ZoomWindow.armed` is set and the box's zone band (`ZoneBand`,
+  `ZoneBandPainter`: 10 % of the paper's pattern colour at rest) deepens over the pause, so the
+  glide that follows is expected; the pen coming back disarms it. The box's top edge (`ZoomBoxGrip`, two ticks in the
+  paper's pattern colour; `BoxHeightDrag`) sizes the box with a finger or the mouse (a stylus
+  writes up to the edge): `ZoomWindow.boxHeight`, kept by `ZoomBox.heightFor` to at least
+  `least` and clear of `pageRoom` of the page. The rail (`ZoomBoxRail`: ✕ and ⋯ at the top, ↵ at
+  the bottom) opens the box's own menu (`zoom_box_menu.dart`): *Left-handed* docks the box
+  under the top chrome (`AppPreferences.zoomBoxAtTop`, `ChromeLayout.zoomBoxAtTop`, counted in
+  `covered.top`; the grip moves to its bottom edge) so a left arm writing in it hides none of
+  the page and the frame (GoodNotes' answer for left-handers; the advance stays at the right,
+  as writing runs left to right whichever hand holds the pen), and *Automatic height* undoes a
+  dragged one. Palm: a stylus in the box tells the page's input
   (`InkInputController.stylusElsewhere`: a finger drawing or panning there stops, new ones
   are ignored as between strokes) and `ZoomWindow.blocksPage` absorbs new page touches for
-  `palmQuiet` after the pen lifts. The window is per session and not persisted.
+  `palmQuiet` after the pen lifts. Each notebook keeps its window (`ZoomWindowState`: the frame
+  while open, the chosen box height) in the settings (`zoom_window.<id>`, written with
+  `editor_view.<id>`); it reopens there (`ZoomWindow.restore`: the frame kept on its page and
+  lines starting at it; a page since deleted opens afresh). The second pane neither keeps nor
+  restores it.
 - **Opening where you left off**: `EditorViewState` (`tabs/open_notebooks.dart`: zoom,
   pan, current page, viewport size, page fit) is kept per tab in memory and per notebook
   in the settings (`editor_view.<id>`, written on dispose and when the app is hidden).
@@ -841,6 +859,48 @@ search highlights use the same boxes.
   crop edges, dragging inside pans it, and committing keeps the visible part
   exactly where it was on the surface.
 
+## Document scans (`features/documents/scan/`, `platform/scan_runner*`)
+
+Photos of paper pages become notebook pages whose background is the
+flattened, cleaned-up photo (`PageBackground.image`, a JPEG blob; see
+SYNC_PROTOCOL). All pure Dart, so it works on every platform.
+
+- **Detection** (`QuadDetector`, `QuadHull`, `GreyOps`): luminance at ≤ 400
+  px, blurred; bright regions (Otsu's threshold and a stricter one), dark
+  ones and strong-edge (Sobel) ones covering ≥ 15 % of the photo become
+  convex hulls, simplified; the largest inscribed quadrilateral wins if its
+  sides show a clear step in brightness, the same way round, all round.
+  `ScanPhoto.load` measures the photo (EXIF-upright through the engine),
+  decodes an 800-px working copy and runs `detectScanQuad` on it; no
+  convincing page → the whole photo.
+- **Flattening** (`ScanJob`, `scan_warp`, `scan_enhance`): a perspective
+  warp of the quad (bilinear, supersampled when shrinking) to a page whose
+  sides are the quad's (long side ≤ 2500 px, from the photo decoded at ≤
+  3200), turned in quarter turns, then a `ScanFilter`: a coarse paper
+  brightness map flattens shading and white-balances; tone curves per
+  filter (Colour, Greyscale, B&W). `scan_runner` runs jobs and detection on
+  a worker isolate natively and in yielding slices on the web.
+- **Screen** (`ScanScreen`, `ScanSession`, `ScanCornerEditor`,
+  `ScanControls`): a full-screen route over a session of `ScanPageDraft`s
+  (photo, quad, turns; a small flattened preview each, re-rendered latest
+  wins; only the current page's photo is decoded for display, at 1600 px).
+  The corner editor drags corners and side middles (folds refused, corners
+  kept on the photo) and shows a 3× loupe in the top corner away from the
+  finger while a corner moves; the outline's preview re-renders when the
+  drag ends. Commands: Rotate, Whole photo (toggles with the page found),
+  Retake (camera) / Replace… (files), Remove, + (camera or files), and the
+  look for all pages. Without a camera the file picker opens at once
+  (nothing picked → the screen closes); with one (Android, `image_picker`)
+  the screen starts by offering both. Leaving with pages asks first.
+  `ScanSources` is the seam for tests (`ScanSources.debugSources`).
+- **Import** (`scan_flow`, `ScanImporter`): after Done, each page is
+  flattened at full size and stored as a blob behind a cancellable progress
+  dialog; then one transaction creates the notebook (titled "Scan <date>",
+  blank paper) or inserts the pages after the current one
+  (`DocumentCommands.insertScan`, undoable as one edit). Cancelled or failed
+  imports drop the blobs nothing references. Page size: A4 or Letter (either
+  way round) within 3 % of the scan's shape, else A4's area at its shape.
+
 ## Opening files from other apps (`features/documents/import/`, `platform/incoming_files*`)
 
 "Open with Len" / "Share to Len" for PDFs and images, GoodNotes-style.
@@ -1164,9 +1224,9 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   with a second finger down — so two-finger taps stay undo) → **double-tap zoom**
   (`features/editor/double_tap_zoom.dart`: the page fit — 100 % on canvases — ⇄ 2× or
   the zoom last left this way, about the tap, animated). Fingers that draw (palm
-  rejection off) never zoom: their taps are dots. Palm safety: taps, double taps and
-  long presses are ignored while a stylus touches, or was seen touching or hovering
-  within 600 ms. The recognisers live in `CanvasGestures`, so
+  rejection off) never zoom: their taps are dots. Palm safety: taps, double taps,
+  two-finger holds and long presses are ignored while a stylus touches, or was seen
+  touching or hovering within 600 ms. The recognisers live in `CanvasGestures`, so
   `ink_input_controller.dart` is unchanged.
 
 Stroke outlines come from the in-house engine in `ink/render/` (see *Ink
@@ -2252,12 +2312,26 @@ expect.
   in favourites, trash, search, selection or list layout); ⊕▾ creates everywhere else. Phones
   get the FAB instead, hidden while an empty state offers its own button.
 - **New notebook sheet** (`new_notebook_sheet.dart`, `new_notebook/`): one column (title,
-  Notebook / Canvas, Template (`PaperRow`, "Background" for a canvas) with the recent papers and "All templates…" → the template
+  Styles, Notebook / Canvas, Template (`PaperRow`, "Background" for a canvas) with the recent papers and "All templates…" → the template
   picker, `CoverRow`, page size) with `NotebookPreview` beside it in the dialog and as a strip
   on phones. The papers come from `recentPapers` (`AppPreferences.recentPapers`, filled up with
   defaults; canvases only tiling papers); creating a notebook records its paper. Where the
   library has no ⊕▾ (phones), "Import PDF…" and "Import Len file…" are quiet links at the
   sheet's foot, under Create.
+- **Notebook styles** (`notebook_styles` collection, `NotebookStyleRepository`,
+  `domain/notebook_style.dart`): a `NotebookChoice` (notebook or canvas, a built-in template
+  and its look, paper colour, page format and orientation, cover colour; never a user's image
+  template) under a name. The sheet's Styles row (`StyleRow`, `style_actions.dart`) shows them
+  as chips that fill in the whole form at once, the one matching the form selected; "Save as
+  style…" names the current choice (hidden when it matches a style). Tapping the selected chip
+  again, a long press, a right click or the Menu key opens its menu: "Default for new
+  notebooks" (checked; one default, `setDefault` clears the others; after concurrent marks the
+  latest wins), Rename…, Delete…. The sheet starts from the default style, else from
+  `AppPreferences.lastNotebookChoice` (what the last *notebook*, not canvas, was made as,
+  recorded by `LibraryActions.createNotebook`), else college ruled. Notebooks copy the values,
+  so later edits to a style change nothing made with it; new pages in a notebook keep following
+  the notebook's own paper. Library backups carry styles (not added twice; a restored default
+  only where none is set).
 - **Live covers.** `ThumbnailRenderer` draws the first page (paged) or the content nearest
   the origin (canvas) with the editor's own `PaperPainter` and `StrokeRenderer` into a
   `ui.Image`. `ThumbnailCache` keys previews by a cheap per-surface fingerprint
@@ -2412,7 +2486,8 @@ searches it.
 `SettingsRepository`: theme mode (the app's `ThemeData` are built once, with a fixed ink-blue accent),
 stylus-only, finger-tap undo and redo (one switch), stylus side-button action
 (`PenButtonAction.eraser|lasso|none`), editor toolbar placement (docked / floating, and the floating position),
-library layout and sort, and the papers of the latest new notebooks. Getters always read
+library layout and sort, the papers of the latest new notebooks and what the last new
+notebook was made as (`lastNotebookChoice`). Getters always read
 the store, so values written elsewhere are never stale.
 
 ## UI design system (`ui/`)

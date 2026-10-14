@@ -9,6 +9,7 @@ import 'notebook_duplicator.dart';
 import 'notebook_rows.dart';
 import 'outline_repository.dart';
 import 'page_repository.dart';
+import 'recognised_text_repository.dart';
 import 'recording_repository.dart';
 import 'stroke_repository.dart';
 import 'syncable.dart';
@@ -28,6 +29,7 @@ class NotebookRepository extends SyncableTable with _NotebookTrash {
     this.elements,
     this.recordings,
     this.outline,
+    this.recognisedText,
     super.clock,
   });
 
@@ -42,6 +44,9 @@ class NotebookRepository extends SyncableTable with _NotebookTrash {
 
   /// The notebook's own outline is deleted and duplicated with it when set.
   final OutlineRepository? outline;
+
+  /// Handwriting recognised on the surfaces is tombstoned with them when set.
+  final RecognisedTextRepository? recognisedText;
 
   @override
   String get collection => 'notebooks';
@@ -166,7 +171,8 @@ class NotebookRepository extends SyncableTable with _NotebookTrash {
       final pageIds = [for (final p in pages.pagesOf(id)) p.id];
       // A canvas notebook is itself a surface; pages are surfaces too.
       final surfaces = [id, ...pageIds];
-      final onSurfaces = 'surface_id IN (${List.filled(surfaces.length, '?').join(',')})';
+      final ids = '(${List.filled(surfaces.length, '?').join(',')})';
+      final onSurfaces = 'surface_id IN $ids';
       final version = _batchVersion([
         latestVersion('id = ?', [id]),
         pages.latestVersion('notebook_id = ?', [id]),
@@ -174,6 +180,7 @@ class NotebookRepository extends SyncableTable with _NotebookTrash {
         ?elements?.latestVersion(onSurfaces, surfaces),
         ?recordings?.latestVersion('notebook_id = ?', [id]),
         ?outline?.latestVersion('notebook_id = ?', [id]),
+        ?recognisedText?.latestVersion('id IN $ids', surfaces),
       ]);
       db.execute(
         'UPDATE notebooks SET deleted = 1, dirty = 1, updated_at = ?, device_id = ? '
@@ -185,6 +192,7 @@ class NotebookRepository extends SyncableTable with _NotebookTrash {
       elements?.deleteSurfaces(surfaces, version: version);
       recordings?.deleteAllOf(id, version: version);
       outline?.deleteAllOf(id, version: version);
+      recognisedText?.deleteSurfaces(surfaces, version: version);
     });
   }
 
@@ -196,9 +204,11 @@ class NotebookRepository extends SyncableTable with _NotebookTrash {
         pages.latestVersion('id = ?', [pageId]),
         strokes.latestVersion('surface_id = ?', [pageId]),
         ?elements?.latestVersion('surface_id = ?', [pageId]),
+        ?recognisedText?.latestVersion('id = ?', [pageId]),
       ]);
       strokes.deleteSurfaces([pageId], version: version);
       elements?.deleteSurfaces([pageId], version: version);
+      recognisedText?.deleteSurfaces([pageId], version: version);
       pages.delete(pageId, version: version);
     });
   }

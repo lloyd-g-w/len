@@ -94,6 +94,11 @@ class InkDrawing {
   double _drawTravel = 0;
   bool _erasing = false;
   bool _eraseStarted = false;
+
+  /// Where a finger erasing has been while it may still turn out a resting
+  /// palm or the start of a pinch: erased once it moves past the touch slop
+  /// or lifts, dropped if the contact is cancelled.
+  List<Offset>? _heldErase;
   Offset? _lastScreen;
 
   /// The drawing pointer, if a contact is in progress.
@@ -130,7 +135,11 @@ class InkDrawing {
       _tool = tool..down(_toolPointer(e));
     } else if (erase) {
       showEraser(e.localPosition);
-      _eraseTo(e.localPosition);
+      if (e.kind == PointerDeviceKind.touch) {
+        _heldErase = [e.localPosition];
+      } else {
+        _eraseTo(e.localPosition);
+      }
     } else {
       final ink = tools.activeInk;
       final config = tools.configOf(ink);
@@ -166,7 +175,7 @@ class InkDrawing {
     }
     if (_erasing) {
       showEraser(e.localPosition);
-      _eraseTo(e.localPosition);
+      _eraseOrHold(e.localPosition);
       return;
     }
     _addSamplesBefore(e);
@@ -217,6 +226,7 @@ class InkDrawing {
       _tool = null;
       tool.up();
     } else if (_erasing) {
+      _releaseErase();
       showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
     } else {
       // A snapped shape's end follows no speed (the pen rested to snap it),
@@ -255,11 +265,30 @@ class InkDrawing {
     _drawPointer = null;
     _drawKind = null;
     _erasing = false;
+    _heldErase = null;
     _lastScreen = null;
   }
 
   // ---------------------------------------------------------------------------
   // Erasing
+
+  /// Erases to [screen], or holds it while a finger may not be erasing.
+  void _eraseOrHold(Offset screen) {
+    final held = _heldErase;
+    if (held == null) return _eraseTo(screen);
+    held.add(screen);
+    _lastScreen = screen;
+    if ((screen - _drawStartScreen).distance > kTouchSlop) _releaseErase();
+  }
+
+  /// Erases along the held finger path: it is erasing after all.
+  void _releaseErase() {
+    final held = _heldErase;
+    if (held == null) return;
+    _heldErase = null;
+    _lastScreen = held.first;
+    held.forEach(_eraseTo);
+  }
 
   void _eraseTo(Offset screen) {
     final from = viewport.toWorld(_lastScreen ?? screen);

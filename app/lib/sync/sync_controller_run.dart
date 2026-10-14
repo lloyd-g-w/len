@@ -14,7 +14,7 @@ extension _SyncRun on SyncController {
     _setState(SyncState.syncing);
     SyncApi? api;
     try {
-      api = apiFactory(settings.syncUrl, tokens.token);
+      api = _api = apiFactory(settings.syncUrl, tokens.token);
       final changes = await engine.sync(api, isCancelled: cancelled);
       if (cancelled()) return;
       _refreshTooLarge();
@@ -49,6 +49,7 @@ extension _SyncRun on SyncController {
       );
     } finally {
       api?.close();
+      if (identical(_api, api)) _api = null;
     }
   }
 
@@ -61,7 +62,12 @@ extension _SyncRun on SyncController {
   }) {
     if (cancelled) return;
     _filesNotUploaded = files;
-    _refreshTooLarge();
+    try {
+      _refreshTooLarge();
+    } catch (e) {
+      // (The database may be what failed.) The error is reported anyway.
+      debugPrint('Sync: cannot read the files too large to upload: $e');
+    }
     _lastError = message;
     _lastErrorDetails = details;
     _lastFailure = kind;

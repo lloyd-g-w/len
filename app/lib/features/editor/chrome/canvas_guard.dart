@@ -76,6 +76,9 @@ class CanvasGuard extends ChangeNotifier {
 
 /// A [MenuAnchor] for the editor chrome: the canvas ignores the tap that
 /// closes it, and Escape closes it (see [CanvasGuard.closeMenus]).
+///
+/// Opened from the keyboard (Enter or Space on its button), focus moves to
+/// the menu's first item, and closing the menu gives it back to the button.
 class ChromeMenuAnchor extends StatefulWidget {
   const ChromeMenuAnchor({super.key, required this.menuChildren, required this.builder});
 
@@ -89,17 +92,62 @@ class ChromeMenuAnchor extends StatefulWidget {
 class _ChromeMenuAnchorState extends State<ChromeMenuAnchor> {
   final MenuController _controller = MenuController();
 
+  /// Marks the first menu item, to find the menu's focus scope.
+  final GlobalKey _first = GlobalKey();
+
+  /// The button that had keyboard focus when the menu opened.
+  FocusNode? _opener;
+
+  void _opened(CanvasGuard? guard) {
+    guard?.opened(_controller);
+    final focus = FocusManager.instance;
+    final node = focus.primaryFocus;
+    final keyboard = focus.highlightMode == FocusHighlightMode.traditional;
+    _opener = keyboard && node?.context != null && _owns(node!.context!) ? node : null;
+    if (_opener == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = _first.currentContext;
+      if (context == null || !_controller.isOpen) return;
+      final scope = FocusScope.of(context);
+      final policy = FocusTraversalGroup.maybeOf(context) ?? ReadingOrderTraversalPolicy();
+      policy.findFirstFocus(scope, ignoreCurrentFocus: true)?.requestFocus();
+    });
+  }
+
+  void _closed(CanvasGuard? guard) {
+    guard?.closed(_controller);
+    final opener = _opener;
+    _opener = null;
+    // Focus goes back to the button, unless the item chosen took it on
+    // (a dialog opened by the item claims it after this).
+    if (opener != null && opener.context?.mounted == true) opener.requestFocus();
+  }
+
+  /// Whether [context] is this anchor's button (or inside it).
+  bool _owns(BuildContext context) {
+    var owns = false;
+    context.visitAncestorElements((e) {
+      owns = e == this.context;
+      return !owns;
+    });
+    return owns;
+  }
+
   @override
   Widget build(BuildContext context) {
     final guard = CanvasGuardScope.maybeOf(context);
+    final children = widget.menuChildren;
     return MenuEdgeMargin(
       child: MenuAnchor(
         controller: _controller,
         reservedPadding: menuReservedPadding(context),
         consumeOutsideTap: true,
-        onOpen: () => guard?.opened(_controller),
-        onClose: () => guard?.closed(_controller),
-        menuChildren: widget.menuChildren,
+        onOpen: () => _opened(guard),
+        onClose: () => _closed(guard),
+        menuChildren: [
+          if (children.isNotEmpty) KeyedSubtree(key: _first, child: children.first),
+          ...children.skip(1),
+        ],
         builder: widget.builder,
       ),
     );

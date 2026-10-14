@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
@@ -5,6 +7,7 @@ import '../../../app_services.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/error_details.dart';
 import '../progress_dialog.dart';
 import 'pdf_import.dart';
 import 'pdf_open_failure.dart';
@@ -43,7 +46,7 @@ Future<Notebook?> importPdfFlow(BuildContext context, {XFile? file}) async {
     // A file that can't be read is not kept either.
     if (sha != null) await importer.discard(sha!);
     // Errors too (a malformed file can trip a parser): never fail silently.
-    if (context.mounted) showMessage(context, _failure(picked.name, e, stack));
+    if (context.mounted) _showFailure(context, picked.name, e, stack, stored: sha != null);
     return null;
   } finally {
     await importer.dispose();
@@ -84,16 +87,32 @@ Future<List<NotebookPage>?> insertPdfPagesFlow(
     // A file that can't be read is not kept either.
     if (sha != null) await importer.discard(sha!);
     // Errors too (a malformed file can trip a parser): never fail silently.
-    if (context.mounted) showMessage(context, _failure(picked.name, e, stack));
+    if (context.mounted) _showFailure(context, picked.name, e, stack, stored: sha != null);
     return null;
   } finally {
     await importer.dispose();
   }
 }
 
-String _failure(String name, Object e, StackTrace stack) {
+/// Tells the user why PDF [name] wasn't imported. Before it was [stored]
+/// the file itself was fine as far as Len knows: copying failed (no space,
+/// access lost), so it isn't blamed. Details has the raw error.
+void _showFailure(
+  BuildContext context,
+  String name,
+  Object e,
+  StackTrace stack, {
+  required bool stored,
+}) {
   debugPrint('PDF import of $name failed: $e\n$stack');
-  return pdfOpenFailure(name, e);
+  showMessage(
+    context,
+    stored ? pdfOpenFailure(name, e) : 'Couldn’t copy “$name” into Len',
+    action: SnackBarAction(
+      label: 'Details',
+      onPressed: () => unawaited(showErrorDetails(context, title: 'Import failed', details: '$e')),
+    ),
+  );
 }
 
 String _pages(int n) => n == 1 ? '1 page' : '$n pages';

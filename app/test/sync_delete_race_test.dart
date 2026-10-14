@@ -33,6 +33,10 @@ List<String> _pages(TestDevice d, String notebook) => [
   for (final p in d.s.pages.pagesOf(notebook)) p.id,
 ];
 
+/// The handwriting [d] knows was recognised on [surface].
+Map<String, String>? _read(TestDevice d, String surface) =>
+    d.s.recognition.indexer.shared.read(surface)?.lines;
+
 List<String> _trash(TestDevice d) => [for (final n in d.s.notebooks.trashed()) n.id];
 List<String> _library(TestDevice d) => [for (final n in d.s.notebooks.list()) n.id];
 
@@ -131,6 +135,9 @@ void main() {
     final p3 = a.s.pages.addPage(nb.id, after: p2);
     _write(a, nb.id, p2.id, 'old2');
     _write(a, nb.id, p3.id, 'old3');
+    for (final page in [p2, p3]) {
+      a.s.recognition.indexer.shared.write(page.id, 'en-US', {'line': 'words'});
+    }
     await send(a, b);
 
     _write(b, nb.id, p2.id, 'new2'); // Offline.
@@ -145,6 +152,8 @@ void main() {
       expect(_pages(d, nb.id), [p1.id, p2.id]);
       expect(_ink(d, p2.id), ['new2', 'old2']);
       expect(_ink(d, p3.id), isEmpty);
+      expect(_read(d, p2.id), {'line': 'words'});
+      expect(_read(d, p3.id), isNull);
     }
   });
 
@@ -154,7 +163,11 @@ void main() {
     final p1 = a.s.pages.pagesOf(kept.id).single;
     final p2 = a.s.pages.addPage(kept.id, after: p1);
     _write(a, kept.id, p2.id, 'ink');
-    _write(a, gone.id, a.s.pages.pagesOf(gone.id).single.id, 'ink2');
+    final gonePage = a.s.pages.pagesOf(gone.id).single.id;
+    _write(a, gone.id, gonePage, 'ink2');
+    for (final page in [p2.id, gonePage]) {
+      a.s.recognition.indexer.shared.write(page, 'en-US', {'line': 'words'});
+    }
     await send(a, b);
     _write(b, kept.id, p1.id, 'elsewhere'); // Not in anything deleted.
 
@@ -171,6 +184,8 @@ void main() {
       expect(_library(d), [kept.id]);
       expect(_trash(d), isEmpty);
       expect(_pages(d, kept.id), [p1.id]);
+      expect(_read(d, p2.id), isNull);
+      expect(_read(d, gonePage), isNull);
     }
   });
 

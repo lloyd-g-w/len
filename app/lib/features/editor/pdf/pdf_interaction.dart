@@ -71,10 +71,10 @@ class PdfInteraction extends ChangeNotifier implements LassoText {
   List<NotebookPage>? _pages;
 
   /// Whether the notebook has imported PDF pages.
-  bool get hasPdf => doc.pages.any((p) => p.background != null);
+  bool get hasPdf => doc.pages.any((p) => p.pdf != null);
 
   /// The PDFs of the notebook, in the order their first pages appear.
-  List<String> get blobs => {for (final p in doc.pages) ?p.background?.blob}.toList();
+  List<String> get blobs => {for (final p in doc.pages) ?p.pdf?.blob}.toList();
 
   void _onDocument() {
     if (identical(doc.pages, _pages)) return;
@@ -89,7 +89,7 @@ class PdfInteraction extends ChangeNotifier implements LassoText {
     final index = doc.layout.pageAt(world);
     if (index == null) return null;
     final page = doc.pages[index];
-    final pdf = page.background;
+    final pdf = page.pdf;
     final frame = doc.layout.frameOf(index);
     if (pdf == null || frame == null) return null;
     final local = world - frame.topLeft;
@@ -151,7 +151,7 @@ class PdfInteraction extends ChangeNotifier implements LassoText {
     final index = doc.layout.pageAt(world) ?? doc.layout.nearestPage(world);
     if (index == null) return null;
     final page = doc.pages[index];
-    final bg = page.background;
+    final bg = page.pdf;
     final frame = doc.layout.frameOf(index);
     final glyphs = bg == null ? null : info.glyphs(bg.blob, bg.pageIndex);
     if (frame == null || glyphs == null) return null;
@@ -173,7 +173,7 @@ class PdfInteraction extends ChangeNotifier implements LassoText {
     final spans = [
       PdfSpan(from.page, from.glyphs, from.glyph, from.glyphs.text.length),
       for (var i = from.index + 1; i < to.index; i++)
-        if (doc.pages[i].background case final bg?)
+        if (doc.pages[i].pdf case final bg?)
           if (info.glyphs(bg.blob, bg.pageIndex) case final glyphs?)
             PdfSpan(doc.pages[i], glyphs, 0, glyphs.text.length),
       PdfSpan(to.page, to.glyphs, 0, to.glyph + 1),
@@ -184,7 +184,7 @@ class PdfInteraction extends ChangeNotifier implements LassoText {
   /// The link under the start of the selection, if any (its menu offers to
   /// open it: a long press on a link selects its text).
   PdfLinkArea? get selectedLink {
-    final bg = selection.page?.background;
+    final bg = selection.page?.pdf;
     if (bg == null || selection.isEmpty) return null;
     final at = selection.rects.first.center;
     for (final link in info.links(bg.blob, bg.pageIndex)) {
@@ -196,7 +196,7 @@ class PdfInteraction extends ChangeNotifier implements LassoText {
   /// Follows [selectedLink] and drops the selection.
   void openSelectedLink() {
     final link = selectedLink;
-    final bg = selection.page?.background;
+    final bg = selection.page?.pdf;
     if (link == null || bg == null) return;
     selection.clear();
     onLink?.call(link, bg);
@@ -247,7 +247,7 @@ class PdfInteraction extends ChangeNotifier implements LassoText {
     final start = from == null ? 0 : pages.indexWhere((p) => p.id == from).clamp(0, pages.length);
     for (var k = 0; k < pages.length; k++) {
       final i = (start + k) % pages.length;
-      final bg = pages[i].background;
+      final bg = pages[i].pdf;
       if (bg != null && bg.blob == blob && bg.pageIndex == pdfPage) return i;
     }
     return null;

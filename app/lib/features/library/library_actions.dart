@@ -7,6 +7,7 @@ import '../../app_services.dart';
 import '../../data/archive/len_archives.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
+import '../../domain/notebook_style.dart';
 import '../../domain/paper.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/messages.dart';
@@ -14,6 +15,7 @@ import '../../ui/text_prompt.dart';
 import '../backup/len_import_flow.dart';
 import '../documents/export/notebooks_export.dart';
 import '../documents/pdf/pdf_import_flow.dart';
+import '../documents/scan/scan_flow.dart';
 import '../editor/tabs/editor_workspace.dart' as editor;
 import 'cover_locator.dart';
 import 'library_controller.dart';
@@ -88,8 +90,9 @@ class LibraryActions with _NotebookActions, _FolderActions {
     selection.start(id);
   }
 
-  /// Opens the new-notebook sheet and then the new notebook. Where the library has no ⊕▾ (phones), the sheet offers
-  /// Import PDF… and Import Len file… too.
+  /// Opens the new-notebook sheet and then the new notebook. Where the
+  /// library has no ⊕▾ (phones), the sheet offers Scan document…, Import
+  /// PDF… and Import Len file… too.
   Future<void> createNotebook(BuildContext context) async {
     SheetImport? import;
     final request = await NewNotebookSheet.show(
@@ -100,6 +103,8 @@ class LibraryActions with _NotebookActions, _FolderActions {
     );
     if (!context.mounted) return;
     switch (import) {
+      case SheetImport.scan:
+        return scanDocument(context);
       case SheetImport.pdf:
         return importPdf(context);
       case SheetImport.len:
@@ -109,6 +114,17 @@ class LibraryActions with _NotebookActions, _FolderActions {
     if (request == null) return;
     final style = request.template.style;
     if (style != PaperStyle.image) controller.services.preferences.notePaperUsed(style.name);
+    // Where the sheet starts next time, unless a style is the default: a
+    // notebook as this one ("New notebook" stays a notebook; a canvas
+    // leaves it alone, and a default style can start as a canvas).
+    final choice = NotebookChoice.of(
+      kind: request.kind,
+      template: request.template,
+      coverColor: request.coverColor,
+    );
+    if (choice != null && request.kind == NotebookKind.paged) {
+      controller.services.preferences.lastNotebookChoice = choice;
+    }
     final notebook = controller.createNotebook(
       title: request.title,
       kind: request.kind,
@@ -128,6 +144,15 @@ class LibraryActions with _NotebookActions, _FolderActions {
     final imported = await importPdfFlow(context);
     if (imported == null || !context.mounted) return;
     final notebook = controller.adoptNotebook(imported);
+    await openNotebook(context, notebook);
+  }
+
+  /// Scans pages into a new notebook, files it like a new notebook and
+  /// opens it.
+  Future<void> scanDocument(BuildContext context) async {
+    final scanned = await scanToNewNotebookFlow(context);
+    if (scanned == null || !context.mounted) return;
+    final notebook = controller.adoptNotebook(scanned);
     await openNotebook(context, notebook);
   }
 

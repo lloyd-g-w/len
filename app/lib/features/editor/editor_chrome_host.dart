@@ -38,6 +38,7 @@ class ToolbarMeasure extends ChangeNotifier {
     _strip = ToolbarMetrics.strip(session.tools);
     session.tools.addListener(_onTools);
     session.zoomWindow.opened.addListener(notifyListeners);
+    session.zoomWindow.boxHeight.addListener(notifyListeners);
   }
 
   final EditorSession session;
@@ -87,13 +88,19 @@ class ToolbarMeasure extends ChangeNotifier {
       short: ChromeMetrics.short(size.height),
     );
     if (!session.zoomWindow.isOpen) return layout;
-    return layout.withZoomBox(ZoomBox.heightFor(size.height - layout.covered.vertical));
+    final zoom = session.zoomWindow;
+    final free = size.height - layout.covered.vertical;
+    return layout.withZoomBox(
+      ZoomBox.heightFor(free, chosen: zoom.boxHeight.value),
+      atTop: session.services.preferences.zoomBoxAtTop,
+    );
   }
 
   @override
   void dispose() {
     session.tools.removeListener(_onTools);
     session.zoomWindow.opened.removeListener(notifyListeners);
+    session.zoomWindow.boxHeight.removeListener(notifyListeners);
     super.dispose();
   }
 }
@@ -190,6 +197,7 @@ class EditorChromeHost extends StatelessWidget {
     return InsertActions(
       image: () => images.pickFiles(context),
       photo: EditorImages.canUseCamera ? () => images.takePhoto(context) : null,
+      scan: commands == null ? null : () => commands.insertScan(context),
       pdfPages: commands == null ? null : () => commands.insertPdf(context),
     );
   }
@@ -214,7 +222,7 @@ class EditorChromeHost extends StatelessWidget {
   Widget? _missingPdfNotice() {
     final doc = session.doc;
     final commands = session.commands;
-    final backgrounds = session.backgrounds;
+    final backgrounds = session.pdfBackgrounds;
     if (doc == null || commands == null || backgrounds == null) return null;
     return Builder(
       builder: (context) => MissingPdfNotice(

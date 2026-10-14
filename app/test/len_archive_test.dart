@@ -13,6 +13,7 @@ import 'package:len/domain/cancellation.dart';
 import 'package:len/domain/image_data.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
+import 'package:len/domain/notebook_style.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/domain/stroke.dart';
@@ -252,6 +253,15 @@ void main() {
     source.notebooks.trash(trashed.id);
     final template = await source.blobs.putBytes(Uint8List(8), mime: 'image/png');
     source.templates.create(name: 'Mine', blob: template, size: const Size(100, 100));
+    final lecture = source.notebookStyles.create(
+      name: 'Lecture',
+      choice: const NotebookChoice(paper: PaperStyle.cornell, coverColor: 7),
+    );
+    source.notebookStyles.setDefault(lecture.id, isDefault: true);
+    source.notebookStyles.create(
+      name: 'Board',
+      choice: const NotebookChoice(kind: NotebookKind.canvas, coverColor: 8),
+    );
 
     final folder = await _import(target, await _export(source, LenScope.folder(top.id)));
     expect(folder.manifest.title, 'Biology');
@@ -268,6 +278,13 @@ void main() {
       {'A': copiedTop.id, 'B': cells.id},
     );
     expect(target.templates.list(), isEmpty);
+    expect(target.notebookStyles.list(), isEmpty);
+    // A default of the target's own stays the default.
+    final mine = target.notebookStyles.create(
+      name: 'Mine',
+      choice: const NotebookChoice(coverColor: 9),
+    );
+    target.notebookStyles.setDefault(mine.id, isDefault: true);
 
     final backup = await _import(
       target,
@@ -281,9 +298,20 @@ void main() {
     expect(backup.notebooks, hasLength(3));
     expect(target.notebooks.trashed(), isEmpty); // The Trash isn't backed up (R8-23).
     expect(target.templates.list().single.name, 'Mine');
+    expect(
+      {for (final s in target.notebookStyles.list()) s.name: s.choice.paper},
+      {
+        'Mine': PaperStyle.collegeRuled,
+        'Lecture': PaperStyle.cornell,
+        'Board': PaperStyle.collegeRuled,
+      },
+    );
+    expect(target.notebookStyles.defaultStyle()!.id, mine.id);
+    expect(target.notebookStyles.list().where((s) => s.isDefault), hasLength(1));
     // Restoring again adds copies but not a second template.
     await _import(target, await _export(source, const LenScope.library()), folderName: 'Again');
     expect(target.templates.list(), hasLength(1));
+    expect(target.notebookStyles.list(), hasLength(3), reason: 'styles are not added twice');
   });
 
   test('a canvas keeps its ink on its own surface', () async {

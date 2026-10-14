@@ -9,6 +9,7 @@ import '../core/clock.dart';
 import '../domain/cancellation.dart';
 import 'app_database.dart';
 import 'blob_backend.dart';
+import 'blob_mime.dart';
 
 /// Content-addressed storage for large binary data (PDFs, later images).
 ///
@@ -112,13 +113,26 @@ class BlobStore {
   }
 
   /// Stores a blob fetched from the sync server after checking its hash.
-  /// Throws [FormatException] if the bytes do not match [sha].
-  Future<void> putDownloaded(String sha, Uint8List bytes, {String mime = 'application/pdf'}) async {
+  /// Throws [FormatException] if the bytes do not match [sha]. It counts as
+  /// uploaded (the server has it) if [fromCurrentServer] still says so once
+  /// it is stored: a download from a server this device has since left
+  /// must still be uploaded to the new one. Its MIME type is told by its
+  /// content ([BlobMime]).
+  Future<void> putDownloaded(
+    String sha,
+    Uint8List bytes, {
+    bool Function()? fromCurrentServer,
+  }) async {
     final actual = await compute(_sha256Hex, bytes);
     if (actual != sha) throw FormatException('Blob $sha arrived corrupted');
     await _exclusive(() async {
       if (!await backend.contains(sha)) await backend.write(sha, Stream.value(bytes));
-      _record(sha, bytes.length, mime, uploaded: true);
+      _record(
+        sha,
+        bytes.length,
+        BlobMime.sniff(bytes),
+        uploaded: fromCurrentServer?.call() ?? true,
+      );
     });
   }
 

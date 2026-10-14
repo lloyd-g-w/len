@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,12 +19,14 @@ import 'pdf_page_info.dart';
 import 'pdf_selection_handles.dart';
 import 'pdf_selection_paint.dart';
 
-/// Ctrl/⌘+C copies selected PDF text, Escape drops the selection (both
-/// do nothing without one; the lasso's shortcuts run alongside).
-Map<ShortcutActivator, VoidCallback> pdfShortcuts(PdfInteraction pdf) {
+/// Ctrl/⌘+C copies selected PDF text (then calls [copied]), Escape drops
+/// the selection (both do nothing without one; the lasso's shortcuts run
+/// alongside).
+Map<ShortcutActivator, VoidCallback> pdfShortcuts(PdfInteraction pdf, {VoidCallback? copied}) {
   void copy() {
     if (pdf.selection.isEmpty) return;
-    Clipboard.setData(ClipboardData(text: pdf.selection.text));
+    unawaited(Clipboard.setData(ClipboardData(text: pdf.selection.text)));
+    copied?.call();
   }
 
   return {
@@ -145,8 +149,9 @@ class _PdfLayerState extends State<PdfLayer> {
   Future<void> _copy() async {
     final text = _pdf.selection.text;
     await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return; // The editor closed meanwhile (its selection is gone).
     _pdf.selection.clear();
-    if (mounted) showMessage(context, 'Copied');
+    showMessage(context, 'Copied');
   }
 
   void _highlight(int color) {
@@ -204,7 +209,7 @@ class _PdfLayerState extends State<PdfLayer> {
   void _preload() {
     final doc = _pdf.doc;
     for (final i in doc.layout.visiblePages(doc.viewport.visibleWorld)) {
-      final bg = doc.pages[i].background;
+      final bg = doc.pages[i].pdf;
       if (bg != null) _pdf.info.isLoaded(bg.blob, bg.pageIndex);
     }
   }

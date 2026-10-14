@@ -1,16 +1,30 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/menus.dart';
 import '../chrome/bar_button.dart';
 
-/// The zoom window's rail at the box's right: ✕ (close) at the top, ↵
-/// (next line) at the bottom, under the writing hand's reach. A box too
-/// short for both keeps ✕ alone (↵ also comes by writing on).
-class ZoomBoxRail extends StatelessWidget {
-  const ZoomBoxRail({super.key, required this.onClose, required this.onNewLine});
+/// The zoom window's rail at the box's right: ✕ (close) and ⋯ (the box's
+/// menu) at the top, ↵ (next line) at the bottom, under the writing
+/// hand's reach. A box too short for all three keeps ✕ and ↵ (↵ also
+/// comes by writing on), then ✕ alone.
+class ZoomBoxRail<T> extends StatelessWidget {
+  const ZoomBoxRail({
+    super.key,
+    required this.onClose,
+    required this.onNewLine,
+    required this.menu,
+    required this.onMenu,
+  });
 
   final VoidCallback onClose, onNewLine;
+
+  /// The rows of the box's menu, and what to do with the one chosen.
+  final List<PopupMenuEntry<T>> Function() menu;
+  final ValueChanged<T> onMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -20,28 +34,41 @@ class ZoomBoxRail extends StatelessWidget {
       tooltip: 'Close zoom window',
       onPressed: onClose,
     );
+    final more = Builder(
+      builder: (anchor) => BarButton(
+        icon: Symbols.more_horiz_sharp,
+        tooltip: 'Zoom window options',
+        onPressed: () => unawaited(_openMenu(anchor)),
+      ),
+    );
+    final newLine = BarButton(
+      icon: Symbols.keyboard_return_sharp,
+      tooltip: 'Next line',
+      onPressed: onNewLine,
+    );
     return DecoratedBox(
       decoration: BoxDecoration(border: Border(left: Surfaces.chromeEdge(scheme))),
       child: Padding(
         padding: const EdgeInsets.all(Gaps.xs),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final both = constraints.maxHeight >= 2 * Targets.barHit(context);
-            if (!both) return Align(alignment: Alignment.topCenter, child: close);
+            final fits = (constraints.maxHeight / Targets.barHit(context)).floor();
+            if (fits < 2) return Align(alignment: Alignment.topCenter, child: close);
             return Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                close,
-                BarButton(
-                  icon: Symbols.keyboard_return_sharp,
-                  tooltip: 'Next line',
-                  onPressed: onNewLine,
-                ),
+                Column(mainAxisSize: MainAxisSize.min, children: [close, if (fits >= 3) more]),
+                newLine,
               ],
             );
           },
         ),
       ),
     );
+  }
+
+  Future<void> _openMenu(BuildContext anchor) async {
+    final choice = await showMenuBelow<T>(anchor, items: menu());
+    if (choice != null) onMenu(choice);
   }
 }

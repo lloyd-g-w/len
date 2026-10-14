@@ -120,6 +120,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   centred on their content)
 - ✅ PDF import & annotate (new notebook or insert pages); export notebook / page to PDF (vector
   ink) and page to PNG; save dialog on desktop, share sheet on Android
+- ✅ Document scanning ("Scan document…" in the library's ⊕▾ / new-notebook sheet → a new
+  notebook; Insert ⊕ in paged notebooks → pages after the current one, one Undo): photos from
+  files (every platform) or the camera (Android); the page's edges are found (pure Dart, on an
+  isolate), four corners and four sides to drag with a loupe, rotate, whole photo, retake, remove,
+  more pages; Colour / Greyscale / B&W clean-up (white paper, even light, crisp ink); pages are
+  flattened JPEG backgrounds (A4 / Letter when they're that shape), synced as blobs, exported
 - ✅ Progress for import / export: stage, file name, "Page x of n" bar
 - ✅ Export options sheet: PDF / PNG, current / all pages / page range, page templates and PDF
   backgrounds on or off, PNGs at 288 dpi; several PNGs shared or saved at once
@@ -133,6 +139,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   in PDF export)
 - ✅ Custom templates ("My templates", synced): import an image or a PDF page, "Save page as
   template"; rename / delete; usable for new notebooks and pages
+- ✅ Notebook styles (synced): save the new-notebook sheet's choice (notebook or canvas,
+  template and look, paper colour, size, orientation, cover) as a named style, apply it with one
+  tap, mark one the default for new notebooks, rename / delete; without a default the sheet
+  starts as the last notebook was made
 - ✅ Template picker: categories (Basic, Writing, Planners, Paper, My templates), search, live
   previews; a dialog with gallery and options side by side on tablets / desktops, a sheet with
   full-width columns on phones

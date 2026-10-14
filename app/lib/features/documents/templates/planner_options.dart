@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../domain/paper.dart';
 import '../../../ui/app_switch.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/roving_focus.dart';
 import '../../../ui/section_label.dart';
 import '../../../ui/segment_label.dart';
 import 'page_setup.dart';
@@ -184,16 +185,18 @@ class _CalendarRow extends StatelessWidget {
           children: [
             const _Label('Week starts on'),
             ShrinkToFit(
-              child: SegmentedButton<WeekStart>(
-                key: const ValueKey('planner-week-start'),
-                showSelectedIcon: false,
-                style: const ButtonStyle(visualDensity: VisualDensity.compact),
-                segments: const [
-                  ButtonSegment(value: WeekStart.monday, label: SegmentLabel('Monday')),
-                  ButtonSegment(value: WeekStart.sunday, label: SegmentLabel('Sunday')),
-                ],
-                selected: {calendar.weekStart},
-                onSelectionChanged: (s) => onChanged(calendar.copyWith(weekStart: s.single)),
+              child: RovingSegments(
+                SegmentedButton<WeekStart>(
+                  key: const ValueKey('planner-week-start'),
+                  showSelectedIcon: false,
+                  style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                  segments: const [
+                    ButtonSegment(value: WeekStart.monday, label: SegmentLabel('Monday')),
+                    ButtonSegment(value: WeekStart.sunday, label: SegmentLabel('Sunday')),
+                  ],
+                  selected: {calendar.weekStart},
+                  onSelectionChanged: (s) => onChanged(calendar.copyWith(weekStart: s.single)),
+                ),
               ),
             ),
           ],

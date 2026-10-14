@@ -42,7 +42,7 @@ class PdfHighlightSnap implements HighlightSnap {
   @override
   List<Stroke>? snap(Stroke stroke) {
     final page = doc.pages.where((p) => p.id == stroke.surfaceId).firstOrNull;
-    final bg = page?.background;
+    final bg = page?.pdf;
     final glyphs = bg == null ? null : info.glyphs(bg.blob, bg.pageIndex);
     if (page == null || glyphs == null) return null;
     return snapTo(stroke, page, glyphs, newId: clock.newId);

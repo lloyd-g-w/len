@@ -7,6 +7,7 @@ import '../../domain/preferences.dart';
 import '../../ui/app_switch.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/fit_segments.dart';
+import '../../ui/roving_focus.dart';
 import '../../ui/segment_label.dart';
 import 'settings_section.dart';
 
@@ -56,16 +57,18 @@ class WritingSettings extends StatelessWidget {
               title: 'Side button',
               subtitle: 'While you hold the S Pen (or stylus) button',
               control: FitSegments(
-                builder: (direction) => SegmentedButton<PenButtonAction>(
-                  direction: direction,
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: PenButtonAction.eraser, label: SegmentLabel('Erases')),
-                    ButtonSegment(value: PenButtonAction.lasso, label: SegmentLabel('Selects')),
-                    ButtonSegment(value: PenButtonAction.none, label: SegmentLabel('Nothing')),
-                  ],
-                  selected: {preferences.penButtonAction},
-                  onSelectionChanged: (s) => preferences.penButtonAction = s.single,
+                builder: (direction) => RovingSegments(
+                  SegmentedButton<PenButtonAction>(
+                    direction: direction,
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: PenButtonAction.eraser, label: SegmentLabel('Erases')),
+                      ButtonSegment(value: PenButtonAction.lasso, label: SegmentLabel('Selects')),
+                      ButtonSegment(value: PenButtonAction.none, label: SegmentLabel('Nothing')),
+                    ],
+                    selected: {preferences.penButtonAction},
+                    onSelectionChanged: (s) => preferences.penButtonAction = s.single,
+                  ),
                 ),
               ),
             ),

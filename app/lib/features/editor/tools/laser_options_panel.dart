@@ -9,6 +9,7 @@ import '../../../ink/render/laser_ribbon.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_picker/color_choices.dart';
+import '../../../ui/roving_focus.dart';
 import '../pen/option_controls.dart';
 
 /// The laser pointer's settings: dot or trail, colour, size and how long
@@ -40,22 +41,24 @@ class LaserOptionsPanel extends StatelessWidget {
             const SizedBox(height: Gaps.sm),
             LaserPreview(config: laser),
             const SizedBox(height: Gaps.sm),
-            SegmentedButton<LaserMode>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(
-                  value: LaserMode.dot,
-                  icon: Icon(Symbols.circle_sharp, fill: 1, size: 12),
-                  label: Text('Dot'),
-                ),
-                ButtonSegment(
-                  value: LaserMode.trail,
-                  icon: Icon(Symbols.gesture_sharp),
-                  label: Text('Trail'),
-                ),
-              ],
-              selected: {laser.mode},
-              onSelectionChanged: (s) => update(laser.copyWith(mode: s.single)),
+            RovingSegments(
+              SegmentedButton<LaserMode>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: LaserMode.dot,
+                    icon: Icon(Symbols.circle_sharp, fill: 1, size: 12),
+                    label: Text('Dot'),
+                  ),
+                  ButtonSegment(
+                    value: LaserMode.trail,
+                    icon: Icon(Symbols.gesture_sharp),
+                    label: Text('Trail'),
+                  ),
+                ],
+                selected: {laser.mode},
+                onSelectionChanged: (s) => update(laser.copyWith(mode: s.single)),
+              ),
             ),
             const SizedBox(height: Gaps.sm),
             ColorChoices(

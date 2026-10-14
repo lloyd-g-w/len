@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/context_menu_keys.dart';
 import 'cover_locator.dart';
 import 'library_actions.dart';
 import 'library_drag.dart';
@@ -148,39 +149,42 @@ class _NotebookCardState extends State<NotebookCard> {
     // For screen readers the card is a button named by its title and
     // caption (the cover takes taps and long presses), the ⋯ a button
     // beside it: whether or not the ⋯ shows, the card stays a button.
-    return Semantics(
-      container: true,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Semantics(
-                container: true,
-                button: true,
-                selected: _selecting ? _selected : null,
-                label: [
-                  _notebook.title,
-                  if (recordings > 0) recordings == 1 ? '1 recording' : '$recordings recordings',
-                  widget.subtitle,
-                ].join('\n'),
-                child: LibraryDraggable(
-                  item: LibraryDragItem.notebook(_notebook.id),
-                  feedback: DragFeedback(
-                    width: 110,
-                    height: 110 / 0.72,
-                    child: NotebookCover.of(_notebook),
+    // Tab reaches the ⋯ right after its card.
+    return FocusTraversalGroup(
+      child: Semantics(
+        container: true,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Semantics(
+                  container: true,
+                  button: true,
+                  selected: _selecting ? _selected : null,
+                  label: [
+                    _notebook.title,
+                    if (recordings > 0) recordings == 1 ? '1 recording' : '$recordings recordings',
+                    widget.subtitle,
+                  ].join('\n'),
+                  child: LibraryDraggable(
+                    item: LibraryDragItem.notebook(_notebook.id),
+                    feedback: DragFeedback(
+                      width: 110,
+                      height: 110 / 0.72,
+                      child: NotebookCover.of(_notebook),
+                    ),
+                    onLongPressMenu: () => unawaited(_showMenu()),
+                    child: ContextMenuKeys(onMenu: () => unawaited(_showMenu()), child: cover),
                   ),
-                  onLongPressMenu: () => unawaited(_showMenu()),
-                  child: cover,
                 ),
               ),
-            ),
-            // A fixed caption area, so every cover in a row is as tall.
-            _caption(context, showMore: showMore),
-          ],
+              // A fixed caption area, so every cover in a row is as tall.
+              _caption(context, showMore: showMore),
+            ],
+          ),
         ),
       ),
     );

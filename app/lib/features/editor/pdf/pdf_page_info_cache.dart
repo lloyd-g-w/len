@@ -21,6 +21,9 @@ class PdfPageInfoCache extends ChangeNotifier {
   final Map<String, Future<List<PdfOutlineItem>>> _outlines = {};
   bool _disposed = false;
 
+  /// Bumped by [retry].
+  int _generation = 0;
+
   /// Whether page [page] of [blob] has loaded (else a load is started).
   bool isLoaded(String blob, int page) => _entry(blob, page) != null;
 
@@ -40,6 +43,11 @@ class PdfPageInfoCache extends ChangeNotifier {
   /// Forgets pages without text or links, e.g. after a sync brought PDFs
   /// that were not on this device yet.
   void retry() {
+    // Reads in flight may predate the PDF: their results are dropped and
+    // the pages read again when next asked for.
+    _generation++;
+    _loading.clear();
+    _pending.clear();
     _pages.removeWhere((_, v) => v.glyphs == null && v.links.isEmpty);
     _outlines.clear();
     notifyListeners();
@@ -74,6 +82,7 @@ class PdfPageInfoCache extends ChangeNotifier {
 
   Future<void> _read(_Page key) async {
     final (blob, page) = key;
+    final generation = _generation;
     PdfGlyphs? glyphs;
     var links = const <PdfLinkArea>[];
     try {
@@ -82,6 +91,7 @@ class PdfPageInfoCache extends ChangeNotifier {
     } on Object catch (e) {
       debugPrint('Cannot read text / links of $blob p$page: $e');
     }
+    if (generation != _generation) return; // Retried meanwhile.
     _loading.remove(key);
     _pending.remove(key);
     if (_disposed) return;

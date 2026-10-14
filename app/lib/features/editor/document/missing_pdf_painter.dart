@@ -8,12 +8,13 @@ import '../../../ui/app_theme.dart';
 /// Paints what a page shows when its PDF background can't be had (UX_AUDIT
 /// #24): a quiet hatched sheet saying so, rather than a blank page that
 /// looks as if the PDF were simply empty. [page] is the page's size in page
-/// units; the canvas is in page units at its origin.
+/// units; the canvas is in page units at its origin. A scan says
+/// "Scan unavailable" ([scan]).
 ///
 /// The colours are fixed, not themed: PDF pages are white paper in both
 /// themes, like the PDF they stand in for. True greys from the light
 /// [Tones] (DESIGN §1): Board paper, Desk hatching, Graphite words.
-void paintMissingPdf(Canvas canvas, Size page) {
+void paintMissingPdf(Canvas canvas, Size page, {bool scan = false}) {
   final tones = Tones.of(Brightness.light);
   final rect = Offset.zero & page;
   canvas
@@ -45,7 +46,7 @@ void paintMissingPdf(Canvas canvas, Size page) {
         fontWeight: FontWeight.w600,
       ),
       children: [
-        const TextSpan(text: 'PDF page unavailable\n'),
+        TextSpan(text: scan ? 'Scan unavailable\n' : 'PDF page unavailable\n'),
         TextSpan(
           text: 'Its file isn’t on this device',
           style: TextStyle(fontSize: size * 0.8, fontWeight: FontWeight.w400),

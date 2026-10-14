@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -67,6 +68,48 @@ void main() {
     final path = StrokeOutline.build(const [StrokePoint(5, 5, 0.5)], spec);
     expect(path.contains(const Offset(5, 5)), isTrue);
     expect(path.getBounds().width, closeTo(8, 0.5));
+  });
+
+  test('a tiny back-and-forth stays where it was written, stabilised or not', () {
+    // A 1 px flick down and back, and a jitter at a cusp: short stretches
+    // between corners once continued a quadratic through a few samples
+    // past their ends and flung the line pen-widths away.
+    const flick = [
+      StrokePoint(0, 0, 0.5),
+      StrokePoint(-0.25, -1.14, 0.5),
+      StrokePoint(0.14, 0, 0.5),
+    ];
+    const cusp = [
+      StrokePoint(0, 0, 0.5),
+      StrokePoint(2.45, 0.63, 0.5),
+      StrokePoint(4.52, 1.64, 0.5),
+      StrokePoint(5.9, 2.64, 0.5),
+      StrokePoint(7.6, 4.36, 0.5),
+      StrokePoint(6.86, 3.44, 0.5),
+      StrokePoint(7.56, 4.32, 0.5),
+      StrokePoint(6.52, 2.58, 0.5),
+      StrokePoint(6.09, 1.97, 0.5),
+      StrokePoint(5, -0.52, 0.5),
+      StrokePoint(5.95, 1.28, 0.5),
+      StrokePoint(5.55, 0.08, 0.5),
+    ];
+    for (final points in [flick, cusp]) {
+      final box = Rect.fromPoints(
+        Offset(points.map((p) => p.x).reduce(math.min), points.map((p) => p.y).reduce(math.min)),
+        Offset(points.map((p) => p.x).reduce(math.max), points.map((p) => p.y).reduce(math.max)),
+      );
+      for (final streamline in [0.0, 0.5, 1.0]) {
+        final s = OutlineSpec(width: 5, thinning: 0.5, streamline: streamline, unit: 1);
+        final line = StrokeOutline.centerline(points, s)!;
+        for (var i = 0; i < line.x.length; i++) {
+          expect(
+            box.inflate(0.5).contains(Offset(line.x[i], line.y[i])),
+            isTrue,
+            reason: 'streamline $streamline: (${line.x[i]}, ${line.y[i]}) outside $box',
+          );
+        }
+      }
+    }
   });
 }
 

@@ -172,6 +172,7 @@ void main() {
     await tester.tap(find.text('Undo'));
     await tester.pumpAndSettle();
     expect(services.notebooks.list().map((n) => n.title), ['Physics']);
+    expect(services.notebooks.trashed(), isEmpty, reason: 'the fresh copy is gone, not trashed');
   });
 
   testWidgets('at large text on a phone, card captions use the full width', (tester) async {
@@ -324,6 +325,31 @@ void main() {
     expect(services.notebooks.list(), isEmpty);
     expect(services.notebooks.trashed().single.title, 'Keys');
     expect(find.text('“Keys” moved to the trash'), findsOneWidget);
+  });
+
+  testWidgets('narrow window: Ctrl+F opens the search; a folder opened from it clears the field', (
+    tester,
+  ) async {
+    await pumpSeeded(tester, (s) {
+      final school = s.folders.create(name: 'Maths', color: 0xFF0CA678);
+      addNotebook(s, 'Algebra', folderId: school.id);
+    }, size: const Size(700, 900));
+    expect(find.byType(TextField), findsNothing);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus, isTrue);
+
+    await tester.enterText(find.byType(TextField), 'Math');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Maths').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Algebra'), findsWidgets);
+    final fields = find.byType(TextField);
+    if (fields.evaluate().isNotEmpty) {
+      expect(tester.widget<TextField>(fields).controller!.text, isEmpty);
+    }
   });
 
   testWidgets('deleting a folder says what went, trashes its notebooks, and Undo restores all', (
@@ -576,6 +602,7 @@ void main() {
     expect(find.byType(NewNotebookSheet), findsOneWidget);
     expect(find.text('Import PDF…'), findsOneWidget);
     expect(find.text('Import Len file…'), findsOneWidget);
+    expect(find.text('Scan document…'), findsOneWidget);
     // Side by side at the sheet's foot, under Create (not in the form).
     expect(
       tester.getCenter(find.text('Import Len file…')).dy,

@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/context_menu_keys.dart';
 import '../../../ui/menus.dart';
 import '../../../ui/scroll_fade.dart';
 import '../../../ui/sidebar_item.dart';
@@ -172,70 +173,73 @@ class _TabState extends State<_Tab> {
     final split = widget.split;
     final shown = widget.active || split == _Split.second;
     final fg = shown ? scheme.onSurface : scheme.onSurfaceVariant;
-    return Semantics(
-      selected: widget.active,
-      button: true,
-      label: split == _Split.none ? widget.tab.title : '${widget.tab.title}, in split view',
-      child: Listener(
-        // Middle click closes, as in browsers.
-        onPointerDown: (e) {
-          if (e.buttons == 4) widget.onClose();
-        },
-        child: CustomPaint(
-          foregroundPainter: widget.active ? MarginRulePainter(scheme.primary) : null,
-          child: InkWell(
-            onTap: widget.onTap,
-            onDoubleTap: widget.onRename,
-            onLongPress: () => widget.onMenu(context, null),
-            onSecondaryTapUp: (d) => widget.onMenu(context, d.globalPosition),
-            borderRadius: _shape,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minWidth: 112,
-                maxWidth: widget.active
-                    ? NotebookTabStrip.activeMaxWidth
-                    : NotebookTabStrip.maxWidth,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.only(left: Gaps.md, right: Gaps.xxs),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      split != _Split.none
-                          ? Symbols.vertical_split_sharp
-                          : widget.tab.kind == NotebookKind.canvas
-                          ? Symbols.gesture_sharp
-                          : Symbols.menu_book_sharp,
-                      size: Glyphs.menu,
-                      color: fg,
-                      fill: shown ? 1 : 0,
-                    ),
-                    const SizedBox(width: Gaps.sm),
-                    Flexible(
-                      child: Text(
-                        widget.tab.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: fg,
-                          fontWeight: shown ? FontWeight.w600 : FontWeight.w500,
+    return ContextMenuKeys(
+      onMenu: () => widget.onMenu(context, null),
+      child: Semantics(
+        selected: widget.active,
+        button: true,
+        label: split == _Split.none ? widget.tab.title : '${widget.tab.title}, in split view',
+        child: Listener(
+          // Middle click closes, as in browsers.
+          onPointerDown: (e) {
+            if (e.buttons == 4) widget.onClose();
+          },
+          child: CustomPaint(
+            foregroundPainter: widget.active ? MarginRulePainter(scheme.primary) : null,
+            child: InkWell(
+              onTap: widget.onTap,
+              onDoubleTap: widget.onRename,
+              onLongPress: () => widget.onMenu(context, null),
+              onSecondaryTapUp: (d) => widget.onMenu(context, d.globalPosition),
+              borderRadius: _shape,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: 112,
+                  maxWidth: widget.active
+                      ? NotebookTabStrip.activeMaxWidth
+                      : NotebookTabStrip.maxWidth,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: Gaps.md, right: Gaps.xxs),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        split != _Split.none
+                            ? Symbols.vertical_split_sharp
+                            : widget.tab.kind == NotebookKind.canvas
+                            ? Symbols.gesture_sharp
+                            : Symbols.menu_book_sharp,
+                        size: Glyphs.menu,
+                        color: fg,
+                        fill: shown ? 1 : 0,
+                      ),
+                      const SizedBox(width: Gaps.sm),
+                      Flexible(
+                        child: Text(
+                          widget.tab.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: fg,
+                            fontWeight: shown ? FontWeight.w600 : FontWeight.w500,
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: 'Close tab',
-                      onPressed: widget.onClose,
-                      iconSize: 16,
-                      style: IconButton.styleFrom(
-                        foregroundColor: fg,
-                        minimumSize: const Size(28, 28),
-                        fixedSize: const Size(28, 28),
-                        padding: EdgeInsets.zero,
+                      IconButton(
+                        tooltip: 'Close tab',
+                        onPressed: widget.onClose,
+                        iconSize: 16,
+                        style: IconButton.styleFrom(
+                          foregroundColor: fg,
+                          minimumSize: const Size(28, 28),
+                          fixedSize: const Size(28, 28),
+                          padding: EdgeInsets.zero,
+                        ),
+                        icon: const Icon(Symbols.close_sharp),
                       ),
-                      icon: const Icon(Symbols.close_sharp),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

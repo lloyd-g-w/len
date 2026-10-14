@@ -87,6 +87,35 @@ class LenArchiveReader {
     };
   }
 
+  /// A version for the records of a restore keeping the ids [keep]: [now],
+  /// or later than the deletion here of any of them (a tombstone stamped
+  /// by a device whose clock is ahead), so the restore wins wherever it
+  /// syncs to.
+  int _versionAbove(Set<String> keep, int now) {
+    const onSurfaces =
+        '(surface_id = ?1 OR surface_id IN (SELECT id FROM pages WHERE notebook_id = ?1))';
+    const rows = [
+      ('folders', 'id = ?1'),
+      ('notebooks', 'id = ?1'),
+      ('pages', 'notebook_id = ?1'),
+      ('outline', 'notebook_id = ?1'),
+      ('recordings', 'notebook_id = ?1'),
+      ('strokes', onSurfaces),
+      ('elements', onSurfaces),
+    ];
+    var version = now;
+    for (final id in keep) {
+      for (final (table, where) in rows) {
+        final latest = stores.any.db.select(
+          'SELECT MAX(updated_at) AS v FROM $table WHERE $where',
+          [id],
+        ).first['v'];
+        if (latest is int && latest >= version) version = latest + 1;
+      }
+    }
+    return version;
+  }
+
   /// Whether a live row [id] of [table] is here.
   bool _here(String table, String id) =>
       stores.any.db.select('SELECT 1 FROM $table WHERE id = ? AND deleted = 0', [id]).isNotEmpty;
@@ -108,18 +137,19 @@ class LenArchiveReader {
   }) async {
     try {
       final contents = keepIds ? source.contents : null;
+      final keep = {
+        if (contents != null) ...[
+          for (final id in contents.folders)
+            if (!_here('folders', id)) id,
+          for (final id in contents.notebooks.keys)
+            if (!_here('notebooks', id)) id,
+        ],
+      };
       final remap = LenRemap(
         deviceId: deviceId,
-        version: clock.nowMs(),
+        version: _versionAbove(keep, clock.nowMs()),
         clock: clock,
-        keep: {
-          if (contents != null) ...[
-            for (final id in contents.folders)
-              if (!_here('folders', id)) id,
-            for (final id in contents.notebooks.keys)
-              if (!_here('notebooks', id)) id,
-          ],
-        },
+        keep: keep,
         skip: skip,
       );
       return await _import(
@@ -214,7 +244,8 @@ class LenArchiveReader {
       );
     } catch (_) {
       commit.discard();
-      final referenced = BlobReferences(stores.any.database).all;
+      final references = BlobReferences(stores.any.database);
+      Set<String> referenced() => references.kept(clock.nowMs());
       for (final sha in stored) {
         await blobs.discardIfUnreferenced(sha, referenced);
       }

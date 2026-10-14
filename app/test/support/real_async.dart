@@ -28,7 +28,7 @@ Future<void> pumpUntil(
 Future<void> pumpUntilPdfRendered(WidgetTester tester) => pumpUntil(
   tester,
   () => find.byType(EditorCanvas).evaluate().every((e) {
-    final backgrounds = (e.widget as EditorCanvas).session.backgrounds;
+    final backgrounds = (e.widget as EditorCanvas).session.pdfBackgrounds;
     return backgrounds == null || !backgrounds.isBusy;
   }),
   stable: 3,

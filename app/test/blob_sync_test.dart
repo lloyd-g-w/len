@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -325,6 +326,47 @@ void main() {
     server.log.clear();
     await a.sync.syncNow();
     expect(server.log.where((l) => l.endsWith('blob')), isEmpty);
+  });
+
+  test('a download from the old server finishing after a switch is still uploaded', () async {
+    final r = await _recording(a, 50, 1);
+    await a.sync.syncNow();
+    final second = FakeServer();
+    final gate = Completer<void>();
+    final b = AppServices.create(
+      AppDatabase.inMemory(),
+      syncApiFactory: (url, token) => SyncApi(
+        baseUrl: url,
+        token: token,
+        client: url == 'http://two.test'
+            ? second.client
+            : MockClient((request) async {
+                // The download is slow (a large PDF or recording).
+                if (request.method == 'GET' && request.url.path.startsWith('/v1/blobs/')) {
+                  await gate.future;
+                }
+                final copy = http.Request(request.method, request.url)
+                  ..headers.addAll(request.headers)
+                  ..bodyBytes = request.bodyBytes;
+                return http.Response.fromStream(await server.client.send(copy));
+              }),
+      ),
+    );
+    addTearDown(b.dispose);
+    b.sync.configure(url: 'http://sync.test', token: FakeServer.token);
+    await b.sync.syncNow();
+    final fetch = b.sync.fetchBlob(r.sha);
+    await pumpEventQueue();
+
+    // Meanwhile this device moves to another server and syncs everything.
+    b.sync.configure(url: 'http://two.test', token: FakeServer.token);
+    await b.sync.syncNow();
+    expect(second.stored('recordings', r.recording.id), isNotNull);
+    gate.complete();
+    expect(await fetch, isTrue);
+
+    await b.sync.syncNow();
+    expect(second.blobs.keys, [r.sha], reason: 'the new server must get it too');
   });
 
   group('status UI', () {

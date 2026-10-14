@@ -223,7 +223,9 @@ record referencing it arrives later.
    below (parents first), then tombstones in the reverse order (children first, so a server never
    holds a deleted page or notebook whose content is still live because a push stopped half way) —
    and send them in requests of at most 1000 records and ~4 MiB of
-   JSON. A single record too large for the server's body limit is skipped (it stays dirty), and so
+   JSON. A request answered with `413` (a reverse proxy may allow smaller bodies than the server)
+   is sent again in halves, and later requests of that sync are kept below half its size. A single
+   record too large for the body limit is skipped (it stays dirty), and so
    is a record the server rejects with `400` and its `index` (logged; the rest of that request is
    sent again; a `400` without an index fails the cycle). After
    success, clear the dirty flag of each row whose `updatedAt` has not changed since it was read.
@@ -247,9 +249,9 @@ lost**. Content edited elsewhere while its page or notebook was deleted brings t
 notebook back, with everything the deletion removed; a notebook comes back **into the trash** (or
 stays there), where the user can restore it or delete it forever again.
 
-- **One version per deletion.** Deleting a page tombstones it with its strokes and elements, and
-  deleting a notebook forever tombstones it with its pages, strokes, elements, recordings and
-  outline entries, each with one `updatedAt` (later than every row it replaces) and the deleting
+- **One version per deletion.** Deleting a page tombstones it with its strokes, elements and
+  `recognised_text`, and deleting a notebook forever tombstones it with its pages, strokes,
+  elements, recordings, outline entries and `recognised_text`, each with one `updatedAt` (later than every row it replaces) and the deleting
   device's `deviceId`. That pair marks the tombstones of one deletion.
 - **Detection.** After a complete pull, a client looks for tombstoned pages holding live strokes
   or elements, and for tombstoned notebooks holding live pages, recordings, outline entries or
@@ -289,7 +291,7 @@ library (a backup) packed for people rather than servers: a zip with `manifest.j
 (`{"format": "len", "version": 1, "kind": "notebook"|"folder"|"notebooks"|"library",
 "title", "createdAt"}`), the records as sync records (the format above; one JSON record per line
 in `records/000001.jsonl`, … parts of about 4 MB, parents before children in the order
-`folders, templates, notebooks, pages, outline, recordings, strokes, elements`), `blobs.json`
+`folders, templates, notebook_styles, notebooks, pages, outline, recordings, strokes, elements`; templates and notebook styles only in a library backup), `blobs.json`
 (`{"<sha256>": {"mime", "size"}}`) and the blobs themselves under `blobs/<sha256>` (stored, not
 compressed). Tombstones and `recognised_text` are left out (its keys hash stroke ids).
 
@@ -299,7 +301,8 @@ and is synced like any local write. Restoring a library backup keeps the ids of 
 notebooks (with their pages, outline, recordings, strokes and elements) that aren't here, so a
 second restore can tell what is here already; the user chooses to skip those or copy them again
 (new ids). A backup holds no trashed notebooks. Templates already present (same image blob) are
-not added twice. A file that isn't a zip, has no readable manifest or a newer `version` is
+not added twice, nor are notebook styles (same name and style); a restored default style stays the
+default only where none is set yet. A file that isn't a zip, has no readable manifest or a newer `version` is
 refused and leaves nothing behind; otherwise damage is left out and reported, the rest imported:
 a blob whose bytes don't match its `<sha256>` counts as missing, a line that is not a record is
 skipped, a records part that can't be read is skipped whole, and a damaged `blobs.json` falls
@@ -313,6 +316,7 @@ back to the blobs the zip holds.
 | `notebooks` | `{title, kind: "paged"|"canvas", paper, paperData: object, paperColor, coverColor, createdAt, editedAt, folderId: string|null, favorite: bool, trashedAt: int|null}` |
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperData: object, paperColor, bookmarked: bool, background: object|null}` — see [Paper and pages](#paper-and-pages) |
 | `templates` | `{name, blob, width, height, createdAt}` — one of the user's own templates ("My templates"): `blob` is the `<sha256>` of a PNG or JPEG image ([blob](#blobs)), `width` / `height` (> 0) the size in world units (96 per inch) of pages made from it. Pages made from a template copy its blob into their `paperData`, so renaming or deleting (tombstoning) a template never changes existing pages. |
+| `notebook_styles` | `{name, style, isDefault: bool, createdAt}` — one of the user's notebook styles: what a new notebook starts as. `style` = `{kind: "paged"|"canvas", paper, look, paperColor, format, orientation, coverColor}`: `paper` a built-in template name (never `image`; planners are generated from the day a notebook is made), `look` a paper look as in `paperData.look`, `paperColor` as on notebooks, `format` ∈ `a4`, `a5`, `letter`, `square`, `orientation` ∈ `portrait`, `landscape`, `coverColor` an ARGB integer. Every field is required. At most one style has `isDefault` true (marking one clears the others as further writes); should several arrive marked, the one with the latest `updatedAt` is the default. Notebooks made from a style copy its values, so editing or deleting a style never changes them. |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style}` — `tool` ∈ `ballpoint` (the pen), `highlighter`. `style` = `{o: opacity, th: thinning, sl: streamline, u?: unit, e: ends, ts?: taperStart, te?: taperEnd, cs?: cutStart, ce?: cutEnd, f?: fill}` (`o`, `th`, `sl` in 0..1; `u`: world units per screen pixel when written, i.e. 1 / zoom; absent → estimated from the points). `e` is required: `round`, `flat` or `taper`; `ts` and `te` are required for `taper` only, each 0..24 multiples of stroke width (0 means round at that end). `cs` and `ce` mark ends cut by the pixel eraser (absent for the pen's own ends): `cs` (0 < cs ≤ 1) is where the first resampled point of the centre line lies after the first point, in resampling steps, so a fragment resamples where the stroke it was cut from did; `ce` is `true`. Cut ends have no pen-down/up hook trimmed. `f` is the fill colour of a closed shape (an ARGB integer, 0..0xFFFFFFFF, alpha included: tints are translucent), painted beneath the outline as the polygon through the points; absent for no fill, and only shown on a stroke whose last point is its first (within 0.01). Unknown keys ignored. The highlighter has flat caps regardless of pen settings. `createdAt` is the wall time (epoch ms) the stroke was *begun* (pen down), not finished: strokes are painted in this order, and audio replay shows a stroke from the moment writing it started. |
 | `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements. `type` = `text` (`data` = `{text, spans, paras, font, size, color, align, autoWidth}`, see [Text boxes](#text-boxes)), `image` (`data` = `{blob, width, height, crop?}`, see below) or `link` (`data` = `{target}`, see [Links](#links)). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
 | `recordings` | `{notebookId, audio, durationMs, startedAt, title, mime, segments, waveform, trimStartMs, trimEndMs}` — an audio recording of a notebook. `audio` = `[[<sha256>, durationMs], …]` (never empty) are the parts of the audio in order, each a [blob](#blobs) of `mime`: `audio/aac` (raw AAC in ADTS frames; parts join by concatenation into one stream), `audio/mp4` AAC or `audio/webm` Opus (recorded in browsers; each part a complete file, played one after the other). A recording being made gains a part every few minutes, so the record is updated (and its finished parts uploaded) while recording continues. `durationMs` is the audio length (the sum of the parts); `startedAt` is the wall time (epoch ms) recording began; `segments` = `[[startedAt, durationMs], …]` are the stretches captured between pauses, mapping audio time to wall time so ink (`strokes.createdAt`) can be replayed with it (empty → one segment `[startedAt, durationMs]`); ink and elements are replayed from their `createdAt`. `waveform` is `""` (none) or the `<sha256>` of the recording's [waveform](#waveforms) blob. `trimStartMs` / `trimEndMs` (ints, `0 ≤ trimStartMs ≤ trimEndMs ≤ durationMs`, else malformed) are the audio kept by a non-destructive trim, positions in the whole audio: `0` and `durationMs` when untrimmed (a recording being made stays untrimmed). Clients play, list, replay and export only the kept range; the parts keep all the audio, so trimming back restores it — until the user frees the space trimmed away: the record is then rewritten with only the parts the trim touches, `durationMs`, `segments`, `startedAt`, `waveform` and the trim moved to begin at the first kept part (the dropped blobs become unreferenced). Deleting a notebook tombstones its recordings. |
@@ -453,6 +457,8 @@ wrong type makes the record malformed. Example: `{"look": {"spacing": 5, "lineWe
 upper-case hex digits).
 
 - `bookmarked`: whether the page is bookmarked.
-- `background`: `null`, or `{"type": "pdf", "blob": "<sha256>", "page": <int ≥ 0>}`, which renders
-  page `page` (0-based) of the PDF stored as blob `<sha256>` behind the strokes. Any other value
-  makes the record malformed.
+- `background`: `null`, `{"type": "pdf", "blob": "<sha256>", "page": <int ≥ 0>}`, which renders
+  page `page` (0-based) of the PDF stored as blob `<sha256>` behind the strokes, or
+  `{"type": "image", "blob": "<sha256>"}`, which stretches the image (PNG, JPEG or WebP; a scanned
+  document) stored as blob `<sha256>` over the whole page. Any other value makes the record
+  malformed.

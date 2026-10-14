@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/roving_focus.dart';
 import '../../../ui/section_label.dart';
 import 'even_choices.dart';
 import 'template_catalog.dart';
@@ -68,24 +69,26 @@ class PageSizeRow extends StatelessWidget {
         ),
         if (template.format != PageFormat.square) ...[
           const SizedBox(height: Gaps.sm),
-          SegmentedButton<PageOrientation>(
-            showSelectedIcon: false,
-            expandedInsets: EdgeInsets.zero,
-            style: const ButtonStyle(visualDensity: VisualDensity.compact),
-            segments: const [
-              ButtonSegment(
-                value: PageOrientation.portrait,
-                icon: Icon(Symbols.crop_portrait_sharp),
-                label: Text('Portrait'),
-              ),
-              ButtonSegment(
-                value: PageOrientation.landscape,
-                icon: Icon(Symbols.crop_landscape_sharp),
-                label: Text('Landscape'),
-              ),
-            ],
-            selected: {template.orientation},
-            onSelectionChanged: (s) => onChanged(template.copyWith(orientation: s.single)),
+          RovingSegments(
+            SegmentedButton<PageOrientation>(
+              showSelectedIcon: false,
+              expandedInsets: EdgeInsets.zero,
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+              segments: const [
+                ButtonSegment(
+                  value: PageOrientation.portrait,
+                  icon: Icon(Symbols.crop_portrait_sharp),
+                  label: Text('Portrait'),
+                ),
+                ButtonSegment(
+                  value: PageOrientation.landscape,
+                  icon: Icon(Symbols.crop_landscape_sharp),
+                  label: Text('Landscape'),
+                ),
+              ],
+              selected: {template.orientation},
+              onSelectionChanged: (s) => onChanged(template.copyWith(orientation: s.single)),
+            ),
           ),
         ],
       ],

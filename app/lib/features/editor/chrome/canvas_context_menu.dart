@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../ui/app_theme.dart';
 
@@ -17,7 +18,9 @@ class CanvasAction {
 
 /// The menu a finger long press (or a right click) opens on the canvas,
 /// placed next to the touch point and kept on screen. Tapping outside
-/// dismisses it.
+/// dismisses it. It takes focus on its first entry (shown only to the
+/// keyboard, which opens it with the Menu key): the arrows and Tab move
+/// in it, Escape closes it.
 class CanvasContextMenu extends StatelessWidget {
   const CanvasContextMenu({
     super.key,
@@ -32,6 +35,24 @@ class CanvasContextMenu extends StatelessWidget {
   final VoidCallback onDismiss;
 
   static const double minWidth = 220;
+
+  /// Escape closes; ↑ ↓ move between the entries (before the editor's
+  /// own arrow keys, which turn pages).
+  KeyEventResult _onKey(FocusNode _, KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    final focused = FocusManager.instance.primaryFocus;
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.escape:
+        onDismiss();
+      case LogicalKeyboardKey.arrowDown:
+        focused?.nextFocus();
+      case LogicalKeyboardKey.arrowUp:
+        focused?.previousFocus();
+      default:
+        return KeyEventResult.ignored;
+    }
+    return KeyEventResult.handled;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,28 +79,33 @@ class CanvasContextMenu extends StatelessWidget {
                 child: child,
               ),
             ),
-            child: OverlaySurface(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: minWidth),
-                child: IntrinsicWidth(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: Gaps.xs + 2),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final action in actions) ...[
-                          if (action.dividerBefore) const Divider(height: Gaps.sm + 1),
-                          MenuItemButton(
-                            leadingIcon: Icon(action.icon),
-                            onPressed: () {
-                              onDismiss();
-                              action.onSelected();
-                            },
-                            child: Text(action.label),
-                          ),
+            child: FocusScope(
+              autofocus: true,
+              onKeyEvent: _onKey,
+              child: OverlaySurface(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: minWidth),
+                  child: IntrinsicWidth(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: Gaps.xs + 2),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final (i, action) in actions.indexed) ...[
+                            if (action.dividerBefore) const Divider(height: Gaps.sm + 1),
+                            MenuItemButton(
+                              autofocus: i == 0,
+                              leadingIcon: Icon(action.icon),
+                              onPressed: () {
+                                onDismiss();
+                                action.onSelected();
+                              },
+                              child: Text(action.label),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),

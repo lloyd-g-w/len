@@ -21,6 +21,7 @@ class EraserStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final eraser = tools.eraser;
+    final chosen = EraserConfig.quickSizes.indexOf(eraser.radius);
     return Flex(
       direction: ToolbarAxis.of(context),
       mainAxisSize: MainAxisSize.min,
@@ -29,6 +30,7 @@ class EraserStrip extends StatelessWidget {
           SlotButton(
             key: ValueKey('eraser-size-$i'),
             selected: eraser.radius == size,
+            tabStop: i == (chosen < 0 ? 0 : chosen),
             tooltip: 'Eraser size ${i + 1}',
             semanticLabel: 'Eraser size ${i + 1}',
             onSelect: () => tools.eraser = eraser.copyWith(radius: size),

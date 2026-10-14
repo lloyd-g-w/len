@@ -85,7 +85,7 @@ List<EditorSearchMatch> findEditorSearchMatches(
     } else {
       for (final range in parsed.ranges(hit.body)) {
         matches.add(
-          EditorSearchMatch(hit: hit, range: range, pdf: page?.background, pageSize: page?.size),
+          EditorSearchMatch(hit: hit, range: range, pdf: page?.pdf, pageSize: page?.size),
         );
       }
     }

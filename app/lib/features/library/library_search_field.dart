@@ -4,6 +4,19 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../ui/app_theme.dart';
 import 'library_actions.dart';
 
+/// The library search field's focus. [open] (Ctrl+F) also shows the field
+/// where narrow headers keep it behind 🔍: a node that isn't in the tree
+/// can't take focus.
+class LibrarySearchFocus extends FocusNode {
+  LibrarySearchFocus() : super(debugLabel: 'Library search');
+
+  /// Shows the field and focuses it; set by the header.
+  VoidCallback? onOpen;
+
+  /// Focuses the field, showing it first if needed.
+  void open() => context == null && onOpen != null ? onOpen!() : requestFocus();
+}
+
 /// The library's search field: typing filters the library; ✕ clears it
 /// (or, with [onClose], closes the empty field).
 class LibrarySearchField extends StatelessWidget {

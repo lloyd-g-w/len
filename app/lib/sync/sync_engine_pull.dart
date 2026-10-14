@@ -3,7 +3,7 @@ part of 'sync_engine.dart';
 /// Pulling: applies the server's change feed page by page.
 extension _SyncPull on SyncEngine {
   Future<RemoteChanges> _pull(SyncApi api, CancelCheck cancelled) async {
-    final changes = RemoteChanges();
+    final changes = _unannounced ??= RemoteChanges();
     var next = api.pull(since: settings.syncLastSeq);
     while (!cancelled()) {
       final since = settings.syncLastSeq;

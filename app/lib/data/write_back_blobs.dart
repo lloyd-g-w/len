@@ -16,7 +16,9 @@ class WriteBackBlobBackend with ChangeNotifier implements BlobBackend, WriteBack
 
   /// Blobs not stored yet: being written, or waiting for a retry.
   final Map<String, Uint8List> _unstored = {};
-  int _writing = 0;
+
+  /// Blobs [write] is storing right now (how many writes of each).
+  final Map<String, int> _writing = {};
   WriteFailure? _failure;
   late final WriteBackRetry _retry = WriteBackRetry(() => unawaited(flush()));
   Future<bool>? _flushing;
@@ -48,12 +50,12 @@ class WriteBackBlobBackend with ChangeNotifier implements BlobBackend, WriteBack
     if (_closed) throw StateError('Blob storage is closed');
     final bytes = await collectBytes(data);
     _unstored[sha] = bytes;
-    _writing++;
+    _writing.update(sha, (n) => n + 1, ifAbsent: () => 1);
     notifyListeners();
     try {
       await _store(sha, bytes);
     } finally {
-      _writing--;
+      if (_writing.update(sha, (n) => n - 1) == 0) _writing.remove(sha);
     }
   }
 
@@ -70,7 +72,9 @@ class WriteBackBlobBackend with ChangeNotifier implements BlobBackend, WriteBack
       return false;
     }
     if (identical(_unstored[sha], bytes)) _unstored.remove(sha);
-    if (_unstored.length == _writing) {
+    // Only once nothing refused is left (writes in progress may still fail
+    // and report it): another blob storing fine says nothing of those.
+    if (_unstored.keys.every(_writing.containsKey)) {
       _failure = null;
       _retry.succeeded();
     }

@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
+import '../../../data/blob_mime.dart';
 import '../../../data/blob_store.dart';
 import '../../../domain/image_data.dart';
 import '../../../ink/images/element_images.dart';
@@ -63,27 +64,8 @@ abstract final class ImageImport {
 
   /// The MIME type of encoded image [bytes] by their signature, or null.
   static String? sniff(Uint8List bytes) {
-    bool at(int offset, List<int> sig) {
-      if (bytes.length < offset + sig.length) return false;
-      for (var i = 0; i < sig.length; i++) {
-        if (bytes[offset + i] != sig[i]) return false;
-      }
-      return true;
-    }
-
-    if (at(0, const [0x89, 0x50, 0x4E, 0x47])) return 'image/png';
-    if (at(0, const [0xFF, 0xD8, 0xFF])) return 'image/jpeg';
-    if (at(0, 'GIF8'.codeUnits)) return 'image/gif';
-    if (at(0, 'RIFF'.codeUnits) && at(8, 'WEBP'.codeUnits)) return 'image/webp';
-    if (at(0, 'BM'.codeUnits)) return 'image/bmp';
-    if (at(4, 'ftyp'.codeUnits) && bytes.length >= 12) {
-      final brand = String.fromCharCodes(bytes.sublist(8, 12));
-      if (const {'heic', 'heix', 'hevc', 'heim', 'heis', 'mif1', 'msf1'}.contains(brand)) {
-        return 'image/heic';
-      }
-      if (brand == 'avif') return 'image/avif';
-    }
-    return null;
+    final mime = BlobMime.sniff(bytes);
+    return mime.startsWith('image/') ? mime : null;
   }
 
   /// Prepares [bytes] for storage (see class docs).

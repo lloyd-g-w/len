@@ -118,13 +118,14 @@ class BlobSync {
   }
 
   /// Fetches blob [sha] into the store. Returns false if the server does
-  /// not have it (yet).
-  Future<bool> download(SyncApi api, String sha) async {
+  /// not have it (yet). [fromCurrentServer] tells whether [api] still leads
+  /// to the server this device syncs with (see [BlobStore.putDownloaded]).
+  Future<bool> download(SyncApi api, String sha, {bool Function()? fromCurrentServer}) async {
     if (await store.has(sha)) return true;
     final bytes = await api.getBlob(sha);
     if (bytes == null) return false;
     try {
-      await store.putDownloaded(sha, bytes);
+      await store.putDownloaded(sha, bytes, fromCurrentServer: fromCurrentServer);
     } on FormatException catch (e) {
       throw SyncException(e.message);
     }

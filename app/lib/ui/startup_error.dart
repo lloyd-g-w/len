@@ -74,7 +74,7 @@ class _StartupErrorScreenState extends State<StartupErrorScreen> {
   /// What to try, by platform.
   String get _advice => kIsWeb
       ? 'Close other Len tabs, and check that this browser allows sites to store data '
-            '(private windows often don\'t). Then try again.'
+            '(private windows often don’t). Then try again.'
       : 'Close any other Len window, and check that the device has free space. '
             'Then try again.';
 
@@ -121,10 +121,10 @@ class _StartupErrorScreenState extends State<StartupErrorScreen> {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(height: Gaps.lg),
-                  Text('Len couldn\'t open your notes', style: theme.textTheme.titleLarge),
+                  Text('Len couldn’t open your notes', style: theme.textTheme.titleLarge),
                   const SizedBox(height: Gaps.sm),
                   Text(
-                    'The place where Len keeps them couldn\'t be opened, so nothing was '
+                    'The place where Len keeps them couldn’t be opened, so nothing was '
                     'loaded or changed. $_advice',
                     // Body in Graphite under the title, like dialogs.
                     style: theme.textTheme.bodyMedium?.copyWith(

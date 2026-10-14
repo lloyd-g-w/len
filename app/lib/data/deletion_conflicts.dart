@@ -97,6 +97,7 @@ class DeletionConflicts {
     _reviveMarked(notebooks.strokes, 'surface_id = ?', [id], mark);
     final elements = notebooks.elements;
     if (elements != null) _reviveMarked(elements, 'surface_id = ?', [id], mark);
+    if (notebooks.recognisedText case final text?) _reviveMarked(text, 'id = ?', [id], mark);
     out.surfaces.add(id);
     final notebook = pages.notebookOf(id);
     if (notebook != null) out.notebooks.add(notebook);
@@ -118,6 +119,10 @@ class DeletionConflicts {
     }
     if (notebooks.outline case final outline?) {
       _reviveMarked(outline, 'notebook_id = ?', [id], mark);
+    }
+    if (notebooks.recognisedText case final text?) {
+      const ofSurfaces = '(id = ? OR id IN (SELECT id FROM pages WHERE notebook_id = ?))';
+      _reviveMarked(text, ofSurfaces, [id, id], mark);
     }
     out.notebooks.add(id);
     out.surfaces

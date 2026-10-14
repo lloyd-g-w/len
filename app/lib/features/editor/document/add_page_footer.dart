@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../app_services.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/context_menu_keys.dart';
 import 'document_controller.dart';
 import 'document_layout.dart';
 
@@ -107,20 +108,23 @@ class _AddButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     // A Pencil-edged outline with an Ink +, like the library's New tile.
-    return GestureDetector(
-      excludeFromSemantics: true, // The button has the long press.
-      onSecondaryTap: onAddWithTemplate,
-      child: OutlinedButton.icon(
-        onPressed: onAdd,
-        onLongPress: onAddWithTemplate,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: scheme.onSurface,
-          backgroundColor: Colors.transparent,
-          side: BorderSide(color: scheme.outline),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm)),
+    return ContextMenuKeys(
+      onMenu: onAddWithTemplate,
+      child: GestureDetector(
+        excludeFromSemantics: true, // The button has the long press.
+        onSecondaryTap: onAddWithTemplate,
+        child: OutlinedButton.icon(
+          onPressed: onAdd,
+          onLongPress: onAddWithTemplate,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: scheme.onSurface,
+            backgroundColor: Colors.transparent,
+            side: BorderSide(color: scheme.outline),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm)),
+          ),
+          icon: const Icon(Symbols.add_sharp),
+          label: const Text('Add page'),
         ),
-        icon: const Icon(Symbols.add_sharp),
-        label: const Text('Add page'),
       ),
     );
   }

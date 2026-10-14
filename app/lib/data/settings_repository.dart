@@ -141,6 +141,10 @@ class SettingsRepository {
   set pageFlow(String? value) => value == null ? _remove('page_flow') : _set('page_flow', value);
 
   /// Where the editor toolbar sits (default: docked).
+  /// The zoom window's box docks at the top (left-handed writing).
+  bool get zoomBoxAtTop => _get('zoom_box_top') == 'true';
+  set zoomBoxAtTop(bool value) => _set('zoom_box_top', '$value');
+
   ToolbarPlacement get toolbarPlacement => ToolbarPlacement.parse(_get('toolbar_placement'));
   set toolbarPlacement(ToolbarPlacement value) => _set('toolbar_placement', value.name);
 
@@ -185,6 +189,12 @@ class SettingsRepository {
   ];
   set recentPapers(List<String> names) => _set('recent_papers', names.join(','));
 
+  /// What the last new notebook was made as (`NotebookChoice.toJson`, JSON);
+  /// null before the first.
+  String? get lastNotebookChoice => _get('last_notebook_choice');
+  set lastNotebookChoice(String? value) =>
+      value == null ? _remove('last_notebook_choice') : _set('last_notebook_choice', value);
+
   /// Handwriting recognition language (BCP 47); null = from the device locale.
   String? get handwritingLanguage => _get('handwriting_language');
   set handwritingLanguage(String? value) =>
@@ -206,6 +216,12 @@ class SettingsRepository {
   String? editorView(String notebookId) => _get('editor_view.$notebookId');
   void setEditorView(String notebookId, String? value) =>
       value == null ? _remove('editor_view.$notebookId') : _set('editor_view.$notebookId', value);
+
+  /// The zoom window as notebook [notebookId] left it (an opaque string
+  /// owned by the editor), or null.
+  String? zoomWindow(String notebookId) => _get('zoom_window.$notebookId');
+  void setZoomWindow(String notebookId, String? value) =>
+      value == null ? _remove('zoom_window.$notebookId') : _set('zoom_window.$notebookId', value);
 
   /// Notebooks opened lately (ids), most recent first.
   List<String> get recentNotebooks => [

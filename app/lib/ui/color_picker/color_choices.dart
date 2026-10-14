@@ -6,6 +6,7 @@ import '../app_theme.dart';
 import '../color_dot.dart';
 import '../even_grid.dart';
 import '../group_header.dart';
+import '../roving_focus.dart';
 import '../section_label.dart';
 import 'color_picker.dart';
 import 'color_swatches.dart';
@@ -79,16 +80,19 @@ class _ColorChoicesState extends State<ColorChoices> {
           runSpacing: 0,
           maxSpacing: touch ? double.infinity : _gap,
         ).resolve(widget.palette.length, constraints.maxWidth);
-        Widget grid(List<int> colours, {required double maxSpacing}) => EvenGrid(
-          itemExtent: size,
-          minSpacing: _gap,
-          runSpacing: _gap,
-          maxSpacing: maxSpacing,
-          touchTargets: true,
-          children: [
-            for (final c in colours)
-              ColorDot(color: c, size: visual, selected: c == selected, onTap: () => _pick(c)),
-          ],
+        // One Tab stop each, at the chosen colour; the arrows move inside.
+        Widget grid(List<int> colours, {required double maxSpacing}) => RovingGroup.grid(
+          child: EvenGrid(
+            itemExtent: size,
+            minSpacing: _gap,
+            runSpacing: _gap,
+            maxSpacing: maxSpacing,
+            touchTargets: true,
+            children: [
+              for (final c in colours)
+                ColorDot(color: c, size: visual, selected: c == selected, onTap: () => _pick(c)),
+            ],
+          ),
         );
         return Column(
           mainAxisSize: MainAxisSize.min,

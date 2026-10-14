@@ -177,6 +177,17 @@ void main() {
     });
   });
 
+  test('a stray <li> is a top-level item; deep nesting stops at the deepest indent', () {
+    final d = _parse(
+      '<li>stray</li><ul><ul><ul><ul><ul><ul><li>deep</li></ul></ul></ul></ul></ul></ul>',
+    );
+    expect(d.paras, [
+      const ParaStyle(list: ListKind.bullet),
+      const ParaStyle(list: ListKind.bullet, indent: ParaStyle.maxIndent),
+    ]);
+    expect(TextData.fromJson(d.toJson()), d, reason: 'indents survive JSON');
+  });
+
   test('parseColor', () {
     expect(parseColor('#f00'), 0xFFFF0000);
     expect(parseColor('#1a73e8'), 0xFF1A73E8);
@@ -186,6 +197,9 @@ void main() {
     expect(parseColor('rgb(255,255,255)'), isNull);
     expect(parseColor('transparent'), isNull);
     expect(parseColor('red'), 0xFFFF0000);
+    // Unclosed (cut-off markup) is read, not a RangeError.
+    expect(parseColor('rgb(26, 115, 232'), 0xFF1A73E8);
+    expect(parseColor('rgb(1,2'), isNull);
   });
 
   group('RichTextBuffer.insertRich', () {
