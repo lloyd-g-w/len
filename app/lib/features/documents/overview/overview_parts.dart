@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/context_menu_keys.dart';
 import '../../../ui/messages.dart';
 import '../../../ui/roving_focus.dart';
 
@@ -152,19 +153,22 @@ class AddPageTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(Radii.sm),
                     side: BorderSide(color: scheme.outline),
                   ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(Radii.sm),
-                    onTap: onTap,
-                    onLongPress: onLongPress,
-                    onSecondaryTap: onLongPress,
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Symbols.add_sharp, size: Glyphs.empty, color: scheme.onSurface),
-                          const SizedBox(height: Gaps.xs),
-                          Text('Add page', style: theme.textTheme.labelLarge),
-                        ],
+                  child: ContextMenuKeys(
+                    onMenu: onLongPress,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(Radii.sm),
+                      onTap: onTap,
+                      onLongPress: onLongPress,
+                      onSecondaryTap: onLongPress,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Symbols.add_sharp, size: Glyphs.empty, color: scheme.onSurface),
+                            const SizedBox(height: Gaps.xs),
+                            Text('Add page', style: theme.textTheme.labelLarge),
+                          ],
+                        ),
                       ),
                     ),
                   ),

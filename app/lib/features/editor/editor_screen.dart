@@ -9,6 +9,7 @@ import '../../domain/paper.dart';
 import '../../domain/preferences.dart';
 import '../../ink/tool_settings.dart';
 import '../../platform/fullscreen.dart';
+import '../../ui/context_menu_keys.dart';
 import '../../ui/messages.dart';
 import '../audio/notebook_audio.dart';
 import '../audio/ui/playback_keys.dart';
@@ -16,6 +17,7 @@ import '../documents/export/export_flow.dart';
 import '../search/editor/editor_search_controller.dart';
 import '../settings/keyboard_shortcuts.dart';
 import '../settings/settings_screen.dart';
+import 'chrome/canvas_context_menu.dart';
 import 'chrome/canvas_guard.dart';
 import 'chrome/editor_chrome.dart';
 import 'chrome/editor_tips.dart';
@@ -355,7 +357,12 @@ class _EditorScreenState extends State<_EditorView> {
   }
 
   void _closeMenu() {
-    if (_menu != null) setState(() => _menu = null);
+    if (_menu == null) return;
+    // Opened from the keyboard: focus goes back to the page.
+    final inMenu = FocusManager.instance.primaryFocus?.context
+        ?.findAncestorWidgetOfExactType<CanvasContextMenu>();
+    setState(() => _menu = null);
+    if (inMenu != null) _focusNode.requestFocus();
   }
 
   // ---------------------------------------------------------------------------

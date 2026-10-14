@@ -32,7 +32,8 @@ extension _EditorLayout on _EditorScreenState {
   );
 
   /// Escape first leaves focus mode, then closes a chrome menu opened
-  /// with a tap (focus stayed here, out of the menu's reach). The audio
+  /// with a tap (focus stayed here, out of the menu's reach); the Menu
+  /// key opens the canvas menu. The audio
   /// player's keys (Space, ← / →) come before the editor's shortcuts.
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     final escape = event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape;
@@ -47,6 +48,12 @@ extension _EditorLayout on _EditorScreenState {
       return KeyEventResult.handled;
     }
     if (escape && _guard.closeMenus()) return KeyEventResult.handled;
+    // The Menu key or Shift+F10 on the page: the canvas menu, at the
+    // middle of the view.
+    if (node.hasPrimaryFocus && ContextMenuKeys.accepts(event)) {
+      _openMenu(_session.viewport.size.center(Offset.zero));
+      return KeyEventResult.handled;
+    }
     // A character typed into a text box goes to the text, past the
     // editor's single-key shortcuts (Space turning pages, P for the pen…).
     if (typesCharacter(event)) return KeyEventResult.skipRemainingHandlers;

@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/folder.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/context_menu_keys.dart';
 import 'library_actions.dart';
 import 'library_drag.dart';
 import 'library_draggable.dart';
@@ -67,7 +68,10 @@ class _FolderTileState extends State<FolderTile> {
         item: LibraryDragItem.folder(_folder.id),
         feedback: DragFeedback(width: 200, child: _tile(context, active: false, feedback: true)),
         onLongPressMenu: () => unawaited(_showMenu()),
-        child: _tile(context, active: active),
+        child: ContextMenuKeys(
+          onMenu: () => unawaited(_showMenu()),
+          child: _tile(context, active: active),
+        ),
       ),
     );
   }

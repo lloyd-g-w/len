@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/context_menu_keys.dart';
 import 'cover_locator.dart';
 import 'library_actions.dart';
 import 'library_drag.dart';
@@ -146,136 +147,139 @@ class _NotebookCardState extends State<NotebookCard> {
     // For screen readers the card is a button named by its title and
     // caption (the cover takes taps and long presses), the ⋯ a button
     // beside it: whether or not the ⋯ shows, the card stays a button.
-    return Semantics(
-      container: true,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Semantics(
-                container: true,
-                button: true,
-                selected: _selecting ? _selected : null,
-                label: [
-                  _notebook.title,
-                  if (recordings > 0) recordings == 1 ? '1 recording' : '$recordings recordings',
-                  widget.subtitle,
-                ].join('\n'),
-                child: LibraryDraggable(
-                  item: LibraryDragItem.notebook(_notebook.id),
-                  feedback: DragFeedback(
-                    width: 110,
-                    height: 110 / 0.72,
-                    child: NotebookCover.of(_notebook),
+    // Tab reaches the ⋯ right after its card.
+    return FocusTraversalGroup(
+      child: Semantics(
+        container: true,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Semantics(
+                  container: true,
+                  button: true,
+                  selected: _selecting ? _selected : null,
+                  label: [
+                    _notebook.title,
+                    if (recordings > 0) recordings == 1 ? '1 recording' : '$recordings recordings',
+                    widget.subtitle,
+                  ].join('\n'),
+                  child: LibraryDraggable(
+                    item: LibraryDragItem.notebook(_notebook.id),
+                    feedback: DragFeedback(
+                      width: 110,
+                      height: 110 / 0.72,
+                      child: NotebookCover.of(_notebook),
+                    ),
+                    onLongPressMenu: () => unawaited(_showMenu()),
+                    child: ContextMenuKeys(onMenu: () => unawaited(_showMenu()), child: cover),
                   ),
-                  onLongPressMenu: () => unawaited(_showMenu()),
-                  child: cover,
                 ),
               ),
-            ),
-            // A fixed caption area, so every cover in a row is as tall.
-            SizedBox(
-              height: NotebookCard.captionHeight(MediaQuery.textScalerOf(context)),
-              child: Padding(
-                padding: const EdgeInsets.only(top: Gaps.sm),
-                // The ⋯ sits beside the title only; the caption below takes
-                // the full width (it would truncate early at large text).
-                child: Stack(
-                  children: [
-                    // The title is part of the target too; the cover
-                    // says it to screen readers.
-                    Positioned.fill(
-                      child: GestureDetector(
-                        excludeFromSemantics: true,
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _tap,
-                        onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
-                        child: ExcludeSemantics(
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: Gaps.xxs),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: EdgeInsets.only(
-                                    right: _selecting ? 0 : NotebookCard._moreRoom,
+              // A fixed caption area, so every cover in a row is as tall.
+              SizedBox(
+                height: NotebookCard.captionHeight(MediaQuery.textScalerOf(context)),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: Gaps.sm),
+                  // The ⋯ sits beside the title only; the caption below takes
+                  // the full width (it would truncate early at large text).
+                  child: Stack(
+                    children: [
+                      // The title is part of the target too; the cover
+                      // says it to screen readers.
+                      Positioned.fill(
+                        child: GestureDetector(
+                          excludeFromSemantics: true,
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _tap,
+                          onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
+                          child: ExcludeSemantics(
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: Gaps.xxs),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: EdgeInsets.only(
+                                      right: _selecting ? 0 : NotebookCard._moreRoom,
+                                    ),
+                                    child: _CardTitle(_notebook.title),
                                   ),
-                                  child: _CardTitle(_notebook.title),
-                                ),
-                                Text.rich(
-                                  TextSpan(
-                                    children: [
-                                      if (widget.recordings > 0) ...[
-                                        WidgetSpan(
-                                          alignment: PlaceholderAlignment.middle,
-                                          child: Icon(
-                                            Symbols.mic_sharp,
-                                            size: MediaQuery.textScalerOf(context)
-                                                .scale(theme.textTheme.bodySmall?.fontSize ?? 0),
-                                            color: theme.textTheme.bodySmall?.color,
-                                            semanticLabel: widget.recordings == 1
-                                                ? '1 recording'
-                                                : '${widget.recordings} recordings',
+                                  Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        if (widget.recordings > 0) ...[
+                                          WidgetSpan(
+                                            alignment: PlaceholderAlignment.middle,
+                                            child: Icon(
+                                              Symbols.mic_sharp,
+                                              size: MediaQuery.textScalerOf(context)
+                                                  .scale(theme.textTheme.bodySmall?.fontSize ?? 0),
+                                              color: theme.textTheme.bodySmall?.color,
+                                              semanticLabel: widget.recordings == 1
+                                                  ? '1 recording'
+                                                  : '${widget.recordings} recordings',
+                                            ),
                                           ),
-                                        ),
-                                        const TextSpan(text: ' '),
+                                          const TextSpan(text: ' '),
+                                        ],
+                                        TextSpan(text: widget.subtitle),
                                       ],
-                                      TextSpan(text: widget.subtitle),
-                                    ],
+                                    ),
+                                    style: theme.textTheme.bodySmall,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  style: theme.textTheme.bodySmall,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (!_selecting)
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: AnimatedOpacity(
-                          opacity: showMore ? 1 : 0,
-                          duration: Motion.fast,
-                          // Reachable by screen readers while hidden.
-                          alwaysIncludeSemantics: true,
-                          // A 48-dp target on touch; the glyph keeps its
-                          // place beside the title's first line.
-                          child: SizedBox(
-                            width: Targets.of(context, NotebookCard._moreWidth),
-                            height: Targets.of(context, NotebookCard._moreHeight),
-                            child: Builder(
-                              builder: (anchor) => IconButton(
-                                tooltip: 'More',
-                                alignment: Alignment.topRight,
-                                // Centred on the title's first line (20 dp).
-                                padding: EdgeInsets.only(
-                                  top: math.max(
-                                    0,
-                                    (MediaQuery.textScalerOf(context).scale(20) - Glyphs.bar) / 2,
-                                  ),
-                                ),
-                                iconSize: Glyphs.bar,
-                                color: scheme.onSurfaceVariant,
-                                // Reachable by keyboard while hidden.
-                                icon: const Icon(Symbols.more_horiz_sharp),
-                                onPressed: () => unawaited(_showMenu(anchor: anchor)),
+                                ],
                               ),
                             ),
                           ),
                         ),
                       ),
-                  ],
+                      if (!_selecting)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: AnimatedOpacity(
+                            opacity: showMore ? 1 : 0,
+                            duration: Motion.fast,
+                            // Reachable by screen readers while hidden.
+                            alwaysIncludeSemantics: true,
+                            // A 48-dp target on touch; the glyph keeps its
+                            // place beside the title's first line.
+                            child: SizedBox(
+                              width: Targets.of(context, NotebookCard._moreWidth),
+                              height: Targets.of(context, NotebookCard._moreHeight),
+                              child: Builder(
+                                builder: (anchor) => IconButton(
+                                  tooltip: 'More',
+                                  alignment: Alignment.topRight,
+                                  // Centred on the title's first line (20 dp).
+                                  padding: EdgeInsets.only(
+                                    top: math.max(
+                                      0,
+                                      (MediaQuery.textScalerOf(context).scale(20) - Glyphs.bar) / 2,
+                                    ),
+                                  ),
+                                  iconSize: Glyphs.bar,
+                                  color: scheme.onSurfaceVariant,
+                                  // Reachable by keyboard while hidden.
+                                  icon: const Icon(Symbols.more_horiz_sharp),
+                                  onPressed: () => unawaited(_showMenu(anchor: anchor)),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

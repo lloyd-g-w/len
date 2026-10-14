@@ -228,7 +228,6 @@ class TemplateTile extends StatelessWidget {
     return RovingItem(
       stop: selected,
       child: ContextMenuKeys(
-        label: 'Template options',
         onMenu: menu == null ? null : () => menu(_center(context)),
         child: Semantics(
           button: true,

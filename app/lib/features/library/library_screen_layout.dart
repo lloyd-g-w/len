@@ -62,19 +62,24 @@ extension _LibraryLayout on _LibraryScreenState {
     return Scaffold(
       body: Row(
         children: [
-          LibrarySidebar(
-            actions: _actions,
-            onOpenSettings: _openSettings,
-            onOpenSyncSettings: () => _openSettings(sync: true),
+          // Tab runs down the sidebar, then through the content.
+          FocusTraversalGroup(
+            child: LibrarySidebar(
+              actions: _actions,
+              onOpenSettings: _openSettings,
+              onOpenSyncSettings: () => _openSettings(sync: true),
+            ),
           ),
           Expanded(
             // The selection bar floats over the content, not the sidebar.
-            child: Stack(
-              children: [
-                Positioned.fill(child: MessagePane(child: _content())),
-                if (_selectionBar() case final bar?)
-                  Positioned(left: 0, right: 0, bottom: 0, child: bar),
-              ],
+            child: FocusTraversalGroup(
+              child: Stack(
+                children: [
+                  Positioned.fill(child: MessagePane(child: _content())),
+                  if (_selectionBar() case final bar?)
+                    Positioned(left: 0, right: 0, bottom: 0, child: bar),
+                ],
+              ),
             ),
           ),
         ],

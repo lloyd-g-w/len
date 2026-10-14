@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/notebook_page.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/context_menu_keys.dart';
 import '../../../ui/menus.dart';
 import '../../../ui/sidebar_item.dart' show MarginRulePainter;
 import '../../editor/document/page_backgrounds.dart';
@@ -12,6 +15,8 @@ import 'page_commands.dart';
 /// One page in the overview: a live thumbnail with its number, bookmark
 /// ribbon, current-page ring, selection check and options menu. Long-press
 /// and drag to reorder (when [reorderable]); a bar shows where it lands.
+/// With the keyboard: a stop of its own, Enter or Space as a tap, the Menu
+/// key or Shift+F10 for the options menu.
 class PageTile extends StatefulWidget {
   const PageTile({
     super.key,
@@ -55,6 +60,15 @@ class PageTile extends StatefulWidget {
 class _PageTileState extends State<PageTile> {
   bool _hovered = false;
 
+  /// The options menu (the ⋯'s), over the tile.
+  Future<void> _menu() async {
+    final command = await showContextMenuAt<PageCommand>(
+      context,
+      items: pageMenuItems(widget.page),
+    );
+    if (command != null && mounted) widget.onCommand(command);
+  }
+
   @override
   Widget build(BuildContext context) {
     final w = widget;
@@ -84,12 +98,18 @@ class _PageTileState extends State<PageTile> {
       label: label,
       button: true,
       selected: w.selecting && w.selected,
-      child: Column(
-        children: [
-          Expanded(child: body),
-          const SizedBox(height: Gaps.xs),
-          _Footer(tile: w),
-        ],
+      child: ContextMenuKeys(
+        onMenu: w.selecting ? null : () => unawaited(_menu()),
+        child: FocusableActionDetector(
+          actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => w.onTap())},
+          child: Column(
+            children: [
+              Expanded(child: body),
+              const SizedBox(height: Gaps.xs),
+              _Footer(tile: w),
+            ],
+          ),
+        ),
       ),
     );
   }

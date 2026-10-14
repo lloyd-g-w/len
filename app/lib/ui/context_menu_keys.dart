@@ -1,38 +1,34 @@
-import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-/// The keyboard's way to a menu that a long press or a right-click opens:
-/// the Menu key or Shift+F10 while [child] has focus (as on every desktop),
-/// and a screen-reader action named [label]. Without [onMenu] it is just
+/// The keyboard's way to what a long press or a right-click opens (a
+/// context menu, a control's alternate): the Menu key or Shift+F10 while
+/// focus is in [child], as on every desktop. Without [onMenu] it is just
 /// [child].
+///
+/// Screen readers are not involved: the controls it wraps already offer
+/// the same through a long press action or a ⋯ button beside them.
 class ContextMenuKeys extends StatelessWidget {
-  const ContextMenuKeys({
-    super.key,
-    required this.onMenu,
-    this.label = 'Options',
-    required this.child,
-  });
+  const ContextMenuKeys({super.key, required this.onMenu, required this.child});
 
   final VoidCallback? onMenu;
-
-  /// The screen-reader action's name.
-  final String label;
   final Widget child;
+
+  /// The keys that open a context menu.
+  static const activators = [
+    SingleActivator(LogicalKeyboardKey.contextMenu),
+    SingleActivator(LogicalKeyboardKey.f10, shift: true),
+  ];
+
+  /// Whether [event] asks for a context menu (for a focus node's own key
+  /// handler, e.g. the canvas's).
+  static bool accepts(KeyEvent event) =>
+      event is! KeyUpEvent && activators.any((a) => a.accepts(event, HardwareKeyboard.instance));
 
   @override
   Widget build(BuildContext context) {
     final open = onMenu;
     if (open == null) return child;
-    return Semantics(
-      customSemanticsActions: {CustomSemanticsAction(label: label): open},
-      child: CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.contextMenu): open,
-          const SingleActivator(LogicalKeyboardKey.f10, shift: true): open,
-        },
-        child: child,
-      ),
-    );
+    return CallbackShortcuts(bindings: {for (final a in activators) a: open}, child: child);
   }
 }
