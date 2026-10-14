@@ -48,6 +48,11 @@ enum PageCommand {
 
   /// What holding the row down (or right-clicking it) runs instead.
   PageCommand? get alternate => this == insertAfter ? insertWithTemplate : null;
+
+  /// The screen-reader action offering [alternate] on the row (its name
+  /// without the ellipsis: "Add page with template"), since the long press
+  /// and the secondary click are pointer gestures.
+  String? get alternateAction => alternate?._label.replaceAll('…', '');
 }
 
 /// Callbacks through which the overview edits the notebook. Each returns
@@ -107,6 +112,7 @@ List<PopupMenuEntry<PageCommand>> pageMenuItems(NotebookPage page) => [
     MenuRow(
       value: c,
       alternate: c.alternate,
+      alternateAction: c.alternateAction,
       icon: c.iconFor(bookmarked: page.bookmarked),
       label: c.labelFor(bookmarked: page.bookmarked),
       destructive: c.destructive,

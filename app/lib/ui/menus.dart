@@ -1,6 +1,7 @@
 import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'app_theme.dart';
@@ -24,12 +25,18 @@ class MenuRow<T> extends PopupMenuItem<T> {
     this.filledIcon = false,
     this.shortcut,
     this.alternate,
+    this.alternateAction,
     super.enabled,
-  }) : super(child: null, height: Targets.menuRow);
+  }) : assert((alternate == null) == (alternateAction == null)),
+       super(child: null, height: Targets.menuRow);
 
   /// Chosen instead of [value] by a long press or a secondary click
   /// ("Add page after" held: with a template).
   final T? alternate;
+
+  /// The name of the screen-reader action that chooses [alternate] (the
+  /// gestures are pointer-only), e.g. "Add page with template".
+  final String? alternateAction;
 
   final IconData? icon;
 
@@ -69,13 +76,17 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
     final alternate = widget.alternate;
     if (alternate == null || !widget.enabled) return row;
     void choose() => Navigator.pop<T>(context, alternate);
-    // Pointer gestures only: the row stays one button for screen readers.
-    return GestureDetector(
-      excludeFromSemantics: true,
-      behavior: HitTestBehavior.opaque,
-      onLongPress: choose,
-      onSecondaryTap: choose,
-      child: row,
+    // Pointer gestures only: the row stays one button for screen readers,
+    // which offer the alternate as a custom action (merged into the row).
+    return Semantics(
+      customSemanticsActions: {CustomSemanticsAction(label: widget.alternateAction!): choose},
+      child: GestureDetector(
+        excludeFromSemantics: true,
+        behavior: HitTestBehavior.opaque,
+        onLongPress: choose,
+        onSecondaryTap: choose,
+        child: row,
+      ),
     );
   }
 

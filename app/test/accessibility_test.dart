@@ -170,6 +170,7 @@ final Map<String, List<Finder> Function()> editorStates = {
   'text options': () => toolOptions('Text (T)'),
   'laser options': () => toolOptions('Laser pointer (K)'),
   'export sheet': () => [find.byTooltip('More options'), find.text('Export…')],
+  'page menu': () => [find.byTooltip('More options'), find.text('Page')],
   'change template': () => [
     find.byTooltip('More options'),
     find.text('Page'),

@@ -14,6 +14,7 @@ import 'package:len/ui/design_tokens.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'document_editor_test.dart' show closeEditor, drawAt, inkOf, pumpEditor;
+import 'support/semantics_actions.dart';
 
 /// A quick tap with [count] fingers around [at].
 Future<void> fingerTap(WidgetTester tester, int count, {Offset at = const Offset(400, 600)}) async {
@@ -309,6 +310,22 @@ void main() {
     await tester.tap(find.text('Add page after'));
     await tester.pumpAndSettle();
     expect(s.pages.pagesOf(nb.id), hasLength(pages + 1));
+    await closeEditor(tester);
+  });
+
+  testWidgets('screen readers offer "Add page with template" on "Add page after"', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pumpEditor(tester, size: const Size(1280, 800));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Page'));
+    await tester.pumpAndSettle();
+    await performCustomAction(tester, 'Add page after', 'Add page with template');
+    expect(find.text('Duplicate page'), findsNothing, reason: 'the menu closed');
+    expect(find.text('Music staff'), findsWidgets, reason: 'the template chooser');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    semantics.dispose();
     await closeEditor(tester);
   });
 

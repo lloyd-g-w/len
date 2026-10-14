@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -190,14 +191,15 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
   Widget _command(PageCommand c) {
     final run = actions.onPageCommand;
     final bookmarked = actions.bookmarked;
-    final row = _item(
+    Widget row({Map<CustomSemanticsAction, VoidCallback>? semanticsActions}) => _item(
       c.iconFor(bookmarked: bookmarked),
       c.labelFor(bookmarked: bookmarked),
       run == null ? null : () => run(c),
       destructive: c.destructive,
+      semanticsActions: semanticsActions,
     );
     final alternate = c.alternate;
-    if (run == null || alternate == null) return row;
+    if (run == null || alternate == null) return row();
     return Builder(
       builder: (context) {
         void choose() {
@@ -211,18 +213,20 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
             ..scheduleFrame();
         }
 
-        // Pointer gestures only: the row stays one button for screen readers.
+        // Pointer gestures only: the row stays one button for screen readers,
+        // which offer the alternate as a custom action on it.
         return GestureDetector(
           excludeFromSemantics: true,
           onLongPress: choose,
           onSecondaryTap: choose,
-          child: row,
+          child: row(semanticsActions: {CustomSemanticsAction(label: c.alternateAction!): choose}),
         );
       },
     );
   }
 
-  /// A menu row; [shortcut] hints only where a keyboard is likely.
+  /// A menu row; [shortcut] hints only where a keyboard is likely;
+  /// [semanticsActions] are merged into the row's one semantics node.
   Widget _item(
     IconData icon,
     String label,
@@ -230,6 +234,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
     MenuSerializableShortcut? shortcut,
     String? shortcutLabel,
     bool destructive = false,
+    Map<CustomSemanticsAction, VoidCallback>? semanticsActions,
   }) => Builder(
     builder: (context) {
       final theme = Theme.of(context);
@@ -250,7 +255,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
               )
             : null,
         onPressed: onPressed,
-        child: Text(label),
+        child: Semantics(customSemanticsActions: semanticsActions, child: Text(label)),
       );
     },
   );
