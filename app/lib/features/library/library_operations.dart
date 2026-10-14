@@ -100,8 +100,8 @@ mixin _LibraryOperations {
           for (final f in services.folders.list())
             if (subtree.contains(f.id)) f,
         ];
-        services.folders.delete(id);
-        deletion = (folders: folders, notebookIds: services.notebooks.trashAllIn(subtree));
+        final deleted = services.folders.delete(id);
+        deletion = (folders: folders, notebookIds: services.notebooks.trashAllIn(deleted));
       }),
     );
     return deletion;

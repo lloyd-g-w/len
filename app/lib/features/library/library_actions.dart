@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' show max;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

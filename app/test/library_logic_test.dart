@@ -170,6 +170,25 @@ void main() {
       expect(services.folders.get(sub.id)!.parentId, work.id);
     });
 
+    test('deleting a folder deleted meanwhile leaves the notebooks it showed at the top', () {
+      final work = c.createFolder('Work', color: 1);
+      final orphan = services.notebooks.create(
+        title: 'Orphan',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+        folderId: work.id,
+      );
+      services.folders.delete(work.id); // By sync; the notebook shows at the top.
+      c.reload();
+      expect(c.visibleNotebooks.map((n) => n.id), [orphan.id]);
+
+      final deletion = c.deleteFolder(work.id); // From a stale menu.
+      expect(deletion.folders, isEmpty);
+      expect(deletion.notebookIds, isEmpty);
+      expect(services.notebooks.get(orphan.id)!.isTrashed, isFalse);
+    });
+
     test('a search found by a recording says which (R8-11)', () {
       final lecture = c.createNotebook(
         title: 'Physics',

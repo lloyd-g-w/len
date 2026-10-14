@@ -98,7 +98,8 @@ mixin _FolderActions {
   /// notebook does.
   void deleteFolder(BuildContext context, Folder folder) {
     final deletion = controller.deleteFolder(folder.id);
-    final folders = max(0, deletion.folders.length - 1); // Its subfolders.
+    if (deletion.folders.isEmpty) return; // Deleted meanwhile (by sync).
+    final folders = deletion.folders.length - 1; // Its subfolders.
     final notebooks = deletion.notebookIds.length;
     final parts = [
       if (folders > 0) LibraryActions.countLabel(folders, 'subfolder'),
