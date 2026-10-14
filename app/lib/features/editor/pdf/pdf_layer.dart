@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,12 +19,14 @@ import 'pdf_page_info.dart';
 import 'pdf_selection_handles.dart';
 import 'pdf_selection_paint.dart';
 
-/// Ctrl/⌘+C copies selected PDF text, Escape drops the selection (both
-/// do nothing without one; the lasso's shortcuts run alongside).
-Map<ShortcutActivator, VoidCallback> pdfShortcuts(PdfInteraction pdf) {
+/// Ctrl/⌘+C copies selected PDF text (then calls [copied]), Escape drops
+/// the selection (both do nothing without one; the lasso's shortcuts run
+/// alongside).
+Map<ShortcutActivator, VoidCallback> pdfShortcuts(PdfInteraction pdf, {VoidCallback? copied}) {
   void copy() {
     if (pdf.selection.isEmpty) return;
-    Clipboard.setData(ClipboardData(text: pdf.selection.text));
+    unawaited(Clipboard.setData(ClipboardData(text: pdf.selection.text)));
+    copied?.call();
   }
 
   return {

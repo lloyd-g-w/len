@@ -157,12 +157,12 @@ batch. Paths: `documents/pdf/pdf_import.dart:46-70`,
 
 **R10-19 P2 · New folder lands out of view with no feedback** (while
 searching inside a folder, or from Favourites / Trash via Ctrl+Shift+N). ✅
-*Fix:* create it in the open folder even while searching; elsewhere create
-it in Library and go there. Paths: `library/library_operations.dart:55`.
+*Fix:* create it in the open folder even while searching; when a search or
+another section hides it, say where it went ("Created “X” in “Library”"). Paths: `library/library_operations.dart:55`.
 Effort S.
 
 **R10-20 P2 · PDF text Ctrl+C is silent and steals Ctrl+C from text
-fields.** ⬜ The Copy button says "Copied"; the shortcut doesn't, and it
+fields.** ✅ (the shortcut says "Copied"; R10-1's fix keeps Ctrl+C in the search field) The Copy button says "Copied"; the shortcut doesn't, and it
 isn't wrapped in `unlessTyping`. Paths: `editor/pdf/pdf_layer.dart:23-32`.
 Effort S.
 
