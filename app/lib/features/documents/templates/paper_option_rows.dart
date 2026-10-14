@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../ui/app_theme.dart';
 import '../../../ui/chip_surface.dart';
+import '../../../ui/roving_focus.dart';
 
 /// A labelled row: the label in a fixed column, the control beside it.
 class PaperOptionRow extends StatelessWidget {
@@ -94,7 +95,12 @@ class SwatchWrap extends StatelessWidget {
   Widget build(BuildContext context) => FittedBox(
     fit: BoxFit.scaleDown,
     alignment: AlignmentDirectional.centerStart,
-    child: Row(mainAxisSize: MainAxisSize.min, spacing: Gaps.xs, children: children),
+    // One Tab stop, at the chosen swatch; the arrows move between them.
+    child: RovingGroup(
+      axis: Axis.horizontal,
+      single: true,
+      child: Row(mainAxisSize: MainAxisSize.min, spacing: Gaps.xs, children: children),
+    ),
   );
 }
 

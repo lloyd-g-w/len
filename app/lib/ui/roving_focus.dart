@@ -1,5 +1,5 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 
 /// Roving focus (the WAI-ARIA toolbar / radio group pattern): the arrow keys
 /// move between the controls inside, in the order they are shown, Home and
@@ -264,4 +264,25 @@ class _StopNode extends FocusNode {
 
   /// The node of the [RovingGroup] it belongs to.
   FocusNode? group;
+}
+
+/// A [SegmentedButton] as one Tab stop at its chosen segment, the arrows
+/// moving between segments ([RovingGroup]).
+class RovingSegments extends StatelessWidget {
+  const RovingSegments(this.button, {super.key});
+
+  final SegmentedButton<Object?> button;
+
+  @override
+  Widget build(BuildContext context) {
+    final segments = button.segments;
+    final chosen = segments.indexWhere((s) => button.selected.contains(s.value));
+    return RovingGroup(
+      axis: button.direction,
+      single: true,
+      // Among the segments that can take focus.
+      selected: chosen < 0 ? null : segments.take(chosen).where((s) => s.enabled).length,
+      child: button,
+    );
+  }
 }

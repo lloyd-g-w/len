@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/roving_focus.dart';
 
 /// One option of [EvenChoices].
 class EvenChoice {
@@ -53,21 +54,24 @@ class EvenChoices extends StatelessWidget {
       builder: (context, constraints) {
         final n = choices.length;
         final perRow = constraints.maxWidth >= n * needed + (n - 1) * Gaps.sm ? n : (n + 1) ~/ 2;
-        return Column(
-          children: [
-            for (var r = 0; r < n; r += perRow)
-              Padding(
-                padding: EdgeInsets.only(top: r == 0 ? 0 : Gaps.sm),
-                child: Row(
-                  children: [
-                    for (var i = r; i < r + perRow; i++) ...[
-                      if (i > r) const SizedBox(width: Gaps.sm),
-                      Expanded(child: i < n ? _Chip(choices[i]) : const SizedBox()),
+        // One Tab stop, at the chosen option; the arrows move inside.
+        return RovingGroup.grid(
+          child: Column(
+            children: [
+              for (var r = 0; r < n; r += perRow)
+                Padding(
+                  padding: EdgeInsets.only(top: r == 0 ? 0 : Gaps.sm),
+                  child: Row(
+                    children: [
+                      for (var i = r; i < r + perRow; i++) ...[
+                        if (i > r) const SizedBox(width: Gaps.sm),
+                        Expanded(child: i < n ? _Chip(choices[i]) : const SizedBox()),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -87,41 +91,44 @@ class _Chip extends StatelessWidget {
     final scheme = theme.colorScheme;
     final radius = BorderRadius.circular(Radii.sm);
     final selected = choice.selected;
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: Material(
-        key: choice.key,
-        color: selected ? Surfaces.pressed(scheme) : Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: radius,
-          side: BorderSide(color: selected ? Colors.transparent : scheme.outlineVariant),
-        ),
-        child: InkWell(
-          onTap: choice.onTap,
-          borderRadius: radius,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 40),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.xs),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (choice.leading case final leading?) ...[
-                    SizedBox.square(dimension: EvenChoices.leadingSize, child: leading),
-                    const SizedBox(width: Gaps.sm),
-                  ],
-                  Flexible(
-                    child: Text(
-                      choice.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+    return RovingItem(
+      stop: selected,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: Material(
+          key: choice.key,
+          color: selected ? Surfaces.pressed(scheme) : Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: radius,
+            side: BorderSide(color: selected ? Colors.transparent : scheme.outlineVariant),
+          ),
+          child: InkWell(
+            onTap: choice.onTap,
+            borderRadius: radius,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 40),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.xs),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (choice.leading case final leading?) ...[
+                      SizedBox.square(dimension: EvenChoices.leadingSize, child: leading),
+                      const SizedBox(width: Gaps.sm),
+                    ],
+                    Flexible(
+                      child: Text(
+                        choice.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

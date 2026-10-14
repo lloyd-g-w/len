@@ -4,6 +4,7 @@ import '../../../domain/stroke.dart';
 import '../../../ink/pen/pen_config.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/group_header.dart';
+import '../../../ui/roving_focus.dart';
 import 'option_controls.dart';
 
 /// Per-pen cap shape. The preview above this control renders the selected
@@ -24,27 +25,32 @@ class PenEndsOptions extends StatelessWidget {
         children: [
           const GroupHeader('Ends'),
           const SizedBox(height: Gaps.xs),
-          SegmentedButton<StrokeEnds>(
-            showSelectedIcon: false,
-            segments: const [
-              ButtonSegment(value: StrokeEnds.round, label: Text('Round')),
-              ButtonSegment(value: StrokeEnds.tapered, label: Text('Tapered')),
-              ButtonSegment(value: StrokeEnds.flat, label: Text('Flat')),
-            ],
-            selected: {ends.style},
-            onSelectionChanged: (selected) => onChanged(ends.copyWith(style: selected.single)),
+          RovingSegments(
+            SegmentedButton<StrokeEnds>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: StrokeEnds.round, label: Text('Round')),
+                ButtonSegment(value: StrokeEnds.tapered, label: Text('Tapered')),
+                ButtonSegment(value: StrokeEnds.flat, label: Text('Flat')),
+              ],
+              selected: {ends.style},
+              onSelectionChanged: (selected) => onChanged(ends.copyWith(style: selected.single)),
+            ),
           ),
           if (ends.style == StrokeEnds.tapered) ...[
             const SizedBox(height: Gaps.sm),
-            SegmentedButton<TaperAt>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: TaperAt.start, label: Text('Start')),
-                ButtonSegment(value: TaperAt.end, label: Text('End')),
-                ButtonSegment(value: TaperAt.both, label: Text('Both')),
-              ],
-              selected: {ends.taperAt},
-              onSelectionChanged: (selected) => onChanged(ends.copyWith(taperAt: selected.single)),
+            RovingSegments(
+              SegmentedButton<TaperAt>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: TaperAt.start, label: Text('Start')),
+                  ButtonSegment(value: TaperAt.end, label: Text('End')),
+                  ButtonSegment(value: TaperAt.both, label: Text('Both')),
+                ],
+                selected: {ends.taperAt},
+                onSelectionChanged: (selected) =>
+                    onChanged(ends.copyWith(taperAt: selected.single)),
+              ),
             ),
             OptionSlider(
               label: 'Taper length',

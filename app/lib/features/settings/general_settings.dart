@@ -5,6 +5,7 @@ import '../../data/app_preferences.dart';
 import '../../domain/preferences.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/fit_segments.dart';
+import '../../ui/roving_focus.dart';
 import '../../ui/segment_label.dart';
 import 'keyboard_shortcuts.dart';
 import 'settings_section.dart';
@@ -28,16 +29,18 @@ class GeneralSettings extends StatelessWidget {
             title: 'Theme',
             subtitle: 'Paper keeps its colour in both themes',
             control: FitSegments(
-              builder: (direction) => SegmentedButton<ThemePreference>(
-                direction: direction,
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(value: ThemePreference.system, label: SegmentLabel('System')),
-                  ButtonSegment(value: ThemePreference.light, label: SegmentLabel('Light')),
-                  ButtonSegment(value: ThemePreference.dark, label: SegmentLabel('Dark')),
-                ],
-                selected: {preferences.themeMode},
-                onSelectionChanged: (s) => preferences.themeMode = s.single,
+              builder: (direction) => RovingSegments(
+                SegmentedButton<ThemePreference>(
+                  direction: direction,
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: ThemePreference.system, label: SegmentLabel('System')),
+                    ButtonSegment(value: ThemePreference.light, label: SegmentLabel('Light')),
+                    ButtonSegment(value: ThemePreference.dark, label: SegmentLabel('Dark')),
+                  ],
+                  selected: {preferences.themeMode},
+                  onSelectionChanged: (s) => preferences.themeMode = s.single,
+                ),
               ),
             ),
           ),
