@@ -12,6 +12,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/audio/recording_controller.dart';
+import 'package:len/features/audio/ui/audio_bar_button.dart';
 import 'package:len/features/editor/chrome/editor_top_bar.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
@@ -154,6 +155,15 @@ void main() {
     expect(find.byTooltip('Pause recording'), findsOneWidget);
     expect(find.text('Couldn’t pause the recording'), findsOneWidget);
     e.audio.capture.failSwitch = false;
+
+    // Record again while recording (another pane, a shortcut): no old error.
+    final context = tester.element(find.byType(EditorTopBar));
+    ScaffoldMessenger.of(context).clearSnackBars();
+    await tester.pumpAndSettle();
+    final audio = tester.widget<AudioBarButton>(find.byType(AudioBarButton)).audio;
+    await startRecording(context, audio);
+    await tester.pumpAndSettle();
+    expect(find.text('Couldn’t pause the recording'), findsNothing);
 
     await tester.tap(find.byTooltip('Pause recording'));
     await _settleAsync(tester);
