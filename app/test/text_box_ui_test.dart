@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_data.dart';
+import 'package:len/features/editor/tools/text/rich_text_controller.dart';
+import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/ui/color_dot.dart';
 import 'package:len/ui/floating_panel.dart';
 import 'package:len/ui/menus.dart';
@@ -203,5 +205,27 @@ void main() {
     await tester.pumpAndSettle();
     final data = TextData.fromJson(liveElements(services, nb.id).single.data);
     expect(data.spans.single.style, const SpanStyle(size: 32, font: TextFont.lora));
+  });
+
+  testWidgets('text: the field ignores the system text size, so it wraps like the canvas', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await openCanvas(tester);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(300, 400)]);
+    await tester.pumpAndSettle();
+    final field = find.byKey(const ValueKey('text-box-field'));
+    await tester.enterText(field, 'Hello');
+    await tester.pump();
+    final editable = tester.state<EditableTextState>(
+      find.descendant(of: field, matching: find.byType(EditableText)),
+    );
+    final data = (editable.widget.controller as RichTextController).data;
+    expect(
+      editable.renderEditable.size.height,
+      closeTo(TextLayout.heightOf(data, double.infinity), 1),
+    );
   });
 }

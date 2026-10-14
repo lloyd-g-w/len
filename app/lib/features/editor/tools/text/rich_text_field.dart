@@ -81,58 +81,62 @@ class RichTextField extends StatelessWidget {
       },
       child: CallbackShortcuts(
         bindings: _bindings,
-        child: TextField(
-          key: const ValueKey('text-box-field'),
-          controller: controller,
-          focusNode: focusNode,
-          maxLines: null,
-          strutStyle: StrutStyle.disabled,
-          style: TextLayout.baseStyle(data),
-          textAlign: TextLayout.alignOf(data),
-          cursorColor: cursorColor,
-          cursorWidth: cursorWidth,
-          contextMenuBuilder: (context, state) => AdaptiveTextSelectionToolbar.buttonItems(
-            anchors: state.contextMenuAnchors,
-            buttonItems: [
-              for (final item in state.contextMenuButtonItems)
-                switch (item.type) {
-                  ContextMenuButtonType.copy => item.copyWith(
-                    onPressed: () {
-                      controller.copySelection();
-                      state.hideToolbar();
-                    },
-                  ),
-                  ContextMenuButtonType.paste => item.copyWith(
-                    onPressed: () async {
-                      if (await pasteClipboardHtml(controller)) {
+        // The canvas draws the box at its own size whatever the system text
+        // size: the field matches it, so it wraps where the box does.
+        child: MediaQuery.withNoTextScaling(
+          child: TextField(
+            key: const ValueKey('text-box-field'),
+            controller: controller,
+            focusNode: focusNode,
+            maxLines: null,
+            strutStyle: StrutStyle.disabled,
+            style: TextLayout.baseStyle(data),
+            textAlign: TextLayout.alignOf(data),
+            cursorColor: cursorColor,
+            cursorWidth: cursorWidth,
+            contextMenuBuilder: (context, state) => AdaptiveTextSelectionToolbar.buttonItems(
+              anchors: state.contextMenuAnchors,
+              buttonItems: [
+                for (final item in state.contextMenuButtonItems)
+                  switch (item.type) {
+                    ContextMenuButtonType.copy => item.copyWith(
+                      onPressed: () {
+                        controller.copySelection();
                         state.hideToolbar();
-                      } else {
-                        item.onPressed?.call();
-                      }
-                    },
-                  ),
-                  ContextMenuButtonType.cut => item.copyWith(
-                    onPressed: () {
-                      controller.copySelection(cut: true);
-                      state.hideToolbar();
-                    },
-                  ),
-                  _ => item,
-                },
-            ],
-          ),
-          // Fully explicit, so the app's input theme (fill, padding, focus
-          // outline) cannot shift the text off where the box renders it.
-          decoration: const InputDecoration(
-            isCollapsed: true,
-            filled: false,
-            contentPadding: EdgeInsets.zero,
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            disabledBorder: InputBorder.none,
-            errorBorder: InputBorder.none,
-            focusedErrorBorder: InputBorder.none,
+                      },
+                    ),
+                    ContextMenuButtonType.paste => item.copyWith(
+                      onPressed: () async {
+                        if (await pasteClipboardHtml(controller)) {
+                          state.hideToolbar();
+                        } else {
+                          item.onPressed?.call();
+                        }
+                      },
+                    ),
+                    ContextMenuButtonType.cut => item.copyWith(
+                      onPressed: () {
+                        controller.copySelection(cut: true);
+                        state.hideToolbar();
+                      },
+                    ),
+                    _ => item,
+                  },
+              ],
+            ),
+            // Fully explicit, so the app's input theme (fill, padding, focus
+            // outline) cannot shift the text off where the box renders it.
+            decoration: const InputDecoration(
+              isCollapsed: true,
+              filled: false,
+              contentPadding: EdgeInsets.zero,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+            ),
           ),
         ),
       ),
