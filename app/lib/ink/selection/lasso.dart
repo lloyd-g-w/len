@@ -3,32 +3,43 @@ import 'dart:ui';
 
 import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
+import 'lasso_config.dart';
 
-/// A closed freehand lasso polygon (world coordinates) and the rules for
-/// what it selects.
+/// A closed lasso polygon (world coordinates; a freehand loop or a
+/// rectangle's corners) and the rules for what it selects, set by its
+/// [config] (`LassoConfig.cover` and `kinds`).
 ///
-/// **Strokes**: a stroke is selected when at least [strokeShare] of its
-/// *length* lies inside the lasso. Measuring length (each segment is
-/// subdivided and weighted by its length) rather than counting points makes
-/// the rule independent of sampling density: a slow, densely sampled end of
-/// a stroke counts no more than a fast, sparse middle, and a two-point
-/// straight line is judged by where its length actually is. A dot (single
-/// point / zero length) is selected when its point is inside.
+/// **Strokes**, [LassoCover.mostly]: at least [strokeShare] of a stroke's
+/// *length* lies inside. Measuring length (each segment is subdivided and
+/// weighted by its length) rather than counting points makes the rule
+/// independent of sampling density: a slow, densely sampled end of a stroke
+/// counts no more than a fast, sparse middle, and a two-point straight line
+/// is judged by where its length actually is. A dot (single point / zero
+/// length) is selected when its point is inside. [LassoCover.whole]: every
+/// point inside and no segment crossing the outline. [LassoCover.touching]:
+/// a point inside or a segment crossing the outline.
 ///
-/// **Elements**: selected when their centre is inside, or when at least
+/// **Elements**, [LassoCover.mostly]: their centre is inside, or at least
 /// half of their outline samples (corners and edge midpoints) are; for
-/// elements beneath the ink only the outline rule applies.
+/// elements beneath the ink only the outline rule applies. [LassoCover.whole]:
+/// all corners inside and no edge crossing. [LassoCover.touching]: a corner
+/// inside or an edge crossing, or (above the ink only) the lasso drawn
+/// within the element: circling ink on an image backdrop doesn't take it.
 class Lasso {
-  Lasso(List<Offset> points) : points = List.unmodifiable(points), bounds = _boundsOf(points);
+  Lasso(List<Offset> points, {this.config = const LassoConfig()})
+    : points = List.unmodifiable(points),
+      bounds = _boundsOf(points);
 
   final List<Offset> points;
   final Rect bounds;
+  final LassoConfig config;
 
   /// This lasso moved by [delta], e.g. into the coordinates of another
   /// page of a document (a lasso drawn across pages selects on each).
-  Lasso shifted(Offset delta) => Lasso([for (final p in points) p + delta]);
+  Lasso shifted(Offset delta) => Lasso([for (final p in points) p + delta], config: config);
 
-  /// Fraction of a stroke's length that must be inside the lasso.
+  /// Fraction of a stroke's length that must be inside the lasso
+  /// ([LassoCover.mostly]).
   static const double strokeShare = 0.5;
 
   /// Whether the lasso encloses any area at all.
@@ -46,6 +57,25 @@ class Lasso {
       }
     }
     return inside;
+  }
+
+  /// Whether the segment [a]–[b] crosses the lasso's outline.
+  bool crosses(Offset a, Offset b) {
+    if (!bounds.overlaps(Rect.fromPoints(a, b).inflate(1e-9))) return false;
+    for (var i = 0, j = points.length - 1; i < points.length; j = i++) {
+      if (_intersect(a, b, points[j], points[i])) return true;
+    }
+    return false;
+  }
+
+  static double _side(Offset o, Offset a, Offset b) =>
+      (a.dx - o.dx) * (b.dy - o.dy) - (a.dy - o.dy) * (b.dx - o.dx);
+
+  /// Whether segments [p1]–[p2] and [q1]–[q2] properly cross.
+  static bool _intersect(Offset p1, Offset p2, Offset q1, Offset q2) {
+    final d1 = _side(q1, q2, p1), d2 = _side(q1, q2, p2);
+    final d3 = _side(p1, p2, q1), d4 = _side(p1, p2, q2);
+    return d1 * d2 < 0 && d3 * d4 < 0;
   }
 
   /// Share (0..1) of [stroke]'s length inside the lasso.
@@ -71,16 +101,55 @@ class Lasso {
     return inside / total;
   }
 
-  bool selectsStroke(Stroke stroke) => insideShare(stroke) >= strokeShare;
+  /// Whether [stroke] is of a kind this lasso takes, and covered enough.
+  bool selectsStroke(Stroke stroke) {
+    final kind = stroke.tool.isHighlighter ? LassoKind.highlighter : LassoKind.ink;
+    if (!config.takes(kind) || !isValid || !bounds.overlaps(stroke.bounds)) return false;
+    return switch (config.cover) {
+      LassoCover.mostly => insideShare(stroke) >= strokeShare,
+      LassoCover.whole => _encloses([for (final p in stroke.points) p.offset]),
+      LassoCover.touching => _touches([for (final p in stroke.points) p.offset]),
+    };
+  }
 
+  /// Whether [element] is of a kind this lasso takes, and covered enough.
   bool selectsElement(SurfaceElement element) {
-    if (!isValid || !bounds.overlaps(element.bounds)) return false;
-    // Images beneath the ink are often large backdrops for handwriting:
-    // circling ink in their middle must not grab them too.
-    if (!element.belowInk && contains(element.rect.center)) return true;
+    final kind = element.knownType == ElementType.text ? LassoKind.text : LassoKind.images;
+    if (!config.takes(kind) || !isValid || !bounds.overlaps(element.bounds)) return false;
     final c = element.corners;
-    final samples = [...c, for (var i = 0; i < 4; i++) Offset.lerp(c[i], c[(i + 1) % 4], 0.5)!];
-    return samples.where(contains).length * 2 >= samples.length;
+    final outline = [...c, c.first];
+    switch (config.cover) {
+      case LassoCover.whole:
+        return _encloses(outline);
+      case LassoCover.touching:
+        // Inside an element above the ink, the lasso touches it; images
+        // beneath the ink are backdrops for the ink circled on them.
+        return _touches(outline) || (!element.belowInk && element.contains(points.first));
+      case LassoCover.mostly:
+        // Images beneath the ink are often large backdrops for handwriting:
+        // circling ink in their middle must not grab them too.
+        if (!element.belowInk && contains(element.rect.center)) return true;
+        final samples = [...c, for (var i = 0; i < 4; i++) Offset.lerp(c[i], c[(i + 1) % 4], 0.5)!];
+        return samples.where(contains).length * 2 >= samples.length;
+    }
+  }
+
+  /// Whether the polyline [pts] lies entirely inside.
+  bool _encloses(List<Offset> pts) {
+    if (!pts.every(contains)) return false;
+    for (var i = 1; i < pts.length; i++) {
+      if (crosses(pts[i - 1], pts[i])) return false;
+    }
+    return true;
+  }
+
+  /// Whether any of the polyline [pts] is inside or crosses the outline.
+  bool _touches(List<Offset> pts) {
+    if (pts.any(contains)) return true;
+    for (var i = 1; i < pts.length; i++) {
+      if (crosses(pts[i - 1], pts[i])) return true;
+    }
+    return false;
   }
 
   static Rect _boundsOf(List<Offset> points) {

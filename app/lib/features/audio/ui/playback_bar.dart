@@ -121,11 +121,18 @@ class PlaybackBar extends StatelessWidget {
                 onPressed: () => playback.tapToSeek = !playback.tapToSeek,
                 icon: const Icon(Symbols.touch_app_sharp),
                 selectedIcon: const Icon(Symbols.touch_app_sharp, fill: 1),
+                // On: the ink plate, as for a chosen tool (the accent marks
+                // focus and progress only).
                 style: IconButton.styleFrom(foregroundColor: scheme.onSurfaceVariant).copyWith(
                   foregroundColor: WidgetStateProperty.resolveWith(
                     (states) => states.contains(WidgetState.selected)
-                        ? scheme.primary
+                        ? scheme.onSurface
                         : scheme.onSurfaceVariant,
+                  ),
+                  backgroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? Surfaces.pressed(scheme)
+                        : Colors.transparent,
                   ),
                 ),
               ),
@@ -184,7 +191,7 @@ class SpeedButton extends StatelessWidget {
         child: Text(
           formatRate(playback.rate),
           style: theme.textTheme.labelLarge?.copyWith(
-            color: playback.rate == 1 ? scheme.onSurfaceVariant : scheme.primary,
+            color: playback.rate == 1 ? scheme.onSurfaceVariant : scheme.onSurface,
             fontFeatures: AppTheme.tabularFigures,
           ),
         ),

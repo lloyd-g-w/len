@@ -187,7 +187,8 @@ class SyncController extends ChangeNotifier {
     if (running == null) {
       return _running = _run().whenComplete(() => _running = null);
     }
-    return _queued ??= running.then((_) {
+    // After the run however it ended: a follow-up is never lost.
+    return _queued ??= running.catchError((Object _) {}).then((_) {
       _queued = null;
       return syncNow();
     });

@@ -49,7 +49,20 @@ extension _Drawing on InkTileCache {
     return uncovered;
   }
 
+  /// Draws the strokes appended to [tile] since its image (over it).
   void _drawOverlay(ui.Canvas canvas, TileView view, InkTile tile) {
+    _drawStrokes(canvas, view, tile, tile.overlay);
+    lastPaint.overlayStrokes += tile.overlay.length;
+  }
+
+  /// Draws the highlighter strokes added to [tile] since its image
+  /// (beneath it).
+  void _drawUnderlay(ui.Canvas canvas, TileView view, InkTile tile) {
+    _drawStrokes(canvas, view, tile, tile.underlay);
+    lastPaint.underlayStrokes += tile.underlay.length;
+  }
+
+  void _drawStrokes(ui.Canvas canvas, TileView view, InkTile tile, List<Stroke> strokes) {
     var rect = tile.space.worldRectOf(tile.index);
     if (_clip != null) rect = rect.intersect(_clip!);
     canvas
@@ -57,10 +70,9 @@ extension _Drawing on InkTileCache {
       ..clipRect(view.toDevice(rect))
       ..translate(view.origin.dx, view.origin.dy)
       ..scale(view.k);
-    for (final stroke in tile.overlay) {
+    for (final stroke in strokes) {
       StrokeRenderer.draw(canvas, stroke);
     }
-    lastPaint.overlayStrokes += tile.overlay.length;
     canvas.restore();
   }
 }

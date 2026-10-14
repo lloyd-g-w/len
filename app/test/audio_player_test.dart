@@ -168,6 +168,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(e.audio.log.last, 'rate 1.5');
     expect(find.text('1.5×'), findsOneWidget);
+    // A changed speed reads in Ink, not the accent (R5-30).
+    final scheme = Theme.of(tester.element(find.text('1.5×'))).colorScheme;
+    expect(tester.widget<Text>(find.text('1.5×')).style?.color, scheme.onSurface);
 
     // Keyboard: Space pauses, → / ← skip (not pages), Shift+→ jumps to the
     // next burst of writing (from just before it began).

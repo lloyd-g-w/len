@@ -27,6 +27,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Editing tools
 - ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate
+- ✅ Lasso options: freehand or rectangle; select what it touches, what is mostly inside or only
+  what is wholly inside; which items (ink, highlighter, text, images); remembered with the tools;
+  the side-button lasso and taps follow them, a rectangle from PDF text selects the text
 - ✅ Selection across pages (continuous scrolling): a lasso drawn across pages selects on each; the
   selection moves, resizes, recolours, restyles, deletes, copies and duplicates as one; items dropped
   so their centre lands on another page move to that page (ink re-added, elements re-parented) — one
@@ -54,6 +57,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;
   synced as blobs; in thumbnails and PNG/PDF export
 - ✅ Laser pointer
+- ✅ Laser "Fade: When I stop": everything written stays until ~2 s (adjustable) after the last
+  pen-up; writing again within that time keeps it all (mouse, pen or finger; presenting too)
 - ✅ Zoom window (⋯ → View, `M`): a frame on the page magnified in a box docked above the bottom
   toolbar; writing in the box writes small into the frame, which moves on along the line as you
   reach the box's right end, wraps to the next ruled line (↵ too) and on to the next page (adding
@@ -120,6 +125,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   centred on their content)
 - ✅ PDF import & annotate (new notebook or insert pages); export notebook / page to PDF (vector
   ink) and page to PNG; save dialog on desktop, share sheet on Android
+- ✅ Document scanning ("Scan document…" in the library's ⊕▾ / new-notebook sheet → a new
+  notebook; Insert ⊕ in paged notebooks → pages after the current one, one Undo): photos from
+  files (every platform) or the camera (Android); the page's edges are found (pure Dart, on an
+  isolate), four corners and four sides to drag with a loupe, rotate, whole photo, retake, remove,
+  more pages; Colour / Greyscale / B&W clean-up (white paper, even light, crisp ink); pages are
+  flattened JPEG backgrounds (A4 / Letter when they're that shape), synced as blobs, exported
 - ✅ Progress for import / export: stage, file name, "Page x of n" bar
 - ✅ Export options sheet: PDF / PNG, current / all pages / page range, page templates and PDF
   backgrounds on or off, PNGs at 288 dpi; several PNGs shared or saved at once
@@ -133,6 +144,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   in PDF export)
 - ✅ Custom templates ("My templates", synced): import an image or a PDF page, "Save page as
   template"; rename / delete; usable for new notebooks and pages
+- ✅ Notebook styles (synced): save the new-notebook sheet's choice (notebook or canvas,
+  template and look, paper colour, size, orientation, cover) as a named style, apply it with one
+  tap, mark one the default for new notebooks, rename / delete; without a default the sheet
+  starts as the last notebook was made
 - ✅ Template picker: categories (Basic, Writing, Planners, Paper, My templates), search, live
   previews; a dialog with gallery and options side by side on tablets / desktops, a sheet with
   full-width columns on phones
@@ -161,6 +176,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Kinetic (inertial) panning — canvases and continuous pages
 - ✅ Animated zoom: keyboard `+` `-` `0`, Shift+1 fit; zoom indicator with 50/100/200 %/fit
 - ✅ Fit content, back to start
+- ✅ Minimap (⋯ → View, Shift+M): content as soft blocks, the view's frame; tap to glide, drag to
+  pan live, pinch / scroll to zoom; hides while writing and in focus mode unless kept there
 - ✅ Canvas background: template + paper colour
 - ✅ Double-tap zoom (finger, when fingers navigate): page fit / 100 % ⇄ 2× or the last zoom, about
   the tap; palm-safe, never confused with two-finger undo

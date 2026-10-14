@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:ui';
 
+import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
 import '../selection/lasso.dart';
+import '../selection/lasso_config.dart';
 import '../selection/lasso_path.dart';
 import '../selection/selection_chrome.dart';
 import '../selection/selection_controller.dart';
@@ -41,22 +43,32 @@ abstract interface class LassoText {
   void selectBetween(Offset from, Offset to, {required bool done});
 }
 
-/// The lasso: draw a loop to select, tap to select one item, drag the
-/// selection to move it, drag its handles to resize or rotate it. A long
-/// press on empty space asks to paste ([onLongPress]); a double tap on a
-/// text box edits it ([onEditText]).
+/// The lasso: draw a loop (or drag a rectangle, [LassoShape.rectangle]) to
+/// select, tap to select one item, drag the selection to move it, drag its
+/// handles to resize or rotate it. A long press on empty space asks to
+/// paste ([onLongPress]); a double tap on a text box edits it
+/// ([onEditText]). What it selects follows the
+/// [LassoConfig] read at each press: its shape, how much of an item it
+/// must cover, and which kinds of item (taps too).
 ///
 /// On [text] (PDF text) where no ink or element is hit: a tap selects the
 /// word; a press held still selects it and dragging on extends it; a quick
-/// open drag (not a loop) that selects no ink selects the text it spans.
+/// open drag (not a loop; any rectangle) that selects no ink selects the
+/// text it spans.
 /// A loop starting on text still selects the ink it circles.
 class LassoTool implements PointerTool {
   LassoTool({
     required this.selection,
     required this.viewport,
     required this.path,
+    this._config,
     int Function()? nowMs,
   }) : _now = nowMs ?? _wallClock;
+
+  final LassoConfig Function()? _config;
+
+  /// The options of the current gesture.
+  LassoConfig _options = const LassoConfig();
 
   final SelectionController selection;
   final ViewportController viewport;
@@ -105,6 +117,7 @@ class LassoTool implements PointerTool {
     _startScreen = _lastScreen = p.screen;
     _startWorld = _lastWorld = p.world;
     _dragged = false;
+    if (_config case final config?) _options = config();
     final frame = selection.frame;
     if (frame != null && !selection.isEmpty) {
       final handle = SelectionChrome.hit(frame, viewport, p.screen);
@@ -146,6 +159,8 @@ class LassoTool implements PointerTool {
     _dragged = true;
     _longPressTimer?.cancel();
     switch (_mode) {
+      case _Mode.lasso when _options.shape == LassoShape.rectangle:
+        path.rectangle(_startWorld, p.world);
       case _Mode.lasso:
         path.add(p.world);
       case _Mode.text:
@@ -220,13 +235,28 @@ class LassoTool implements PointerTool {
     _mode = _Mode.idle;
   }
 
-  /// Whether ink or an element lies under [world]. Highlights don't count:
-  /// highlighted PDF text stays selectable (a lasso loop still takes them).
-  bool _hitsContent(Offset world) {
-    final model = selection.model;
-    return ContentHitTest.elementAt(model, world) != null ||
-        ContentHitTest.strokeAt(model, world, 8 / viewport.scale, highlighter: false) != null;
-  }
+  /// Whether ink or an element the lasso takes lies under [world].
+  /// Highlights don't count: highlighted PDF text stays selectable (a lasso
+  /// loop still takes them).
+  bool _hitsContent(Offset world) =>
+      _elementAt(world) != null || _strokeAt(world, highlighter: false) != null;
+
+  /// The topmost element of a kind the lasso takes under [world].
+  SurfaceElement? _elementAt(Offset world) => ContentHitTest.elementAt(
+    selection.model,
+    world,
+    where: (e) =>
+        _options.takes(e.knownType == ElementType.text ? LassoKind.text : LassoKind.images),
+  );
+
+  /// The topmost stroke of a kind the lasso takes under [world].
+  Stroke? _strokeAt(Offset world, {bool highlighter = true}) => ContentHitTest.strokeAt(
+    selection.model,
+    world,
+    8 / viewport.scale,
+    pen: _options.takes(LassoKind.ink),
+    highlighter: highlighter && _options.takes(LassoKind.highlighter),
+  );
 
   /// A tap on text: its word, and the ink selection goes.
   void _tapText() {
@@ -236,8 +266,10 @@ class LassoTool implements PointerTool {
   }
 
   /// Whether the lasso path came back near its start (a loop): its ends are
-  /// closer than half its extent. An open drag over text selects text.
+  /// closer than half its extent. An open drag over text selects text, and
+  /// so does a rectangle.
   bool get _closed {
+    if (_options.shape == LassoShape.rectangle) return false;
     final points = path.points;
     if (points.length < 3) return false;
     final bounds = Rect.fromPoints(points.first, points.first);
@@ -246,7 +278,7 @@ class LassoTool implements PointerTool {
   }
 
   void _selectLasso() {
-    final lasso = Lasso([...path.points]);
+    final lasso = Lasso([...path.points], config: _options);
     if (!lasso.isValid) {
       selection.clear();
       return;
@@ -256,11 +288,10 @@ class LassoTool implements PointerTool {
 
   /// Selects what is under a tap; a second tap on a text box edits it.
   void _tap(Offset world, {bool keepSelection = false}) {
-    final model = selection.model;
-    var element = ContentHitTest.elementAt(model, world);
+    var element = _elementAt(world);
     // Ink lies above elements beneath it: a tap on that ink selects the ink.
     if (element != null && element.belowInk && !keepSelection) {
-      if (ContentHitTest.strokeAt(model, world, 8 / viewport.scale) != null) element = null;
+      if (_strokeAt(world) != null) element = null;
     }
     final now = _now();
     if (element != null) {
@@ -280,7 +311,7 @@ class LassoTool implements PointerTool {
     }
     _lastTap = null;
     if (keepSelection) return;
-    final stroke = ContentHitTest.strokeAt(model, world, 8 / viewport.scale);
+    final stroke = _strokeAt(world);
     if (stroke != null) {
       selection.select([stroke], const []);
     } else {

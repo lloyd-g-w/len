@@ -242,6 +242,28 @@ void main() {
       expect(viewport.scale, 4);
     });
 
+    testWidgets('a pen landing mid-pinch past the limit snaps the zoom back about the pen', (
+      tester,
+    ) async {
+      viewport.setView(scale: 3, offset: Offset.zero);
+      final end = twoFingers(
+        const Offset(380, 300),
+        const Offset(420, 300),
+        const Offset(80, 300),
+        const Offset(720, 300),
+      );
+      expect(viewport.scale, greaterThan(4));
+      const pen = Offset(200, 150);
+      final underPen = viewport.toWorld(pen);
+      input.handleDown(down(9, pen, t: end + 5, kind: PointerDeviceKind.stylus));
+      // At once, before the stroke's first point: no spring back under the pen.
+      expect(viewport.scale, 4);
+      expect((viewport.toScreen(underPen) - pen).distance, lessThan(0.5));
+      input.handleUp(up(9, pen, t: end + 50, kind: PointerDeviceKind.stylus));
+      await tester.pumpAndSettle();
+      expect(viewport.scale, 4);
+    });
+
     test('elastic and inelastic undo each other', () {
       for (final s in [0.1, 0.2, 0.25, 1.0, 4.0, 5.0, 9.0]) {
         final shown = viewport.elastic(s);

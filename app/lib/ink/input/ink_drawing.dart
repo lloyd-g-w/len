@@ -19,6 +19,7 @@ import 'hold_to_straighten.dart';
 import 'ink_events.dart';
 import 'lift_speed.dart';
 import 'live_ink.dart';
+import 'mouse_smoother.dart';
 import 'sample_source.dart';
 import 'scribble_erase.dart';
 import 'stroke_sampler.dart';
@@ -29,8 +30,9 @@ part 'ink_drawing_commit.dart';
 /// The drawing contact of `InkInputController`: one pointer at a time that
 /// inks, erases or drives a pointer tool from [content].
 ///
-/// Ink goes pen-down → points ([StrokeSampler]: thinned, pressure
-/// normalised and smoothed, end settled) → commit at pen-up, with stylus
+/// Ink goes pen-down → points (a mouse's whole-pixel steps levelled,
+/// [MouseSmoother]; [StrokeSampler]: thinned, pressure normalised and
+/// smoothed, end settled) → commit at pen-up, with stylus
 /// bounces dropped, [HoldToStraighten] snapping a resting pen, a pen
 /// scribble over ink erasing it ([ScribbleErase]) and highlights over
 /// PDF text snapping to it ([highlightSnap]).
@@ -72,6 +74,12 @@ class InkDrawing {
   /// Thins and pressure-filters the ink's samples.
   late final StrokeSampler _sampler = StrokeSampler(viewport, _keep);
 
+  /// Levels a mouse's whole-pixel steps before they are sampled.
+  late final MouseSmoother _mouse = MouseSmoother(
+    (at, ms) => _inkTo(at, 0.5, Duration(milliseconds: ms)),
+  );
+  bool _byMouse = false;
+
   /// Erases what a pen scribble crosses.
   late final ScribbleErase _scribble = ScribbleErase(viewport: viewport, tools: tools, live: live)
     ..onMissed = () => events.scribbleMissed?.call();
@@ -94,6 +102,11 @@ class InkDrawing {
   double _drawTravel = 0;
   bool _erasing = false;
   bool _eraseStarted = false;
+
+  /// Where a finger erasing has been while it may still turn out a resting
+  /// palm or the start of a pinch: erased once it moves past the touch slop
+  /// or lifts, dropped if the contact is cancelled.
+  List<Offset>? _heldErase;
   Offset? _lastScreen;
 
   /// The drawing pointer, if a contact is in progress.
@@ -130,7 +143,11 @@ class InkDrawing {
       _tool = tool..down(_toolPointer(e));
     } else if (erase) {
       showEraser(e.localPosition);
-      _eraseTo(e.localPosition);
+      if (e.kind == PointerDeviceKind.touch) {
+        _heldErase = [e.localPosition];
+      } else {
+        _eraseTo(e.localPosition);
+      }
     } else {
       final ink = tools.activeInk;
       final config = tools.configOf(ink);
@@ -142,8 +159,13 @@ class InkDrawing {
         width: config.width,
         style: tools.styleFor(ink).copyWith(unit: 1 / viewport.scale),
       );
-      _endFollowsSpeed = config.ends.endFollowsSpeed && !ink.isHighlighter;
+      _endFollowsSpeed = config.ends.endFollowsSpeed;
       live.add(_sampler.first(e));
+      _byMouse = e.kind == PointerDeviceKind.mouse;
+      if (_byMouse) {
+        final ms = StrokeSampler.msOf(e.timeStamp);
+        _mouse.begin(e.localPosition, ms, width: config.width * viewport.scale);
+      }
       _liftSpeed.add(e.localPosition, StrokeSampler.msOf(e.timeStamp));
       _scribble.begin(model, e.localPosition, StrokeSampler.msOf(e.timeStamp));
       _straighten.begin(
@@ -166,9 +188,10 @@ class InkDrawing {
     }
     if (_erasing) {
       showEraser(e.localPosition);
-      _eraseTo(e.localPosition);
+      _eraseOrHold(e.localPosition);
       return;
     }
+    if (_byMouse) return _mouse.add(e.localPosition, StrokeSampler.msOf(e.timeStamp));
     _addSamplesBefore(e);
     _inkTo(e.localPosition, StrokeSampler.pressureOf(e), e.timeStamp, synthesized: e.synthesized);
   }
@@ -217,8 +240,10 @@ class InkDrawing {
       _tool = null;
       tool.up();
     } else if (_erasing) {
+      _releaseErase();
       showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
     } else {
+      if (_byMouse) _mouse.finish(); // The ink catches up with the mouse.
       // A snapped shape's end follows no speed (the pen rested to snap it),
       // and it is no scribble.
       final snapped = live.straightened;
@@ -254,12 +279,32 @@ class InkDrawing {
     _committedTaper = 0;
     _drawPointer = null;
     _drawKind = null;
+    _byMouse = false;
     _erasing = false;
+    _heldErase = null;
     _lastScreen = null;
   }
 
   // ---------------------------------------------------------------------------
   // Erasing
+
+  /// Erases to [screen], or holds it while a finger may not be erasing.
+  void _eraseOrHold(Offset screen) {
+    final held = _heldErase;
+    if (held == null) return _eraseTo(screen);
+    held.add(screen);
+    _lastScreen = screen;
+    if ((screen - _drawStartScreen).distance > kTouchSlop) _releaseErase();
+  }
+
+  /// Erases along the held finger path: it is erasing after all.
+  void _releaseErase() {
+    final held = _heldErase;
+    if (held == null) return;
+    _heldErase = null;
+    _lastScreen = held.first;
+    held.forEach(_eraseTo);
+  }
 
   void _eraseTo(Offset screen) {
     final from = viewport.toWorld(_lastScreen ?? screen);

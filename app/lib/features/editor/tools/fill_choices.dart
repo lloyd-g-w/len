@@ -6,6 +6,7 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/color_dot.dart';
 import '../../../ui/color_picker/color_choices.dart';
 import '../../../ui/group_header.dart';
+import '../../../ui/roving_focus.dart';
 import '../pen/ink_paper.dart';
 
 /// The fill of closed shapes (the Shapes popover, the selection's Style):
@@ -35,6 +36,14 @@ class FillChoices extends StatelessWidget {
   final List<int> recent;
 
   static const List<String> _tintNames = ['Light tint', 'Medium tint', 'Strong tint'];
+
+  /// [fill]'s place in the row: none, the tints, solid.
+  static int? _index(ShapeFill? fill) {
+    if (fill == null) return null;
+    if (fill.isNone) return 0;
+    if (fill.isTint) return 1 + ShapeFill.tints.indexOf(fill.tint);
+    return 1 + ShapeFill.tints.length;
+  }
 
   String _label(ShapeFill? fill) {
     if (fill == null) return 'Mixed';
@@ -66,28 +75,34 @@ class FillChoices extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         GroupHeader('Fill', value: _label(current)),
-        Wrap(
-          children: [
-            dot(
-              ShapeFill.none,
-              paper.toARGB32(),
-              'No fill',
-              child: Icon(
-                Symbols.block_sharp,
-                size: Glyphs.menu,
-                // On the paper, which is not themed.
-                color: sheet.text,
-              ),
-            ),
-            for (final (i, t) in ShapeFill.tints.indexed)
+        // One Tab stop, at the chosen fill; the arrows move along.
+        RovingGroup(
+          axis: Axis.horizontal,
+          single: true,
+          selected: _index(current),
+          child: Wrap(
+            children: [
               dot(
-                ShapeFill.tint(t),
-                // The tint as it shows on the paper.
-                Color.alphaBlend(Color(ShapeFill.tint(t).colorFor(ink)!), paper).toARGB32(),
-                _tintNames[i],
+                ShapeFill.none,
+                paper.toARGB32(),
+                'No fill',
+                child: Icon(
+                  Symbols.block_sharp,
+                  size: Glyphs.menu,
+                  // On the paper, which is not themed.
+                  color: sheet.text,
+                ),
               ),
-            dot(ShapeFill.solid(solid ?? ink | 0xFF000000), solid ?? ink, 'Solid colour'),
-          ],
+              for (final (i, t) in ShapeFill.tints.indexed)
+                dot(
+                  ShapeFill.tint(t),
+                  // The tint as it shows on the paper.
+                  Color.alphaBlend(Color(ShapeFill.tint(t).colorFor(ink)!), paper).toARGB32(),
+                  _tintNames[i],
+                ),
+              dot(ShapeFill.solid(solid ?? ink | 0xFF000000), solid ?? ink, 'Solid colour'),
+            ],
+          ),
         ),
         AnimatedSize(
           duration: Motion.fast,

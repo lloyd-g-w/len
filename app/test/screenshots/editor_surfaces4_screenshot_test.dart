@@ -11,10 +11,12 @@ import 'package:len/domain/paper_pattern.dart';
 import 'package:len/features/documents/templates/user_templates.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/chrome/editor_tips.dart';
+import 'package:len/features/editor/chrome/missing_pdf_notice.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 
 import '../images_test.dart' show pngOf;
+import '../support/real_async.dart';
 import 'editor_screenshot_test.dart' show pumpEditor;
 import 'editor_surfaces_common.dart';
 import 'screenshot_harness.dart';
@@ -105,7 +107,11 @@ void main() {
           await settle(tester);
           await shoot(tester, 'e_dialog_save_template_$shot');
           await tester.tap(find.text('Save'));
-          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+          await pumpUntil(
+            tester,
+            () => find.text('Saved to My templates').evaluate().isNotEmpty,
+            reason: 'the template to be saved',
+          );
           await settle(tester);
           expect(find.text('Saved to My templates'), findsOneWidget);
           await shoot(tester, 'e_snack_saved_template_$shot');
@@ -268,7 +274,12 @@ void main() {
           ScaffoldMessenger.of(tester.element(find.byType(EditorScreen))).removeCurrentSnackBar();
           final doc = tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;
           doc.goToPage(1);
-          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+          await pumpUntil(
+            tester,
+            () => find.byType(MissingPdfNotice).evaluate().isNotEmpty,
+            reason: 'the missing PDF notice',
+          );
+          await pumpUntilPdfRendered(tester);
           await settle(tester);
           await shoot(tester, 'e_missing_pdf_background_$shot');
         });

@@ -4,17 +4,19 @@ import 'dart:ui';
 /// "Scribble to erase": recognises a fast back-and-forth scribble in a
 /// pen stroke (screen pixels and milliseconds, fed as the pen moves).
 ///
-/// Deliberately strict, so writing never trips it (checked against the Ink
-/// Lab's real S Pen recordings and simulated cursive). A scribble needs
+/// Two quick back-and-forths are enough, yet writing never trips it
+/// (checked against the Ink Lab's real S Pen recordings, simulated cursive
+/// and printed zigzag letters: z, N, M, w, vvv…). A scribble needs
 /// [minPasses] consecutive passes (so `minPasses - 1` sharp reversals),
 /// all within [maxDuration], where every pass
 ///  * nearly reverses the one before it (within ~35°),
 ///  * is at least [minAmplitude] long and not much shorter than the others
 ///    (nor, but for the first and last, much longer),
 ///  * is fairly straight,
-/// and the passes stay in a band: their spread across the scribble's axis
-/// is at most [maxSpread] of its amplitude. Cursive (m, n, u, w) reverses
-/// as sharply but moves on along the line, so its spread is large.
+/// and the passes stay in a narrow band: their spread across the
+/// scribble's axis is at most [maxSpread] of its amplitude. Letters (m, n,
+/// u, w, M, N, z) reverse as sharply but move on along the line, so their
+/// spread is large; a scribble drifts a few pixels per pass.
 ///
 /// Only the part that zigzags counts ([windows]): what the stroke crossed
 /// before or after doesn't erase.
@@ -23,17 +25,18 @@ class ScribbleDetector {
   static const double spacing = 3;
 
   /// Passes (each a reversal of the one before) a scribble needs.
-  static const int minPasses = 6;
+  static const int minPasses = 4;
 
   /// The time those passes may take.
-  static const int maxDuration = 1200;
+  static const int maxDuration = 800;
 
   /// The shortest pass (pixels): smaller wiggles are jitter or letters.
   static const double minAmplitude = 14;
 
   /// How far the passes may spread across their axis, relative to their
-  /// amplitude.
-  static const double maxSpread = 0.5;
+  /// amplitude: a quick 40 px scribble drifting 3 px a pass spreads 0.27,
+  /// a fast zigzag drawn in a sketch (real_spen_02) 0.33.
+  static const double maxSpread = 0.3;
 
   /// How close (screen pixels) the scribble must pass to ink to erase it,
   /// at least.

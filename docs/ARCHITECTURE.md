@@ -166,6 +166,17 @@ draws a few dozen images, however much ink is on screen.
   frame, and each such tile is re-rendered as *old image + stroke* off the
   frame. So committed ink never vanishes or flickers at pen-up, and a
   pen-up never re-records a chunk picture or replays a page of ink.
+- **Highlighter pen-up** (`SurfaceChange.underlaid`): a highlighter
+  paints beneath the pen ink, so it is no append; the tiles it crosses
+  keep their images, stale, and draw it as a vector *beneath* them — as
+  the live highlighter was drawn, beneath the committed ink — until they
+  are re-rendered (urgently, from the chunk pictures). Before, a highlight
+  over more than two tiles vanished for the frame or two until they were.
+  Zoomed out far, the level-of-detail rasters likewise keep their images
+  and draw new highlights beneath them (new pen strokes over them) instead
+  of a frame of vectors (`test/pen_up_frames_test.dart` checks every frame
+  around pen-up, pen and highlighter, on a canvas at 50–200 % and 1×/2×,
+  and on a continuous notebook's page from tiles and from rasters).
 - **Loads** (`SurfaceChange.loaded`: stored content arriving) keep the
   images of the tiles they touch as stale stand-ins until re-rendered (that
   content was not on screen yet), so a loading canvas never drops to
@@ -272,6 +283,27 @@ only reports begin / track / release. `ViewportAnimator` also animates zooms
 bounds from the outermost chunks) or "back to start": their only menu), keyboard zoom and arrows (`+` `-` `0` Shift+1 Home ← ↑ → ↓) and a background: template and
 paper colour (`notebooks.paper_color`). Paged documents glide too (single-page flow
 only when zoomed in; at the whole page it settles back or turns the page).
+
+**Minimap** (`canvas/canvas_minimap.dart`, a layer of `EditorLayers`; "⋯" → View →
+*Minimap*, Shift+M; local settings `canvas_minimap`, `minimap_in_focus`): a `FloatingPanel`
+window onto the paper in the bottom-right corner, clear of the chrome and the audio strip
+(`ChromeLayout.covered`), shaped like the free area (1:1 to 16:10; 176 dp, 120 on phones).
+Content comes from storage — `StrokeReader.chunkDensity` (items per populated chunk, in the
+background reader), re-read 500 ms after a non-load `SurfaceChange` (the model flushed
+first) — and `MinimapContent` merges the chunks into at most 48 × 48 soft blocks, shaded by
+density, so painting costs the same on any canvas; per frame only the painter runs
+(blocks, origin cross, the view's frame in the accent for the paper's brightness).
+`MinimapFrame` picks the world area shown: content ∪ the visible area
+(`CanvasNavigation.visibleArea`, the screen minus the chrome) with 12 % room, held still
+while the view moves inside it and refitted (gliding, `Motion.medium`) when the view leaves
+it or it grows 1.8× larger than needed. Input (touch, pen, mouse): a tap glides there
+(`CanvasNavigation.centreOn`); a drag moves the view live, the map frozen under the finger
+(grabbing the frame keeps the grabbed point under it, elsewhere centres the view there);
+two fingers pan and pinch (`zoomBy`); a mouse wheel zooms in steps (`zoomStep`, claimed
+through the pointer-signal resolver); long-press / right-click opens its menu (*Keep in
+focus mode*, *Hide minimap*). It fades out (`ChromeFade`) while the pen draws (back
+1.2 s after it lifts, not between strokes), on an empty canvas and in focus mode unless kept
+there. Paged documents have none (the page overview and navigator serve them).
 
 World coordinates are stored as `float32`, which stays sub-unit precise to
 roughly ±8 million units from the origin — thousands of screens in every
@@ -530,7 +562,7 @@ or deleted pages in order with ink. Snack bars' Undo calls
   Ctrl/⌘+E export, Ctrl/⌘+G go to page (paged), Ctrl+F search;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases (`canvas/canvas_shortcuts.dart`):
   arrows move around (15 % of the screen, gliding), `+` / `-` (also with Ctrl/⌘),
-  `0` 100 %, Shift+1 fit content, **Home back to start**. Paged notebooks
+  `0` 100 %, Shift+1 fit content, **Home back to start**, Shift+M minimap. Paged notebooks
   (`document/document_shortcuts.dart`): ← / → and Page Up / Down turn pages, ↑ / ↓
   scroll (turn pages in single-page flow), `+` / `-` zoom 1.25× steps, **Home first
   page**, End last page. Single keys are ignored while text is edited.
@@ -788,7 +820,8 @@ search highlights use the same boxes.
   is the lasso's `LassoText`, `ink/tools/lasso_tool.dart`): where no ink or
   element is hit, a tap on text selects the word, a press held still
   selects it and dragging on extends it, and a quick open drag (not a
-  loop) that selects no ink selects the text it spans; a loop starting on
+  loop; with the rectangle lasso, any drag) that selects no ink selects the
+  text it spans; a loop starting on
   text still selects the ink it circles. Dragging the selection's handles (`PdfSelectionHandles`,
   touch targets over the painted knobs that keep the press from the canvas)
   extends it — also onto other PDF pages: `PdfSelection` is a list of
@@ -858,6 +891,48 @@ search highlights use the same boxes.
   + `ImageCropOverlay`) works in the image's unrotated frame: handles move the
   crop edges, dragging inside pans it, and committing keeps the visible part
   exactly where it was on the surface.
+
+## Document scans (`features/documents/scan/`, `platform/scan_runner*`)
+
+Photos of paper pages become notebook pages whose background is the
+flattened, cleaned-up photo (`PageBackground.image`, a JPEG blob; see
+SYNC_PROTOCOL). All pure Dart, so it works on every platform.
+
+- **Detection** (`QuadDetector`, `QuadHull`, `GreyOps`): luminance at ≤ 400
+  px, blurred; bright regions (Otsu's threshold and a stricter one), dark
+  ones and strong-edge (Sobel) ones covering ≥ 15 % of the photo become
+  convex hulls, simplified; the largest inscribed quadrilateral wins if its
+  sides show a clear step in brightness, the same way round, all round.
+  `ScanPhoto.load` measures the photo (EXIF-upright through the engine),
+  decodes an 800-px working copy and runs `detectScanQuad` on it; no
+  convincing page → the whole photo.
+- **Flattening** (`ScanJob`, `scan_warp`, `scan_enhance`): a perspective
+  warp of the quad (bilinear, supersampled when shrinking) to a page whose
+  sides are the quad's (long side ≤ 2500 px, from the photo decoded at ≤
+  3200), turned in quarter turns, then a `ScanFilter`: a coarse paper
+  brightness map flattens shading and white-balances; tone curves per
+  filter (Colour, Greyscale, B&W). `scan_runner` runs jobs and detection on
+  a worker isolate natively and in yielding slices on the web.
+- **Screen** (`ScanScreen`, `ScanSession`, `ScanCornerEditor`,
+  `ScanControls`): a full-screen route over a session of `ScanPageDraft`s
+  (photo, quad, turns; a small flattened preview each, re-rendered latest
+  wins; only the current page's photo is decoded for display, at 1600 px).
+  The corner editor drags corners and side middles (folds refused, corners
+  kept on the photo) and shows a 3× loupe in the top corner away from the
+  finger while a corner moves; the outline's preview re-renders when the
+  drag ends. Commands: Rotate, Whole photo (toggles with the page found),
+  Retake (camera) / Replace… (files), Remove, + (camera or files), and the
+  look for all pages. Without a camera the file picker opens at once
+  (nothing picked → the screen closes); with one (Android, `image_picker`)
+  the screen starts by offering both. Leaving with pages asks first.
+  `ScanSources` is the seam for tests (`ScanSources.debugSources`).
+- **Import** (`scan_flow`, `ScanImporter`): after Done, each page is
+  flattened at full size and stored as a blob behind a cancellable progress
+  dialog; then one transaction creates the notebook (titled "Scan <date>",
+  blank paper) or inserts the pages after the current one
+  (`DocumentCommands.insertScan`, undoable as one edit). Cancelled or failed
+  imports drop the blobs nothing references. Page size: A4 or Letter (either
+  way round) within 3 % of the scan's shape, else A4's area at its shape.
 
 ## Opening files from other apps (`features/documents/import/`, `platform/incoming_files*`)
 
@@ -1145,7 +1220,7 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
 - **Stylus** draws; the **eraser end** erases; the **side button held** (S Pen) does
   the user's `PenButtonAction` (`input/stylus_buttons.dart`): erase, lasso (a selection
   made that way stays live — pressing on it moves it, pressing elsewhere drops it and
-  draws again) or nothing.
+  draws again; it follows the lasso options, a rectangle included) or nothing.
   A stylus touching down cancels a stroke a resting palm may have started.
 - **Touch**: with *stylus only* (palm rejection) on, fingers pan/zoom; off,
   one finger draws and a second finger turns it into a pinch.
@@ -1329,15 +1404,16 @@ polygon; scribbles stay freehand. Only the clean shape is committed.
 
 **Scribble to erase** (`input/scribble_detector.dart`, on by default, a
 switch in Settings → Writing): a pen (ballpoint) stroke holding a fast
-back-and-forth scribble — `ScribbleDetector`: ≥ 6 passes within 1.2 s, each
-nearly reversing the last, ≥ 14 screen px, the inner ones at most twice the
-median, fairly straight, all in a band at most half their length wide
-(cursive m / n / u / w reverses as sharply but moves on) — erases instead
+back-and-forth scribble — `ScribbleDetector`: two quick back-and-forths
+(≥ 4 passes within 0.8 s), each nearly reversing the last, ≥ 14 screen
+px, the inner ones at most twice the median, fairly straight, all in a
+band at most 0.3 of their length wide (letters — cursive m / n / u / w,
+printed z / N / M / w — reverse as sharply but move on) — erases instead
 of becoming ink when it crosses ink. Only the part that zigzags counts
 (`ScribbleDetector.windows`: each run of passes that makes a scribble, its
 outer passes cut to the span of the inner ones, overlapping runs joined),
 so a lead-in or a run-on erases nothing. The detector looks every 4
-points at the stroke's last 1.2 s only, so its cost doesn't grow with the
+points at the stroke's last 0.8 s only, so its cost doesn't grow with the
 stroke. `SurfaceModel.eraseScribbled` (`ink/scribble_hits.dart`) removes
 the strokes a zigzag touches that lie mostly inside its bounds (a long
 line under a scribbled word stays) and are not an outline around it (a
@@ -1353,8 +1429,12 @@ once the stroke so far holds a scribble it previews what will go
 those strokes as an owner (`setHidden`) and drawing them at 30 % as its
 lifted content (fading in over 100 ms, frame callbacks only while
 fading); the stroke ending any way un-hides them before the erase. It is
-held to zero false positives on the Ink Lab's real S Pen recordings and
-simulated writing at 1–4× (`test/scribble_detector_test.dart`).
+held to zero false positives on the Ink Lab's real S Pen recordings,
+simulated writing at 1–4×, cursive and printed zigzag letters and words at
+many sizes and speeds, and zigzag hatching spaced a tenth of its length or
+more (`test/scribble_detector_test.dart`); denser hatching over ink is a
+scribble (the dimming shows it before anything goes; Settings turns
+scribble to erase off).
 
 **Text-aware highlighter** (`input/highlight_snap.dart`, set by paged
 editors to `features/editor/pdf/PdfHighlightSnap`): always (it needs no
@@ -1392,10 +1472,19 @@ surface.
   (`SelectionController.refill`; a tint follows a recolour). A filled
   stroke is indexed in every chunk its bounds cover; taps select it by its
   fill, erasers only take the outline (cut pieces are open, so unfilled).
-- **Lasso** (`selection/`): a stroke is selected when at least half of its
+- **Lasso** (`selection/`): its options (`LassoConfig` in `ToolSettings.lasso`,
+  the Lasso popover, read at each press) set the shape (a freehand loop, or a
+  rectangle dragged corner to corner: `LassoPath.rectangle`), how much of an
+  item must be inside (`LassoCover`) and which kinds it takes (`LassoKind`:
+  ink, which includes shapes; highlighter; text; images, with links). By
+  default (*mostly*) a stroke is selected when at least half of its
   *length* is inside the lasso polygon (segments are subdivided and weighted
   by length, so sampling density does not matter); an element when its
-  centre (or most of its outline) is. A tap selects the topmost item.
+  centre (or most of its outline) is. *Whole* needs every point inside and
+  no segment crossing the outline; *touching*, a point inside or a crossing
+  (an image beneath the ink is not touched by a lasso drawn within it). A
+  tap selects the topmost item of the kinds taken. A rectangle that selects
+  no ink and started on PDF text selects the text from corner to corner.
   `SelectionController` hides the selection from the committed layer
   (`SurfaceModel.setHidden`, which only invalidates the affected chunks) and
   records it once into a picture; dragging, resizing (corners keep the
@@ -1448,8 +1537,13 @@ surface.
   glow, a bright core whitened in the middle — lanes transparent at the edges, so no blur
   filter), narrowing and fading with age (smoothstep), plus a radial-gradient dot at the pointer.
   `LaserConfig` (in `ToolSettings`, persisted): dot or trail mode, colour (six presets or
-  custom), size and trail duration (0.3–3 s), set in the tool's options popup
-  (`LaserOptionsPanel`, with a live preview). The old painter drew two lines per sample, one
+  custom), size and when the trail fades (`LaserFade`): each point a set time after it was
+  drawn (0.3–3 s), or, *when I stop*, all of it together once `hold` (0.5–5 s, default 2 s)
+  has passed since the last lift (`LaserTrail.holding`: the trail and dot stay in full while
+  writing, a press within the hold keeps everything, then a 400-ms fade; frames during the hold
+  repaint nothing, and a hovering mouse doesn't stop the countdown; the same with a mouse,
+  pen or finger and presenting with F5, `test/laser_hold_input_test.dart`). Set in the tool's options
+  popup (`LaserOptionsPanel`, with a live preview). The old painter drew two lines per sample, one
   with a blur mask filter — hundreds of blurs per frame; `test/perf/laser_perf_test.dart`
   measures a move (0 rebuilds, 1 paint) and a full trail against it.
 
@@ -1571,14 +1665,21 @@ The toolbar offers exactly two inks — the **pen** (`InkTool.ballpoint`) and th
   a stroke renders identically on every device, whatever the local tool
   settings.
 
-**Highlighter** strokes are translucent with flat chisel ends (pen caps are
-configurable), drawn before other ink in each chunk picture, and the live
-highlighter stroke is painted on a layer beneath committed ink.
+**One engine for both inks.** The highlighter is the pen's engine (sampling,
+smoothing, stabiliser, outline, `StrokeStyle`; `StrokeRenderer.specFor`
+reads only the style) with what makes it a highlighter on top: translucent
+(one even layer where it crosses itself), drawn before other ink in each
+chunk picture (the live stroke on a layer beneath committed ink), straight
+lines on offer, snapping to PDF text, and flat chisel ends by default.
+`PenDefaults.endStyles` lists the ends each offers: the pen round, tapered
+or flat; the highlighter flat or round (a taper makes no sense for a
+translucent band; parsing rejects it). Highlights a PDF selection makes
+are always flat (`PdfHighlights`: the band ends where the text does).
 
 User customisation lives in `ToolSettings`, persisted as JSON in the local
 `settings` table: per ink a `PenConfig` with **independent quick colours and
 quick widths** (1–5 slots each, one of each selected) and feel settings
-(pressure sensitivity, stabiliser, straight lines; opacity for the
+(pressure sensitivity, stabiliser, ends, straight lines; opacity for the
 highlighter — the pen is always opaque), plus eraser options,
 hold-to-straighten and the 8 **recent colours** (`RecentColors`: colours
 newly put into an ink's quick slots or given to text or the laser, noted when
@@ -1593,8 +1694,9 @@ defaults as a whole.
 
 The ink panels (`features/editor/pen/`) are self-contained:
 `PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, ends)
-and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
-lines); on their own, their Reset restores the feel settings. The writing
+and `HighlighterOptionsPanel` (preview, opacity, pressure sensitivity — off
+by default —, stabiliser, ends: flat or round, straight lines); on their
+own, their Reset restores the feel settings. The writing
 gestures hold to snap and scribble to erase are app preferences
 (`AppPreferences.holdToSnap` / `scribbleToErase`), whose one home is
 Settings → Writing beside "Tap to undo and redo"; the editor mirrors them
@@ -1710,7 +1812,7 @@ with a template is "Add page after" held down in the page menu).
   removed), which may move the toolbar between the bar and its row.
 
 Shortcuts: P / H / E / L / S / T / K, 1–5 colour slots, [ / ] thinner /
-thicker (plus the canvas keys `+` `-` `0` Shift+1 Home). Palm rejection is
+thicker (plus the canvas keys `+` `-` `0` Shift+1 Home Shift+M). Palm rejection is
 automatic (on at the first stylus contact); "⋯" → *Draw with finger* turns it
 off once a stylus has been seen.
 
@@ -1728,8 +1830,18 @@ does not grow with the stroke's length.
    the `PressureCurve` (`4p / (3p + 1)`: handwriting presses lightly, so
    device pressure 0.2 is medium, the pen's nominal width; fingers and the
    mouse are 0.5, medium too) and is filtered (`PressureFilter`); the
-   overlay's Kotlin model applies the same. **Ink shows from the first
-   sample**, under the nib
+   overlay's Kotlin model applies the same. A **mouse** reports whole
+   pixels (web, desktops), a staircase that zoomed out — the pen a fraction
+   of a pixel wide on screen — showed as squiggles the outline's smoothing
+   (bounded relative to the pen's width, which keeps its geometry exact)
+   cannot level; so when the pen is under 2.5 px wide on screen its path
+   is first resampled every pixel and smoothed with a centred Gaussian in
+   screen space (`MouseSmoother`: what the outline lacks, up to 2 px for a
+   hairline, trailing the mouse by at most 6 px like the stabiliser, the
+   ends where the mouse went down and up). Wider pens (the default at 100 %)
+   get the mouse's positions unchanged, without lag
+   (`test/mouse_zoom_smoothness_test.dart`).
+   **Ink shows from the first sample**, under the nib
    (latency beats purity): every contact is drawn from pen-down, even one
    that turns out to be a bounce (`BounceFilter.isBounce`, decided at its
    lift: it showed as a dot where the pen just lifted for < 80 ms and is
@@ -1776,7 +1888,7 @@ does not grow with the stroke's length.
      line, then a slope limit), so final as soon as their sample is; the
      start does not swell and is levelled; the moving tip follows the same
      end rules within a short reach. Ends are round caps at the width
-     the pressure gives (flat for the highlighter).
+     the pressure gives (or flat: the highlighter's default).
 4. **`RibbonEmitter`**: the outline is the envelope of the circles along
    the line. A *run* of samples becomes **one closed contour** — left side
    forward, a cap, right side back, a cap — whose sides are cubic Béziers
@@ -2270,12 +2382,26 @@ expect.
   in favourites, trash, search, selection or list layout); ⊕▾ creates everywhere else. Phones
   get the FAB instead, hidden while an empty state offers its own button.
 - **New notebook sheet** (`new_notebook_sheet.dart`, `new_notebook/`): one column (title,
-  Notebook / Canvas, Template (`PaperRow`, "Background" for a canvas) with the recent papers and "All templates…" → the template
+  Styles, Notebook / Canvas, Template (`PaperRow`, "Background" for a canvas) with the recent papers and "All templates…" → the template
   picker, `CoverRow`, page size) with `NotebookPreview` beside it in the dialog and as a strip
   on phones. The papers come from `recentPapers` (`AppPreferences.recentPapers`, filled up with
   defaults; canvases only tiling papers); creating a notebook records its paper. Where the
   library has no ⊕▾ (phones), "Import PDF…" and "Import Len file…" are quiet links at the
   sheet's foot, under Create.
+- **Notebook styles** (`notebook_styles` collection, `NotebookStyleRepository`,
+  `domain/notebook_style.dart`): a `NotebookChoice` (notebook or canvas, a built-in template
+  and its look, paper colour, page format and orientation, cover colour; never a user's image
+  template) under a name. The sheet's Styles row (`StyleRow`, `style_actions.dart`) shows them
+  as chips that fill in the whole form at once, the one matching the form selected; "Save as
+  style…" names the current choice (hidden when it matches a style). Tapping the selected chip
+  again, a long press, a right click or the Menu key opens its menu: "Default for new
+  notebooks" (checked; one default, `setDefault` clears the others; after concurrent marks the
+  latest wins), Rename…, Delete…. The sheet starts from the default style, else from
+  `AppPreferences.lastNotebookChoice` (what the last *notebook*, not canvas, was made as,
+  recorded by `LibraryActions.createNotebook`), else college ruled. Notebooks copy the values,
+  so later edits to a style change nothing made with it; new pages in a notebook keep following
+  the notebook's own paper. Library backups carry styles (not added twice; a restored default
+  only where none is set).
 - **Live covers.** `ThumbnailRenderer` draws the first page (paged) or the content nearest
   the origin (canvas) with the editor's own `PaperPainter` and `StrokeRenderer` into a
   `ui.Image`. `ThumbnailCache` keys previews by a cheap per-surface fingerprint
@@ -2430,7 +2556,8 @@ searches it.
 `SettingsRepository`: theme mode (the app's `ThemeData` are built once, with a fixed ink-blue accent),
 stylus-only, finger-tap undo and redo (one switch), stylus side-button action
 (`PenButtonAction.eraser|lasso|none`), editor toolbar placement (docked / floating, and the floating position),
-library layout and sort, and the papers of the latest new notebooks. Getters always read
+library layout and sort, the papers of the latest new notebooks and what the last new
+notebook was made as (`lastNotebookChoice`). Getters always read
 the store, so values written elsewhere are never stale.
 
 ## UI design system (`ui/`)

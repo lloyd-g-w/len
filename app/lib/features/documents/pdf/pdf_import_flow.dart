@@ -18,8 +18,13 @@ const _pdfTypes = [
 
 /// Creates a notebook from PDF [file] (one page per PDF page,
 /// annotatable), letting the user pick one if not given. Returns null if
-/// cancelled or failed (the user has then been told why).
-Future<Notebook?> importPdfFlow(BuildContext context, {XFile? file}) async {
+/// cancelled or failed (the user has then been told why). A Cancel also
+/// cancels [batch] (the files dropped with this one).
+Future<Notebook?> importPdfFlow(
+  BuildContext context, {
+  XFile? file,
+  CancellationToken? batch,
+}) async {
   final services = AppScope.read(context);
   final picked = file ?? await openFile(acceptedTypeGroups: _pdfTypes);
   if (picked == null || !context.mounted) return null;
@@ -37,9 +42,11 @@ Future<Notebook?> importPdfFlow(BuildContext context, {XFile? file}) async {
         title: PdfImporter.titleFor(picked.name),
         cover: Palette.covers[3],
         onPages: (n) => progress.stageStarted('Creating pages…', note: _pages(n)),
+        cancel: progress.token,
       );
     });
   } on Cancelled {
+    batch?.cancel();
     if (sha != null) await importer.discard(sha!);
     return null;
   } on Object catch (e, stack) {
@@ -55,11 +62,13 @@ Future<Notebook?> importPdfFlow(BuildContext context, {XFile? file}) async {
 
 /// Inserts the pages of PDF [file] (picked by the user if not given)
 /// after [after] (at the end if null). Returns the inserted pages, or null.
+/// A Cancel also cancels [batch].
 Future<List<NotebookPage>?> insertPdfPagesFlow(
   BuildContext context, {
   required String notebookId,
   NotebookPage? after,
   XFile? file,
+  CancellationToken? batch,
 }) async {
   final services = AppScope.read(context);
   final picked = file ?? await openFile(acceptedTypeGroups: _pdfTypes);
@@ -78,9 +87,11 @@ Future<List<NotebookPage>?> insertPdfPagesFlow(
         notebookId: notebookId,
         after: after,
         onPages: (n) => progress.stageStarted('Inserting pages…', note: _pages(n)),
+        cancel: progress.token,
       );
     });
   } on Cancelled {
+    batch?.cancel();
     if (sha != null) await importer.discard(sha!);
     return null;
   } on Object catch (e, stack) {

@@ -8,10 +8,11 @@ typedef PdfTile = ({PageBackground background, int width, int col, int row});
 
 /// Geometry of tiled PDF rendering for deep zoom.
 ///
-/// Up to [PdfTiling.wholePageMax] pixels wide a page is rendered as one
-/// image; beyond that only the tiles in view are rendered, at *levels*
-/// whose page widths are powers of two ([levelFor]), each cut into
-/// [tileSize]-pixel squares (the last row and column are smaller).
+/// Up to [PdfTiling.wholePageMax] pixels wide (and [PdfTiling.wholePageTall]
+/// tall) a page is rendered as one image ([wholePageWidth]); beyond that only the tiles in
+/// view are rendered, at *levels* whose page widths are powers of two
+/// ([levelFor]), each cut into [tileSize]-pixel squares (the last row and
+/// column are smaller).
 abstract final class PdfTiling {
   /// Side of a tile in pixels.
   static const int tileSize = 512;
@@ -19,14 +20,30 @@ abstract final class PdfTiling {
   /// The widest page rendered as a single image.
   static const int wholePageMax = 2048;
 
+  /// The tallest page rendered as a single image (any paper format, legal
+  /// included, is rendered [wholePageMax] wide).
+  static const int wholePageTall = 4096;
+
   /// The widest tiled level (≈ 16× zoom of an A4 page at 3× pixel ratio).
   static const int maxLevel = 65536;
 
+  /// The widest a page of [page] units is rendered as a single image: at
+  /// most [wholePageTall] pixels tall too (a long receipt or web page
+  /// 2048 px wide would be a bitmap of hundreds of megabytes).
+  static int wholePageWidth(Size page) {
+    if (!(page.width > 0) || !(page.height > 0)) return wholePageMax;
+    return math.max(1, math.min(wholePageMax, (wholePageTall * page.width / page.height).floor()));
+  }
+
   /// The tiled level (page width in pixels) for a page shown [pixelWidth]
   /// pixels wide: the smallest power of two at least as wide (so tiles are
-  /// never blurry), above [wholePageMax], at most [maxLevel].
-  static int levelFor(double pixelWidth) {
-    var level = wholePageMax * 2;
+  /// never blurry), above [above] (the page's [wholePageWidth]), at most
+  /// [maxLevel].
+  static int levelFor(double pixelWidth, {int above = wholePageMax}) {
+    var level = 1;
+    while (level <= above) {
+      level *= 2;
+    }
     while (level < pixelWidth && level < maxLevel) {
       level *= 2;
     }

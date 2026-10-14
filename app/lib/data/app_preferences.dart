@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
+import '../domain/notebook_style.dart';
 import '../domain/preferences.dart';
 import 'settings_repository.dart';
 
@@ -47,6 +50,14 @@ class AppPreferences extends ChangeNotifier {
   ToolbarPlacement get toolbarPlacement => _settings.toolbarPlacement;
   set toolbarPlacement(ToolbarPlacement value) => _update(() => _settings.toolbarPlacement = value);
 
+  /// Whether infinite canvases show the minimap.
+  bool get canvasMinimap => _settings.canvasMinimap;
+  set canvasMinimap(bool value) => _update(() => _settings.canvasMinimap = value);
+
+  /// Whether the minimap stays shown in focus mode ("pinned").
+  bool get minimapInFocus => _settings.minimapInFocus;
+  set minimapInFocus(bool value) => _update(() => _settings.minimapInFocus = value);
+
   /// Centre of the floating toolbar, as fractions of the editor's size.
   (double, double)? get toolbarFloat => _settings.toolbarFloat;
   set toolbarFloat((double, double)? value) => _update(() => _settings.toolbarFloat = value);
@@ -68,6 +79,23 @@ class AppPreferences extends ChangeNotifier {
   /// Puts [name] first in [recentPapers] (keeping a few).
   void notePaperUsed(String name) =>
       _settings.recentPapers = [name, ...recentPapers.where((n) => n != name)].take(12).toList();
+
+  /// What the last new notebook was made as: where the new-notebook sheet
+  /// starts when no notebook style is the default. Null before the first
+  /// (or when unreadable).
+  NotebookChoice? get lastNotebookChoice {
+    final json = _settings.lastNotebookChoice;
+    if (json == null) return null;
+    try {
+      final value = jsonDecode(json);
+      return value is Map<String, Object?> ? NotebookChoice.fromJson(value) : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  set lastNotebookChoice(NotebookChoice? value) =>
+      _settings.lastNotebookChoice = value == null ? null : jsonEncode(value.toJson());
 
   void _update(VoidCallback write) {
     write();

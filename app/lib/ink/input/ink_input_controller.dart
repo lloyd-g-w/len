@@ -221,7 +221,7 @@ class InkInputController {
       }
     }
     // Fingers resting on the screen are the palm now; stop them panning.
-    _nav.clear();
+    _nav.clear(at: e.localPosition);
     final route = routeStylus(e.kind, e.buttons, penButtonAction);
     final eraserTool = route == StylusRoute.tool && tools.tool == EditorTool.eraser;
     _draw.start(

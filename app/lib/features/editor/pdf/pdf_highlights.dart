@@ -29,7 +29,9 @@ abstract final class PdfHighlights {
       tool: InkTool.highlighter,
       color: color,
       width: (across * height).clamp(2.0, 200.0),
-      style: style,
+      // Flat ends, whatever the highlighter's: the band ends where the text
+      // does (round caps would run past it).
+      style: style.copyWith(ends: StrokeEnds.flat, taperStart: 0, taperEnd: 0),
       points: points,
       createdAt: createdAt,
     );
@@ -37,7 +39,7 @@ abstract final class PdfHighlights {
 
   /// The points of a highlighter stroke across line [normalized] of a page
   /// of [size] units: along its middle in reading [direction], end to end
-  /// (the highlighter's flat ends add nothing), one point every 2 units.
+  /// (its flat ends add nothing), one point every 2 units.
   static List<StrokePoint>? points(
     Rect normalized,
     Size size, {

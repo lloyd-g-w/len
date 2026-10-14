@@ -62,7 +62,12 @@ extension _SyncRun on SyncController {
   }) {
     if (cancelled) return;
     _filesNotUploaded = files;
-    _refreshTooLarge();
+    try {
+      _refreshTooLarge();
+    } catch (e) {
+      // (The database may be what failed.) The error is reported anyway.
+      debugPrint('Sync: cannot read the files too large to upload: $e');
+    }
     _lastError = message;
     _lastErrorDetails = details;
     _lastFailure = kind;

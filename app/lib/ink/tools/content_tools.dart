@@ -34,11 +34,9 @@ class ContentTools {
     this.clock = const Clock(),
   }) : selection = SelectionController(model: model, clipboard: clipboard, clock: clock),
        text = TextEditSession(model: model, clock: clock) {
-    lasso.onEditText = (element) {
-      tools.tool = EditorTool.text;
-      text.edit(element);
-    };
+    lasso.onEditText = editText;
     tools.addListener(_onToolChanged);
+    text.addListener(_onTextChanged);
     viewport.addListener(_onViewport);
     _onViewport();
   }
@@ -63,7 +61,12 @@ class ContentTools {
   final LassoPath lassoPath = LassoPath();
   final LaserTrail laser = LaserTrail();
 
-  late final LassoTool lasso = LassoTool(selection: selection, viewport: viewport, path: lassoPath);
+  late final LassoTool lasso = LassoTool(
+    selection: selection,
+    viewport: viewport,
+    path: lassoPath,
+    config: () => tools.lasso,
+  );
   late final ShapeTool shape = ShapeTool(
     model: () => model,
     live: live,
@@ -75,6 +78,28 @@ class ContentTools {
   late final LaserTool laserTool = LaserTool(laser, config: () => tools.laser);
 
   EditorTool _lastTool = EditorTool.pen;
+
+  /// The tool to go back to when a text edit started from another tool
+  /// ([editText]) ends; null once the user picks a tool themselves.
+  EditorTool? _returnTo;
+
+  /// Edits the text box [element] with the text tool (lasso menu, double
+  /// tap). When that edit ends, the tool used before comes back, so the
+  /// next stroke inks or lassoes instead of doing nothing.
+  void editText(SurfaceElement element) {
+    selection.clear();
+    final previous = tools.tool;
+    tools.tool = EditorTool.text;
+    if (previous != EditorTool.text) _returnTo = previous;
+    text.edit(element);
+  }
+
+  void _onTextChanged() {
+    if (text.isEditing) return;
+    final back = _returnTo;
+    _returnTo = null;
+    if (back != null && tools.tool == EditorTool.text) tools.tool = back;
+  }
 
   SurfaceModel get model => selection.model;
 
@@ -191,7 +216,10 @@ class ContentTools {
     final tool = tools.tool;
     if (tool == _lastTool) return;
     if (_lastTool == EditorTool.lasso) selection.clear();
-    if (_lastTool == EditorTool.text) text.end();
+    if (_lastTool == EditorTool.text) {
+      _returnTo = null; // The user picked a tool: keep it.
+      text.end();
+    }
     if (_lastTool == EditorTool.laser) laser.hover(null); // A mouse's dot goes.
     _lastTool = tool;
   }
@@ -199,6 +227,7 @@ class ContentTools {
   void dispose() {
     tools.removeListener(_onToolChanged);
     viewport.removeListener(_onViewport);
+    text.removeListener(_onTextChanged);
     text.end();
     selection.dispose();
     text.dispose();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -12,6 +13,8 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/backup/len_import_flow.dart';
 import 'package:len/ui/app_theme.dart';
+
+import 'support/real_async.dart';
 
 AppServices _services() =>
     AppServices.create(AppDatabase.inMemory(), blobBackend: MemoryBlobBackend());
@@ -43,7 +46,12 @@ void main() {
     return XFile.fromData(Uint8List.fromList(out.getBytes()), name: name);
   }
 
-  Future<void> start(WidgetTester tester, XFile file, {bool restore = false}) async {
+  Future<void> start(
+    WidgetTester tester,
+    XFile file, {
+    bool restore = false,
+    bool settle = true,
+  }) async {
     await tester.pumpWidget(
       AppScope(
         services: target,
@@ -61,7 +69,7 @@ void main() {
       ),
     );
     await tester.tap(find.text('Go'));
-    await tester.pumpAndSettle();
+    settle ? await tester.pumpAndSettle() : await tester.pump(const Duration(milliseconds: 300));
   }
 
   testWidgets('a restore asks first, goes into a dated folder and can be undone', (tester) async {
@@ -90,10 +98,11 @@ void main() {
   testWidgets('a damaged file picked to restore says “Couldn’t restore”', (tester) async {
     final file = XFile.fromData(Uint8List.fromList([1, 2, 3]), path: '/tmp/old.len');
     await start(tester, file, restore: true);
-    for (var i = 0; i < 20 && find.byType(SnackBar).evaluate().isEmpty; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
-      await tester.pump();
-    }
+    await pumpUntil(
+      tester,
+      () => find.byType(SnackBar).evaluate().isNotEmpty,
+      reason: 'the snack bar',
+    );
     expect(find.textContaining('Couldn’t restore “old.len”'), findsOneWidget);
   });
 
@@ -125,6 +134,27 @@ void main() {
     expect(target.folders.list(), isEmpty);
   });
 
+  testWidgets('a big backup shows a progress dialog while it is read; Cancel stops there', (
+    tester,
+  ) async {
+    notebook(source, 'Physics');
+    final written = (await tester.runAsync(() => write(const LenScope.library(), 'backup.len')))!;
+    final bytes = (await tester.runAsync(written.readAsBytes))!;
+    final gate = Completer<void>();
+    await start(tester, _SlowFile(bytes, gate), settle: false);
+    expect(find.text('Opening'), findsOneWidget);
+    expect(find.text('Reading…'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pump();
+    expect(find.text('Opening'), findsNothing);
+
+    gate.complete();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    expect(find.text('Restore this backup?'), findsNothing);
+    expect(target.notebooks.list(), isEmpty);
+  });
+
   testWidgets('a notebook goes into the library’s open folder', (tester) async {
     final n = notebook(source, 'Physics');
     final open = target.folders.create(name: 'Open', color: 0);
@@ -134,4 +164,18 @@ void main() {
     expect(find.text('Imported “Physics”'), findsOneWidget);
     expect(target.notebooks.list().single.folderId, open.id);
   });
+}
+
+/// A picked file whose contents arrive only when [gate] completes (a big
+/// backup being read).
+class _SlowFile extends XFile {
+  _SlowFile(super.bytes, this.gate) : super.fromData(name: 'backup.len');
+
+  final Completer<void> gate;
+
+  @override
+  Future<Uint8List> readAsBytes() async {
+    await gate.future;
+    return super.readAsBytes();
+  }
 }

@@ -101,6 +101,18 @@ class RecognisedTextRepository extends SyncableTable {
     [nextVersion(surfaceId), deviceId, surfaceId],
   );
 
+  /// Tombstones the records of [surfaceIds] (deleted with their notebook
+  /// or page) at [version].
+  void deleteSurfaces(Iterable<String> surfaceIds, {required int version}) {
+    for (final id in surfaceIds) {
+      db.execute(
+        'UPDATE recognised_text SET deleted = 1, dirty = 1, updated_at = ?, device_id = ? '
+        'WHERE id = ? AND deleted = 0',
+        [version, deviceId, id],
+      );
+    }
+  }
+
   static String _encode(Map<String, String> lines) => jsonEncode([
     for (final MapEntry(:key, :value) in lines.entries) [key, value],
   ]);

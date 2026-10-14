@@ -59,7 +59,7 @@ class StrokeStyle {
   /// scale is estimated from the points' spacing (`StrokeOutline.unitOf`).
   final double unit;
 
-  /// The shape of the ends (the highlighter's are always flat).
+  /// The shape of the ends.
   final StrokeEnds ends;
 
   /// With [StrokeEnds.tapered]: the lengths over which the start and the
@@ -92,7 +92,12 @@ class StrokeStyle {
   /// The style of a stroke of [tool] created without one (generated
   /// content, tests).
   static StrokeStyle defaultsFor(InkTool tool) => switch (tool) {
-    InkTool.highlighter => const StrokeStyle(opacity: 0.35, thinning: 0, streamline: 0.5),
+    InkTool.highlighter => const StrokeStyle(
+      opacity: 0.35,
+      thinning: 0,
+      streamline: 0.5,
+      ends: StrokeEnds.flat,
+    ),
     InkTool.ballpoint => const StrokeStyle(),
   };
 

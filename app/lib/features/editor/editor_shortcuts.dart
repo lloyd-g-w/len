@@ -66,13 +66,19 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
   VoidCallback? pastePlain,
 }) {
   final undo = session.undo;
+  final prefs = session.services.preferences;
   final tools = session.tools;
   final selection = session.content.selection;
   final doc = session.doc;
   void selectAll() =>
       session.content.selectAllIn(doc?.pageViewport.contentBounds ?? session.viewport.visibleWorld);
   final nav = <ShortcutActivator, VoidCallback>{
-    if (session.canvasNav case final canvas?) ...canvasShortcuts(canvas, unlessTyping),
+    if (session.canvasNav case final canvas?)
+      ...canvasShortcuts(
+        canvas,
+        unlessTyping,
+        toggleMinimap: () => prefs.canvasMinimap = !prefs.canvasMinimap,
+      ),
     if (doc != null) ...documentShortcuts(doc, session.docAnimator!, unlessTyping),
   };
   final arrows = {

@@ -9,6 +9,7 @@ import '../core/clock.dart';
 import '../domain/cancellation.dart';
 import 'app_database.dart';
 import 'blob_backend.dart';
+import 'blob_mime.dart';
 
 /// Content-addressed storage for large binary data (PDFs, later images).
 ///
@@ -66,19 +67,15 @@ class BlobStore {
 
   /// Stores a copy of [source] (e.g. a picked file; streamed where the
   /// platform allows) and returns its id. A [cancel]led token stops it
-  /// (with [Cancelled]) before anything is stored.
+  /// (with [Cancelled]) while reading or storing; nothing is stored then
+  /// (writes are atomic).
   Future<String> putFile(XFile source, {required String mime, CancellationToken? cancel}) async {
-    final sha = await hashStream(
-      cancel == null
-          ? source.openRead()
-          : source.openRead().map((chunk) {
-              cancel.check();
-              return chunk;
-            }),
-    );
+    Stream<List<int>> read() => cancel?.guard(source.openRead()) ?? source.openRead();
+    final sha = await hashStream(read());
     cancel?.check();
     return _exclusive(() async {
-      if (!await has(sha)) await backend.write(sha, source.openRead());
+      cancel?.check();
+      if (!await has(sha)) await backend.write(sha, read());
       _record(sha, await source.length(), mime, uploaded: false);
       return sha;
     });
@@ -115,18 +112,23 @@ class BlobStore {
   /// Throws [FormatException] if the bytes do not match [sha]. It counts as
   /// uploaded (the server has it) if [fromCurrentServer] still says so once
   /// it is stored: a download from a server this device has since left
-  /// must still be uploaded to the new one.
+  /// must still be uploaded to the new one. Its MIME type is told by its
+  /// content ([BlobMime]).
   Future<void> putDownloaded(
     String sha,
     Uint8List bytes, {
-    String mime = 'application/pdf',
     bool Function()? fromCurrentServer,
   }) async {
     final actual = await compute(_sha256Hex, bytes);
     if (actual != sha) throw FormatException('Blob $sha arrived corrupted');
     await _exclusive(() async {
       if (!await backend.contains(sha)) await backend.write(sha, Stream.value(bytes));
-      _record(sha, bytes.length, mime, uploaded: fromCurrentServer?.call() ?? true);
+      _record(
+        sha,
+        bytes.length,
+        BlobMime.sniff(bytes),
+        uploaded: fromCurrentServer?.call() ?? true,
+      );
     });
   }
 

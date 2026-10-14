@@ -56,7 +56,7 @@ abstract final class StrokeHitTest {
   /// Half the ink's thickness at [point] of [stroke], as rendered: the
   /// nominal width scaled by pressure and thinning.
   static double inkRadius(Stroke stroke, StrokePoint point) =>
-      StrokeRenderer.specFor(stroke.tool, stroke.width, stroke.style).radiusFor(point.pressure);
+      StrokeRenderer.specFor(stroke.width, stroke.style).radiusFor(point.pressure);
 
   /// Squared distance between segments p1-p2 and q1-q2.
   static double segmentDistSq(Offset p1, Offset p2, Offset q1, Offset q2) {

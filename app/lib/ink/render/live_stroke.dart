@@ -245,13 +245,7 @@ class LiveStrokeBuilder {
 
   /// The live outline of [live]'s stroke, built incrementally.
   static LiveOutline livePath(LiveInk live) {
-    final built = build(
-      _builders[live],
-      live.points,
-      tool: live.tool,
-      width: live.width,
-      style: live.style,
-    );
+    final built = build(_builders[live], live.points, width: live.width, style: live.style);
     _builders[live] = built.builder;
     return built.path;
   }
@@ -262,14 +256,13 @@ class LiveStrokeBuilder {
   static Path? finishLive(
     LiveInk live,
     List<StrokePoint> points, {
-    required InkTool tool,
     required double width,
     required StrokeStyle style,
   }) {
     final builder = _builders[live];
     _builders[live] = null;
     if (builder == null || points.isEmpty || points.first != builder._fed.firstOrNull) return null;
-    final spec = StrokeRenderer.specFor(tool, width, style);
+    final spec = StrokeRenderer.specFor(width, style);
     if (!builder.spec.sameLiveShape(spec)) return null;
     return builder.finish(points, taperEnd: spec.taperEnd);
   }
@@ -280,11 +273,10 @@ class LiveStrokeBuilder {
   static ({LiveOutline path, LiveStrokeBuilder builder}) build(
     LiveStrokeBuilder? previous,
     List<StrokePoint> points, {
-    required InkTool tool,
     required double width,
     required StrokeStyle style,
   }) {
-    final spec = StrokeRenderer.specFor(tool, width, style);
+    final spec = StrokeRenderer.specFor(width, style);
     final same = previous != null && previous.continues(points) && previous.spec.sameShape(spec);
     final builder = same ? previous : LiveStrokeBuilder(spec);
     return (path: builder.update(points), builder: builder);

@@ -398,7 +398,7 @@ void main() {
       expect(b.dirty, isEmpty);
     });
 
-    test('pages: order, paper, colour, bookmarks, PDF backgrounds, deletion', () async {
+    test('pages: order, paper, colour, bookmarks, PDF backgrounds, scans, deletion', () async {
       final (time, _, a, b) = _twoDevices();
       final nb = a.s.notebooks.create(
         title: 'Doc',
@@ -417,6 +417,15 @@ void main() {
           background: const PageBackground.pdf(blob: _sha, pageIndex: 2),
         ),
       ]).single;
+      const scanned = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+      final scan = a.s.pages.insertPages(nb.id, [
+        (
+          size: const Size(600, 840),
+          paper: Paper(PaperStyle.blank),
+          color: PaperColor.white,
+          background: const PageBackground.image(blob: scanned),
+        ),
+      ]).single;
       time.tick();
       a.s.pages.move(p3, 0);
       a.s.pages.setPaper([p2.id], paper: Paper(PaperStyle.gridSmall), color: PaperColor.cream);
@@ -428,7 +437,7 @@ void main() {
       expect(changes.pagesOfNotebooks, {nb.id});
 
       List<String> order(_Device d) => d.s.pages.pagesOf(nb.id).map((p) => p.id).toList();
-      expect(order(a), [p3.id, p1.id, p2.id, pdf.id]);
+      expect(order(a), [p3.id, p1.id, p2.id, pdf.id, scan.id]);
       expect(order(b), order(a));
       expect(
         b.s.pages.pagesOf(nb.id).map((p) => p.sortKey),
@@ -442,7 +451,11 @@ void main() {
       final bPdf = b.s.pages.get(pdf.id)!;
       expect(bPdf.background, const PageBackground.pdf(blob: _sha, pageIndex: 2));
       expect(bPdf.size, const Size(612, 792));
-      expect(b.s.pages.referencedBlobs(), {_sha});
+      final bScan = b.s.pages.get(scan.id)!;
+      expect(bScan.background, const PageBackground.image(blob: scanned));
+      expect(bScan.pdf, isNull);
+      expect(bScan.size, const Size(600, 840));
+      expect(b.s.pages.referencedBlobs(), {_sha, scanned});
 
       // B reorders, recolours and unbookmarks; A follows.
       time.tick();
@@ -450,7 +463,7 @@ void main() {
       b.s.pages.setBookmarked(p1.id, false);
       b.s.pages.setPaper([pdf.id], color: PaperColor.dark);
       await _send(b, a);
-      expect(order(a), [p1.id, p2.id, pdf.id, p3.id]);
+      expect(order(a), [p1.id, p2.id, pdf.id, p3.id, scan.id]);
       expect(a.s.pages.get(p1.id)!.bookmarked, isFalse);
       expect(a.s.pages.get(pdf.id)!.paperColor, PaperColor.dark);
       expect(a.s.pages.get(pdf.id)!.background, isNotNull, reason: 'background kept');
@@ -461,7 +474,7 @@ void main() {
       a.s.elements.deleteSurfaces([p2.id]);
       a.s.pages.delete(p2.id);
       await _send(a, b);
-      expect(order(b), [p1.id, pdf.id, p3.id]);
+      expect(order(b), [p1.id, pdf.id, p3.id, scan.id]);
       expect(a.dirty, isEmpty);
       expect(b.dirty, isEmpty);
     });

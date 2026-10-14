@@ -57,13 +57,7 @@ class _InkLabStatsBarState extends State<InkLabStatsBar> {
     if (live.isDrawing) {
       final points = live.points;
       final watch = Stopwatch()..start();
-      StrokeRenderer.buildPath(
-        points,
-        tool: live.tool,
-        width: live.width,
-        style: live.style,
-        complete: false,
-      );
+      StrokeRenderer.buildPath(points, width: live.width, style: live.style, complete: false);
       _outlineMs = watch.elapsedMicroseconds / 1000;
       _maxOutlineMs = math.max(_maxOutlineMs, _outlineMs);
       _outlinePoints = points.length;

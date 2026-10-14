@@ -9,6 +9,7 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/document/page_models.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
 import 'package:len/ink/selection/lasso.dart';
+import 'package:len/ink/selection/lasso_config.dart';
 import 'package:len/ink/selection/selection_controller.dart';
 import 'package:len/ink/selection/selection_surfaces.dart';
 import 'package:len/ink/surface_model.dart';
@@ -118,6 +119,35 @@ void main() {
     expect(a.isHidden('sa') && b.isHidden('sb') && b.isHidden('t'), isTrue);
     selection.clear();
     expect(b.isHidden('sb') || b.isHidden('t'), isFalse);
+  });
+
+  test('the lasso options apply on every page it reaches', () {
+    Lasso across(LassoConfig config) => Lasso(acrossGap.points, config: config);
+    selection.selectLasso(across(const LassoConfig(kinds: {LassoKind.text})));
+    expect(selection.strokes, isEmpty);
+    expect(selection.elements.single.id, 't');
+    // From page a's y 89 to page b's y 35: both dashes lie wholly inside,
+    // the box (page b's y 20 to 50) does not.
+    selection.selectLasso(
+      Lasso(const [
+        Offset(0, 89),
+        Offset(100, 89),
+        Offset(100, 155),
+        Offset(0, 155),
+      ], config: const LassoConfig(cover: LassoCover.whole)),
+    );
+    expect(selection.strokes.map((s) => s.id), unorderedEquals(['sa', 'sb']));
+    expect(selection.elements, isEmpty, reason: 'the box reaches past the lasso');
+    selection.selectLasso(
+      Lasso(const [
+        Offset(0, 155),
+        Offset(100, 155),
+        Offset(100, 200),
+        Offset(0, 200),
+      ], config: const LassoConfig(cover: LassoCover.touching)),
+    );
+    expect(selection.strokes, isEmpty);
+    expect(selection.elements.single.id, 't', reason: 'the lasso crosses the box on page b');
   });
 
   test('moving a two-page selection is one undo step; items stay on their pages', () {

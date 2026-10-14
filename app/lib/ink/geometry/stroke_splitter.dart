@@ -60,7 +60,7 @@ abstract final class StrokeSplitter {
 
     // Fragments keep the scale the original was shaped at (estimated from
     // its first points when not recorded).
-    final spec = StrokeRenderer.specFor(stroke.tool, stroke.width, stroke.style);
+    final spec = StrokeRenderer.specFor(stroke.width, stroke.style);
     // Fragments are open, so a filled shape's pieces have no fill.
     final style = stroke.style.withFill(null);
     final base = style.unit > 0
@@ -114,11 +114,7 @@ abstract final class StrokeSplitter {
     StrokeStyle style,
   ) {
     // A first guess, then shifted by the difference where the lines meet.
-    final spec = StrokeRenderer.specFor(
-      original.tool,
-      original.width,
-      style.copyWith(startPhase: 1),
-    );
+    final spec = StrokeRenderer.specFor(original.width, style.copyWith(startPhase: 1));
     final fragment = StrokeOutline.shaperOf(points, spec);
     final step = fragment.p.step;
     for (var m = 1; m < points.length; m++) {

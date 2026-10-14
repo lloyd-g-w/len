@@ -22,7 +22,25 @@ abstract final class SchemaMigrations {
     _recognisedText,
     ChunkDigestMigration.migrate,
     _tombstonePayloadIndexes,
+    _notebookStyles,
   ];
+
+  /// Version 12: the user's notebook styles (collection `notebook_styles`,
+  /// see `NotebookStyleRepository`); `style` is `NotebookChoice.toJson`.
+  static void _notebookStyles(CommonDatabase db) {
+    db.execute('''
+      CREATE TABLE notebook_styles (
+        id          TEXT PRIMARY KEY NOT NULL,
+        name        TEXT NOT NULL,
+        style       TEXT NOT NULL,
+        is_default  INTEGER NOT NULL DEFAULT 0,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+  }
 
   /// Version 11: tombstones that still keep their payload, by version, so
   /// dropping the old payloads (`TombstonePayloads.purge`, at the daily

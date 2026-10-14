@@ -7,13 +7,26 @@ import '../../../ui/group_header.dart';
 import '../../../ui/roving_focus.dart';
 import 'option_controls.dart';
 
-/// Per-pen cap shape. The preview above this control renders the selected
-/// style using the same outline builder as saved strokes.
+/// Per-ink cap shape, among [styles] (`PenDefaults.endStyles`). The
+/// preview above this control renders the selected style using the same
+/// outline builder as saved strokes.
 class PenEndsOptions extends StatelessWidget {
-  const PenEndsOptions({super.key, required this.config, required this.onChanged});
+  const PenEndsOptions({
+    super.key,
+    required this.config,
+    required this.styles,
+    required this.onChanged,
+  });
 
   final PenConfig config;
+  final List<StrokeEnds> styles;
   final ValueChanged<PenEnds> onChanged;
+
+  static String _label(StrokeEnds style) => switch (style) {
+    StrokeEnds.round => 'Round',
+    StrokeEnds.tapered => 'Tapered',
+    StrokeEnds.flat => 'Flat',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -28,10 +41,8 @@ class PenEndsOptions extends StatelessWidget {
           RovingSegments(
             SegmentedButton<StrokeEnds>(
               showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: StrokeEnds.round, label: Text('Round')),
-                ButtonSegment(value: StrokeEnds.tapered, label: Text('Tapered')),
-                ButtonSegment(value: StrokeEnds.flat, label: Text('Flat')),
+              segments: [
+                for (final style in styles) ButtonSegment(value: style, label: Text(_label(style))),
               ],
               selected: {ends.style},
               onSelectionChanged: (selected) => onChanged(ends.copyWith(style: selected.single)),

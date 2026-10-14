@@ -63,17 +63,28 @@ void main() {
       }
     });
 
-    test('a pen config gives its strokes its ends; the highlighter keeps flat ones', () {
+    test('a pen config gives its strokes its ends', () {
       final config = PenConfig.defaultsFor(InkTool.ballpoint).copyWith(
         ends: const PenEnds(style: StrokeEnds.tapered, taperLength: 5, taperAt: TaperAt.end),
       );
       final style = config.styleFor(InkTool.ballpoint);
       expect((style.ends, style.taperStart, style.taperEnd), (StrokeEnds.tapered, 0.0, 5.0));
-      final spec = StrokeRenderer.specFor(InkTool.ballpoint, 2, style);
+      final spec = StrokeRenderer.specFor(2, style);
       expect((spec.taperStart, spec.taperEnd, spec.flatCaps), (0.0, 10.0, false));
-      final hl = StrokeRenderer.specFor(InkTool.highlighter, 10, style);
-      expect((hl.taperEnd, hl.flatCaps), (0.0, true));
       expect(PenConfig.fromJson(config.toJson(), tool: InkTool.ballpoint), config);
+    });
+
+    test('the highlighter: flat ends by default, or round; never tapered', () {
+      final defaults = PenConfig.defaultsFor(InkTool.highlighter);
+      expect(defaults.styleFor(InkTool.highlighter).ends, StrokeEnds.flat);
+      expect(StrokeRenderer.specFor(10, defaults.styleFor(InkTool.highlighter)).flatCaps, isTrue);
+      final round = defaults.copyWith(ends: const PenEnds());
+      final style = round.styleFor(InkTool.highlighter);
+      expect((style.ends, style.opacity), (StrokeEnds.round, defaults.opacity));
+      expect(StrokeRenderer.specFor(10, style).flatCaps, isFalse);
+      expect(PenConfig.fromJson(round.toJson(), tool: InkTool.highlighter), round);
+      final tapered = defaults.copyWith(ends: const PenEnds(style: StrokeEnds.tapered));
+      expect(PenConfig.fromJson(tapered.toJson(), tool: InkTool.highlighter), isNull);
     });
 
     test('the end taper follows the lift speed', () {

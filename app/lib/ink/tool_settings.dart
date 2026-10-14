@@ -10,6 +10,7 @@ import 'editor_tool.dart';
 import 'pen/eraser_config.dart';
 import 'pen/pen_config.dart';
 import 'pen/recent_colors.dart';
+import 'selection/lasso_config.dart';
 import 'shapes/shape_fill.dart';
 import 'shapes/shape_kind.dart';
 import 'tools/laser_config.dart';
@@ -18,6 +19,7 @@ export 'editor_tool.dart';
 export 'pen/eraser_config.dart';
 export 'pen/pen_config.dart';
 export 'pen/pen_defaults.dart';
+export 'selection/lasso_config.dart';
 export 'shapes/shape_fill.dart';
 export 'shapes/shape_kind.dart';
 export 'tools/laser_config.dart';
@@ -49,6 +51,7 @@ class ToolSettings extends ChangeNotifier {
   ShapeKind _shape = ShapeKind.rectangle;
   ShapeFill _shapeFill = ShapeFill.none;
   LaserConfig _laser = const LaserConfig();
+  LassoConfig _lasso = const LassoConfig();
   TextData _text = const TextData();
   bool _holdToStraighten;
   bool _scribbleToErase;
@@ -170,6 +173,14 @@ class ToolSettings extends ChangeNotifier {
     _changed();
   }
 
+  /// What and how the lasso selects.
+  LassoConfig get lasso => _lasso;
+  set lasso(LassoConfig value) {
+    if (value == _lasso) return;
+    _lasso = value;
+    _changed();
+  }
+
   /// Formatting of new text boxes (its text is ignored).
   TextData get textStyle => _text;
   set textStyle(TextData value) {
@@ -237,6 +248,7 @@ class ToolSettings extends ChangeNotifier {
         _shape == other._shape &&
         _shapeFill == other._shapeFill &&
         _laser == other._laser &&
+        _lasso == other._lasso &&
         identical(_text, other._text) &&
         identical(_recent, other._recent) &&
         inks.every((t) => identical(_configs[t], other._configs[t]));
@@ -248,6 +260,7 @@ class ToolSettings extends ChangeNotifier {
     _shape = other._shape;
     _shapeFill = other._shapeFill;
     _laser = other._laser;
+    _lasso = other._lasso;
     _text = other._text;
     _recent = other._recent;
     notifyListeners();
@@ -264,6 +277,7 @@ class ToolSettings extends ChangeNotifier {
     'shape': _shape.name,
     'shapeFill': _shapeFill.toJson(),
     'laser': _laser.toJson(),
+    'lasso': _lasso.toJson(),
     'text': _text.toJson(),
   };
 
@@ -288,6 +302,7 @@ class ToolSettings extends ChangeNotifier {
     _shape = ShapeKind.parse(data['shape']);
     _shapeFill = ShapeFill.parse(data['shapeFill']);
     _laser = LaserConfig.fromJson(data['laser']);
+    _lasso = LassoConfig.fromJson(data['lasso']);
     if (data['text'] case final Map<String, Object?> text) _text = TextData.fromJson(text);
   }
 

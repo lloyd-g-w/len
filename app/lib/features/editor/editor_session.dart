@@ -20,6 +20,7 @@ import 'document/document_commands.dart';
 import 'document/document_controller.dart';
 import 'document/document_layout.dart';
 import 'document/document_selection.dart';
+import 'document/page_backgrounds.dart';
 import 'document/page_fit.dart';
 import 'document/undo_target.dart';
 import 'double_tap_zoom.dart';
@@ -96,6 +97,7 @@ class EditorSession {
       );
       shared.attachDocument(doc, commands.reload);
       backgrounds = shared.backgrounds;
+      pdfBackgrounds = shared.pdfBackgrounds;
       content = _contentFor(doc.activeModel, doc.pageViewport);
       final pdf = this.pdf = PdfInteraction(doc: doc, tools: tools, info: shared.pdfInfo);
       content.lasso.text = pdf; // The lasso selects PDF text too.
@@ -197,8 +199,11 @@ class EditorSession {
   DocumentController? doc;
   DocumentCommands? commands;
 
+  /// Page backgrounds: PDF pages and scans (the shared notebook's).
+  PageBackgrounds? backgrounds;
+
   /// Rendered PDF backgrounds (the shared notebook's).
-  PdfBackgroundCache? backgrounds;
+  PdfBackgroundCache? pdfBackgrounds;
 
   /// Text selection, links and outline of imported PDF pages.
   PdfInteraction? pdf;

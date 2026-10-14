@@ -73,8 +73,8 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 11);
-    expect(AppDatabase.latestVersion, 11);
+    expect(schema['version'], 12);
+    expect(AppDatabase.latestVersion, 12);
     // Version 7: a notebook's paper look.
     expect(schema['notebooks'], contains("paper_data TEXT 1 '{}' 0"));
     // Version 3: recording waveforms, stroke times per surface.
@@ -106,6 +106,7 @@ void main() {
         'ink_text',
         'ink_text_queue',
         'recognised_text',
+        'notebook_styles',
       ]),
     );
     final indexes = (schema['indexes']! as List<String>).join('\n');
@@ -311,13 +312,13 @@ void main() {
     final dir = Directory.systemTemp.createTempSync('len_schema_reset');
     addTearDown(() => dir.deleteSync(recursive: true));
     final path = '${dir.path}/len.db';
-    // A pre-squash development database: user_version 11, an old table.
+    // A pre-squash development database: user_version 12, an old table.
     AppDatabase.open(path).close();
     final raw = AppDatabase.open(path);
     raw.db
       ..execute('CREATE TABLE legacy_only (x INTEGER)')
       ..execute('DROP TABLE IF EXISTS blobs')
-      ..execute('PRAGMA user_version = 11');
+      ..execute('PRAGMA user_version = 12');
     raw.close();
 
     final reopened = AppDatabase.open(path);
@@ -331,16 +332,17 @@ void main() {
     expect(tables, isNot(contains('legacy_only')));
     reopened.close();
 
-    final backups = dir.listSync().where((f) => f.path.contains('.schema-11-')).toList();
+    final backups = dir.listSync().where((f) => f.path.contains('.schema-12-')).toList();
     expect(backups, hasLength(1), reason: 'the old file is kept aside');
   });
 }
 
-/// Back to the chunk indexes before version 10.
-/// Undoes versions 10 and 11 of a fresh database.
+/// Back to before version 10 (the chunk indexes): undoes versions 10 to 12
+/// of a fresh database.
 void _dropChunkDigests(CommonDatabase db) {
   db.execute('ALTER TABLE stroke_chunks DROP COLUMN digest');
   db.execute('ALTER TABLE element_chunks DROP COLUMN digest');
   db.execute('DROP INDEX strokes_tombstone_payloads');
   db.execute('DROP INDEX elements_tombstone_payloads');
+  db.execute('DROP TABLE notebook_styles');
 }

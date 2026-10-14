@@ -160,6 +160,18 @@ void main() {
 
         d.down(5, const Offset(10, 10), eligible: false); // e.g. drawing
         await tester.pump(ms(600));
+        d.up(5);
+        expect(fired, hasLength(1));
+
+        // A mouse button lifted meanwhile (never a finger down here) does
+        // not hide finger 6, still resting, from finger 8's press.
+        d
+          ..down(6, const Offset(10, 10))
+          ..down(7, const Offset(90, 10))
+          ..up(99)
+          ..up(7)
+          ..down(8, const Offset(50, 50));
+        await tester.pump(ms(600));
         expect(fired, hasLength(1));
       }
     });
@@ -344,6 +356,26 @@ void main() {
       stroke(4, const Offset(500, 500), const Offset(600, 500));
       expect(content.selection.isEmpty, isTrue);
       expect(model.loadedStrokeCount, 2);
+    });
+
+    test('the side-button lasso follows the lasso options', () {
+      stroke(1, const Offset(100, 100), const Offset(200, 100));
+      action = PenButtonAction.lasso;
+      tools.lasso = const LassoConfig(shape: LassoShape.rectangle, cover: LassoCover.whole);
+      const k = PointerDeviceKind.stylus;
+      const b = kPrimaryStylusButton;
+      void drag(int pointer, Offset from, Offset to) => input
+        ..handleDown(down(pointer, from, kind: k, buttons: b))
+        ..handleMove(move(pointer, Offset.lerp(from, to, 0.5)!, kind: k, buttons: b))
+        ..handleMove(move(pointer, to, kind: k, buttons: b))
+        ..handleUp(up(pointer, to, kind: k));
+      // A rectangle short of the stroke's end takes nothing (wholly inside).
+      drag(2, const Offset(80, 60), const Offset(180, 140));
+      expect(content.selection.isEmpty, isTrue);
+      // One around all of it takes it: a straight drag, no loop.
+      drag(3, const Offset(80, 60), const Offset(220, 140));
+      expect(content.selection.strokes, hasLength(1));
+      expect(model.loadedStrokeCount, 1);
     });
 
     testWidgets('a palm resting next to the pen is not a two-finger hold', (tester) async {

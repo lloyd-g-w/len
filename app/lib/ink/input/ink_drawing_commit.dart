@@ -28,12 +28,11 @@ extension _InkCommit on InkDrawing {
     final path = LiveStrokeBuilder.finishLive(
       live,
       points,
-      tool: stroke.tool,
       width: stroke.width,
       style: stroke.style,
     );
     if (path != null) StrokeRenderer.adopt(stroke, path);
-    _committedTaper = StrokeRenderer.specFor(stroke.tool, stroke.width, stroke.style).taperEnd;
+    _committedTaper = StrokeRenderer.specFor(stroke.width, stroke.style).taperEnd;
     PerfProbe.lift(liftTime);
     developer.Timeline.timeSync('len.commitStroke', () => model.addStroke(stroke));
   }

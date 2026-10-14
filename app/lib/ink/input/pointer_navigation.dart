@@ -70,10 +70,14 @@ class PointerNavigation {
     _anchorSpread();
   }
 
-  /// Forgets all navigating pointers (e.g. a stylus landed: they are a palm).
-  void clear() {
+  /// Forgets all navigating pointers (e.g. a stylus landed: they are a
+  /// palm). A zoom stretched past its limits snaps back to the limit at
+  /// once, about [at] (the pen, so what is under it stays put): a spring
+  /// back would move the page under the stroke being written.
+  void clear({Offset? at}) {
     _pointers.clear();
     _starts.clear();
+    if (viewport.overZoomed) viewport.zoomAt(at ?? _focal, 1);
   }
 
   void move(PointerMoveEvent e) {

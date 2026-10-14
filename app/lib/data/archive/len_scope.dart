@@ -95,7 +95,8 @@ class ResolvedScope {
   /// Notebooks written.
   final List<String> notebooks;
 
-  /// Whether the user's own templates are written (the library).
+  /// Whether the user's own templates and notebook styles are written (the
+  /// library).
   final bool templates;
 
   final CommonDatabase _db;
@@ -111,7 +112,10 @@ class ResolvedScope {
         yield ('folders', 'id = ?', [id]);
       }
     }
-    if (templates) yield ('templates', '1', const []);
+    if (templates) {
+      yield ('templates', '1', const []);
+      yield ('notebook_styles', '1', const []);
+    }
     for (final id in notebooks) {
       yield ('notebooks', 'id = ?', [id]);
     }

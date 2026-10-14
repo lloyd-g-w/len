@@ -65,6 +65,8 @@ extension _Invalidation on InkTileCache {
       }
       return;
     }
+    final underlaid = change.underlaid;
+    if (underlaid != null && _space != null) return _underlay(underlaid, areas);
     final hit = _touching(_tiles, areas);
     if (change.loaded) {
       // Stored content arrived: it was not on screen before, so nothing
@@ -82,6 +84,29 @@ extension _Invalidation on InkTileCache {
       // ones, all rendered at once, replace them together a frame or two
       // later (see [_flushBatch]).
       _restale(hit, 0);
+    }
+  }
+
+  /// A highlighter's pen-up: tiles with an image keep it, stale, with the
+  /// strokes drawn beneath it — as the live stroke was, beneath the
+  /// committed ink — until rendered again (urgently); tiles without one
+  /// show the content as it now is from vectors. So the highlight never
+  /// misses a frame, however many tiles it crosses.
+  void _underlay(List<Stroke> strokes, List<ui.Rect> areas) {
+    for (final tile in _touching(_tiles, areas)) {
+      if (tile.image == null) {
+        tile
+          ..invalidate()
+          ..edited = true;
+        continue;
+      }
+      final rect = tile.space.worldRectOf(tile.index);
+      tile
+        ..dropParked()
+        ..version += 1
+        ..stale = true
+        ..underlay.addAll(strokes.where((s) => s.bounds.overlaps(rect)));
+      if (_inUse) _request(tile.index, 0);
     }
   }
 
@@ -109,8 +134,9 @@ extension _Invalidation on InkTileCache {
         ..dropParked()
         ..version += 1
         ..stale = true
-        // Strokes appended since, unless erased or hidden by this change.
-        ..overlay.removeWhere((s) => model.strokeById(s.id) != s || model.isHidden(s.id));
+        // Strokes added since, unless erased or hidden by this change.
+        ..overlay.removeWhere((s) => model.strokeById(s.id) != s || model.isHidden(s.id))
+        ..underlay.removeWhere((s) => model.strokeById(s.id) != s || model.isHidden(s.id));
       tile.batched = priority == 0;
       if (_inUse) _request(tile.index, priority);
     }

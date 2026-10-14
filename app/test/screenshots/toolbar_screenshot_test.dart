@@ -167,12 +167,8 @@ void main() {
         await tester.tap(find.byTooltip(tooltip));
         await settle(tester);
         await shoot(tester, 'toolbar_${shot}_$m', crop: topRect(tester));
-        if (shot == 'lasso') {
-          // Nothing to set: picking it shows a one-time tip instead (it
-          // goes with the next tool).
-          await shoot(tester, 'tip_lasso_$m');
-          continue;
-        }
+        // Picking the lasso shows a one-time tip (it goes with the next tool).
+        if (shot == 'lasso') await shoot(tester, 'tip_lasso_$m');
         await tester.tap(find.byTooltip(tooltip));
         await settle(tester);
         await shoot(tester, 'popover_${shot}_$m');
@@ -250,6 +246,28 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('width-1')));
       await settle(tester);
       await shoot(tester, 'phone_slot_size_$m');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+    testWidgets('toolbar phone: lasso and laser sheets ${mode.name}', (tester) async {
+      await openEditor(tester, phone, 2, mode);
+      for (final (tool, shot) in [('Lasso', 'lasso'), ('Laser', 'laser')]) {
+        await tester.tap(find.byType(ToolSwitcherButton));
+        await settle(tester);
+        await tester.tap(find.text(tool));
+        await settle(tester);
+        await tester.longPress(find.byType(ToolSwitcherButton));
+        await settle(tester);
+        if (shot == 'laser') {
+          await tester.tap(find.text('When I stop'));
+          await settle(tester);
+        }
+        await shoot(tester, 'phone_${shot}_sheet_${mode.name}');
+        await tester.tapAt(const Offset(195, 60));
+        await settle(tester);
+      }
       expect(tester.takeException(), isNull);
     });
   }

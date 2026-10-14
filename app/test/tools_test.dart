@@ -282,6 +282,25 @@ void main() {
       expect(session.current!.rect.height, greaterThan(40)); // wraps
     });
 
+    test('a wide box edited while zoomed in keeps its width (the screen is no limit)', () {
+      session
+        ..autoWidthLimit = double.infinity
+        ..create(Offset.zero, style: const TextData(fontSize: 20));
+      session.setData(session.data.copyWith(text: 'Hello there, a long line'));
+      final id = session.current!.id;
+      session.end();
+      final box = model.elementById(id)!;
+      final width = box.rect.width;
+      session
+        ..autoWidthLimit =
+            width /
+            2 // zoomed in: the screen shows half of it
+        ..edit(box)
+        ..setData(session.data.copyWith(text: '${session.data.text}!'));
+      expect(session.data.autoWidth, isTrue);
+      expect(session.current!.rect.width, greaterThan(width));
+    });
+
     test('resizing a box ends auto width', () {
       session.create(Offset.zero, style: const TextData(text: 'x'));
       session.setData(session.data.copyWith(text: 'abc'));

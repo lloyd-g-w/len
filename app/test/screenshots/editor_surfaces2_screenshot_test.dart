@@ -7,6 +7,7 @@ import 'package:image/image.dart' as img;
 import 'package:len/app_services.dart';
 
 import '../images_ui_test.dart' show seedImage;
+import '../support/real_async.dart';
 import '../support/selection_actions.dart';
 import 'editor_screenshot_test.dart' show pumpEditor;
 import 'editor_surfaces_common.dart';
@@ -70,7 +71,7 @@ Future<AppServices> _withPhoto(WidgetTester tester, Screen screen, ThemeMode mod
     ),
   );
   await pumpNotebook(tester, s, board, screen: screen, mode: mode);
-  await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+  await pumpUntil(tester, () => !s.images.isBusy, stable: 3, reason: 'the photo to decode');
   await settle(tester);
   return s;
 }

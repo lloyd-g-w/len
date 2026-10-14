@@ -105,11 +105,14 @@ class RichTextBuffer {
   /// another app): its character formatting over [base] (the font, size,
   /// colour and highlight at the caret, where the fragment sets none) and
   /// the paragraph styles of the lines it adds. The first line takes the
-  /// fragment's style only if the paste fills it and that style is not
-  /// body text (plain text pasted into a list item stays an item).
+  /// fragment's style only if the paste fills it or goes above it, and that
+  /// style is not body text (plain text pasted into a list item stays an
+  /// item); a line pasted above keeps its own style.
   void insertRich(int start, int end, TextData fragment, SpanStyle base) {
     final line = lineOf(start);
     final fills = start == lineStart(line) && end == lineEnd(lineOf(end));
+    // Lines pasted at the start of a line go above it: it keeps its style.
+    final above = start == end && start == lineStart(line) && !fills;
     replace(start, end, fragment.text, base);
     final styles = fragment.charStyles();
     for (var i = 0; i < styles.length; i++) {
@@ -126,8 +129,9 @@ class RichTextBuffer {
       );
     }
     final paras = fragment.paras;
-    if (fills && paras.first != ParaStyle.body) _paras[line] = paras.first;
-    for (var k = 1; k < paras.length; k++) {
+    final first = fills || (above && paras.length > 1);
+    if (first && paras.first != ParaStyle.body) _paras[line] = paras.first;
+    for (var k = 1; k < paras.length - (above ? 1 : 0); k++) {
       _paras[line + k] = paras[k];
     }
   }

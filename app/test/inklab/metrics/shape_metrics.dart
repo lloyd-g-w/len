@@ -26,7 +26,7 @@ class StrokePair {
 
   /// The engine's hook rules for this stroke, in screen px.
   HookFinder get hooks {
-    final spec = StrokeRenderer.specFor(stroke.tool, stroke.width, stroke.style);
+    final spec = StrokeRenderer.specFor(stroke.width, stroke.style);
     final h = StrokeOutline.paramsOf(stroke.points, spec).hooks;
     return HookFinder.lengths(
       maxStart: h.maxStart * scale,
@@ -41,7 +41,6 @@ class StrokePair {
   /// curve (`StrokeSampler.strokePressure`), then the pen's width.
   double radiusFor(double pressure) =>
       StrokeRenderer.specFor(
-        stroke.tool,
         stroke.width,
         stroke.style,
       ).radiusFor(StrokeSampler.strokePressure(pressure)) *

@@ -47,7 +47,7 @@ List<FrameCost> frameCosts(ReplayResult r) {
 
 bool _settled(ReplayResult r, ReplayFrame f) {
   if (f.points.length < StrokeOutline.unitPoints) return false;
-  final spec = StrokeRenderer.specFor(r.pen.tool, r.pen.width, f.style);
+  final spec = StrokeRenderer.specFor(r.pen.width, f.style);
   final shaper = StrokeShaper(StrokeOutline.paramsOf(f.points, spec));
   StrokeOutline.feed(shaper, f.points, spec).update();
   return shaper.finalCount > 0;

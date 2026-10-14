@@ -134,7 +134,7 @@ class PageRepository extends SyncableTable {
     final changed = <String>[];
     database.transaction(() {
       for (final page in pagesOf(notebookId)) {
-        final bg = page.background;
+        final bg = page.pdf;
         if (bg == null || bg.blob != from) continue;
         final relinked = PageBackground.pdf(blob: to, pageIndex: bg.pageIndex);
         _update(page.id, 'background = ?', [jsonEncode(relinked.toJson())]);

@@ -147,6 +147,7 @@ final List<ShortcutGroup> shortcutGroups = [
       SingleActivator(LogicalKeyboardKey.arrowDown),
     ], shown: '← ↑ → ↓'),
     const ShortcutHelp('Back to start', [SingleActivator(LogicalKeyboardKey.home)]),
+    const ShortcutHelp('Minimap', [SingleActivator(LogicalKeyboardKey.keyM, shift: true)]),
   ]),
   ShortcutGroup('Text boxes', [
     ShortcutHelp('Bold / italic / underline', [

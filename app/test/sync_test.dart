@@ -262,6 +262,32 @@ void main() {
       controller.dispose();
     });
 
+    test(
+      'a failure while reporting a failure still ends in an error, and runs the follow-up',
+      () async {
+        final server = FakeServer();
+        final a = AppServices.create(AppDatabase.inMemory());
+        var runs = 0;
+        final controller = SyncController(
+          engine: a.sync.engine,
+          settings: a.settings,
+          tokens: a.sync.tokens,
+          apiFactory: (url, token) {
+            runs++;
+            return SyncApi(baseUrl: url, token: token, client: server.client);
+          },
+        );
+        controller.configure(url: 'http://sync.test', token: FakeServer.token);
+        // A broken database: the sync fails, and so does reading the blobs
+        // too large to upload while reporting it.
+        a.database.db.execute('DROP TABLE blobs');
+        await Future.wait([controller.syncNow(), controller.syncNow()]);
+        expect(runs, 2);
+        expect(controller.state, SyncState.error);
+        controller.dispose();
+      },
+    );
+
     test('disposing during a sync neither throws nor writes', () async {
       final server = FakeServer();
       final a = AppServices.create(AppDatabase.inMemory());

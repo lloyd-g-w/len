@@ -40,7 +40,7 @@ void main() {
       build: (live) {
         StrokeOutline.build(
           live.points,
-          StrokeRenderer.specFor(live.tool, live.width, live.style),
+          StrokeRenderer.specFor(live.width, live.style),
           complete: false,
         );
         return LiveStrokeBuilder.livePath(live);

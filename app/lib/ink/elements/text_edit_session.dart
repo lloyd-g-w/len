@@ -50,8 +50,9 @@ class TextEditSession extends ChangeNotifier {
   /// middle), formatted like [style]. Without a [width] the box is as wide
   /// as its text (growing up to [autoWidthLimit], then wrapping).
   void create(Offset at, {required TextData style, double? width}) {
-    end();
+    _end(notify: false);
     _edited = false;
+    _startWidth = 0;
     final data = style.copyWith(text: '', autoWidth: width == null);
     final w = width ?? TextLayout.naturalWidth(data);
     final height = TextLayout.heightOf(data, w);
@@ -68,15 +69,20 @@ class TextEditSession extends ChangeNotifier {
   }
 
   /// Widest an auto-width box grows (world units) before it starts to
-  /// wrap at that width, e.g. up to the edge of the screen or page.
+  /// wrap at that width, e.g. up to the edge of the screen or page. A box
+  /// already wider when editing starts (seen zoomed in) grows freely.
   double autoWidthLimit = double.infinity;
+
+  /// Width of the edited box when editing started.
+  double _startWidth = 0;
 
   /// Starts editing an existing text box.
   void edit(SurfaceElement element) {
     if (identical(element, _original)) return;
-    end();
+    _end(notify: false);
     _original = element;
     _current = element;
+    _startWidth = element.rect.width;
     _edited = false;
     _model.setHidden({element.id}, owner: this);
     notifyListeners();
@@ -111,7 +117,9 @@ class TextEditSession extends ChangeNotifier {
     );
   }
 
-  /// Whether the user changed the box in this session.
+  /// Whether the user changed the box in this session (until then it
+  /// follows changes made elsewhere).
+  bool get isEdited => _edited;
   bool _edited = false;
 
   void _update(SurfaceElement element) {
@@ -121,9 +129,11 @@ class TextEditSession extends ChangeNotifier {
     var width = math.max(r.width, TextLayout.minWidth);
     if (data.autoWidth) {
       width = TextLayout.naturalWidth(data);
-      if (width > autoWidthLimit) {
+      // A box wider than the limit (edited zoomed in) is not wrapped by it.
+      final limit = _startWidth > autoWidthLimit ? double.infinity : autoWidthLimit;
+      if (width > limit) {
         // Grown to the limit: wrap there from now on.
-        width = math.max(autoWidthLimit, TextLayout.minWidth);
+        width = math.max(limit, TextLayout.minWidth);
         data = data.copyWith(autoWidth: false);
         element = element.copyWith(data: data.toJson(element.data));
       }
@@ -134,7 +144,11 @@ class TextEditSession extends ChangeNotifier {
   }
 
   /// Ends editing, committing any change as one undoable edit.
-  void end() {
+  void end() => _end(notify: true);
+
+  /// Ends editing; [notify] is off when another box starts straight away
+  /// (listeners see one change, not a moment without a box).
+  void _end({required bool notify}) {
     final original = _original;
     final current = _current;
     if (current == null) return;
@@ -150,7 +164,7 @@ class TextEditSession extends ChangeNotifier {
       _model.commit(InkEdit(removedElements: [original], addedElements: [current]));
     }
     _model.setHidden(const {}, owner: this);
-    notifyListeners();
+    if (notify) notifyListeners();
   }
 
   /// Abandons the session without storing anything.

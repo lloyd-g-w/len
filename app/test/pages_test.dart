@@ -223,6 +223,23 @@ void main() {
       expect(PageBackground.fromJson({'type': 'pdf', 'blob': 'nope', 'page': 0}), isNull);
     });
 
+    test('image backgrounds (scans) round-trip', () {
+      const sha = 'cd34cd34cd34cd34cd34cd34cd34cd34cd34cd34cd34cd34cd34cd34cd34cd34';
+      const scan = PageBackground.image(blob: sha);
+      final page = pages.insertPages(nb.id, [
+        (size: const Size(600, 800), paper: Paper.blank, color: PaperColor.white, background: scan),
+      ]).single;
+      final stored = pages.get(page.id)!;
+      expect(stored.background, scan);
+      expect(stored.background!.isPdf, isFalse);
+      expect(stored.pdf, isNull);
+      expect(scan.toJson(), {'type': 'image', 'blob': sha});
+      expect(PageBackground.fromJson(scan.toJson()), scan);
+      expect(scan == const PageBackground.pdf(blob: sha, pageIndex: 0), isFalse);
+      expect(pages.referencedBlobs(), {sha});
+      expect(PageBackground.fromJson({'type': 'scan', 'blob': sha}), isNull);
+    });
+
     test('surface copier duplicates strokes with new ids', () {
       final page = pages.pagesOf(nb.id).single;
       s.strokes.save([_stroke('a', page.id), _stroke('b', page.id)]);

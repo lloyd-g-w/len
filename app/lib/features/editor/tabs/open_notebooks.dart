@@ -124,8 +124,9 @@ class OpenNotebooks extends ChangeNotifier {
   /// change, so the editors created for the new layout start there.
   VoidCallback? captureViews;
 
-  /// Opens [notebook] in a tab (after the active one) and activates it.
-  void open(Notebook notebook) {
+  /// Opens [notebook] in a tab (after the active one) and activates it;
+  /// with [view], shows it there (e.g. at a linked page).
+  void open(Notebook notebook, {EditorViewState? view}) {
     captureViews?.call();
     if (!contains(notebook.id)) {
       final at = _tabs.indexWhere((t) => t.id == _activeId);
@@ -141,6 +142,7 @@ class OpenNotebooks extends ChangeNotifier {
         _remove(victim);
       }
     }
+    if (view != null) _views[notebook.id] = view;
     _activate(notebook.id);
     notifyListeners();
   }

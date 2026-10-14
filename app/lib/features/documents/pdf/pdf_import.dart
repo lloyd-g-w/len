@@ -46,9 +46,11 @@ class PdfImporter {
     }
   }
 
-  /// Page specs (one per PDF page) for blob [sha].
-  Future<List<PageSpec>> specsFor(String sha) async {
-    final sizes = await _renderer.pageSizes(sha);
+  /// Page specs (one per PDF page) for blob [sha]. A [cancel]led token
+  /// stops the wait at once (PDFium measures a huge PDF in one call).
+  Future<List<PageSpec>> specsFor(String sha, {CancellationToken? cancel}) async {
+    final measuring = _renderer.pageSizes(sha);
+    final sizes = await (cancel?.race(measuring) ?? measuring);
     if (sizes.isEmpty) throw const FormatException('The PDF has no pages');
     return [
       for (var i = 0; i < sizes.length; i++)
@@ -63,14 +65,16 @@ class PdfImporter {
 
   /// Creates a notebook titled [title] with one page per PDF page;
   /// [onPages] hears the page count before the pages are created (and may
-  /// throw to stop before anything is created, e.g. [Cancelled]).
+  /// throw to stop before anything is created, e.g. [Cancelled]). [cancel]
+  /// stops it while the pages are measured.
   Future<Notebook> createNotebook(
     String sha, {
     required String title,
     required int cover,
     void Function(int pages)? onPages,
+    CancellationToken? cancel,
   }) async {
-    final specs = await specsFor(sha);
+    final specs = await specsFor(sha, cancel: cancel);
     onPages?.call(specs.length);
     final notebook = services.database.transaction(() {
       final notebook = services.notebooks.create(
@@ -92,14 +96,16 @@ class PdfImporter {
 
   /// Inserts the PDF's pages into [notebookId] after [after] (at the end
   /// if null); returns the new pages. [onPages] hears the page count (and
-  /// may throw to stop before anything is inserted).
+  /// may throw to stop before anything is inserted); [cancel] stops it
+  /// while the pages are measured.
   Future<List<NotebookPage>> insertPages(
     String sha, {
     required String notebookId,
     NotebookPage? after,
     void Function(int pages)? onPages,
+    CancellationToken? cancel,
   }) async {
-    final specs = await specsFor(sha);
+    final specs = await specsFor(sha, cancel: cancel);
     onPages?.call(specs.length);
     final pages = services.pages.insertPages(notebookId, specs, after: after);
     unawaited(services.search.indexPdfs());

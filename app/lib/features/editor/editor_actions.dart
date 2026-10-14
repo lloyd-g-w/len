@@ -53,6 +53,8 @@ EditorMenuActions editorMenuActions(
     fit: doc?.fit,
     onFit: paged ? doc.setFit : null,
     onBackground: nav == null ? null : onBackground,
+    minimap: nav == null ? null : prefs.canvasMinimap,
+    onMinimap: nav == null ? null : () => prefs.canvasMinimap = !prefs.canvasMinimap,
   );
 }
 

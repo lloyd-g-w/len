@@ -137,6 +137,7 @@ mixin _SurfaceEditing on _SurfaceState {
       areas.add(s.bounds);
     }
     final appended = _isAppend(edit);
+    final underlaid = !appended && _isUnderlay(edit);
     for (final s in edit.added) {
       _strokes.insert(s);
       changed.addAll(StrokeChunks.of(s));
@@ -167,7 +168,23 @@ mixin _SurfaceEditing on _SurfaceState {
       changed.addAll(ElementChunks.of(e));
       areas.add(e.bounds);
     }
-    _changed(changed, appended: appended ? edit.added : null, areas: areas);
+    _changed(
+      changed,
+      appended: appended ? edit.added : null,
+      underlaid: underlaid ? edit.added : null,
+      areas: areas,
+    );
+  }
+
+  /// Whether [edit] only adds new highlighter strokes (a highlighter's
+  /// pen-up), which paint beneath the pen ink (see
+  /// [SurfaceChange.underlaid]). Checked before the strokes are inserted.
+  bool _isUnderlay(InkEdit edit) {
+    if (edit.added.isEmpty || edit.removed.isNotEmpty) return false;
+    if (edit.addedElements.isNotEmpty || edit.removedElements.isNotEmpty) return false;
+    return edit.added.every(
+      (s) => s.tool.isHighlighter && !_strokes.containsId(s.id) && !_hidden.contains(s.id),
+    );
   }
 
   /// Whether [edit] only adds pen strokes painted over everything already

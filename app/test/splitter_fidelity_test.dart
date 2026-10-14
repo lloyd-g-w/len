@@ -92,7 +92,7 @@ void main() {
     expect([for (final p in parts) p.style.cutEnd], [true, true, false]);
 
     Centerline line(Stroke s) =>
-        StrokeOutline.centerline(s.points, StrokeRenderer.specFor(s.tool, s.width, s.style))!;
+        StrokeOutline.centerline(s.points, StrokeRenderer.specFor(s.width, s.style))!;
     final whole = line(original);
     // Every sample of a fragment farther than 25 units from a cut is one of
     // the original's: same place, same radius.
@@ -141,10 +141,8 @@ void main() {
       newId: () => 'f',
     )!;
     final piece = parts[1];
-    Centerline line(StrokeStyle style) => StrokeOutline.centerline(
-      piece.points,
-      StrokeRenderer.specFor(piece.tool, piece.width, style),
-    )!;
+    Centerline line(StrokeStyle style) =>
+        StrokeOutline.centerline(piece.points, StrokeRenderer.specFor(piece.width, style))!;
     // As a pen stroke, its start would be trimmed; as a cut, it is kept.
     expect(line(piece.style.copyWith(startPhase: 0)).x[0], 50);
     expect(line(piece.style).x[0], closeTo(piece.points.first.x, 1e-9));

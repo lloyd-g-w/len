@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cross_file/cross_file.dart';
 
+import '../../../domain/cancellation.dart';
 import 'import_router.dart';
 
 /// An open editor that incoming files can be inserted into. The editor
@@ -13,8 +14,9 @@ abstract interface class ImportTarget {
   /// What the router needs to know about it.
   ImportDestination get destination;
 
-  /// Inserts the pages of PDF [file] after the current page.
-  Future<void> insertPdf(XFile file);
+  /// Inserts the pages of PDF [file] after the current page; a Cancel
+  /// there cancels [batch] (the files dropped with it).
+  Future<void> insertPdf(XFile file, {CancellationToken? batch});
 
   /// Inserts [files] as images on the current page or the canvas.
   Future<void> insertImages(List<XFile> files);

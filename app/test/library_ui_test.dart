@@ -602,6 +602,7 @@ void main() {
     expect(find.byType(NewNotebookSheet), findsOneWidget);
     expect(find.text('Import PDF…'), findsOneWidget);
     expect(find.text('Import Len file…'), findsOneWidget);
+    expect(find.text('Scan document…'), findsOneWidget);
     // Side by side at the sheet's foot, under Create (not in the form).
     expect(
       tester.getCenter(find.text('Import Len file…')).dy,

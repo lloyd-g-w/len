@@ -111,8 +111,11 @@ abstract final class PdfExporter {
       vector = await _drawBackground(writer, g, background, format);
     }
 
-    // An image template (My templates) is the page's paper, embedded at
-    // its stored resolution.
+    // A scan, and an image template (My templates: the page's paper), are
+    // embedded at their stored resolution.
+    if (export.image case final blob?) {
+      await images.drawPage(g, blob, format.width, format.height);
+    }
     if (page.paper.image case final blob?) {
       await images.drawPage(g, blob, format.width, format.height);
     }
