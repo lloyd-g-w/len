@@ -576,10 +576,14 @@ void main() {
     expect(find.byType(NewNotebookSheet), findsOneWidget);
     expect(find.text('Import PDF…'), findsOneWidget);
     expect(find.text('Import Len file…'), findsOneWidget);
-    // Side by side, under Notebook / Canvas.
+    // Side by side at the sheet's foot, under Create (not in the form).
     expect(
       tester.getCenter(find.text('Import Len file…')).dy,
       tester.getCenter(find.text('Import PDF…')).dy,
+    );
+    expect(
+      tester.getTopLeft(find.text('Import PDF…')).dy,
+      greaterThan(tester.getBottomLeft(find.text('Create')).dy),
     );
     expect(tester.takeException(), isNull);
   });

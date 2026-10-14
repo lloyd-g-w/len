@@ -14,6 +14,34 @@ extension _NewNotebookLayout on _NewNotebookSheetState {
     onClose: widget.wide ? null : () => Navigator.of(context).pop(),
   );
 
+  /// "Import PDF…" and "Import Len file…" as quiet links at the foot,
+  /// apart from the form (UX_AUDIT R9-10); null without [onImport].
+  Widget? _importLinks(BuildContext context) {
+    final onImport = widget.onImport;
+    if (onImport == null) return null;
+    final quiet = TextButton.styleFrom(
+      foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: Gaps.sm,
+      children: [
+        for (final (kind, label) in const [
+          (SheetImport.pdf, 'Import PDF…'),
+          (SheetImport.len, 'Import Len file…'),
+        ])
+          TextButton(
+            style: quiet,
+            onPressed: () {
+              Navigator.of(context).pop();
+              onImport(kind);
+            },
+            child: Text(label),
+          ),
+      ],
+    );
+  }
+
   Widget _preview(double height) => Center(
     child: NotebookPreview(kind: _kind, coverColor: _cover, template: _template, height: height),
   );
@@ -53,9 +81,16 @@ extension _NewNotebookLayout on _NewNotebookSheetState {
               Container(
                 decoration: _footerEdge(context),
                 padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.md, Gaps.xl, Gaps.lg),
-                child: SheetActions(
-                  onCancel: () => Navigator.of(context).pop(),
-                  primary: FilledButton(onPressed: _submit, child: const Text('Create')),
+                child: Row(
+                  children: [
+                    ?_importLinks(context),
+                    Expanded(
+                      child: SheetActions(
+                        onCancel: () => Navigator.of(context).pop(),
+                        primary: FilledButton(onPressed: _submit, child: const Text('Create')),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -125,9 +160,20 @@ extension _NewNotebookLayout on _NewNotebookSheetState {
                 Gaps.xl,
                 Gaps.md + (keyboard ? 0 : media.padding.bottom),
               ),
-              child: SheetActions(
-                stacked: true,
-                primary: FilledButton(onPressed: _submit, child: const Text('Create')),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SheetActions(
+                    stacked: true,
+                    primary: FilledButton(onPressed: _submit, child: const Text('Create')),
+                  ),
+                  // With the keyboard up the form needs the room.
+                  if (_importLinks(context) case final links? when !keyboard) ...[
+                    const SizedBox(height: Gaps.xs),
+                    links,
+                  ],
+                ],
               ),
             ),
           ],
