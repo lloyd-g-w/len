@@ -142,6 +142,32 @@ void main() {
       expect(c.goUp(), isFalse);
     });
 
+    test('undoing a folder deletion restores what synced in just before it', () {
+      final work = c.createFolder('Work', color: 1);
+      // Sync brings a notebook and a subfolder in, and renames the folder,
+      // before the library reloads.
+      final synced = services.notebooks.create(
+        title: 'Synced',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+        folderId: work.id,
+      );
+      final sub = services.folders.create(name: 'Sub', parentId: work.id, color: 2);
+      services.folders.update(services.folders.get(work.id)!.copyWith(name: 'Job'));
+
+      final deletion = c.deleteFolder(work.id);
+      expect(deletion.notebookIds, [synced.id]);
+      expect(services.notebooks.get(synced.id)!.isTrashed, isTrue);
+      expect(services.folders.list(), isEmpty);
+
+      c.undoDeleteFolder(deletion);
+      expect(services.notebooks.get(synced.id)!.isTrashed, isFalse);
+      expect(services.notebooks.get(synced.id)!.folderId, work.id);
+      expect(services.folders.list().map((f) => f.name), ['Job', 'Sub']);
+      expect(services.folders.get(sub.id)!.parentId, work.id);
+    });
+
     test('a search found by a recording says which (R8-11)', () {
       final lecture = c.createNotebook(
         title: 'Physics',

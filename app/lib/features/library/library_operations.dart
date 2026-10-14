@@ -7,7 +7,6 @@ mixin _LibraryOperations {
   LibrarySection get _section;
   String? get _folderId;
   bool get isSearching;
-  List<Folder> get _folders;
   List<Notebook> get _notebooks;
   void reload();
 
@@ -78,34 +77,21 @@ mixin _LibraryOperations {
     ];
   }
 
-  /// What deleting folder [id] takes with it: its subfolders (at any
-  /// depth) and the notebooks in it and them.
-  ({int folders, int notebooks}) contentsOf(String id) {
-    final subtree = services.folders.subtreeOf(id);
-    return (
-      folders: subtree.length - 1,
-      notebooks: _notebooks.where((n) => subtree.contains(n.folderId)).length,
-    );
-  }
-
   /// Deletes a folder with its subfolders; their notebooks go to the trash.
-  /// Returns what [undoDeleteFolder] needs to put it all back.
+  /// Returns what [undoDeleteFolder] needs to put it all back: what the
+  /// database held and trashed, not the library's last load (sync may have
+  /// brought more in since).
   FolderDeletion deleteFolder(String id) {
     late final FolderDeletion deletion;
     _run(
       () => services.database.transaction(() {
         final subtree = services.folders.subtreeOf(id);
-        deletion = (
-          folders: [
-            for (final f in _folders)
-              if (subtree.contains(f.id)) f,
-          ],
-          notebookIds: [
-            for (final n in _notebooks)
-              if (subtree.contains(n.folderId)) n.id,
-          ],
-        );
-        services.notebooks.trashAllIn(services.folders.delete(id));
+        final folders = [
+          for (final f in services.folders.list())
+            if (subtree.contains(f.id)) f,
+        ];
+        services.folders.delete(id);
+        deletion = (folders: folders, notebookIds: services.notebooks.trashAllIn(subtree));
       }),
     );
     return deletion;

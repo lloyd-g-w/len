@@ -63,7 +63,6 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
   String? _folderId;
   String _query = '';
 
-  @override
   List<Folder> _folders = const [];
   Map<String, Folder> _folderById = const {};
   @override

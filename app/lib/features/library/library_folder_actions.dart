@@ -95,8 +95,9 @@ mixin _FolderActions {
   /// trash) without asking, says what went and offers Undo, as trashing a
   /// notebook does.
   void deleteFolder(BuildContext context, Folder folder) {
-    final (:folders, :notebooks) = controller.contentsOf(folder.id);
     final deletion = controller.deleteFolder(folder.id);
+    final folders = max(0, deletion.folders.length - 1); // Its subfolders.
+    final notebooks = deletion.notebookIds.length;
     final parts = [
       if (folders > 0) LibraryActions.countLabel(folders, 'subfolder'),
       if (notebooks > 0) LibraryActions.countLabel(notebooks, 'notebook'),
