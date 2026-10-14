@@ -166,7 +166,7 @@ class SearchHitIcon extends StatelessWidget {
         SearchHitKind.handwriting => Symbols.draw_sharp,
         _ => Symbols.text_fields_sharp,
       },
-      size: 18,
+      size: Glyphs.menu,
       color: Theme.of(context).colorScheme.onSurfaceVariant,
     ),
   );

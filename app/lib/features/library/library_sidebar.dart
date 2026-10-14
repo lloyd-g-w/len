@@ -245,7 +245,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                         duration: Motion.fast,
                         child: Icon(
                           Symbols.chevron_right_sharp,
-                          size: 18,
+                          size: Glyphs.menu,
                           color: scheme.onSurfaceVariant,
                         ),
                       ),

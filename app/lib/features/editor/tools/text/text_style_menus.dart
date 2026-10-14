@@ -262,7 +262,7 @@ class ParagraphMenuButton extends StatelessWidget {
                 2 => Symbols.text_fields_sharp,
                 _ => Symbols.notes_sharp,
               },
-        size: 20,
+        size: Glyphs.bar,
       ),
     );
   }

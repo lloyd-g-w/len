@@ -104,7 +104,7 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
                             ? null
                             : Icon(
                                 f.icon,
-                                size: 18,
+                                size: Glyphs.menu,
                                 fill: f == filter ? 1 : 0,
                                 // The bookmark's colour, as on the pages and tiles.
                                 color: f == OverviewFilter.bookmarked && f == filter

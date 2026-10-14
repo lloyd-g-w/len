@@ -165,7 +165,7 @@ class _PagePickerState extends State<_PagePicker> {
                             leading: Icon(
                               page.bookmarked ? Symbols.bookmark_sharp : Symbols.description_sharp,
                               fill: page.bookmarked ? 1 : 0,
-                              size: 20,
+                              size: Glyphs.bar,
                               color: page.bookmarked ? Palette.bookmark : null,
                             ),
                             title: Text(
