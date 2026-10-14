@@ -16,6 +16,7 @@ import 'package:len/domain/cancellation.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/domain/waveform.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:len/sync/sync_api.dart';
 
@@ -141,6 +142,24 @@ void main() {
     await store.putDownloaded(sha, bytes);
     expect(await store.has(sha), isTrue);
     expect(store.pendingUploads(), isEmpty); // The server has it.
+  });
+
+  test('downloaded blobs keep the type of their content', () async {
+    final store = BlobStore(AppDatabase.inMemory(), MemoryBlobBackend());
+    final kinds = {
+      'application/pdf': '%PDF-1.7\n'.codeUnits,
+      'image/png': [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],
+      'image/jpeg': [0xFF, 0xD8, 0xFF, 0xE0],
+      'audio/aac': [0xFF, 0xF1, 0x50, 0x80],
+      'audio/mp4': [0, 0, 0, 0x20, ...'ftypM4A '.codeUnits],
+      Waveform.mime: [0x4C, 0x57, 1, 10, 0, 0],
+    };
+    for (final MapEntry(key: mime, value: data) in kinds.entries) {
+      final bytes = Uint8List.fromList(data);
+      final sha = sha256.convert(bytes).toString();
+      await store.putDownloaded(sha, bytes);
+      expect(store.mimeOf(sha), mime);
+    }
   });
 
   test('sync uploads blobs before records; other devices fetch lazily', () async {
