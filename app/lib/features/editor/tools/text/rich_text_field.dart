@@ -46,6 +46,10 @@ class RichTextField extends StatelessWidget {
       SingleActivator key(LogicalKeyboardKey k, {bool shift = false, bool alt = false}) =>
           SingleActivator(k, control: control, meta: !control, shift: shift, alt: alt);
       map.addAll({
+        // The box's own undo: the field's knows no formatting.
+        key(LogicalKeyboardKey.keyZ): c.undo,
+        key(LogicalKeyboardKey.keyZ, shift: true): c.redo,
+        key(LogicalKeyboardKey.keyY): c.redo,
         key(LogicalKeyboardKey.keyB): c.toggleBold,
         key(LogicalKeyboardKey.keyI): c.toggleItalic,
         key(LogicalKeyboardKey.keyU): c.toggleUnderline,

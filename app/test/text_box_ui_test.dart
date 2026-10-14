@@ -228,4 +228,23 @@ void main() {
       closeTo(TextLayout.heightOf(data, double.infinity), 1),
     );
   });
+
+  testWidgets('text: Ctrl+Z in a box undoes with formatting, Ctrl+Shift+Z redoes', (tester) async {
+    final (services, nb) = await openCanvas(tester);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(300, 400)]);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('text-box-field')), 'milk');
+    await ctrl(tester, LogicalKeyboardKey.keyA);
+    await ctrl(tester, LogicalKeyboardKey.keyB);
+    await key(tester, LogicalKeyboardKey.backspace);
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
+    await ctrl(tester, LogicalKeyboardKey.keyZ, shift: true);
+    await key(tester, LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    final data = TextData.fromJson(liveElements(services, nb.id).single.data);
+    expect(data.text, 'milk');
+    expect(data.spans, const [StyledRange(0, 4, SpanStyle(bold: true))]);
+  });
 }

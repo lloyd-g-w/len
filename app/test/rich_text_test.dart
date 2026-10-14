@@ -360,6 +360,52 @@ void main() {
       expect(c.data.text, '\nx');
     });
 
+    test('undo and redo restore formatting; a typed word is one step', () {
+      final c = RichTextController(const TextData());
+      for (final ch in 'hi you'.split('')) {
+        type(c, ch);
+      }
+      select(c, 0, 6);
+      c.toggleBold();
+      backspace(c);
+      expect(c.data.text, '');
+      expect(c.undo(), isTrue);
+      expect(c.data.text, 'hi you');
+      expect(c.data.spans, const [StyledRange(0, 6, SpanStyle(bold: true))]);
+      expect(c.modelSelection, const TextRange(start: 0, end: 6));
+      c.undo();
+      expect(c.data.spans, isEmpty);
+      c.undo();
+      expect(c.data.text, 'hi ');
+      c.undo();
+      expect(c.data.text, '');
+      expect(c.undo(), isFalse);
+      c
+        ..redo()
+        ..redo()
+        ..redo();
+      expect(c.data.spans, const [StyledRange(0, 6, SpanStyle(bold: true))]);
+      type(c, '!'); // A new edit ends redo.
+      expect(c.redo(), isFalse);
+    });
+
+    test('undo keeps list markers as lists', () {
+      final c = RichTextController(
+        TextData.rich(
+          text: 'a\nb',
+          paras: const [
+            ParaStyle(list: ListKind.bullet),
+            ParaStyle(list: ListKind.bullet),
+          ],
+        ),
+      );
+      c.selection = TextSelection(baseOffset: 0, extentOffset: c.text.length);
+      backspace(c);
+      c.undo();
+      expect(c.data.text, 'a\nb');
+      expect(c.data.paras.map((p) => p.list), [ListKind.bullet, ListKind.bullet]);
+    });
+
     test('Windows and old Mac line breaks pasted by the field become line breaks', () {
       final c = RichTextController(const TextData());
       type(c, 'a\r\nb\rc');

@@ -11,6 +11,7 @@ import '../../../../ink/elements/text_layout.dart';
 import '../../../../platform/clipboard_html.dart';
 
 part 'rich_text_formatting.dart';
+part 'rich_text_history.dart';
 part 'rich_text_state.dart';
 
 /// The text field controller of a text box being edited: keeps the
@@ -56,6 +57,7 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
       final sel = _normalize(next.selection, old.selection);
       if (sel != old.selection) _pending = null;
       super.value = next.copyWith(selection: sel);
+      if (sel.isValid) _history.select(_modelSelection(sel));
       return;
     }
     _applyEdit(old, next);
@@ -120,6 +122,9 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
         end++;
       }
     }
+    // A run of typed (or backspaced) characters is one undo step.
+    final typed = inserted.length == 1 && start == end && inserted != '\n';
+    final backspaced = inserted.isEmpty && end == start + 1;
     final para = _buffer.para(line);
     if (inserted == '\n' &&
         start == end &&
@@ -173,7 +178,33 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
               ),
       );
     }
+    _history.changed(
+      _snapshot,
+      runFrom: typed && rich == null ? start : (backspaced ? end : -1),
+      runTo: typed && rich == null && inserted.trim().isNotEmpty
+          ? start + 1
+          : (backspaced ? start : -1),
+      deletes: backspaced,
+    );
     onDataChanged?.call();
+  }
+
+  /// Undoes the last change in the box, formatting included; false when
+  /// there is none.
+  bool undo() => _restore(_history.undo(_snapshot));
+
+  /// Redoes the change undone last; false when there is none.
+  bool redo() => _restore(_history.redo(_snapshot));
+
+  bool _restore(_Snapshot? state) {
+    if (state == null) return false;
+    // Auto width is the session's (it ends when the box is resized).
+    _box = state.data.copyWith(autoWidth: _box.autoWidth);
+    _buffer = RichTextBuffer(state.data);
+    _pending = null;
+    _sync(state.selection);
+    onDataChanged?.call();
+    return true;
   }
 
   /// Whether [n] is [o] with its [selection] replaced by the text up to

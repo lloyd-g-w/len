@@ -7,9 +7,9 @@ import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/editor/tools/text/rich_text_controller.dart';
 import 'package:len/features/editor/tools/text_box_editor.dart';
 import 'package:len/ink/elements/text_edit_session.dart';
-import 'package:len/ink/undo_history.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/tool_settings.dart';
+import 'package:len/ink/undo_history.dart';
 import 'package:len/ink/viewport.dart';
 import 'package:len/ui/app_theme.dart';
 
