@@ -100,14 +100,15 @@ can't see. *Fix:* select the shown pages; trim the selection when the
 filter changes. Paths: `documents/overview/page_overview.dart:107,184-197`.
 Effort S.
 
-**R10-10 P1 · "Edit text" from the lasso menu leaves the Text tool on.** ⬜
+**R10-10 P1 · "Edit text" from the lasso menu leaves the Text tool on.** ✅
 - *What:* `_editText` switches to `EditorTool.text` and never back; the
   next stylus stroke does nothing (a drag is ignored by the text tool),
   which reads as a dead pen.
 - *Fix:* restore the previous tool when that edit session ends (unless the
   user picked another tool meanwhile).
-- Paths: `editor/tools/content_layer.dart:136` (tools/* is busy on other
-  branches: left open). Effort S.
+- Paths: `editor/tools/content_layer.dart:136`. Effort S.
+- *Done:* `ContentTools.editText` (lasso menu and double tap) brings the
+  tool used before back when the edit ends; a tool picked meanwhile stays.
 
 **R10-11 P2 · Android back during a library search leaves the app.** ✅
 `canPop` ignores `isSearching`. *Fix:* back clears the search first.

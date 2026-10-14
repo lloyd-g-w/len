@@ -133,12 +133,6 @@ class _ContentLayerState extends State<ContentLayer> {
     if (_pasteAt != null && mounted) setState(() => _pasteAt = null);
   }
 
-  void _editText(SurfaceElement element) {
-    _content.selection.clear();
-    widget.tools.tool = EditorTool.text;
-    _content.text.edit(element);
-  }
-
   @override
   Widget build(BuildContext context) {
     final recognition = AppScope.of(context).recognition;
@@ -165,7 +159,7 @@ class _ContentLayerState extends State<ContentLayer> {
           selection: _content.selection,
           viewport: widget.viewport,
           tools: widget.tools,
-          onEditText: _editText,
+          onEditText: _content.editText,
           onPaste: _content.pasteAtCentre,
           onCrop: _startCrop,
           onConvertToText: () => convertSelectionToText(
