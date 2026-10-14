@@ -103,7 +103,7 @@ class WetInkStyle {
   }) {
     final opaque = style.opacity >= 1 && (color >>> 24) == 0xFF;
     if (!opaque || tool.isHighlighter) return null;
-    final spec = StrokeRenderer.specFor(tool, width, style);
+    final spec = StrokeRenderer.specFor(width, style);
     return WetInkStyle(
       color: color,
       radii: [for (var i = 0; i <= steps; i++) spec.radiusFor(i / steps) * scale],

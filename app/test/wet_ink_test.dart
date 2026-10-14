@@ -16,7 +16,7 @@ void main() {
     final style = WetInkStyle.of(live, 2)!;
     expect(style.color, 0xFF112233);
     expect(style.radii, hasLength(WetInkStyle.steps + 1));
-    final spec = StrokeRenderer.specFor(InkTool.ballpoint, 3, live.style);
+    final spec = StrokeRenderer.specFor(3, live.style);
     expect(style.radii[5], spec.radiusFor(0.5) * 2);
     expect(style.radii.first, lessThanOrEqualTo(style.radii.last));
   });

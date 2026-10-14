@@ -69,7 +69,7 @@ Map<String, ({double rms, double max})> measure(double streamline) {
   final steady = PolylineIndex([for (var i = 0; i <= 4000; i++) _steady(i / 1000)]);
   final r = ReplayResult.run(recording, pen: pen);
   final stroke = r.strokes.single;
-  final spec = StrokeRenderer.specFor(pen.tool, pen.width, stroke.style);
+  final spec = StrokeRenderer.specFor(pen.width, stroke.style);
   // Away from the ends (the pen starts and stops there).
   bool inner(Offset p) => p.dx > 75 && p.dx < 345;
 

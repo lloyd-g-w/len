@@ -42,7 +42,7 @@ void main() {
     final widths = <double>[];
     final spreads = <double>[];
     for (final s in replay.strokes) {
-      final spec = StrokeRenderer.specFor(s.tool, s.width, s.style);
+      final spec = StrokeRenderer.specFor(s.width, s.style);
       final line = StrokeOutline.centerline(s.points, spec);
       if (line == null || line.length < 40) continue;
       final body = [for (var i = 10; i < line.length - 10; i++) 2 * line.r[i] / s.width]..sort();

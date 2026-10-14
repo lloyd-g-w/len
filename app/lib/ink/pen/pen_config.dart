@@ -33,6 +33,7 @@ class PenConfig {
       opacity: d.opacity,
       thinning: d.thinning,
       streamline: d.streamline,
+      ends: d.ends,
     );
   }
 
@@ -64,8 +65,8 @@ class PenConfig {
   /// the highlighter).
   final bool straight;
 
-  /// The shape of the ends (offered for the pen; the highlighter's are
-  /// flat).
+  /// The shape of the ends (`PenDefaults.endStyles` lists those offered:
+  /// the highlighter's are flat or round).
   final PenEnds ends;
 
   /// The selected colour and width.
@@ -149,16 +150,15 @@ class PenConfig {
       selected > removed || (selected == removed && selected > 0) ? selected - 1 : selected;
 
   /// The style a new stroke of [tool] drawn with this config gets (a
-  /// straight line needs no stabiliser; the highlighter's ends are its
-  /// own).
-  StrokeStyle styleFor(InkTool tool) {
-    final style = StrokeStyle(
+  /// straight line needs no stabiliser). Pen and highlighter go through
+  /// the same engine; only the highlighter is translucent.
+  StrokeStyle styleFor(InkTool tool) => ends.applyTo(
+    StrokeStyle(
       opacity: tool.isHighlighter ? opacity : 1,
       thinning: thinning,
       streamline: straight ? 0 : streamline,
-    );
-    return tool.isHighlighter ? style : ends.applyTo(style);
-  }
+    ),
+  );
 
   /// JSON for the local settings store (see [fromJson]).
   Map<String, Object?> toJson() => {

@@ -71,8 +71,36 @@ void main() {
       }
     });
 
+    test('two quick back-and-forths are enough', () {
+      for (final (width, drift, ms) in [
+        (80.0, 3.0, 70.0),
+        (40.0, 3.0, 60.0),
+        (30.0, 2.0, 50.0),
+        (120.0, 6.0, 90.0),
+        (200.0, 10.0, 120.0),
+      ]) {
+        for (final angle in [0.0, 0.5, math.pi / 2, 2.5]) {
+          expect(
+            motionScribbles(
+              scribble(passes: 4, width: width, drift: drift, passMs: ms, angle: angle),
+            ),
+            isTrue,
+            reason: '$width × $drift in $ms ms at $angle',
+          );
+        }
+        // Round turns, as a hand oscillates.
+        final omega = math.pi / (ms / 1000);
+        final motion = PenMotion(
+          duration: 4 * ms / 1000,
+          at: (t) => Offset(width / 2 * (1 - math.cos(omega * t)), drift * t * 1000 / ms),
+          pressure: (_) => 0.5,
+        );
+        expect(motionScribbles(motion), isTrue, reason: 'oscillating $width × $drift in $ms ms');
+      }
+    });
+
     test('but not too few passes, slow ones, tiny ones or ones moving on', () {
-      expect(motionScribbles(scribble(passes: 4)), isFalse, reason: 'three reversals');
+      expect(motionScribbles(scribble(passes: 3)), isFalse, reason: 'two reversals');
       expect(motionScribbles(scribble(passMs: 300)), isFalse, reason: 'slow');
       expect(motionScribbles(scribble(width: 10, drift: 1)), isFalse, reason: 'jitter-sized');
       expect(motionScribbles(scribble(width: 30, drift: 12)), isFalse, reason: 'a zigzag line');
@@ -178,6 +206,100 @@ void main() {
                 isFalse,
                 reason: 'x-height $xHeight, width ${xHeight * width}, $speed letters/s',
               );
+            }
+          }
+        }
+      }
+    });
+
+    test('printed zigzag letters and words (z, N, M, W, w, v, vvv, www, zz)', () {
+      // Corners of each letter in a 1 × 1 box (y down), joined into words.
+      const z = [Offset(0, 0), Offset(1, 0), Offset(0, 1), Offset(1, 1)];
+      const n = [Offset(0, 1), Offset(0, 0), Offset(1, 1), Offset(1, 0)];
+      const m = [Offset(0, 1), Offset(0, 0), Offset(0.5, 0.8), Offset(1, 0), Offset(1, 1)];
+      const w = [Offset(0, 0), Offset(0.25, 1), Offset(0.5, 0.2), Offset(0.75, 1), Offset(1, 0)];
+      const v = [Offset(0, 0), Offset(0.5, 1), Offset(1, 0)];
+      List<Offset> word(List<Offset> letter, int count) => [
+        for (var i = 0; i < count; i++)
+          for (final (k, c) in letter.indexed)
+            if (i == 0 || k > 0) Offset(c.dx + i * 1.1, c.dy),
+      ];
+      final words = {
+        'z': word(z, 1),
+        'zz': word(z, 2),
+        'N': word(n, 1),
+        'M': word(m, 1),
+        'MM': word(m, 2),
+        'w': word(w, 1),
+        'www': word(w, 3),
+        'vvv': word(v, 3),
+      };
+      for (final MapEntry(key: name, value: corners) in words.entries) {
+        for (final height in [10.0, 20.0, 35.0, 60.0]) {
+          for (final aspect in [0.5, 0.8, 1.2]) {
+            for (final ms in [50.0, 80.0, 140.0]) {
+              final motion = polyline([
+                for (final c in corners)
+                  const Offset(100, 200) + Offset(c.dx * height * aspect, c.dy * height),
+              ], segmentSeconds: ms / 1000);
+              expect(
+                motionScribbles(motion),
+                isFalse,
+                reason: '$name, $height px tall, $aspect wide, $ms ms per stroke',
+              );
+            }
+          }
+        }
+      }
+    });
+
+    test('zigzag hatching: shading spaced a tenth of its length or more', () {
+      // Shading a shape or a letter with one back-and-forth stroke: lines
+      // 12 to 120 px long, at least a tenth of that apart (from 3 px),
+      // at any angle and pace. Denser hatching over ink is a scribble
+      // (the strokes about to go dim first; the setting turns it off).
+      for (final length in [12.0, 20.0, 30.0, 45.0, 60.0, 80.0, 120.0]) {
+        for (final spacing in {math.max(3.0, length / 10), length / 6, length / 3}) {
+          for (final passes in [6, 10, 16]) {
+            for (final ms in [50.0, 90.0, 150.0]) {
+              for (final angle in [0.0, 0.8, math.pi / 2, 2.3]) {
+                final hatch = scribble(
+                  passes: passes,
+                  width: length,
+                  drift: spacing,
+                  passMs: ms,
+                  angle: angle,
+                );
+                expect(
+                  motionScribbles(hatch),
+                  isFalse,
+                  reason: '$passes lines $length px long, $spacing px apart, $ms ms, $angle',
+                );
+              }
+            }
+          }
+        }
+      }
+    });
+
+    test('cursive zigzags: m, w and z joined up, at many sizes and speeds', () {
+      const arch = (height: 1.0, loop: 0.0), tall = (height: 1.4, loop: 0.3);
+      for (final letters in [
+        [arch, arch, arch, arch, arch, arch], // mm
+        [letterU, letterU, letterU, letterU], // w-like cups
+        [arch, tall, arch, tall, arch], // zigzag-ish cursive
+      ]) {
+        for (final xHeight in [10.0, 20.0, 35.0]) {
+          for (final width in [0.5, 0.8]) {
+            for (final speed in [3.0, 5.0, 8.0]) {
+              final motion = cursive(
+                const Offset(100, 200),
+                letters,
+                xHeight: xHeight,
+                letterWidth: xHeight * width,
+                lettersPerSecond: speed,
+              );
+              expect(motionScribbles(motion), isFalse, reason: '$xHeight $width $speed');
             }
           }
         }

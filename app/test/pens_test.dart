@@ -65,19 +65,20 @@ void main() {
   group('pen options', () {
     test('styles map to outline specs', () {
       const style = StrokeStyle(thinning: 0.3, streamline: 0.4, unit: 0.5);
-      final o = StrokeRenderer.specFor(InkTool.ballpoint, 3, style);
+      final o = StrokeRenderer.specFor(3, style);
       expect(o.width, 3);
       expect(o.thinning, 0.3);
       expect(o.streamline, 0.4);
       expect(o.unit, 0.5);
       expect(o.flatCaps, isFalse);
 
-      final h = StrokeRenderer.specFor(
-        InkTool.highlighter,
+      final h = StrokeRenderer.specFor(18, StrokeStyle.defaultsFor(InkTool.highlighter));
+      expect(h.flatCaps, isTrue, reason: 'highlighters have flat chisel ends by default');
+      final round = StrokeRenderer.specFor(
         18,
-        StrokeStyle.defaultsFor(InkTool.highlighter),
+        StrokeStyle.defaultsFor(InkTool.highlighter).copyWith(ends: StrokeEnds.round),
       );
-      expect(h.flatCaps, isTrue, reason: 'highlighters have flat chisel ends');
+      expect(round.flatCaps, isFalse, reason: 'or round ones: the same engine as the pen');
     });
 
     test('pen strokes end in round caps at their full width', () {

@@ -29,7 +29,8 @@ abstract final class PenConfigJson {
         thinning == null ||
         streamline == null ||
         straight is! bool ||
-        ends == null) {
+        ends == null ||
+        !defaults.endStyles.contains(ends.style)) {
       return null;
     }
     return PenConfig(

@@ -31,12 +31,8 @@ class PenOptionsPanel extends StatelessWidget {
             FeelHeader('Pen settings', tools: tools, ink: ink),
             const SizedBox(height: Gaps.sm),
             PreviewCard(tool: ink, config: config),
-            OptionSlider(
-              label: 'Pressure sensitivity',
+            PressureSlider(
               value: config.thinning,
-              min: 0,
-              max: 1,
-              display: (v) => v == 0 ? 'Off' : percent(v),
               onChanged: (v) => update((c) => c.copyWith(thinning: v)),
             ),
             StabiliserSlider(
@@ -45,6 +41,7 @@ class PenOptionsPanel extends StatelessWidget {
             ),
             PenEndsOptions(
               config: config,
+              styles: PenDefaults.pen.endStyles,
               onChanged: (ends) => update((c) => c.copyWith(ends: ends)),
             ),
           ],

@@ -166,6 +166,17 @@ draws a few dozen images, however much ink is on screen.
   frame, and each such tile is re-rendered as *old image + stroke* off the
   frame. So committed ink never vanishes or flickers at pen-up, and a
   pen-up never re-records a chunk picture or replays a page of ink.
+- **Highlighter pen-up** (`SurfaceChange.underlaid`): a highlighter
+  paints beneath the pen ink, so it is no append; the tiles it crosses
+  keep their images, stale, and draw it as a vector *beneath* them — as
+  the live highlighter was drawn, beneath the committed ink — until they
+  are re-rendered (urgently, from the chunk pictures). Before, a highlight
+  over more than two tiles vanished for the frame or two until they were.
+  Zoomed out far, the level-of-detail rasters likewise keep their images
+  and draw new highlights beneath them (new pen strokes over them) instead
+  of a frame of vectors (`test/pen_up_frames_test.dart` checks every frame
+  around pen-up, pen and highlighter, on a canvas at 50–200 % and 1×/2×,
+  and on a continuous notebook's page from tiles and from rasters).
 - **Loads** (`SurfaceChange.loaded`: stored content arriving) keep the
   images of the tiles they touch as stale stand-ins until re-rendered (that
   content was not on screen yet), so a loading canvas never drops to
@@ -1393,15 +1404,16 @@ polygon; scribbles stay freehand. Only the clean shape is committed.
 
 **Scribble to erase** (`input/scribble_detector.dart`, on by default, a
 switch in Settings → Writing): a pen (ballpoint) stroke holding a fast
-back-and-forth scribble — `ScribbleDetector`: ≥ 6 passes within 1.2 s, each
-nearly reversing the last, ≥ 14 screen px, the inner ones at most twice the
-median, fairly straight, all in a band at most half their length wide
-(cursive m / n / u / w reverses as sharply but moves on) — erases instead
+back-and-forth scribble — `ScribbleDetector`: two quick back-and-forths
+(≥ 4 passes within 0.8 s), each nearly reversing the last, ≥ 14 screen
+px, the inner ones at most twice the median, fairly straight, all in a
+band at most 0.3 of their length wide (letters — cursive m / n / u / w,
+printed z / N / M / w — reverse as sharply but move on) — erases instead
 of becoming ink when it crosses ink. Only the part that zigzags counts
 (`ScribbleDetector.windows`: each run of passes that makes a scribble, its
 outer passes cut to the span of the inner ones, overlapping runs joined),
 so a lead-in or a run-on erases nothing. The detector looks every 4
-points at the stroke's last 1.2 s only, so its cost doesn't grow with the
+points at the stroke's last 0.8 s only, so its cost doesn't grow with the
 stroke. `SurfaceModel.eraseScribbled` (`ink/scribble_hits.dart`) removes
 the strokes a zigzag touches that lie mostly inside its bounds (a long
 line under a scribbled word stays) and are not an outline around it (a
@@ -1417,8 +1429,12 @@ once the stroke so far holds a scribble it previews what will go
 those strokes as an owner (`setHidden`) and drawing them at 30 % as its
 lifted content (fading in over 100 ms, frame callbacks only while
 fading); the stroke ending any way un-hides them before the erase. It is
-held to zero false positives on the Ink Lab's real S Pen recordings and
-simulated writing at 1–4× (`test/scribble_detector_test.dart`).
+held to zero false positives on the Ink Lab's real S Pen recordings,
+simulated writing at 1–4×, cursive and printed zigzag letters and words at
+many sizes and speeds, and zigzag hatching spaced a tenth of its length or
+more (`test/scribble_detector_test.dart`); denser hatching over ink is a
+scribble (the dimming shows it before anything goes; Settings turns
+scribble to erase off).
 
 **Text-aware highlighter** (`input/highlight_snap.dart`, set by paged
 editors to `features/editor/pdf/PdfHighlightSnap`): always (it needs no
@@ -1649,14 +1665,21 @@ The toolbar offers exactly two inks — the **pen** (`InkTool.ballpoint`) and th
   a stroke renders identically on every device, whatever the local tool
   settings.
 
-**Highlighter** strokes are translucent with flat chisel ends (pen caps are
-configurable), drawn before other ink in each chunk picture, and the live
-highlighter stroke is painted on a layer beneath committed ink.
+**One engine for both inks.** The highlighter is the pen's engine (sampling,
+smoothing, stabiliser, outline, `StrokeStyle`; `StrokeRenderer.specFor`
+reads only the style) with what makes it a highlighter on top: translucent
+(one even layer where it crosses itself), drawn before other ink in each
+chunk picture (the live stroke on a layer beneath committed ink), straight
+lines on offer, snapping to PDF text, and flat chisel ends by default.
+`PenDefaults.endStyles` lists the ends each offers: the pen round, tapered
+or flat; the highlighter flat or round (a taper makes no sense for a
+translucent band; parsing rejects it). Highlights a PDF selection makes
+are always flat (`PdfHighlights`: the band ends where the text does).
 
 User customisation lives in `ToolSettings`, persisted as JSON in the local
 `settings` table: per ink a `PenConfig` with **independent quick colours and
 quick widths** (1–5 slots each, one of each selected) and feel settings
-(pressure sensitivity, stabiliser, straight lines; opacity for the
+(pressure sensitivity, stabiliser, ends, straight lines; opacity for the
 highlighter — the pen is always opaque), plus eraser options,
 hold-to-straighten and the 8 **recent colours** (`RecentColors`: colours
 newly put into an ink's quick slots or given to text or the laser, noted when
@@ -1671,8 +1694,9 @@ defaults as a whole.
 
 The ink panels (`features/editor/pen/`) are self-contained:
 `PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, ends)
-and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
-lines); on their own, their Reset restores the feel settings. The writing
+and `HighlighterOptionsPanel` (preview, opacity, pressure sensitivity — off
+by default —, stabiliser, ends: flat or round, straight lines); on their
+own, their Reset restores the feel settings. The writing
 gestures hold to snap and scribble to erase are app preferences
 (`AppPreferences.holdToSnap` / `scribbleToErase`), whose one home is
 Settings → Writing beside "Tap to undo and redo"; the editor mirrors them
@@ -1806,8 +1830,18 @@ does not grow with the stroke's length.
    the `PressureCurve` (`4p / (3p + 1)`: handwriting presses lightly, so
    device pressure 0.2 is medium, the pen's nominal width; fingers and the
    mouse are 0.5, medium too) and is filtered (`PressureFilter`); the
-   overlay's Kotlin model applies the same. **Ink shows from the first
-   sample**, under the nib
+   overlay's Kotlin model applies the same. A **mouse** reports whole
+   pixels (web, desktops), a staircase that zoomed out — the pen a fraction
+   of a pixel wide on screen — showed as squiggles the outline's smoothing
+   (bounded relative to the pen's width, which keeps its geometry exact)
+   cannot level; so when the pen is under 2.5 px wide on screen its path
+   is first resampled every pixel and smoothed with a centred Gaussian in
+   screen space (`MouseSmoother`: what the outline lacks, up to 2 px for a
+   hairline, trailing the mouse by at most 6 px like the stabiliser, the
+   ends where the mouse went down and up). Wider pens (the default at 100 %)
+   get the mouse's positions unchanged, without lag
+   (`test/mouse_zoom_smoothness_test.dart`).
+   **Ink shows from the first sample**, under the nib
    (latency beats purity): every contact is drawn from pen-down, even one
    that turns out to be a bounce (`BounceFilter.isBounce`, decided at its
    lift: it showed as a dot where the pen just lifted for < 80 ms and is
@@ -1854,7 +1888,7 @@ does not grow with the stroke's length.
      line, then a slope limit), so final as soon as their sample is; the
      start does not swell and is levelled; the moving tip follows the same
      end rules within a short reach. Ends are round caps at the width
-     the pressure gives (flat for the highlighter).
+     the pressure gives (or flat: the highlighter's default).
 4. **`RibbonEmitter`**: the outline is the envelope of the circles along
    the line. A *run* of samples becomes **one closed contour** — left side
    forward, a cap, right side back, a cap — whose sides are cubic Béziers

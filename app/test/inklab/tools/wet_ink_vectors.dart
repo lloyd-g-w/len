@@ -31,7 +31,7 @@ import 'package:len/ink/render/stroke_renderer.dart';
   // An unusual zoom and unit, so scaling mistakes show.
   final style = (ends ?? (s) => s)(r.style.copyWith(unit: 0.9));
   final wet = WetInkStyle.forPen(r.pen.tool, r.pen.width, style, color: 0xFF000000, scale: 1.3)!;
-  final taperEnd = StrokeRenderer.specFor(r.pen.tool, r.pen.width, style).taperEnd * 1.3 * dpr;
+  final taperEnd = StrokeRenderer.specFor(r.pen.width, style).taperEnd * 1.3 * dpr;
   final radii = [for (final x in wet.radii) x * dpr];
   final shape = wet.shape.scaled(dpr);
   final ev = StringBuffer()

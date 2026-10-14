@@ -20,13 +20,21 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   ink, links go with images).
 
 ## Highlighter
-- 🚧 (feat/ink-engine) **Same engine as the pen**, with the same customisability where it makes sense
-  (round vs flat ends, pressure, …). Explain or unify.
-- 🚧 (feat/ink-engine) **Highlighter flickers on pen-up**: fix.
+- ✅ **Same engine as the pen**, with the same customisability where it makes sense
+  (round vs flat ends, pressure, …). Explain or unify. It always was the pen's engine
+  (sampling, smoothing, stabiliser, outline), but forced flat ends and hid pressure; its
+  popover now offers pressure sensitivity and flat (default) or round ends too.
+- ✅ **Highlighter flickers on pen-up**: fix. A highlight crossing more than two tiles
+  vanished for a frame or two at pen-up (its tiles kept their old images until re-rendered);
+  they now draw it beneath their images meanwhile, as the live stroke was drawn. The pen was
+  fine (checked by the same frame-by-frame test).
 
 ## Eraser
-- 🚧 (feat/ink-engine) **Scribble to erase takes too many scribbles**: trigger after fewer zig-zags (1–2
-  back-and-forths), without false positives in normal writing.
+- ✅ **Scribble to erase takes too many scribbles**: trigger after fewer zig-zags (1–2
+  back-and-forths), without false positives in normal writing. Two quick back-and-forths
+  (4 passes in 0.8 s) now erase; the passes must keep to a narrower band, and printed
+  zigzag letters (z, N, M, w, vvv), joined-up m/w/z and zigzag hatching (spaced a tenth of
+  its length or more) joined the no-false-positive corpus.
 
 ## Notebooks
 - ✅ **Default notebook style**: set the default template, paper, size and cover for new
@@ -46,8 +54,11 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   writing and in focus mode unless kept there.
 
 ## Input
-- 🚧 (feat/ink-engine) **Mouse strokes zoomed out are squiggly (web and Linux)**: mouse ink at low zoom must be
-  as smooth as at 100 %.
+- ✅ **Mouse strokes zoomed out are squiggly (web and Linux)**: mouse ink at low zoom must be
+  as smooth as at 100 %. Mouse positions are whole pixels; the outline's smoothing is bounded
+  by the pen's width, so zoomed out it could not level the steps. Mouse paths of a pen under
+  2.5 px on screen are now smoothed on the screen first (`MouseSmoother`, as much as the
+  outline lacks): as smooth at 10 % as at 100 %; at 100 % mouse ink is unchanged, no lag.
 
 ## Done earlier this round
 - ✅ Shape fill, zoom window, document scan, keyboard accessibility, round 10 audit,

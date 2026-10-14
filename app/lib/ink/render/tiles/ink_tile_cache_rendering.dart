@@ -162,7 +162,9 @@ extension _Rendering on InkTileCache {
       ..image = image
       ..stale = false
       ..edited = false
-      ..overlay.removeRange(0, included);
+      ..overlay.removeRange(0, included)
+      // Underlays make the image stale: it was rendered afresh, with them.
+      ..underlay.clear();
     pool.add(tile);
     _notify();
   }

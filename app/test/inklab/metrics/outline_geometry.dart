@@ -87,14 +87,7 @@ PolygonSink outlineOf(
   double tolerance = 0.02,
 }) {
   final sink = PolygonSink(map: map ?? PolygonSink._identity, tolerance: tolerance);
-  StrokeRenderer.emitOutline(
-    sink,
-    points,
-    tool: tool,
-    width: width,
-    style: style,
-    complete: complete,
-  );
+  StrokeRenderer.emitOutline(sink, points, width: width, style: style, complete: complete);
   return sink;
 }
 
@@ -125,7 +118,7 @@ ScreenLine? centerlineOf(
 }) {
   final line = StrokeOutline.centerline(
     points,
-    StrokeRenderer.specFor(tool, width, style),
+    StrokeRenderer.specFor(width, style),
     complete: complete,
   );
   if (line == null) return null;

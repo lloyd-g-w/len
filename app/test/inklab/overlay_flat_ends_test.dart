@@ -51,7 +51,7 @@ void main() {
 /// sweeps from `WetInkEnds` on Flutter's own live line) do not, and the
 /// other way round.
 (int, int) _worstAgainstFlutter(ReplayResult r) {
-  final spec = StrokeRenderer.specFor(r.pen.tool, r.pen.width, r.style);
+  final spec = StrokeRenderer.specFor(r.pen.width, r.style);
   var worstGap = 0, worstGhost = 0;
   for (final f in r.frames) {
     if (f.points.length < 12) continue;

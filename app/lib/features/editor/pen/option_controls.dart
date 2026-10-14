@@ -155,6 +155,25 @@ class OptionHeader extends StatelessWidget {
 
 String percent(double v) => '${(v * 100).round()}%';
 
+/// The pressure sensitivity (`PenConfig.thinning`) slider: how much
+/// pressing harder widens the ink ("Off" at 0: every stroke one width).
+class PressureSlider extends StatelessWidget {
+  const PressureSlider({super.key, required this.value, required this.onChanged});
+
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) => OptionSlider(
+    label: 'Pressure sensitivity',
+    value: value,
+    min: 0,
+    max: 1,
+    display: (v) => v == 0 ? 'Off' : percent(v),
+    onChanged: onChanged,
+  );
+}
+
 /// The stabiliser (`PenConfig.streamline`) slider: "Off" at 0, else a
 /// percentage, with a hint about its trade-off.
 class StabiliserSlider extends StatelessWidget {

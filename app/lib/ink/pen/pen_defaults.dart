@@ -1,4 +1,5 @@
 import '../../domain/stroke.dart';
+import 'pen_ends.dart';
 
 /// Defaults and ranges of the inks offered in the toolbar: the pen
 /// (ballpoint rendering) and the highlighter.
@@ -9,6 +10,8 @@ class PenDefaults {
     required this.opacity,
     required this.thinning,
     required this.streamline,
+    required this.ends,
+    required this.endStyles,
     required this.minWidth,
     required this.maxWidth,
     required this.dotScale,
@@ -26,6 +29,11 @@ class PenDefaults {
   final double opacity;
   final double thinning;
   final double streamline;
+  final PenEnds ends;
+
+  /// End styles offered: the pen's three; a highlighter is a chisel or a
+  /// round-tipped marker (a taper makes no sense for a translucent band).
+  final List<StrokeEnds> endStyles;
 
   /// Width range in world units.
   final double minWidth;
@@ -46,6 +54,8 @@ class PenDefaults {
     opacity: 1,
     thinning: 0.25,
     streamline: 0,
+    ends: PenEnds(),
+    endStyles: [StrokeEnds.round, StrokeEnds.tapered, StrokeEnds.flat],
     minWidth: 0.5,
     maxWidth: 12,
     dotScale: 2.4,
@@ -60,6 +70,8 @@ class PenDefaults {
     opacity: 0.35,
     thinning: 0,
     streamline: 0.5,
+    ends: PenEnds(style: StrokeEnds.flat),
+    endStyles: [StrokeEnds.flat, StrokeEnds.round],
     minWidth: 4,
     maxWidth: 48,
     dotScale: 0.6,

@@ -17,7 +17,6 @@ abstract final class StrokeRenderer {
   /// The cached outline path of a committed stroke.
   static Path pathOf(Stroke stroke) => _paths[stroke] ??= buildPath(
     stroke.points,
-    tool: stroke.tool,
     width: stroke.width,
     style: stroke.style,
     complete: true,
@@ -35,13 +34,12 @@ abstract final class StrokeRenderer {
   /// being drawn (its moving end is not trimmed).
   static Path buildPath(
     List<StrokePoint> points, {
-    required InkTool tool,
     required double width,
     required StrokeStyle style,
     required bool complete,
   }) {
     final path = Path();
-    emitOutline(PathSink(path), points, tool: tool, width: width, style: style, complete: complete);
+    emitOutline(PathSink(path), points, width: width, style: style, complete: complete);
     return path;
   }
 
@@ -50,24 +48,23 @@ abstract final class StrokeRenderer {
   static void emitOutline(
     OutlineSink sink,
     List<StrokePoint> points, {
-    required InkTool tool,
     required double width,
     required StrokeStyle style,
     required bool complete,
   }) {
     if (points.isEmpty) return;
-    StrokeOutline.emit(sink, points, specFor(tool, width, style), complete: complete);
+    StrokeOutline.emit(sink, points, specFor(width, style), complete: complete);
   }
 
-  /// The outline shape parameters for a stroke; the highlighter has flat
-  /// ends, the pen those of its style ([StrokeStyle.ends]).
-  static OutlineSpec specFor(InkTool tool, double width, StrokeStyle style) {
-    final tapered = !tool.isHighlighter && style.ends == StrokeEnds.tapered;
+  /// The outline shape parameters for a stroke: pen and highlighter alike,
+  /// from its style ([StrokeStyle.ends] included).
+  static OutlineSpec specFor(double width, StrokeStyle style) {
+    final tapered = style.ends == StrokeEnds.tapered;
     return OutlineSpec(
       width: width,
       thinning: style.thinning,
       streamline: style.streamline,
-      flatCaps: tool.isHighlighter || style.ends == StrokeEnds.flat,
+      flatCaps: style.ends == StrokeEnds.flat,
       unit: style.unit,
       taperStart: tapered ? style.taperStart * width : 0,
       taperEnd: tapered ? style.taperEnd * width : 0,
