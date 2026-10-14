@@ -158,7 +158,7 @@ class _NotebookCardState extends State<NotebookCard> {
               child: Semantics(
                 container: true,
                 button: true,
-                selected: _selecting && _selected,
+                selected: _selecting ? _selected : null,
                 label: [
                   _notebook.title,
                   if (recordings > 0) recordings == 1 ? '1 recording' : '$recordings recordings',

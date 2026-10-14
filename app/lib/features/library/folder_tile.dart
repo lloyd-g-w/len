@@ -80,7 +80,34 @@ class _FolderTileState extends State<FolderTile> {
     // No plate (DESIGN §6.1): a name in the ruled row. Hover is the ink
     // overlay; a drop target is marked like a sidebar row; the dragged copy
     // is a slip.
-    return AnimatedContainer(
+    final moreWidth = Targets.of(context, 32);
+    final content = Padding(
+      padding: const EdgeInsets.only(left: Gaps.xxs, right: Gaps.xxs),
+      child: Row(
+        children: [
+          Icon(Symbols.folder_sharp, fill: 1, color: Color(_folder.color), size: Glyphs.bar),
+          const SizedBox(width: Gaps.md), // FolderTile.textInset
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _folder.name,
+                  style: theme.textTheme.labelLarge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(widget.subtitle, style: theme.textTheme.bodySmall, maxLines: 1),
+              ],
+            ),
+          ),
+          // Room for the ⋯, which lies over the tile.
+          if (!feedback) SizedBox(width: moreWidth),
+        ],
+      ),
+    );
+    final tile = AnimatedContainer(
       duration: Motion.fast,
       // Grows with large text: the name and caption, plus padding.
       height: widget.dense
@@ -97,58 +124,65 @@ class _FolderTileState extends State<FolderTile> {
               borderRadius: radius,
               border: active ? Border.all(color: scheme.primary, width: 1.5) : null,
             ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: radius,
-          onTap: () => widget.actions.controller.openFolder(_folder.id),
-          onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
-          onHover: (h) => setState(() => _hovered = h),
-          child: Padding(
-            padding: const EdgeInsets.only(left: Gaps.xxs, right: Gaps.xxs),
-            child: Row(
+      child: feedback
+          ? content
+          // For screen readers the tile is a button named by its name and
+          // caption, the ⋯ a button beside it (reachable while hidden):
+          // whether or not the ⋯ shows, the tile stays a button.
+          : Stack(
+              fit: StackFit.expand,
               children: [
-                Icon(Symbols.folder_sharp, fill: 1, color: Color(_folder.color), size: Glyphs.bar),
-                const SizedBox(width: Gaps.md), // FolderTile.textInset
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _folder.name,
-                        style: theme.textTheme.labelLarge,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(widget.subtitle, style: theme.textTheme.bodySmall, maxLines: 1),
-                    ],
+                Semantics(
+                  container: true,
+                  button: true,
+                  label: '${_folder.name}\n${widget.subtitle}',
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                      borderRadius: radius,
+                      onTap: () => widget.actions.controller.openFolder(_folder.id),
+                      onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
+                      child: ExcludeSemantics(child: content),
+                    ),
                   ),
                 ),
-                if (!feedback)
-                  AnimatedOpacity(
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  right: Gaps.xxs,
+                  child: AnimatedOpacity(
                     opacity: showMore ? 1 : 0,
                     duration: Motion.fast,
-                    child: Builder(
-                      builder: (anchor) => IconButton(
-                        tooltip: 'More',
-                        iconSize: Glyphs.bar,
-                        constraints: BoxConstraints(
-                          minWidth: Targets.of(context, 32),
-                          minHeight: Targets.touch,
+                    alwaysIncludeSemantics: true,
+                    child: Center(
+                      child: Builder(
+                        builder: (anchor) => IconButton(
+                          tooltip: 'More',
+                          iconSize: Glyphs.bar,
+                          constraints: BoxConstraints(
+                            minWidth: moreWidth,
+                            maxWidth: moreWidth,
+                            minHeight: Targets.touch,
+                          ),
+                          padding: EdgeInsets.zero,
+                          color: scheme.onSurfaceVariant,
+                          icon: const Icon(Symbols.more_horiz_sharp),
+                          onPressed: () => unawaited(_showMenu(anchor: anchor)),
                         ),
-                        padding: EdgeInsets.zero,
-                        color: scheme.onSurfaceVariant,
-                        icon: const Icon(Symbols.more_horiz_sharp),
-                        onPressed: () => unawaited(_showMenu(anchor: anchor)),
                       ),
                     ),
                   ),
+                ),
               ],
             ),
-          ),
-        ),
-      ),
     );
+    // The tile's hover covers its ⋯ too (which lies over the ink).
+    return feedback
+        ? tile
+        : MouseRegion(
+            onEnter: (_) => setState(() => _hovered = true),
+            onExit: (_) => setState(() => _hovered = false),
+            child: tile,
+          );
   }
 }

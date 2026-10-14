@@ -50,7 +50,8 @@ both from nixpkgs — notebook, mouse and pen ink, undo, pages, lasso, text,
 images, PDF import, search, PDF export, backup and a big restore, settings,
 offline reload, phone sizes, shortcuts — by label through the semantics
 tree. Any console error or warning, uncaught exception, failed request or
-failed check fails it; long tasks and the JS heap are reported. Screenshots
+failed check fails it, as does a task over 500 ms in the big notebook of a
+WebAssembly build; long tasks and the JS heap are reported. Screenshots
 of each step and `report.json` go to `$LEN_EXPLORE_OUT` (default
 `/tmp/len-web-explore`); options are at the top of `tool/web_explore.py`.
 

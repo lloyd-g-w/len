@@ -21,8 +21,9 @@ stored) → undo / redo → add a page → lasso and move → a text box with bo
 export it as PDF (download) → keyboard shortcuts (tools, go to page, focus
 mode, Ctrl+/) → settings and the dark theme → back up the library →
 offline reload → phone width and sideways phone → open and close a
-notebook a few times (memory). Then a second fresh profile restores that
-backup made big (big_backup: ~20 MB, 4000 strokes, large images, read in
+notebook a few times (memory) → a folder and the list view (cards, folder
+tiles and rows are named buttons for screen readers). Then a second fresh
+profile restores that backup made big (big_backup: ~20 MB, 4000 strokes, large images, read in
 slices on the web) and opens the big notebook at a page with an image and
 at its last page.
 
@@ -32,7 +33,13 @@ long tasks (> 200 ms, PerformanceObserver; Chromium) and the JS heap after
 a forced GC (Chromium). Any of the first four fails the run, as does a
 step whose check fails or a heap that keeps growing while a notebook is
 opened and closed again. Long tasks are reported, not failed: startup,
-PDF import and restore have some by nature. A failed step also leaves
+PDF import and restore have some by nature. Except in the big notebook
+(open_big) of a WebAssembly build: a task over LONG_TASK_CEILING_MS
+there fails the run (it froze the tab). Skwasm renders off the main
+thread, so its tasks are the app's own work; CanvasKit (the JavaScript
+build) renders on it, and under software GL (Xvfb, CI) one GPU round trip
+(a tile's pixels read back, the first frame's shaders) takes 0.3-1.5 s,
+so there they are only reported. A failed step also leaves
 what a screen reader finds there (<step>.txt).
 
 What was stored is read back from IndexedDB (SQLite) like
@@ -43,6 +50,7 @@ cross-origin isolated (README). Environment:
   LEN_EXPLORE_BACKUP=<file.len>          only restore this backup (made big) and open it
   LEN_EXPLORE_PROFILE=1                  CPU profile per step, its hottest functions printed
   LEN_EXPLORE_CYCLES=5                   open/close cycles of the memory step
+  LEN_EXPLORE_CEILING_MS=500             longest task allowed in the big notebook (WebAssembly)
   LEN_EXPLORE_BUNDLED=1                  Playwright's own Chromium (CI), not the PATH's
 Exit status 1 if anything failed.
 """
@@ -71,6 +79,8 @@ if os.path.exists(os.path.join(w.BUILD, 'main.dart.wasm')):
 
     w.Handler = _Isolated
 LONG_TASK_MS = 200
+LONG_TASK_CEILING_MS = int(os.environ.get('LEN_EXPLORE_CEILING_MS', 500))  # open_big, WebAssembly.
+CEILING_STEPS = {'open_big'}
 BUNDLED = os.environ.get('LEN_EXPLORE_BUNDLED')  # Playwright's own Chromium, not the PATH's (CI).
 PROFILE = os.environ.get('LEN_EXPLORE_PROFILE')  # CPU profile of each step (Chromium).
 HEAP_GROWTH_MB = 25  # Allowed JS heap growth over the open/close cycles.
@@ -388,6 +398,28 @@ _NODES = '''() => [...document.querySelectorAll('flt-semantics-host flt-semantic
     .join(' | ')).filter((l) => l.replace(/[ |]/g, ''))'''
 
 
+async def expect_items(page, names):
+    """Each of [names] is a button whose label starts with it and holds no
+    other button, before and while the mouse is over it; as many ⋯ as
+    items, whether shown or not."""
+    async def check(name, hovered):
+        item = page.get_by_role('button', name=re.compile('^' + re.escape(name) + r'\b')).first
+        await item.wait_for(timeout=15000)
+        inner = await item.get_by_role('button').count()
+        more = await page.get_by_role('button', name='More', exact=True).count()
+        w.expect(inner == 0 and more >= len(names),
+                 f'"{name}" is a named button{" (hovered)" if hovered else ""}: '
+                 f'{inner} button(s) inside, {more} ⋯')
+        return item
+
+    for name in names:
+        item = await check(name, False)
+        box = await item.bounding_box()
+        await page.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+        await page.wait_for_timeout(300)
+        await check(name, True)
+
+
 # --- The walk ----------------------------------------------------------------
 
 class Walk:
@@ -395,7 +427,7 @@ class Walk:
 
     def __init__(self, name, page, cdp, watch, fixtures):
         self.name, self.page, self.cdp, self.watch, self.fx = name, page, cdp, watch, fixtures
-        self.n, self.tasks_seen = 0, 0
+        self.n, self.tasks_seen, self.wasm = 0, 0, False
 
     async def step(self, title, body):
         self.n += 1
@@ -433,8 +465,15 @@ class Walk:
             with open(os.path.join(OUT, f'{self.name}-{self.n:02}-{title}.cpuprofile'), 'w') as f:
                 json.dump(profile, f)
             print_hot(profile)
-        long = [t for t in tasks[self.tasks_seen:] if t[1] > LONG_TASK_MS]
+        new = tasks[self.tasks_seen:]
+        long = [t for t in new if t[1] > LONG_TASK_MS]
         self.tasks_seen = len(tasks)
+        if title in CEILING_STEPS and new:
+            longest = max(t[1] for t in new)
+            print(f'  longest task: {longest} ms')
+            if self.wasm and longest > LONG_TASK_CEILING_MS:
+                self.watch.problem(f'a {longest} ms task froze the tab (ceiling {LONG_TASK_CEILING_MS} ms)')
+                ok = False
         heap = await heap_mb(page, self.cdp)
         self.watch.steps.append({'browser': self.name, 'step': title, 'ok': ok,
                                  'seconds': round(time.monotonic() - started, 1),
@@ -450,9 +489,13 @@ class Walk:
         await w.worker_ready(self.page)
         await w.accessible(self.page)
         await expect_text(self.page, 'No notebooks yet', timeout=60000)
-        wasm, isolated = await self.page.evaluate('''() => [performance.getEntriesByType('resource')
+        await self.note_build()
+
+    async def note_build(self):
+        """Which build the page runs: WebAssembly (Skwasm) or JavaScript."""
+        self.wasm, isolated = await self.page.evaluate('''() => [performance.getEntriesByType('resource')
             .some((e) => e.name.endsWith('.wasm') && e.name.includes('main.dart')), crossOriginIsolated]''')
-        print(f'  running {"WebAssembly" if wasm else "JavaScript"}'
+        print(f'  running {"WebAssembly" if self.wasm else "JavaScript"}'
               f'{", cross-origin isolated" if isolated else ""}')
 
     async def new_notebook(self):
@@ -648,6 +691,24 @@ class Walk:
         if heaps[0] is not None:
             w.expect(heaps[-1] - heaps[0] < HEAP_GROWTH_MB, f'the heap settles: {heaps} MB')
 
+    async def library_semantics(self):
+        """Cards, folder tiles and list rows stay buttons named by their
+        title for screen readers, hovered or not, each beside its own ⋯
+        (reachable while hidden)."""
+        page = self.page
+        await tap(page, 'New folder')
+        await type_text(page, 'Walk folder')
+        await page.keyboard.press('Enter')
+        await expect_text(page, 'Walk folder')
+        await expect_items(page, ['Walk folder', 'Explore', 'fix'])
+        await tap(page, 'View')
+        await tap(page, 'List', role='menuitem')
+        await page.keyboard.press('Escape')
+        await expect_items(page, ['Walk folder', 'Explore', 'fix'])
+        await tap(page, 'View')
+        await tap(page, 'Grid', role='menuitem')
+        await page.keyboard.press('Escape')
+
     async def restore(self):
         """A fresh profile (a new device) restores the backup, made big."""
         page = self.page
@@ -655,6 +716,7 @@ class Walk:
         await w.open_app(page)
         await w.accessible(page)
         await expect_text(page, 'No notebooks yet', timeout=60000)
+        await self.note_build()
         await tap(page, 'Settings')
         await wheel(page, 400, times=6)
         started = time.monotonic()
@@ -692,7 +754,7 @@ class Walk:
         return [self.first_launch, self.new_notebook, self.draw_mouse, self.draw_pen, self.undo_redo,
                 self.add_page, self.lasso_move, self.text_box, self.insert_image, self.view_menu,
                 self.import_pdf, self.search, self.export_pdf, self.shortcuts, self.settings,
-                self.backup, self.offline_reload, self.phone, self.memory]
+                self.backup, self.offline_reload, self.phone, self.memory, self.library_semantics]
 
 
 async def launch(p, browser, profile):

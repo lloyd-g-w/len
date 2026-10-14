@@ -69,68 +69,95 @@ class _NotebookListTileState extends State<NotebookListTile> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final selection = widget.actions.selection;
+    // The ink and the taps are underneath; the star and the ⋯ lie over
+    // them. For screen readers the row is a button named by its title and
+    // caption, the star and the ⋯ buttons beside it.
     final row = AnimatedContainer(
       duration: Motion.fast,
       decoration: BoxDecoration(
         color: _hovered ? Surfaces.hovered(scheme) : Colors.transparent,
         borderRadius: BorderRadius.circular(Radii.xs),
       ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(Radii.xs),
-          onTap: _tap,
-          onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
-          onHover: (h) => setState(() => _hovered = h),
-          onFocusChange: (f) => widget.actions.controller.setNotebookFocused(_notebook.id, f),
-          child: Padding(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Semantics(
+              container: true,
+              button: true,
+              selected: selection.active ? selection.contains(_notebook.id) : null,
+              label: '${_notebook.title}\n${widget.subtitle}',
+              child: Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(Radii.xs),
+                  onTap: _tap,
+                  onSecondaryTapUp: (d) => unawaited(_showMenu(at: d.globalPosition)),
+                  onFocusChange: (f) =>
+                      widget.actions.controller.setNotebookFocused(_notebook.id, f),
+                ),
+              ),
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.fromLTRB(Gaps.xxs, Gaps.sm, Gaps.xs, Gaps.sm),
             child: Row(
               children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(Radii.sm),
-                    boxShadow: Shadows.low(theme.brightness),
-                  ),
-                  child: CoverAnchor(
-                    locator: widget.actions.covers,
-                    notebookId: _notebook.id,
-                    child: SizedBox(
-                      width: NotebookListTile._coverWidth,
-                      height: NotebookListTile._coverWidth / 0.72,
-                      child: Stack(
-                        fit: StackFit.expand,
+                Expanded(
+                  // Taps go through to the ink.
+                  child: IgnorePointer(
+                    child: ExcludeSemantics(
+                      child: Row(
                         children: [
-                          NotebookCover.of(_notebook, showFavorite: false),
-                          if (widget.actions.selection.active)
-                            SelectionMark(
-                              selected: widget.actions.selection.contains(_notebook.id),
-                              compact: true,
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(Radii.sm),
+                              boxShadow: Shadows.low(theme.brightness),
                             ),
+                            child: CoverAnchor(
+                              locator: widget.actions.covers,
+                              notebookId: _notebook.id,
+                              child: SizedBox(
+                                width: NotebookListTile._coverWidth,
+                                height: NotebookListTile._coverWidth / 0.72,
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    NotebookCover.of(_notebook, showFavorite: false),
+                                    if (selection.active)
+                                      SelectionMark(
+                                        selected: selection.contains(_notebook.id),
+                                        compact: true,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: Gaps.lg),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _notebook.title,
+                                  style: theme.textTheme.labelLarge,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: Gaps.xxs),
+                                Text(
+                                  widget.subtitle,
+                                  style: theme.textTheme.bodySmall,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: Gaps.lg),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _notebook.title,
-                        style: theme.textTheme.labelLarge,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: Gaps.xxs),
-                      Text(
-                        widget.subtitle,
-                        style: theme.textTheme.bodySmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
                   ),
                 ),
                 // A star marks favourites (as on covers); the toggle shows
@@ -163,14 +190,18 @@ class _NotebookListTileState extends State<NotebookListTile> {
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
     return LibraryDraggable(
       item: LibraryDragItem.notebook(_notebook.id),
       feedback: DragFeedback(width: 80, height: 80 / 0.72, child: NotebookCover.of(_notebook)),
       onLongPressMenu: () => unawaited(_showMenu()),
-      child: row,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: row,
+      ),
     );
   }
 }
