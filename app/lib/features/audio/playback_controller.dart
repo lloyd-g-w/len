@@ -160,8 +160,10 @@ class PlaybackController extends ChangeNotifier {
   }
 
   /// Opens [recording] and starts playing it. Returns false (with
-  /// [lastError]) if it cannot be played.
+  /// [lastError]) if it cannot be played, or if another recording was
+  /// opened (or the player closed) before it was loaded.
   Future<bool> open(Recording recording, {bool autoplay = true}) async {
+    final open = ++_opens;
     lastError = null;
     _loading = true;
     _recording = recording;
@@ -171,22 +173,40 @@ class PlaybackController extends ChangeNotifier {
     _trimDraft = null;
     notifyListeners();
     final player = _player ??= _createPlayer();
+    // One at a time: a slow open (downloading) finishing after a later one
+    // would leave its audio in the player.
+    final previous = _opening;
+    final opened = Completer<void>();
+    _opening = opened.future;
     try {
+      await previous;
+      if (open != _opens) return false; // Superseded before it began.
       await player.open(recording, blobs, fetch);
     } on Object catch (e) {
+      if (open != _opens) return false;
       if (e is! AudioUnavailable) debugPrint('Playback failed to open: $e');
       lastError = e is AudioUnavailable ? e.message : 'This recording cannot be played';
       _loading = false;
-      if (_recording == recording) close();
+      close();
       return false;
+    } finally {
+      opened.complete();
     }
+    if (open != _opens) return false;
     _loading = false;
-    if (_rate != 1 && _recording == recording) await player.setRate(_rate);
-    if (recording.trimStartMs > 0 && _recording == recording) await seek(recording.trimStartMs);
-    if (autoplay && _recording == recording) await play();
-    notifyListeners();
+    if (_rate != 1 && open == _opens) await player.setRate(_rate);
+    if (recording.trimStartMs > 0 && open == _opens) await seek(recording.trimStartMs);
+    if (autoplay && open == _opens) await play();
+    if (open == _opens) notifyListeners();
     return true;
   }
+
+  /// Counts [open] and [close] calls: an open finding it changed was
+  /// superseded.
+  int _opens = 0;
+
+  /// The player's open under way, if any (they run one after the other).
+  Future<void>? _opening;
 
   AudioPlayback _createPlayer() {
     final player = backends.playback();
@@ -249,6 +269,8 @@ class PlaybackController extends ChangeNotifier {
   /// Stops playback and hides the bar.
   void close() {
     final player = _player;
+    _opens++;
+    _loading = false;
     _recording = null;
     _timeline = null;
     _trimDraft = null;
