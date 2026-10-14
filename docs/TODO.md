@@ -27,9 +27,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   back-and-forths), without false positives in normal writing.
 
 ## Notebooks
-- ⬜ **Default notebook style**: set the default template, paper, size and cover for new
+- 🚧 (feat/notebook-styles) **Default notebook style**: set the default template, paper, size and cover for new
   notebooks.
-- ⬜ **Own presets / styles**: save and reuse notebook styles (template + paper + size +
+- 🚧 (feat/notebook-styles) **Own presets / styles**: save and reuse notebook styles (template + paper + size +
   cover), and pen presets.
 
 ## Laser pointer
@@ -37,7 +37,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   again within that time keeps everything showing (nothing fades between strokes).
 
 ## Infinite canvas
-- ⬜ **Minimap, polished**: shows roughly where content is, the current view, tap / drag to
+- 🚧 (feat/minimap) **Minimap, polished**: shows roughly where content is, the current view, tap / drag to
   move; minimal, toggleable.
 
 ## Input
