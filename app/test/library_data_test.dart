@@ -89,6 +89,15 @@ void main() {
       expect(folders.childrenOf(b.id).map((f) => f.id), [c.id]);
     });
 
+    test('folders sort by name as notebooks do: Unicode case, accents folded', () {
+      for (final name in ['Zoë', 'Яблоко', 'Émile', 'apple', 'Ärger', 'арбуз', 'eclair']) {
+        folders.create(name: name, color: 1);
+      }
+      const expected = ['apple', 'Ärger', 'eclair', 'Émile', 'Zoë', 'арбуз', 'Яблоко'];
+      expect(folders.list().map((f) => f.name), expected);
+      expect(folders.childrenOf(null).map((f) => f.name), expected);
+    });
+
     test('deleting a folder deletes its subfolders and trashes their notebooks', () {
       final a = folders.create(name: 'A', color: 1);
       final b = folders.create(name: 'B', parentId: a.id, color: 1);

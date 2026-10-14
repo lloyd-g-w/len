@@ -20,14 +20,16 @@ mixin _NotebookTrash on SyncableTable {
     return n.copyWith(trashedAt: null, folderId: folderAlive ? folder : null);
   });
 
-  /// Moves every notebook inside [folderIds] to the trash (folder deletion).
-  void trashAllIn(Set<String> folderIds) {
-    if (folderIds.isEmpty) return;
-    database.transaction(() {
-      for (final n in list()) {
-        if (folderIds.contains(n.folderId)) trash(n.id);
-      }
-    });
+  /// Moves every notebook inside [folderIds] to the trash (folder deletion);
+  /// returns the ids of those it trashed (not those already in the trash).
+  List<String> trashAllIn(Set<String> folderIds) {
+    if (folderIds.isEmpty) return const [];
+    return database.transaction(
+      () => [
+        for (final n in list())
+          if (folderIds.contains(n.folderId)) n.id,
+      ]..forEach(trash),
+    );
   }
 
   /// Ids of the notebooks trashed more than [NotebookRepository.trashKeptFor] ago, the

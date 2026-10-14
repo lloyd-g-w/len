@@ -75,14 +75,38 @@ void main() {
       expect(titles(LibrarySort.created), 'bcA');
       expect(titles(LibrarySort.name), 'Abc');
     });
+
+    test('sorts names with Unicode case and accents folded, ties by id', () {
+      final list = [
+        for (final t in ['Zoë', 'Яблоко', 'Émile', 'apple', 'Ärger', 'арбуз']) nb(t),
+      ];
+      expect(LibraryQuery.sorted(list, LibrarySort.name).map((n) => n.title), [
+        'apple',
+        'Ärger',
+        'Émile',
+        'Zoë',
+        'арбуз',
+        'Яблоко',
+      ]);
+      // Equal once folded: by id (here the title).
+      final twins = [nb('Été'), nb('ete')];
+      expect(LibraryQuery.sorted(twins, LibrarySort.name).map((n) => n.id), ['ete', 'Été']);
+    });
+
+    test('filters ignoring accents, as full-text search does', () {
+      expect(LibraryQuery.matches('Café notes', 'cafe'), isTrue);
+      expect(LibraryQuery.matches('Cafe notes', 'CAFÉ'), isTrue);
+    });
   });
 
   group('LibraryController', () {
+    late FakeClock clock;
     late AppServices services;
     late LibraryController c;
 
     setUp(() {
-      services = AppServices.create(AppDatabase.inMemory(), clock: FakeClock());
+      clock = FakeClock();
+      services = AppServices.create(AppDatabase.inMemory(), clock: clock);
       c = LibraryController(services);
     });
 
@@ -118,6 +142,51 @@ void main() {
       expect(c.folderId, school.id);
       expect(c.goUp(), isTrue);
       expect(c.goUp(), isFalse);
+    });
+
+    test('undoing a folder deletion restores what synced in just before it', () {
+      final work = c.createFolder('Work', color: 1);
+      // Sync brings a notebook and a subfolder in, and renames the folder,
+      // before the library reloads.
+      final synced = services.notebooks.create(
+        title: 'Synced',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+        folderId: work.id,
+      );
+      final sub = services.folders.create(name: 'Sub', parentId: work.id, color: 2);
+      services.folders.update(services.folders.get(work.id)!.copyWith(name: 'Job'));
+
+      final deletion = c.deleteFolder(work.id);
+      expect(deletion.notebookIds, [synced.id]);
+      expect(services.notebooks.get(synced.id)!.isTrashed, isTrue);
+      expect(services.folders.list(), isEmpty);
+
+      c.undoDeleteFolder(deletion);
+      expect(services.notebooks.get(synced.id)!.isTrashed, isFalse);
+      expect(services.notebooks.get(synced.id)!.folderId, work.id);
+      expect(services.folders.list().map((f) => f.name), ['Job', 'Sub']);
+      expect(services.folders.get(sub.id)!.parentId, work.id);
+    });
+
+    test('deleting a folder deleted meanwhile leaves the notebooks it showed at the top', () {
+      final work = c.createFolder('Work', color: 1);
+      final orphan = services.notebooks.create(
+        title: 'Orphan',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+        folderId: work.id,
+      );
+      services.folders.delete(work.id); // By sync; the notebook shows at the top.
+      c.reload();
+      expect(c.visibleNotebooks.map((n) => n.id), [orphan.id]);
+
+      final deletion = c.deleteFolder(work.id); // From a stale menu.
+      expect(deletion.folders, isEmpty);
+      expect(deletion.notebookIds, isEmpty);
+      expect(services.notebooks.get(orphan.id)!.isTrashed, isFalse);
     });
 
     test('a search found by a recording says which (R8-11)', () {
@@ -166,16 +235,118 @@ void main() {
       expect(c.locationOf(deep), 'Work');
 
       c.query = '';
-      c.setFavorite(deep.id, true);
+      c.setFavorites([deep.id], true);
       c.showSection(LibrarySection.favorites);
       expect(c.visibleNotebooks.map((n) => n.id), [deep.id]);
 
-      c.trashNotebook(deep.id);
+      c.trashNotebooks([deep.id]);
       expect(c.visibleNotebooks, isEmpty);
       c.showSection(LibrarySection.trash);
       expect(c.visibleNotebooks.map((n) => n.id), [deep.id]);
       c.emptyTrash();
       expect(c.visibleNotebooks, isEmpty);
+    });
+
+    group('batch operations start from the database (sync may be ahead of the view)', () {
+      Notebook make(String title, {String? folderId}) => services.notebooks.create(
+        title: title,
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+        folderId: folderId,
+      );
+      late int notified;
+      setUp(() {
+        notified = 0;
+        c.addListener(() => notified++);
+      });
+
+      test('trash takes only live notebooks; Undo restores just those', () {
+        final a = make('A');
+        final b = make('B');
+        c.reload();
+        services.notebooks.trash(b.id); // Another device trashed it.
+        final trashedAt = services.notebooks.get(b.id)!.trashedAt;
+        clock.now += 1000;
+        notified = 0;
+
+        final trashed = c.trashNotebooks([a.id, b.id]);
+        expect(trashed, [a.id]);
+        expect(services.notebooks.get(b.id)!.trashedAt, trashedAt);
+        expect(notified, 1);
+
+        expect(c.restoreNotebooks(trashed).map((n) => n.id), [a.id]);
+        expect(services.notebooks.get(a.id)!.isTrashed, isFalse);
+        expect(services.notebooks.get(b.id)!.isTrashed, isTrue);
+      });
+
+      test('restore says which notebooks came back', () {
+        final a = make('A');
+        final b = make('B');
+        c.trashNotebooks([a.id]);
+        services.notebooks.delete(b.id);
+        expect(c.restoreNotebooks([a.id, b.id]).map((n) => n.id), [a.id]);
+      });
+
+      test('moves remember where each notebook was', () {
+        final work = services.folders.create(name: 'Work', color: 1);
+        final home = services.folders.create(name: 'Home', color: 1);
+        final a = make('A');
+        final b = make('B');
+        c.reload();
+        services.notebooks.moveTo(a.id, work.id); // Synced in.
+        notified = 0;
+        expect(c.moveNotebooks([a.id, b.id, 'gone'], home.id), {a.id: work.id, b.id: null});
+        expect(notified, 1);
+        expect(services.notebooks.get(b.id)!.folderId, home.id);
+      });
+
+      test('a drop on a folder deleted meanwhile files at the top level', () {
+        final gone = c.createFolder('Gone', color: 1);
+        final f = c.createFolder('F', color: 1);
+        final a = make('A');
+        final trashed = make('T');
+        c.reload();
+        // Sync deletes the folder and trashes a notebook while dragging.
+        services.folders.delete(gone.id);
+        services.notebooks.trash(trashed.id);
+
+        expect(c.moveNotebooks([a.id, trashed.id], gone.id), {a.id: null});
+        expect(services.notebooks.get(a.id)!.folderId, isNull);
+        expect(services.notebooks.get(trashed.id)!.folderId, isNull);
+        expect(c.moveFolder(f.id, gone.id), (from: null));
+        expect(services.folders.get(f.id)!.parentId, isNull);
+      });
+
+      test('favourites change only what differs', () {
+        final a = make('A');
+        final b = make('B');
+        services.notebooks.setFavorite(b.id, true);
+        expect(c.setFavorites([a.id, b.id], true), [a.id]);
+        expect(services.notebooks.get(a.id)!.favorite, isTrue);
+      });
+
+      test('folder edits and moves keep what sync changed meanwhile', () {
+        final f = c.createFolder('F', color: 1);
+        final g = c.createFolder('G', color: 2);
+        final h = c.createFolder('H', color: 3);
+        services.folders.move(f.id, g.id); // Synced in, not yet reloaded.
+
+        final before = c.editFolder(f.id, (now) => now.copyWith(name: 'F2'));
+        expect(before!.name, 'F');
+        expect(services.folders.get(f.id)!.parentId, g.id);
+        expect(services.folders.get(f.id)!.name, 'F2');
+
+        expect(c.moveFolder(f.id, h.id), (from: g.id));
+        expect(c.moveFolder(h.id, f.id), isNull); // Into its own child.
+        expect(c.editFolder('gone', (f) => f), isNull);
+      });
+
+      test('a folder exports the notebooks the database holds in it', () {
+        final f = c.createFolder('F', color: 1);
+        final inside = make('Synced', folderId: f.id);
+        expect(c.notebooksIn(f.id).map((n) => n.id), [inside.id]);
+      });
     });
 
     test('a folder deleted remotely while open falls back to the root', () {

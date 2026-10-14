@@ -1,4 +1,6 @@
 import '../../data/folder_repository.dart';
+import '../../data/name_order.dart';
+import '../../data/search/search_query.dart';
 import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
@@ -6,28 +8,27 @@ import '../../domain/preferences.dart';
 /// Pure filtering and sorting rules of the library (unit-tested).
 abstract final class LibraryQuery {
   /// Whether [text] matches a search [query]: every whitespace-separated
-  /// term occurs in it, case-insensitively. An empty query matches all.
+  /// term occurs in it, ignoring case and accents (as full-text search
+  /// does, [SearchText.fold]). An empty query matches all.
   static bool matches(String text, String query) => matcher(query)(text);
 
   /// A predicate equivalent to [matches] for a fixed [query], parsing the
   /// query once (for filtering many items).
   static bool Function(String text) matcher(String query) {
-    final terms = query.toLowerCase().split(_whitespace).where((t) => t.isNotEmpty).toList();
+    final terms = SearchText.fold(query).split(_whitespace).where((t) => t.isNotEmpty).toList();
     if (terms.isEmpty) return (_) => true;
     return (text) {
-      final haystack = text.toLowerCase();
+      final haystack = SearchText.fold(text);
       return terms.every(haystack.contains);
     };
   }
 
   static final RegExp _whitespace = RegExp(r'\s+');
 
-  /// [notebooks] sorted by [sort]: newest first for dates, A→Z for names.
+  /// [notebooks] sorted by [sort]: newest first for dates, A→Z for names
+  /// ([NameOrder], as folders are).
   static List<Notebook> sorted(Iterable<Notebook> notebooks, LibrarySort sort) {
-    int byName(Notebook a, Notebook b) {
-      final c = a.title.toLowerCase().compareTo(b.title.toLowerCase());
-      return c != 0 ? c : a.id.compareTo(b.id);
-    }
+    final byName = NameOrder.comparator<Notebook>((n) => n.title, (n) => n.id);
 
     final list = notebooks.toList();
     list.sort(switch (sort) {
