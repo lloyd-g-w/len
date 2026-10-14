@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
@@ -71,5 +72,27 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect([for (final p in s.pages.pagesOf(nb.id)) p.id], before);
+  });
+
+  testWidgets('"Keep finger drawing" pressed after the editor closed still turns it on', (
+    tester,
+  ) async {
+    final (s, _) = await pumpLibraryWithEditor(tester);
+    final pen = await tester.startGesture(const Offset(600, 400), kind: PointerDeviceKind.stylus);
+    for (var i = 1; i <= 8; i++) {
+      await pen.moveTo(Offset(600 + i * 8.0, 400 + i * 2.0));
+    }
+    await pen.up();
+    await tester.pumpAndSettle();
+    expect(s.preferences.stylusOnly, isTrue);
+
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(EditorScreen), findsNothing);
+    await tester.tap(find.text('Keep finger drawing'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(s.preferences.stylusOnly, isFalse);
   });
 }
