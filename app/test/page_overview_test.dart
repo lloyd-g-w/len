@@ -79,11 +79,10 @@ void main() {
     expect(exported, [pages[1].id, pages[3].id]);
     expect(find.text('Template…'), findsNothing); // No handler, no command.
 
+    // No question: the deletion offers Undo.
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
-    expect(find.text('Delete 2 pages?'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
-    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
     expect(deletedMany, [pages[1].id, pages[3].id]);
     expect(find.text('Select'), findsOneWidget); // Selection mode ended.
     expect(tester.takeException(), isNull);

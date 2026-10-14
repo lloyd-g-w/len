@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../../ui/app_dialogs.dart';
 import '../../../ui/selection_bar.dart';
 import 'page_commands.dart';
 
@@ -42,21 +41,7 @@ class PageSelectionBar extends StatelessWidget {
   final bool allBookmarked;
   final ValueChanged<SelectionAction> onAction;
 
-  Future<void> _delete(BuildContext context) async {
-    final ok =
-        count == 1 ||
-        await confirmAction(
-          context,
-          title: 'Delete $count pages?',
-          message: 'Their ink, text and images are deleted with them.',
-          confirmLabel: 'Delete',
-          destructive: true,
-          icon: Symbols.delete_sharp,
-        );
-    if (ok) onAction(SelectionAction.delete);
-  }
-
-  SelectionCommand _command(BuildContext context, SelectionAction a) => switch (a) {
+  SelectionCommand _command(SelectionAction a) => switch (a) {
     SelectionAction.bookmark => SelectionCommand(
       icon: allBookmarked ? Symbols.bookmark_remove_sharp : Symbols.bookmark_sharp,
       label: allBookmarked ? 'Remove bookmark' : 'Bookmark',
@@ -90,7 +75,8 @@ class PageSelectionBar extends StatelessWidget {
       icon: Symbols.delete_sharp,
       label: 'Delete',
       destructive: true,
-      onPressed: () => _delete(context),
+      // No question: the deletion offers Undo (UX_AUDIT R9-6).
+      onPressed: () => onAction(a),
     ),
   };
 
@@ -103,7 +89,7 @@ class PageSelectionBar extends StatelessWidget {
     enabled: count > 0,
     commands: [
       for (final a in SelectionAction.values)
-        if (offered.contains(a)) _command(context, a),
+        if (offered.contains(a)) _command(a),
     ],
   );
 }
