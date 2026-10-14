@@ -7,6 +7,7 @@ import '../../../domain/preferences.dart';
 import '../../../ui/app_switch.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/group_header.dart';
+import '../../../ui/menus.dart';
 import '../document/document_layout.dart';
 import '../document/page_fit.dart';
 import '../document/page_overview.dart';
@@ -219,7 +220,10 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           excludeFromSemantics: true,
           onLongPress: choose,
           onSecondaryTap: choose,
-          child: row(semanticsActions: {CustomSemanticsAction(label: c.alternateAction!): choose}),
+          child: alternateHintTooltip(
+            c.alternateHint,
+            row(semanticsActions: {CustomSemanticsAction(label: c.alternateAction!): choose}),
+          ),
         );
       },
     );

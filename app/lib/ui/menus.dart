@@ -26,6 +26,7 @@ class MenuRow<T> extends PopupMenuItem<T> {
     this.shortcut,
     this.alternate,
     this.alternateAction,
+    this.alternateHint,
     super.enabled,
   }) : assert((alternate == null) == (alternateAction == null)),
        super(child: null, height: Targets.menuRow);
@@ -37,6 +38,10 @@ class MenuRow<T> extends PopupMenuItem<T> {
   /// The name of the screen-reader action that chooses [alternate] (the
   /// gestures are pointer-only), e.g. "Add page with template".
   final String? alternateAction;
+
+  /// A tooltip shown on hover saying how to reach [alternate] ("Hold or
+  /// right-click for a template").
+  final String? alternateHint;
 
   final IconData? icon;
 
@@ -85,7 +90,7 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
         behavior: HitTestBehavior.opaque,
         onLongPress: choose,
         onSecondaryTap: choose,
-        child: row,
+        child: alternateHintTooltip(widget.alternateHint, row),
       ),
     );
   }
@@ -147,6 +152,18 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
     );
   }
 }
+
+/// Wraps a menu row in a tooltip [hint] on how to reach its alternate (a
+/// long press, a secondary click): on hover only (a long press chooses the
+/// alternate), and not for screen readers (they get a custom action).
+Widget alternateHintTooltip(String? hint, Widget row) => hint == null
+    ? row
+    : Tooltip(
+        message: hint,
+        triggerMode: TooltipTriggerMode.manual,
+        excludeFromSemantics: true,
+        child: row,
+      );
 
 /// Shows a context menu at the global position [at] (or centred on the
 /// widget of [context]) and returns the chosen value.

@@ -161,10 +161,24 @@ void main() {
       PointerScrollEvent(position: const Offset(640, 450), scrollDelta: const Offset(0, 5000)),
     );
     await tester.pumpAndSettle();
+    expect(find.text('Hold for a template'), findsOneWidget, reason: 'until held once');
     await tester.tap(find.text('Add page'));
     await tester.pumpAndSettle();
     expect(s.pages.pagesOf(nb.id), hasLength(4));
     expect(find.text('4 / 4'), findsOneWidget);
+    await tester.sendEventToBinding(
+      PointerScrollEvent(position: const Offset(640, 450), scrollDelta: const Offset(0, 5000)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Hold for a template'), findsOneWidget);
+    await tester.longPress(find.text('Add page'));
+    await tester.pumpAndSettle();
+    expect(find.text('Music staff'), findsWidgets, reason: 'the template chooser');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Add page'), findsOneWidget);
+    expect(find.text('Hold for a template'), findsNothing, reason: 'learnt');
+    expect(s.settings.seenTips, contains('add-page-hold'));
     expect(tester.takeException(), isNull);
     await closeEditor(tester);
   });
@@ -295,6 +309,13 @@ void main() {
     for (final c in PageCommand.menu) {
       expect(find.text(c.labelFor()), findsOneWidget, reason: c.name);
     }
+    // Hovering the row says how to reach the template (screen readers get
+    // an action instead).
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: tester.getCenter(find.text('Add page after')));
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Hold or right-click for a template'), findsOneWidget);
     expect(find.text('Add page with template…'), findsNothing);
     expect(find.text('Add page to outline…'), findsNothing);
     await tester.longPress(find.text('Add page after'));

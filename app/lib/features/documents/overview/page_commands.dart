@@ -53,6 +53,9 @@ enum PageCommand {
   /// without the ellipsis: "Add page with template"), since the long press
   /// and the secondary click are pointer gestures.
   String? get alternateAction => alternate?._label.replaceAll('…', '');
+
+  /// The row's tooltip (on hover) saying how to reach [alternate].
+  String? get alternateHint => alternate == null ? null : 'Hold or right-click for a template';
 }
 
 /// Callbacks through which the overview edits the notebook. Each returns
@@ -113,6 +116,7 @@ List<PopupMenuEntry<PageCommand>> pageMenuItems(NotebookPage page) => [
       value: c,
       alternate: c.alternate,
       alternateAction: c.alternateAction,
+      alternateHint: c.alternateHint,
       icon: c.iconFor(bookmarked: page.bookmarked),
       label: c.labelFor(bookmarked: page.bookmarked),
       destructive: c.destructive,
