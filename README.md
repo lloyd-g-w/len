@@ -23,9 +23,7 @@ Download the latest build from
 | Linux (x64) | `len-X.Y.Z-linux-x64.tar.gz` | Unpack, run `./len`; `./install-desktop-entry.sh` adds it to your application menu (`--uninstall` removes it). Needs GTK 3, libsecret (the sync token goes to the desktop's keyring) and GStreamer (with the -good and an AAC plugin, for audio playback); recording uses `parecord` and `ffmpeg`. |
 | Web | `len-X.Y.Z-web.zip` | Static site: unzip and serve it over HTTPS with any web server (headers: see *Develop*). Install it from the browser (PWA) to use it offline. |
 
-Store listings (Flathub, F-Droid, Google Play, winget) are prepared but not
-published yet: see [docs/PACKAGING.md](docs/PACKAGING.md) for what each
-package bundles and what is still missing.
+Len is distributed through GitHub Releases only; it is not published to app stores.
 
 For sync, run the server: [server/README.md](server/README.md) (Docker image
 `ghcr.io/lloyd-g-w/len-sync`). `SHA256SUMS` lists the checksums of all files.
@@ -206,3 +204,8 @@ Release builds use R8 code + resource shrinking
   mouse wheel (Ctrl+wheel zooms), middle-drag.
 - **Undo / redo**: `Ctrl+Z` / `Ctrl+Shift+Z`.
 - **Sync**: Settings → enter your server URL and token.
+
+## Licence
+
+Len is free software under the GNU General Public License, version 3 or
+(at your option) any later version. See [LICENSE](LICENSE).

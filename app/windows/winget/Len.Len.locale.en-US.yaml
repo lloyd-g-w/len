@@ -1,6 +1,4 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json
-# TODO(owner): License is required by winget-pkgs; set it (SPDX id) once the
-# repository has a LICENSE (fill.sh warns while it says TODO).
 PackageIdentifier: Len.Len
 PackageVersion: "{{VERSION}}"
 PackageLocale: en-US
@@ -9,7 +7,8 @@ PublisherUrl: https://github.com/lloyd-g-w/len
 PublisherSupportUrl: https://github.com/lloyd-g-w/len/issues
 PackageName: Len
 PackageUrl: https://github.com/lloyd-g-w/len
-License: TODO
+License: GPL-3.0-or-later
+LicenseUrl: https://github.com/lloyd-g-w/len/blob/main/LICENSE
 ShortDescription: Handwriting-first notes with paged notebooks, an infinite canvas and self-hosted sync.
 Description: |-
   Len is a calm note-taking app for writing by hand with a pen tablet, touch

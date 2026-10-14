@@ -1,18 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- AppStream metadata (software centres, Flathub, AppImage). Installed to
+<!-- AppStream metadata (software centres, the Flatpak bundle, AppImage). Installed to
      share/metainfo/ in the Linux bundle, the Flatpak and the AppImage.
      Check: appstreamcli validate -pedantic dev.len.len.metainfo.xml
-     TODO(owner) before publishing (docs/PACKAGING.md "Flathub"):
-     - <project_license>: the repository has no licence yet; add LICENSE and
-       its SPDX id here (e.g. <project_license>GPL-3.0-or-later</project_license>).
-     - The app id dev.len.len claims the domain len.dev: Flathub needs it to
-       be yours (else rename to io.github.lloyd_g_w.Len everywhere).
-     - Add a <release> (with a description) for every version. -->
+     Add a <release> (with a description) for every version. -->
 <component type="desktop-application">
   <id>dev.len.len</id>
   <name>Len</name>
   <summary>Handwritten notes with an infinite canvas</summary>
   <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
   <developer id="dev.len">
     <name>Len</name>
   </developer>

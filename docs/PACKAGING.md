@@ -1,7 +1,12 @@
 # Packaging and store listings
 
+> **Owner decision:** Len is not published to any store (Flathub, F-Droid,
+> Google Play, winget). Releases ship on GitHub only (APK, AppImage, tarball,
+> Flatpak bundle, Windows installer, web zip). The store notes below are kept
+> for reference only.
+
 How Len is packaged per platform, what each package bundles and what it takes
-from the system, and what is still needed (from the owner: licence, signing
+from the system, and what is still needed (from the owner: signing
 keys, store accounts) before publishing to stores. Build and release steps
 are in the README (*Release*); this file keeps the decisions.
 
@@ -92,9 +97,8 @@ on the GNOME runtime (README *Release → Flatpak*; the release workflow's
 
 ### Flathub: what the owner must do
 
-- ⚠️ **Licence (blocker):** the repository has no licence. Flathub (and
-  F-Droid) only publish software with one. Add `LICENSE`, then
-  `<project_license>SPDX-ID</project_license>` to the metainfo.
+- ✅ **Licence:** GPL-3.0-or-later (`LICENSE`; `<project_license>` in the
+  metainfo).
 - ⚠️ **App id:** `dev.len.len` claims the domain `len.dev`. Flathub checks
   that the submitter controls the id's domain (verification needs a token on
   `https://len.dev/.well-known/org.flathub.VerifiedApps.txt`). Without it,
@@ -148,7 +152,7 @@ Today's Len does not qualify:
    the `google_mlkit_digital_ink_recognition` plugin are proprietary Google
    libraries (they pull Play-services components). Lasso → *Convert to
    text* uses them.
-2. ⚠️ **Licence (blocker):** none in the repository yet.
+2. ✅ **Licence:** GPL-3.0-or-later.
 3. **Prebuilt native libraries fetched at build time:** `pdfium_dart`'s build
    hook downloads PDFium from `bblanchon/pdfium-binaries`, and `sqlite3`'s
    hook downloads a precompiled SQLite from GitHub. F-Droid wants them built
@@ -180,7 +184,7 @@ above is done):
 
 ```yaml
 Categories: [Writing]
-License: TODO            # SPDX id of the chosen licence
+License: GPL-3.0-or-later
 SourceCode: https://github.com/lloyd-g-w/len
 IssueTracker: https://github.com/lloyd-g-w/len/issues
 AutoName: Len
@@ -234,7 +238,7 @@ setup, all three validate against Microsoft's 1.10.0 JSON schemas
 
 Needs the owner:
 
-- ⚠️ `License:` is `TODO` (the job warns): winget-pkgs requires it.
+- ✅ `License:` GPL-3.0-or-later.
 - Choose the identifier for good (`Len.Len` = Publisher.Name).
 - Submit: unzip and open a PR to `microsoft/winget-pkgs`, or
   `wingetcreate submit --token <GitHub PAT> manifests/l/Len/Len/X.Y.Z` (on

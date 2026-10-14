@@ -250,9 +250,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   Flatpak (the GNOME runtime's `parecord` + `ffmpeg`, checked by a script); store metadata ready:
   Flathub AppStream (screenshots, release notes, OARS), fastlane texts + phone / tablet
   screenshots for Play and F-Droid, winget manifests filled per release (docs/PACKAGING.md)
-- ⬜ Publishing (needs the owner): a licence, then Flathub (app id domain), Play (account, AAB),
-  F-Droid (`foss` flavor without ML Kit, PDFium / SQLite from source), winget submission, a
-  code-signing certificate for the Windows installer
+- ➖ Publishing to stores (Flathub, F-Droid, Play, winget): not planned (owner decision); releases stay on GitHub
 
 ## Sync
 - ✅ Self-hosted LWW record sync
