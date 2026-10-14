@@ -1,6 +1,6 @@
 import 'package:cross_file/cross_file.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:len/domain/notebook.dart';
@@ -174,7 +174,11 @@ void main() {
     expect(find.text('Discard this scan?'), findsOneWidget);
     await s.tap(find.text('Cancel'));
     expect(find.byType(ScanScreen), findsOneWidget);
-    await s.tap(find.byTooltip('Close'));
+    // Escape asks too.
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Discard this scan?'), findsOneWidget);
     await s.tap(find.text('Discard'));
     await tester.pumpAndSettle();
     expect(find.byType(ScanScreen), findsNothing);

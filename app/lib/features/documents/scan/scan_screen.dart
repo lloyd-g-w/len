@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_dialogs.dart';
@@ -153,51 +154,57 @@ class _ScanScreenState extends State<ScanScreen> {
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) unawaited(_close());
         },
-        child: Scaffold(
-          appBar: _appBar(context, count, busy),
-          body: Column(
-            children: [
-              SizedBox(
-                height: Hairline.rule,
-                child: busy ? const LinearProgressIndicator(minHeight: Hairline.rule) : null,
-              ),
-              Expanded(
-                child: ColoredBox(
-                  color: Surfaces.canvasBackdrop(Theme.of(context).brightness),
-                  child: page == null
-                      ? ScanEmptyState(
-                          busy: busy,
-                          onCamera: widget.sources.hasCamera ? _camera : null,
-                          onPick: _pick,
-                        )
-                      : ScanCornerEditor(
-                          key: ObjectKey(page),
-                          photo: _session.display,
-                          photoSize: Size(
-                            page.photo.width.toDouble(),
-                            page.photo.height.toDouble(),
-                          ),
-                          quad: page.quad,
-                          onChanged: (quad, {required done}) => done
-                              ? _session.updatePreview()
-                              : _session.setQuad(quad, preview: false),
-                        ),
-                ),
-              ),
-              if (page != null)
-                ScanControls(
-                  session: _session,
-                  busy: busy,
-                  retakeLabel: widget.sources.hasCamera ? 'Retake' : 'Replace…',
-                  onRetake: () =>
-                      widget.sources.hasCamera ? _camera(replace: true) : _pick(replace: true),
-                  onAdd: _add,
-                ),
-            ],
-          ),
+        child: CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.escape): () => unawaited(_close()),
+            const SingleActivator(LogicalKeyboardKey.enter, control: true): () {
+              if (count > 0 && !busy) _done();
+            },
+          },
+          child: Focus(autofocus: true, child: _scaffold(context, page, count, busy)),
         ),
       );
     },
+  );
+
+  Widget _scaffold(BuildContext context, ScanPageDraft? page, int count, bool busy) => Scaffold(
+    appBar: _appBar(context, count, busy),
+    body: Column(
+      children: [
+        SizedBox(
+          height: Hairline.rule,
+          child: busy ? const LinearProgressIndicator(minHeight: Hairline.rule) : null,
+        ),
+        Expanded(
+          child: ColoredBox(
+            color: Surfaces.canvasBackdrop(Theme.of(context).brightness),
+            child: page == null
+                ? ScanEmptyState(
+                    busy: busy,
+                    onCamera: widget.sources.hasCamera ? _camera : null,
+                    onPick: _pick,
+                  )
+                : ScanCornerEditor(
+                    key: ObjectKey(page),
+                    photo: _session.display,
+                    photoSize: Size(page.photo.width.toDouble(), page.photo.height.toDouble()),
+                    quad: page.quad,
+                    onChanged: (quad, {required done}) =>
+                        done ? _session.updatePreview() : _session.setQuad(quad, preview: false),
+                  ),
+          ),
+        ),
+        if (page != null)
+          ScanControls(
+            session: _session,
+            busy: busy,
+            retakeLabel: widget.sources.hasCamera ? 'Retake' : 'Replace…',
+            onRetake: () =>
+                widget.sources.hasCamera ? _camera(replace: true) : _pick(replace: true),
+            onAdd: _add,
+          ),
+      ],
+    ),
   );
 
   PreferredSizeWidget _appBar(BuildContext context, int count, bool busy) {
