@@ -299,6 +299,31 @@ void main() {
     });
   }, timeout: const Timeout(Duration(minutes: 3)));
 
+  // A diagram-heavy canvas: 2 000 ellipses and boxes, outlined or filled
+  // (a translucent tint of the ink, or solid), overlapping.
+  for (final filled in [false, true]) {
+    testWidgets('pan over 2 000 shapes, ${filled ? 'filled' : 'outlined'}', (tester) async {
+      await tester.runAsync(() async {
+        final scene = _scene(_shapes(2000, const Rect.fromLTWH(-1500, -1000, 4300, 2800), filled));
+        final warm = Stopwatch()..start();
+        await scene.warm();
+        // ignore: avoid_print
+        print(
+          'INKPERF shapes ${filled ? 'filled' : 'outlined'}: first screen of tiles '
+          '${warm.elapsedMilliseconds} ms',
+        );
+        final run = _Run.of(scene);
+        for (var i = 0; i < 40; i++) {
+          await run.frame(() => scene.viewport.panBy(const Offset(-6.37, -2.71)));
+        }
+        await run.report('shapes ${filled ? 'filled' : 'outlined'}, pan 100 %');
+        await run.rest();
+        await run.report('shapes ${filled ? 'filled' : 'outlined'}, pan 100 %, rest');
+        scene.dispose();
+      });
+    }, timeout: const Timeout(Duration(minutes: 3)));
+  }
+
   testWidgets('pan a big canvas at 6 %', (tester) async {
     await tester.runAsync(() async {
       final big = scribbles(40000, const Rect.fromLTWH(0, 0, 30000, 20000), points: 10);
@@ -479,6 +504,51 @@ Stroke _scrawl(String id, Offset at, int n) => Stroke(
   ],
   createdAt: (1 << 40) + n,
 );
+
+/// [count] closed shapes (ellipses and boxes, 40–200 wide) over [area];
+/// [filled]: every other one tinted, the rest solid.
+List<Stroke> _shapes(int count, Rect area, bool filled) {
+  final random = math.Random(5);
+  return [
+    for (var n = 0; n < count; n++)
+      () {
+        final c = Offset(
+          area.left + random.nextDouble() * area.width,
+          area.top + random.nextDouble() * area.height,
+        );
+        final w = 40 + random.nextDouble() * 160, h = 30 + random.nextDouble() * 120;
+        final ellipse = n.isEven;
+        final points = ellipse
+            ? [
+                for (var i = 0; i <= 64; i++)
+                  StrokePoint(
+                    c.dx + w / 2 * math.cos(i % 64 * math.pi / 32),
+                    c.dy + h / 2 * math.sin(i % 64 * math.pi / 32),
+                    .5,
+                  ),
+              ]
+            : [
+                for (final (x, y) in [(-1, -1), (1, -1), (1, 1), (-1, 1), (-1, -1)])
+                  StrokePoint(c.dx + x * w / 2, c.dy + y * h / 2, .5),
+              ];
+        const ink = [0xFF1B1F3B, 0xFF1565C0, 0xFFC62828, 0xFF2E7D32];
+        final color = ink[n % 4];
+        final style = StrokeStyle.defaultsFor(InkTool.ballpoint);
+        return Stroke(
+          id: 'shape$n',
+          surfaceId: 's',
+          tool: InkTool.ballpoint,
+          color: color,
+          width: 2.5,
+          points: points,
+          createdAt: n,
+          style: filled
+              ? style.withFill(n % 4 == 0 ? 0xFFFFF59D : (0x40 << 24 | color & 0xFFFFFF))
+              : style,
+        );
+      }(),
+  ];
+}
 
 Stroke _onPage(Stroke s, String page) => Stroke(
   id: '$page-${s.id}',

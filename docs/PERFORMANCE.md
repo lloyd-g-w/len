@@ -18,6 +18,10 @@ how long the UI thread is held, `bestMs`, `report`).
 | `sync_scale_perf_test.dart` | first full pull of 73k records (67k strokes) from a mock server (records encoded ahead, so serving costs the shared thread only a copy), then an incremental and an idle sync |
 | `scribble_perf_test.dart` | scribble to erase on very long strokes (writing, and a scribble going on): µs per pen move at 4k and 64k moves must stay flat |
 | `startup_scale_perf_test.dart` | launch with a 335 MB database (325k strokes, 500 blob rows = 5 GB of PDFs, 200 expired trashed notebooks): what runs before the first frame, then trash purge and blob GC |
+| `minimap_perf_test.dart` | canvas of 10,000 strokes over 40,000 × 25,000 (3,762 chunks): a pan frame and a pen move with the minimap on and off (widgets rebuilt, render objects painted), and the map's own work (density read, merge, paint) |
+| `zoom_window_perf_test.dart` | three full ruled pages: a frame of the page view scrolling with the zoom window open and closed; 60 words written in the box against 60 on the page |
+| `ink_render_perf_test.dart` | (with the Ink Lab cases) 2,000 overlapping shapes outlined and filled: first screen of tiles, pan frames |
+| `scan_perf_test.dart` | a synthetic 12-MP photo: detection, preview, page render and JPEG; the longest UI stretch of the web's banded path |
 
 Run one file with `tool/light.sh flutter test test/perf/<file>`. The widget
 benchmarks run in debug JIT inside the test harness: compare numbers with each
@@ -77,6 +81,47 @@ Measured back to back on the same machine (debug, harness).
   per blob would have to be kept), and pulled rows keep their remote versions,
   so `updated_at` is no change log.
 
+## Before → after (branch review/round11, Oct 2026)
+
+Today's features (minimap, zoom window, shape fill, notebook styles, scan),
+counted in the harness (`debugOnRebuildDirtyWidget`, `debugOnProfilePaint`);
+times are debug JIT on a machine at load 20, so the counts are the numbers
+to trust.
+
+| Scenario | Before | After |
+|---|---|---|
+| Canvas pan frame, 10k strokes, minimap off | 38 rebuilds, 77 render objects painted, 10.4 ms | 1 rebuild, 16 paints, 3.6 ms |
+| Same, minimap on | 38 rebuilds, 96 paints, 12.1 ms | 1 rebuild, 17 paints (the map's painter alone), 4.2 ms |
+| Page view scroll frame, zoom window open (closed: 3 rebuilds, 69 paints) | 19 rebuilds, 182 paints; the box's paper repainted every frame | 11 rebuilds, 82 paints; the box untouched |
+| Pen move in the zoom box (steady) | 4 live-ink layers | same; per word ~290 more paints than on the page (the box and frame follow each stroke) |
+| Scanned page on the web: longest UI stretch | ~480 ms (Dart JPEG encoder, VM; slower in JS) | 11 ms (render bands; the browser encodes) |
+
+- **Pan frames.** The zoom pill rebuilt on every pan (only its scale is
+  shown); the selection menu and the text box editor, with nothing to show,
+  rebuilt with the view, and under the editor's `LayoutBuilder` any rebuild
+  lays out and repaints the whole editor layer; the link layer and the
+  minimap had no repaint boundary. Each now listens to the view only while
+  it shows something, and the painters that follow the view are layers of
+  their own.
+- **Zoom window.** The box's paper listened to the main view (`ZoomHost.changes`)
+  though it shows the frame's surface; it now listens to `ZoomHost.surfaces`.
+  The frame overlay (it moves with the page) and the box are repaint
+  boundaries.
+- **Minimap.** Its content costs nothing per frame: 3,762 chunks are read in
+  5 ms (reader isolate), merged into 999 blocks in 1–2 ms (UI thread, half a
+  second after the last edit) and painted in 0.7 ms. Writing is unaffected
+  (8.3 → 8.6 paints a move; the map steps aside).
+- **Shape fill.** 2,000 overlapping shapes: tiles 2.5–2.7 s for the first
+  screen and pan frames p50 22–24 ms whether outlined or filled (fill paths
+  are memoised per stroke, drawn into the same tiles).
+- **Scan.** Natively all of it runs on worker isolates: detection 30 ms
+  (800 × 600), a 320-px preview 11 ms, a 2,115 × 1,781 page 280 ms plus a
+  480 ms JPEG. On the web the page renders in 64-row bands; its encoding
+  now goes to the browser (`OffscreenCanvas.convertToBlob`), Dart's
+  encoder only where that is missing.
+- **Notebook styles.** Two queries of a small table when the new-notebook
+  sheet opens; nothing at startup.
+
 ## Current numbers (debug, harness)
 
 - **Library, 1,000 notebooks:** first frame 400–450 ms (a warm 20-notebook
@@ -96,6 +141,16 @@ Measured back to back on the same machine (debug, harness).
   (next day) 37 ms.
 
 ## Known costs / next steps
+
+- A paged notebook's scroll frame still lays out and repaints the editor
+  layer (69 render objects): `PdfLayer` (its `ListenableBuilder` on the view
+  builds a `Stack` per frame) and `AddPageFooter` (it follows the last page)
+  rebuild under the editor's `LayoutBuilder`. Moving the PDF selection's
+  painter onto a `repaint` listenable and the footer behind its own boundary
+  would leave the page layers alone.
+- The scan screen rebuilds as a whole per move of a corner drag (the corner
+  editor takes its quad from the session); bounded by the screen (and one
+  thumbnail per page), not by the photo.
 
 - A first pull is bound by SQLite inserts on the UI isolate (~60 µs a stroke
   with its chunk rows, 4 ms slices). Applying in a worker with its own

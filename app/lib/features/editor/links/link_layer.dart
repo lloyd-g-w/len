@@ -22,39 +22,44 @@ class LinkLayer extends StatelessWidget {
     if (doc == null) {
       final model = session.canvas!;
       final viewport = session.canvasViewport!;
+      // It repaints with every frame of a pan: alone, not the editor.
       return IgnorePointer(
-        child: CustomPaint(
-          painter: _LinkPainter(
-            color: color,
-            repaint: Listenable.merge([model, viewport]),
-            surfaces: () => [(model: model, origin: Offset.zero, clip: viewport.visibleWorld)],
-            toScreen: viewport.toScreen,
+        child: RepaintBoundary(
+          child: CustomPaint(
+            painter: _LinkPainter(
+              color: color,
+              repaint: Listenable.merge([model, viewport]),
+              surfaces: () => [(model: model, origin: Offset.zero, clip: viewport.visibleWorld)],
+              toScreen: viewport.toScreen,
+            ),
           ),
         ),
       );
     }
     // The set of visible page models changes as pages scroll in and out.
     return IgnorePointer(
-      child: ListenableBuilder(
-        listenable: doc,
-        builder: (context, _) => CustomPaint(
-          painter: _LinkPainter(
-            color: color,
-            // The surfaces forward their models' changes.
-            repaint: Listenable.merge([doc.viewport, doc.surfaces]),
-            surfaces: () {
-              final visible = doc.viewport.visibleWorld;
-              return [
-                for (final i in doc.layout.visiblePages(visible))
-                  if (doc.surfaces.peek(doc.pages[i].id)?.model case final model?)
-                    (
-                      model: model,
-                      origin: doc.layout.frameOf(i)!.topLeft,
-                      clip: visible.shift(-doc.layout.frameOf(i)!.topLeft),
-                    ),
-              ];
-            },
-            toScreen: doc.viewport.toScreen,
+      child: RepaintBoundary(
+        child: ListenableBuilder(
+          listenable: doc,
+          builder: (context, _) => CustomPaint(
+            painter: _LinkPainter(
+              color: color,
+              // The surfaces forward their models' changes.
+              repaint: Listenable.merge([doc.viewport, doc.surfaces]),
+              surfaces: () {
+                final visible = doc.viewport.visibleWorld;
+                return [
+                  for (final i in doc.layout.visiblePages(visible))
+                    if (doc.surfaces.peek(doc.pages[i].id)?.model case final model?)
+                      (
+                        model: model,
+                        origin: doc.layout.frameOf(i)!.topLeft,
+                        clip: visible.shift(-doc.layout.frameOf(i)!.topLeft),
+                      ),
+                ];
+              },
+              toScreen: doc.viewport.toScreen,
+            ),
           ),
         ),
       ),

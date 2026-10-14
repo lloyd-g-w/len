@@ -224,14 +224,17 @@ class _CanvasMinimapState extends State<CanvasMinimap> with SingleTickerProvider
         padding: EdgeInsets.zero,
         child: _MinimapGestures(
           state: this,
-          child: CustomPaint(
-            size: widget.size,
-            painter: MinimapPainter(
-              content: _content,
-              frame: () => _projection().world,
-              view: () => _nav.visibleArea,
-              colors: _colors(Theme.of(context).colorScheme),
-              repaint: Listenable.merge([_nav.viewport, _glide]),
+          // It repaints with every frame of a pan: alone, not the editor.
+          child: RepaintBoundary(
+            child: CustomPaint(
+              size: widget.size,
+              painter: MinimapPainter(
+                content: _content,
+                frame: () => _projection().world,
+                view: () => _nav.visibleArea,
+                colors: _colors(Theme.of(context).colorScheme),
+                repaint: Listenable.merge([_nav.viewport, _glide]),
+              ),
             ),
           ),
         ),

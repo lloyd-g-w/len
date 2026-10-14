@@ -92,6 +92,9 @@ class DocumentZoomHost extends ZoomHost {
 
   @override
   Listenable get changes => Listenable.merge([doc, doc.viewport]);
+
+  @override
+  Listenable get surfaces => doc;
 }
 
 /// The zoom window on an infinite canvas: one surface, no edges; a line
@@ -151,4 +154,9 @@ class CanvasZoomHost extends ZoomHost {
 
   @override
   Listenable get changes => main;
+
+  /// The one surface stays.
+  @override
+  Listenable get surfaces => _none;
+  static final Listenable _none = Listenable.merge(const []);
 }

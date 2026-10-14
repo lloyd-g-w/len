@@ -86,10 +86,13 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
       if (scale != _scale) setState(() => _scale = scale);
       return;
     }
-    setState(() {
-      _scale = scale;
-      _visible = true;
-    });
+    // A pan while shown changes nothing on it: no rebuild per frame.
+    if (scale != _scale || !_visible) {
+      setState(() {
+        _scale = scale;
+        _visible = true;
+      });
+    }
     _scheduleHide();
   }
 

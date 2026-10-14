@@ -69,6 +69,11 @@ abstract class ZoomHost {
   /// What notifies when the main view or the surfaces change.
   Listenable get changes;
 
+  /// What notifies when the surfaces change (pages added, moved or
+  /// deleted, the active page), not the main view: the box shows the
+  /// frame's surface whatever the main view does.
+  Listenable get surfaces;
+
   /// The main view's world rectangle not covered by chrome, in
   /// [surfaceId]'s coordinates (null when it isn't laid out).
   Rect? freeArea(String surfaceId) {
