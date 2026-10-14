@@ -291,7 +291,7 @@ library (a backup) packed for people rather than servers: a zip with `manifest.j
 (`{"format": "len", "version": 1, "kind": "notebook"|"folder"|"notebooks"|"library",
 "title", "createdAt"}`), the records as sync records (the format above; one JSON record per line
 in `records/000001.jsonl`, … parts of about 4 MB, parents before children in the order
-`folders, templates, notebooks, pages, outline, recordings, strokes, elements`), `blobs.json`
+`folders, templates, notebook_styles, notebooks, pages, outline, recordings, strokes, elements`; templates and notebook styles only in a library backup), `blobs.json`
 (`{"<sha256>": {"mime", "size"}}`) and the blobs themselves under `blobs/<sha256>` (stored, not
 compressed). Tombstones and `recognised_text` are left out (its keys hash stroke ids).
 
@@ -301,7 +301,8 @@ and is synced like any local write. Restoring a library backup keeps the ids of 
 notebooks (with their pages, outline, recordings, strokes and elements) that aren't here, so a
 second restore can tell what is here already; the user chooses to skip those or copy them again
 (new ids). A backup holds no trashed notebooks. Templates already present (same image blob) are
-not added twice. A file that isn't a zip, has no readable manifest or a newer `version` is
+not added twice, nor are notebook styles (same name and style); a restored default style stays the
+default only where none is set yet. A file that isn't a zip, has no readable manifest or a newer `version` is
 refused and leaves nothing behind; otherwise damage is left out and reported, the rest imported:
 a blob whose bytes don't match its `<sha256>` counts as missing, a line that is not a record is
 skipped, a records part that can't be read is skipped whole, and a damaged `blobs.json` falls

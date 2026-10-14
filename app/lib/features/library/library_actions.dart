@@ -110,13 +110,17 @@ class LibraryActions with _NotebookActions, _FolderActions {
     if (request == null) return;
     final style = request.template.style;
     if (style != PaperStyle.image) controller.services.preferences.notePaperUsed(style.name);
-    // Where the sheet starts next time, unless a style is the default.
+    // Where the sheet starts next time, unless a style is the default: a
+    // notebook as this one ("New notebook" stays a notebook; a canvas
+    // leaves it alone, and a default style can start as a canvas).
     final choice = NotebookChoice.of(
       kind: request.kind,
       template: request.template,
       coverColor: request.coverColor,
     );
-    if (choice != null) controller.services.preferences.lastNotebookChoice = choice;
+    if (choice != null && request.kind == NotebookKind.paged) {
+      controller.services.preferences.lastNotebookChoice = choice;
+    }
     final notebook = controller.createNotebook(
       title: request.title,
       kind: request.kind,

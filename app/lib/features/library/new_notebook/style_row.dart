@@ -38,7 +38,6 @@ class StyleRow extends StatelessWidget {
     final save = onSave;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      clipBehavior: Clip.none,
       child: RovingGroup(
         axis: Axis.horizontal,
         single: true,

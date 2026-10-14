@@ -84,7 +84,7 @@ class LenRemap {
 
     final String id;
     switch (record.collection) {
-      case 'folders' || 'notebooks' || 'templates':
+      case 'folders' || 'notebooks' || 'templates' || 'notebook_styles':
         // Parents (folder, folder of a notebook) are set once all are known.
         id = idOf(record.id);
       case 'pages' || 'recordings':

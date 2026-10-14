@@ -60,7 +60,7 @@ class NewNotebookSheet extends StatefulWidget {
     return showDialogOrSheet<NewNotebookRequest>(
       context: context,
       maxWidth: 840,
-      maxHeight: 720,
+      maxHeight: 800,
       minHeight: 560,
       builder: (_, wide) => NewNotebookSheet(wide: wide, onImport: onImport),
     );

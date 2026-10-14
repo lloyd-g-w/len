@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:sqlite3/common.dart';
 
+import '../../domain/notebook_style.dart';
 import '../syncable.dart';
 import 'len_remap.dart';
 import 'len_stores.dart';
@@ -17,7 +20,7 @@ class LenImportCommit {
   final LenRemap remap;
 
   final List<(String, SyncRecord)> _folders = [], _notebooks = [];
-  final List<SyncRecord> _templates = [];
+  final List<SyncRecord> _templates = [], _styles = [];
 
   CommonDatabase get _db => stores.any.db;
 
@@ -36,6 +39,8 @@ class LenImportCommit {
         _notebooks.add((old is String ? old : '', copy));
       case 'templates':
         _templates.add(copy);
+      case 'notebook_styles':
+        _styles.add(copy);
       default:
         return _write(copy);
     }
@@ -104,6 +109,7 @@ class LenImportCommit {
         ]).isNotEmpty;
         if (!known && !_write(template)) skipped++;
       }
+      skipped += _addStyles();
       for (final (old, notebook) in _notebooks) {
         if (_write(_with(notebook, 'folderId', place(old)))) {
           notebooks.add(notebook.id);
@@ -114,6 +120,35 @@ class LenImportCommit {
       _markDirty();
     });
     return (notebooks: notebooks, folders: folders, folder: top, skipped: skipped);
+  }
+
+  /// Adds the notebook styles but those already here (same name and
+  /// style); an imported default stays one only where there is none yet.
+  /// Returns how many were malformed.
+  int _addStyles() {
+    var skipped = 0;
+    (String, NotebookChoice?) key(Object? name, Object? style) =>
+        ('$name', style is Map<String, Object?> ? NotebookChoice.fromJson(style) : null);
+    final here = {
+      for (final row in _db.select('SELECT name, style FROM notebook_styles WHERE deleted = 0'))
+        key(row['name'], jsonDecode(row['style'] as String)),
+    };
+    var hasDefault = _db
+        .select('SELECT 1 FROM notebook_styles WHERE deleted = 0 AND is_default = 1')
+        .isNotEmpty;
+    for (final style in _styles) {
+      final data = style.data!;
+      final same = key(data['name'], data['style']);
+      if (same.$2 != null && here.contains(same)) continue;
+      final isDefault = data['isDefault'] == true && !hasDefault;
+      if (_write(_with(style, 'isDefault', isDefault))) {
+        here.add(same);
+        hasDefault |= isDefault;
+      } else {
+        skipped++;
+      }
+    }
+    return skipped;
   }
 
   /// Leaves out the folders that hold no notebook being imported, at any
@@ -146,7 +181,7 @@ class LenImportCommit {
   }
 
   void _markDirty() => _withIds(() {
-    for (final table in ['folders', 'templates', 'notebooks']) {
+    for (final table in ['folders', 'templates', 'notebook_styles', 'notebooks']) {
       _db.execute('UPDATE $table SET dirty = 1 WHERE id IN $_rows');
     }
     for (final table in ['pages', 'outline', 'recordings']) {
@@ -180,6 +215,7 @@ class LenImportCommit {
       for (final id in [
         for (final (_, f) in _folders) f.id,
         for (final t in _templates) t.id,
+        for (final s in _styles) s.id,
         for (final (_, n) in _notebooks) n.id,
       ]) {
         insert.execute(['r', id]);
@@ -209,7 +245,7 @@ class LenImportCommit {
     return false;
   }
 
-  static SyncRecord _with(SyncRecord r, String field, String? value) => SyncRecord(
+  static SyncRecord _with(SyncRecord r, String field, Object? value) => SyncRecord(
     collection: r.collection,
     id: r.id,
     updatedAt: r.updatedAt,

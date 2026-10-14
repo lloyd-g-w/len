@@ -277,7 +277,17 @@ class AppServices {
 
   /// Len files: notebooks, folders and library backups (see `LenFormat`).
   late final LenArchives lenFiles = LenArchives(
-    tables: [folders, templates, notebooks, pages, outline, recordings, strokes, elements],
+    tables: [
+      folders,
+      templates,
+      notebookStyles,
+      notebooks,
+      pages,
+      outline,
+      recordings,
+      strokes,
+      elements,
+    ],
     blobs: blobs,
     deviceId: strokes.deviceId,
     openBlobFile: openFileInput,
