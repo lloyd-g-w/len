@@ -16,8 +16,8 @@ import 'stroke_preview.dart';
 /// with Reset (as every tool popover has: it puts the feel back to its
 /// defaults), a live preview, the colour and size of the selected quick
 /// slots, the ink's own panel ([feel]: pressure, stabiliser… ) collapsed
-/// under [feelLabel], and, collapsed under Toolbar, how many quick colours
-/// and sizes the toolbar shows. Edits apply live. Nothing resets the
+/// under [feelLabel], and, collapsed under "Quick colours and sizes", how
+/// many of each the toolbar shows. Edits apply live. Nothing resets the
 /// quick colours and sizes: they are the user's choices.
 ///
 /// The quick slots themselves show here only in the phone sheet, which
@@ -46,7 +46,7 @@ class InkOptions extends StatefulWidget {
 }
 
 class _InkOptionsState extends State<InkOptions> {
-  /// Whether Feel and Toolbar are open; remembered while the app runs.
+  /// Whether Feel and Quick colours and sizes are open; remembered while the app runs.
   static bool _feelOpen = false;
   static bool _slotsOpen = false;
 
@@ -113,10 +113,8 @@ class _InkOptionsState extends State<InkOptions> {
               child: EmbeddedOptions(child: widget.feel),
             ),
             OptionDisclosure(
-              label: 'Toolbar',
-              summary:
-                  '${_count(config.colors.length, 'colour')}, '
-                  '${_count(config.widths.length, 'size')}',
+              label: 'Quick colours and sizes',
+              summary: '${config.colors.length} and ${config.widths.length}',
               open: _slotsOpen,
               onToggle: () => setState(() => _slotsOpen = !_slotsOpen),
               child: Column(
@@ -145,8 +143,6 @@ class _InkOptionsState extends State<InkOptions> {
       },
     );
   }
-
-  static String _count(int n, String noun) => n == 1 ? '1 $noun' : '$n ${noun}s';
 
   /// A palette colour not in the row yet, to start a new slot with.
   int _unusedColor(List<int> used) => _palette.firstWhere(

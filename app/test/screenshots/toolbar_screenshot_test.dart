@@ -186,8 +186,8 @@ void main() {
     await openEditor(tester, tablet, 2, ThemeMode.light);
     await tester.tap(find.byTooltip('Pen (P)'));
     await settle(tester);
-    await tester.ensureVisible(find.text('Toolbar'));
-    await tester.tap(find.text('Toolbar'));
+    await tester.ensureVisible(find.text('Quick colours and sizes'));
+    await tester.tap(find.text('Quick colours and sizes'));
     await settle(tester);
     await tester.ensureVisible(find.byTooltip('More quick colours'));
     await tester.tap(find.byTooltip('More quick colours'));

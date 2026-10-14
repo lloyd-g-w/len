@@ -319,7 +319,7 @@ column (11 strings). Effort S.
   highlighters it resets the feel and keeps the quick slots, as now.
 - Effort S.
 
-**R9-9 P2 · The pen popover's "Toolbar" disclosure.**
+**R9-9 P2 · The pen popover's "Toolbar" disclosure.** ✅
 - *What:* the name collides with ⋯ → View "Toolbar docked / floating".
 - *Fix:* rename it "Quick colours and sizes" (summary "3 and 3").
 - Effort S.

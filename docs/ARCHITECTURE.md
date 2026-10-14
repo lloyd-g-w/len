@@ -1593,7 +1593,7 @@ Page with template…).
   palette, or `ColorSwatches.highlighter`'s light hues — and Size, a
   logarithmic slider in mm, then *Feel* collapsed (the header's Reset resets the feel only and
   keeps the quick colours and sizes),
-  then *Toolbar* collapsed ("3 colours · 3 sizes": "Quick colours / Quick
+  then *Quick colours and sizes* collapsed ("3 and 3": "Quick colours / Quick
   sizes − n +"); the pen palette is 2 × 7 (`ColorSwatches.palette`, holding
   the pen and text defaults), the highlighter's 2 × 5); `EraserOptionsPanel`;
   none for the lasso (`ToolDescriptor.options` null: tapping it again does
