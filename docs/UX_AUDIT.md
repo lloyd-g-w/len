@@ -10,7 +10,8 @@ laser options); fixes are token and consistency work, no new features.
   formats above it (one kind of control for the page size).
 - Library notices sit on the covers' margins with the ✕ on the title line
   and actions on its edge; the canvas ∞ badge shows on plain covers too;
-  Recent captions always take two lines.
+  Recent tiles always take two lines, so their titles share a baseline
+  (top-level notebooks keep an empty caption line, not "Library": R8-10).
 - The library header's caption wraps (large text on a phone cut the
   Trash's "deleted after 30 days").
 - One weight for the current row's label (`AppTheme.currentWeight`): Move,
