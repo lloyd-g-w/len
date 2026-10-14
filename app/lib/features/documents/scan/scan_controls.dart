@@ -8,8 +8,8 @@ import 'scan_page_strip.dart';
 import 'scan_session.dart';
 
 /// The scan screen's foot: the pages (flattened previews, the current one
-/// ringed, then +), the current page's commands (Rotate, Whole photo,
-/// Retake, Remove) and the look of all pages (Colour / Greyscale / B&W).
+/// ringed, then +), the current page's commands (Preview, Rotate, Whole
+/// photo, Retake, Remove) and the look of all pages (Colour / Greyscale / B&W).
 class ScanControls extends StatelessWidget {
   const ScanControls({
     super.key,
@@ -59,7 +59,7 @@ class ScanControls extends StatelessWidget {
                   if (oneRow)
                     Row(children: [commands, const Spacer(), look])
                   else ...[
-                    Center(child: commands),
+                    Center(child: ShrinkToFit(child: commands)),
                     const SizedBox(height: Gaps.xs),
                     Center(child: ShrinkToFit(child: look)),
                   ],
@@ -82,19 +82,32 @@ class ScanControls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       spacing: Gaps.sm,
       children: [
+        // The page as it will be stored, or its corners to adjust.
+        Semantics(
+          toggled: session.showsResult,
+          child: LabelledAction(
+            icon: Symbols.visibility_sharp,
+            label: 'Preview',
+            filled: session.showsResult,
+            onPressed: session.toggleResult,
+          ),
+        ),
         LabelledAction(
           icon: Symbols.rotate_right_sharp,
           label: 'Rotate',
           onPressed: session.rotate,
         ),
-        LabelledAction(
-          icon: Symbols.crop_free_sharp,
-          label: 'Whole photo',
-          filled: whole,
-          // Nothing to go back to when no page was found.
-          onPressed: whole && (found == null || found == page.photo.bounds)
-              ? null
-              : session.toggleWholePhoto,
+        Semantics(
+          toggled: whole,
+          child: LabelledAction(
+            icon: Symbols.crop_free_sharp,
+            label: 'Whole photo',
+            filled: whole,
+            // Nothing to go back to when no page was found.
+            onPressed: whole && (found == null || found == page.photo.bounds)
+                ? null
+                : session.toggleWholePhoto,
+          ),
         ),
         LabelledAction(
           icon: Symbols.replay_sharp,

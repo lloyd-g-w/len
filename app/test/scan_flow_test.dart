@@ -216,7 +216,12 @@ void main() {
     expect(session.result, isNull);
     expect(find.byType(ScanCornerEditor), findsOneWidget);
 
-    // Space switches too.
+    // Preview and Space switch too.
+    await s.tap(find.text('Preview'));
+    expect(session.showsResult, isTrue);
+    await pumpUntil(tester, () => session.result != null);
+    await s.tap(find.text('Preview'));
+    expect(session.showsResult, isFalse);
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pump();
     expect(session.showsResult, isTrue);
