@@ -2,7 +2,7 @@ name: Release
 
 # Push a tag `vX.Y.Z` matching `version: X.Y.Z+N` in app/pubspec.yaml:
 #   git tag v0.2.0 && git push origin v0.2.0
-# Builds the apps (APKs, Linux tarball + Flatpak, Windows zip + installer,
+# Builds the apps (APKs, Linux tarball + Flatpak + AppImage, Windows zip + installer,
 # web zip), attaches them to a GitHub release and pushes the sync
 # server image to ghcr.io/<owner>/len-sync. See README "Release".
 #
@@ -142,6 +142,35 @@ jobs:
           artifact-name: flatpak
           cache: false
 
+  appimage:
+    name: AppImage (from the Linux tarball)
+    needs: [version, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux
+          path: linux-dist
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y file desktop-file-utils appstream zsync
+      - name: Build (see app/linux/packaging/appimage/build-appimage.sh)
+        run: |
+          v=${{ needs.version.outputs.version }}
+          tar -xzf "linux-dist/len-$v-linux-x64.tar.gz"
+          mkdir -p dist
+          # Update information for AppImageUpdate / Gear Lever: the .zsync of
+          # the latest GitHub release.
+          cd dist
+          VERSION="$v" ../app/linux/packaging/appimage/build-appimage.sh "../len-$v" "len-$v-linux-x64.AppImage" \
+            -u "gh-releases-zsync|${GITHUB_REPOSITORY_OWNER}|${GITHUB_REPOSITORY#*/}|latest|len-*-linux-x64.AppImage.zsync"
+          ls -la
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: dist/*
+
   windows:
     needs: version
     runs-on: windows-latest
@@ -238,7 +267,7 @@ jobs:
 
   release:
     name: GitHub release
-    needs: [version, android, linux, flatpak, windows, web]
+    needs: [version, android, linux, flatpak, appimage, windows, web]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:

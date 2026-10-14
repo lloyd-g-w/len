@@ -4,9 +4,11 @@
 # Len file type (.len).
 #   ./install-desktop-entry.sh             install
 #   ./install-desktop-entry.sh --uninstall remove again
-# Keep the bundle where it is (or re-run this after moving it).
+# Keep the bundle where it is (or re-run this after moving it). The AppImage
+# runs this with LEN_EXEC set to the AppImage's path.
 set -eu
 here="$(cd "$(dirname "$0")" && pwd)"
+exec_path="${LEN_EXEC:-$here/len}"
 data="${XDG_DATA_HOME:-$HOME/.local/share}"
 apps="$data/applications"
 icons="$data/icons/hicolor"
@@ -24,7 +26,7 @@ fi
 mkdir -p "$apps" "$icons" "$mime/packages"
 cp -r "$here/share/icons/hicolor/." "$icons/"
 cp "$here/share/mime/packages/dev.len.len.xml" "$mime/packages/"
-sed "s|^Exec=len|Exec=\"$here/len\"|" "$here/share/applications/dev.len.len.desktop" \
+sed "s|^Exec=len|Exec=\"$exec_path\"|" "$here/share/applications/dev.len.len.desktop" \
   > "$apps/dev.len.len.desktop"
 command -v update-mime-database >/dev/null && update-mime-database "$mime" || true
 command -v update-desktop-database >/dev/null && update-desktop-database "$apps" || true
