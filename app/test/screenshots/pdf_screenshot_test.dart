@@ -16,6 +16,7 @@ import 'package:pdfrx/pdfrx.dart' show Pdfrx;
 
 import '../pdf_interaction_test.dart' show interactivePdf, pdfTextAt;
 import '../pdf_test.dart' show pdfium;
+import '../support/real_async.dart';
 import 'screenshot_harness.dart';
 
 /// PDF text selection (menu and handles), a highlighter stroke snapped to
@@ -27,13 +28,6 @@ void main() {
     Pdfrx.cacheDirectoryPath = Directory.systemTemp.createTempSync().path;
     Pdfrx.pdfiumModulePath = pdfium;
   });
-
-  Future<void> wait(WidgetTester tester, [int times = 20]) async {
-    for (var i = 0; i < times; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
-      await tester.pump();
-    }
-  }
 
   for (final (name, size, dpr) in [
     ('tablet', const Size(1280, 800), 1.0),
@@ -63,9 +57,14 @@ void main() {
           return notebook;
         });
         await pumpApp(tester, services, EditorScreen(notebook: nb!), mode: mode);
-        await wait(tester);
         final pdf = tester.widget<PdfLayer>(find.byType(PdfLayer)).interaction;
         final page = pdf.doc.pages.first;
+        await pumpUntil(
+          tester,
+          () => pdf.info.glyphs(page.background!.blob, 0) != null,
+          reason: 'glyphs',
+        );
+        await pumpUntilPdfRendered(tester);
         final glyphs = pdf.info.glyphs(page.background!.blob, 0)!;
         final start = glyphs.text.indexOf('PDF');
         pdf.selection.select(page, glyphs, start, glyphs.text.indexOf('text') + 4, menu: true);
@@ -94,7 +93,11 @@ void main() {
         await tester.tap(find.byTooltip('All pages'));
         await settle(tester);
         await tester.tap(find.text('Outline'));
-        await wait(tester, 10);
+        await pumpUntil(
+          tester,
+          () => find.text('Introduction').evaluate().isNotEmpty,
+          reason: 'the outline',
+        );
         await settle(tester);
         await shoot(tester, 'pdf_outline_${name}_${mode.name}');
         expect(tester.takeException(), isNull);
