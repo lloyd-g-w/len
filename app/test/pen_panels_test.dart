@@ -63,12 +63,23 @@ void main() {
     expect(find.text('Straight lines'), findsNothing);
   });
 
-  testWidgets('highlighter: stabiliser and straight lines', (tester) async {
+  testWidgets('highlighter: the pen engine\'s settings, flat or round ends, straight lines', (
+    tester,
+  ) async {
     await pump(tester, HighlighterOptionsPanel(tools: tools));
     expect(find.text('50%'), findsOneWidget, reason: 'stabiliser default');
+    expect(find.text('Off'), findsOneWidget, reason: 'pressure sensitivity default');
+    await drag(tester, 'Pressure sensitivity', 400);
+    expect(tools.configOf(InkTool.highlighter).thinning, 1);
     await drag(tester, 'Stabiliser', -400);
     expect(tools.configOf(InkTool.highlighter).streamline, 0);
-    expect(find.text('Off'), findsOneWidget);
+    expect(find.text('Off'), findsOneWidget, reason: 'the stabiliser');
+    // Ends: a chisel (the default) or round; no taper.
+    expect(find.text('Tapered'), findsNothing);
+    expect(tools.configOf(InkTool.highlighter).ends.style, StrokeEnds.flat);
+    await tester.tap(find.text('Round'));
+    await tester.pump();
+    expect(tools.styleFor(InkTool.highlighter).ends, StrokeEnds.round);
     await tester.tap(find.text('Straight lines'));
     await tester.pump();
     expect(tools.configOf(InkTool.highlighter).straight, isTrue);
@@ -216,7 +227,7 @@ void main() {
   testWidgets('golden: pen and highlighter settings', (tester) async {
     await loadFonts();
     tester.view
-      ..physicalSize = const Size(700, 520)
+      ..physicalSize = const Size(700, 640)
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     tools.updateConfig(InkTool.highlighter, (c) => c.copyWith(straight: true));

@@ -97,13 +97,7 @@ class _PreviewPainter extends CustomPainter {
 
   void _ink(Canvas canvas, List<StrokePoint> points, double width) {
     final style = config.styleFor(tool);
-    final path = StrokeRenderer.buildPath(
-      points,
-      tool: tool,
-      width: width,
-      style: style,
-      complete: true,
-    );
+    final path = StrokeRenderer.buildPath(points, width: width, style: style, complete: true);
     canvas.drawPath(path, StrokeRenderer.paintFor(color, style));
   }
 

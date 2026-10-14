@@ -173,9 +173,7 @@ Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<in
     final shape = wet.shape.scaled(dpr);
     // The end taper `end` carries (overlay px).
     final taperEnd =
-        StrokeRenderer.specFor(r.pen.tool, r.pen.width, stroke.style).taperEnd *
-        view.viewScale *
-        dpr;
+        StrokeRenderer.specFor(r.pen.width, stroke.style).taperEnd * view.viewScale * dpr;
     final first = view.toScreen(run.frames.first.points.first.x, run.frames.first.points.first.y);
     final contact = contacts
         .where((c) => (c.samples.first.position - first).distance < 1)

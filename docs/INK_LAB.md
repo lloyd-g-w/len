@@ -994,7 +994,8 @@ The pen defaults to round ends. **Ends** in its options switches to flat
 (butt caps) or tapered. Tapered offers start, end or both, length in stroke
 widths; the end's length always follows lift speed (no switch, R9-11). The start is
 causal and never changes behind the tip; the end is finalised at pen-up.
-Highlighter caps remain flat. The chosen lengths are saved with every
+The highlighter offers flat (its default) or round ends, through the same
+outline. The chosen lengths are saved with every
 stroke and synced, so changing the pen's options does not change old ink.
 
 **Flat ends over tight curls.** A butt cap squared off the run it ended,

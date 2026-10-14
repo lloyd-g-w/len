@@ -142,7 +142,7 @@ class InkDrawing {
         width: config.width,
         style: tools.styleFor(ink).copyWith(unit: 1 / viewport.scale),
       );
-      _endFollowsSpeed = config.ends.endFollowsSpeed && !ink.isHighlighter;
+      _endFollowsSpeed = config.ends.endFollowsSpeed;
       live.add(_sampler.first(e));
       _liftSpeed.add(e.localPosition, StrokeSampler.msOf(e.timeStamp));
       _scribble.begin(model, e.localPosition, StrokeSampler.msOf(e.timeStamp));

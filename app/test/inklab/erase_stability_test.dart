@@ -46,7 +46,7 @@ double _maxChange(Stroke s, double pxPerUnit) =>
 /// settles from the cut on; ≈ 0.5 widths at stabiliser 0, 6.5 at 1), and
 /// 3 px for the input points that shape the first spline segments.
 double _reach(Stroke s, double viewScale) {
-  final spec = StrokeRenderer.specFor(s.tool, s.width, s.style);
+  final spec = StrokeRenderer.specFor(s.width, s.style);
   final p = StrokeOutline.paramsOf(s.points, spec);
   final shaper = (p.kernelK + p.fit + 2 * p.cornerK) * p.step + spec.radiusSigma;
   return _eraser + (1.5 * s.width + shaper) * viewScale + 3;

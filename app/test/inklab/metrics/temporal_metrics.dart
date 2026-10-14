@@ -162,7 +162,7 @@ List<Metric> temporal(ReplayResult r, {int maxFramesPerRun = 400}) {
     zone = (r.pen.width * view.viewScale + 1) * dpr;
     final reach = r.pen.width * view.viewScale * dpr + 1.5 * dpr; // around new samples
     final step = math.max(1, (frames.length / maxFramesPerRun).ceil());
-    final spec = StrokeRenderer.specFor(r.pen.tool, r.pen.width, view.style);
+    final spec = StrokeRenderer.specFor(r.pen.width, view.style);
     var startMoved = false;
     final lags = spec.paramsFor(StrokeOutline.unitOf(view.points, spec)).lag > 0;
     List<Offset>? prevLine;

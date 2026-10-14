@@ -1555,14 +1555,21 @@ The toolbar offers exactly two inks — the **pen** (`InkTool.ballpoint`) and th
   a stroke renders identically on every device, whatever the local tool
   settings.
 
-**Highlighter** strokes are translucent with flat chisel ends (pen caps are
-configurable), drawn before other ink in each chunk picture, and the live
-highlighter stroke is painted on a layer beneath committed ink.
+**One engine for both inks.** The highlighter is the pen's engine (sampling,
+smoothing, stabiliser, outline, `StrokeStyle`; `StrokeRenderer.specFor`
+reads only the style) with what makes it a highlighter on top: translucent
+(one even layer where it crosses itself), drawn before other ink in each
+chunk picture (the live stroke on a layer beneath committed ink), straight
+lines on offer, snapping to PDF text, and flat chisel ends by default.
+`PenDefaults.endStyles` lists the ends each offers: the pen round, tapered
+or flat; the highlighter flat or round (a taper makes no sense for a
+translucent band; parsing rejects it). Highlights a PDF selection makes
+are always flat (`PdfHighlights`: the band ends where the text does).
 
 User customisation lives in `ToolSettings`, persisted as JSON in the local
 `settings` table: per ink a `PenConfig` with **independent quick colours and
 quick widths** (1–5 slots each, one of each selected) and feel settings
-(pressure sensitivity, stabiliser, straight lines; opacity for the
+(pressure sensitivity, stabiliser, ends, straight lines; opacity for the
 highlighter — the pen is always opaque), plus eraser options,
 hold-to-straighten and the 8 **recent colours** (`RecentColors`: colours
 newly put into an ink's quick slots or given to text or the laser, noted when
@@ -1577,8 +1584,9 @@ defaults as a whole.
 
 The ink panels (`features/editor/pen/`) are self-contained:
 `PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, ends)
-and `HighlighterOptionsPanel` (preview, opacity, stabiliser, straight
-lines); on their own, their Reset restores the feel settings. The writing
+and `HighlighterOptionsPanel` (preview, opacity, pressure sensitivity — off
+by default —, stabiliser, ends: flat or round, straight lines); on their
+own, their Reset restores the feel settings. The writing
 gestures hold to snap and scribble to erase are app preferences
 (`AppPreferences.holdToSnap` / `scribbleToErase`), whose one home is
 Settings → Writing beside "Tap to undo and redo"; the editor mirrors them
@@ -1760,7 +1768,7 @@ does not grow with the stroke's length.
      line, then a slope limit), so final as soon as their sample is; the
      start does not swell and is levelled; the moving tip follows the same
      end rules within a short reach. Ends are round caps at the width
-     the pressure gives (flat for the highlighter).
+     the pressure gives (or flat: the highlighter's default).
 4. **`RibbonEmitter`**: the outline is the envelope of the circles along
    the line. A *run* of samples becomes **one closed contour** — left side
    forward, a cap, right side back, a cap — whose sides are cubic Béziers

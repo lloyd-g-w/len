@@ -18,8 +18,10 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   rectangle).
 
 ## Highlighter
-- ⬜ **Same engine as the pen**, with the same customisability where it makes sense
-  (round vs flat ends, pressure, …). Explain or unify.
+- ✅ **Same engine as the pen**, with the same customisability where it makes sense
+  (round vs flat ends, pressure, …). Explain or unify. It always was the pen's engine
+  (sampling, smoothing, stabiliser, outline), but forced flat ends and hid pressure; its
+  popover now offers pressure sensitivity and flat (default) or round ends too.
 - ⬜ **Highlighter flickers on pen-up**: fix.
 
 ## Eraser

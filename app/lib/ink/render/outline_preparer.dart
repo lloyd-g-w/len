@@ -71,7 +71,6 @@ class OutlineCommands implements OutlineSink {
   void add(Stroke stroke) => StrokeRenderer.emitOutline(
     this,
     stroke.points,
-    tool: stroke.tool,
     width: stroke.width,
     style: stroke.style,
     complete: true,
