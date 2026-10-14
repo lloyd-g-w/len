@@ -122,9 +122,7 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('ink in the zone advances after a pause, unless the pen comes back', (
-    tester,
-  ) async {
+  testWidgets('ink in the zone advances after a pause, unless the pen comes back', (tester) async {
     await pumpEditor(tester);
     final zoom = await _open(tester);
     final before = zoom.frame!.origin;
