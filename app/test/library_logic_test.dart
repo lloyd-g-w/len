@@ -282,6 +282,23 @@ void main() {
         expect(services.notebooks.get(b.id)!.folderId, home.id);
       });
 
+      test('a drop on a folder deleted meanwhile files at the top level', () {
+        final gone = c.createFolder('Gone', color: 1);
+        final f = c.createFolder('F', color: 1);
+        final a = make('A');
+        final trashed = make('T');
+        c.reload();
+        // Sync deletes the folder and trashes a notebook while dragging.
+        services.folders.delete(gone.id);
+        services.notebooks.trash(trashed.id);
+
+        expect(c.moveNotebooks([a.id, trashed.id], gone.id), {a.id: null});
+        expect(services.notebooks.get(a.id)!.folderId, isNull);
+        expect(services.notebooks.get(trashed.id)!.folderId, isNull);
+        expect(c.moveFolder(f.id, gone.id), (from: null));
+        expect(services.folders.get(f.id)!.parentId, isNull);
+      });
+
       test('favourites change only what differs', () {
         final a = make('A');
         final b = make('B');

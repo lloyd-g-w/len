@@ -67,11 +67,12 @@ mixin _LibraryOperations {
     return before;
   }
 
-  /// Moves a folder into [parentId] (null = top level); returns the parent
-  /// it had (for Undo), or null if it is gone or would land inside itself.
+  /// Moves a folder into [parentId] (null = top level; also when that was
+  /// deleted meanwhile); returns the parent it had (for Undo), or null if it
+  /// is gone or would land inside itself.
   ({String? from})? moveFolder(String id, String? parentId) {
     final from = services.folders.get(id)?.parentId;
-    if (services.folders.move(id, parentId) == null) return null;
+    if (services.folders.move(id, _live(parentId)) == null) return null;
     _changed();
     return (from: from);
   }
@@ -130,15 +131,17 @@ mixin _LibraryOperations {
     return true;
   });
 
-  /// Moves notebooks [ids] into [folderId] (null = the library root);
-  /// returns the folder each one moved was in (for Undo).
+  /// Moves notebooks [ids] into [folderId] (null = the library root; also
+  /// when that was deleted meanwhile); returns the folder each one moved was
+  /// in (for Undo). Notebooks gone or in the trash (by sync) stay put.
   Map<String, String?> moveNotebooks(Iterable<String> ids, String? folderId) {
     final from = <String, String?>{};
+    final target = _live(folderId);
     _batch(ids, (id) {
       final notebook = services.notebooks.get(id);
-      if (notebook == null) return false;
+      if (notebook == null || notebook.isTrashed) return false;
       from[id] = notebook.folderId;
-      services.notebooks.moveTo(id, folderId);
+      services.notebooks.moveTo(id, target);
       return true;
     });
     return from;
@@ -177,6 +180,10 @@ mixin _LibraryOperations {
     _changed();
     return copy;
   }
+
+  /// [folderId] if that folder exists, else null (the top level).
+  String? _live(String? folderId) =>
+      folderId != null && services.folders.get(folderId) != null ? folderId : null;
 
   /// Applies [change] to each of [ids] in one transaction, then reloads
   /// once; returns the ids it changed.
