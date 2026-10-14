@@ -12,6 +12,7 @@ import 'stroke_outline.dart';
 /// with it).
 abstract final class StrokeRenderer {
   static final Expando<Path> _paths = Expando('stroke paths');
+  static final Expando<Path> _fills = Expando('stroke fills');
 
   /// The cached outline path of a committed stroke.
   static Path pathOf(Stroke stroke) => _paths[stroke] ??= buildPath(
@@ -84,9 +85,33 @@ abstract final class StrokeRenderer {
       ..color = color.withValues(alpha: color.a * style.opacity);
   }
 
-  /// Paints committed [stroke] onto [canvas] (in world coordinates).
-  static void draw(Canvas canvas, Stroke stroke) =>
-      canvas.drawPath(pathOf(stroke), paintFor(stroke.color, stroke.style));
+  /// The area a filled shape's fill covers ([Stroke.fill]): the polygon
+  /// of its points, memoised like [pathOf].
+  static Path fillPathOf(Stroke stroke) => _fills[stroke] ??= fillPath(stroke.points);
+
+  /// The polygon through [points] (a closed shape's fill).
+  static Path fillPath(List<StrokePoint> points) => Path()
+    ..fillType = PathFillType.nonZero
+    ..addPolygon([for (final p in points) p.offset], true);
+
+  /// The paint of fill colour [argb] (its alpha is the fill's opacity).
+  static Paint fillPaint(int argb) => Paint()
+    ..isAntiAlias = true
+    ..style = PaintingStyle.fill
+    ..color = Color(argb);
+
+  /// Paints [stroke]'s fill, if it has one, beneath where its outline goes.
+  static void drawFill(Canvas canvas, Stroke stroke) {
+    final fill = stroke.fill;
+    if (fill != null) canvas.drawPath(fillPathOf(stroke), fillPaint(fill));
+  }
+
+  /// Paints committed [stroke] onto [canvas] (in world coordinates): its
+  /// fill, then its outline.
+  static void draw(Canvas canvas, Stroke stroke) {
+    drawFill(canvas, stroke);
+    canvas.drawPath(pathOf(stroke), paintFor(stroke.color, stroke.style));
+  }
 
   /// Paints [stroke] as a plain line along its points, [stroke.width]
   /// wide, unless its outline is already built: for ink far too small to
@@ -94,6 +119,7 @@ abstract final class StrokeRenderer {
   /// cost most of the time.
   static void drawSketch(Canvas canvas, Stroke stroke) {
     if (hasPath(stroke) || stroke.points.length < 2) return draw(canvas, stroke);
+    drawFill(canvas, stroke);
     final points = stroke.points;
     final path = Path()..moveTo(points.first.x, points.first.y);
     for (var i = 1; i < points.length; i++) {
