@@ -49,16 +49,3 @@ class BarButton extends StatelessWidget {
     );
   }
 }
-
-/// A thin vertical separator between groups of [BarButton]s.
-class BarDivider extends StatelessWidget {
-  const BarDivider({super.key});
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 1,
-    height: 20,
-    margin: const EdgeInsets.symmetric(horizontal: 6),
-    color: Theme.of(context).colorScheme.outlineVariant,
-  );
-}
