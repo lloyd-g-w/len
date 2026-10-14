@@ -243,9 +243,23 @@ class LiveStrokeBuilder {
 
   static final Expando<LiveStrokeBuilder> _builders = Expando('live stroke builders');
 
+  /// The [LiveInk.generation] each live stroke's builder was started in.
+  static final Expando<int> _generations = Expando('live stroke generations');
+
+  /// The builder of [live]'s stroke, unless its points were replaced since.
+  static LiveStrokeBuilder? _builderOf(LiveInk live) =>
+      _generations[live] == live.generation ? _builders[live] : null;
+
   /// The live outline of [live]'s stroke, built incrementally.
   static LiveOutline livePath(LiveInk live) {
-    final built = build(_builders[live], live.points, width: live.width, style: live.style);
+    final previous = _builderOf(live);
+    _generations[live] = live.generation;
+    final built = build(
+      previous,
+      live.points,
+      width: live.width,
+      style: live.style,
+    );
     _builders[live] = built.builder;
     return built.path;
   }
@@ -259,7 +273,7 @@ class LiveStrokeBuilder {
     required double width,
     required StrokeStyle style,
   }) {
-    final builder = _builders[live];
+    final builder = _builderOf(live);
     _builders[live] = null;
     if (builder == null || points.isEmpty || points.first != builder._fed.firstOrNull) return null;
     final spec = StrokeRenderer.specFor(width, style);

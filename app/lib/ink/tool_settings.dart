@@ -12,16 +12,15 @@ import 'pen/pen_config.dart';
 import 'pen/recent_colors.dart';
 import 'selection/lasso_config.dart';
 import 'shapes/shape_fill.dart';
-import 'shapes/shape_kind.dart';
 import 'tools/laser_config.dart';
 
+export '../domain/shape_kind.dart';
 export 'editor_tool.dart';
 export 'pen/eraser_config.dart';
 export 'pen/pen_config.dart';
 export 'pen/pen_defaults.dart';
 export 'selection/lasso_config.dart';
 export 'shapes/shape_fill.dart';
-export 'shapes/shape_kind.dart';
 export 'tools/laser_config.dart';
 
 /// Current tool selection, per-pen customisation and input preferences.

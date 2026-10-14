@@ -1,5 +1,9 @@
 import 'dart:ui';
 
+import '../../domain/shape_geometry.dart';
+import '../shapes/polyline.dart';
+import '../shapes/shape_builder.dart';
+import '../shapes/shape_handles.dart';
 import '../viewport.dart';
 import 'selection_frame.dart';
 
@@ -21,8 +25,14 @@ abstract final class SelectionChrome {
   static const double edgeInset = 12;
 
   /// Screen positions of the handles shown for [frame] (kept [edgeInset]
-  /// inside the view).
-  static Map<SelectionHandle, Offset> handles(SelectionFrame frame, ViewportController viewport) {
+  /// inside the view). Around a single [shape] its own points are the
+  /// handles ([shapeHandles]): the frame only keeps its rotate handle, and
+  /// lines and arrows not even that (their ends turn them).
+  static Map<SelectionHandle, Offset> handles(
+    SelectionFrame frame,
+    ViewportController viewport, {
+    ShapeGeometry? shape,
+  }) {
     final size = viewport.size;
     final inside = size.width > 4 * edgeInset && size.height > 4 * edgeInset
         ? (Offset.zero & size).deflate(edgeInset)
@@ -36,8 +46,9 @@ abstract final class SelectionChrome {
     final width = frame.rect.width * viewport.scale;
     final height = frame.rect.height * viewport.scale;
     final result = <SelectionHandle, Offset>{};
+    if (shape != null && !shape.kind.isClosed) return result;
     for (final h in SelectionHandle.values) {
-      if (h == SelectionHandle.rotate) continue;
+      if (h == SelectionHandle.rotate || shape != null) continue;
       final small = width < minEdgeHandleSpan || height < minEdgeHandleSpan;
       if (!h.isCorner && small) continue;
       result[h] = at(h.fraction);
@@ -55,11 +66,16 @@ abstract final class SelectionChrome {
   /// The handle under [screen], if any (the rotate handle and corners win
   /// over edges when they overlap). Inside the frame the reach is shorter,
   /// so small selections can still be dragged by their middle.
-  static SelectionHandle? hit(SelectionFrame frame, ViewportController viewport, Offset screen) {
+  static SelectionHandle? hit(
+    SelectionFrame frame,
+    ViewportController viewport,
+    Offset screen, {
+    ShapeGeometry? shape,
+  }) {
     SelectionHandle? best;
     final inside = frame.contains(viewport.toWorld(screen));
     var bestDistance = inside ? hitRadius / 2 : hitRadius;
-    for (final entry in handles(frame, viewport).entries) {
+    for (final entry in handles(frame, viewport, shape: shape).entries) {
       final d = (entry.value - screen).distance;
       final preferred = entry.key == SelectionHandle.rotate || entry.key.isCorner;
       if (d < bestDistance || (preferred && !inside && d <= hitRadius && d < bestDistance + 4)) {
@@ -68,5 +84,61 @@ abstract final class SelectionChrome {
       }
     }
     return best;
+  }
+
+  /// Screen positions of [shape]'s handles ([ShapeHandles.of]).
+  static List<Offset> shapeHandles(ShapeGeometry shape, ViewportController viewport) => [
+    for (final p in ShapeHandles.of(shape)) viewport.toScreen(p),
+  ];
+
+  /// Reach of a shape's handles (pixels): a finger-sized target.
+  static const double shapeHitRadius = 24;
+
+  /// The index of [shape]'s handle nearest to [screen], if any is within
+  /// reach: [shapeHitRadius] outside the [frame], less inside it (so a
+  /// small shape can still be moved by its middle), and not when the
+  /// frame's rotate handle is nearer.
+  static int? shapeHandleAt(
+    ShapeGeometry shape,
+    ViewportController viewport,
+    Offset screen, {
+    SelectionFrame? frame,
+  }) {
+    var reach = shapeHitRadius;
+    if (frame != null && frame.contains(viewport.toWorld(screen))) {
+      final side = frame.rect.shortestSide * viewport.scale;
+      reach = (side / 4).clamp(hitRadius / 2, shapeHitRadius);
+    }
+    int? best;
+    var bestDistance = reach;
+    for (final (i, p) in shapeHandles(shape, viewport).indexed) {
+      final d = (p - screen).distance;
+      if (d <= bestDistance) {
+        best = i;
+        bestDistance = d;
+      }
+    }
+    final rotate = frame == null
+        ? null
+        : handles(frame, viewport, shape: shape)[SelectionHandle.rotate];
+    if (rotate != null && (rotate - screen).distance < bestDistance) return null;
+    return best;
+  }
+
+  /// Whether a press at [screen] grabs the selection in [frame] to move
+  /// it: anywhere inside the frame, but only near the stroke itself for a
+  /// single line or arrow (its frame, not shown, may span much of the view).
+  static bool grabs(
+    SelectionFrame frame,
+    ViewportController viewport,
+    Offset screen, {
+    ShapeGeometry? shape,
+  }) {
+    if (shape == null || shape.kind.isClosed) return frame.contains(viewport.toWorld(screen));
+    final outline = [for (final p in ShapeBuilder.outline(shape)) viewport.toScreen(p)];
+    for (var i = 1; i < outline.length; i++) {
+      if (Polyline.distanceToSegment(screen, outline[i - 1], outline[i]) <= hitRadius) return true;
+    }
+    return false;
   }
 }

@@ -3,7 +3,12 @@ part of 'ink_drawing.dart';
 /// Committing the ink of a contact that ended: the stroke, a snapped
 /// highlight, the shape hint and the bounce check.
 extension _InkCommit on InkDrawing {
-  void _commit(List<StrokePoint> points, Duration? liftTime, {required bool snapped}) {
+  void _commit(
+    List<StrokePoint> points,
+    Duration? liftTime, {
+    required bool snapped,
+    ShapeGeometry? shape,
+  }) {
     final stroke = Stroke(
       id: clock.newId(),
       surfaceId: model.surfaceId,
@@ -15,6 +20,7 @@ extension _InkCommit on InkDrawing {
           : live.style,
       points: points,
       createdAt: _drawStartedAt,
+      shape: shape,
     );
     // Over PDF text, a highlight snaps to the words it covers (always: no
     // hold needed).

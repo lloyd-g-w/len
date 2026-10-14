@@ -4,12 +4,12 @@ The owner's current asks, kept here so every round can check them off.
 Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 
 ## Shapes
-- 🚧 (feat/shapes-rework) **The Shape tool is very broken**: redo the drag-to-draw for every kind (line, arrow,
+- ✅ **The Shape tool is very broken**: redo the drag-to-draw for every kind (line, arrow,
   rectangle, ellipse, triangle, diamond, star): predictable, live preview, Shift constraints,
   no jumps.
-- 🚧 (feat/shapes-rework) **Pen → shape (hold to snap) is equally broken**: reliable recognition, a clean snap,
+- ✅ **Pen → shape (hold to snap) is equally broken**: reliable recognition, a clean snap,
   no false snaps, the snapped shape where the hand drew it.
-- 🚧 (feat/shapes-rework) **Editable control points on selection** for both drawn and snapped shapes (corners,
+- ✅ **Editable control points on selection** for both drawn and snapped shapes (corners,
   endpoints, ellipse bounds, star/polygon vertices; one undo step per drag; synced).
 
 ## Lasso / selection

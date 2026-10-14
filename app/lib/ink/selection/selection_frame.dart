@@ -32,6 +32,21 @@ enum SelectionHandle {
 class SelectionFrame {
   const SelectionFrame(this.rect, [this.angle = 0]);
 
+  /// The frame turned by [angle] around [points], [padding] clear of them.
+  factory SelectionFrame.around(List<Offset> points, double angle, double padding) {
+    final toLocal = Affine.rotation(-angle);
+    var box = Rect.fromCenter(center: toLocal.apply(points.first), width: 0, height: 0);
+    for (final p in points.skip(1)) {
+      final q = toLocal.apply(p);
+      box = box.expandToInclude(Rect.fromLTWH(q.dx, q.dy, 0, 0));
+    }
+    final centre = Affine.rotation(angle).apply(box.center);
+    return SelectionFrame(
+      Rect.fromCenter(center: centre, width: box.width, height: box.height).inflate(padding),
+      angle,
+    );
+  }
+
   final Rect rect;
   final double angle;
 

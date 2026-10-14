@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'shape_geometry.dart';
 import 'stroke_style.dart';
 
+export 'shape_geometry.dart';
 export 'stroke_style.dart';
 
 /// Which tool produced a stroke: the pen ([ballpoint]) or the highlighter
@@ -60,6 +62,7 @@ class Stroke {
     required List<StrokePoint> points,
     required this.createdAt,
     StrokeStyle? style,
+    this.shape,
   }) : assert(points.isNotEmpty, 'A stroke needs at least one point'),
        style = style ?? StrokeStyle.defaultsFor(tool),
        points = List.unmodifiable(points),
@@ -89,6 +92,11 @@ class Stroke {
 
   /// Conservative world-space bounds including the stroke's thickness.
   final Rect bounds;
+
+  /// The geometry of a shape (drawn with the Shape tool or snapped), whose
+  /// outline [points] trace; null for free-hand ink. Edits that move the
+  /// points without keeping the shape (the pixel eraser) drop it.
+  final ShapeGeometry? shape;
 
   /// The bounding box of [points] inflated by half the maximum line width.
   static Rect computeBounds(List<StrokePoint> points, double width) {
@@ -124,8 +132,14 @@ class Stroke {
   int? get fill => isClosed ? style.fill : null;
 
   /// A stroke like this one but with other [points] (and optionally [id] /
-  /// [style]); used to split strokes (pixel eraser) or straighten them.
-  Stroke withPoints(List<StrokePoint> points, {String? id, StrokeStyle? style}) => Stroke(
+  /// [style]); used to split strokes (pixel eraser) or reshape them. It is
+  /// a shape only with a [shape] matching the new points.
+  Stroke withPoints(
+    List<StrokePoint> points, {
+    String? id,
+    StrokeStyle? style,
+    ShapeGeometry? shape,
+  }) => Stroke(
     id: id ?? this.id,
     surfaceId: surfaceId,
     tool: tool,
@@ -134,6 +148,7 @@ class Stroke {
     points: points,
     createdAt: createdAt,
     style: style ?? this.style,
+    shape: shape,
   );
 
   /// Total paint order: creation time, then id for determinism across devices.

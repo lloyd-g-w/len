@@ -16,8 +16,13 @@ class LiveInk extends ChangeNotifier {
   double width = 2;
   StrokeStyle style = const StrokeStyle();
 
-  /// True once "hold to straighten" has snapped the live stroke to a line.
+  /// True when the live stroke is not free-hand ink: hold to snap made it
+  /// a line or shape, or a tool draws it (no low-latency overlay then).
   bool straightened = false;
+
+  /// The geometry of the shape the live stroke is (see [straightened]),
+  /// committed with it.
+  ShapeGeometry? shape;
 
   /// World position and radius of the eraser cursor, if visible.
   Offset? eraserCenter;
@@ -30,6 +35,12 @@ class LiveInk extends ChangeNotifier {
   /// outline they built when only the eraser cursor or viewport moved.
   int get revision => _revision;
 
+  /// Changes whenever the live stroke stops being the previous points plus
+  /// more ([begin], [replaceAll]): an incremental outline builder must
+  /// start again then.
+  int get generation => _generation;
+  int _generation = 0;
+
   void begin({
     required InkTool tool,
     required int color,
@@ -41,8 +52,10 @@ class LiveInk extends ChangeNotifier {
     this.width = width;
     this.style = style ?? StrokeStyle.defaultsFor(tool);
     straightened = false;
+    shape = null;
     _points.clear();
     _revision++;
+    _generation++;
     notifyListeners();
   }
 
@@ -66,6 +79,7 @@ class LiveInk extends ChangeNotifier {
       ..clear()
       ..addAll(points);
     _revision++;
+    _generation++;
     notifyListeners();
   }
 
@@ -74,6 +88,7 @@ class LiveInk extends ChangeNotifier {
     final points = List<StrokePoint>.of(_points);
     _points.clear();
     straightened = false;
+    shape = null;
     _revision++;
     notifyListeners();
     return points;

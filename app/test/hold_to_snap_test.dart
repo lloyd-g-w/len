@@ -5,19 +5,26 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/stroke_repository.dart';
+import 'package:len/domain/stroke.dart';
 import 'package:len/ink/input/hold_to_straighten.dart';
 import 'package:len/ink/input/ink_input_controller.dart';
 import 'package:len/ink/input/live_ink.dart';
+import 'package:len/ink/render/live_stroke.dart';
+import 'package:len/ink/shapes/polyline.dart';
+import 'package:len/ink/shapes/shape_builder.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/viewport.dart';
 
 import 'shapes_test.dart' show loop, sketch;
+import 'support/hand_shapes.dart';
 
 void main() {
   late AppDatabase db;
   late SurfaceModel model;
   late InkInputController input;
+  late LiveInk live;
+  late ViewportController viewport;
 
   setUp(() {
     db = AppDatabase.inMemory();
@@ -25,11 +32,13 @@ void main() {
       surfaceId: 's',
       repository: StrokeRepository(db, deviceId: 'd'),
     );
+    viewport = ViewportController()..setSize(const Size(800, 600));
+    live = LiveInk();
     input = InkInputController(
       model: model,
-      viewport: ViewportController()..setSize(const Size(800, 600)),
+      viewport: viewport,
       tools: ToolSettings(stylusOnly: true),
-      live: LiveInk(),
+      live: live,
     );
   });
 
@@ -38,6 +47,8 @@ void main() {
     db.close();
   });
 
+  /// Draws [pts] (screen positions), rests the pen, optionally moves on,
+  /// lifts it.
   Future<void> drawAndHold(WidgetTester tester, List<Offset> pts, {bool moveAfter = false}) async {
     PointerEvent at<T>(Offset p) =>
         PointerMoveEvent(pointer: 1, kind: PointerDeviceKind.stylus, position: p, pressure: 0.5);
@@ -84,5 +95,83 @@ void main() {
     await drawAndHold(tester, pts);
     final stroke = model.history.takeUndo()!.added.single;
     expect(stroke.points.length, greaterThan(100));
+  });
+
+  /// The stroke the last contact committed.
+  Stroke committed() => model.history.takeUndo()!.added.single;
+
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('hand-drawn shapes snap in place at ${scale}x, editable', (tester) async {
+      viewport.setView(scale: scale, offset: const Offset(-40, 25));
+      Offset world(Offset p) => viewport.toWorld(p);
+      for (var seed = 0; seed < 6; seed++) {
+        final h = HandShapes(seed);
+        final cases = <(ShapeKind, List<Offset>)>[
+          (ShapeKind.ellipse, h.ellipse(const Offset(300, 300), 110, 70, angle: 0.3)),
+          (
+            ShapeKind.rectangle,
+            h.polygon(const [
+              Offset(180, 220),
+              Offset(420, 220),
+              Offset(420, 380),
+              Offset(180, 380),
+            ]),
+          ),
+          (
+            ShapeKind.triangle,
+            h.polygon(const [Offset(300, 180), Offset(420, 400), Offset(180, 400)], angle: 0.2),
+          ),
+          (ShapeKind.line, h.line(const Offset(100, 200), const Offset(500, 300))),
+          (ShapeKind.arrow, h.arrow(const Offset(100, 450), const Offset(480, 220))),
+        ];
+        for (final (kind, pts) in cases) {
+          await drawAndHold(tester, pts);
+          final stroke = committed();
+          final shape = stroke.shape;
+          expect(shape?.kind, kind, reason: '$kind seed $seed');
+          // Built from its geometry, in world coordinates where it was drawn.
+          expect(stroke.points.first.offset, ShapeBuilder.outline(shape!).first);
+          final drawn = Polyline.bounds([for (final p in pts) world(p)]);
+          final snapped = Polyline.bounds(ShapeBuilder.outline(shape));
+          final size = drawn.longestSide;
+          expect((snapped.center - drawn.center).distance, lessThan(0.08 * size), reason: '$kind');
+          expect((snapped.longestSide - size).abs(), lessThan(0.1 * size), reason: '$kind');
+          expect(stroke.style.thinning, 0);
+        }
+      }
+    });
+  }
+
+  testWidgets('handwriting held mid-word never snaps', (tester) async {
+    for (var seed = 0; seed < 4; seed++) {
+      for (final word in HandShapes.writing(const Offset(200, 200), seed: seed)) {
+        await drawAndHold(tester, word);
+        expect(committed().shape, isNull, reason: 'seed $seed');
+      }
+    }
+  });
+
+  testWidgets('a snapped line follows the pen, preview and geometry alike', (tester) async {
+    final pts = HandShapes(1).line(const Offset(100, 200), const Offset(400, 230));
+    input.handleDown(
+      PointerDownEvent(pointer: 1, kind: PointerDeviceKind.stylus, position: pts.first),
+    );
+    for (final p in pts.skip(1)) {
+      input.handleMove(PointerMoveEvent(pointer: 1, kind: PointerDeviceKind.stylus, position: p));
+    }
+    await tester.pump(HoldToStraighten.holdDuration + const Duration(milliseconds: 50));
+    expect(live.shape?.kind, ShapeKind.line);
+    LiveStrokeBuilder.livePath(live);
+    for (final to in const [Offset(500, 300), Offset(600, 380), Offset(560, 340)]) {
+      input.handleMove(PointerMoveEvent(pointer: 1, kind: PointerDeviceKind.stylus, position: to));
+      expect(live.shape!.points.last, to);
+      final bounds = LiveStrokeBuilder.livePath(live).combined.getBounds();
+      // The whole line, from the start to the pen, and nothing else.
+      expect(bounds.right, closeTo(to.dx, 3));
+      expect(bounds.bottom, closeTo(to.dy, 3));
+      expect(bounds.left, closeTo(pts.first.dx, 3));
+    }
+    input.handleUp(const PointerUpEvent(pointer: 1, kind: PointerDeviceKind.stylus));
+    expect(committed().shape!.points, [pts.first, const Offset(560, 340)]);
   });
 }

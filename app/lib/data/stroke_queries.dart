@@ -10,6 +10,7 @@ import '../domain/stroke.dart';
 import '../domain/surface_element.dart';
 import 'stroke_codec.dart';
 import 'stroke_reader.dart';
+import 'stroke_row.dart';
 
 /// Read-only queries for a surface's content (strokes and elements) on a
 /// SQLite connection.
@@ -214,7 +215,10 @@ class StrokeQueries implements StrokeReader {
     try {
       final points = StrokeCodec.decode(row['points'] as Uint8List);
       if (points.isEmpty) return null;
-      final style = row['style'];
+      final style = switch (row['style']) {
+        final String json => decodeStyle(json),
+        _ => null,
+      };
       return Stroke(
         id: row['id'] as String,
         surfaceId: row['surface_id'] as String,
@@ -223,7 +227,8 @@ class StrokeQueries implements StrokeReader {
         width: (row['width'] as num).toDouble(),
         points: points,
         createdAt: row['created_at'] as int,
-        style: StrokeStyle.fromJson(style is String ? decodeStyle(style) : null),
+        style: StrokeStyle.fromJson(style),
+        shape: StrokeRow.shapeOf(style),
       );
     } on FormatException {
       return null;

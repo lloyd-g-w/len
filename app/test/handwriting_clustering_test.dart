@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/ink/recognition/ink_clustering.dart';
 import 'package:len/ink/recognition/recognition_languages.dart';
+import 'package:len/ink/shapes/shape_builder.dart';
 
 import 'support/fake_recognizer.dart';
 
@@ -57,9 +58,24 @@ void main() {
       expect(lines.first.words.first.strokes.map((s) => s.id).toSet(), {'alpha', 'dot'});
     });
 
-    test('a column far to the right is a line of its own; highlighter is ignored', () {
+    test('a column far to the right is a line of its own; highlights and shapes are ignored', () {
+      final box = ShapeBuilder.dragged(
+        ShapeKind.rectangle,
+        const Offset(30, 90),
+        const Offset(420, 150),
+      );
       final strokes = [
         ...twoLines('p'),
+        Stroke(
+          id: 'box',
+          surfaceId: 'p',
+          tool: InkTool.ballpoint,
+          color: 0xFF000000,
+          width: 2,
+          points: ShapeBuilder.pointsOf(box),
+          createdAt: 8,
+          shape: box,
+        ),
         scribble('far', 'p', const Rect.fromLTRB(700, 100, 780, 130), createdAt: 6),
         scribble(
           'marker',

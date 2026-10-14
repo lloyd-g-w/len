@@ -92,9 +92,10 @@ class ShapeOptionsPanel extends StatelessWidget {
           ),
           const SizedBox(height: Gaps.md),
           Text('Drag to draw, in the pen’s colour and size', style: text.bodySmall),
+          Text('Tap a shape to drag its points', style: text.bodySmall),
           // Only a keyboard has Shift.
           if (!Targets.touchFirst)
-            Text('Hold Shift for squares, circles and 15° lines', style: text.bodySmall),
+            Text('Hold Shift for regular shapes and 15° lines', style: text.bodySmall),
           // Hold to snap is a writing gesture: its switch is in Settings.
           Text(
             tools.holdToStraighten

@@ -72,6 +72,7 @@ class ContentTools {
     live: live,
     tools: tools,
     viewport: viewport,
+    selection: selection,
     clock: clock,
   );
   late final TextTool textTool = TextTool(session: text, tools: tools, viewport: viewport);
@@ -163,8 +164,11 @@ class ContentTools {
   bool holds(Offset screen) {
     final frame = selection.frame;
     if (frame == null || selection.isEmpty) return false;
-    return SelectionChrome.hit(frame, viewport, screen) != null ||
-        frame.contains(viewport.toWorld(screen));
+    final shape = selection.shape;
+    return SelectionChrome.hit(frame, viewport, screen, shape: shape) != null ||
+        (shape != null &&
+            SelectionChrome.shapeHandleAt(shape, viewport, screen, frame: frame) != null) ||
+        SelectionChrome.grabs(frame, viewport, screen, shape: shape);
   }
 
   /// Called before [pasteAtCentre] pastes, e.g. to make the page in the

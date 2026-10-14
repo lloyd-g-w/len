@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 
 import '../render/dashes.dart';
+import '../shapes/shape_handles.dart';
 import '../viewport.dart';
 import 'lasso_path.dart';
 import 'selection_chrome.dart';
@@ -12,7 +13,9 @@ import 'selection_frame.dart';
 
 /// Paints the lasso being drawn and the current selection: its content
 /// (one cached picture under the gesture's transform — a drag never
-/// rebuilds stroke paths) and the dashed frame with its handles.
+/// rebuilds stroke paths) and the dashed frame with its handles; a single
+/// shape shows its own points as handles instead of the frame's (lines
+/// and arrows show no frame at all).
 class SelectionPainter extends CustomPainter {
   SelectionPainter({
     required this.selection,
@@ -76,31 +79,55 @@ class SelectionPainter extends CustomPainter {
     );
   }
 
+  Paint get _outline => Paint()
+    ..color = accent
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.5;
+
+  static final Paint _shadow = Paint()
+    ..color = const Color(0x33000000)
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+
+  /// A round handle of radius [r] at [at]: paper, ringed in the accent.
+  void _knob(Canvas canvas, Offset at, double r) => canvas
+    ..drawCircle(at + const Offset(0, 1), r, _shadow)
+    ..drawCircle(at, r, Paint()..color = handleFill)
+    ..drawCircle(at, r, _outline);
+
   void _paintFrame(Canvas canvas, SelectionFrame frame) {
-    final outline = Paint()
-      ..color = accent
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    final corners = [for (final c in frame.corners) viewport.toScreen(c)];
-    drawDashed(canvas, corners, outline, close: true);
-
-    final handles = SelectionChrome.handles(frame, viewport);
-    final rotate = handles.remove(SelectionHandle.rotate)!;
-    final topMid = viewport.toScreen(frame.at(const Offset(0.5, 0)));
-    canvas.drawLine(topMid, rotate, outline);
-
-    final fill = Paint()..color = handleFill;
-    final shadow = Paint()
-      ..color = const Color(0x33000000)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
-    for (final entry in handles.entries) {
-      final r = entry.key.isCorner ? 6.5 : 5.0;
-      canvas
-        ..drawCircle(entry.value + const Offset(0, 1), r, shadow)
-        ..drawCircle(entry.value, r, fill)
-        ..drawCircle(entry.value, r, outline);
+    final outline = _outline;
+    final shape = selection.shape;
+    final handles = SelectionChrome.handles(frame, viewport, shape: shape);
+    if (shape == null || shape.kind.isClosed) {
+      final corners = [for (final c in frame.corners) viewport.toScreen(c)];
+      drawDashed(canvas, corners, outline, close: true);
     }
-    // Rotate handle: a filled accent knob with a circular-arrow glyph.
+    final rotate = handles.remove(SelectionHandle.rotate);
+    if (rotate != null) {
+      final topMid = viewport.toScreen(frame.at(const Offset(0.5, 0)));
+      canvas.drawLine(topMid, rotate, outline);
+    }
+    for (final entry in handles.entries) {
+      _knob(canvas, entry.value, entry.key.isCorner ? 6.5 : 5.0);
+    }
+    if (shape != null) {
+      for (final (i, p) in SelectionChrome.shapeHandles(shape, viewport).indexed) {
+        if (ShapeHandles.isInner(shape, i)) {
+          // The star's inner radius: a small solid dot, apart from its points.
+          canvas
+            ..drawCircle(p + const Offset(0, 1), 4.5, _shadow)
+            ..drawCircle(p, 4.5, Paint()..color = accent);
+        } else {
+          _knob(canvas, p, 6.5);
+        }
+      }
+    }
+    if (rotate != null) _paintRotate(canvas, rotate);
+  }
+
+  /// The rotate handle: a filled accent knob with a circular-arrow glyph.
+  void _paintRotate(Canvas canvas, Offset rotate) {
+    final shadow = _shadow;
     canvas
       ..drawCircle(rotate + const Offset(0, 1), 9, shadow)
       ..drawCircle(rotate, 9, Paint()..color = accent);

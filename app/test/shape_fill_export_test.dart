@@ -12,7 +12,6 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/features/documents/export/notebook_exporter.dart';
 import 'package:len/ink/render/content_painter.dart';
 import 'package:len/ink/shapes/shape_builder.dart';
-import 'package:len/ink/shapes/shape_kind.dart';
 
 import 'canvas_export_test.dart' show pixel;
 
@@ -25,8 +24,8 @@ Stroke square(String surface, {int? fill = yellow}) => Stroke(
   tool: InkTool.ballpoint,
   color: ink,
   width: 3,
-  points: ShapeBuilder.points(
-    ShapeBuilder.outline(ShapeKind.rectangle, Offset.zero, const Offset(200, 200)),
+  points: ShapeBuilder.pointsOf(
+    ShapeBuilder.dragged(ShapeKind.rectangle, Offset.zero, const Offset(200, 200)),
   ),
   createdAt: 1,
   style: ShapeBuilder.styleFor(const StrokeStyle()).withFill(fill),

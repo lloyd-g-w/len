@@ -5,22 +5,30 @@ import 'package:flutter/services.dart';
 import '../../core/clock.dart';
 import '../../domain/stroke.dart';
 import '../input/live_ink.dart';
+import '../selection/selection_controller.dart';
 import '../shapes/shape_builder.dart';
 import '../surface_model.dart';
 import '../tool_settings.dart';
 import '../viewport.dart';
+import 'content_hit_test.dart';
 import 'pointer_tool.dart';
 
 /// Draws the selected [ShapeKind] by dragging out its bounding box (or,
 /// for lines and arrows, from end to end), with the current pen's colour,
-/// width and opacity; closed shapes get [ToolSettings.shapeFill]. Holding
-/// Shift keeps proportions (squares, circles) or snaps lines to 15° steps.
+/// width and opacity; closed shapes get [ToolSettings.shapeFill]. The
+/// preview is always the shape from the press to the pointer, and the
+/// shape committed is the one last shown. Holding Shift (pressed or
+/// released at any time during the drag) makes the shape regular
+/// (squares, circles, equilateral triangles, regular stars) or snaps lines
+/// to 15° steps. A tap on a shape selects it, to
+/// edit its points.
 class ShapeTool implements PointerTool {
   ShapeTool({
     required this.model,
     required this.live,
     required this.tools,
     required this.viewport,
+    this.selection,
     this.clock = const Clock(),
   });
 
@@ -28,55 +36,78 @@ class ShapeTool implements PointerTool {
   final LiveInk live;
   final ToolSettings tools;
   final ViewportController viewport;
+
+  /// Where a tap on a shape selects it.
+  final SelectionController? selection;
   final Clock clock;
 
   /// Drags shorter than this (screen pixels) draw nothing.
   static const double minDrag = 4;
 
   Offset? _start;
+  Offset _end = Offset.zero;
 
   /// When the drag began (epoch ms): the shape's `createdAt`.
   int _startedAt = 0;
-  Offset? _startScreen;
+  Offset _startScreen = Offset.zero;
   bool _dragged = false;
+  ShapeGeometry? _shape;
 
   @override
   void down(ToolPointer p) {
-    _start = p.world;
+    _start = _end = p.world;
     _startedAt = clock.nowMs();
     _startScreen = p.screen;
     _dragged = false;
+    _shape = null;
     const ink = InkTool.ballpoint;
     final config = tools.configOf(ink);
-    final style = ShapeBuilder.styleFor(tools.styleFor(ink));
-    live.begin(
-      tool: ink,
-      color: config.color,
-      width: config.width,
-      // Closed shapes take the tool's fill.
-      style: tools.shape.isClosed ? style.withFill(tools.shapeFill.colorFor(config.color)) : style,
-    );
+    final kind = tools.shape;
+    final style = ShapeBuilder.styleFor(tools.styleFor(ink).copyWith(unit: 1 / viewport.scale));
+    live
+      ..begin(
+        tool: ink,
+        color: config.color,
+        width: config.width,
+        // Closed shapes take the tool's fill.
+        style: kind.isClosed ? style.withFill(tools.shapeFill.colorFor(config.color)) : style,
+      )
+      // Not free-hand ink (no low-latency overlay).
+      ..straightened = true;
+    HardwareKeyboard.instance.addHandler(_onKey);
   }
 
   @override
   void move(ToolPointer p) {
-    final start = _start;
-    if (start == null) return;
-    if (!_dragged && (p.screen - _startScreen!).distance < minDrag) return;
+    if (_start == null) return;
+    _end = p.world;
+    if (!_dragged && (p.screen - _startScreen).distance < minDrag) return;
     _dragged = true;
+    _show();
+  }
+
+  /// Shift pressed or released mid-drag: the preview follows at once.
+  bool _onKey(KeyEvent event) {
+    final key = event.logicalKey;
+    final shift = key == LogicalKeyboardKey.shiftLeft || key == LogicalKeyboardKey.shiftRight;
+    if (shift && _dragged && _start != null) _show();
+    return false;
+  }
+
+  void _show() {
+    final start = _start!;
     final kind = tools.shape;
-    final end = HardwareKeyboard.instance.isShiftPressed
-        ? constrain(kind, start, p.world)
-        : p.world;
-    live.replaceAll(
-      ShapeBuilder.points(ShapeBuilder.outline(kind, start, end), spacing: 2 / viewport.scale),
-    );
+    final end = HardwareKeyboard.instance.isShiftPressed ? constrain(kind, start, _end) : _end;
+    final shape = live.shape = _shape = ShapeBuilder.dragged(kind, start, end);
+    live.replaceAll(ShapeBuilder.pointsOf(shape, spacing: 2 / viewport.scale));
   }
 
   @override
   void up() {
+    _stopKeys();
+    final shape = _shape;
     final points = live.finish();
-    if (_dragged && points.length > 1) {
+    if (_dragged && shape != null && points.length > 1) {
       final m = model();
       m.addStroke(
         Stroke(
@@ -88,24 +119,43 @@ class ShapeTool implements PointerTool {
           style: live.style,
           points: points,
           createdAt: _startedAt,
+          shape: shape,
         ),
       );
+    } else if (!_dragged && _start != null) {
+      _tap(_start!);
     }
     _start = null;
+    _shape = null;
   }
 
   @override
   void cancel() {
+    _stopKeys();
     if (_start != null) live.finish();
     _start = null;
+    _shape = null;
   }
 
-  /// Square boxes for closed shapes; 15° angle steps for lines and arrows.
+  void _stopKeys() => HardwareKeyboard.instance.removeHandler(_onKey);
+
+  /// A tap on a shape selects it (its points become handles).
+  void _tap(Offset world) {
+    final selection = this.selection;
+    if (selection == null) return;
+    final hit = ContentHitTest.strokeAt(model(), world, 8 / viewport.scale);
+    if (hit?.shape != null) selection.select([hit!], const []);
+  }
+
+  /// Boxes making closed shapes regular (squares, circles, equilateral
+  /// triangles, regular stars: [ShapeBuilder.regularAspect]) as large as
+  /// the drag; 15° angle steps for lines and arrows.
   static Offset constrain(ShapeKind kind, Offset start, Offset end) {
     final d = end - start;
     if (kind.isClosed) {
-      final side = math.max(d.dx.abs(), d.dy.abs());
-      return start + Offset(side * (d.dx < 0 ? -1 : 1), side * (d.dy < 0 ? -1 : 1));
+      final aspect = ShapeBuilder.regularAspect(kind);
+      final height = math.max(d.dx.abs() / aspect, d.dy.abs());
+      return start + Offset(height * aspect * (d.dx < 0 ? -1 : 1), height * (d.dy < 0 ? -1 : 1));
     }
     const step = math.pi / 12;
     final angle = (d.direction / step).round() * step;

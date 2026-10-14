@@ -35,6 +35,7 @@ abstract final class TransformItems {
       style: stroke.style.unit > 0
           ? stroke.style.copyWith(unit: stroke.style.unit * t.meanScale)
           : stroke.style,
+      shape: stroke.shape?.map(t.apply),
     );
   }
 
@@ -99,13 +100,18 @@ abstract final class TransformItems {
       points: stroke.points,
       createdAt: stroke.createdAt,
       style: tinted ? stroke.style.withFill(fill & 0xFF000000 | argb & 0xFFFFFF) : stroke.style,
+      shape: stroke.shape,
     );
   }
 
   /// Closed [stroke] with fill colour [argb] (null: none), as a new stroke
   /// with id [id].
-  static Stroke refillStroke(Stroke stroke, int? argb, {required String id}) =>
-      stroke.withPoints(stroke.points, id: id, style: stroke.style.withFill(argb));
+  static Stroke refillStroke(Stroke stroke, int? argb, {required String id}) => stroke.withPoints(
+    stroke.points,
+    id: id,
+    style: stroke.style.withFill(argb),
+    shape: stroke.shape,
+  );
 
   /// [element] recoloured (all its text); types without a colour are
   /// returned unchanged.
@@ -146,5 +152,6 @@ abstract final class TransformItems {
     createdAt: stroke.createdAt,
     // A new tool's style keeps the shape's fill.
     style: style?.withFill(stroke.style.fill) ?? stroke.style,
+    shape: stroke.shape,
   );
 }

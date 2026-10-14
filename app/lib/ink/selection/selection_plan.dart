@@ -125,6 +125,7 @@ class SelectionPlan {
       points: [for (final p in s.points) StrokePoint(p.x + d.dx, p.y + d.dy, p.pressure)],
       createdAt: s.createdAt,
       style: s.style,
+      shape: s.shape?.map((p) => p + d),
     );
   }
 }

@@ -67,10 +67,14 @@ class SelectionMenu extends StatelessWidget {
       listenable: Listenable.merge([selection, viewport, selection.clipboard, dialogOpen]),
       builder: (context, _) {
         final frame = selection.frame;
-        if (frame == null || selection.isEmpty || !selection.preview.isIdentity) {
+        if (frame == null || selection.isEmpty || selection.isChanging) {
           return const SizedBox.shrink();
         }
-        final handles = SelectionChrome.handles(frame, viewport).values;
+        final shape = selection.shape;
+        final handles = [
+          ...SelectionChrome.handles(frame, viewport, shape: shape).values,
+          if (shape != null) ...SelectionChrome.shapeHandles(shape, viewport),
+        ];
         final corners = frame.corners.map(viewport.toScreen);
         var box = Rect.fromPoints(corners.first, corners.first);
         for (final p in [...corners, ...handles]) {

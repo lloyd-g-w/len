@@ -34,7 +34,12 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   selection moves, resizes, recolours, restyles, deletes, copies and duplicates as one; items dropped
   so their centre lands on another page move to that page (ink re-added, elements re-parented) — one
   undo step. Single-page flow keeps per-page selections
-- ✅ Shapes: draw-and-hold to snap (line, arrow, rectangle, ellipse, triangle, polygon); Shape tool (line, arrow, rectangle, ellipse, triangle, diamond, star)
+- ✅ Shapes: draw-and-hold to snap, in place (line, arrow, rectangle, ellipse, triangle, diamond,
+  polygon; handwriting and small letters never snap); Shape tool (line, arrow, rectangle, ellipse,
+  triangle, diamond, star) with a live preview from the press to the pointer (Shift: regular shapes / 15° lines)
+- ✅ Editable shapes: a selected shape (drawn or snapped) shows its control points — ends, corners,
+  vertices, ellipse bounds, star points and inner radius — to drag; one undo step, fill kept,
+  synced (`style.sh`)
 - ✅ Shape fill: closed shapes (drawn or snapped) filled with none, a light / medium / strong tint
   of their ink or a solid colour — picked in the Shapes options, changed on a selection's Style;
   live, tiles, thumbnails, replay, PDF / PNG export, synced (`style.f`), undoable
