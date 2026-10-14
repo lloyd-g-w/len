@@ -115,7 +115,7 @@ has none.** ✅
 - Effort S.
 
 **R12-6 P3 · The style menu's "Default for new notebooks" wears the
-page bookmark glyph.** ⬜ `Symbols.bookmark_sharp` means "Bookmark page"
+page bookmark glyph.** ✅ `Symbols.bookmark_sharp` means "Bookmark page"
 in the page menu. *Fix:* a push pin (`library/new_notebook/style_actions.dart`).
 Effort S.
 

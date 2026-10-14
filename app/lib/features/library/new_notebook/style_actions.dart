@@ -42,7 +42,7 @@ Future<bool> showNotebookStyleMenu(
     items: [
       MenuRow(
         value: 'default',
-        icon: Symbols.bookmark_sharp,
+        icon: Symbols.push_pin_sharp,
         label: 'Default for new notebooks',
         checked: style.isDefault,
       ),
