@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- AppStream metadata (software centres, Flathub). Installed to
-     share/metainfo/ in the Linux bundle and the Flatpak.
-     TODO before publishing: add <project_license> once the repository has a
-     licence, and <screenshots>. -->
+<!-- AppStream metadata (software centres, Flathub, AppImage). Installed to
+     share/metainfo/ in the Linux bundle, the Flatpak and the AppImage.
+     Check: appstreamcli validate -pedantic dev.len.len.metainfo.xml
+     TODO(owner) before publishing (docs/PACKAGING.md "Flathub"):
+     - <project_license>: the repository has no licence yet; add LICENSE and
+       its SPDX id here (e.g. <project_license>GPL-3.0-or-later</project_license>).
+     - The app id dev.len.len claims the domain len.dev: Flathub needs it to
+       be yours (else rename to io.github.lloyd_g_w.Len everywhere).
+     - Add a <release> (with a description) for every version. -->
 <component type="desktop-application">
   <id>dev.len.len</id>
   <name>Len</name>
-  <summary>Handwriting-first notes with an infinite canvas</summary>
+  <summary>Handwritten notes with an infinite canvas</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <developer id="dev.len">
     <name>Len</name>
@@ -14,26 +19,60 @@
   <description>
     <p>
       Len is a note-taking app for writing by hand with a stylus, pen tablet,
-      touch screen or mouse.
+      touch screen or mouse. It stays out of the way: paper, a pen and the few
+      tools you reach for.
     </p>
     <ul>
       <li>Paged notebooks with paper templates, planners and imported PDFs</li>
       <li>A truly infinite canvas that stays fast however much you draw</li>
+      <li>Pens, highlighter, eraser, lasso and shapes, with pressure</li>
       <li>Text boxes, images, audio recordings and a laser pointer</li>
       <li>Search, export to PDF and PNG, and presentation mode</li>
-      <li>Optional sync through a small server you host yourself</li>
+      <li>Len files to back up or share notebooks, folders or the whole library</li>
+      <li>Optional sync through a small server you host yourself; no account needed</li>
     </ul>
   </description>
   <launchable type="desktop-id">dev.len.len.desktop</launchable>
   <url type="homepage">https://github.com/lloyd-g-w/len</url>
   <url type="bugtracker">https://github.com/lloyd-g-w/len/issues</url>
+  <url type="vcs-browser">https://github.com/lloyd-g-w/len</url>
+  <branding>
+    <color type="primary" scheme_preference="light">#dce6f2</color>
+    <color type="primary" scheme_preference="dark">#1f3a5c</color>
+  </branding>
+  <screenshots>
+    <screenshot type="default">
+      <caption>A notebook with handwriting and a highlighter</caption>
+      <image>https://raw.githubusercontent.com/lloyd-g-w/len/main/app/linux/packaging/screenshots/notebook.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The library: notebooks, folders and recent notes</caption>
+      <image>https://raw.githubusercontent.com/lloyd-g-w/len/main/app/linux/packaging/screenshots/library.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>An infinite canvas</caption>
+      <image>https://raw.githubusercontent.com/lloyd-g-w/len/main/app/linux/packaging/screenshots/canvas.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>All pages of a notebook at a glance</caption>
+      <image>https://raw.githubusercontent.com/lloyd-g-w/len/main/app/linux/packaging/screenshots/pages.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Dark mode keeps the paper light</caption>
+      <image>https://raw.githubusercontent.com/lloyd-g-w/len/main/app/linux/packaging/screenshots/notebook-dark.png</image>
+    </screenshot>
+  </screenshots>
   <provides>
     <binary>len</binary>
     <mediatype>application/pdf</mediatype>
     <mediatype>image/png</mediatype>
     <mediatype>image/jpeg</mediatype>
     <mediatype>image/webp</mediatype>
+    <mediatype>application/x-len</mediatype>
   </provides>
+  <supports>
+    <control>keyboard</control>
+  </supports>
   <recommends>
     <control>pointing</control>
     <control>touch</control>
@@ -45,8 +84,24 @@
   <categories>
     <category>Office</category>
   </categories>
+  <keywords>
+    <keyword>notes</keyword>
+    <keyword>handwriting</keyword>
+    <keyword>notebook</keyword>
+    <keyword>stylus</keyword>
+    <keyword>pen</keyword>
+    <keyword>whiteboard</keyword>
+    <keyword>PDF</keyword>
+  </keywords>
+  <!-- No social features, ads or tracking; sync only talks to the user's own
+       server: every OARS attribute is "none". -->
   <content_rating type="oars-1.1"/>
   <releases>
-    <release version="0.1.0" date="2026-10-12"/>
+    <release version="0.1.0" date="2026-10-12">
+      <description>
+        <p>The first release: notebooks and canvases, PDFs, text, images and audio,
+          search and export, Len files and self-hosted sync.</p>
+      </description>
+    </release>
   </releases>
 </component>

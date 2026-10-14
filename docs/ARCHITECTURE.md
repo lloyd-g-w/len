@@ -2008,9 +2008,9 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   clamped to the monitor, saved at shutdown (closing the window quits the
   application without destroying it); minimum size 360×400. **Flatpak:**
   `linux/packaging/flatpak/dev.len.len.yml` repackages the release tarball on
-  the GNOME runtime (GTK 3, GStreamer); file access through portals. Audio
-  recording needs `parecord` + `ffmpeg`, which the runtime lacks, so it does
-  not work in the Flatpak yet. **AppImage:**
+  the GNOME runtime (GTK 3, GStreamer, and the `parecord` + `ffmpeg` that
+  recording runs; `flatpak/check-runtime-recording.sh` checks a new runtime);
+  file access through portals. **AppImage:**
   `linux/packaging/appimage/build-appimage.sh` wraps the bundle as is
   (`AppRun`; `--install-desktop-entry` registers the menu entry, MIME types
   and `len://`); GTK, GStreamer, `parecord` and `ffmpeg` come from the host
