@@ -16,14 +16,12 @@ mixin _NotebookActions {
   void _undoable(BuildContext context, String message, VoidCallback undo);
 
   Future<void> trash(BuildContext context, Notebook notebook) async {
-    controller.trashNotebook(notebook.id);
-    showMessage(
+    final trashed = controller.trashNotebooks([notebook.id]);
+    if (trashed.isEmpty) return; // Gone or trashed meanwhile (by sync).
+    _undoable(
       context,
       '“${notebook.title}” moved to the trash',
-      action: SnackBarAction(
-        label: 'Undo',
-        onPressed: () => controller.restoreNotebook(notebook.id),
-      ),
+      () => controller.restoreNotebooks(trashed),
     );
   }
 
@@ -63,7 +61,7 @@ mixin _NotebookActions {
           context,
           'Duplicated as “${copy.title}”',
           // A fresh copy holds nothing of the user's: no trip to the trash.
-          () => controller.deleteForever(copy.id),
+          () => controller.deleteForever([copy.id]),
         );
       case NotebookAction.move:
         final target = await showMoveDialog(
@@ -89,31 +87,24 @@ mixin _NotebookActions {
           confirmLabel: 'Delete forever',
           destructive: true,
         );
-        if (ok) controller.deleteForever(notebook.id);
+        if (ok) controller.deleteForever([notebook.id]);
     }
   }
 
   /// Stars notebooks [ids] ([value]) or unstars them, says so and offers
   /// Undo (each goes back to how it was).
   void setFavorite(BuildContext context, List<String> ids, bool value) {
-    final before = {for (final id in ids) id: controller.services.notebooks.get(id)?.favorite};
-    final changed = [
-      for (final MapEntry(key: id, value: was) in before.entries)
-        if (was != null && was != value) id,
-    ];
+    final changed = controller.setFavorites(ids, value);
     if (changed.isEmpty) return;
-    for (final id in changed) {
-      controller.setFavorite(id, value);
-    }
     final notebook = changed.length == 1 ? controller.services.notebooks.get(changed.single) : null;
     final what = notebook != null
         ? '“${notebook.title}”'
         : LibraryActions.countLabel(changed.length, 'notebook');
-    _undoable(context, value ? 'Added $what to favourites' : 'Removed $what from favourites', () {
-      for (final id in changed) {
-        controller.setFavorite(id, !value);
-      }
-    });
+    _undoable(
+      context,
+      value ? 'Added $what to favourites' : 'Removed $what from favourites',
+      () => controller.setFavorites(changed, !value),
+    );
   }
 
   /// Applies [edit] to notebook [id] as it is now (for Undo: other fields
@@ -125,42 +116,35 @@ mixin _NotebookActions {
 
   /// Takes notebooks [ids] out of the trash and says where they went.
   void restore(BuildContext context, List<String> ids) {
-    for (final id in ids) {
-      controller.restoreNotebook(id);
-    }
-    final restored = [for (final id in ids) ?controller.services.notebooks.get(id)];
+    final restored = controller.restoreNotebooks(ids);
     if (restored.isEmpty) return;
     final folders = {for (final n in restored) n.folderId};
     final where = folders.length == 1 ? '“${_folderName(folders.single)}”' : 'their folders';
     final what = restored.length == 1
         ? '“${restored.single.title}”'
-        : LibraryActions.countLabel(ids.length, 'notebook');
+        : LibraryActions.countLabel(restored.length, 'notebook');
     showMessage(context, 'Restored $what to $where');
   }
 
   /// Moves notebooks [ids] into [folderId] (null = the library root), says
   /// so and offers Undo.
   void move(BuildContext context, List<String> ids, String? folderId) {
-    final from = {for (final id in ids) id: controller.services.notebooks.get(id)?.folderId};
-    for (final id in ids) {
-      controller.moveNotebook(id, folderId);
-    }
-    final notebook = ids.length == 1 ? controller.services.notebooks.get(ids.single) : null;
+    final from = controller.moveNotebooks(ids, folderId);
+    if (from.isEmpty) return;
+    final notebook = from.length == 1 ? controller.services.notebooks.get(from.keys.single) : null;
     final what = notebook != null
         ? '“${notebook.title}”'
-        : LibraryActions.countLabel(ids.length, 'notebook');
-    showMessage(
-      context,
-      'Moved $what to “${_folderName(folderId)}”',
-      action: SnackBarAction(
-        label: 'Undo',
-        onPressed: () {
-          for (final MapEntry(key: id, value: folder) in from.entries) {
-            controller.moveNotebook(id, folder);
-          }
-        },
-      ),
-    );
+        : LibraryActions.countLabel(from.length, 'notebook');
+    _undoable(context, 'Moved $what to “${_folderName(folderId)}”', () {
+      // Each back where it was: one batch per folder.
+      final byFolder = <String?, List<String>>{};
+      for (final MapEntry(key: id, value: folder) in from.entries) {
+        (byFolder[folder] ??= []).add(id);
+      }
+      for (final MapEntry(key: folder, value: ids) in byFolder.entries) {
+        controller.moveNotebooks(ids, folder);
+      }
+    });
   }
 
   Future<void> emptyTrash(BuildContext context) async {

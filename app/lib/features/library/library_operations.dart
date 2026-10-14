@@ -7,7 +7,6 @@ mixin _LibraryOperations {
   LibrarySection get _section;
   String? get _folderId;
   bool get isSearching;
-  List<Notebook> get _notebooks;
   void reload();
 
   /// Creates a notebook in the open folder; a paged notebook's first page
@@ -59,20 +58,30 @@ mixin _LibraryOperations {
     return folder;
   }
 
-  void updateFolder(Folder folder) => _run(() => services.folders.update(folder));
-
-  /// Moves a folder; false if that would put it inside itself.
-  bool moveFolder(String id, String? parentId) {
-    final moved = services.folders.move(id, parentId) != null;
-    if (moved) _changed();
-    return moved;
+  /// Applies [edit] to folder [id] as the database holds it now (sync may
+  /// have changed it since the last [reload]); returns the folder as it
+  /// was, or null if it is gone.
+  Folder? editFolder(String id, Folder Function(Folder folder) edit) {
+    final before = services.folders.get(id);
+    if (before != null) _run(() => services.folders.update(edit(before)));
+    return before;
   }
 
-  /// The notebooks in folder [id] and its subfolders, at any depth.
+  /// Moves a folder into [parentId] (null = top level); returns the parent
+  /// it had (for Undo), or null if it is gone or would land inside itself.
+  ({String? from})? moveFolder(String id, String? parentId) {
+    final from = services.folders.get(id)?.parentId;
+    if (services.folders.move(id, parentId) == null) return null;
+    _changed();
+    return (from: from);
+  }
+
+  /// The notebooks in folder [id] and its subfolders, at any depth, as the
+  /// database holds them.
   List<Notebook> notebooksIn(String id) {
     final subtree = services.folders.subtreeOf(id);
     return [
-      for (final n in _notebooks)
+      for (final n in services.notebooks.list())
         if (subtree.contains(n.folderId)) n,
     ];
   }
@@ -111,18 +120,77 @@ mixin _LibraryOperations {
   );
 
   void updateNotebook(Notebook notebook) => _run(() => services.notebooks.update(notebook));
-  void setFavorite(String id, bool value) => _run(() => services.notebooks.setFavorite(id, value));
-  void moveNotebook(String id, String? folderId) =>
-      _run(() => services.notebooks.moveTo(id, folderId));
-  void trashNotebook(String id) => _run(() => services.notebooks.trash(id));
-  void restoreNotebook(String id) => _run(() => services.notebooks.restore(id));
-  void deleteForever(String id) => _run(() => services.notebooks.delete(id));
+
+  /// Stars notebooks [ids] ([value]) or unstars them; returns those that
+  /// changed.
+  List<String> setFavorites(Iterable<String> ids, bool value) => _batch(ids, (id) {
+    final notebook = services.notebooks.get(id);
+    if (notebook == null || notebook.favorite == value) return false;
+    services.notebooks.setFavorite(id, value);
+    return true;
+  });
+
+  /// Moves notebooks [ids] into [folderId] (null = the library root);
+  /// returns the folder each one moved was in (for Undo).
+  Map<String, String?> moveNotebooks(Iterable<String> ids, String? folderId) {
+    final from = <String, String?>{};
+    _batch(ids, (id) {
+      final notebook = services.notebooks.get(id);
+      if (notebook == null) return false;
+      from[id] = notebook.folderId;
+      services.notebooks.moveTo(id, folderId);
+      return true;
+    });
+    return from;
+  }
+
+  /// Moves notebooks [ids] to the trash; returns those it trashed (not
+  /// those already there or gone), which Undo restores.
+  List<String> trashNotebooks(Iterable<String> ids) => _batch(ids, (id) {
+    final notebook = services.notebooks.get(id);
+    if (notebook == null || notebook.isTrashed) return false;
+    services.notebooks.trash(id);
+    return true;
+  });
+
+  /// Takes notebooks [ids] out of the trash; returns them as restored
+  /// (those that were in the trash).
+  List<Notebook> restoreNotebooks(Iterable<String> ids) {
+    final restored = _batch(ids, (id) {
+      if (!(services.notebooks.get(id)?.isTrashed ?? false)) return false;
+      services.notebooks.restore(id);
+      return true;
+    });
+    return [for (final id in restored) ?services.notebooks.get(id)];
+  }
+
+  /// Deletes notebooks [ids] forever.
+  void deleteForever(Iterable<String> ids) => _batch(ids, (id) {
+    services.notebooks.delete(id);
+    return true;
+  });
+
   void emptyTrash() => _run(services.notebooks.emptyTrash);
 
   Notebook? duplicate(String id) {
     final copy = services.notebooks.duplicate(id);
     _changed();
     return copy;
+  }
+
+  /// Applies [change] to each of [ids] in one transaction, then reloads
+  /// once; returns the ids it changed.
+  List<String> _batch(Iterable<String> ids, bool Function(String id) change) {
+    late final List<String> changed;
+    _run(
+      () => services.database.transaction(() {
+        changed = [
+          for (final id in ids.toSet())
+            if (change(id)) id,
+        ];
+      }),
+    );
+    return changed;
   }
 
   void _run(void Function() action) {

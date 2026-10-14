@@ -59,21 +59,13 @@ extension SelectionActions on LibraryActions {
   void trashSelected(BuildContext context, LibrarySelection selection) {
     final ids = _ids(selection);
     if (ids.isEmpty) return;
-    for (final id in ids) {
-      controller.trashNotebook(id);
-    }
+    final trashed = controller.trashNotebooks(ids);
     selection.clear();
+    if (trashed.isEmpty) return;
     showMessage(
       context,
-      '${_count(ids.length)} moved to the trash',
-      action: SnackBarAction(
-        label: 'Undo',
-        onPressed: () {
-          for (final id in ids) {
-            controller.restoreNotebook(id);
-          }
-        },
-      ),
+      '${_count(trashed.length)} moved to the trash',
+      action: SnackBarAction(label: 'Undo', onPressed: () => controller.restoreNotebooks(trashed)),
     );
   }
 
@@ -94,9 +86,7 @@ extension SelectionActions on LibraryActions {
       icon: Symbols.delete_forever_sharp,
     );
     if (!ok) return;
-    for (final id in ids) {
-      controller.deleteForever(id);
-    }
+    controller.deleteForever(ids);
     selection.clear();
   }
 }

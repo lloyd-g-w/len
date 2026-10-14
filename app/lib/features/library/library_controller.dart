@@ -65,7 +65,6 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
 
   List<Folder> _folders = const [];
   Map<String, Folder> _folderById = const {};
-  @override
   List<Notebook> _notebooks = const [];
   List<Notebook> _trash = const [];
 

@@ -30,17 +30,16 @@ mixin _FolderActions {
       return;
     }
     final folder = controller.folderById(item.id);
-    if (folder == null) return;
-    final from = controller.parentOf(folder);
-    if (from == folderId) return;
-    if (!controller.moveFolder(item.id, folderId)) {
+    if (folder == null || controller.parentOf(folder) == folderId) return;
+    final moved = controller.moveFolder(item.id, folderId);
+    if (moved == null) {
       _toast(context, 'A folder can’t be moved into itself');
       return;
     }
     _undoable(
       context,
       'Moved “${folder.name}” to “${_folderName(folderId)}”',
-      () => controller.moveFolder(item.id, from),
+      () => controller.moveFolder(item.id, moved.from),
     );
   }
 
@@ -59,19 +58,22 @@ mixin _FolderActions {
           initialName: folder.name,
           initialColor: folder.color,
         );
-        final current = controller.folderById(folder.id);
-        if (details == null || current == null || !context.mounted) return;
+        if (details == null || !context.mounted) return;
+        // As the database holds it now: sync may have moved it meanwhile.
+        final current = controller.services.folders.get(folder.id);
+        if (current == null) return;
         if (details.name == current.name && details.color == current.color) return;
-        controller.updateFolder(current.copyWith(name: details.name, color: details.color));
+        controller.editFolder(
+          folder.id,
+          (f) => f.copyWith(name: details.name, color: details.color),
+        );
         _undoable(
           context,
           details.name == current.name ? 'Folder changed' : 'Renamed to “${details.name}”',
-          () {
-            final now = controller.folderById(folder.id);
-            if (now != null) {
-              controller.updateFolder(now.copyWith(name: current.name, color: current.color));
-            }
-          },
+          () => controller.editFolder(
+            folder.id,
+            (f) => f.copyWith(name: current.name, color: current.color),
+          ),
         );
       case FolderAction.move:
         final target = await showMoveDialog(
