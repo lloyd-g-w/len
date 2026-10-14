@@ -92,6 +92,13 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
         o.codeUnitAt(o.length - 1 - s) == n.codeUnitAt(n.length - 1 - s)) {
       s++;
     }
+    // Text typed or pasted over the selection replaces all of it, even where
+    // it starts or ends like the selection (a paste must match the clip).
+    final was = old.selection;
+    if (was.isValid && !was.isCollapsed && caret >= was.start && _replaces(o, n, was, caret)) {
+      p = was.start;
+      s = o.length - was.end;
+    }
     final removedEnd = o.length - s;
     var inserted = n.substring(p, n.length - s).replaceAll('\uFFFC', '');
     var start = _offsets.toModel(p), end = _offsets.toModel(removedEnd);
@@ -165,6 +172,15 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
       );
     }
     onDataChanged?.call();
+  }
+
+  /// Whether [n] is [o] with its [selection] replaced by the text up to
+  /// [caret].
+  static bool _replaces(String o, String n, TextSelection selection, int caret) {
+    final tail = o.length - selection.end;
+    return n.length - caret == tail &&
+        n.startsWith(o.substring(0, selection.start)) &&
+        n.endsWith(o.substring(selection.end));
   }
 
   /// The IME composing range [c] of an edit (field text replaced in

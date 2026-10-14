@@ -359,6 +359,20 @@ void main() {
       await c.copySelection(cut: true);
       expect(c.data.text, '\nx');
     });
+
+    test('copied text pasted over a selection sharing its first letter keeps formatting', () async {
+      final c = RichTextController(
+        TextData.rich(text: 'Hello', spans: const [StyledRange(0, 5, SpanStyle(bold: true))]),
+      );
+      select(c, 0, 5);
+      await c.copySelection();
+      final other = RichTextController(const TextData());
+      type(other, 'Hi you');
+      select(other, 0, 2);
+      type(other, 'Hello'); // The field's paste over the selection.
+      expect(other.data.text, 'Hello you');
+      expect(other.data.spans, const [StyledRange(0, 5, SpanStyle(bold: true))]);
+    });
   });
 
   group('layout', () {
