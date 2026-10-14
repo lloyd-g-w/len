@@ -123,6 +123,12 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
 
   void toggle() => isOpen ? close() : open();
 
+  /// Scrolls the main view to show the frame clear of the chrome (after
+  /// the box moved to the other edge).
+  void showFrame() {
+    if (isOpen) _reveal();
+  }
+
   /// The box was laid out at [size] (rotation, resize): the frame keeps
   /// its place and magnification and takes the box's new shape.
   void setBox(Size size) {

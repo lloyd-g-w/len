@@ -90,7 +90,10 @@ class ToolbarMeasure extends ChangeNotifier {
     if (!session.zoomWindow.isOpen) return layout;
     final zoom = session.zoomWindow;
     final free = size.height - layout.covered.vertical;
-    return layout.withZoomBox(ZoomBox.heightFor(free, chosen: zoom.boxHeight.value));
+    return layout.withZoomBox(
+      ZoomBox.heightFor(free, chosen: zoom.boxHeight.value),
+      atTop: session.services.preferences.zoomBoxAtTop,
+    );
   }
 
   @override

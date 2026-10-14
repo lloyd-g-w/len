@@ -13,6 +13,7 @@ import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../editor_session.dart';
 import 'zoom_box_grip.dart';
+import 'zoom_box_menu.dart';
 import 'zoom_box_painters.dart';
 import 'zoom_box_rail.dart';
 import 'zoom_window.dart';
@@ -22,9 +23,18 @@ import 'zoom_window.dart';
 /// ↵ (next line). Pointers go to the window's own input controller, so
 /// ink is made exactly as on the page, at the box's zoom.
 class ZoomBox extends StatefulWidget {
-  const ZoomBox({super.key, required this.session, this.padding = EdgeInsets.zero});
+  const ZoomBox({
+    super.key,
+    required this.session,
+    this.padding = EdgeInsets.zero,
+    this.atTop = false,
+  });
 
   final EditorSession session;
+
+  /// Whether the box docks under the top chrome (left-handed writing):
+  /// its edge to the page, with the grip, is then its bottom.
+  final bool atTop;
 
   /// Room kept clear at the sides (a phone's notch, held sideways).
   final EdgeInsets padding;
@@ -120,7 +130,14 @@ class _ZoomBoxState extends State<ZoomBox> {
   void _down(PointerDownEvent e) {
     _stylus(e);
     final height = context.size?.height ?? 0;
-    if (_pointer == null && _sizing.start(e, reach: ZoomBoxGrip.reach(context), height: height)) {
+    if (_pointer == null &&
+        _sizing.start(
+          e,
+          reach: ZoomBoxGrip.reach(context),
+          paper: _zoom.box.height,
+          height: height,
+          atBottom: widget.atTop,
+        )) {
       return;
     }
     if (_sizing.active || !_accepts(e)) {
@@ -204,10 +221,15 @@ class _ZoomBoxState extends State<ZoomBox> {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Surfaces.chrome(scheme),
-        border: Border(top: Surfaces.chromeEdge(scheme)),
+        border: widget.atTop
+            ? Border(bottom: Surfaces.chromeEdge(scheme))
+            : Border(top: Surfaces.chromeEdge(scheme)),
       ),
       child: Padding(
-        padding: widget.padding.copyWith(top: Hairline.width),
+        padding: widget.padding.copyWith(
+          top: widget.atTop ? 0 : Hairline.width,
+          bottom: widget.atTop ? Hairline.width : 0,
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -219,7 +241,12 @@ class _ZoomBoxState extends State<ZoomBox> {
                 },
               ),
             ),
-            ZoomBoxRail(onClose: _zoom.close, onNewLine: _zoom.newLine),
+            ZoomBoxRail(
+              onClose: _zoom.close,
+              onNewLine: _zoom.newLine,
+              menu: () => zoomBoxMenu(widget.session),
+              onMenu: (choice) => onZoomBoxMenu(widget.session, choice),
+            ),
           ],
         ),
       ),
@@ -309,8 +336,13 @@ class _ZoomBoxState extends State<ZoomBox> {
                 Positioned(
                   left: 0,
                   right: 0,
-                  top: 0,
-                  child: ZoomBoxGrip(color: _paperColour(frame.surfaceId).pattern, onStep: _step),
+                  top: widget.atTop ? null : 0,
+                  bottom: widget.atTop ? 0 : null,
+                  child: ZoomBoxGrip(
+                    atBottom: widget.atTop,
+                    color: _paperColour(frame.surfaceId).pattern,
+                    onStep: _step,
+                  ),
                 ),
               ],
             );

@@ -141,6 +141,10 @@ class SettingsRepository {
   set pageFlow(String? value) => value == null ? _remove('page_flow') : _set('page_flow', value);
 
   /// Where the editor toolbar sits (default: docked).
+  /// The zoom window's box docks at the top (left-handed writing).
+  bool get zoomBoxAtTop => _get('zoom_box_top') == 'true';
+  set zoomBoxAtTop(bool value) => _set('zoom_box_top', '$value');
+
   ToolbarPlacement get toolbarPlacement => ToolbarPlacement.parse(_get('toolbar_placement'));
   set toolbarPlacement(ToolbarPlacement value) => _set('toolbar_placement', value.name);
 

@@ -27,7 +27,7 @@ Future<ZoomWindow> openZoom(WidgetTester tester) async {
 Rect boxPaper(WidgetTester tester) {
   final zoom = zoomSession(tester).zoomWindow;
   final box = boxRect(tester);
-  final rail = tester.getRect(find.byType(ZoomBoxRail));
+  final rail = tester.getRect(find.byWidgetPredicate((w) => w is ZoomBoxRail));
   final left = rail.left <= box.left + 1 ? rail.right : box.left;
   return Offset(left, box.top + Hairline.width) & zoom.box;
 }

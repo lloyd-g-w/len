@@ -38,6 +38,11 @@ class AppPreferences extends ChangeNotifier {
   PenButtonAction get penButtonAction => _settings.penButtonAction;
   set penButtonAction(PenButtonAction value) => _update(() => _settings.penButtonAction = value);
 
+  /// The zoom window's box docks under the top chrome instead of above
+  /// the bottom: a left hand writing in it then hides none of the page.
+  bool get zoomBoxAtTop => _settings.zoomBoxAtTop;
+  set zoomBoxAtTop(bool value) => _update(() => _settings.zoomBoxAtTop = value);
+
   /// Where the editor toolbar sits.
   ToolbarPlacement get toolbarPlacement => _settings.toolbarPlacement;
   set toolbarPlacement(ToolbarPlacement value) => _update(() => _settings.toolbarPlacement = value);
