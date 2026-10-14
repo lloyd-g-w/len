@@ -5,7 +5,7 @@ import 'dart:ui';
 /// pen stroke (screen pixels and milliseconds, fed as the pen moves).
 ///
 /// Two quick back-and-forths are enough, yet writing never trips it
-/// (checked against the Ink Lab's real S Pen recordings, simulated cursive
+/// (checked against the Ink Lab's real S Pen recordings at 0.25–3×, simulated cursive
 /// and printed zigzag letters: z, N, M, w, vvv…). A scribble needs
 /// [minPasses] consecutive passes (so `minPasses - 1` sharp reversals),
 /// all within [maxDuration], where every pass
@@ -16,7 +16,8 @@ import 'dart:ui';
 /// and the passes stay in a narrow band: their spread across the
 /// scribble's axis is at most [maxSpread] of its amplitude. Letters (m, n,
 /// u, w, M, N, z) reverse as sharply but move on along the line, so their
-/// spread is large; a scribble drifts a few pixels per pass.
+/// spread is large; a scribble drifts a few pixels per pass, not mostly in
+/// one jump as letters written up and down do ("ll", [_movesOn]).
 ///
 /// Only the part that zigzags counts ([windows]): what the stroke crossed
 /// before or after doesn't erase.

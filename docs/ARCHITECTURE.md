@@ -1415,7 +1415,12 @@ Markers for system traces (atrace app `dev.len.len`; event times are
 (trace_processor) turn a trace into the latency table of `docs/INK_LAB.md`.
 
 Resting the pen for 600 ms at the end of a stroke snaps it, in place
-(`input/hold_to_straighten.dart` + `shapes/shape_recognizer.dart`): open
+(`input/hold_to_straighten.dart` + `shapes/shape_recognizer.dart`). A real
+S Pen at rest still reports samples drifting about a pixel: the rest
+starts after the last place the pen was more than 4 screen px from where
+it is now (it slows down first), the hold counts from there on the
+events' clock, and only the stroke up to there is recognised (the drift
+would make a line's detour or an arrow's wings). Open
 strokes become an arrow (a straight shaft and a wing on each side of its
 tip) or, if nearly straight already (no point off the chord by more than
 8 % of it, the path at most 1.15 × the chord), a line whose end then
@@ -1428,14 +1433,20 @@ with one fewer matches within 0.4 % of the diagonal (a bowed side, the
 overshoot closing the loop: long rectangles stay rectangles), then 3 → triangle, 4
 → diamond (diagonals along the axes), rectangle (right angles; rotated or,
 within 6°, axis-aligned, each side midway between its corners), else
-polygon. Closed strokes under 48 screen px stay as written (letters such as
-"o" or "0"), and handwriting, curves and scribbles are never recognised.
+polygon (five or more corners must have half the ellipse's error: a ring
+around a word is no hexagon). Strokes under 48 screen px long and closed
+ones under 48 px across stay as written (letters such as "l", "o" or
+"0"), and handwriting, curves and scribbles are never recognised.
 Snapped shapes have the shape look (`ShapeBuilder.styleFor`) and their
 geometry (`LiveInk.shape` → `Stroke.shape`); only the clean shape is
 committed. The recogniser is tested on hand-drawn samples
 (`test/support/hand_shapes.dart`: rounded corners, bowed sides, gaps and
 overshoots, landing hooks, tilt) and on simulated handwriting that must not
-snap.
+snap, and against the Ink Lab's real S Pen recordings: replayed as written
+nothing snaps (writing never rests that long), every real stroke held
+with the real pen's rest snaps only if it is a shape or a straight
+stroke, and shapes drawn with real strokes' timing, pressure and jitter
+snap (`docs/INK_LAB.md`, *Gestures on real ink*).
 
 **Scribble to erase** (`input/scribble_detector.dart`, on by default, a
 switch in Settings → Writing): a pen (ballpoint) stroke holding a fast
@@ -1443,7 +1454,9 @@ back-and-forth scribble — `ScribbleDetector`: two quick back-and-forths
 (≥ 4 passes within 0.8 s), each nearly reversing the last, ≥ 14 screen
 px, the inner ones at most twice the median, fairly straight, all in a
 band at most 0.3 of their length wide (letters — cursive m / n / u / w,
-printed z / N / M / w — reverse as sharply but move on) — erases instead
+printed z / N / M / w — reverse as sharply but move on), drifting pass by
+pass rather than mostly in one jump (cursive "ll" goes up and down one
+letter, then the next) — erases instead
 of becoming ink when it crosses ink. Only the part that zigzags counts
 (`ScribbleDetector.windows`: each run of passes that makes a scribble, its
 outer passes cut to the span of the inner ones, overlapping runs joined),
@@ -1464,7 +1477,8 @@ once the stroke so far holds a scribble it previews what will go
 those strokes as an owner (`setHidden`) and drawing them at 30 % as its
 lifted content (fading in over 100 ms, frame callbacks only while
 fading); the stroke ending any way un-hides them before the erase. It is
-held to zero false positives on the Ink Lab's real S Pen recordings,
+held to zero false positives on the Ink Lab's real S Pen recordings
+(at 0.25–3× and up to 3× as fast, `test/real_ink_gestures_test.dart`),
 simulated writing at 1–4×, cursive and printed zigzag letters and words at
 many sizes and speeds, and zigzag hatching spaced a tenth of its length or
 more (`test/scribble_detector_test.dart`); denser hatching over ink is a
