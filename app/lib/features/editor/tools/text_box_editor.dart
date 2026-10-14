@@ -103,6 +103,16 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
 
   @override
   Widget build(BuildContext context) {
+    // The view only matters while a box is edited: no rebuild per pan frame
+    // otherwise (it would lay out and repaint the editor).
+    return ListenableBuilder(
+      listenable: _session,
+      builder: (context, _) =>
+          _session.current == null ? const SizedBox.shrink() : _editor(context),
+    );
+  }
+
+  Widget _editor(BuildContext context) {
     return ListenableBuilder(
       listenable: Listenable.merge([_session, widget.viewport]),
       builder: (context, _) {
