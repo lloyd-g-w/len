@@ -27,6 +27,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Editing tools
 - ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate
+- ✅ Lasso options: freehand or rectangle; select what it touches, what is mostly inside or only
+  what is wholly inside; which items (ink, highlighter, text, images); remembered with the tools
 - ✅ Selection across pages (continuous scrolling): a lasso drawn across pages selects on each; the
   selection moves, resizes, recolours, restyles, deletes, copies and duplicates as one; items dropped
   so their centre lands on another page move to that page (ink re-added, elements re-parented) — one

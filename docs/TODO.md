@@ -13,9 +13,11 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   endpoints, ellipse bounds, star/polygon vertices; one undo step per drag; synced).
 
 ## Lasso / selection
-- ⬜ **Selection options**: what to select (ink, highlighter, text, images, shapes),
+- ✅ **Selection options**: what to select (ink, highlighter, text, images, shapes),
   **partial vs whole** (touching vs fully enclosed), and **selection shapes** (freehand lasso,
-  rectangle).
+  rectangle). Lasso popover: Shape (Freehand / Rectangle), Select (Touching / Mostly / Whole;
+  Mostly, the old rule, stays the default), Items (Ink, Highlighter, Text, Images; shapes are
+  ink, links go with images).
 
 ## Highlighter
 - ⬜ **Same engine as the pen**, with the same customisability where it makes sense

@@ -1374,10 +1374,19 @@ surface.
   (`SelectionController.refill`; a tint follows a recolour). A filled
   stroke is indexed in every chunk its bounds cover; taps select it by its
   fill, erasers only take the outline (cut pieces are open, so unfilled).
-- **Lasso** (`selection/`): a stroke is selected when at least half of its
+- **Lasso** (`selection/`): its options (`LassoConfig` in `ToolSettings.lasso`,
+  the Lasso popover, read at each press) set the shape (a freehand loop, or a
+  rectangle dragged corner to corner: `LassoPath.rectangle`), how much of an
+  item must be inside (`LassoCover`) and which kinds it takes (`LassoKind`:
+  ink, which includes shapes; highlighter; text; images, with links). By
+  default (*mostly*) a stroke is selected when at least half of its
   *length* is inside the lasso polygon (segments are subdivided and weighted
   by length, so sampling density does not matter); an element when its
-  centre (or most of its outline) is. A tap selects the topmost item.
+  centre (or most of its outline) is. *Whole* needs every point inside and
+  no segment crossing the outline; *touching*, a point inside or a crossing
+  (an image beneath the ink is not touched by a lasso drawn within it). A
+  tap selects the topmost item of the kinds taken. A rectangle that selects
+  no ink and started on PDF text selects the text from corner to corner.
   `SelectionController` hides the selection from the committed layer
   (`SurfaceModel.setHidden`, which only invalidates the affected chunks) and
   records it once into a picture; dragging, resizing (corners keep the
