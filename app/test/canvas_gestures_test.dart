@@ -160,6 +160,18 @@ void main() {
 
         d.down(5, const Offset(10, 10), eligible: false); // e.g. drawing
         await tester.pump(ms(600));
+        d.up(5);
+        expect(fired, hasLength(1));
+
+        // A mouse button lifted meanwhile (never a finger down here) does
+        // not hide finger 6, still resting, from finger 8's press.
+        d
+          ..down(6, const Offset(10, 10))
+          ..down(7, const Offset(90, 10))
+          ..up(99)
+          ..up(7)
+          ..down(8, const Offset(50, 50));
+        await tester.pump(ms(600));
         expect(fired, hasLength(1));
       }
     });

@@ -23,13 +23,16 @@ class LongPressDetector {
   int? _pointer;
   Offset _start = Offset.zero;
   Timer? _timer;
-  int _down = 0;
+
+  /// The fingers down (by pointer: a lift of a pointer never counted, a
+  /// mouse button, does not hide one still resting).
+  final Set<int> _down = {};
 
   /// A finger touched down. [eligible] is false when the finger does not
   /// navigate (e.g. it is drawing), so it cannot start a long press.
   void down(int pointer, Offset position, {bool eligible = true}) {
-    _down++;
-    if (_down > 1 || !eligible) {
+    _down.add(pointer);
+    if (_down.length > 1 || !eligible) {
       reset();
       return;
     }
@@ -43,7 +46,7 @@ class LongPressDetector {
   }
 
   void up(int pointer) {
-    _down = _down > 0 ? _down - 1 : 0;
+    _down.remove(pointer);
     if (pointer == _pointer) reset();
   }
 

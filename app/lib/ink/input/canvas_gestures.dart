@@ -80,8 +80,8 @@ class CanvasGestures {
       taps.noteStylusUp(e.timeStamp);
       return;
     }
-    _longPress.up(e.pointer);
     _rightClick.up(e.pointer);
+    if (e.kind == PointerDeviceKind.touch) _longPress.up(e.pointer);
     if (e.kind == PointerDeviceKind.touch) _twoFingerHold.up(e.pointer);
     if (e.kind == PointerDeviceKind.touch) doubleTap.up(e.pointer, e.localPosition, e.timeStamp);
     final fingers = taps.up(e.pointer, e.localPosition, e.timeStamp);
@@ -97,7 +97,7 @@ class CanvasGestures {
     taps.cancel(e.pointer);
     if (e.kind == PointerDeviceKind.touch) _twoFingerHold.up(e.pointer);
     if (e.kind == PointerDeviceKind.touch) doubleTap.cancel(e.pointer);
-    _longPress.up(e.pointer);
+    if (e.kind == PointerDeviceKind.touch) _longPress.up(e.pointer);
     _rightClick.cancel();
   }
 
