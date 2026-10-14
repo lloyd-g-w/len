@@ -47,6 +47,11 @@ class SyncController extends ChangeNotifier {
   Future<void>? _queued;
   bool _disposed = false;
 
+  /// The client of the run under way: closed when the configuration
+  /// changes, so a request stuck on the old server (a long upload, a dead
+  /// connection) does not hold up the next run until it times out.
+  SyncApi? _api;
+
   /// Bumped whenever the configuration changes; a run started under an
   /// older configuration stops at its next checkpoint.
   int _configGeneration = 0;
@@ -155,6 +160,7 @@ class SyncController extends ChangeNotifier {
     settings.syncUrl = _normalizeUrl(url);
     unawaited(tokens.save(token.trim()));
     _configGeneration++;
+    _api?.close();
     _lastError = _lastErrorDetails = _lastFailure = null;
     _failingSince = null;
     _setState(isConfigured ? SyncState.idle : SyncState.disabled);
@@ -217,7 +223,7 @@ class SyncController extends ChangeNotifier {
     _setState(SyncState.syncing);
     SyncApi? api;
     try {
-      api = apiFactory(settings.syncUrl, tokens.token);
+      api = _api = apiFactory(settings.syncUrl, tokens.token);
       final changes = await engine.sync(api, isCancelled: cancelled);
       if (cancelled()) return;
       _refreshTooLarge();
@@ -252,6 +258,7 @@ class SyncController extends ChangeNotifier {
       );
     } finally {
       api?.close();
+      if (identical(_api, api)) _api = null;
     }
   }
 
@@ -305,6 +312,7 @@ class SyncController extends ChangeNotifier {
     _disposed = true;
     tokens.removeListener(_tokenChanged);
     _timer?.cancel();
+    _api?.close();
     unawaited(_remoteChanges.close());
     unawaited(_notices.close());
     super.dispose();
