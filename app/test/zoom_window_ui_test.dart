@@ -10,9 +10,7 @@ import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/document/document_layout.dart';
-import 'package:len/features/editor/editor_canvas.dart';
 import 'package:len/features/editor/editor_screen.dart';
-import 'package:len/features/editor/editor_session.dart';
 import 'package:len/features/editor/zoom/zoom_box.dart';
 import 'package:len/features/editor/zoom/zoom_frame.dart';
 import 'package:len/features/editor/zoom/zoom_frame_overlay.dart';
@@ -20,36 +18,12 @@ import 'package:len/features/editor/zoom/zoom_window.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'document_editor_test.dart' show pumpEditor, inkOf, closeEditor;
-
-EditorSession _session(WidgetTester tester) =>
-    tester.widget<EditorCanvas>(find.byType(EditorCanvas)).session;
-
-/// Opens the zoom window with its shortcut.
-Future<ZoomWindow> _open(WidgetTester tester) async {
-  await tester.sendKeyEvent(LogicalKeyboardKey.keyM);
-  await tester.pumpAndSettle();
-  return _session(tester).zoomWindow;
-}
-
-/// A short stylus stroke in the box's paper, from [at] (a fraction of its
-/// size) [length] pixels to the right.
-Future<void> _write(WidgetTester tester, Offset at, {double length = 40}) async {
-  final box = tester.getRect(find.byType(ZoomBox));
-  // The rail (✕, ↵) sits at the box's right; the paper is left of it.
-  final paper = box.topLeft & _session(tester).zoomWindow.box;
-  final start = Offset(paper.left + paper.width * at.dx, paper.bottom - paper.height * at.dy);
-  final pen = await tester.startGesture(start, kind: PointerDeviceKind.stylus);
-  for (var i = 1; i <= 8; i++) {
-    await pen.moveTo(start + Offset(length * i / 8, i.isEven ? 6 : -6));
-  }
-  await pen.up();
-  await tester.pump();
-}
+import 'support/zoom_fixtures.dart';
 
 void main() {
   testWidgets('M opens the window below the ink on the page, and closes it', (tester) async {
     final (s, nb) = await pumpEditor(tester);
-    final zoom = await _open(tester);
+    final zoom = await openZoom(tester);
     expect(zoom.isOpen, isTrue);
     expect(find.byType(ZoomBox), findsOneWidget);
     final page = s.pages.pagesOf(nb.id).first;
@@ -78,7 +52,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Zoom window'));
     await tester.pumpAndSettle();
-    final zoom = _session(tester).zoomWindow;
+    final zoom = zoomSession(tester).zoomWindow;
     expect(zoom.isOpen, isTrue);
     await tester.tap(find.byTooltip('Close zoom window'));
     await tester.pumpAndSettle();
@@ -88,11 +62,11 @@ void main() {
 
   testWidgets('writing in the box writes small into the frame, undoably', (tester) async {
     final (s, nb) = await pumpEditor(tester);
-    final zoom = await _open(tester);
+    final zoom = await openZoom(tester);
     final page = s.pages.pagesOf(nb.id).first;
     final frame = zoom.frameRect!;
     final scale = zoom.frame!.scale;
-    await _write(tester, const Offset(0.1, 0.5), length: 80);
+    await writeInBox(tester, const Offset(0.1, 0.5), length: 80);
     expect(zoom.blocksPage.value, isTrue, reason: 'the hand on the page is a palm');
     await tester.pumpAndSettle();
     expect(zoom.blocksPage.value, isFalse);
@@ -116,10 +90,10 @@ void main() {
 
   testWidgets('ink at the right edge advances the frame at once', (tester) async {
     await pumpEditor(tester);
-    final zoom = await _open(tester);
+    final zoom = await openZoom(tester);
     final before = zoom.frame!.origin;
     final scale = zoom.frame!.scale;
-    await _write(tester, const Offset(0.88, 0.5), length: 40);
+    await writeInBox(tester, const Offset(0.88, 0.5), length: 40);
     await tester.pump(); // No pause.
     await tester.pumpAndSettle();
     final after = zoom.frame!.origin;
@@ -134,18 +108,18 @@ void main() {
 
   testWidgets('ink in the zone advances after a pause, unless the pen comes back', (tester) async {
     await pumpEditor(tester);
-    final zoom = await _open(tester);
+    final zoom = await openZoom(tester);
     final before = zoom.frame!.origin;
-    await _write(tester, const Offset(0.72, 0.5), length: 20);
+    await writeInBox(tester, const Offset(0.72, 0.5), length: 20);
     await tester.pump(ZoomWindow.pause ~/ 2);
     expect(zoom.frame!.origin, before);
     // The pen comes back in time (outside the zone): no advance.
-    await _write(tester, const Offset(0.4, 0.5), length: 10);
+    await writeInBox(tester, const Offset(0.4, 0.5), length: 10);
     await tester.pump(ZoomWindow.pause * 2);
     await tester.pumpAndSettle();
     expect(zoom.frame!.origin, before);
     // Lifted in the zone and left: the frame moves on.
-    await _write(tester, const Offset(0.72, 0.5), length: 20);
+    await writeInBox(tester, const Offset(0.72, 0.5), length: 20);
     await tester.pump(ZoomWindow.pause);
     await tester.pumpAndSettle();
     expect(zoom.frame!.origin.dx, greaterThan(before.dx));
@@ -154,10 +128,10 @@ void main() {
 
   testWidgets('↵ goes to the start of the next ruled line', (tester) async {
     await pumpEditor(tester);
-    final zoom = await _open(tester);
+    final zoom = await openZoom(tester);
     final before = zoom.frame!.origin;
     final pitch = zoom.host.pitchOf(zoom.frame!.surfaceId)!;
-    await _write(tester, const Offset(0.88, 0.5), length: 40);
+    await writeInBox(tester, const Offset(0.88, 0.5), length: 40);
     await tester.pumpAndSettle();
     expect(zoom.frame!.origin.dx, greaterThan(before.dx));
     await tester.tap(find.byTooltip('Next line'));
@@ -169,7 +143,7 @@ void main() {
 
   testWidgets('the frame moves by dragging and sizes with its handle', (tester) async {
     await pumpEditor(tester);
-    final zoom = await _open(tester);
+    final zoom = await openZoom(tester);
     final id = zoom.frame!.surfaceId;
     var screen = zoom.host.onScreen(id, zoom.frameRect!)!;
     final mainScale = zoom.host.main.scale;
@@ -194,8 +168,8 @@ void main() {
     tester,
   ) async {
     final (s, nb) = await pumpEditor(tester);
-    final zoom = await _open(tester);
-    final session = _session(tester);
+    final zoom = await openZoom(tester);
+    final session = zoomSession(tester);
     final pages = s.pages.pagesOf(nb.id);
     // Down to the bottom of the first page: ↵ turns to the second.
     final down = zoom.host.boundsOf(pages[0].id)!.bottom - zoom.frameRect!.bottom;
@@ -209,7 +183,7 @@ void main() {
     expect(session.doc!.activePageData.id, pages[1].id);
     expect(zoom.frameRect!.top, lessThan(zoom.host.boundsOf(pages[1].id)!.height * 0.1));
     // Writing goes there.
-    await _write(tester, const Offset(0.1, 0.5));
+    await writeInBox(tester, const Offset(0.1, 0.5));
     await tester.pumpAndSettle();
     expect(inkOf(s, pages[1]).where((st) => st.id != 'w2'), hasLength(1));
 
@@ -249,10 +223,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final zoom = await _open(tester);
+    final zoom = await openZoom(tester);
     expect(zoom.frame!.surfaceId, nb.id);
     final frame = zoom.frameRect!;
-    await _write(tester, const Offset(0.2, 0.5));
+    await writeInBox(tester, const Offset(0.2, 0.5));
     await tester.pumpAndSettle();
     final ink = SurfaceCopier(services.strokes).loadAll(nb.id);
     expect(ink, hasLength(1));
@@ -269,8 +243,8 @@ void main() {
     tester,
   ) async {
     final (s, nb) = await pumpEditor(tester);
-    final zoom = await _open(tester);
-    final session = _session(tester);
+    final zoom = await openZoom(tester);
+    final session = zoomSession(tester);
     final page = s.pages.pagesOf(nb.id).first;
     final view = session.doc!.viewport;
     final offset = view.offset;
@@ -300,11 +274,11 @@ void main() {
 
   testWidgets('one page at a time, the next line past the bottom turns the page', (tester) async {
     final (s, nb) = await pumpEditor(tester);
-    final session = _session(tester);
+    final session = zoomSession(tester);
     session.doc!.setFlow(PageFlow.single);
     await tester.pumpAndSettle();
     expect(session.doc!.flow, PageFlow.single);
-    final zoom = await _open(tester);
+    final zoom = await openZoom(tester);
     final pages = s.pages.pagesOf(nb.id);
     final down = zoom.host.boundsOf(pages[0].id)!.bottom - zoom.frameRect!.bottom;
     zoom.dragBy(Offset(0, down * zoom.host.main.scale));
@@ -317,7 +291,7 @@ void main() {
     // The frame shows on the page turned to, and writing lands there.
     expect(zoom.host.onScreen(pages[1].id, zoom.frameRect!), isNotNull);
     expect(find.byType(ZoomFrameOverlay), findsOneWidget);
-    await _write(tester, const Offset(0.1, 0.5));
+    await writeInBox(tester, const Offset(0.1, 0.5));
     await tester.pumpAndSettle();
     expect(inkOf(s, pages[1]).where((st) => st.id != 'w2'), hasLength(1));
     await closeEditor(tester);

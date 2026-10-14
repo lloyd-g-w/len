@@ -480,7 +480,10 @@ or deleted pages in order with ink. Snack bars' Undo calls
   `DocumentSurfaces.acquireModel`), activating the frame's page (its live ink shows there),
   and `reveal` so the main view follows the frame. `ZoomFrameOverlay` draws the frame on the
   page (a 2-dp accent rule, the zone's hairline, a corner handle): drag it to move (lines then
-  start there), drag the handle to size it. Palm: a stylus in the box tells the page's input
+  start there), drag the handle to size it. The box's top edge (`ZoomBoxGrip`, two ticks in the
+  paper's pattern colour; `BoxHeightDrag`) sizes the box with a finger or the mouse (a stylus
+  writes up to the edge): `ZoomWindow.boxHeight`, kept by `ZoomBox.heightFor` to at least
+  `least` and clear of `pageRoom` of the page. Palm: a stylus in the box tells the page's input
   (`InkInputController.stylusElsewhere`: a finger drawing or panning there stops, new ones
   are ignored as between strokes) and `ZoomWindow.blocksPage` absorbs new page touches for
   `palmQuiet` after the pen lifts. The window is per session and not persisted.

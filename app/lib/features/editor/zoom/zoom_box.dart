@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -10,6 +12,7 @@ import '../../../ink/surface_model.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../editor_session.dart';
+import 'zoom_box_grip.dart';
 import 'zoom_box_painters.dart';
 import 'zoom_box_rail.dart';
 import 'zoom_window.dart';
@@ -26,12 +29,17 @@ class ZoomBox extends StatefulWidget {
   /// Room kept clear at the sides (a phone's notch, held sideways).
   final EdgeInsets padding;
 
+  /// The lowest box, and the least of the page kept in view above it.
+  static const double least = 112, pageRoom = 120;
+
   /// The box's height in an editor with [free] pixels of height between
-  /// its top and bottom chrome: about a third, leaving the page room.
-  static double heightFor(double free) {
-    const share = 0.36, least = 112.0, most = 300.0, page = 120.0;
-    final h = (free * share).clamp(least, most);
-    return h.clamp(0, (free - page).clamp(0, most)).toDouble();
+  /// its top and bottom chrome: the height [chosen] by dragging its top
+  /// edge, else about a third; always leaving the page room.
+  static double heightFor(double free, {double? chosen}) {
+    const share = 0.36, most = 300.0;
+    final room = math.max(0.0, free - pageRoom);
+    if (chosen != null) return chosen.clamp(math.min(least, room), room);
+    return (free * share).clamp(least, most).clamp(0.0, math.min(room, most));
   }
 
   @override
@@ -52,6 +60,9 @@ class _ZoomBoxState extends State<ZoomBox> {
   bool _inking = false;
   Rect? _ink;
   final Set<int> _ignored = {};
+
+  /// A finger or the mouse dragging the top edge.
+  final BoxHeightDrag _sizing = BoxHeightDrag();
 
   @override
   void dispose() {
@@ -108,7 +119,11 @@ class _ZoomBoxState extends State<ZoomBox> {
 
   void _down(PointerDownEvent e) {
     _stylus(e);
-    if (!_accepts(e)) {
+    final height = context.size?.height ?? 0;
+    if (_pointer == null && _sizing.start(e, reach: ZoomBoxGrip.reach(context), height: height)) {
+      return;
+    }
+    if (_sizing.active || !_accepts(e)) {
       _ignored.add(e.pointer);
       return;
     }
@@ -128,6 +143,7 @@ class _ZoomBoxState extends State<ZoomBox> {
 
   void _move(PointerMoveEvent e) {
     _stylus(e);
+    if (_sizing.move(e) case final height?) return _resize(height);
     if (_ignored.contains(e.pointer)) return;
     _zoom.input?.handleMove(e);
     _note(e);
@@ -142,6 +158,7 @@ class _ZoomBoxState extends State<ZoomBox> {
 
   void _up(PointerUpEvent e) {
     _stylus(e);
+    if (_sizing.end(e)) return _settleHeight();
     if (_ignored.remove(e.pointer)) return;
     final input = _zoom.input;
     if (input == null) return;
@@ -155,11 +172,29 @@ class _ZoomBoxState extends State<ZoomBox> {
 
   void _cancel(PointerCancelEvent e) {
     _stylus(e);
+    if (_sizing.end(e)) return _settleHeight();
     if (_ignored.remove(e.pointer)) return;
     _zoom.input?.handleCancel(e);
     if (e.pointer != _pointer) return;
     _pointer = null;
     _zoom.penUp(null);
+  }
+
+  /// Asks the editor for a box [height] high (it keeps the page room).
+  void _resize(double height) => _zoom.boxHeight.value = height;
+
+  /// Keeps the height the editor gave the box, so the next drag starts
+  /// from it (not from a height past the limits).
+  void _settleHeight() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final size = mounted ? context.size : null;
+      if (size != null) _zoom.boxHeight.value = size.height;
+    });
+  }
+
+  void _step(double by) {
+    _resize((context.size?.height ?? 0) + by);
+    _settleHeight();
   }
 
   @override
@@ -271,6 +306,12 @@ class _ZoomBoxState extends State<ZoomBox> {
                       painter: LiveInkPainter(live: session.live, viewport: view, clip: page),
                     ),
                   ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: ZoomBoxGrip(color: _paperColour(frame.surfaceId).pattern, onStep: _step),
+                ),
               ],
             );
           },

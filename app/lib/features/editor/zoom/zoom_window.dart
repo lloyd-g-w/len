@@ -68,6 +68,10 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
   /// (the editor's layout makes room for the box).
   final ValueNotifier<bool> opened = ValueNotifier(false);
 
+  /// The box's height as dragged by its top edge (logical pixels), or null
+  /// for the editor's choice; the editor keeps it within limits.
+  final ValueNotifier<double?> boxHeight = ValueNotifier(null);
+
   /// Opens the window on the page in view (or the canvas), framing the
   /// start of the visible lines once the box is laid out.
   void open() {
@@ -212,6 +216,7 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
     _unblock?.cancel();
     blocksPage.dispose();
     opened.dispose();
+    boxHeight.dispose();
     view.dispose();
     super.dispose();
   }
