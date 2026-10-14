@@ -128,6 +128,26 @@ void main() {
       expect(a.dirty, isEmpty);
     });
 
+    test('a proxy with a smaller body limit: pushes split, a record over it is skipped', () async {
+      final (a, b) = twoDevices();
+      // 20 strokes of ~0.25 MB, one of ~1.6 MB.
+      a.s.strokes.save([for (var i = 0; i < 20; i++) bigStroke('s$i', 'canvas', 16000)]);
+      a.s.strokes.save([bigStroke('huge', 'canvas', 100000)]);
+      const limit = 1024 * 1024; // nginx's default client_max_body_size.
+      final proxied = _hookedApi(a.server, (r) async {
+        if (r.url.path != '/v1/push' || r.bodyBytes.length <= limit) return null;
+        return http.Response('<html>413 Request Entity Too Large</html>', 413);
+      });
+      await a.s.sync.engine.sync(proxied);
+      expect(a.dirty.map((r) => r.id), ['huge'], reason: 'kept, as for the server limit');
+      for (var i = 0; i < 20; i++) {
+        expect(a.server.stored('strokes', 's$i'), isNotNull);
+      }
+      expect(a.server.pushes.every((p) => p.bytes <= limit), isTrue);
+      await b.sync();
+      expect(b.db.select('SELECT COUNT(*) AS n FROM strokes').single['n'], 20);
+    });
+
     test('a 400 without an index still fails the sync', () async {
       final (a, _) = twoDevices();
       a.s.strokes.save([bigStroke('s', 'canvas', 4)]);
