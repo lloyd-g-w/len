@@ -58,11 +58,23 @@ class ShapeOptionsPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: Gaps.md),
-          FillChoices(
-            fill: tools.shapeFill,
-            ink: tools.configOf(InkTool.ballpoint).color,
-            recent: tools.recentColors,
-            onChanged: (f, {required fromBlock}) => tools.shapeFill = f,
+          // Lines and arrows have no inside: the row stays (no jump
+          // between kinds) but is dimmed and inert.
+          IgnorePointer(
+            ignoring: !tools.shape.isClosed,
+            child: ExcludeSemantics(
+              excluding: !tools.shape.isClosed,
+              child: AnimatedOpacity(
+                duration: Motion.fast,
+                opacity: tools.shape.isClosed ? 1 : 0.38,
+                child: FillChoices(
+                  fill: tools.shapeFill,
+                  ink: tools.configOf(InkTool.ballpoint).color,
+                  recent: tools.recentColors,
+                  onChanged: (f, {required fromBlock}) => tools.shapeFill = f,
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: Gaps.md),
           Text('Drag to draw, in the pen’s colour and size', style: text.bodySmall),

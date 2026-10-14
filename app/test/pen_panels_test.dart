@@ -7,6 +7,7 @@ import 'package:len/features/editor/pen/highlighter_options_panel.dart';
 import 'package:len/features/editor/pen/ink_slots.dart';
 import 'package:len/features/editor/pen/pen_options_panel.dart';
 import 'package:len/features/editor/tools/colour_sheet.dart';
+import 'package:len/features/editor/tools/fill_choices.dart';
 import 'package:len/features/editor/tools/shape_options_panel.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ui/app_theme.dart';
@@ -88,6 +89,22 @@ void main() {
     tools.holdToStraighten = false;
     await tester.pump();
     expect(find.text('Hold to snap is off in Settings → Writing'), findsOneWidget);
+  });
+
+  testWidgets('shapes: the fill row is inert for lines and arrows', (tester) async {
+    await pump(tester, ShapeOptionsPanel(tools: tools));
+    bool inert() => tester
+        .widgetList<IgnorePointer>(
+          find.ancestor(of: find.byType(FillChoices), matching: find.byType(IgnorePointer)),
+        )
+        .any((w) => w.ignoring);
+    tools.shape = ShapeKind.rectangle;
+    await tester.pump();
+    expect(inert(), isFalse);
+    tools.shape = ShapeKind.line;
+    await tester.pump();
+    expect(inert(), isTrue);
+    expect(find.byType(FillChoices), findsOneWidget, reason: 'kept, so the panel does not jump');
   });
 
   testWidgets('the pen has no gesture switches: they live in Settings → Writing (R8-26)', (
