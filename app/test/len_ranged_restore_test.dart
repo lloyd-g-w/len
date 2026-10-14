@@ -103,4 +103,27 @@ void main() {
     expect(file.byteAt(700), 700 & 0xFF);
     expect(file.bytes(0, 1000), whole);
   });
+
+  test('a small Len file restores from slices', () async {
+    final source = AppServices.create(AppDatabase.inMemory(), blobBackend: MemoryBlobBackend());
+    addTearDown(source.dispose);
+    source.notebooks.create(
+      title: 'N',
+      kind: NotebookKind.canvas,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    final out = OutputMemoryStream();
+    await source.lenFiles.write(const LenScope.library(), out);
+    final whole = out.getBytes();
+    // Its last entry's header with room for its name reaches past the end,
+    // where a browser's slice ends early.
+    final file = RangedFile(whole.length, (start, end) async {
+      return whole.sublist(start, math.min(end, whole.length));
+    });
+    final target = AppServices.create(AppDatabase.inMemory(), blobBackend: MemoryBlobBackend());
+    addTearDown(target.dispose);
+    final result = await target.lenFiles.import(await target.lenFiles.open(RangedInput(file)));
+    expect(result.notebooks, hasLength(1));
+  });
 }

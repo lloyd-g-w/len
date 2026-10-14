@@ -59,11 +59,14 @@ class RangedFile {
     _last = null;
   }
 
-  /// Loads the [ranges] to keep, joining those less than [gap] apart into
-  /// one read, a few reads at a time.
+  /// Loads the [ranges] to keep (the parts within the file), joining those
+  /// less than [gap] apart into one read, a few reads at a time.
   Future<void> keepAll(List<(int, int)> ranges, {int gap = 4096}) async {
-    if (ranges.isEmpty) return;
-    final sorted = [...ranges]..sort((a, b) => a.$1.compareTo(b.$1));
+    final sorted = [
+      for (final (s, e) in ranges)
+        if (math.min(e, size) > math.max(s, 0)) (math.max(s, 0), math.min(e, size)),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    if (sorted.isEmpty) return;
     final joined = <(int, int)>[sorted.first];
     for (final (start, end) in sorted.skip(1)) {
       final (s, e) = joined.last;
