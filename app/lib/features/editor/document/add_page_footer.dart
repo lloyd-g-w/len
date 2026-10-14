@@ -63,6 +63,7 @@ class _AddButton extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     // A Pencil-edged outline with an Ink +, like the library's New tile.
     return GestureDetector(
+      excludeFromSemantics: true, // The button has the long press.
       onSecondaryTap: onAddWithTemplate,
       child: OutlinedButton.icon(
         onPressed: onAdd,

@@ -69,7 +69,9 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
     final alternate = widget.alternate;
     if (alternate == null || !widget.enabled) return row;
     void choose() => Navigator.pop<T>(context, alternate);
+    // Pointer gestures only: the row stays one button for screen readers.
     return GestureDetector(
+      excludeFromSemantics: true,
       behavior: HitTestBehavior.opaque,
       onLongPress: choose,
       onSecondaryTap: choose,

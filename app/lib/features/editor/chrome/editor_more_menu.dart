@@ -211,7 +211,13 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
             ..scheduleFrame();
         }
 
-        return GestureDetector(onLongPress: choose, onSecondaryTap: choose, child: row);
+        // Pointer gestures only: the row stays one button for screen readers.
+        return GestureDetector(
+          excludeFromSemantics: true,
+          onLongPress: choose,
+          onSecondaryTap: choose,
+          child: row,
+        );
       },
     );
   }
