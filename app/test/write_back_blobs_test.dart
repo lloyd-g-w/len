@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/blob_backend.dart';
 import 'package:len/data/write_back.dart';
@@ -9,9 +11,12 @@ import 'package:len/data/write_back_blobs.dart';
 class _FullableBackend extends MemoryBlobBackend {
   bool full = false;
 
+  /// Blobs that don't fit (when not [full]).
+  final Set<String> refused = {};
+
   @override
   Future<void> write(String sha, Stream<List<int>> data) async {
-    if (full) throw const StorageFullException();
+    if (full || refused.contains(sha)) throw const StorageFullException();
     await super.write(sha, data);
   }
 }
@@ -36,6 +41,26 @@ void main() {
     expect(blobs.failure, isNull);
     expect(blobs.pending, isFalse);
     expect(await inner.read('a'), bytes);
+  });
+
+  test('a blob stored after one the storage refused leaves that one retried', () {
+    fakeAsync((async) {
+      final inner = _FullableBackend()..refused.add('big');
+      final blobs = WriteBackBlobBackend(inner);
+      unawaited(blobs.write('big', Stream.value(bytes)));
+      async.flushMicrotasks();
+      expect(blobs.failure, WriteFailure.full);
+      // A small file still fits.
+      unawaited(blobs.write('small', Stream.value(bytes)));
+      async.flushMicrotasks();
+      expect(blobs.pending, isTrue);
+      expect(blobs.failure, WriteFailure.full);
+
+      inner.refused.clear(); // Space freed: the retry stores it.
+      async.elapse(const Duration(minutes: 1));
+      expect(blobs.pending, isFalse);
+      expect(blobs.failure, isNull);
+    });
   });
 
   test('deleting an unstored blob drops it and the failure', () async {
