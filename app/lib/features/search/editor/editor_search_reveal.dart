@@ -25,8 +25,9 @@ extension _SearchReveal on EditorSearchController {
 
   void _reveal(EditorSearchMatch match) {
     if (!host.isReady) {
+      // Listening already when an earlier reveal waits too.
+      if (_revealWhenReady == null) host.changes.addListener(_onHostChanged);
       _revealWhenReady = match;
-      host.changes.addListener(_onHostChanged);
       return;
     }
     final rects = rectsOf(match);
