@@ -95,6 +95,11 @@ class SyncEngine {
     return reason;
   }
 
+  /// What pulls applied in syncs that failed afterwards (a dropped
+  /// connection on a later page): carried into the next sync's result, so
+  /// open screens still refresh and deletion conflicts are still resolved.
+  RemoteChanges? _unannounced;
+
   /// Consecutive failed upload attempts per blob in this app run.
   final Map<String, int> _uploadFailures = {};
 
@@ -155,7 +160,10 @@ class SyncEngine {
     final cancelled = isCancelled ?? () => false;
     for (var attempt = 0; ; attempt++) {
       try {
-        return await _cycle(api, cancelled);
+        final changes = await _cycle(api, cancelled);
+        // A cancelled run's changes are not announced (see SyncController).
+        if (!cancelled()) _unannounced = null;
+        return changes;
       } on SyncException catch (e) {
         if (e.kind != SyncFailure.historyLost || attempt > 0 || cancelled()) rethrow;
         debugPrint('The sync server lost changes; uploading everything again');
@@ -273,7 +281,7 @@ class SyncEngine {
   }
 
   Future<RemoteChanges> _pull(SyncApi api, CancelCheck cancelled) async {
-    final changes = RemoteChanges();
+    final changes = _unannounced ??= RemoteChanges();
     var next = api.pull(since: settings.syncLastSeq);
     while (!cancelled()) {
       final since = settings.syncLastSeq;

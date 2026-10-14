@@ -159,6 +159,28 @@ void main() {
       expect(b.db.select('SELECT COUNT(*) AS n FROM strokes').single['n'], total);
     });
 
+    test('what a failed pull applied is still announced by the next sync', () async {
+      final (a, b) = twoDevices();
+      final nb = _notebook(a, 'Big');
+      const total = SyncApi.pullLimit + 200;
+      a.s.strokes.save([for (var i = 0; i < total; i++) bigStroke('s$i', nb.id, 4)]);
+      await a.sync();
+      var pulls = 0;
+      final flaky = _hookedApi(a.server, (r) async {
+        if (r.url.path == '/v1/pull' && ++pulls == 2) throw http.ClientException('reset');
+        return null;
+      });
+      // The first page (the notebook and most strokes) is applied, then the
+      // connection drops.
+      await expectLater(b.s.sync.engine.sync(flaky), throwsA(isA<SyncException>()));
+      expect(_titles(b), ['Big']);
+
+      final changes = await b.sync();
+      expect(changes.notebooks, isTrue, reason: 'the library must learn about the notebook');
+      expect(changes.strokeSurfaces, {nb.id});
+      expect((await b.sync()).isEmpty, isTrue, reason: 'announced once');
+    });
+
     test('a page is applied in slices; one cut short is pulled again', () async {
       final (a, b) = twoDevices();
       const total = SyncApi.pullLimit;
