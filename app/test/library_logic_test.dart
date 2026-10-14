@@ -75,6 +75,28 @@ void main() {
       expect(titles(LibrarySort.created), 'bcA');
       expect(titles(LibrarySort.name), 'Abc');
     });
+
+    test('sorts names with Unicode case and accents folded, ties by id', () {
+      final list = [
+        for (final t in ['Zoë', 'Яблоко', 'Émile', 'apple', 'Ärger', 'арбуз']) nb(t),
+      ];
+      expect(LibraryQuery.sorted(list, LibrarySort.name).map((n) => n.title), [
+        'apple',
+        'Ärger',
+        'Émile',
+        'Zoë',
+        'арбуз',
+        'Яблоко',
+      ]);
+      // Equal once folded: by id (here the title).
+      final twins = [nb('Été'), nb('ete')];
+      expect(LibraryQuery.sorted(twins, LibrarySort.name).map((n) => n.id), ['ete', 'Été']);
+    });
+
+    test('filters ignoring accents, as full-text search does', () {
+      expect(LibraryQuery.matches('Café notes', 'cafe'), isTrue);
+      expect(LibraryQuery.matches('Cafe notes', 'CAFÉ'), isTrue);
+    });
   });
 
   group('LibraryController', () {

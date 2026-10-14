@@ -1,6 +1,7 @@
 import 'package:sqlite3/common.dart';
 
 import '../domain/folder.dart';
+import 'name_order.dart';
 import 'record_fields.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
@@ -20,11 +21,10 @@ class FolderRepository extends SyncableTable {
   @override
   String get table => 'folders';
 
-  /// All live folders, sorted by name (case-insensitive).
-  List<Folder> list() => db
-      .select('SELECT * FROM folders WHERE deleted = 0 ORDER BY name COLLATE NOCASE, id')
-      .map(_rowToFolder)
-      .toList();
+  /// All live folders, sorted by name as notebooks are ([NameOrder]).
+  List<Folder> list() =>
+      db.select('SELECT * FROM folders WHERE deleted = 0').map(_rowToFolder).toList()
+        ..sort(NameOrder.comparator((f) => f.name, (f) => f.id));
 
   Folder? get(String id) {
     final rows = db.select('SELECT * FROM folders WHERE id = ? AND deleted = 0', [id]);

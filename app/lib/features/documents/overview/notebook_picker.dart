@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../data/search/search_query.dart';
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/dialog_actions.dart';
@@ -81,11 +82,11 @@ class _DestinationPickerState extends State<_DestinationPicker> {
   }
 
   List<Notebook> get _shown {
-    final query = _filter.text.trim().toLowerCase();
+    final query = SearchText.fold(_filter.text.trim());
     if (query.isEmpty) return widget.notebooks;
     return [
       for (final n in widget.notebooks)
-        if ('${n.title} ${widget.caption(n)}'.toLowerCase().contains(query)) n,
+        if (SearchText.fold('${n.title} ${widget.caption(n)}').contains(query)) n,
     ];
   }
 
