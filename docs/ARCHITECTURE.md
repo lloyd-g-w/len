@@ -422,7 +422,9 @@ or deleted pages in order with ink. Snack bars' Undo calls
   `WorkspaceMemory` (`tabs/workspace_memory.dart`, in `AppServices`) keeps the tabs,
   the active one and the split view in the settings (`workspace`) while the workspace
   is shown, and the notebooks opened lately (`recent_notebooks`, the library's Recent
-  row); the library restores the workspace at launch, leaving it clears it.
+  row); the library restores the workspace at launch, leaving it clears it. A Recent
+  tile's or a card's cut title keeps its last word (`ui/end_keeping_text.dart`,
+  "Electronics… 12"), so numbered titles sharing a long start stay apart.
   The workspace route is a `NotebookOpenRoute` (`tabs/notebook_open_route.dart`): opened from
   a library cover (`NotebookOpenOrigin` from the library's `CoverLocator`), the cover's rect
   grows to the screen with easing corners, fades into the paper colour and the editor (scaled
@@ -716,6 +718,32 @@ again (`BlobReferences.keeps`, one blob in SQL), its file after: a pull (in a
 worker, or between slices) committing a record that references it while
 earlier blobs are deleted keeps it; one committed later fetches it again. The server has its
 own admin-run collector (server/README.md).
+
+**Storage overview** (Settings → Storage, UX_AUDIT R16-7). `StorageQueries`
+(`data/storage_queries.dart`, plain SQL on any connection) measures the database
+(`PRAGMA page_count × page_size`), the stored files by kind (`blobs.size` by MIME:
+PDFs, images, audio and waveforms, other), the largest notebooks (ink and element
+bytes on their surfaces plus the distinct local blobs their pages, elements and
+recordings reference, found with `json_tree` over the same columns as
+`BlobReferences`) and the *freeable* blobs. `surveyStorage`
+(`platform/storage_survey*`) runs it natively on a worker isolate over a read-only
+connection, measuring the database's files with their WAL; on the web on the app's
+connection. `StorageOverview` (`features/storage/`, in `AppServices`) keeps the last
+survey and the raster cache's size (`RasterStore.size` / `clear`), so Settings shows
+figures at once and measures again when shown.
+A blob is freeable when it counts as uploaded to the current server and not refused
+as too large, live pages / elements / recordings reference it, and it is not kept:
+referenced by a notebook open in a tab or in `SharedNotebooks` (being shown, or its
+recording still saving), a user template, or a PDF whose text search has not
+extracted yet (`StorageQueries.kept`). "Free up" measures again, asks the server
+for each candidate (`SyncController.blobsOnServer`, `HEAD`; unreachable or a
+server switch meanwhile: nothing goes), then `BlobStore.removeLocalCopies`
+deletes each one's row (exclusively with the `put` methods, checking `uploaded`
+and `kept` again) and then its file; a file that can't be deleted is recorded
+again. Without a row the blob counts as missing, so whatever shows it fetches it
+lazily (`fetchBlob`, recorded as uploaded); garbage collection and uploads never
+see it. A notebook's Recordings opens it and asks its editor to show the
+recordings list (`OpenNotebooks.requestRecordings`).
 
 PDF import (`features/documents/pdf/`) stores the file once as a blob and
 creates one page per PDF page with background `{type: pdf, blob, page}` and
@@ -2403,7 +2431,7 @@ network reports.
 **Storage.** At start the web app requests persistent storage
 (`navigator.storage.persist()`) where browsers decide silently (Chromium,
 Safari; an installed app is usually granted); Firefox would prompt, so there
-it waits for *Settings → Storage* (web only: status, "Turn on", usage /
+it waits for *Settings → Storage* (in browsers also: status, "Turn on", usage /
 quota from `storage.estimate()`, which includes the offline copy).
 
 Web pitfall: dart2js integers are JavaScript numbers — bitwise operators
@@ -2837,7 +2865,7 @@ scroll sideways (the text format bar's rows, the toolbar's quick slots in a narr
 keyboard shortcut reference (`settings/keyboard_shortcuts.dart`, Ctrl/⌘+/) is a list of
 `ShortcutGroup`s kept honest by `keyboard_shortcuts_test.dart` (each entry must be bound
 in the screen it describes); add a binding there when adding one. Settings (`features/settings/`): General,
-Writing, Handwriting, Sync, Storage (web) and About in one centred 640-dp column;
+Writing, Handwriting, Sync, Backup, Storage, Largest notebooks (when any take space) and About in one centred 640-dp column;
 `SettingsSection` is a quiet `SectionLabel` heading over a rounded plate of `SettingsTile`s
 (18-dp icon, Body title, Caption subtitle; a `control` trails on wide rows and goes below the
 text on narrow ones). Documents UI

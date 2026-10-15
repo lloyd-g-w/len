@@ -77,10 +77,13 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
-- ⬜ **Storage overview** (UX_AUDIT R16-7): Settings → Storage on every platform (now web
-  only): space by kind (notes, PDFs and images, recordings), the largest notebooks, and
-  "Remove downloaded copies" of files the server holds (fetched again when shown). A year
-  of recorded lectures is gigabytes and nothing natively says so.
+- ✅ **Storage overview** (UX_AUDIT R16-7): Settings → Storage on every platform: the space
+  Len uses here by kind (handwriting and text, PDFs, images, recordings, cached previews),
+  the largest notebooks (tap to open, or Recordings to open at its recordings), "Free up
+  N…" for copies of files the sync server holds (asked of the server first; never files
+  not yet uploaded or of notebooks open in the editor; they download again when shown),
+  "Clear" for cached previews; the web keeps its persistence and quota rows. Also: Recent
+  tiles and grid cards keep a cut title's last word ("Electronics… 12").
 
 - ⬜ **Stylus edge swipes** (UX_AUDIT R15-6): with gesture navigation, a pen stroke starting
   at the screen's left or right edge may become Back (the stroke is now kept when cancelled,
