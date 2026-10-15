@@ -9,6 +9,7 @@ import '../../ink/surface_model.dart';
 import '../../ui/messages.dart';
 import 'editor_session.dart';
 import 'resume_view.dart';
+import 'tabs/open_notebooks.dart';
 
 /// Ties one editor to the app and to sync: remembers where it looks (when
 /// the app is hidden and when the editor closes), closes the editor when
@@ -74,12 +75,21 @@ class EditorLifecycle {
   }
 
   /// Remembers this notebook's page, zoom and pan, and its zoom window,
-  /// for the next launch.
+  /// for the next launch. The second pane keeps its place with the
+  /// workspace (it may show the first pane's notebook), but what it read
+  /// counts as read here: it stamps the kept view with its leaving (or
+  /// keeps its own view if there is none), so resume moves on only for ink
+  /// written after ([resumeView]).
   void saveView() {
-    if (closing || secondPane || services.database.isClosed) return;
+    if (closing || services.database.isClosed) return;
     final settings = services.settings;
-    final view = session.viewState.stamped(leftAt(services, _notebook.id));
-    settings.setEditorView(_notebook.id, view.encode());
+    final at = leftAt(services, _notebook.id);
+    if (secondPane) {
+      final kept = EditorViewState.decode(settings.editorView(_notebook.id));
+      settings.setEditorView(_notebook.id, (kept ?? session.viewState).stamped(at).encode());
+      return;
+    }
+    settings.setEditorView(_notebook.id, session.viewState.stamped(at).encode());
     session.saveZoomState();
   }
 
