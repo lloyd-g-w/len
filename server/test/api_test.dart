@@ -107,12 +107,14 @@ void main() {
     ]);
     expect(page['nextSince'], 1);
     expect(page['hasMore'], true);
+    expect(page['lastSeq'], 2);
 
     r = await send('GET', '/v1/pull?since=1');
     page = await jsonOf(r);
     expect((page['records'] as List).single, {...record('b'), 'seq': 2});
     expect(page['nextSince'], 2);
     expect(page['hasMore'], false);
+    expect(page['lastSeq'], 2);
   });
 
   test('recognised handwriting (recognised_text) is stored, replaced and tombstoned', () async {

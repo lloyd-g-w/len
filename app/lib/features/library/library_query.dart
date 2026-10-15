@@ -7,23 +7,19 @@ import '../../domain/preferences.dart';
 
 /// Pure filtering and sorting rules of the library (unit-tested).
 abstract final class LibraryQuery {
-  /// Whether [text] matches a search [query]: every whitespace-separated
-  /// term occurs in it, ignoring case and accents (as full-text search
-  /// does, [SearchText.fold]). An empty query matches all.
+  /// Whether [text] matches a search [query]: every word of the query
+  /// begins a word of [text], ignoring case and accents, as full-text search
+  /// does ([SearchQuery]): "lecture 3" finds "Lecture 3", not "Lecture 13"
+  /// (UX_AUDIT R16-2). An empty query matches all.
   static bool matches(String text, String query) => matcher(query)(text);
 
   /// A predicate equivalent to [matches] for a fixed [query], parsing the
   /// query once (for filtering many items).
   static bool Function(String text) matcher(String query) {
-    final terms = SearchText.fold(query).split(_whitespace).where((t) => t.isNotEmpty).toList();
-    if (terms.isEmpty) return (_) => true;
-    return (text) {
-      final haystack = SearchText.fold(text);
-      return terms.every(haystack.contains);
-    };
+    final parsed = SearchQuery(query);
+    if (parsed.isEmpty) return (_) => true;
+    return parsed.matches;
   }
-
-  static final RegExp _whitespace = RegExp(r'\s+');
 
   /// [notebooks] sorted by [sort]: newest first for dates, A→Z for names
   /// ([NameOrder], as folders are).

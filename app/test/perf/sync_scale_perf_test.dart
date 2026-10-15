@@ -60,7 +60,11 @@ class _Feed {
           if (i > since) body.addByte(0x2c);
           body.add(_encoded[i]);
         }
-        body.add(utf8.encode('],"nextSince":$end,"hasMore":${end < records.length}}'));
+        body.add(
+          utf8.encode(
+            '],"nextSince":$end,"hasMore":${end < records.length},"lastSeq":${records.length}}',
+          ),
+        );
         return http.Response.bytes(
           body.takeBytes(),
           200,

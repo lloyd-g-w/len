@@ -30,8 +30,14 @@ Uint8List _raw(List<double> values) {
   return data.buffer.asUint8List();
 }
 
-Uint8List _page(List<Map<String, Object?>> records) =>
-    utf8.encode(jsonEncode({'records': records, 'nextSince': records.length, 'hasMore': false}));
+Uint8List _page(List<Map<String, Object?>> records) => utf8.encode(
+  jsonEncode({
+    'records': records,
+    'nextSince': records.length,
+    'hasMore': false,
+    'lastSeq': records.length,
+  }),
+);
 
 Map<String, Object?> _record(String id, Map<String, Object?>? data) => {
   'collection': 'strokes',

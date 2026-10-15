@@ -88,7 +88,8 @@ class RecentRow extends StatelessWidget {
                       child: RecentTile(
                         key: ValueKey('recent-${n.id}'),
                         notebook: n,
-                        caption: actions.controller.folderPathOf(n),
+                        caption: actions.controller.folderOf(n)?.name,
+                        path: actions.controller.folderPathOf(n),
                         onOpen: () => unawaited(actions.openNotebook(context, n)),
                       ),
                     ),
@@ -108,17 +109,23 @@ class RecentRow extends StatelessWidget {
 /// A notebook in the Recent row: a small cover in its colour (with the
 /// darker spine), its title and the folder it lives in (an empty line at
 /// the top level, R8-10, so the titles still share a baseline); opens on
-/// tap.
+/// tap. The caption names the innermost folder, which tells similar titles
+/// apart ("Calculus", not "Year 1 › Spring › …", R16-3); the whole [path]
+/// is the tooltip.
 class RecentTile extends StatefulWidget {
   const RecentTile({
     super.key,
     required this.notebook,
     required this.caption,
+    this.path,
     required this.onOpen,
   });
 
   final Notebook notebook;
   final String? caption;
+
+  /// Where the notebook is filed, all the way down ("School › Maths").
+  final String? path;
   final VoidCallback onOpen;
 
   @override
@@ -133,7 +140,8 @@ class _RecentTileState extends State<RecentTile> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final radius = BorderRadius.circular(Radii.xs);
-    return AnimatedContainer(
+    final path = widget.path;
+    final tile = AnimatedContainer(
       duration: Motion.fast,
       height: math.max(52, MediaQuery.textScalerOf(context).scale(20 + 16) + Gaps.lg),
       decoration: BoxDecoration(
@@ -178,6 +186,7 @@ class _RecentTileState extends State<RecentTile> {
         ),
       ),
     );
+    return path == null || path == widget.caption ? tile : Tooltip(message: path, child: tile);
   }
 }
 

@@ -7,7 +7,7 @@ import 'remote_changes.dart';
 typedef PullWorkerStart = Future<PullWorker?> Function();
 
 /// The page header a [PullWorker] decoded, before it applies the records.
-typedef PullHeader = ({int nextSince, bool hasMore, int malformed});
+typedef PullHeader = ({int nextSince, bool hasMore, int lastSeq, int malformed});
 
 /// What a [PullWorker] did with one page.
 class WorkedPage {

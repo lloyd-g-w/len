@@ -17,6 +17,14 @@ class Revival {
   /// Surfaces (pages, canvases) that got content back.
   final Set<String> surfaces = {};
 
+  /// Notebooks this device had deleted forever, back in the trash: the
+  /// user who deleted them is told (UX_AUDIT R16-6).
+  final Set<String> undoneNotebooks = {};
+
+  /// Pages this device had deleted that came back, counted per notebook
+  /// (not those of an [undoneNotebooks] entry).
+  final Map<String, int> undonePages = {};
+
   bool get isEmpty => notebooks.isEmpty && surfaces.isEmpty;
 }
 
@@ -100,7 +108,12 @@ class DeletionConflicts {
     if (notebooks.recognisedText case final text?) _reviveMarked(text, 'id = ?', [id], mark);
     out.surfaces.add(id);
     final notebook = pages.notebookOf(id);
-    if (notebook != null) out.notebooks.add(notebook);
+    if (notebook != null) {
+      out.notebooks.add(notebook);
+      if (mark.deviceId == notebooks.deviceId) {
+        out.undonePages.update(notebook, (n) => n + 1, ifAbsent: () => 1);
+      }
+    }
   }
 
   void _reviveNotebook(String id, DeletionMark mark, Revival out) {
@@ -125,6 +138,7 @@ class DeletionConflicts {
       _reviveMarked(text, ofSurfaces, [id, id], mark);
     }
     out.notebooks.add(id);
+    if (mark.deviceId == notebooks.deviceId) out.undoneNotebooks.add(id);
     out.surfaces
       ..add(id)
       ..addAll(pageIds);

@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/name_order.dart';
 import 'package:len/data/surface_stats.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
@@ -91,6 +92,44 @@ void main() {
       // Equal once folded: by id (here the title).
       final twins = [nb('Été'), nb('ete')];
       expect(LibraryQuery.sorted(twins, LibrarySort.name).map((n) => n.id), ['ete', 'Été']);
+    });
+
+    test('sorts numbers in names by value (R16-1)', () {
+      final titles = [
+        'Lecture 10',
+        'Lecture 2',
+        'Lecture 1',
+        'Lecture 02',
+        'Lecture',
+        'Lecture 1b',
+        'Lecture 21',
+        'Week 3 notes',
+        'Week 12',
+      ];
+      final sorted = LibraryQuery.sorted([for (final t in titles) nb(t)], LibrarySort.name);
+      expect(sorted.map((n) => n.title), [
+        'Lecture',
+        'Lecture 1',
+        'Lecture 1b',
+        'Lecture 2',
+        'Lecture 02',
+        'Lecture 10',
+        'Lecture 21',
+        'Week 3 notes',
+        'Week 12',
+      ]);
+      expect(NameOrder.compareKeys('a99999999999999999999', 'a100000000000000000000'), lessThan(0));
+    });
+
+    test('each query word must begin a word of the title (R16-2)', () {
+      bool m(String text, String query) => LibraryQuery.matches(text, query);
+      expect(m('Calculus — Lecture 3', 'lecture 3'), isTrue);
+      expect(m('Calculus — Lecture 30', 'lecture 3'), isTrue);
+      expect(m('Calculus — Lecture 13', 'lecture 3'), isFalse);
+      expect(m('Medical ethics', 'cal'), isFalse);
+      expect(m('Calculus', 'CALC'), isTrue);
+      expect(m('Lecture 3 (draft)', '3 draft'), isTrue);
+      expect(m('Anything', '  '), isTrue);
     });
 
     test('filters ignoring accents, as full-text search does', () {
@@ -212,6 +251,30 @@ void main() {
       // Recent shows no caption at the top level.
       expect(c.folderPathOf(lecture), isNull);
       expect(c.locationOf(lecture), 'Library');
+    });
+
+    test('a search from a folder lists that folder\'s matches first (R16-8)', () {
+      final calculus = c.createFolder('Calculus', color: 1);
+      c.openFolder(calculus.id);
+      final week = c.createFolder('Week 3', color: 1);
+      Notebook make(String title) => c.createNotebook(
+        title: title,
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
+      make('Calculus — Lecture 3');
+      c.openFolder(week.id);
+      make('Calculus — Lecture 3b');
+      c.openFolder(null);
+      clock.now += 1000;
+      make('Physics — Lecture 3'); // Edited last: first by date.
+      c.openFolder(calculus.id);
+      c.query = 'lecture 3';
+      expect(c.visibleNotebooks.map((n) => n.title).last, 'Physics — Lecture 3');
+      c.openFolder(null);
+      c.query = 'lecture 3';
+      expect(c.visibleNotebooks.map((n) => n.title).first, 'Physics — Lecture 3');
     });
 
     test('search spans folders; favourites and trash have their own views', () {

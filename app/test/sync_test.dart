@@ -245,6 +245,53 @@ void main() {
       controller.dispose();
     });
 
+    test(
+      'a long first pull says how far it is and fills the library in as it goes (R16-5)',
+      () async {
+        final server = FakeServer()..maxPage = 3;
+        final a = device(server);
+        for (var i = 0; i < 6; i++) {
+          a.notebooks.create(
+            title: 'N$i',
+            kind: NotebookKind.paged,
+            paper: PaperStyle.blank,
+            coverColor: 0,
+          );
+        }
+        await a.sync.engine.sync(apiFor(server));
+        final b = AppServices.create(AppDatabase.inMemory());
+        final controller = SyncController(
+          engine: b.sync.engine,
+          settings: b.settings,
+          tokens: b.sync.tokens,
+          apiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: server.client),
+        );
+        final progress = <double?>[];
+        final arriving = <bool>[];
+        controller.addListener(() {
+          progress.add(controller.progress);
+          arriving.add(controller.firstSyncUnderWay);
+        });
+        final announced = <int>[];
+        controller.remoteChanges.listen((c) {
+          if (c.notebooks) announced.add(b.notebooks.list().length);
+        });
+        controller.configure(url: 'http://sync.test', token: FakeServer.token);
+        await controller.syncNow();
+        await pumpEventQueue();
+        expect(progress.whereType<double>(), isNotEmpty);
+        expect(progress.whereType<double>().every((p) => p > 0 && p < 1), isTrue);
+        expect(progress.last, isNull); // Done.
+        expect(arriving, contains(true));
+        expect(controller.firstSyncUnderWay, isFalse);
+        // The library heard of some notebooks before the last one arrived.
+        expect(announced.length, greaterThanOrEqualTo(2));
+        expect(announced.first, lessThan(6));
+        expect(announced.last, 6);
+        controller.dispose();
+      },
+    );
+
     test('concurrent syncNow calls coalesce into one follow-up run', () async {
       final server = FakeServer();
       final a = AppServices.create(AppDatabase.inMemory());

@@ -153,25 +153,29 @@ class _LibraryContentState extends State<LibraryContent> {
         if (empty && !fullText)
           SliverFillRemaining(
             hasScrollBody: false,
-            child: LibraryEmptyState(
-              section: _c.section,
-              inFolder: _c.folderId != null,
-              query: _c.query,
-              onCreate: () => unawaited(actions.createNotebook(context)),
-              onClearSearch: () {
-                searchController.clear();
-                _c.query = '';
-              },
-              onImportPdf: () => unawaited(actions.importPdf(context)),
-              onSetUpSync: _c.services.sync.isConfigured
-                  ? null
-                  : () => unawaited(
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const SettingsScreen(showSync: true),
+            child: ListenableBuilder(
+              listenable: _c.services.sync,
+              builder: (context, _) => LibraryEmptyState(
+                section: _c.section,
+                inFolder: _c.folderId != null,
+                query: _c.query,
+                arriving: _c.services.sync.firstSyncUnderWay,
+                onCreate: () => unawaited(actions.createNotebook(context)),
+                onClearSearch: () {
+                  searchController.clear();
+                  _c.query = '';
+                },
+                onImportPdf: () => unawaited(actions.importPdf(context)),
+                onSetUpSync: _c.services.sync.isConfigured
+                    ? null
+                    : () => unawaited(
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SettingsScreen(showSync: true),
+                          ),
                         ),
                       ),
-                    ),
+              ),
             ),
           )
         else ...[

@@ -24,7 +24,12 @@ class PushResult {
 
 /// One page of the change feed returned by [RecordStore.pull].
 class PullResult {
-  const PullResult({required this.records, required this.nextSince, required this.hasMore});
+  const PullResult({
+    required this.records,
+    required this.nextSince,
+    required this.hasMore,
+    required this.lastSeq,
+  });
 
   /// Records with `seq > since`, ordered by seq ascending.
   final List<SyncRecord> records;
@@ -34,6 +39,10 @@ class PullResult {
 
   /// Whether more records exist after [nextSince].
   final bool hasMore;
+
+  /// The newest seq when the page was read (at least [nextSince]), so a
+  /// client can tell how much of the feed is left.
+  final int lastSeq;
 }
 
 /// Thrown when the database was created by a newer, unknown schema version.
@@ -206,6 +215,8 @@ class RecordStore {
     final records = <SyncRecord>[];
     var hasMore = false;
     var bytes = 0;
+    // Before the page: records added meanwhile only raise it past nextSince.
+    final lastSeq = currentSeq();
     try {
       // Stream rows so a page never materializes more than it returns.
       final cursor = stmt.selectCursor([since, limit + 1]);
@@ -225,6 +236,7 @@ class RecordStore {
       records: records,
       nextSince: records.isEmpty ? since : records.last.seq!,
       hasMore: hasMore,
+      lastSeq: lastSeq,
     );
   }
 
@@ -255,9 +267,8 @@ class RecordStore {
   /// Gives the server a new [serverId] (after it lost history).
   void rotateServerId() {
     final random = Random.secure();
-    final id = [
-      for (var i = 0; i < 16; i++) random.nextInt(256).toRadixString(16).padLeft(2, '0'),
-    ].join();
+    final id = [for (var i = 0; i < 16; i++) random.nextInt(256).toRadixString(16).padLeft(2, '0')]
+        .join();
     _db.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('serverId', ?)", [id]);
   }
 

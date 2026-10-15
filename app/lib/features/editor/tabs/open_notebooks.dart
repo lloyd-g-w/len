@@ -14,7 +14,16 @@ class EditorViewState {
     this.page = 0,
     this.size,
     this.fit,
+    this.savedAt,
   });
+
+  /// Page [page] framed as the editor frames a page it goes to (a size
+  /// no viewport has, so it is never restored as a zoom and pan).
+  const EditorViewState.page(this.page, {this.fit})
+    : scale = 1,
+      offset = Offset.zero,
+      size = Size.zero,
+      savedAt = null;
 
   /// Viewport zoom and pan (`screen = world * scale + offset`).
   final double scale;
@@ -29,6 +38,14 @@ class EditorViewState {
 
   /// How a paged notebook fits pages (`PageFit.name`), if chosen.
   final String? fit;
+
+  /// When this device kept the view (ms since epoch), if known: ink other
+  /// devices wrote later decides where the notebook opens (R16-4).
+  final int? savedAt;
+
+  /// This view, kept at [at].
+  EditorViewState stamped(int at) =>
+      EditorViewState(scale: scale, offset: offset, page: page, size: size, fit: fit, savedAt: at);
 
   /// Whether this view was saved at [other] size (or the size is unknown).
   bool fitsSize(Size other) {
@@ -45,6 +62,7 @@ class EditorViewState {
     size?.width ?? '',
     size?.height ?? '',
     fit ?? '',
+    savedAt ?? '',
   ].join(',');
 
   /// Parses [encode]'s output; null if [text] is missing or malformed.
@@ -58,12 +76,14 @@ class EditorViewState {
     final w = parts.length > 5 ? double.tryParse(parts[4]) : null;
     final h = parts.length > 5 ? double.tryParse(parts[5]) : null;
     final fit = parts.length > 6 && parts[6].isNotEmpty ? parts[6] : null;
+    final savedAt = parts.length > 7 ? int.tryParse(parts[7]) : null;
     return EditorViewState(
       scale: scale,
       offset: Offset(dx, dy),
       page: page ?? 0,
       size: w == null || h == null ? null : Size(w, h),
       fit: fit,
+      savedAt: savedAt,
     );
   }
 }

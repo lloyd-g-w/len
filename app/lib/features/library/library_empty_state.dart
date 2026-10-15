@@ -19,7 +19,12 @@ class LibraryEmptyState extends StatelessWidget {
     this.onClearSearch,
     this.onImportPdf,
     this.onSetUpSync,
+    this.arriving = false,
   });
+
+  /// The first sync with a server is under way: the library's notebooks
+  /// are on their way from the other devices (UX_AUDIT R16-5).
+  final bool arriving;
 
   final LibrarySection section;
   final bool inFolder;
@@ -49,6 +54,11 @@ class LibraryEmptyState extends StatelessWidget {
             ? 'Create a notebook here, or move notebooks into it with Move to folder'
             : 'Create a notebook here, or drag notebooks onto this folder',
       ),
+      LibrarySection.library when arriving && !inFolder => (
+        const _CoverRow(),
+        'Your notebooks are on their way',
+        'They appear here as they arrive from your other devices',
+      ),
       LibrarySection.library => (
         const _CoverRow(),
         'No notebooks yet',
@@ -65,7 +75,8 @@ class LibraryEmptyState extends StatelessWidget {
         'Deleted notebooks stay here for 30 days, then they’re deleted forever',
       ),
     };
-    final showCreate = onCreate != null && !searching && section == LibrarySection.library;
+    final showCreate =
+        onCreate != null && !searching && section == LibrarySection.library && !arriving;
     final firstLaunch = showCreate && !inFolder;
     final secondary = [
       if (firstLaunch && onImportPdf != null)

@@ -34,4 +34,26 @@ class SurfaceStats {
     ))
       row['notebook_id'] as String: row['c'] as int,
   };
+
+  /// The live page of notebook [notebookId] holding the newest ink or
+  /// element written by another device than [deviceId] after [after] (a
+  /// version, ms), or null (UX_AUDIT R16-4: where the notebook was last
+  /// written elsewhere).
+  String? pageWrittenElsewhere(String notebookId, {required String deviceId, required int after}) {
+    final rows = _database.select(
+      'SELECT page FROM ('
+      '  SELECT s.surface_id AS page, s.updated_at AS v FROM pages p '
+      '  JOIN strokes s ON s.surface_id = p.id '
+      '  WHERE p.notebook_id = ? AND p.deleted = 0 AND s.deleted = 0 '
+      '    AND s.device_id != ? AND s.updated_at > ? '
+      '  UNION ALL '
+      '  SELECT e.surface_id, e.updated_at FROM pages p '
+      '  JOIN elements e ON e.surface_id = p.id '
+      '  WHERE p.notebook_id = ? AND p.deleted = 0 AND e.deleted = 0 '
+      '    AND e.device_id != ? AND e.updated_at > ? '
+      ') ORDER BY v DESC LIMIT 1',
+      [notebookId, deviceId, after, notebookId, deviceId, after],
+    );
+    return rows.isEmpty ? null : rows.first['page'] as String;
+  }
 }

@@ -547,6 +547,10 @@ or deleted pages in order with ink. Snack bars' Undo calls
   a saved view opens centred on its content (`CanvasNavigation.open`: `contentBounds`,
   fitted into the area the chrome leaves free, at most 100 %; an empty canvas stays at
   the origin), after the chrome's insets are known so nothing starts under the toolbar.
+  The kept view carries when it was kept (`savedAt`): a paged notebook another device
+  wrote in since (its newest live stroke or element by another device id, newer than
+  that; `SurfaceStats.pageWrittenElsewhere`), or never opened here, opens framed on the
+  page written last instead (`resume_view.dart`, UX_AUDIT R16-4). Nothing of it syncs.
 - **Page zoom** (`document/page_fit.dart`, "⋯" → View, Shift+1 fit page, Shift+2
   fit width, `0` automatic): `PageFit.width` fills the width, `PageFit.page` shows the
   whole page, `PageFit.auto` fits the width but at most 1.4× and so that ≥ 55 % of the
@@ -2916,6 +2920,15 @@ the next cycle resumes. Where that runs:
   decodes on the UI thread) and applied on the UI thread in slices of
   about 4 ms with a turn of the event loop between (also between pages), so
   a first sync never holds the UI for a frame.
+A pull of more than a page reports after each page how far it is
+(`SyncEngine.onPullProgress`: the feed entries pulled of the server's `lastSeq` when it
+began) and what it changed so far: `SyncController.progress` makes the sidebar's caption
+and Settings → Sync say "Syncing… 40%", and at most every 2 s the controller announces the
+notebooks and folders brought so far (a `RemoteChanges` with only those flags), so a new
+device's library fills in while the rest arrives; the whole change set follows at the
+end as usual. While the first sync with a server runs (`firstSyncUnderWay`), an empty
+library says the notebooks are on their way instead of offering to create one
+(UX_AUDIT R16-5).
 Each cycle starts with `/v1/health`: its `serverId` decides whether this is
 the server last synced with — a new id (another server, or a wiped or
 restored one) resets the feed position and marks every row and blob for
@@ -2938,7 +2951,11 @@ elements keep their payload, and tombstones their blobs, for 30 days
 (`TombstonePayloads`, purged by `LocalBlobGc`). After a pull the engine revives
 deleted pages / notebooks that hold live content and notebooks / pages whose
 tombstone a live record replaced, then pushes the revived rows. Tombstones are
-pushed children first, so a half-finished push never looks like a conflict.
+pushed children first, so a half-finished push never looks like a conflict. The
+device whose deletion was undone says so once after that sync (`revivalNotices`, through
+`SyncController.notices`: "“Lab book” is back in the trash: another device wrote in it
+after you deleted it", "2 pages you deleted in “Notes” are back: …"; UX_AUDIT R16-6);
+the others say nothing, as nothing changed for them.
 
 Presentation and retries (`SyncController`, `ui/sync_status_button.dart`,
 `features/settings/sync_*`): `lastError` is always plain words, with any raw

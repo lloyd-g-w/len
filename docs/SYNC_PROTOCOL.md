@@ -82,10 +82,12 @@ with `seq > since` ordered by `seq` ascending. A page may hold fewer than `limit
 server stops adding records once their payloads (the UTF-8 bytes of their stored `data` JSON) add
 up to 8 MiB (always returning at least one), so responses stay bounded when records are large.
 ```json
-{"records": [Record+seq, …], "nextSince": 4711, "hasMore": false}
+{"records": [Record+seq, …], "nextSince": 4711, "hasMore": false, "lastSeq": 4711}
 ```
 `nextSince` is the seq of the last returned record (or `since` if none). Clients repeat while
-`hasMore` is true; a page with `hasMore: true` always advances `nextSince`.
+`hasMore` is true; a page with `hasMore: true` always advances `nextSince`. `lastSeq` is the
+server's newest seq when it read the page (never less than `nextSince`), so a client can show how
+far a long pull is (a new device's first sync).
 
 ### Errors
 `401` missing/bad token, `400` malformed request (body `{"error": "…"}`, plus `index` for an

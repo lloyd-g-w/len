@@ -77,7 +77,8 @@ class EditorLifecycle {
   void saveView() {
     if (closing || secondPane || services.database.isClosed) return;
     final settings = services.settings;
-    settings.setEditorView(_notebook.id, session.viewState.encode());
+    final view = session.viewState.stamped(services.clock.nowMs());
+    settings.setEditorView(_notebook.id, view.encode());
     session.saveZoomState();
   }
 

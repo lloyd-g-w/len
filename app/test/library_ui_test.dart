@@ -11,6 +11,8 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/features/library/folder_tile.dart';
+import 'package:len/features/library/library_controller.dart';
+import 'package:len/features/library/library_empty_state.dart';
 import 'package:len/features/library/library_sidebar.dart';
 import 'package:len/features/library/new_notebook_sheet.dart';
 import 'package:len/features/library/new_notebook_tile.dart';
@@ -53,6 +55,31 @@ Future<void> openMenuOf(WidgetTester tester, String title) async {
 }
 
 void main() {
+  testWidgets('an empty library during the first sync says notebooks are coming (R16-5)', (
+    tester,
+  ) async {
+    Future<void> show({required bool arriving}) => tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: LibraryEmptyState(
+            section: LibrarySection.library,
+            inFolder: false,
+            query: '',
+            arriving: arriving,
+            onCreate: () {},
+          ),
+        ),
+      ),
+    );
+    await show(arriving: true);
+    expect(find.text('Your notebooks are on their way'), findsOneWidget);
+    expect(find.text('New notebook'), findsNothing);
+    await show(arriving: false);
+    expect(find.text('No notebooks yet'), findsOneWidget);
+    expect(find.text('New notebook'), findsOneWidget);
+  });
+
   testWidgets('create a folder, drag a notebook into it, navigate with breadcrumbs', (
     tester,
   ) async {

@@ -12,15 +12,15 @@ import 'app_theme.dart';
 const deviceOnlyCaption = 'Only on this device';
 
 /// The short sync status the sidebar shows (REDESIGN §3): "Synced 2m",
-/// "Synced just now", "Syncing…", "Sync failed", and without sync
-/// [deviceOnlyCaption] (where the notes are, UX_AUDIT R7-12; the tooltip
-/// says it in full).
-String syncCaption(SyncState state, DateTime? lastSuccess, DateTime now) {
+/// "Synced just now", "Syncing…" ("Syncing… 40%" through a long pull,
+/// [progress], R16-5), "Sync failed", and without sync [deviceOnlyCaption]
+/// (where the notes are, UX_AUDIT R7-12; the tooltip says it in full).
+String syncCaption(SyncState state, DateTime? lastSuccess, DateTime now, {double? progress}) {
   switch (state) {
     case SyncState.disabled:
       return deviceOnlyCaption;
     case SyncState.syncing:
-      return 'Syncing…';
+      return syncingCaption(progress);
     case SyncState.error:
       return 'Sync failed';
     case SyncState.idle:
@@ -32,6 +32,10 @@ String syncCaption(SyncState state, DateTime? lastSuccess, DateTime now) {
       return 'Synced ${ago.inDays}d';
   }
 }
+
+/// "Syncing…", with how far a long pull is when [progress] is known.
+String syncingCaption(double? progress) =>
+    progress == null ? 'Syncing…' : 'Syncing… ${(progress * 100).floor()}%';
 
 /// Toolbar button showing sync status; tapping syncs now, or calls
 /// [onOpenSettings] when sync is not set up yet or failed (Settings → Sync
@@ -88,7 +92,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
             'Your notes are only on this device: set up sync',
           ),
           SyncState.idle => (Symbols.cloud_done_sharp, 'Synced: tap to sync now'),
-          SyncState.syncing => (Symbols.cloud_sync_sharp, 'Syncing…'),
+          SyncState.syncing => (Symbols.cloud_sync_sharp, syncingCaption(sync.progress)),
           SyncState.error => (Symbols.cloud_off_sharp, '${sync.lastError}\nTap for details'),
         };
         final scheme = Theme.of(context).colorScheme;
@@ -127,7 +131,13 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
               ),
               icon: glyph,
               label: Text(
-                syncCaption(sync.state, sync.lastSuccess, sync.clock.nowDate()),
+                syncCaption(
+                  sync.state,
+                  sync.lastSuccess,
+                  sync.clock.nowDate(),
+                  progress: sync.progress,
+                ),
+                style: const TextStyle(fontFeatures: AppTheme.tabularFigures),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

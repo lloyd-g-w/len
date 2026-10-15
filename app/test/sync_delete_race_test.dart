@@ -9,6 +9,9 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/domain/surface_element.dart';
 
+import 'package:len/sync/remote_changes.dart';
+import 'package:len/sync/revival_notice.dart';
+
 import 'support/fake_server.dart';
 import 'support/two_devices.dart';
 
@@ -155,6 +158,57 @@ void main() {
       expect(_read(d, p2.id), {'line': 'words'});
       expect(_read(d, p3.id), isNull);
     }
+  });
+
+  test('the device that deleted is told what came back, the other says nothing (R16-6)', () async {
+    final (a, b) = twoDevices();
+    final nb = _notebook(a);
+    final gone = a.s.notebooks.create(
+      title: 'Lab book',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    final p1 = a.s.pages.pagesOf(nb.id).single;
+    final p2 = a.s.pages.addPage(nb.id, after: p1);
+    final p3 = a.s.pages.addPage(nb.id, after: p2);
+    _write(a, gone.id, a.s.pages.pagesOf(gone.id).single.id, 'lab');
+    await send(a, b);
+
+    _write(b, nb.id, p2.id, 'new2'); // Offline.
+    _write(b, nb.id, p3.id, 'new3');
+    _write(b, gone.id, b.s.pages.pagesOf(gone.id).single.id, 'lab2');
+    a.time.tick();
+    a.s.notebooks.deletePage(p2.id);
+    a.s.notebooks.deletePage(p3.id);
+    a.s.notebooks.trash(gone.id);
+    a.s.notebooks.delete(gone.id);
+    final onA = RemoteChanges(), onB = RemoteChanges();
+    onA.addAll(await a.sync());
+    for (var i = 0; i < 2; i++) {
+      onB.addAll(await b.sync());
+      onA.addAll(await a.sync());
+    }
+    String? title(TestDevice d, String id) => d.s.notebooks.get(id)?.title;
+    expect(revivalNotices(onA, (id) => title(a, id)), [
+      '“Lab book” is back in the trash: another device wrote in it after you deleted it',
+      '2 pages you deleted in “Notes” are back: another device wrote on them',
+    ]);
+    expect(revivalNotices(onB, (id) => title(b, id)), isEmpty);
+  });
+
+  test('revival notices count pages across notebooks and several notebooks', () {
+    final changes = RemoteChanges()
+      ..undoneNotebooks.addAll(['n1', 'n2'])
+      ..undonePages.addAll({'n1': 2, 'n3': 1, 'n4': 1});
+    expect(revivalNotices(changes, (_) => 'X'), [
+      '2 notebooks you deleted are back in the trash: another device wrote in them',
+      '2 pages you deleted are back: another device wrote on them',
+    ]);
+    final one = RemoteChanges()..undonePages['n1'] = 1;
+    expect(revivalNotices(one, (_) => null), [
+      'A page you deleted is back: another device wrote on it',
+    ]);
   });
 
   test('deletions without edits elsewhere stay deleted', () async {

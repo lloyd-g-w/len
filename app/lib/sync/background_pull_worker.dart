@@ -141,8 +141,13 @@ class BackgroundPullWorker implements PullWorker {
         switch (answer) {
           case _Invalid():
             return null;
-          case _Header(:final nextSince, :final hasMore, :final malformed):
-            header = (nextSince: nextSince, hasMore: hasMore, malformed: malformed);
+          case _Header(:final nextSince, :final hasMore, :final lastSeq, :final malformed):
+            header = (
+              nextSince: nextSince,
+              hasMore: hasMore,
+              lastSeq: lastSeq,
+              malformed: malformed,
+            );
             onHeader(header);
           case _Done(:final applied, :final total, :final changes):
             return WorkedPage(header: header!, applied: applied, total: total, changes: changes);
@@ -242,7 +247,7 @@ class BackgroundPullWorker implements PullWorker {
             if (page.malformed > 0) {
               debugPrint('Skipped ${page.malformed} malformed records after seq $since');
             }
-            reply.send(_Header(page.nextSince, page.hasMore, page.malformed));
+            reply.send(_Header(page.nextSince, page.hasMore, page.lastSeq, page.malformed));
             if (!await yieldToApp()) {
               reply.send(_Done(0, page.records.length, changes));
               return;
@@ -288,9 +293,10 @@ final class _Invalid {
 }
 
 final class _Header {
-  const _Header(this.nextSince, this.hasMore, this.malformed);
+  const _Header(this.nextSince, this.hasMore, this.lastSeq, this.malformed);
   final int nextSince;
   final bool hasMore;
+  final int lastSeq;
   final int malformed;
 }
 

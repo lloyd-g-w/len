@@ -34,6 +34,7 @@ import 'editor_lifecycle.dart';
 import 'editor_session.dart';
 import 'editor_shortcuts.dart';
 import 'links/link_actions.dart';
+import 'resume_view.dart';
 import 'shared/shared_notebooks.dart';
 import 'split/split_controller.dart';
 import 'split/split_view.dart';
