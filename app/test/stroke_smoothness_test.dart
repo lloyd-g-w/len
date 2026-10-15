@@ -256,8 +256,10 @@ void main() {
     print(
       'outline: 250 points ${shortMs.toStringAsFixed(2)} ms, 1000 ${longMs.toStringAsFixed(2)} ms',
     );
-    // ≈ 2 ms on the dev machine (JIT): generous, it catches blow-ups.
-    expect(longMs, lessThan(10));
+    // ≈ 2 ms on the dev machine (JIT). The absolute bound only catches
+    // blow-ups, so it is generous: a full suite beside other builds has
+    // pushed the best batch past 10 ms. The ratio below is the real check.
+    expect(longMs, lessThan(30));
     // Linear in length (4×; quadratic would be 16×), whatever the machine's speed.
     expect(longMs / shortMs, lessThan(8));
   });
