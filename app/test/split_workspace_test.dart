@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
@@ -304,6 +305,27 @@ void main() {
       expect(tester.takeException(), isNull);
       await closeEditor(tester);
     });
+  });
+
+  testWidgets('a PDF dropped on a pane goes to that pane\'s notebook', (tester) async {
+    final (s, physics, chemistry) = await pumpWorkspace(tester);
+    s.openNotebooks.openSplit(chemistry.id);
+    await tester.pumpAndSettle();
+    await drawIn(tester, 0); // Physics in use.
+    expect(s.incomingFiles.targets.active?.notebookId, physics.id);
+    String? target;
+    s.incomingFiles.handler = (_) => target = s.incomingFiles.targets.active?.notebookId;
+    final drop = tester.widgetList<DropTarget>(find.byType(DropTarget)).last;
+    drop.onDragDone!(
+      DropDoneDetails(
+        files: [DropItemFile('/tmp/Lecture 5.pdf', name: 'Lecture 5.pdf')],
+        localPosition: const Offset(100, 100),
+        globalPosition: const Offset(900, 100),
+      ),
+    );
+    await tester.pump();
+    expect(target, chemistry.id);
+    await closeEditor(tester);
   });
 
   testWidgets('a parked pane going back to reading offers no tip nobody sees', (tester) async {

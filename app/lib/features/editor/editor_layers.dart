@@ -42,6 +42,7 @@ class EditorLayers extends StatelessWidget {
     required this.chrome,
     required this.onFollowLink,
     required this.onCloseMenu,
+    this.onDrop,
     this.split,
     this.menu,
   });
@@ -57,6 +58,9 @@ class EditorLayers extends StatelessWidget {
   /// The top bar, toolbar and page navigator (or the focus mode handle).
   final Widget chrome;
   final ValueChanged<Paper> onFollowLink;
+
+  /// Files dropped on this editor (see [ImageDropTarget.onDrop]).
+  final VoidCallback? onDrop;
 
   /// This editor in the split view, if shown in one.
   final ({SplitController controller, SplitPane pane})? split;
@@ -137,7 +141,9 @@ class EditorLayers extends StatelessWidget {
               ),
             ),
           ),
-        Positioned.fill(child: ImageDropTarget(images: session.images)),
+        Positioned.fill(
+          child: ImageDropTarget(images: session.images, onDrop: onDrop),
+        ),
         Positioned.fill(
           child: AudioLayer(
             audio: audio,

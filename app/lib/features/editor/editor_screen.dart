@@ -276,7 +276,12 @@ class _EditorScreenState extends State<_EditorView> {
   }
 
   void _onFocus() {
-    if (!_focusNode.hasFocus) return;
+    if (_focusNode.hasFocus) _use();
+  }
+
+  /// This editor is the one in use (focused, files dropped on it): the
+  /// split view's, and where files and dialogs go.
+  void _use() {
     if (_pane case final pane?) widget.split!.use(pane);
     _services.incomingFiles.targets.add(_importTarget);
     _services.routeOwners.current = this; // Dialogs opened by keyboard.
