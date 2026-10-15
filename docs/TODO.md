@@ -84,5 +84,5 @@ From the reports; the owner picks. Status as above.
 - ⬜ **Web (JavaScript)**: tiles, thumbnails and LOD rasters read back on the main thread;
   batch renders by size or keep tiles as pictures (PERFORMANCE).
 - ⬜ **Keyboard**: reorder overview pages (drag only today; UX_AUDIT).
-- ⬜ **⋯ → View is at 9 rows**: merge before adding the next toggle, e.g. the two toolbar
-  radios into one "Floating toolbar" switch (UX_AUDIT R12-7).
+- ✅ **⋯ → View is at 9 rows**: now 7; the page flow and toolbar radio pairs are one switch
+  each, "One page at a time" and "Floating toolbar" (UX_AUDIT R12-7).

@@ -17,6 +17,13 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'document_editor_test.dart' show closeEditor, drawAt, inkOf, pumpEditor;
 import 'support/semantics_actions.dart';
 
+/// The text of a menu row (its child, maybe wrapped in semantics).
+String? _label(MenuItemButton row) => switch (row.child) {
+  final Text t => t.data,
+  Semantics(child: final Text t) => t.data,
+  _ => null,
+};
+
 /// A quick tap with [count] fingers around [at].
 Future<void> fingerTap(WidgetTester tester, int count, {Offset at = const Offset(400, 600)}) async {
   final gestures = [
@@ -135,6 +142,54 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('⋯ → View: seven rows, its switches go both ways', (tester) async {
+    final (s, _) = await pumpEditor(tester, size: const Size(1280, 900));
+    Future<void> openView() async {
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+    }
+
+    await openView();
+    final view = find.ancestor(of: find.text('Fit width'), matching: find.byType(MenuItemButton));
+    final rows = find.descendant(
+      // The innermost menu panel (Flutter's private _MenuPanel): View's own.
+      of: find
+          .ancestor(
+            of: view,
+            matching: find.byWidgetPredicate((w) => '${w.runtimeType}' == '_MenuPanel'),
+          )
+          .first,
+      matching: find.byType(MenuItemButton),
+    );
+    expect(
+      [for (final e in rows.evaluate()) _label(e.widget as MenuItemButton)],
+      [
+        'Fit page',
+        'Fit width',
+        'Automatic zoom',
+        'One page at a time',
+        'Floating toolbar',
+        'Zoom window',
+        'Focus mode',
+      ],
+    );
+    for (final (label, single, floating) in [
+      ('One page at a time', 'single', ToolbarPlacement.docked),
+      ('Floating toolbar', 'single', ToolbarPlacement.floating),
+      ('One page at a time', 'continuous', ToolbarPlacement.floating),
+      ('Floating toolbar', 'continuous', ToolbarPlacement.docked),
+    ]) {
+      if (find.text(label).evaluate().isEmpty) await openView();
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      expect(s.settings.pageFlow, single, reason: label);
+      expect(s.preferences.toolbarPlacement, floating, reason: label);
+    }
+    await closeEditor(tester);
+  });
+
   testWidgets('toolbar position, arrow keys and the add-page footer', (tester) async {
     final (s, nb) = await pumpEditor(tester, size: const Size(1280, 900));
     await tester.tap(find.byTooltip('More options'));
@@ -142,7 +197,7 @@ void main() {
     await tester.tap(find.text('View'));
     await tester.pumpAndSettle();
     expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, lessThan(100)); // In the top bar.
-    await tester.tap(find.text('Toolbar floating'));
+    await tester.tap(find.text('Floating toolbar'));
     await tester.pumpAndSettle();
     expect(s.preferences.toolbarPlacement, ToolbarPlacement.floating);
     expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, greaterThan(600));
