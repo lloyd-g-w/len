@@ -90,4 +90,22 @@ void main() {
     await _settleAsync(tester);
     await _close(tester);
   });
+
+  testWidgets('R17-4: the "Saved" message offers to name the recording', (tester) async {
+    final e = await _pump(tester);
+    await tester.tap(find.byTooltip('Record audio'));
+    await _settleAsync(tester);
+    e.clock.now += 3000;
+    await tester.tap(find.byTooltip('Stop recording'));
+    await _settleAsync(tester);
+    expect(find.textContaining('Saved “Recording'), findsOneWidget);
+    await tester.tap(find.text('Rename'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Lecture 12 — Integrals');
+    await tester.tap(find.widgetWithText(FilledButton, 'Rename'));
+    await tester.pumpAndSettle();
+    final saved = e.services.recordings.listOf(e.notebook.id).single;
+    expect(saved.title, 'Lecture 12 — Integrals');
+    await _close(tester);
+  });
 }

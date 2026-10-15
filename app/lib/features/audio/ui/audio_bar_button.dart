@@ -11,6 +11,7 @@ import '../notebook_audio.dart';
 import '../recording_controller.dart';
 import 'audio_format.dart';
 import 'level_meter.dart';
+import 'recording_tile.dart';
 import 'recordings_sheet.dart';
 
 /// The top bar's audio slot (tablets and desktops): a split button whose
@@ -31,7 +32,7 @@ class AudioBarButton extends StatelessWidget {
         duration: Motion.medium,
         curve: Motion.standard,
         child: switch (recorder.state) {
-          RecorderState.recording || RecorderState.paused => RecordingControls(recorder: recorder),
+          RecorderState.recording || RecorderState.paused => RecordingControls(audio: audio),
           RecorderState.starting || RecorderState.saving => const _Busy(),
           RecorderState.idle => _idle(context),
         },
@@ -107,12 +108,28 @@ Future<void> startRecording(BuildContext context, NotebookAudio audio) async {
   );
 }
 
-/// Stops recording and confirms (or explains a failure) in a snack bar.
-Future<void> stopRecording(BuildContext context, RecordingController recorder) async {
+/// Stops recording and confirms (or explains a failure) in a snack bar,
+/// which offers to name the recording ("Recording 09:30" says only when).
+Future<void> stopRecording(BuildContext context, NotebookAudio audio) async {
+  // The controls are gone once stopped: rename from the navigator's context.
+  final navigator = Navigator.maybeOf(context);
+  final recorder = audio.recorder;
   final saved = await recorder.stop();
   final error = recorder.lastError;
   if (saved != null) {
-    if (context.mounted) showMessage(context, 'Saved “${saved.title}”');
+    if (!context.mounted) return;
+    showMessage(
+      context,
+      'Saved “${saved.title}”',
+      action: navigator == null
+          ? null
+          : SnackBarAction(
+              label: 'Rename',
+              onPressed: () {
+                if (navigator.mounted) unawaited(renameRecording(navigator.context, audio, saved));
+              },
+            ),
+    );
   } else if (error != null) {
     if (context.mounted) showMessage(context, error);
   }
@@ -130,12 +147,13 @@ Future<void> togglePause(BuildContext context, RecordingController recorder) asy
 /// Red dot, elapsed time, level meter (or "Paused"), pause / resume and
 /// stop: flat, in the docked bar or the audio strip, so only the dot is red.
 class RecordingControls extends StatelessWidget {
-  const RecordingControls({super.key, required this.recorder});
+  const RecordingControls({super.key, required this.audio});
 
-  final RecordingController recorder;
+  final NotebookAudio audio;
 
   @override
   Widget build(BuildContext context) {
+    final recorder = audio.recorder;
     final scheme = Theme.of(context).colorScheme;
     final paused = recorder.state == RecorderState.paused;
     final text = Theme.of(context).textTheme.labelLarge
@@ -172,7 +190,7 @@ class RecordingControls extends StatelessWidget {
           _PillButton(
             tooltip: 'Stop recording',
             icon: Symbols.stop_sharp,
-            onPressed: () => unawaited(stopRecording(context, recorder)),
+            onPressed: () => unawaited(stopRecording(context, audio)),
           ),
         ],
       ),

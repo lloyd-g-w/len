@@ -39,7 +39,7 @@ anything is recording. Reviewing on the laptop waits for every part of a
 | 5-minute parts | invisible; each synced as the lecture goes on; at most ~0.3 s gap on Linux / browsers | Notability: one file; suggests a new recording each hour | Keep (better) |
 | Screen off, other app (Android) | keeps recording (foreground service, notification with Pause / Stop) | Notability (iPad) keeps; GoodNotes Android stops | Keep (better) |
 | Another tab, or Back to the library | the recording stops and is saved, silently; a new one must be started | GoodNotes keeps recording while another document is viewed | R17-1 |
-| Stop and name | "Saved “Recording 09:30”"; renaming is ⋯ → Rename… in the list | Notability: dated, renamed in the list | R17-4 |
+| Stop and name | "Saved “Recording 09:30”"; renaming is ⋯ → Rename… in the list | Notability: dated, renamed in the list | R17-4 ✅ |
 | The list during a lecture | the recording being made is missing; "Record" does nothing | n/a | R17-5 |
 | 90 minutes | ≈ 44 MB (AAC 64 kbit/s), streamed to files; browsers hold at most one part in memory | similar sizes | Keep |
 | Review: tap ink | plays from 1.5 s before it; later ink veiled at 82 %; bursts as dots; Shift+← / → between them | Notability: hand tool, tap a word; Note Replay | Keep |
@@ -85,12 +85,13 @@ anything is recording. Reviewing on the laptop waits for every part of a
   ("Downloading… 40%"). Playing the first parts while the rest arrive needs
   the player to grow its source: TODO "Next". Effort S–M.
 
-**R17-4 P2 · The name is settled after the lecture, in a menu.** ⬜
+**R17-4 P2 · The name is settled after the lecture, in a menu.** ✅
 - *What:* a recording is titled "Recording 09:30" — and the list's second
   line already says "Today, 09:30" — so naming it is what makes it findable
   (the library's filter matches recording titles), but the "Saved" message
   offers nothing; it takes the list → ⋯ → Rename….
 - *Fix:* the "Saved “Recording 09:30”" message has Rename. Effort S.
+- *Done:* Rename opens the list's rename prompt (`renameRecording`).
 
 **R17-5 P2 · The recordings list doesn't know a lecture is being recorded.** ⬜
 - *What:* opened mid-lecture (to check the last session's length), the list

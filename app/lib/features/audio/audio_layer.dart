@@ -113,7 +113,7 @@ class _AudioLayerState extends State<AudioLayer> {
                     if (recording)
                       Align(
                         alignment: AlignmentDirectional.centerStart,
-                        child: RecordingControls(recorder: widget.audio.recorder),
+                        child: RecordingControls(audio: widget.audio),
                       ),
                     if (recording && playing) const Divider(height: Hairline.width),
                     if (playing) PlaybackBar(audio: widget.audio),
