@@ -1776,7 +1776,8 @@ surface.
   of the ink, solid; `FillChoices`), the selection's Style sets it
   (`SelectionController.refill`; a tint follows a recolour). A filled
   stroke is indexed in every chunk its bounds cover; taps select it by its
-  fill, erasers only take the outline (cut pieces are open, so unfilled).
+  fill (but ink whose line the tap hits wins over a translucent fill above
+  it, `ContentHitTest.strokeAt`; an opaque one hides it), erasers only take the outline (cut pieces are open, so unfilled).
 - **Lasso** (`selection/`): its options (`LassoConfig` in `ToolSettings.lasso`,
   the Lasso popover, read at each press) set the shape (a freehand loop, or a
   rectangle dragged corner to corner: `LassoPath.rectangle`), how much of an

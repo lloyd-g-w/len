@@ -93,7 +93,7 @@ selects the tint's shape instead.
 - *Fix:* heads 18 % of the arrow within 12–20 pt (never more than 40 %
   of it): every arrow longer than about 110 pt gets the same head. Effort S.
 
-**R21-5 P2 · A tap on ink under a tint selects the tinted shape.** ⬜
+**R21-5 P2 · A tap on ink under a tint selects the tinted shape.** ✅
 - *What:* a tap selects the topmost stroke it hits, a filled shape by its
   fill; a box drawn around words with a translucent tint wins every tap on
   those words, though they show through it.

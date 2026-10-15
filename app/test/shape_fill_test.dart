@@ -163,6 +163,26 @@ void main() {
       expect(ContentHitTest.strokeAt(model, inside, 4)?.id, 'f');
     });
 
+    test('a tap on ink under a tint selects the ink; under a solid fill, the shape', () {
+      final word = Stroke(
+        id: 'w',
+        surfaceId: 's',
+        tool: InkTool.ballpoint,
+        color: 0xFF000000,
+        width: 2,
+        points: const [StrokePoint(280, 200, 0.5), StrokePoint(320, 200, 0.5)],
+        createdAt: 1,
+      );
+      // The box drawn around the word afterwards.
+      model.commit(InkEdit(added: [word, shape('t', box, createdAt: 2)]));
+      expect(ContentHitTest.strokeAt(model, const Offset(300, 200), 4)?.id, 'w');
+      // Beside the word, the tint is the box.
+      expect(ContentHitTest.strokeAt(model, const Offset(300, 120), 4)?.id, 't');
+      model.commit(InkEdit(removed: [model.strokeById('t')!]));
+      model.commit(InkEdit(added: [shape('o', box, fill: 0xFFD32F2F, createdAt: 2)]));
+      expect(ContentHitTest.strokeAt(model, const Offset(300, 200), 4)?.id, 'o');
+    });
+
     test('erasers leave a fill alone, so writing on a filled box goes without it', () {
       final word = Stroke(
         id: 'w',

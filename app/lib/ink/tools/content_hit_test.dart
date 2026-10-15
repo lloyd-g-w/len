@@ -27,7 +27,9 @@ abstract final class ContentHitTest {
 
   /// The topmost stroke within [tolerance] (world units) of [world];
   /// without [highlighter], highlighter strokes don't count; without [pen],
-  /// pen strokes (and shapes) don't.
+  /// pen strokes (and shapes) don't. A filled shape counts by its fill too,
+  /// but ink whose line is hit wins over a translucent fill above it (a
+  /// tint shows the ink through it); an opaque fill hides what is beneath.
   static Stroke? strokeAt(
     SurfaceModel model,
     Offset world,
@@ -42,6 +44,12 @@ abstract final class ContentHitTest {
         .toList();
     if (hits.isEmpty) return null;
     hits.sort(Stroke.paintOrder);
-    return hits.last;
+    Stroke? tint;
+    for (final s in hits.reversed) {
+      if (StrokeHitTest.sweepHits(s, world, world, tolerance, fill: false)) return s;
+      if ((s.fill ?? 0xFF000000) >>> 24 == 0xFF) return s;
+      tint ??= s;
+    }
+    return tint;
   }
 }
