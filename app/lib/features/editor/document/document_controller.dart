@@ -83,6 +83,10 @@ class DocumentController extends _DocumentState with _DocumentViewport {
     if (pages.isEmpty) return;
     final keep = keepPageId ?? _pages[_current].id;
     final activeId = _pages[_active].id;
+    // A selection reaching other pages holds their items at their places
+    // from the active page, as laid out now.
+    final selection = input?.content?.selection;
+    final places = selection != null && selection.spansSurfaces ? _placesFromActive() : null;
     final oldFrame = _layout.frameOf(_current);
     final screenTop = oldFrame == null ? null : viewport.toScreen(oldFrame.topLeft).dy;
     final ids = {for (final p in pages) p.id};
@@ -104,6 +108,7 @@ class DocumentController extends _DocumentState with _DocumentViewport {
     final active = pages.indexWhere((p) => p.id == activeId);
     _relayout();
     _activate(active == -1 ? _current : active);
+    if (places != null && !mapEquals(places, _placesFromActive())) selection?.clear();
     // Keep the kept page where it was on screen, so edits elsewhere in the
     // notebook do not make the view jump.
     final frame = _layout.frameOf(_current);

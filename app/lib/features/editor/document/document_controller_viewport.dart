@@ -16,6 +16,16 @@ mixin _DocumentViewport on _DocumentState {
     input?.switchTo(activeModel, laserShift: shift);
   }
 
+  /// Where each laid-out page lies from the active page.
+  Map<String, Offset> _placesFromActive() {
+    final active = _layout.frameOf(_active);
+    if (active == null) return const {};
+    return {
+      for (final (i, page) in _pages.indexed)
+        if (_layout.frameOf(i) case final frame?) page.id: frame.topLeft - active.topLeft,
+    };
+  }
+
   void _relayout() {
     _layout = _flow == PageFlow.continuous
         ? DocumentLayout.continuous([for (final p in _pages) p.size])
