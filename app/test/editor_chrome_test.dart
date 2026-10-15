@@ -6,6 +6,7 @@ import 'package:len/domain/preferences.dart';
 import 'package:len/features/documents/overview/page_commands.dart';
 import 'package:len/features/editor/chrome/canvas_context_menu.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
+import 'package:len/features/editor/document/add_page_footer.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/toolbar/tool_strip.dart';
@@ -179,6 +180,22 @@ void main() {
     expect(find.text('Add page'), findsOneWidget);
     expect(find.text('Hold for a template'), findsNothing, reason: 'learnt');
     expect(s.settings.seenTips, contains('add-page-hold'));
+
+    // It follows the last page as the document scrolls, and leaves the
+    // screen with it.
+    final doc = tester.widget<AddPageFooter>(find.byType(AddPageFooter)).doc;
+    for (final dy in [10.0, 15.0]) {
+      doc.viewport.panBy(Offset(0, dy));
+      await tester.pump();
+      final button = tester.getRect(find.byType(OutlinedButton));
+      final page = doc.lastPageOnScreen!;
+      expect(button.top, moreOrLessEquals(page.bottom + AddPageFooter.gap));
+      expect(button.center.dx, moreOrLessEquals(page.center.dx));
+      expect(button.height, AddPageFooter.height);
+    }
+    doc.viewport.panBy(const Offset(0, 3000));
+    await tester.pump();
+    expect(find.text('Add page'), findsNothing);
     expect(tester.takeException(), isNull);
     await closeEditor(tester);
   });
