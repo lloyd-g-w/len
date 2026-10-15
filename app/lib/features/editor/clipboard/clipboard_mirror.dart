@@ -66,7 +66,7 @@ class ClipboardMirror {
     if (sha256.convert(bytes).toString() == own.sha) return true;
     final mine = await own.signature;
     if (mine == null) return false;
-    final theirs = await ImageSignature.of(bytes);
+    final theirs = await ImageSignature.of(bytes, width: mine.width, height: mine.height);
     return theirs != null && mine.matches(theirs);
   }
 

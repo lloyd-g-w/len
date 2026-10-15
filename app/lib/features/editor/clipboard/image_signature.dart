@@ -22,15 +22,19 @@ class ImageSignature {
   final Uint8List cells;
 
   /// The signature of encoded image [bytes] (any format the engine
-  /// decodes); null if they can't be decoded.
-  static Future<ImageSignature?> of(Uint8List bytes) async {
+  /// decodes); null if they can't be decoded, or if they are not
+  /// [width] × [height] when given (then not decoded at all).
+  static Future<ImageSignature?> of(Uint8List bytes, {int? width, int? height}) async {
     ui.ImmutableBuffer? buffer;
     ui.ImageDescriptor? descriptor;
     ui.Codec? codec;
     try {
       buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
       descriptor = await ui.ImageDescriptor.encoded(buffer);
-      final (width, height) = (descriptor.width, descriptor.height);
+      if ((width != null && width != descriptor.width) ||
+          (height != null && height != descriptor.height)) {
+        return null;
+      }
       codec = await descriptor.instantiateCodec(targetWidth: grid, targetHeight: grid);
       final frame = await codec.getNextFrame();
       final data = await frame.image.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
@@ -44,7 +48,7 @@ class ImageSignature {
           cells[i * 3 + c] = (value * alpha + 255 * (255 - alpha) + 127) ~/ 255;
         }
       }
-      return ImageSignature(width, height, cells);
+      return ImageSignature(descriptor.width, descriptor.height, cells);
     } on Object {
       return null;
     } finally {
