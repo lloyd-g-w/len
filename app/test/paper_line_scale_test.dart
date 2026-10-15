@@ -67,6 +67,15 @@ class _Widths extends PdfGraphics {
 
   final List<double> widths = [];
 
+  /// Each line weight's stroke opacity, in order.
+  final List<double?> opacities = [];
+
+  @override
+  void setGraphicState(PdfGraphicState state) {
+    if (state.strokeOpacity != null) opacities.add(state.strokeOpacity);
+    super.setGraphicState(state);
+  }
+
   @override
   void setLineWidth(double width) {
     widths.add(width);
@@ -181,5 +190,7 @@ void main() {
     expect(g.widths, [
       for (final w in [0.45, 0.75, 1.35, 1.35]) closeTo(w * 1.5, 1e-9),
     ]);
+    // Fine lines as light as on screen (0.6 of the pattern's opacity).
+    expect(g.opacities[0], closeTo(0.6 * g.opacities[1]!, 1e-6));
   });
 }

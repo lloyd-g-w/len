@@ -144,12 +144,7 @@ abstract final class PaperRenderer {
           if (l.weight == weight) ...[l.a, l.b],
       ];
       if (points.isEmpty) continue;
-      final c = switch (weight) {
-        PatternWeight.margin => colors.margin,
-        PatternWeight.fine => ink.withValues(alpha: ink.a * (0.6 + 0.4 * faint)),
-        PatternWeight.normal => ink,
-        PatternWeight.heavy => heavyColor(ink, color),
-      };
+      final c = lineColor(weight, ink, color, margin: colors.margin, faint: faint);
       final (width, fade) = _lineWidth(weight, look, scale, mini: mini, faint: faint);
       final paint = Paint()
         ..color = c.withValues(alpha: c.a * fade)
@@ -241,6 +236,22 @@ abstract final class PaperRenderer {
 
   /// Structural lines: the pattern colour [ink] a little towards the
   /// paper's text colour.
+  /// The colour of a [weight] line in pattern [ink] on [color] paper
+  /// (screen and PDF alike); fine lines lighter, less so in a page
+  /// thumbnail as [faint] as given.
+  static Color lineColor(
+    PatternWeight weight,
+    Color ink,
+    PaperColor color, {
+    required Color margin,
+    double faint = 0,
+  }) => switch (weight) {
+    PatternWeight.margin => margin,
+    PatternWeight.fine => ink.withValues(alpha: ink.a * (0.6 + 0.4 * faint)),
+    PatternWeight.normal => ink,
+    PatternWeight.heavy => heavyColor(ink, color),
+  };
+
   static Color heavyColor(Color ink, PaperColor color) {
     final heavy = Color.lerp(ink.withValues(alpha: 1), color.text, 0.22)!;
     return heavy.withValues(alpha: ink.a);

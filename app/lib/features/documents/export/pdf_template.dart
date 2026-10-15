@@ -45,11 +45,7 @@ class PdfTemplateWriter {
     for (final weight in PatternWeight.values) {
       final lines = pattern.lines.where((l) => l.weight == weight);
       if (lines.isEmpty) continue;
-      final c = switch (weight) {
-        PatternWeight.margin => margin,
-        PatternWeight.heavy => PaperRenderer.heavyColor(ink, color),
-        _ => ink,
-      };
+      final c = PaperRenderer.lineColor(weight, ink, color, margin: margin);
       g
         ..saveContext()
         ..setGraphicState(PdfGraphicState(strokeOpacity: c.a))
