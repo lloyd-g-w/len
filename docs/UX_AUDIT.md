@@ -1,5 +1,104 @@
 # Len — UX/UI audit
 
+## Round 13 audit — the daily loop (`review/round13`)
+
+Lens: a stylus note-taker who knows GoodNotes 6 and Notability, on an
+Android tablet and a phone, doing today's lecture: open the app, find
+yesterday's notebook, write a page with pen and highlighter, erase, fix
+with the lasso, draw a shape, paste a slide screenshot, add a text box,
+search for a word, export the page. Each step's code was read
+(`library/`, `editor/editor_gestures.dart`, `editor/images/`,
+`ink/tools/`, `ink/input/`, `documents/export/`) and the library,
+editor, editor surfaces, flows, toolbar and export screenshot suites were
+rendered (all passed) and viewed downscaled. Paths are under `app/lib/`
+unless noted. ⬜ open, ✅ fixed on this branch.
+
+Summary: the loop is quick and calm. The app reopens where it was left
+(tabs and the page, R7-7), yesterday's notebook is first in Recent and
+its card says "Yesterday", tools are one tap on tablets and the phone's
+second slot is the last tool used, the highlighter sits under the ink,
+search highlights in place, and exporting the current page is ⋯ →
+Export… → Current page → Share, as GoodNotes' four. The friction is all
+in one place: **getting something onto the page that wasn't written
+there** (a pasted screenshot, a pasted text, a text box from a long
+press). Each of those quietly swaps the user's pen for another tool, so
+the next stroke draws a lasso or opens a text box; and a long press can
+only paste what was copied *inside* Len, so a tablet with no keyboard
+can't paste a screenshot at all. GoodNotes and Notability keep the pen
+and paste from the system clipboard.
+
+| Step | Taps (tablet / phone) | vs GoodNotes 6 · Notability | Verdict |
+|---|---|---|---|
+| Open, find yesterday's notebook | 1 (Recent) / 1 | same; Len reopens the last notebook itself | Keep |
+| Pen ↔ highlighter ↔ eraser | 1 / 1 (second slot) or 2 (▾) | same; Len's side button erases | Keep |
+| Lasso, move, back to the pen | 2 / 2 | same | Keep |
+| Shape (tool or hold to snap) | 1 / 2 | same | Keep |
+| Paste a screenshot (no keyboard) | **impossible** (long press offers only Len's clipboard) | long press → Paste | R13-2 |
+| …then write on | **3** (tap away, the stroke lassoes: pick the pen) | 1 (tap away) | R13-1 |
+| Text box from a long press, then write | **3** (the text tool stays: the stroke opens a box) | 1 | R13-3 |
+| Search a word | 2 + typing / 2 + typing | same | Keep |
+| Export the current page | 4 / 4 | 3–4 | Keep |
+
+### Prioritised items
+
+**R13-1 P1 · Inserting or pasting swaps the pen for the lasso.** ✅
+- *What:* an image from Insert ⊕, the camera, a drop or Ctrl+V, pasted
+  text and pasted ink all set `tools.tool = EditorTool.lasso`
+  (`editor/images/editor_images.dart` `insertBytes`,
+  `ink/tools/content_tools.dart` `pasteText` / `pasteAtCentre`,
+  `editor/editor_gestures.dart` Paste here). After placing the slide the
+  user taps away and writes: the stroke draws a lasso. They must notice
+  and pick the pen again (the phone's bar shows the lasso, screenshot
+  `e_image_selected_phone`).
+- *Why:* GoodNotes and Notability select what was inserted and keep the
+  tool. Len already has the mechanism: a selection made with the side
+  button stays live under the pen (`ContentTools.toolAt`: pressing on it
+  moves it, pressing elsewhere drops it and writes).
+- *Fix:* inserting and pasting keep the tool and select what arrived
+  (a live selection, as the side button's); the tap that drops a live
+  selection leaves no dot (`ink/input/ink_drawing.dart`), which also
+  fixes tapping away from a side-button selection. The lasso's own
+  Paste keeps the lasso.
+- Effort S.
+
+**R13-2 P1 · Long press → Paste here only knows Len's own clipboard.** ✅
+- *What:* `canvasActions` offers "Paste here" only when the in-app ink
+  clipboard has something; the system clipboard (a screenshot, an image
+  copied in the browser, a paragraph from an email) is reached only by
+  Ctrl+V (`EditorImages.paste`). On a tablet without a keyboard there
+  is no way to paste an image from another app.
+- *Fix:* "Paste here" is always offered and pastes what Ctrl+V would
+  (a newer system image, then system text, then Len's clipboard) at the
+  press; "Nothing to paste" when empty. Reading the clipboard only on the
+  tap keeps Android's "pasted from your clipboard" notice to real pastes.
+  A row offered when the clipboard may be empty is the cost: Android
+  offers no way to ask whether it holds an image without reading it
+  (⬜ TODO: a native "has image" probe in the vendored `pasteboard`).
+- Effort S.
+
+**R13-3 P2 · "Add text here" leaves the text tool on.** ✅
+- *What:* the long-press row switches to the text tool and starts a
+  box; when the box is done the text tool stays, so the next pen stroke
+  starts another box. "Edit text" from the lasso menu already gives the
+  previous tool back (`ContentTools.editText`, `_returnTo`).
+- *Fix:* the long-press box returns to the tool used before when its
+  edit ends, as Edit text does (`ContentTools.addTextAt`).
+- Effort S.
+
+**R13-4 P3 · Lasso Copy doesn't reach other apps.** ⬜ Copying a
+selection fills Len's own clipboard only; GoodNotes and Notability put
+an image of it on the system clipboard, so a diagram can be pasted into
+a chat or an e-mail. Needs a selection render to PNG and a clipboard
+image write on every platform (Linux and the web differ). Effort M–L:
+listed in TODO "Next".
+
+Checked and sound: the Recent row and "Yesterday" captions; the
+reopened workspace and page; the phone's second slot (last tool used);
+eraser defaults (whole strokes, 12); the text tool's tap outside ends a
+box before starting another; the search slip's "1 of 3" and result list;
+the export sheet's Current page / All pages / Page range (no range for a
+single page). No new settings, rows or buttons on this branch.
+
 ## Round 12 audit — after the owner's list (`review/round12`)
 
 Lens: round 9's question again, "is Len still minimal?", after a day that
