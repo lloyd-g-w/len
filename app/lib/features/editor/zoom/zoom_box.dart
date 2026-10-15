@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -63,6 +64,30 @@ class _ZoomBoxState extends State<ZoomBox> {
 
   /// A finger or the mouse dragging the top edge.
   final BoxHeightDrag _sizing = BoxHeightDrag();
+
+  /// Whether tickers run here: a parked split pane runs none, and neither
+  /// does the frame's glide.
+  ValueListenable<TickerModeData>? _tickerMode;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final mode = TickerMode.getValuesNotifier(context);
+    if (mode != _tickerMode) {
+      _tickerMode?.removeListener(_onTickerMode);
+      _tickerMode = mode..addListener(_onTickerMode);
+    }
+    _onTickerMode();
+  }
+
+  void _onTickerMode() => _zoom.ticking = _tickerMode?.value.enabled ?? true;
+
+  @override
+  void dispose() {
+    _tickerMode?.removeListener(_onTickerMode);
+    _zoom.ticking = true;
+    super.dispose();
+  }
 
   void _onLayout(Size size) {
     if (size == _zoom.box) return;

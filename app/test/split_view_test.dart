@@ -217,6 +217,38 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('switching tabs: the tools link to the new editor at once, not the leaving one', (
+    tester,
+  ) async {
+    final (s, physics, chemistry) = await pumpWorkspace(tester);
+    s.openNotebooks.openSplit(physics.id);
+    await tester.pumpAndSettle();
+    ToolSettings toolsOf(String id, {bool second = false}) => tester
+        .widget<EditorToolbar>(
+          find.descendant(
+            of: find.byWidgetPredicate(
+              (w) => w is EditorScreen && w.notebook.id == id && w.secondPane == second,
+            ),
+            matching: find.byType(EditorToolbar),
+          ),
+        )
+        .tools;
+    s.openNotebooks.activate(chemistry.id);
+    await tester.pump(); // The tab's fade begins: the leaving editor is still there.
+    expect(find.byType(EditorScreen), findsNWidgets(3));
+    final split = toolsOf(physics.id, second: true), next = toolsOf(chemistry.id);
+    split.tool = EditorTool.highlighter;
+    await tester.pump();
+    expect(next.tool, EditorTool.highlighter);
+    next.selectColor(2);
+    await tester.pump();
+    expect(split.activeConfig.colorIndex, 2);
+    await tester.pumpAndSettle();
+    expect(find.byType(EditorScreen), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+    await closeEditor(tester);
+  });
+
   testWidgets('phones and portrait tablets show one pane, no split entry', (tester) async {
     final (s, physics, _) = await pumpWorkspace(tester, size: const Size(800, 1280));
     await tester.tap(find.byTooltip('More options'));

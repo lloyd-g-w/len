@@ -139,4 +139,30 @@ void main() {
     expect(notebook.paperColor, PaperColor.dark);
     expect(notebook.coverColor, Palette.covers[3]);
   });
+
+  testWidgets('a planner style makes planners in its calendar (week start, language)', (
+    tester,
+  ) async {
+    final services = await pumpLibrary(tester);
+    const calendar = PlannerCalendar(weekStart: WeekStart.sunday, language: PlannerLanguage.fr);
+    final style = services.notebookStyles.create(
+      name: 'Agenda',
+      choice: NotebookChoice(
+        paper: PaperStyle.weeklyPlanner,
+        calendar: calendar,
+        coverColor: Palette.covers[2],
+      ),
+    );
+    services.notebookStyles.setDefault(style.id, isDefault: true);
+    await _openSheet(tester);
+    // The form is that style: nothing new to save.
+    expect(find.text('Save as style…'), findsNothing);
+    await _tap(tester, find.text('Create'));
+    final notebook = services.notebooks.list().single;
+    final pages = services.pages.pagesOf(notebook.id);
+    expect(pages, isNotEmpty);
+    for (final page in pages) {
+      expect(page.paper.calendar, calendar);
+    }
+  });
 }

@@ -2,12 +2,12 @@ import 'notebook.dart';
 import 'paper.dart';
 
 /// What a new notebook starts as: notebook or canvas, template (a built-in
-/// style and its look), paper colour, page size and orientation, and cover
-/// colour. A [NotebookStyle] names one; the new-notebook sheet also
-/// remembers the last one used.
+/// style and its look; a planner's calendar), paper colour, page size and
+/// orientation, and cover colour. A [NotebookStyle] names one; the
+/// new-notebook sheet also remembers the last one used.
 ///
 /// Stored and synced as [toJson]: `{kind, paper, look, paperColor, format,
-/// orientation, coverColor}`.
+/// orientation, coverColor}`, and for a planner `weekStart` and `locale`.
 class NotebookChoice {
   const NotebookChoice({
     this.kind = NotebookKind.paged,
@@ -16,6 +16,7 @@ class NotebookChoice {
     this.paperColor = PaperColor.white,
     this.format = PageFormat.a4,
     this.orientation = PageOrientation.portrait,
+    this.calendar,
     required this.coverColor,
   }) : assert(paper != PaperStyle.image, 'a user template is no style');
 
@@ -35,6 +36,9 @@ class NotebookChoice {
       paperColor: template.color,
       format: template.format,
       orientation: template.orientation,
+      calendar: template.style.isPlanner
+          ? template.paper.calendar ?? PlannerCalendar.standard
+          : null,
       coverColor: coverColor,
     );
   }
@@ -49,6 +53,14 @@ class NotebookChoice {
   final PageFormat format;
   final PageOrientation orientation;
 
+  /// A planner's week start and language; ignored for other templates.
+  final PlannerCalendar? calendar;
+
+  /// The calendar planners are made in ([calendar], else the standard
+  /// one); null for other templates.
+  PlannerCalendar? get plannerCalendar =>
+      paper.isPlanner ? calendar ?? PlannerCalendar.standard : null;
+
   /// Opaque ARGB.
   final int coverColor;
 
@@ -60,10 +72,12 @@ class NotebookChoice {
     'format': format.name,
     'orientation': orientation.name,
     'coverColor': coverColor,
+    if (plannerCalendar case final c?) ...{'weekStart': c.weekStart.name, 'locale': c.language.tag},
   };
 
-  /// Parses [toJson] output strictly: null when a field is missing, has the
-  /// wrong type or an unknown value (or names an image template).
+  /// Parses [toJson] output strictly: null when a field is missing (a
+  /// planner's calendar included), has the wrong type or an unknown value
+  /// (or names an image template).
   static NotebookChoice? fromJson(Map<String, Object?> json) {
     T? named<T extends Enum>(String key, List<T> values) {
       final value = json[key];
@@ -88,6 +102,13 @@ class NotebookChoice {
         cover is! int) {
       return null;
     }
+    PlannerCalendar? calendar;
+    if (paper.isPlanner) {
+      final weekStart = WeekStart.tryParse(json['weekStart']);
+      final language = PlannerLanguage.tryParse(json['locale']);
+      if (weekStart == null || language == null) return null;
+      calendar = PlannerCalendar(weekStart: weekStart, language: language);
+    }
     return NotebookChoice(
       kind: kind,
       paper: paper,
@@ -95,6 +116,7 @@ class NotebookChoice {
       paperColor: paperColor,
       format: format,
       orientation: orientation,
+      calendar: calendar,
       coverColor: cover,
     );
   }
@@ -108,10 +130,12 @@ class NotebookChoice {
       other.paperColor == paperColor &&
       other.format == format &&
       other.orientation == orientation &&
+      other.plannerCalendar == plannerCalendar &&
       other.coverColor == coverColor;
 
   @override
-  int get hashCode => Object.hash(kind, paper, look, paperColor, format, orientation, coverColor);
+  int get hashCode =>
+      Object.hash(kind, paper, look, paperColor, format, orientation, plannerCalendar, coverColor);
 }
 
 /// A notebook style the user saved ([choice] under a [name]); the one

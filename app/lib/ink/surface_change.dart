@@ -11,6 +11,7 @@ class SurfaceChange {
     this.appended,
     this.underlaid,
     this.loaded = false,
+    this.evicted = false,
     this.areas,
   });
 
@@ -36,4 +37,13 @@ class SurfaceChange {
   /// content was not on screen yet anyway (nothing the user did vanishes
   /// or lingers).
   final bool loaded;
+
+  /// Set when the change only drops content from memory (an eviction):
+  /// storage still holds it unchanged, so nothing about the surface's
+  /// content changed (renderings of [chunks] made from memory are stale).
+  final bool evicted;
+
+  /// Whether the surface's content itself changed (an edit, a sync), not
+  /// just what of it is in memory ([loaded], [evicted]).
+  bool get altersContent => !loaded && !evicted;
 }

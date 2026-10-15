@@ -121,6 +121,22 @@ class MouseSmoother {
     _emitUpTo(_path.length - 1);
   }
 
+  /// The mouse rests (hold to snap is about to read the stroke): passes on
+  /// the rest of the path, ending at the mouse, as [finish] does, and
+  /// carries on smoothing from there if it moves on.
+  void flush() {
+    if (_k == 0 || _path.isEmpty) return;
+    finish();
+    _path
+      ..clear()
+      ..add(_last);
+    _times
+      ..clear()
+      ..add(_lastTime);
+    _emitted = 1;
+    _carry = spacing;
+  }
+
   void _emitUpTo(int last) {
     final n = _path.length;
     for (; _emitted <= last; _emitted++) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
@@ -6,6 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/stroke_reader.dart';
+import 'package:len/data/stroke_repository.dart';
+import 'package:len/domain/chunk_digest.dart';
 import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
@@ -16,6 +20,9 @@ import 'package:len/features/editor/canvas/canvas_view.dart';
 import 'package:len/features/editor/canvas/minimap_geometry.dart';
 import 'package:len/features/editor/canvas/minimap_painter.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/ink/input/live_ink.dart';
+import 'package:len/ink/surface_model.dart';
+import 'package:len/ink/viewport.dart';
 import 'package:len/ui/app_theme.dart';
 import 'package:len/ui/chrome_fade.dart';
 
@@ -406,4 +413,74 @@ void main() {
       await _close(tester);
     });
   });
+
+  testWidgets('memory evictions during a long pan do not re-read the map', (tester) async {
+    final db = AppDatabase.inMemory();
+    addTearDown(db.close);
+    final repo = StrokeRepository(db, deviceId: 'd');
+    repo.save([for (var i = 0; i < 12; i++) _wave('s$i', 's', Offset(i * 5000.0, 0))]);
+    final reader = _CountingReader(repo);
+    final model = SurfaceModel(surfaceId: 's', repository: repo, maxLoadedChunks: 2);
+    addTearDown(model.dispose);
+    final viewport = ViewportController()..setSize(const Size(800, 600));
+    final nav = CanvasNavigation(viewport: viewport, reader: reader, surfaceId: 's');
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Stack(
+          children: [
+            CanvasMinimap(
+              navigation: nav,
+              model: model,
+              live: LiveInk(),
+              size: const Size(176, 110),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(reader.densityReads, 1);
+    // Pan along the ink: chunks load and far ones are evicted.
+    var evictions = 0;
+    final sub = model.invalidations.listen((_) => evictions++);
+    addTearDown(sub.cancel);
+    for (var i = 0; i < 12; i++) {
+      model.ensureLoaded(Rect.fromLTWH(i * 5000.0, -100, 800, 600));
+      await tester.pump(CanvasMinimap.refreshDelay);
+    }
+    expect(evictions, greaterThan(0));
+    expect(model.strokeById('s0'), isNull); // evicted
+    expect(reader.densityReads, 1);
+    // A real edit still refreshes it.
+    model.addStroke(_wave('new', 's', const Offset(200, 3000)));
+    await tester.pump(CanvasMinimap.refreshDelay);
+    expect(reader.densityReads, 2);
+    await tester.pumpWidget(const SizedBox());
+  });
+}
+
+/// Counts how often the map's content is read from storage.
+class _CountingReader implements StrokeReader {
+  _CountingReader(this._inner);
+
+  final StrokeReader _inner;
+  int densityReads = 0;
+
+  @override
+  FutureOr<ChunkLoad> read(String surfaceId, ChunkRange range, {Set<ChunkKey> skip = const {}}) =>
+      _inner.read(surfaceId, range, skip: skip);
+
+  @override
+  FutureOr<Map<ChunkKey, ChunkDigest>> chunkDigests(String surfaceId, ChunkRange range) =>
+      _inner.chunkDigests(surfaceId, range);
+
+  @override
+  FutureOr<Map<ChunkKey, int>> chunkDensity(String surfaceId) {
+    densityReads++;
+    return _inner.chunkDensity(surfaceId);
+  }
+
+  @override
+  FutureOr<Rect?> contentBounds(String surfaceId) => _inner.contentBounds(surfaceId);
 }
