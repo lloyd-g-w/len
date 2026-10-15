@@ -6,6 +6,7 @@ import '../core/clock.dart';
 import '../data/settings_repository.dart';
 import '../data/sync_token_store.dart';
 import 'blob_sync.dart';
+import 'revival_notice.dart';
 import 'sync_api.dart';
 import 'sync_engine.dart';
 

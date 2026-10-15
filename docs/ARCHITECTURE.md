@@ -2940,7 +2940,11 @@ elements keep their payload, and tombstones their blobs, for 30 days
 (`TombstonePayloads`, purged by `LocalBlobGc`). After a pull the engine revives
 deleted pages / notebooks that hold live content and notebooks / pages whose
 tombstone a live record replaced, then pushes the revived rows. Tombstones are
-pushed children first, so a half-finished push never looks like a conflict.
+pushed children first, so a half-finished push never looks like a conflict. The
+device whose deletion was undone says so once after that sync (`revivalNotices`, through
+`SyncController.notices`: "“Lab book” is back in the trash: another device wrote in it
+after you deleted it", "2 pages you deleted in “Notes” are back: …"; UX_AUDIT R16-6);
+the others say nothing, as nothing changed for them.
 
 Presentation and retries (`SyncController`, `ui/sync_status_button.dart`,
 `features/settings/sync_*`): `lastError` is always plain words, with any raw

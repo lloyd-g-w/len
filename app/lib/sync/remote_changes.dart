@@ -28,6 +28,12 @@ class RemoteChanges {
   /// local edits to push.
   bool revived = false;
 
+  /// Notebooks and pages this device had deleted that came back because
+  /// another device wrote in them ([Revival.undoneNotebooks],
+  /// [Revival.undonePages]).
+  final Set<String> undoneNotebooks = {};
+  final Map<String, int> undonePages = {};
+
   /// Adds what [revival] brought back.
   void addRevival(Revival revival) {
     if (revival.isEmpty) return;
@@ -36,6 +42,14 @@ class RemoteChanges {
     recordingsOfNotebooks.addAll(revival.notebooks);
     outlineOfNotebooks.addAll(revival.notebooks);
     strokeSurfaces.addAll(revival.surfaces);
+    undoneNotebooks.addAll(revival.undoneNotebooks);
+    _addCounts(revival.undonePages);
+  }
+
+  void _addCounts(Map<String, int> pages) {
+    for (final MapEntry(:key, :value) in pages.entries) {
+      undonePages.update(key, (n) => n + value, ifAbsent: () => value);
+    }
   }
 
   /// Adds what [other] changed.
@@ -44,6 +58,8 @@ class RemoteChanges {
     folders |= other.folders;
     templates |= other.templates;
     revived |= other.revived;
+    undoneNotebooks.addAll(other.undoneNotebooks);
+    _addCounts(other.undonePages);
     pagesOfNotebooks.addAll(other.pagesOfNotebooks);
     strokeSurfaces.addAll(other.strokeSurfaces);
     outlineOfNotebooks.addAll(other.outlineOfNotebooks);

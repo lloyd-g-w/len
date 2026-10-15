@@ -36,6 +36,7 @@ extension _SyncRun on SyncController {
       }
       if (!changes.isEmpty) _remoteChanges.add(changes);
       if (engine.takeResync() case final notice?) _notices.add(notice);
+      revivalNotices(changes, _titleOf).forEach(_notices.add);
     } on SyncException catch (e) {
       _fail(e.message, cancelled(), kind: e.kind, details: e.details);
     } catch (e, stack) {
@@ -52,6 +53,9 @@ extension _SyncRun on SyncController {
       if (identical(_api, api)) _api = null;
     }
   }
+
+  /// The title of notebook [id], unless it is gone.
+  String? _titleOf(String id) => engine.repositories.notebooks.get(id)?.title;
 
   void _fail(
     String message,

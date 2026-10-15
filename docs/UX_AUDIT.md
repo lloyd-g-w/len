@@ -100,7 +100,7 @@ undone without a word.
   notebooks and folders as pages land (at most every 2 s), so the
   library fills in while the rest arrives. Effort M.
 
-**R16-6 P2 · A deletion undone by another device says nothing.** ⬜
+**R16-6 P2 · A deletion undone by another device says nothing.** ✅
 - *What:* deleting a page on the phone while the tablet (offline) wrote
   on it brings the page back at the next sync; a notebook deleted
   forever comes back into the trash (`DeletionConflicts`). Nothing tells
