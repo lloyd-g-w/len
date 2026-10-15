@@ -125,6 +125,7 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                 if (style != null && now - armedAtMs <= ARM_FRESH_MS && event.buttonState == 0) {
                     contact.begin(style.color, WetInkModel(style.radii, style.shape, frameMs()), style.clip)
                     contact.provisionalSinceMs = now
+                    contact.onRetract = retractLog()
                     contacts.add(contact)
                     render()
                     startTicking()
@@ -170,6 +171,7 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                 val style = Style.of(message, 3) ?: return
                 contact.begin(style.color, WetInkModel(style.radii, style.shape, frameMs()), style.clip)
                 contact.provisionalSinceMs = -1
+                contact.onRetract = retractLog()
                 if (contact !in contacts) contacts.add(contact)
                 render()
             }
@@ -196,6 +198,7 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                 if (it === current) current = null
                 render()
             }
+            "log" -> logging = message.getOrNull(1) == true
         }
         if (contacts.isNotEmpty()) startTicking()
     }
@@ -215,7 +218,34 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
     /** Drops the contacts Flutter surely shows by [now]; whether there were any. */
     private fun prune(now: Long): Boolean = contacts.removeAll {
         // Shown by Flutter for sure, or never answered by Dart (it went away).
-        handover.releases(now, it.endedAt, it.liftedAtMs, it.provisionalSinceMs)
+        val gone = handover.releases(now, it.endedAt, it.liftedAtMs, it.provisionalSinceMs)
+        if (gone && logging) logPruned(it, now)
+        gone
+    }
+
+    // The flicker log (`FlickerLog` in Dart, docs/INK_LAB.md): only while
+    // Dart asks for it (`log`), the overlay tells it when it let go of ink.
+    private var logging = false
+
+    private fun send(vararg values: Any?) = channel.send(values.toList())
+
+    /** Each Flutter frame report the overlay lets go of (its ink is drawn no more). */
+    private val released = { _: Double, frameId: Long ->
+        if (frameId >= 0) send("released", frameId, SystemClock.uptimeMillis())
+    }
+
+    private fun retractLog(): ((Double) -> Unit)? {
+        if (!logging) return null
+        return { px -> if (px > RETRACT_LOG_PX) send("retract", px, SystemClock.uptimeMillis()) }
+    }
+
+    private fun logPruned(c: WetContact, now: Long) {
+        val how = when {
+            c.endedAt >= 0 -> "shown"
+            c.provisionalSinceMs >= 0 -> "unanswered"
+            else -> "lost"
+        }
+        send("pruned", c.device, c.downMs * 1000.0, now, how, c.sampleCount, handover.frameIdOf(c.endedAt))
     }
 
     private fun startTicking() {
@@ -228,7 +258,7 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
     private fun render() {
         val layer = layer ?: return
         val now = SystemClock.uptimeMillis()
-        val upTo = handover.shownUpTo(now)
+        val upTo = handover.shownUpTo(now, if (logging) released else null)
         prune(now)
         val inks = ArrayList<WetInkLayer.Ink>(contacts.size)
         val bounds = RectF()
@@ -278,6 +308,9 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
 
         /** An `arm` older than this (ms) is not trusted at pen-down. */
         private const val ARM_FRESH_MS = 400L
+
+        /** A predicted tip taken back further (px) is logged (`FlickerLog.retractLimitPx`). */
+        private const val RETRACT_LOG_PX = 0.5
 
         /** Antialiasing reaches this far (px) past a shape. */
         private const val AA_MARGIN = 2f

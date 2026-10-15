@@ -26,6 +26,9 @@ class LowLatencyFrames {
   final List<void Function()> _afterReport = [];
   final List<bool Function()> _watchers = [];
 
+  /// Hears the id of each frame reported (the flicker log).
+  void Function(int frameId)? onReport;
+
   /// The id of the newest frame reported.
   int get frameId => _frameId;
 
@@ -85,6 +88,7 @@ class LowLatencyFrames {
     final reporting = _trailing > 0 || _afterReport.isNotEmpty;
     if (reporting) {
       _send(['progress', _upToUs.toDouble(), ++_frameId]);
+      onReport?.call(_frameId);
       final after = [..._afterReport];
       _afterReport.clear();
       for (final a in after) {

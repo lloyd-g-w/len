@@ -16,6 +16,7 @@ import 'package:len/ink/input/ink_input_controller.dart';
 import 'package:len/ink/input/live_ink.dart';
 import 'package:len/ink/input/sample_source.dart';
 import 'package:len/ink/input/wet_ink.dart';
+import 'package:len/ink/lab/flicker_log.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/viewport.dart';
@@ -223,6 +224,39 @@ void main() {
       await tester.pump(const Duration(milliseconds: 8));
     }
     expect(kinds(), everyElement('p'));
+  });
+
+  testWidgets('the flicker log hears the overlay and checks the stroke it committed', (
+    tester,
+  ) async {
+    final log = FlickerLog.instance;
+    final was = log.enabled;
+    log
+      ..enabled = false
+      ..enabled = true
+      ..clear();
+    addTearDown(() => log.enabled = was);
+    await write(tester, const Offset(100, 100));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 8));
+    }
+    expect(sent.where((m) => m.first == 'log').last, ['log', true]);
+    // The overlay's geometry, measured on the stroke Flutter committed.
+    expect(log.entries.where((e) => e.kind == 'geometry'), isEmpty);
+    // The overlay reports a retracted tip and the stroke it let go of,
+    // with more samples than Flutter saw.
+    Future<void> fromOverlay(List<Object?> m) =>
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
+          lowLatencyInkChannel,
+          const StandardMessageCodec().encodeMessage(m),
+          (_) {},
+        );
+    await fromOverlay(['retract', 2.5, 5]);
+    await fromOverlay(['pruned', 3, 1000000.0, 6, 'shown', 999, -1]);
+    await fromOverlay(['pruned', 3, 2000000.0, 7, 'unanswered', 3, -1]);
+    expect([for (final e in log.entries) e.kind], containsAllInOrder(['retract', 'samples']));
+    expect(log.entries.last.kind, 'unanswered');
+    expect(log.entries.firstWhere((e) => e.kind == 'samples').detail, contains('of the 999'));
   });
 
   test('trailing frames cover the overlay\'s pipeline rule', () {

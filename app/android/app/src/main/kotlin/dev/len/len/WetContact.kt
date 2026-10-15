@@ -20,6 +20,9 @@ internal class WetContact(val device: Int, val downMs: Long) {
 
     val began get() = model != null
 
+    /** The raw samples so far (the flicker log compares them with Flutter's). */
+    val sampleCount get() = samples.size
+
     /** The frame report ([WetInkHandover]) of the frame Dart said shows the committed stroke (-1: not yet). */
     var endedAt = -1L
 
@@ -179,6 +182,7 @@ internal class WetContact(val device: Int, val downMs: Long) {
         }
         val hulls = toFloats(m.segments(from, n))
         val tip = tipOf(hulls)
+        onRetract?.let { retracted(tip, it) }
         // Flat ends: the stroke's start, and the end of what is drawn (the
         // tip's, when there is one: the hulls' end is not cut or swept then).
         val cuts = m.cuts.filter { it.atStart || tip.isEmpty() }
@@ -234,6 +238,43 @@ internal class WetContact(val device: Int, val downMs: Long) {
     }
 
     private fun toFloats(v: DoubleArray) = FloatArray(v.size) { v[it].toFloat() }
+
+    /**
+     * Hears how far (px) a predicted tip drawn before was taken back, each
+     * time the ink is redrawn (the flicker log; null: not measured).
+     */
+    var onRetract: ((Double) -> Unit)? = null
+
+    // The predicted points drawn last (x, y pairs) and the samples then.
+    private val lastPredicted = FloatArray(2 * WetInkPrediction.MAX_POINTS)
+    private var lastPredictedCount = 0
+    private var lastSamples = 0
+
+    /** Tells [report] how far the last predicted tip was taken back by [tip]. */
+    private fun retracted(tip: FloatArray, report: (Double) -> Unit) {
+        val newPoints = maxOf(0, tip.size / 3 - 2)
+        if (lastPredictedCount > 0) {
+            val from = maxOf(0, lastSamples - 1)
+            val n = samples.size - from + newPoints
+            val path = FloatArray(2 * n)
+            for (i in from until samples.size) {
+                path[2 * (i - from)] = samples.x(i).toFloat()
+                path[2 * (i - from) + 1] = samples.y(i).toFloat()
+            }
+            for (i in 0 until newPoints) {
+                path[2 * (samples.size - from + i)] = tip[6 + 3 * i]
+                path[2 * (samples.size - from + i) + 1] = tip[7 + 3 * i]
+            }
+            val d = WetInkPrediction.retraction(lastPredicted, lastPredictedCount, path, n)
+            if (d > 0) report(d)
+        }
+        lastPredictedCount = minOf(newPoints, WetInkPrediction.MAX_POINTS)
+        for (i in 0 until lastPredictedCount) {
+            lastPredicted[2 * i] = tip[6 + 3 * i]
+            lastPredicted[2 * i + 1] = tip[7 + 3 * i]
+        }
+        lastSamples = samples.size
+    }
 
     private companion object {
         val NO_TIP = FloatArray(0)

@@ -8,6 +8,7 @@ import '../../ink/lab/input_recording.dart';
 import '../../ui/menus.dart';
 import '../../ui/messages.dart';
 import 'inklab_files.dart';
+import 'inklab_flicker_sheet.dart';
 import 'inklab_pen_menu.dart';
 import 'inklab_replay.dart';
 import 'inklab_session.dart';
@@ -151,6 +152,11 @@ class _InkLabScreenState extends State<InkLabScreen> with TickerProviderStateMix
       tooltip: 'Save recording',
       icon: const Icon(Symbols.ios_share_sharp),
       onPressed: _replaying ? null : _save,
+    ),
+    IconButton(
+      tooltip: 'Flicker log',
+      icon: const Icon(Symbols.bug_report_sharp),
+      onPressed: () => showFlickerLog(context),
     ),
     MenuIconButton<bool>(
       tooltip: 'Perf test notebooks',

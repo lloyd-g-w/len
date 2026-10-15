@@ -53,6 +53,9 @@ internal class WetInkHandover {
     /** The newest report so far (-1: none). */
     val latest get() = count - 1
 
+    /** Dart's frame id of report [n] (-1: unknown or too old). */
+    fun frameIdOf(n: Long): Long = if (n < 0 || n >= count || n < count - RING) -1 else frameIds[(n % RING).toInt()]
+
     /** Whether report [n]'s frame is surely on screen at [nowMs]. */
     fun isShown(n: Long, nowMs: Long): Boolean {
         if (n < 0) return true

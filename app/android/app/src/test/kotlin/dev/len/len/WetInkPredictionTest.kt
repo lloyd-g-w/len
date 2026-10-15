@@ -41,6 +41,18 @@ class WetInkPredictionTest {
     }
 
     @Test
+    fun retractionIsHowFarAnOldTipLiesFromWhatIsDrawnNow() {
+        // A tip predicted to (10, 0) and (14, 0); the pen went on to (12, 0)
+        // and turned up to (12, 3).
+        val tip = floatArrayOf(10f, 0f, 14f, 0f)
+        val path = floatArrayOf(8f, 0f, 12f, 0f, 12f, 3f)
+        assertTrue(abs(WetInkPrediction.retraction(tip, 2, path, 3) - 2.0) < 1e-6)
+        // Followed: nothing taken back.
+        assertTrue(WetInkPrediction.retraction(tip, 2, floatArrayOf(8f, 0f, 16f, 0f), 2) < 1e-6)
+        assertTrue(WetInkPrediction.retraction(tip, 0, path, 3) == 0.0)
+    }
+
+    @Test
     fun predictionStaysOnThePath() {
         val before = Policy("before") { raw, n, _, _, out -> rawUpTo(raw, n, BEFORE_MS, out) }
         val prediction = WetInkPrediction()
