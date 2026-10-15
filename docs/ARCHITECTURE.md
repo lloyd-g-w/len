@@ -1285,6 +1285,8 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   made that way stays live — pressing on it moves it, pressing elsewhere drops it and
   draws again; it follows the lasso options, a rectangle included) or nothing.
   A stylus touching down cancels a stroke a resting palm may have started.
+  A pen contact the platform cancels (the window losing focus, rotation, a
+  system gesture) keeps its ink as written; erasing, tools and fingers cancel.
 - **Touch**: with *stylus only* (palm rejection) on, fingers pan/zoom; off,
   one finger draws and a second finger turns it into a pinch.
   Stylus-only switches on automatically the first time a stylus is used.

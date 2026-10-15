@@ -169,9 +169,14 @@ class InkInputController {
     gestures?.up(e);
   }
 
+  /// The platform took the pointer back (the window lost focus, rotated, a
+  /// system gesture). A pen's ink is kept as written — the line was seen —
+  /// while erasing, tools and fingers (a pinch's start, a palm) cancel.
   void handleCancel(PointerCancelEvent e) {
     _stylus.note(e);
-    if (e.pointer == _draw.pointer) _draw.cancel();
+    if (e.pointer == _draw.pointer) {
+      _draw.byStylus && _draw.inking ? _draw.finish() : _draw.cancel();
+    }
     _nav.cancel(e);
     gestures?.cancel(e);
   }

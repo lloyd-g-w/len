@@ -90,7 +90,7 @@ away, and a palm is only a palm on the canvas it rests on.
   while the pen only hovers still works (the other hand on Undo).
   Effort M.
 
-**R15-5 P2 · A cancelled pen stroke is lost.** ⬜
+**R15-5 P2 · A cancelled pen stroke is lost.** ✅
 - *What:* `handleCancel` drops the drawing contact (`InkDrawing.cancel`).
   Android cancels the stream when the window loses focus mid-stroke (a
   notification, a dialog, rotation, a system gesture): the line just

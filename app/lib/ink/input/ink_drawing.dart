@@ -218,12 +218,12 @@ class InkDrawing {
 
   /// Ends the contact at [e] (the pen lifted).
   void up(PointerUpEvent e) {
-    if (_inking) _addSamplesBefore(e);
+    if (inking) _addSamplesBefore(e);
     finish(liftTime: e.timeStamp);
   }
 
   /// Whether the drawing pointer is making ink (not erasing or a tool).
-  bool get _inking => _drawPointer != null && _tool == null && !_erasing;
+  bool get inking => _drawPointer != null && _tool == null && !_erasing;
 
   /// Adds the samples the platform saw since the previous event of [e]'s
   /// contact (dense stylus input), in order, before [e] itself.
