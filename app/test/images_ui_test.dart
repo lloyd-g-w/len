@@ -107,7 +107,11 @@ void mockClipboardImage(Uint8List? bytes) {
   void answer(Uint8List? image) =>
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
         const MethodChannel('pasteboard'),
-        (call) async => call.method == 'image' ? image : const <Object>[],
+        (call) async => switch (call.method) {
+          'image' => image,
+          'peek' when image != null => const ['image'],
+          _ => const <Object>[],
+        },
       );
   answer(bytes);
   addTearDown(() => answer(null));

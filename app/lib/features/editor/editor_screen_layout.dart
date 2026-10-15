@@ -52,7 +52,7 @@ extension _EditorLayout on _EditorScreenState {
     // The Menu key or Shift+F10 on the page: the canvas menu, at the
     // middle of the view.
     if (node.hasPrimaryFocus && ContextMenuKeys.accepts(event)) {
-      _openMenu(_session.viewport.size.center(Offset.zero));
+      unawaited(_openMenu(_session.viewport.size.center(Offset.zero)));
       return KeyEventResult.handled;
     }
     // A character typed into a text box goes to the text, past the

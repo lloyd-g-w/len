@@ -72,7 +72,7 @@ void main() {
     await press.up();
     await tester.pumpAndSettle();
     expect(find.byType(CanvasContextMenu), findsOneWidget);
-    expect(find.text('Paste here'), findsOneWidget); // The system clipboard may hold something.
+    expect(find.text('Paste here'), findsNothing); // Both clipboards are empty.
     await tester.tap(find.text('Select all on page'));
     await tester.pumpAndSettle();
     expect(find.byType(CanvasContextMenu), findsNothing);
@@ -95,6 +95,59 @@ void main() {
     await tester.tapAt(const Offset(700, 1200));
     await tester.pumpAndSettle();
     expect(find.byType(CanvasContextMenu), findsNothing);
+    await closeEditor(tester);
+  });
+
+  testWidgets('Paste here shows when the system clipboard holds something or Len copied ink', (
+    tester,
+  ) async {
+    final (s, nb) = await pumpEditor(tester);
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    Object? peek = const ['text'];
+    var peeks = 0;
+    messenger.setMockMethodCallHandler(const MethodChannel('pasteboard'), (call) async {
+      if (call.method == 'peek') peeks++;
+      return switch (call.method) {
+        'peek' => peek,
+        'files' => const <Object>[],
+        _ => null,
+      };
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(
+        const MethodChannel('pasteboard'),
+        (call) async => const {'files', 'peek'}.contains(call.method) ? const <Object>[] : null,
+      ),
+    );
+    Future<bool> offersPaste() async {
+      await tester.tapAt(
+        const Offset(400, 500),
+        buttons: kSecondaryMouseButton,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Add text here'), findsOneWidget);
+      final offered = find.text('Paste here').evaluate().isNotEmpty;
+      await tester.tapAt(const Offset(700, 1200));
+      await tester.pumpAndSettle();
+      return offered;
+    }
+
+    expect(await offersPaste(), isTrue, reason: 'text');
+    peek = const ['image'];
+    expect(await offersPaste(), isTrue, reason: 'an image');
+    peek = const <Object>[];
+    expect(await offersPaste(), isFalse, reason: 'nothing');
+    peek = null; // The platform can't tell (Firefox, Safari): the tap reads it.
+    expect(await offersPaste(), isTrue, reason: 'unknown');
+    expect(peeks, 4);
+
+    // Ink copied in Len: offered without asking the system clipboard.
+    peek = const <Object>[];
+    await drawAt(tester, const Offset(300, 700));
+    s.clipboard.put(inkOf(s, s.pages.pagesOf(nb.id).first), const [], Rect.zero);
+    expect(await offersPaste(), isTrue, reason: 'Len’s own clipboard');
+    expect(peeks, 4);
     await closeEditor(tester);
   });
 

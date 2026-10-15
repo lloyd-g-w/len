@@ -3,8 +3,19 @@ import 'dart:typed_data';
 
 import 'src/pasteboard_platform_web.dart'
     if (dart.library.io) 'src/pasteboard_platform_io.dart';
+import 'src/pasteboard_platform.dart';
+
+export 'src/pasteboard_platform.dart' show PasteboardKind;
 
 class Pasteboard {
+  /// What kinds of content the clipboard holds, without reading it (added
+  /// in this copy): Android asks the clip's description (reading the clip
+  /// makes Android 12+ announce a paste), Linux the GTK targets, Windows
+  /// the formats available, the web reads only where the user already
+  /// allowed silent reads. Null where that can't be known (Firefox and
+  /// Safari, iOS, macOS, or the platform call failed).
+  static Future<Set<PasteboardKind>?> peek() => pasteboard.peek();
+
   /// Returns the image data of the pasteboard.
   ///
   /// available on iOS, Desktop, Web, Android

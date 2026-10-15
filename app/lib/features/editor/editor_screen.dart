@@ -125,6 +125,9 @@ class _EditorScreenState extends State<_EditorView> {
   /// Where the canvas context menu is open, if it is.
   EditorMenu? _menu;
 
+  /// Counts canvas menu requests (each waits for the clipboard).
+  int _menuRequests = 0;
+
   bool get _closing => _lifecycle.closing;
 
   /// Keyboard focus for the editor's shortcuts; reclaimed whenever the
@@ -267,13 +270,18 @@ class _EditorScreenState extends State<_EditorView> {
   // ---------------------------------------------------------------------------
   // Events
 
-  void _openMenu(Offset at) {
+  /// Opens the canvas menu at [at] once the system clipboard said whether
+  /// there is something to paste (the latest request wins).
+  Future<void> _openMenu(Offset at) async {
     if (!mounted || _closing) return;
-    final menu = canvasMenuAt(context, _session, at, onFollowLink: _followLink);
+    final request = ++_menuRequests;
+    final menu = await canvasMenuAt(context, _session, at, onFollowLink: _followLink);
+    if (!mounted || _closing || request != _menuRequests) return;
     if (menu != null) setState(() => _menu = menu);
   }
 
   void _closeMenu() {
+    _menuRequests++; // A menu still asking the clipboard stays shut.
     if (_menu == null) return;
     // Opened from the keyboard: focus goes back to the page.
     final inMenu = FocusManager.instance.primaryFocus?.context
