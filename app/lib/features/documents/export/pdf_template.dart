@@ -54,14 +54,8 @@ class PdfTemplateWriter {
         ..saveContext()
         ..setGraphicState(PdfGraphicState(strokeOpacity: c.a))
         ..setStrokeColor(_opaque(c))
-        ..setLineWidth(
-          look.lineWeight *
-              switch (weight) {
-                PatternWeight.fine => 0.3,
-                PatternWeight.normal => 0.5,
-                PatternWeight.heavy || PatternWeight.margin => 0.9,
-              },
-        );
+        // The world width the screen draws them at.
+        ..setLineWidth(PaperRenderer.lineWidth(weight) * look.lineWeight * k);
       for (final l in lines) {
         final a = map(l.a), b = map(l.b);
         g
