@@ -4,10 +4,15 @@ import 'package:flutter/foundation.dart';
 
 import '../../../app_services.dart';
 import '../../../domain/notebook.dart';
+import '../../../domain/recording.dart';
 import '../../audio/recording_controller.dart';
 import 'shared_notebook.dart';
 
 export 'shared_notebook.dart';
+
+/// A recording that stopped when the app went to the background, in
+/// [notebook]: [saved] (null if nothing was kept, with [error]).
+typedef BackgroundStop = ({Notebook notebook, Recording? saved, String? error});
 
 /// The notebooks open in editors, one [SharedNotebook] each, however many
 /// editors show it (a tab and the split view's second pane may show the
@@ -55,11 +60,26 @@ class SharedNotebooks {
     final id = notebook.id;
     _users[id] = (_users[id] ?? 0) + 1;
     if (_kept?.id == id) _attend();
+    if (stoppedInBackground.value?.notebook.id == id) stoppedInBackground.value = null;
     return _open[id] ??= SharedNotebook(
       services,
       notebook,
       microphoneBusy: () => _recordingElsewhere(id),
+      stoppedInBackground: (saved, error) => _onStoppedInBackground(id, saved, error),
     );
+  }
+
+  /// A recording of a notebook no editor showed that had to stop when the
+  /// app went to the background (no foreground service to keep it, R17):
+  /// the library and other editors say so until dismissed, Shown (the
+  /// notebook's recordings) or the notebook is opened.
+  final ValueNotifier<BackgroundStop?> stoppedInBackground = ValueNotifier(null);
+
+  void _onStoppedInBackground(String id, Recording? saved, String? error) {
+    if (_disposed || _users[id] != null) return; // Its editor says so.
+    final notebook = services.notebooks.get(id);
+    if (notebook == null || notebook.isTrashed) return;
+    stoppedInBackground.value = (notebook: notebook, saved: saved, error: error);
   }
 
   /// The shared state of notebook [id] if an editor has it open.
@@ -174,6 +194,7 @@ class SharedNotebooks {
     _attend();
     _disposed = true;
     unattended.dispose();
+    stoppedInBackground.dispose();
     for (final shared in _open.values) {
       shared.dispose();
     }

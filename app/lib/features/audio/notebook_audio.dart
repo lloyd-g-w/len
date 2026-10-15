@@ -32,6 +32,7 @@ class NotebookAudio extends ChangeNotifier {
     required this.notebookId,
     TargetPlatform? platform,
     String? Function()? microphoneBusy,
+    this.onStoppedInBackground,
   }) : _platform = platform ?? defaultTargetPlatform {
     final backends = services.audio;
     recorder = RecordingController(
@@ -60,7 +61,7 @@ class NotebookAudio extends ChangeNotifier {
     );
     playback.addListener(_onPlayback);
     _remote = services.sync.remoteChanges.listen(_onRemoteChanges);
-    _lifecycle = AppLifecycleListener(onPause: _onAppPaused);
+    _lifecycle = AppLifecycleListener(onInactive: _onAppInactive, onPause: _onAppPaused);
     reload();
   }
 
@@ -101,8 +102,18 @@ class NotebookAudio extends ChangeNotifier {
   Future<void>? _saving;
 
   /// Shows a message about something that happened without the user
-  /// asking (a recording stopped and saved, or lost, in the background).
+  /// asking (a recording stopped and saved, or lost, in the background);
+  /// set by the editor showing the notebook.
   void Function(String message)? onNotice;
+
+  /// Told when the app went to the background and the recording had to be
+  /// stopped: [saved] is the recording kept (null if none, with [error]).
+  /// Called even once this is disposed (the notebook was left meanwhile),
+  /// so `SharedNotebooks` can tell the user when they come back.
+  final void Function(Recording? saved, String? error)? onStoppedInBackground;
+
+  /// What the user hears when a recording stopped in the background.
+  static const stoppedInBackground = 'Recording stopped when Len went to the background';
 
   void reload() {
     if (_disposed) return;
@@ -243,19 +254,30 @@ class NotebookAudio extends ChangeNotifier {
   /// is stopped and saved. Playback continues while its media controls are
   /// up (Android's media session service), else it pauses.
   void _onAppPaused() {
-    if (_platform == TargetPlatform.android || _platform == TargetPlatform.iOS) {
-      if (recorder.state.isActive && !recorder.recordsInBackground) {
-        unawaited(
-          recorder.stop().then((saved) {
-            final message = saved != null
-                ? 'Recording stopped in the background and saved as “${saved.title}”'
-                : recorder.lastError;
-            if (message != null && !_disposed) onNotice?.call(message);
-          }),
-        );
-      }
-      if (playback.playing && !session.background) unawaited(playback.pause());
-    }
+    if (!_mobile) return;
+    if (recorder.state.isActive) unawaited(_stopUnlessKept());
+    if (playback.playing && !session.background) unawaited(playback.pause());
+  }
+
+  bool get _mobile => _platform == TargetPlatform.android || _platform == TargetPlatform.iOS;
+
+  /// Leaving the app (Android: still visible, so a foreground service may
+  /// start): a recording whose keep-alive is not up tries it once more.
+  void _onAppInactive() {
+    if (_mobile && recorder.state.isActive) unawaited(recorder.keepInBackground());
+  }
+
+  /// Stops and saves the recording unless it goes on in the background
+  /// (after the last [RecordingController.keepInBackground] attempt).
+  Future<void> _stopUnlessKept() async {
+    await recorder.retryingKeepAlive;
+    if (!recorder.state.isActive || recorder.recordsInBackground) return;
+    final saved = await recorder.stop();
+    final error = saved == null ? recorder.lastError : null;
+    if (saved == null && error == null) return; // Too short to keep.
+    onStoppedInBackground?.call(saved, error);
+    final message = saved != null ? '$stoppedInBackground: saved as “${saved.title}”' : error;
+    if (message != null && !_disposed) onNotice?.call(message);
   }
 
   @override

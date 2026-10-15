@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/features/audio/playback_controller.dart';
+import 'package:len/features/audio/recording_controller.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/library/library_controller.dart';
 import 'package:len/features/library/library_notice.dart';
@@ -38,12 +40,13 @@ Future<_Editor> _pump(
   Size size = const Size(1280, 800),
   NotebookKind kind = NotebookKind.paged,
   void Function(AppServices s, Notebook nb)? seed,
+  FakeAudio? audio,
 }) async {
   tester.view
     ..physicalSize = size
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  final audio = FakeAudio();
+  audio ??= FakeAudio();
   final clock = FakeClock()..now = _t0;
   final services = AppServices.create(AppDatabase.inMemory(), clock: clock, audio: audio.backends);
   addTearDown(services.dispose);
@@ -372,4 +375,62 @@ void main() {
     expect(e.services.recordings.listOf(e.notebook.id), hasLength(1));
     await _close(tester);
   });
+
+  for (final service in [false, true]) {
+    testWidgets('R17: Android without the recording service: a recording left unattended that '
+        'stops when Len goes to the background says so on return (the service is tried again '
+        'first: ${service ? 'it starts' : 'it can\'t'})', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      final e = await _pump(tester, audio: FakeAudio(background: true, canShow: false));
+      await tester.tap(find.byTooltip('Record audio'));
+      await _settleAsync(tester);
+      final recorder = e.services.sharedNotebooks.peek(e.notebook.id)!.audio.recorder;
+      expect(recorder.recordsInBackground, isFalse);
+      e.clock.now += 65000;
+      await tester.pumpWidget(
+        AppScope(
+          services: e.services,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const Scaffold(body: LibraryNotices(child: SizedBox.expand())),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      e.audio.keepAlive.canShow = service;
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+        await tester.pump();
+      }
+      await _settleAsync(tester);
+      for (final state in [
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pumpAndSettle();
+      if (service) {
+        expect(recorder.state, RecorderState.recording);
+        expect(find.text('Recording in “Calculus” · 1:05'), findsOneWidget);
+        await recorder.stop();
+        await _settleAsync(tester);
+      } else {
+        expect(e.services.recordings.listOf(e.notebook.id).single.durationMs, 65000);
+        expect(find.text('Recording stopped when Len went to the background'), findsOneWidget);
+        expect(find.textContaining('Saved as “Recording'), findsOneWidget);
+        await tester.tap(find.byTooltip('Dismiss'));
+        await tester.pumpAndSettle();
+        expect(find.text('Recording stopped when Len went to the background'), findsNothing);
+        expect(e.services.sharedNotebooks.stoppedInBackground.value, isNull);
+      }
+      await _close(tester);
+      debugDefaultTargetPlatformOverride = null;
+    });
+  }
 }
