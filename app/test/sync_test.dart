@@ -18,6 +18,10 @@ import 'package:len/sync/sync_controller.dart';
 
 import 'support/fake_server.dart';
 
+http.Request _copy(http.BaseRequest request) => http.Request(request.method, request.url)
+  ..headers.addAll(request.headers)
+  ..bodyBytes = (request as http.Request).bodyBytes;
+
 /// A clock moving a minute on with every reading.
 class _SteppingClock extends Clock {
   int _ms = 0;
@@ -301,6 +305,54 @@ void main() {
         controller.dispose();
       },
     );
+
+    test('the percentage never goes back when another device pushes during a pull', () async {
+      final server = FakeServer()..maxPage = 3;
+      final a = device(server);
+      void write(int n) {
+        for (var i = 0; i < n; i++) {
+          a.notebooks.create(
+            title: 'N$i',
+            kind: NotebookKind.canvas,
+            paper: PaperStyle.blank,
+            coverColor: 0,
+          );
+        }
+      }
+
+      write(12);
+      await a.sync.engine.sync(apiFor(server));
+      final b = AppServices.create(AppDatabase.inMemory());
+      var pulls = 0;
+      final controller = SyncController(
+        engine: b.sync.engine,
+        settings: b.settings,
+        tokens: b.sync.tokens,
+        apiFactory: (url, token) => SyncApi(
+          baseUrl: url,
+          token: token,
+          client: MockClient((request) async {
+            if (request.url.path == '/v1/pull' && ++pulls == 3) {
+              write(30); // The feed more than doubles mid-pull.
+              await a.sync.engine.sync(apiFor(server));
+            }
+            return http.Response.fromStream(await server.client.send(_copy(request)));
+          }),
+        ),
+      );
+      final progress = <double>[];
+      controller.addListener(() {
+        if (controller.progress case final p?) progress.add(p);
+      });
+      controller.configure(url: 'http://sync.test', token: FakeServer.token);
+      await controller.syncNow();
+      expect(b.notebooks.list(), hasLength(42));
+      expect(progress.length, greaterThan(2));
+      for (var i = 1; i < progress.length; i++) {
+        expect(progress[i], greaterThanOrEqualTo(progress[i - 1]), reason: '$progress');
+      }
+      controller.dispose();
+    });
 
     test('a long pull reloads the library only after it brought notebooks or folders', () async {
       final server = FakeServer()..maxPage = 3;

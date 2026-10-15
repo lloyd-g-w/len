@@ -96,7 +96,10 @@ class SyncController extends ChangeNotifier {
   void _onPullProgress(PullProgress p) {
     if (_disposed || _state != SyncState.syncing) return;
     _pullFrom = p.from;
-    final progress = p.total <= 0 ? null : (p.done / p.total).clamp(0.0, 1.0);
+    var progress = p.total <= 0 ? null : (p.done / p.total).clamp(0.0, 1.0);
+    // The feed grows while another device pushes: the share pulled may
+    // shrink, but the bar must not run back within a run.
+    if (progress != null && _progress != null && progress < _progress!) progress = _progress;
     final percent = progress == null ? null : (progress * 100).floor();
     if (percent != (_progress == null ? null : (_progress! * 100).floor())) {
       _progress = progress;
