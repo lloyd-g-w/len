@@ -8,6 +8,7 @@ import '../domain/chunk_grid.dart';
 import '../domain/link_target.dart';
 import '../domain/stroke_chunks.dart';
 import '../domain/surface_element.dart';
+import '../domain/text/text_flow.dart';
 import 'record_fields.dart';
 import 'stroke_queries.dart';
 import 'syncable.dart';
@@ -190,6 +191,13 @@ class ElementRepository extends SyncableTable {
       data: f.object('data'),
     );
     if (!WorldLimits.accepts(element.bounds)) f.invalid('bounds');
+    // A text box continuing another names it strictly (see SYNC_PROTOCOL).
+    final data = element.data;
+    if (type == ElementType.text.name &&
+        data.containsKey('flow') &&
+        TextFlow.fromJson(data['flow']) == null) {
+      f.invalid('data.flow');
+    }
     return element;
   }
 

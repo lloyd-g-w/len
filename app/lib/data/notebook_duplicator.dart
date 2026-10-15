@@ -5,6 +5,7 @@ import '../domain/link_target.dart';
 import '../domain/notebook.dart';
 import '../domain/recording.dart';
 import '../domain/surface_element.dart';
+import '../domain/text/text_data.dart';
 import 'notebook_repository.dart';
 import 'page_order.dart';
 import 'row_copier.dart';
@@ -48,10 +49,14 @@ class NotebookDuplicator {
         copier.copy('pages', page.id, {...stamp, 'id': pageId, 'notebook_id': copyId});
         surfaces[page.id] = pageId;
       }
+      final elements = <String, String>{};
       surfaces.forEach((from, to) {
         _copyContent(copier, 'strokes', 'stroke_chunks', 'stroke_id', from, to, stamp);
-        _copyContent(copier, 'elements', 'element_chunks', 'element_id', from, to, stamp);
+        elements.addAll(
+          _copyContent(copier, 'elements', 'element_chunks', 'element_id', from, to, stamp),
+        );
       });
+      _rechain(surfaces.values, elements);
       _relink(id, copyId, surfaces);
       _copyRecordings(copier, id, copyId, stamp);
       repo.outline?.copyAll(id, copyId, surfaces);
@@ -86,10 +91,14 @@ class NotebookDuplicator {
         });
         surfaces[page.id] = pageId;
       }
+      final elements = <String, String>{};
       surfaces.forEach((from, to) {
         _copyContent(copier, 'strokes', 'stroke_chunks', 'stroke_id', from, to, stamp);
-        _copyContent(copier, 'elements', 'element_chunks', 'element_id', from, to, stamp);
+        elements.addAll(
+          _copyContent(copier, 'elements', 'element_chunks', 'element_id', from, to, stamp),
+        );
       });
+      _rechain(surfaces.values, elements);
       _relink(from, to, surfaces);
       final outline = repo.outline?.copyAll(from, to, surfaces, onlyPages: true) ?? const [];
       return CopiedPages(
@@ -185,6 +194,39 @@ class NotebookDuplicator {
     }
   }
 
+  /// Text boxes flowing across the copied pages continue the copies of
+  /// the boxes they continued ([elements]: old id → copy's id); one whose
+  /// box before was not copied stands alone.
+  void _rechain(Iterable<String> surfaces, Map<String, String> elements) {
+    final db = _notebooks.db;
+    for (final copied in surfaces) {
+      final rows = db.select(
+        'SELECT id, data FROM elements WHERE surface_id = ? AND type = ? AND deleted = 0 '
+        "AND data LIKE '%\"flow\"%'",
+        [copied, ElementType.text.name],
+      );
+      for (final row in rows) {
+        final data = StrokeQueries.decodeElementData(row['data'] as String);
+        final flow = TextFlow.fromJson(data?['flow']);
+        if (data == null || flow == null) continue;
+        final from = elements[flow.from];
+        final next = {...data}..remove('flow');
+        if (from != null) {
+          next['flow'] = TextFlow(from: from, joined: flow.joined, numbers: flow.numbers).toJson();
+        }
+        db.execute('UPDATE elements SET data = ? WHERE id = ?', [jsonEncode(next), row['id']]);
+        final element = StrokeQueries.rowToElement(
+          db.select('SELECT * FROM elements WHERE id = ?', [row['id']]).first,
+        );
+        if (element == null) continue;
+        db.execute('UPDATE element_chunks SET digest = ? WHERE element_id = ?', [
+          ChunkDigest.ofElement(element),
+          row['id'],
+        ]);
+      }
+    }
+  }
+
   /// Copies the recordings of notebook [from] to [to]. The audio blobs are
   /// content-addressed, so the copies share them. Strokes keep their
   /// `createdAt`, so the copied ink replays in step with the copies.
@@ -202,7 +244,7 @@ class NotebookDuplicator {
   /// Copies the live rows of [table] on surface [from] to surface [to],
   /// with their [chunks] index entries (keyed by [idColumn]). All names are
   /// trusted constants.
-  void _copyContent(
+  Map<String, String> _copyContent(
     RowCopier copier,
     String table,
     String chunks,
@@ -216,6 +258,7 @@ class NotebookDuplicator {
         .select('SELECT id FROM $table WHERE surface_id = ? AND deleted = 0', [from])
         .map((r) => r['id'] as String)
         .toList();
+    final copies = <String, String>{};
     for (final id in ids) {
       final newId = repo.clock.newId();
       copier.copy(table, id, {...stamp, 'id': newId, 'surface_id': to});
@@ -225,7 +268,9 @@ class NotebookDuplicator {
         'SELECT ?, cx, cy, ?, COALESCE(?, digest) FROM $chunks WHERE $idColumn = ?',
         [to, newId, table == 'strokes' ? ChunkDigest.ofStroke(newId) : null, id],
       );
+      copies[id] = newId;
     }
+    return copies;
   }
 }
 
