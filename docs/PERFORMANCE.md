@@ -123,6 +123,51 @@ to trust.
 - **Notebook styles.** Two queries of a small table when the new-notebook
   sheet opens; nothing at startup.
 
+## Paged scroll and scan drag (branch perf/paged-scroll, Oct 2026)
+
+Counted as in round 11 (`test/perf/paged_scroll_perf_test.dart`,
+`scan_screen_perf_test.dart`, `zoom_window_perf_test.dart`; the counter is
+`test/perf/support/frame_counts.dart`): three ruled pages of handwriting
+with two text boxes and an image each, or an imported two-page PDF, in a
+1000 × 1300 editor, 120 frames scrolling back and forth. Times are debug
+JIT on a loaded machine; trust the counts.
+
+| Scenario (a frame) | Before | After |
+|---|---|---|
+| Scroll, plain pages, top | 3 rebuilds, 69 paints, 5.9 ms | 0 rebuilds, 8 paints (the page layers), 2.1–3.6 ms |
+| Scroll, plain pages, "Add page" in view | 41 rebuilds, 92 paints, 6.9 ms | 0 rebuilds, 10 paints, 3.0–4.8 ms |
+| Scroll, PDF pages | 3 rebuilds, 69 paints, 2.8 ms | 0 rebuilds, 8 paints, 1.0–2.3 ms |
+| Scroll, PDF text selected (menu shown) | 158 rebuilds, 210 paints, 15–16 ms | 0 rebuilds, 18 paints, 2.8–5.5 ms |
+| Scroll, zoom window open | 8 rebuilds, 80 paints | 0 rebuilds, 20 paints, 4.9 ms |
+| Scan screen, corner drag (3 pages) | 439 rebuilds, 247 paints, 25.9 ms | 2 rebuilds, 6 paints, 4.1 ms |
+
+- **Why a small rebuild cost the whole layer.** The editor sits under a
+  `LayoutBuilder` (`EditorScreen`): any widget rebuilt below it lays the
+  builder out again, which repaints everything up to the next repaint
+  boundary, i.e. the whole editor layer (~60 render objects). So the
+  goal per scroll frame is no rebuild at all: whatever follows the view
+  does so by painting (`CustomPainter(repaint:)`) or by layout
+  (`SingleChildLayoutDelegate` / `MultiChildLayoutDelegate` with
+  `relayout:`), behind its own `RepaintBoundary`, and rebuilds only when
+  what it shows changes.
+- **PDF layer.** Its builder listened to the view (and preloaded the
+  pages' text in `build`). Without a selection it now builds nothing;
+  preloading follows the view by listener. With one, the highlight
+  painter repaints on its own layer, and the handles' targets and the menu
+  (`PdfSelectionMenu`) are placed at layout time; they rebuild when the
+  selection, the text, the document or its ink change.
+- **Add-page footer.** Its button was rebuilt per frame to move it; it is
+  now placed by a layout delegate behind its own boundary and rebuilds
+  only when it enters or leaves the screen.
+- **Zoom window frame.** Same treatment: painted and placed from the
+  view, rebuilt only when the frame enters or leaves the screen.
+- **Scan corner drag.** `ScanSession.setQuad(preview: false)` notified the
+  session, so the whole screen (app bar, strip, controls) rebuilt per move.
+  A drag now notifies `ScanSession.outline`, heard only by the corner
+  editor (tight, so it is laid out alone, behind a repaint boundary); the
+  session still notifies when the strip (a page without a preview yet
+  shows the outline's shape) or Whole photo changes.
+
 ## Web long tasks (branch perf/web-long-tasks, Oct 2026)
 
 Measured with the walk-through (`tool/web_explore.sh`, Chromium only,
@@ -190,15 +235,13 @@ and the app functions it ran under.
 
 ## Known costs / next steps
 
-- A paged notebook's scroll frame still lays out and repaints the editor
-  layer (69 render objects): `PdfLayer` (its `ListenableBuilder` on the view
-  builds a `Stack` per frame) and `AddPageFooter` (it follows the last page)
-  rebuild under the editor's `LayoutBuilder`. Moving the PDF selection's
-  painter onto a `repaint` listenable and the footer behind its own boundary
-  would leave the page layers alone.
-- The scan screen rebuilds as a whole per move of a corner drag (the corner
-  editor takes its quad from the session); bounded by the screen (and one
-  thumbnail per page), not by the photo.
+- Anything rebuilt under the editor's `LayoutBuilder` repaints the editor
+  layer (see "Paged scroll" above). Per scroll or pan frame nothing does
+  now; dragging a PDF selection's handle or a lasso selection still
+  rebuilds its layer per move (what they show changes).
+- A corner drag on the scan screen redraws the photo (the display copy,
+  ≤ 1,600 px) with the outline on every move; a layer of its own for the
+  photo would leave only the outline and loupe.
 
 - Web (JavaScript): ink tiles, thumbnails and LOD rasters become images
   through a GPU read-back on the main thread (CanvasKit), and alternating
