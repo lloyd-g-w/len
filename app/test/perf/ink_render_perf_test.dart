@@ -224,8 +224,8 @@ void main() {
           final raster = rasters ? cache.rasterOf('p$i', page, 400, 566) : null;
           if (raster != null) {
             canvas.drawImageRect(
-              raster,
-              Rect.fromLTWH(0, 0, raster.width.toDouble(), raster.height.toDouble()),
+              raster.image,
+              raster.source,
               Offset.zero & page,
               Paint()..filterQuality = FilterQuality.medium,
             );
