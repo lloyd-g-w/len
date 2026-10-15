@@ -571,10 +571,13 @@ or deleted pages in order with ink. Snack bars' Undo calls
   a saved view opens centred on its content (`CanvasNavigation.open`: `contentBounds`,
   fitted into the area the chrome leaves free, at most 100 %; an empty canvas stays at
   the origin), after the chrome's insets are known so nothing starts under the toolbar.
-  The kept view carries when it was kept (`savedAt`): a paged notebook another device
-  wrote in since (its newest live stroke or element by another device id, newer than
-  that; `SurfaceStats.pageWrittenElsewhere`), or never opened here, opens framed on the
-  page written last instead (`resume_view.dart`, UX_AUDIT R16-4). Nothing of it syncs.
+  The kept view carries when it was left (`savedAt`), as a version: the newest of the
+  other devices' strokes and elements in it seen here (`leftAt`; their clocks, not this
+  device's, so clock skew either way neither hides nor repeats a move; the split view's
+  second pane stamps it too). A paged notebook another device wrote in since (its newest
+  live stroke or element by another device id, newer than that;
+  `SurfaceStats.pageWrittenElsewhere`), or never opened here, opens framed on the page
+  written last instead (`resume_view.dart`, UX_AUDIT R16-4). Nothing of it syncs.
 - **Page zoom** (`document/page_fit.dart`, "⋯" → View, Shift+1 fit page, Shift+2
   fit width, `0` automatic): `PageFit.width` fills the width, `PageFit.page` shows the
   whole page, `PageFit.auto` fits the width but at most 1.4× and so that ≥ 55 % of the
