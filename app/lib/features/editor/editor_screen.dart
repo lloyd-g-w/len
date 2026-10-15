@@ -350,11 +350,12 @@ class _EditorScreenState extends State<_EditorView> {
     final band =
         primaryWidth != null &&
         EditorTopBar.showsStrip(Size(primaryWidth, MediaQuery.sizeOf(context).height), open);
-    // Back (e.g. Android's) leaves focus mode before leaving the editor.
+    // Back (e.g. Android's) leaves focus mode before leaving the editor;
+    // a box being typed in finishes first (its own handler, after this one).
     return PopScope(
       canPop: !_focus,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _setFocus(false);
+        if (!didPop && !_session.content.text.isEditing) _setFocus(false);
       },
       child: Scaffold(
         body: CallbackShortcuts(

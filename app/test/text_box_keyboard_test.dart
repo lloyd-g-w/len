@@ -165,6 +165,30 @@ void main() {
     expect(liveElements(services, nb.id), hasLength(1));
   });
 
+  testWidgets('in focus mode Back finishes the box first, then leaves focus mode', (tester) async {
+    final (services, nb) = await openCanvas(tester);
+    final undo = find.byTooltip('Undo (Ctrl+Z)').first;
+    bool barVisible() =>
+        tester.getTopLeft(undo).dy >= 0 && undo.hitTestable().evaluate().isNotEmpty;
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.period);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(barVisible(), isFalse);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(300, 400)]);
+    await tester.pumpAndSettle();
+    await tester.enterText(field, 'milk');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+    expect(liveElements(services, nb.id), hasLength(1));
+    expect(barVisible(), isFalse, reason: 'still in focus mode');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(barVisible(), isTrue);
+  });
+
   testWidgets('screen readers read the text boxes in view; activating one edits it', (
     tester,
   ) async {
