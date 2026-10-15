@@ -41,7 +41,7 @@ undone without a word.
 | Move many | Select → Move… → folder tree; Undo | same | Keep |
 | Nested folders, rename, colours | any depth; sidebar tree with drop targets; colour per folder | GoodNotes: same; Notability: dividers › subjects | Keep |
 | Trash | 30 days, then purged on every device; Empty trash…; Undo | same (GoodNotes 30 days) | Keep |
-| Space used | web only (Settings → Storage); native: per recording "N MB on this device" and Free up trimmed audio; nothing for the library | the system's per-app total (neither app breaks it down well) | R16-7 |
+| Space used | web only (Settings → Storage); native: per recording "N MB on this device" and Free up trimmed audio; nothing for the library | the system's per-app total (neither app breaks it down well) | R16-7 ✅ |
 | Backup / restore of a big library | streamed `.len` file, "Last backup …", restore beside what's there or skip what's here, Undo | GoodNotes: zip of PDFs/.goodnotes; Notability: auto-backup to a cloud drive | Keep |
 | Sync status day to day | sidebar caption "Synced 2m" / "Syncing…" / red "Sync failed"; never a dialog | an icon in GoodNotes' settings; Notability: banner on failure | Keep |
 | Same page written on two devices offline | both sets of ink kept (stroke records merge); a text box edited on both: the later edit wins | GoodNotes: conflict copy of the document | Keep |
@@ -119,7 +119,7 @@ undone without a word.
 - *Fix:* still across every folder, but what is in the open folder (or
   below it) comes first, each part in the chosen order. Effort S.
 
-**R16-7 P2 · Nothing says what takes the space.** ⬜
+**R16-7 P2 · Nothing says what takes the space.** ✅
 - *What:* natively there is no storage view: a year of lectures recorded
   is gigabytes, and the only sizes shown are per recording in its panel.
   Synced files fetched once stay on every device for good.
@@ -127,6 +127,12 @@ undone without a word.
   PDFs and images, recordings), the largest notebooks, and "Remove
   downloaded copies" for files the server holds (fetched again when
   shown). Effort L: TODO "Next".
+- *Done:* Settings → Storage everywhere: "Space used" by kind, the
+  largest notebooks (open, or at their recordings), "Free up N…" (one
+  confirmation that says it can't be undone; the server is asked for
+  each file first), "Clear" for cached previews. Leftover of R16-3: a
+  cut title in Recent tiles and grid cards keeps its last word
+  ("Electronics… 12").
 
 Checked and sound: 300 notebooks build only the cards on screen and
 reloads keep unchanged cards; the folder tree, move picker and sidebar

@@ -16,7 +16,7 @@ import 'sync_settings.dart';
 import 'writing_settings.dart';
 
 /// Settings (DESIGN §6.4): General, Writing, Handwriting, Sync, Backup,
-/// Storage (web only) and About, as open ruled lists in one centred column at most
+/// Storage and About, as open ruled lists in one centred column at most
 /// [maxWidth] wide; on wide screens the headings hang in its margin column.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, this.showSync = false});
@@ -117,12 +117,12 @@ List<Widget> _sections(BuildContext context, {required bool showSync}) {
     HandwritingSettings(recognition: services.recognition),
     SyncSettings(reveal: showSync),
     const BackupSettings(),
-    if (browserStorage case final storage?)
-      StorageSettings(
-        storage: storage,
-        filesKept: services.blobsArePersistent,
-        writes: services.writes,
-      ),
+    StorageSettings(
+      overview: services.storage,
+      storage: browserStorage,
+      filesKept: services.blobsArePersistent,
+      writes: services.writes,
+    ),
     const AboutSettings(),
   ];
 }

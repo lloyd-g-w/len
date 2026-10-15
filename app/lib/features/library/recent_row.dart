@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/end_keeping_text.dart';
 import '../../ui/menus.dart';
 import '../../ui/mini_cover.dart';
 import '../../ui/scroll_fade.dart';
@@ -165,12 +166,9 @@ class _RecentTileState extends State<RecentTile> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.notebook.title,
-                        style: theme.textTheme.labelLarge,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      // Cut, it keeps its last word: lectures sharing a
+                      // long start stay apart ("Electronics — Lec… 12").
+                      EndKeepingText(widget.notebook.title, style: theme.textTheme.labelLarge),
                       Text(
                         widget.caption ?? '',
                         style: theme.textTheme.bodySmall,

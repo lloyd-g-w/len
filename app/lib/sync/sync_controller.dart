@@ -270,6 +270,34 @@ class SyncController extends ChangeNotifier {
     }
   }
 
+  /// Which of [shas] the sync server stores now, asked blob by blob, and
+  /// a check whether that still holds for the server this device syncs
+  /// with (no other server or server history since). Null when sync is
+  /// off or the server can't be asked: then nothing counts as held.
+  Future<({Set<String> held, bool Function() current})?> blobsOnServer(
+    Iterable<String> shas,
+  ) async {
+    if (!isConfigured || _disposed) return null;
+    final generation = _configGeneration;
+    final serverId = settings.syncServerId;
+    bool current() => generation == _configGeneration && serverId == settings.syncServerId;
+    SyncApi? api;
+    try {
+      api = apiFactory(settings.syncUrl, tokens.token);
+      final held = <String>{};
+      for (final sha in shas) {
+        if (!current()) return null;
+        if (await api.hasBlob(sha)) held.add(sha);
+      }
+      return current() ? (held: held, current: current) : null;
+    } on SyncException catch (e) {
+      debugPrint('Cannot ask the server for blobs: ${e.message}');
+      return null;
+    } finally {
+      api?.close();
+    }
+  }
+
   static String _files(int n) => n == 1 ? '1 file' : '$n files';
 
   /// The token was read from the secure store (after start) or changed:

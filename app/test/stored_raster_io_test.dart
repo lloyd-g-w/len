@@ -26,6 +26,12 @@ class _HeldStore implements RasterStore {
   @override
   Future<void> write(String name, Uint8List bytes) async => writes++;
 
+  @override
+  Future<int> size() async => 0;
+
+  @override
+  Future<void> clear() async {}
+
   void releaseAll() {
     for (final c in held) {
       if (!c.isCompleted) c.complete(null);

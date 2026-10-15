@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/context_menu_keys.dart';
+import '../../ui/end_keeping_text.dart';
 import 'cover_locator.dart';
 import 'library_actions.dart';
 import 'library_drag.dart';

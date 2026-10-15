@@ -115,6 +115,29 @@ class FileRasterStore implements RasterStore {
     await _evict();
   }
 
+  @override
+  Future<int> size() async {
+    await _scanned;
+    return _bytes;
+  }
+
+  /// Deletes the files listed (a raster being written meanwhile stays,
+  /// counted, and goes by the budget as usual).
+  @override
+  Future<void> clear() async {
+    await _scanned;
+    final names = _sizes.keys.toList();
+    _sizes.clear();
+    _bytes = 0;
+    for (final name in names) {
+      try {
+        await _file(name).delete();
+      } on FileSystemException {
+        // Already gone.
+      }
+    }
+  }
+
   Future<void> _evict() async {
     while (_bytes > maxBytes && _sizes.length > 1) {
       final oldest = _sizes.keys.first;

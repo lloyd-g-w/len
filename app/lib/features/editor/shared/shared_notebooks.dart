@@ -39,6 +39,10 @@ class SharedNotebooks {
   /// The shared state of notebook [id] if an editor has it open.
   SharedNotebook? peek(String id) => _open[id];
 
+  /// Notebooks open in editors, or closed while their recordings are
+  /// still being saved.
+  Set<String> get ids => {..._open.keys, ..._saving.keys};
+
   /// Gives up one editor's hold on [shared].
   void release(SharedNotebook shared) {
     final id = shared.id;

@@ -15,6 +15,12 @@ abstract interface class RasterStore {
   /// Stores [bytes] as [name] (replacing what was there), evicting the
   /// least recently used entries beyond the budget.
   Future<void> write(String name, Uint8List bytes);
+
+  /// The bytes stored (Settings → Storage).
+  Future<int> size();
+
+  /// Removes every stored raster (they are drawn again when needed).
+  Future<void> clear();
 }
 
 /// Keeps rasters in memory, LRU over [maxBytes] (tests).
@@ -50,5 +56,14 @@ class MemoryRasterStore implements RasterStore {
     while (_bytes > maxBytes && _entries.length > 1) {
       _bytes -= _entries.remove(_entries.keys.first)!.length;
     }
+  }
+
+  @override
+  Future<int> size() async => _bytes;
+
+  @override
+  Future<void> clear() async {
+    _entries.clear();
+    _bytes = 0;
   }
 }

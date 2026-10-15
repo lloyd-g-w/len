@@ -167,6 +167,21 @@ class OpenNotebooks extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// A notebook whose recordings list its editor shows once open
+  /// ([requestRecordings]; Settings → Storage).
+  String? _recordingsFor;
+
+  /// Asks the editor of notebook [id] to show its recordings when it opens
+  /// (or, already open, at the next change of tabs).
+  void requestRecordings(String id) => _recordingsFor = id;
+
+  /// Whether notebook [id]'s recordings were asked for; forgets the request.
+  bool takeRecordingsRequest(String id) {
+    if (_recordingsFor != id) return false;
+    _recordingsFor = null;
+    return true;
+  }
+
   /// Shows tab [id].
   void activate(String id) {
     if (id == _activeId || !contains(id)) return;
