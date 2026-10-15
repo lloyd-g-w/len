@@ -109,4 +109,29 @@ void main() {
       expect(store.names, ['a.png', 'b.png']);
     });
   });
+
+  testWidgets('a raster gone from the store (previews cleared) is stored again', (tester) async {
+    await tester.runAsync(() async {
+      final store = MemoryRasterStore();
+      final io = StoredRasterIo(store, idleDelay: Duration.zero)
+        ..view = const ChunkRange(0, 0, 0, 0);
+      addTearDown(io.dispose);
+      io.write('a.png', await _image());
+      await settle(() => !io.saving);
+      await store.clear(); // Settings → Storage → Clear cached previews.
+
+      ui.Image? read;
+      var done = false;
+      io.read('a.png', (x: 0, y: 0), (image) {
+        read = image;
+        done = true;
+      });
+      await settle(() => done);
+      expect(read, isNull);
+      // Drawn again by the open editor: stored again.
+      io.write('a.png', await _image());
+      await settle(() => !io.saving);
+      expect(store.names, ['a.png']);
+    });
+  });
 }
