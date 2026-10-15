@@ -135,11 +135,16 @@ the eraser.
 - *Fix:* a composition and its commit are one undo step. Effort S.
 - *Done:* `_TextHistory.changed(composing:)`.
 
-**R19-8 P2 · Screen readers can't read text boxes.**
+**R19-8 P2 · Screen readers can't read text boxes.** ✅
 - *What:* the canvas is painted; TalkBack (or a browser's reader) finds no
   text in a note of typed boxes.
 - *Fix:* while a screen reader is on, each text box in view is a node with
   its text, and activating it edits the box. Effort S–M.
+- *Done:* `TextBoxSemantics` in the content layer (built only while
+  semantics are on): the boxes of the edited surface in view, top to
+  bottom, labelled with their text, hint "Text box"; activate edits. On a
+  paged notebook that is the page being edited (the others' boxes are
+  read once it is the active page).
 
 **Next** (docs/TODO.md): text that flows onto the next page (Notability's
 typed notes) for long boxes on pages; right-to-left boxes (direction from

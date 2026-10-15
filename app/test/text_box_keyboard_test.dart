@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/ui/floating_panel.dart';
 
 import 'content_tools_ui_test.dart';
+import 'search_ui_test.dart' show textBox;
 
 /// Typing around a text box: undo while typing, the soft keyboard, the
 /// Text tool with a keyboard (UX_AUDIT round 19).
@@ -139,5 +140,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(field, findsNothing);
     expect(liveElements(services, nb.id), hasLength(1));
+  });
+
+  testWidgets('screen readers read the text boxes in view; activating one edits it', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await openCanvas(
+      tester,
+      seed: (s, nb) => s.elements.save([
+        textBox('a', nb.id, 'Buy milk', const Offset(100, 300)),
+        textBox('b', nb.id, 'Call Sam', const Offset(100, 100)),
+        textBox('far', nb.id, 'Far away', const Offset(5000, 5000)),
+      ]),
+    );
+    expect(find.bySemanticsLabel('Buy milk'), findsOneWidget);
+    expect(find.bySemanticsLabel('Far away'), findsNothing);
+    final node = tester.getSemantics(find.bySemanticsLabel('Call Sam'));
+    expect(node.hint, 'Text box');
+    tester.semantics.tap(find.semantics.byLabel('Call Sam'));
+    await tester.pumpAndSettle();
+    expect(typed(tester), 'Call Sam');
+    semantics.dispose();
   });
 }

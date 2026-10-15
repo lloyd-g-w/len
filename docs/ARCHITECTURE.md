@@ -1930,6 +1930,9 @@ GoodNotes-style rich text inside a box.
 - **Checklists**: ticking (tap the box while editing, or with the Text tool on a
   committed box, `TextHitTest`) is undoable; ticked items are struck through and
   faded.
+- **Screen readers**: while semantics are on, `TextBoxSemantics` lays a node
+  over each text box in view on the edited surface (its text, in reading
+  order; activating it edits the box).
 - **Lasso**: *Style* (`selection_style_panel.dart`) changes font and size of the
   selected boxes and pen type / width of selected ink (`SelectionController
   .restyleText` / `restyleInk`, one undo step each); *Colour* recolours all text.

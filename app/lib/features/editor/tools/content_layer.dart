@@ -15,6 +15,7 @@ import '../recognition/convert_to_text_dialog.dart';
 import 'laser_overlay.dart';
 import 'selection_menu.dart';
 import 'text_box_editor.dart';
+import 'text_box_semantics.dart';
 
 /// Everything the lasso, text and laser tools show over the ink: the
 /// lasso and selection (with its menu), the text box being edited, the
@@ -171,6 +172,7 @@ class _ContentLayerState extends State<ContentLayer> {
           convertUnavailable: recognition.isSupported ? null : recognition.unsupportedReason,
           extraActions: widget.selectionActions,
         ),
+        TextBoxSemantics(content: _content, viewport: widget.viewport),
         TextBoxEditor(session: _content.text, viewport: widget.viewport, tools: widget.tools),
         if (_crop case final crop?)
           ImageCropOverlay(
