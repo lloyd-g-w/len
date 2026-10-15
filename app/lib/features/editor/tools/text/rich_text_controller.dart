@@ -188,6 +188,34 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
       deletes: backspaced,
     );
     onDataChanged?.call();
+    if (typed && inserted == ' ' && rich == null) _autoList(start);
+  }
+
+  /// What typed at a plain line's start, before a space, starts a list.
+  static const Map<String, ListKind> listPrefixes = {
+    '-': ListKind.bullet,
+    '*': ListKind.bullet,
+    '•': ListKind.bullet,
+    '1.': ListKind.number,
+    '1)': ListKind.number,
+    '[]': ListKind.check,
+    '[ ]': ListKind.check,
+  };
+
+  /// A space just typed at [space] after one of [listPrefixes] at the start
+  /// of a line that is no list: the line becomes that list, the prefix
+  /// goes. A step of its own, so undo gives the typed characters back.
+  void _autoList(int space) {
+    final line = _buffer.lineOf(space);
+    if (_buffer.para(line).isList) return;
+    final from = _buffer.lineStart(line);
+    final kind = listPrefixes[_buffer.text.substring(from, space)];
+    if (kind == null) return;
+    _buffer
+      ..replace(from, space + 1, '', _buffer.styleAt(from))
+      ..updateParas(line, line, (p) => p.copyWith(list: kind));
+    _pending = null;
+    _changedKeeping(TextRange.collapsed(from));
   }
 
   @override

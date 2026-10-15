@@ -115,13 +115,15 @@ the eraser.
 - *Fix:* one match per occurrence, highlighting the word where the box's
   layout puts it (rotated with the box). Effort M.
 
-**R19-6 P2 · "- " and "1. " don't start lists.**
+**R19-6 P2 · "- " and "1. " don't start lists.** ✅
 - *What:* the keyboard typist's habit from every notes app: "- " (or "* ")
   at the start of a line starts bullets, "1. " numbers, "[] " a checklist.
   Len keeps them literal; lists need the menu or Ctrl+Shift+7 / 8 / 9 (no
   shortcut on a soft keyboard).
 - *Fix:* typed at the start of a plain line, they turn it into that list;
   Undo right after gives the typed characters back. Effort S.
+- *Done:* `RichTextController._autoList` ("- ", "* ", "• ", "1. ", "1) ",
+  "[] ", "[ ] "); on a list line they stay text.
 
 **R19-7 P3 · Undo steps through IME compositions.**
 - *What:* with pinyin or romaji, each composing update is an edit; the one

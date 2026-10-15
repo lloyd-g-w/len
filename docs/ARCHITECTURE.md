@@ -1910,7 +1910,8 @@ GoodNotes-style rich text inside a box.
   onto the buffer (common prefix/suffix diff, the caret disambiguating repeated
   characters); the field's text is the laid-out text with placeholders, which
   the caret steps over. Backspace after a marker removes the list, Enter on an
-  empty item ends it. Formatting acts on the selection, or with a collapsed caret
+  empty item ends it; "- ", "* ", "1. " or "[] " typed at a plain line's start
+  makes it a list (`listPrefixes`; undo right after gives them back). Formatting acts on the selection, or with a collapsed caret
   on what is typed next; in an empty box font, size and colour set the box
   defaults (remembered as the default text style, also in the Text tool's
   settings). Copy / cut put the plain text on the clipboard and remember its
