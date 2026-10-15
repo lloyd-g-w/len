@@ -88,6 +88,10 @@ void main() {
     pdf('Lab handbook', 18);
     notebook('Shopping list');
     rasters.write('chunk', Uint8List(24 << 20));
+    // All synced: files only unsynced rows show are never freed.
+    for (final table in ['pages', 'recordings']) {
+      s.database.execute('UPDATE $table SET dirty = 0');
+    }
     return s;
   }
 
