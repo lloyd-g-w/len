@@ -17,6 +17,18 @@ class PasteboardPlatformIO implements PasteboardPlatform {
   static const MethodChannel _channel = MethodChannel('pasteboard');
 
   @override
+  Future<Set<PasteboardKind>?> peek() async {
+    if (!(Platform.isAndroid || Platform.isLinux || Platform.isWindows)) return null;
+    try {
+      final kinds = await _channel.invokeMethod<List<Object?>>('peek');
+      return kinds == null ? null : PasteboardKind.parse(kinds);
+    } catch (error) {
+      debugPrint('Peeking at the clipboard failed: $error');
+      return null;
+    }
+  }
+
+  @override
   Future<List<String>> files() async {
     final files = await _channel.invokeMethod<List>('files');
     return files?.cast<String>() ?? const [];

@@ -42,9 +42,9 @@ void main() {
     await pumpEditor(tester);
     expect(focused(tester), 'canvas');
     await press(tester, LogicalKeyboardKey.contextMenu);
-    expect(focused(tester), 'Paste here');
+    expect(focused(tester), 'Select all on page', reason: 'nothing to paste');
     await press(tester, LogicalKeyboardKey.arrowDown);
-    expect(focused(tester), 'Select all on page', reason: 'the arrows move in the menu');
+    expect(focused(tester), 'Add text here', reason: 'the arrows move in the menu');
     await press(tester, LogicalKeyboardKey.escape);
     expect(find.text('Add text here'), findsNothing);
     expect(focused(tester), 'canvas');

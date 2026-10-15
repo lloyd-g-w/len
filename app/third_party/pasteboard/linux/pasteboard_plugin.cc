@@ -125,6 +125,35 @@ static void clipboard_request_html_callback(
                                  nullptr);
 }
 
+// "peek" (added in Len's copy): the kinds of content the clipboard offers
+// ("image", "text", "html", "files"), from its targets alone.
+static void clipboard_request_targets_callback(GtkClipboard *clipboard,
+                                               GdkAtom *atoms,
+                                               gint n_atoms,
+                                               gpointer user_data) {
+  g_autoptr(FlMethodCall) method_call = static_cast<FlMethodCall *>(user_data);
+  g_autoptr(FlValue) kinds = fl_value_new_list();
+  if (atoms != nullptr && n_atoms > 0) {
+    if (gtk_targets_include_image(atoms, n_atoms, FALSE)) {
+      fl_value_append_take(kinds, fl_value_new_string("image"));
+    }
+    if (gtk_targets_include_text(atoms, n_atoms)) {
+      fl_value_append_take(kinds, fl_value_new_string("text"));
+    }
+    GdkAtom html = gdk_atom_intern_static_string("text/html");
+    for (gint i = 0; i < n_atoms; i++) {
+      if (atoms[i] == html) {
+        fl_value_append_take(kinds, fl_value_new_string("html"));
+        break;
+      }
+    }
+    if (gtk_targets_include_uri(atoms, n_atoms)) {
+      fl_value_append_take(kinds, fl_value_new_string("files"));
+    }
+  }
+  fl_method_call_respond_success(method_call, kinds, nullptr);
+}
+
 // What "write" put on the clipboard (added in Len's copy): a PNG and / or
 // plain text, offered in every format GTK can convert them to.
 struct ClipContent {
@@ -274,6 +303,10 @@ static void pasteboard_plugin_handle_method_call(
 
     gtk_clipboard_request_image(clipboard, clipboard_request_image_callback, g_object_ref(method_call));
 
+  } else if (strcmp(method, "peek") == 0) {
+    auto *clipboard = gtk_clipboard_get_default(gdk_display_get_default());
+    gtk_clipboard_request_targets(clipboard, clipboard_request_targets_callback,
+                                  g_object_ref(method_call));
   } else if (strcmp(method, "write") == 0) {
     write_clipboard(method_call);
   } else if (strcmp(method, "html") == 0) {

@@ -624,6 +624,18 @@ void PasteboardPlugin::HandleMethodCall(
     }
     result->Success(flutter::EncodableValue(WriteClipboard(OwnerWindow(), png, text)));
   }
+  else if (method_call.method_name() == "peek") {
+    // Len's addition: the kinds of content on the clipboard, without
+    // opening it ("image" is a DIB, as "image" reads; Windows synthesizes
+    // one from a bitmap).
+    flutter::EncodableList kinds;
+    if (IsClipboardFormatAvailable(CF_DIB)) kinds.emplace_back(std::string("image"));
+    if (IsClipboardFormatAvailable(CF_UNICODETEXT)) kinds.emplace_back(std::string("text"));
+    const UINT html_format = RegisterClipboardFormatA("HTML Format");
+    if (html_format && IsClipboardFormatAvailable(html_format)) kinds.emplace_back(std::string("html"));
+    if (IsClipboardFormatAvailable(CF_HDROP)) kinds.emplace_back(std::string("files"));
+    result->Success(flutter::EncodableValue(kinds));
+  }
   else if (method_call.method_name() == "writeImage") {
 
 

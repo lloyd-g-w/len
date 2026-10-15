@@ -34,6 +34,31 @@ class PasteboardPlatformWeb implements PasteboardPlatform {
   @override
   Future<List<String>> files() async => const [];
 
+  /// Only where reading is silent: once the user let the page read the
+  /// clipboard (Chromium asks for permission once; Firefox and Safari
+  /// ask on every read, with a Paste button, and can't be queried).
+  @override
+  Future<Set<PasteboardKind>?> peek() async {
+    try {
+      final query = {'name': 'clipboard-read'}.jsify()! as JSObject;
+      final status = await window.navigator.permissions.query(query).toDart;
+      if (status.state != 'granted') return null;
+      final items = await _clipboard.read().toDart;
+      return {
+        for (final item in items.toDart)
+          for (final type in item.types.toDart)
+            ...switch (type.toDart) {
+              'text/html' => const [PasteboardKind.html, PasteboardKind.text],
+              final t when t.startsWith('image/') => const [PasteboardKind.image],
+              final t when t.startsWith('text/') => const [PasteboardKind.text],
+              _ => const <PasteboardKind>[],
+            },
+      };
+    } catch (error) {
+      return null; // Unsupported, not focused, or denied: unknown.
+    }
+  }
+
   @override
   Future<String?> get html async {
     try {

@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../domain/paper.dart';
 import 'chrome/canvas_context_menu.dart';
 import 'chrome/gesture_hud.dart';
+import 'clipboard/paste_peek.dart';
 import 'editor_session.dart';
 import 'links/link_actions.dart';
 
@@ -13,37 +14,38 @@ import 'links/link_actions.dart';
 typedef EditorMenu = ({Offset at, List<CanvasAction> actions});
 
 /// The canvas context menu for a long press or right click at [at]: a
-/// link there first, then [canvasActions]. Null when that selects a word of
-/// PDF text instead.
-EditorMenu? canvasMenuAt(
+/// link there first, then [canvasActions], Paste here only if [mayPaste]
+/// finds something to paste. Null when that selects a word of PDF text
+/// instead.
+Future<EditorMenu?> canvasMenuAt(
   BuildContext context,
   EditorSession session,
   Offset at, {
   required void Function(Paper target) onFollowLink,
-}) {
+  ClipboardPeek? peek,
+}) async {
   if (session.pdf?.selectWordAt(at) ?? false) return null;
+  final paste = await mayPaste(session.services.clipboard, peek: peek);
+  if (!context.mounted) return null;
   final actions = canvasActions(
     session,
     at,
     onFollowLink: onFollowLink,
-    onPaste: () => unawaited(session.images.paste(context, screen: at)),
+    onPaste: paste ? () => unawaited(session.images.paste(context, screen: at)) : null,
   );
   if (openLinkAction(context, session, at) case final link?) actions.insert(0, link);
   return (at: at, actions: actions);
 }
 
 /// The entries of the canvas context menu for a long press at [screen]:
-/// paste there, select everything on the page (or in view) and add a text
-/// box there. Content only: page commands live in ⋯ → Page (UX_AUDIT R9-3).
-/// Paste here is always offered: [onPaste] pastes what Ctrl+V would, the
-/// system clipboard included (UX_AUDIT R13-2). Whether that holds an image
-/// can't be known without reading it, and Android tells the user of every
-/// read, so it is read only on the tap.
+/// paste there ([onPaste], what Ctrl+V would paste; none without it),
+/// select everything on the page (or in view) and add a text box there.
+/// Content only: page commands live in ⋯ → Page (UX_AUDIT R9-3).
 List<CanvasAction> canvasActions(
   EditorSession session,
   Offset screen, {
   void Function(Paper target)? onFollowLink,
-  required VoidCallback onPaste,
+  VoidCallback? onPaste,
 }) {
   final doc = session.doc;
   // Act on the page under the finger.
@@ -55,7 +57,7 @@ List<CanvasAction> canvasActions(
   return [
     if (link != null && onFollowLink != null)
       CanvasAction(Symbols.event_sharp, 'Go to ${link.period}', () => onFollowLink(link)),
-    CanvasAction(Symbols.content_paste_sharp, 'Paste here', onPaste),
+    if (onPaste != null) CanvasAction(Symbols.content_paste_sharp, 'Paste here', onPaste),
     CanvasAction(
       Symbols.select_all_sharp,
       doc == null ? 'Select all in view' : 'Select all on page',

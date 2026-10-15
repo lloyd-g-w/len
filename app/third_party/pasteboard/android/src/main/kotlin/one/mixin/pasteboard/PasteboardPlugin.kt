@@ -90,6 +90,8 @@ class PasteboardPlugin : FlutterPlugin, MethodCallHandler {
 
             "write" -> write(manager, call, result)
 
+            "peek" -> result.success(peek(manager))
+
             "writeImage" -> {
                 val image = call.arguments<ByteArray>() ?: return result.error(
                     "NoArgs",
@@ -160,6 +162,28 @@ class PasteboardPlugin : FlutterPlugin, MethodCallHandler {
                 mainHandler.post { result.error("Error", "Failed to write the clipboard", e.message) }
             }
         }
+    }
+
+    /**
+     * "peek" (added in Len's copy): the kinds of content on the clipboard ("image", "text",
+     * "html") from the clip's description alone. Unlike reading the clip, that doesn't make
+     * Android 12+ announce a paste.
+     */
+    private fun peek(manager: ClipboardManager): List<String> {
+        if (!manager.hasPrimaryClip()) return emptyList()
+        val description = manager.primaryClipDescription ?: return emptyList()
+        val kinds = linkedSetOf<String>()
+        for (i in 0 until description.mimeTypeCount) {
+            val type = description.getMimeType(i) ?: continue
+            when {
+                type.startsWith("image/") -> kinds.add("image")
+                type == ClipDescription.MIMETYPE_TEXT_HTML -> kinds.addAll(listOf("html", "text"))
+                // An intent is no text to paste (Flutter would coerce it to a URI string).
+                type == ClipDescription.MIMETYPE_TEXT_INTENT -> {}
+                type.startsWith("text/") -> kinds.add("text")
+            }
+        }
+        return kinds.toList()
     }
 
     /** Saves [png] as the clipboard's image file (deleting earlier ones); its content URI. */

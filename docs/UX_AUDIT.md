@@ -204,9 +204,9 @@ and paste from the system clipboard.
   (a newer system image, then system text, then Len's clipboard) at the
   press; "Nothing to paste" when empty. Reading the clipboard only on the
   tap keeps Android's "pasted from your clipboard" notice to real pastes.
-  A row offered when the clipboard may be empty is the cost: Android
-  offers no way to ask whether it holds an image without reading it
-  (⬜ TODO: a native "has image" probe in the vendored `pasteboard`).
+  The row hides when both clipboards are empty: the vendored
+  `pasteboard`'s `peek` asks Android's clip description (no read, no
+  notice), GTK's targets and Windows' formats (✅ feat/clipboard-peek).
 - Effort S.
 
 **R13-3 P2 · "Add text here" leaves the text tool on.** ✅

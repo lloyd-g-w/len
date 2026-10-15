@@ -15,7 +15,7 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
     const MethodChannel('pasteboard'),
-    (call) async => call.method == 'files' ? const <Object>[] : null,
+    (call) async => const {'files', 'peek'}.contains(call.method) ? const <Object>[] : null,
   );
   mockEmptyClipboard();
   // Each test starts with no snack bar behind it (the editor's tips keep a
