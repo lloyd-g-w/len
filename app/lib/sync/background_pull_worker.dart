@@ -115,8 +115,8 @@ class BackgroundPullWorker implements PullWorker {
             onHeader(header);
           case _Done(:final applied, :final total, :final changes):
             return WorkedPage(header: header!, applied: applied, total: total, changes: changes);
-          case _Failed(:final message):
-            throw PullWorkerException(message);
+          case _Failed(:final message, :final changes):
+            throw PullWorkerException(message, changes: changes);
           case _exited:
             _dead = true;
             throw const PullWorkerException('the worker stopped');
@@ -168,6 +168,15 @@ class BackgroundPullWorker implements PullWorker {
       stores: repositories.byCollection,
     );
     var cancelled = false;
+    // The app writing: wait until it is done (it holds the lock, or is
+    // about to). False once cancelled.
+    Future<bool> yieldToApp() async {
+      while (writing() && !cancelled) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
+      return !cancelled;
+    }
+
     final inbox = ReceivePort();
     args.ready.send(inbox.sendPort);
     inbox.listen((message) async {
@@ -178,6 +187,8 @@ class BackgroundPullWorker implements PullWorker {
           inbox.close();
           database.close();
         case _Page(:final body, :final since, :final hadChanges, :final reply):
+          // What the slices committed, also when a later one fails.
+          final changes = RemoteChanges();
           try {
             final page = decodePullPage(body.materialize().asUint8List(), since: since);
             if (page == null) {
@@ -188,7 +199,10 @@ class BackgroundPullWorker implements PullWorker {
               debugPrint('Skipped ${page.malformed} malformed records after seq $since');
             }
             reply.send(_Header(page.nextSince, page.hasMore, page.malformed));
-            final changes = RemoteChanges();
+            if (!await yieldToApp()) {
+              reply.send(_Done(0, page.records.length, changes));
+              return;
+            }
             final applied = await applier.applyPage(
               page,
               changes,
@@ -197,16 +211,12 @@ class BackgroundPullWorker implements PullWorker {
               yieldNow: writing.call,
               pause: () async {
                 await Future<void>.delayed(gap);
-                // The app writing: wait until it is done (it holds the lock).
-                while (writing() && !cancelled) {
-                  await Future<void>.delayed(const Duration(milliseconds: 1));
-                }
-                return !cancelled;
+                return yieldToApp();
               },
             );
             reply.send(_Done(applied, page.records.length, changes));
           } on Object catch (e) {
-            reply.send(_Failed('$e'));
+            reply.send(_Failed('$e', changes));
           }
       }
     });
@@ -248,8 +258,9 @@ final class _Done {
 }
 
 final class _Failed {
-  const _Failed(this.message);
+  const _Failed(this.message, this.changes);
   final String message;
+  final RemoteChanges changes;
 }
 
 /// What the worker's exit notice says.

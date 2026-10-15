@@ -62,3 +62,6 @@ String? sqliteFilePath({required String name, required String directory}) => nul
 /// nothing reaches IndexedDB.
 Future<CommonDatabase> openSqliteScratch() async =>
     (await _sqlite()).openInMemory(vfs: _scratchFs.name);
+
+/// Browsers have one connection per database: nothing waits for another.
+void waitWhenBusy(CommonDatabase db, int timeoutMs) {}

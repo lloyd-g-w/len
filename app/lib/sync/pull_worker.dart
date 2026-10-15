@@ -55,9 +55,12 @@ abstract interface class PullWorker {
 
 /// A [PullWorker] failed while applying a page.
 class PullWorkerException implements Exception {
-  const PullWorkerException(this.message);
+  const PullWorkerException(this.message, {this.changes});
 
   final String message;
+
+  /// What the page's slices committed before the failure, if known.
+  final RemoteChanges? changes;
 
   @override
   String toString() => 'Applying pulled records failed: $message';

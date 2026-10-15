@@ -879,7 +879,8 @@ search highlights use the same boxes.
   Entry points (`EditorImages`): the top bar button (file picker; on Android
   also the camera via `Camera`, see *Document scans*), Ctrl+V (`pasteboard` reads the system
   clipboard's image, or a copied image file on desktop; a clipboard image
-  older than ink copied in the app loses to the ink) and drag and drop
+  older than ink copied in the app, or the picture that copy put there
+  (*Copy to other apps*), loses to the ink) and drag and drop
   (`desktop_drop`). Every insert is one undoable edit and selects the image.
 - **Decoding** (`ElementImages`, one per app in `AppServices`): bitmaps are
   decoded asynchronously by the engine (`ImageDescriptor`, off the UI thread)
@@ -1366,9 +1367,14 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
 - **Rendering** (`WetInkLayer`): a translucent `SurfaceView` (media-overlay
   z-order, same bounds as the Flutter view) drawn only through the **front
   buffer** of androidx.graphics' `CanvasFrontBufferedRenderer`: no buffer
-  swap, no vsync wait. Each frame clears what the previous one covered and
-  redraws the whole wet ink (a few millimetres), so ink can also be taken
-  away. At most one frame is queued; newer input replaces a waiting one.
+  swap, no vsync wait. Each frame redraws the whole wet ink (a few
+  millimetres) into an offscreen layer, cleared first, which then replaces
+  the rectangle the previous frame and this one cover in one pass
+  (composited with `SRC`), so ink can also be taken away. Clearing and
+  drawing in the front buffer itself let the display scan out the cleared
+  state in between: the newest ink vanished for a refresh, at random (as
+  androidx.ink's front-buffer renderers note and avoid the same way). At
+  most one frame is queued; newer input replaces a waiting one.
   The hull pieces of a stroke are filled as **one path** (they wind the same
   way), so their antialiased edges are not darkened where they overlap.
 - **Same ink as Flutter**: `WetInkModel.kt` is a line-for-line port of the
@@ -1417,27 +1423,49 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   straightened strokes stay on the Flutter path, as do fingers and other
   platforms. Overlay and Flutter ink overlap, so only opaque ink can look
   the same where they do.
-- **Hand-over**: Flutter keeps drawing the live stroke as before; the
-  overlay only adds the part Flutter may not show yet. Dart reports after
-  each built frame the newest input it contains (`progress`); the overlay
-  keeps every point until 70 ms after that report (`SHOWN_AFTER_MS`;
-  report to present measured 21 ms median, 41 ms p99, 48 ms at most), and
-  the whole tail until 70 ms after `end` (sent after the frame with the committed
-  stroke). Retracting earlier would open a gap; later only means more
-  opaque ink lying exactly on Flutter's. Nothing is left behind: when no
-  stroke needs it, the front buffer is cleared and hidden.
+- **Hand-over** (`WetInkHandover`, `platform/low_latency_frames.dart`):
+  Flutter keeps drawing the live stroke as before; the overlay only adds
+  the part Flutter may not show yet. Dart reports every frame it builds
+  while there is overlay ink, one report per frame however many surfaces
+  have input (`progress`: the newest input it contains, and a frame id),
+  and three more frames after the last input (asking for them if nothing
+  else does). The overlay keeps a frame's points until 70 ms after its
+  report (`SHOWN_AFTER_MS`; report to present measured 21 ms median,
+  41 ms p99, 48 ms at most) **and** until a frame built three frames
+  later has been reported, plus two display frames: Flutter builds a
+  frame only into a free slot of its two-deep pipeline, so that report
+  means the raster thread is done with this one. Time alone opened gaps
+  whenever the raster thread fell behind (a busy page, tile renders, a
+  busy CPU): the newest ink vanished for a few frames and came back. The
+  whole tail stays until the frame with the committed stroke (`end` is
+  sent right after its report) is shown by the same rule. Retracting
+  earlier opens a gap; later only means more opaque ink lying exactly on
+  Flutter's. Nothing is left behind: when no stroke needs it, the front
+  buffer is cleared and hidden. A contact that leaves no stroke (a
+  bounce, a scribble that erased) is cancelled right after the frame
+  without it is built, so its tail goes with Flutter's ink, not after it
+  alone; a view that moves before the overlay has let go of a stroke (the
+  zoom window moving on at the lift) cancels it with the frame that
+  moves it, so it does not linger where the stroke was on the screen.
+  `WetInkHandoverTest.kt` runs the rules against a simulated Flutter
+  pipeline (raster stalls mid-stroke and at the lift, slow raster
+  throughout); `test/low_latency_handover_test.dart` checks what Dart
+  sends, frame by frame.
 - **Pen-down**: while the S Pen hovers over a surface with the pen tool,
   Dart sends `arm` (how a stroke starting now would look, re-sent every
   150 ms), so the overlay draws from the first sample; `begin` (sent when
   the input controller starts the live stroke) confirms or restyles it,
   `skip` takes it back (a down that is not ink — another tool, a
   selection, a menu over the canvas: a global pointer route answers every
-  stylus down no surface took). Unconfirmed after 150 ms, it is dropped.
+  stylus down no surface took). Unanswered after 1 s, it is dropped
+  (after 150 ms it was, and a UI thread busy at pen-down made the first
+  ink vanish and come back).
 - **Clip and transform**: `WetInkView` (Dart) gives the writing area — the
   surface less the chrome insets (toolbars), and on a page only the page,
   where committed ink is clipped too — and the view transform. A pan or
-  zoom during a stroke (or straightening it) sends `cancel`: the overlay
-  drops its ink at once and Flutter draws the stroke.
+  zoom during a stroke sends `cancel` once the frame with the moved view
+  is built (straightening it, at once: the pen rests then): the overlay
+  drops its ink and Flutter draws the stroke.
 - **Lifecycle**: the layer is created at `onStart` (or the next touch) and
   follows the Flutter view; the renderer rebuilds its buffers on surface
   changes (rotation, split screen, resume). A pen-up Dart never ends is
@@ -1448,6 +1476,9 @@ Markers for system traces (atrace app `dev.len.len`; event times are
 `len.wetDone <eventTimeNs>` (frame rendered), `len.progress <eventTimeNs>`.
 `tool/wet_ink_check/latency_trace.cfg` (Perfetto) and `latency.sql`
 (trace_processor) turn a trace into the latency table of `docs/INK_LAB.md`.
+The flicker log (`ink/lab/flicker_log.dart`, `platform/low_latency_log.dart`;
+Ink Lab → *Flicker log*, on in debug builds) records hand-over anomalies on
+the device without a trace: `docs/INK_LAB.md`, *Flicker log*.
 
 Resting the pen for 600 ms at the end of a stroke snaps it, in place
 (`input/hold_to_straighten.dart` + `shapes/shape_recognizer.dart`). A real
@@ -1596,6 +1627,30 @@ surface.
   gestures. The clipboard (`InkClipboard`) lives in `AppServices`, so paste
   works across pages and notebooks; paste goes to the screen centre
   (Ctrl+V, menu) or a long-press position.
+- **Copy to other apps** (`ClipboardMirror`, `features/editor/clipboard/`):
+  every copy (Copy, Cut, Ctrl+C / X) is also put on the system clipboard,
+  as GoodNotes and Notability do: a PNG of the content alone, transparent
+  (`SelectionImage`, `ink/selection/`: `ContentPainter` over the drawn
+  bounds plus a 2-unit margin, 3 px per unit ≈ 290 dpi, the longest side
+  ≤ 4096 px; images decoded first; links not drawn) and, when only text
+  boxes were copied, their plain text (top to bottom, a blank line
+  between; no HTML: box copies have none). One entry through the vendored
+  `pasteboard`'s `write` (added for Len): **Linux** GTK targets — the PNG
+  byte for byte as `image/png`, every other GdkPixbuf format converted on
+  request, the text targets — stored by a clipboard manager on quit;
+  **Windows** `PNG` (transparency for browsers and Office), a CF_DIB
+  flattened onto white (DIB readers ignore alpha) and CF_UNICODETEXT;
+  **Android** one `ClipData` item with the text and a content URI of the
+  PNG in the cache (`PasteboardFileProvider`, only the latest image kept);
+  **web** `navigator.clipboard.write` with a `ClipboardItem` whose image
+  is a promise, so the write starts within the gesture (Safari and Firefox
+  require user activation) while the picture renders. Where that fails, a
+  text-only copy falls back to plain text. Nothing new in the UI.
+  Len's own paste keeps the in-app clipboard (ink stays ink): `EditorImages
+  .paste` skips a clipboard image that is the copy's picture — the same
+  bytes, or the same size and a 16 × 16 thumbnail within a small tolerance
+  (`ImageSignature`), since GTK and browsers re-encode it and Windows reads
+  back the flattened DIB — and text that is the copy's text.
 - **Editing a shape's points**: a single shape selected on its own surface
   (`SelectionController.shapeStroke`, by the lasso or a tap — with the
   lasso, or the Shape tool on a shape) shows its control points as handles
@@ -2790,14 +2845,19 @@ the next cycle resumes. Where that runs:
   triggers (search, the handwriting queue) fire as on the UI isolate. The UI
   thread only fetches pages. Two writers on one file: every transaction
   begins `IMMEDIATE` (one that read first could not upgrade once the other
-  had committed) and waits up to `busy_timeout` 5 s; the app's transactions
+  had committed) and waits up to 5 s for the lock (`waitWhenBusy`, a busy
+  handler that sleeps: the bundled SQLite's default one gives up within
+  ~70 ms whatever `busy_timeout` says); a worker slice still finding it
+  locked is tried again, and a page's first slice also waits for the app.
+  The app's transactions
   raise a count in memory the worker reads (`SharedWriteSignal`, the
   `ffi` package), which ends its slice after the current record and holds
   the next until the app is done, so the app's write waits about a
   millisecond (writes outside a transaction wait at most a slice). The
   worker's commits are announced on `AppDatabase.commits` (the handwriting
   indexer listens), and what the pull changed comes back per page as
-  `RemoteChanges`. Cancelling stops it after the current slice; it closes
+  `RemoteChanges` (also what committed before a database error).
+  Cancelling stops it after the current slice; it closes
   when the pull ends.
 - **Otherwise** (the web, an in-memory database, small pulls) the page is
   decoded in a worker natively (`platform/pull_decoder.dart`; the web

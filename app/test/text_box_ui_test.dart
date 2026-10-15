@@ -93,10 +93,11 @@ void main() {
     expect(data.text, 'Pasted line one\nand two');
     expect(data.autoWidth, isTrue);
     expect(box.rect.center.dx, closeTo(640, 1));
-    expect(find.byTooltip('Style'), findsOneWidget); // selected with the lasso
+    expect(find.byTooltip('Style'), findsOneWidget); // selected, the pen kept
 
     // Copy the ink: the clipboard's text is older now, so ink is pasted.
     await key(tester, LogicalKeyboardKey.escape);
+    await key(tester, LogicalKeyboardKey.keyL);
     await mouseDrag(tester, const [Offset(150, 401)]);
     await ctrl(tester, LogicalKeyboardKey.keyC);
     await tester.pump();

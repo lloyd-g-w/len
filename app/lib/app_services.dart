@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:cross_file/cross_file.dart';
-import 'package:flutter/widgets.dart';
 
 import 'core/clock.dart';
 import 'core/pointer_activity.dart';
@@ -33,6 +32,7 @@ import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
 import 'features/camera/camera.dart';
 import 'features/documents/import/incoming_files.dart';
+import 'features/editor/clipboard/clipboard_mirror.dart';
 import 'features/editor/shared/shared_notebooks.dart';
 import 'features/editor/tabs/open_notebooks.dart';
 import 'features/editor/tabs/workspace_memory.dart';
@@ -52,6 +52,8 @@ import 'sync/sync_controller.dart';
 import 'sync/sync_engine.dart';
 import 'ui/messages.dart';
 import 'ui/route_owners.dart';
+
+export 'app_scope.dart';
 
 /// Composition root: constructs and owns the app's long-lived services.
 class AppServices {
@@ -254,8 +256,14 @@ class AppServices {
   final Camera camera;
 
   /// Copied strokes and text, shared by every editor (paste across pages
-  /// and notebooks).
-  final InkClipboard clipboard = InkClipboard();
+  /// and notebooks), mirrored onto the system clipboard ([clipboardMirror]).
+  late final InkClipboard clipboard = InkClipboard(
+    mirror: (strokes, elements) => unawaited(clipboardMirror.copy(strokes, elements)),
+  );
+
+  /// Puts a picture (and text) of what is copied on the system clipboard,
+  /// for other apps.
+  late final ClipboardMirror clipboardMirror = ClipboardMirror(images: images);
 
   /// Notebooks open in editor tabs (with each tab's place in memory).
   final OpenNotebooks openNotebooks = OpenNotebooks();
@@ -323,32 +331,4 @@ class AppServices {
     preferences.dispose();
     database.close();
   }
-}
-
-/// Makes [AppServices] available to the widget tree.
-class AppScope extends InheritedWidget {
-  const AppScope({super.key, required this.services, required super.child});
-
-  final AppServices services;
-
-  static AppServices of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();
-    assert(scope != null, 'No AppScope above this context');
-    return scope!.services;
-  }
-
-  /// The services if there is an [AppScope] above [context] (widgets that
-  /// also work standalone, e.g. in tests), without subscribing.
-  static AppServices? maybeRead(BuildContext context) =>
-      context.getInheritedWidgetOfExactType<AppScope>()?.services;
-
-  /// Like [of] but without subscribing; safe to call from `initState`.
-  static AppServices read(BuildContext context) {
-    final scope = context.getInheritedWidgetOfExactType<AppScope>();
-    assert(scope != null, 'No AppScope above this context');
-    return scope!.services;
-  }
-
-  @override
-  bool updateShouldNotify(AppScope old) => old.services != services;
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:sqlite3/common.dart' show SqliteException;
 
 import '../data/app_database.dart';
 import '../data/deletion_conflicts.dart';
@@ -57,22 +58,40 @@ class PullApplier {
     final revival = Revival();
     final records = page.records;
     var applied = 0;
+    var busy = 0;
     while (true) {
       final slice = Stopwatch()..start();
-      database.transaction(() {
-        while (applied < records.length && slice.elapsedMicroseconds < budgetUs) {
-          _apply(records[applied++], changes, revival);
-          if (yieldNow?.call() ?? false) break;
-        }
-        if (applied < records.length) return;
-        if (!page.hasMore && (hadChanges || !changes.isEmpty)) _conflicts.resolve(revival);
-        settings.syncLastSeq = page.nextSince;
-      });
+      final start = applied;
+      try {
+        database.transaction(() {
+          while (applied < records.length && slice.elapsedMicroseconds < budgetUs) {
+            _apply(records[applied++], changes, revival);
+            if (yieldNow?.call() ?? false) break;
+          }
+          if (applied < records.length) return;
+          if (!page.hasMore && (hadChanges || !changes.isEmpty)) _conflicts.resolve(revival);
+          settings.syncLastSeq = page.nextSince;
+        });
+        busy = 0;
+      } on SqliteException catch (e) {
+        // Another connection's transaction outlasted the busy wait (a
+        // worker's, waiting for a long one of the app's): try again.
+        if (e.resultCode != _sqliteBusy || ++busy > maxBusyRetries) rethrow;
+        applied = start;
+        if (!await pause()) break;
+        continue;
+      }
       if (applied == records.length || !await pause()) break;
     }
     changes.addRevival(revival);
     return applied;
   }
+
+  /// How many slices in a row may find the database locked (each after
+  /// waiting [AppDatabase.busyTimeoutMs]) before the pull fails.
+  static const maxBusyRetries = 6;
+
+  static const _sqliteBusy = 5;
 
   void _apply(SyncRecord record, RemoteChanges changes, Revival revival) {
     final store = stores[record.collection];

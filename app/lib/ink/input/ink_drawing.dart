@@ -26,6 +26,7 @@ import 'stroke_sampler.dart';
 import 'stylus_buttons.dart';
 
 part 'ink_drawing_commit.dart';
+part 'ink_drawing_erase.dart';
 
 /// The drawing contact of `InkInputController`: one pointer at a time that
 /// inks, erases or drives a pointer tool from [content].
@@ -93,8 +94,8 @@ class InkDrawing {
   final LiftSpeed _liftSpeed = LiftSpeed();
   bool _endFollowsSpeed = false;
 
-  /// The end taper (world units) of the stroke just committed.
-  double _committedTaper = 0;
+  /// The stroke the contact just ended left, if any.
+  Stroke? _committed;
 
   int? _drawPointer;
   PointerDeviceKind? _drawKind;
@@ -107,6 +108,12 @@ class InkDrawing {
   double _drawTravel = 0;
   bool _erasing = false;
   bool _eraseStarted = false;
+
+  /// Whether this contact dropped a live selection (one kept under the pen
+  /// after an insert, a paste or the side button's lasso): a tap that only
+  /// meant to dismiss it leaves no dot. Null otherwise; else how far the
+  /// contact has moved from where it touched down.
+  double? _dropReach;
 
   /// Where a finger erasing has been while it may still turn out a resting
   /// palm or the start of a pinch: erased once it moves past the touch slop
@@ -146,16 +153,14 @@ class InkDrawing {
     _erasing = erase;
     _eraseStarted = false;
     _lastScreen = e.localPosition;
+    final selection = content?.selection;
+    final hadSelection = selection != null && !selection.isEmpty;
     final tool = erase ? null : content?.toolAt(tools.tool, e.localPosition, lasso: lasso);
+    _dropReach = hadSelection && tool == null && !erase && selection.isEmpty ? 0 : null;
     if (tool != null) {
       _tool = tool..down(_toolPointer(e));
     } else if (erase) {
-      showEraser(e.localPosition);
-      if (e.kind == PointerDeviceKind.touch) {
-        _heldErase = [e.localPosition];
-      } else {
-        _eraseTo(e.localPosition);
-      }
+      _beginErase(e);
     } else {
       final ink = tools.activeInk;
       final config = tools.configOf(ink);
@@ -189,6 +194,10 @@ class InkDrawing {
   }
 
   void move(PointerMoveEvent e) {
+    if (_dropReach case final reach?) {
+      final d = (e.localPosition - _drawStartScreen).distance;
+      if (d > reach) _dropReach = d;
+    }
     final tool = _tool;
     if (tool != null) {
       _lastScreen = e.localPosition;
@@ -269,7 +278,11 @@ class InkDrawing {
       final points = shape != null ? finished : StrokeSampler.settleEnd(finished);
       // A bounce was shown while it touched (under the nib, where the pen
       // just lifted, for less than `BounceFilter.maxContact`) and goes now.
-      if (points.isNotEmpty && !_isBounce(liftTime) && !_scribble.erase(model, snapped: snapped)) {
+      final dismissTap = (_dropReach ?? double.infinity) < kTouchSlop;
+      if (points.isNotEmpty &&
+          !dismissTap &&
+          !_isBounce(liftTime) &&
+          !_scribble.erase(model, snapped: snapped)) {
         _commit(points, liftTime, snapped: snapped, shape: shape);
         _inked = true;
       }
@@ -294,52 +307,15 @@ class InkDrawing {
   void _reset() {
     _straighten.end();
     _scribble.end();
-    samples?.end(taperEnd: _committedTaper);
-    _committedTaper = 0;
+    samples?.end(committed: _committed);
+    _committed = null;
     _drawPointer = null;
     _drawKind = null;
     _byMouse = false;
     _erasing = false;
     _heldErase = null;
     _lastScreen = null;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Erasing
-
-  /// Erases to [screen], or holds it while a finger may not be erasing.
-  void _eraseOrHold(Offset screen) {
-    final held = _heldErase;
-    if (held == null) return _eraseTo(screen);
-    held.add(screen);
-    _lastScreen = screen;
-    if ((screen - _drawStartScreen).distance > kTouchSlop) _releaseErase();
-  }
-
-  /// Erases along the held finger path: it is erasing after all.
-  void _releaseErase() {
-    final held = _heldErase;
-    if (held == null) return;
-    _heldErase = null;
-    _lastScreen = held.first;
-    held.forEach(_eraseTo);
-  }
-
-  void _eraseTo(Offset screen) {
-    final from = viewport.toWorld(_lastScreen ?? screen);
-    final to = viewport.toWorld(screen);
-    // Hits within one drag merge into a single undo step — but only after
-    // the first hit, so we never merge into an unrelated earlier edit.
-    final erased = model.eraseAlong(
-      from,
-      to,
-      tools.eraserRadius / viewport.scale,
-      continueEdit: _eraseStarted,
-      mode: tools.eraser.mode,
-      highlighterOnly: tools.eraser.highlighterOnly,
-    );
-    _eraseStarted = _eraseStarted || erased;
-    _lastScreen = screen;
+    _dropReach = null;
   }
 
   /// Shows the eraser outline at [screen], or hides it.

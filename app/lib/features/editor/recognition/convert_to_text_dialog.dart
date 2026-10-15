@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../ink/recognition/convert_to_text.dart';
-import '../../../ink/recognition/handwriting_recognizer.dart';
-import '../../../ink/recognition/recognition_languages.dart';
 import '../../../ink/recognition/recognition_service.dart';
 import '../../../ink/selection/selection_controller.dart';
 import '../../../ui/app_dialogs.dart';
@@ -13,6 +11,7 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/chip_surface.dart';
 import '../../../ui/messages.dart';
 import '../../../ui/section_label.dart';
+import 'model_download_dialog.dart';
 
 /// What the user chose in the "Convert to text" dialog.
 sealed class _Choice {
@@ -41,7 +40,7 @@ Future<void> convertSelectionToText(
 }) async {
   final strokes = selection.strokes;
   if (strokes.isEmpty || !recognition.isSupported) return;
-  if (!await _ensureModel(context, recognition) || !context.mounted) return;
+  if (!await ensureRecognitionModel(context, recognition) || !context.mounted) return;
   Future<ConversionResult> recognize() => ConvertToText.recognize(
     strokes,
     (line, area) => recognition.recognize(line, writingArea: area),
@@ -76,79 +75,6 @@ Future<void> convertSelectionToText(
 }
 
 void _snack(BuildContext context, String message) => showMessage(context, message);
-
-/// True when the model is (or has just been) downloaded.
-Future<bool> _ensureModel(BuildContext context, RecognitionService recognition) async {
-  if (recognition.modelStatus != ModelStatus.downloaded) await recognition.refreshModel();
-  if (recognition.modelStatus == ModelStatus.downloaded) return true;
-  if (!context.mounted) return false;
-  final name = RecognitionLanguages.byTag(recognition.language)?.name ?? recognition.language;
-  return await showDialog<bool>(
-        context: context,
-        builder: (context) => _DownloadDialog(recognition: recognition, languageName: name),
-      ) ??
-      false;
-}
-
-class _DownloadDialog extends StatelessWidget {
-  const _DownloadDialog({required this.recognition, required this.languageName});
-
-  final RecognitionService recognition;
-  final String languageName;
-
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: recognition,
-    builder: (context, _) {
-      final downloading = recognition.modelStatus == ModelStatus.downloading;
-      final error = recognition.downloadError;
-      return AppDialog(
-        title: 'Download handwriting model?',
-        content: DialogBody(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Recognising $languageName handwriting needs its model on this device '
-                '(${RecognitionService.modelSize}). Recognition then works offline.',
-              ),
-              if (downloading) ...[
-                const SizedBox(height: Gaps.lg),
-                const LinearProgressIndicator(),
-              ],
-              if (error != null && !downloading) ...[
-                const SizedBox(height: Gaps.md),
-                Text(
-                  'The download failed. Check the connection and try again.',
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: downloading
-                ? null
-                : () async {
-                    final ok = await recognition.download();
-                    if (ok && context.mounted) Navigator.pop(context, true);
-                  },
-            child: Text(
-              downloading
-                  ? 'Downloading…'
-                  : error != null
-                  ? 'Try again'
-                  : 'Download',
-            ),
-          ),
-        ],
-      );
-    },
-  );
-}
 
 /// Shows the reading (editable) and the other readings; when recognition
 /// fails or finds nothing, offers to try again (or close).

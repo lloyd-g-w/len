@@ -20,14 +20,16 @@ trap 'rm -rf "$out"' EXIT
   kotlinc -nowarn -cp '$cp' android/app/src/main/kotlin/dev/len/len/WetInkModel.kt \
     android/app/src/main/kotlin/dev/len/len/WetInkEnds.kt \
     android/app/src/main/kotlin/dev/len/len/WetInkPrediction.kt \
+    android/app/src/main/kotlin/dev/len/len/WetInkHandover.kt \
     android/app/src/main/kotlin/dev/len/len/IncomingNames.kt \
     android/app/src/main/kotlin/dev/len/len/PlaybackEvents.kt \
     android/app/src/test/kotlin/dev/len/len/WetInkModelTest.kt \
     android/app/src/test/kotlin/dev/len/len/WetInkEndsTest.kt \
     android/app/src/test/kotlin/dev/len/len/WetInkPredictionTest.kt \
+    android/app/src/test/kotlin/dev/len/len/WetInkHandoverTest.kt \
     android/app/src/test/kotlin/dev/len/len/IncomingNamesTest.kt \
     android/app/src/test/kotlin/dev/len/len/PlaybackEventsTest.kt -d '$out' &&
   java -cp \"$out:$cp:android/app/src/test/resources:\$stdlib\" \
     org.junit.runner.JUnitCore dev.len.len.WetInkModelTest dev.len.len.WetInkEndsTest \
-    dev.len.len.WetInkPredictionTest dev.len.len.IncomingNamesTest \
+    dev.len.len.WetInkPredictionTest dev.len.len.WetInkHandoverTest dev.len.len.IncomingNamesTest \
     dev.len.len.PlaybackEventsTest"

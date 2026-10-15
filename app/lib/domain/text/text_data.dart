@@ -1,20 +1,12 @@
 import 'paragraph_style.dart';
 import 'span_style.dart';
+import 'text_alignment.dart';
 import 'text_font.dart';
 
 export 'paragraph_style.dart';
 export 'span_style.dart';
+export 'text_alignment.dart';
 export 'text_font.dart';
-
-/// Horizontal alignment of a text box. Stored by [name].
-enum TextAlignment {
-  left,
-  center,
-  right;
-
-  static TextAlignment parse(Object? value) =>
-      values.firstWhere((a) => a.name == value, orElse: () => left);
-}
 
 /// The content and formatting of a text element (`SurfaceElement.data` of
 /// type `text`): plain [text] (lines separated by `\n`), character

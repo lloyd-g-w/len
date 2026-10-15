@@ -28,6 +28,10 @@ extension _EditorActions on _EditorScreenState {
     _session.input.events.shapeDrawn = null;
   }
 
+  void _followLink(Paper target) {
+    if (mounted && !_closing) _session.commands?.followLink(context, target);
+  }
+
   void _onMultiFingerTap(int fingers) => runMultiFingerTap(_session, fingers, _hud);
 
   /// Also from the stylus message's action, which outlives the editor.

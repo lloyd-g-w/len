@@ -2,6 +2,7 @@ import 'dart:collection';
 
 import 'package:flutter/gestures.dart';
 
+import '../../domain/stroke.dart';
 import 'stylus_batch.dart';
 
 /// A digitiser sample placed in the coordinate space of a pointer event.
@@ -41,10 +42,11 @@ abstract interface class SampleSource {
   /// simply means fewer samples).
   List<PointerSample> between(PointerEvent event);
 
-  /// Stops tracking; later samples of the contact are ignored. [taperEnd]
-  /// is the end taper (world units) the stroke was committed with, for a
-  /// platform overlay drawing it (0: none, or not committed).
-  void end({double taperEnd = 0});
+  /// Stops tracking; later samples of the contact are ignored. [committed]
+  /// is the stroke the contact left (null: none — erasing, a tool, a
+  /// bounce, a scribble that erased, a cancelled contact), for a platform
+  /// overlay drawing it.
+  void end({Stroke? committed});
 
   /// A pointer hovers over the surface (no contact tracked).
   void hover(PointerHoverEvent event);
@@ -137,7 +139,7 @@ class StylusSampleMerger implements SampleSource {
   }
 
   @override
-  void end({double taperEnd = 0}) => _device = null;
+  void end({Stroke? committed}) => _device = null;
 
   static bool _sameUs(double a, int b) => (a - b).abs() < 0.5;
 

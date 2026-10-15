@@ -1035,6 +1035,8 @@ Flutter 31.3 / 39.8 / 42.9 / 51.7.
   building it (progress → present, max of all three). The overlay held
   points 50 ms after the report, too close to that, so it now holds them
   70 ms (`SHOWN_AFTER_MS`); longer only keeps opaque ink on Flutter's.
+  Since the pen flicker report (below) it also waits for a frame built
+  three frames later, which a raster stall holds back.
 
 Checked with screenshots taken mid-stroke from a build that drew the
 overlay green (not committed): the overlay's tip sits exactly on the end
@@ -1047,6 +1049,76 @@ ink. Not checked: zoom on pages and a pan or zoom during a stroke (adb
 cannot inject a pinch or two-finger drag), and fast transients at pen-up
 that screenshots (≈ 150 ms apart) cannot catch; the model checks above
 (gap and ghost 0 at depths 1 and 2) cover those.
+
+### Pen flicker (2026-10)
+
+Owner report (Android tablet, S Pen): "the pen still flickers sometimes",
+with no clear pattern. No device was at hand, so every way a stroke can
+visibly flicker on Android was gone through and given a deterministic
+test; what failed was fixed. Status per cause:
+
+| Cause | Status | Test |
+|---|---|---|
+| (f) **Front buffer cleared, then redrawn**: each overlay frame cleared its rectangle of the buffer the display is scanning out and drew the ink again; a scan-out between the two showed the rectangle empty for a refresh (Flutter's ink, ≈ 30 ms behind, under it): the newest ink blinked, at random. androidx.ink's front-buffer renderers name the same race. | **Fixed** (unverified on a device): drawn offscreen, then copied over the rectangle in one `SRC` pass (`WetInkLayer`) | none possible off the device; the flicker log cannot see it either |
+| (a, i) **Overlay let go before Flutter's frame showed**: points were dropped 70 ms after the report of the frame with them, whatever Flutter's raster thread did. A frame rasterised late (a busy page, tile renders, the CPU busy with a worker isolate, GC on the raster side) left the newest ink on neither layer: it vanished for some frames and came back, mid-stroke or at the lift. | **Fixed**: a frame built three frames later must be reported too (`WetInkHandover`); Dart reports three trailing frames | `WetInkHandoverTest.kt`: a simulated pipeline with a 120 ms raster stall mid-stroke (69 ms of gap before), 30 ms raster throughout (366 ms), a stall on the lift's frame (51 ms); steady frames still hand over at 70 ms |
+| (a) **Pen-down under a busy UI thread**: ink drawn from `arm` was dropped if Dart's `begin` took over 150 ms (a long frame, loading), then drawn again when it came. | **Fixed**: dropped only after 1 s without an answer (Dart answers every stylus down) | `WetInkHandoverTest.aBusyUiThreadAtPenDownKeepsTheArmedInk` |
+| (a) **Strokes that leave nothing** (a bounce, a scribble that erased): sent `end`, so the overlay kept their tail ≈ 50 ms after Flutter's frame without them was on screen: a fragment of ink alone. | **Fixed**: `cancel` right after that frame is built | `low_latency_handover_test.dart` |
+| (e, j) **View moving after the lift** (the zoom window moving on, a scroll): the overlay kept the end of the stroke where it had been on the screen for up to 70 ms while the content moved. Mid-stroke, a moved view dropped the overlay's ink a frame or two before Flutter's frame showed it elsewhere. | **Fixed**: cancelled with the frame that moves the view (also during the overlay's hold after `end`) | `low_latency_handover_test.dart` |
+| (a) **Double darkness** (overlay and Flutter both drawing translucent ink) | Ruled out: the overlay draws opaque pen ink only (`WetInkStyle`); a stroke's hull pieces are one path, Flutter's outline is one path | `wet_ink_test.dart` |
+| (b) **Predicted tip drawn, then taken back** | Measured, not changed: replayed real recordings put 1.4 % of events more than 0.5 W off, pen-up max 0.35 W (*Prediction*, below); the device's own predictor may differ | flicker log: `retract` entries > 0.5 px |
+| (c) **Shape jump at hand-over** (overlay and Flutter geometry differing) | Ruled out: `overlay.gap` 0 and `overlay.ghost` 0 px² for round, flat and **tapered** ends at stabiliser 0, 0.4 and 1 (`INKLAB_ENDS=tapered`, simulated cases; flat and round as before); Kotlin = Dart to 1e-13 (`check.sh`, all three end styles, zoom 1.3). The overlay never sees mouse input (`MouseSmoother`) | `flicker_log_test.dart`: the overlay model's ink of each simulated stroke lies inside the committed outline; flicker log `geometry` on the device |
+| (d) **Tiles at pen-up** (images swapped late, LOD) | Ruled out: `pen_up_frames_test.dart` (canvas 50–200 %, 1×/2×, pages from tiles and rasters, pen and highlighter); the zoom window draws through the same tiles | existing |
+| (e) **Overlay refusing mid-stroke** (hold to snap, style change) | Ruled out: hold to snap needs 600 ms of rest, after which the overlay holds nothing; it never un-snaps; straightening cancels at once | — |
+| (g) **Hover, side button, eraser end** | Ruled out: a down with a button or the eraser end is never drawn from `arm`; the route is decided at pen-down | — |
+| (h) **Finger-erase deferral, scribble dimming** | Ruled out: fingers never reach the overlay; dimming changes other strokes, Flutter only | — |
+| (j) **Rotation, split view** | Unverifiable here: buffers are rebuilt on surface changes (checked by screenshots before); the offscreen layer follows the view's size every frame | — |
+| Samples Flutter dropped (a batch after its event) | Ruled out by design (the batch goes before the event, on the same queue) | flicker log: `samples` |
+
+The front-buffer race and the late frames are the two that fit "sometimes,
+no pattern". Both need the tablet to confirm: the flicker log (below)
+shows the second, a slow-motion video the first.
+
+### Flicker log
+
+A cheap on-device record of hand-over anomalies (`FlickerLog`,
+`platform/low_latency_log.dart`), for catching a flicker when it happens:
+
+1. Open the Ink Lab (Settings → About, tap the version 7 times) and tap
+   **Flicker log** (the bug icon). Switch **Record** on (it is on in
+   debug builds). It stays on until the app restarts, in the editor too.
+2. Write — in the Ink Lab or in any notebook — until the pen flickers.
+   Note the time.
+3. Back in the Ink Lab, open **Flicker log**: newest entries first, a
+   summary on top. **Share** sends it as a text file; **Clear** empties it.
+
+Entries:
+
+- `gap`: the overlay let go of a frame's ink before Flutter could show
+  it (released before the frame's raster finished + one display frame;
+  from the overlay's `released` messages and Flutter's `FrameTiming`s,
+  matched by build time). Says how long the ink was likely missing.
+  Should never happen now; if it does, the frame pipeline is deeper than
+  `WetInkHandover` assumes.
+- `end`: the same for the frame with the committed stroke (the overlay
+  dropped the stroke at the lift too early).
+- `retract`: a predicted tip drawn and then taken back by more than
+  0.5 px (distance from the old tip's points to what is drawn now).
+  Many of these at the moment of a flicker point at prediction.
+- `geometry`: the overlay's ink of a stroke reaches more than 0.5 px
+  outside Flutter's committed outline (the Dart model, equal to the
+  overlay's, on the samples Flutter saw, after each lift): a shape jump
+  where the overlay let go.
+- `samples`: Flutter saw fewer samples of a stroke than the overlay drew.
+- `unanswered` / `lost`: the overlay dropped a stroke Dart never answered
+  or ended (UI thread stalled ≥ 1 s).
+- `cancel`: why the overlay stopped drawing a stroke (the view moved,
+  straightened, nothing committed): informational.
+
+The summary counts strokes and frames judged and the worst retract and
+geometry. Flutter reports frame timings in batches (every 100 ms in debug
+and profile builds, every second in release), so `gap` entries arrive a
+little late. A flicker with no entry at all points at the front buffer
+(cause f above), which no log can see: film it in slow motion.
 
 ### Prediction
 

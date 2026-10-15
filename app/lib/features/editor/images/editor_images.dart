@@ -160,30 +160,45 @@ class EditorImages {
     }
   }
 
-  /// Ctrl+V: pastes an image from the system clipboard if it holds one
-  /// that is newer than the ink last copied in the app; otherwise pastes
-  /// the app's own clipboard. Text becomes a text box, formatted when the
-  /// clipboard has HTML (unless [plain], Ctrl+Shift+V).
-  Future<void> paste(BuildContext context, {bool plain = false}) async {
+  /// Ctrl+V, and the canvas menu's Paste here: pastes an image from the
+  /// system clipboard if it holds one that is newer than the ink last
+  /// copied in the app; otherwise pastes the app's own clipboard. Text
+  /// becomes a text box, formatted when the clipboard has HTML (unless
+  /// [plain], Ctrl+Shift+V). What is pasted lands around [screen] (the
+  /// middle of the screen by default), selected; the tool stays.
+  Future<void> paste(BuildContext context, {bool plain = false, Offset? screen}) async {
     final bytes = plain ? null : await _clipboardImage();
     if (!context.mounted) return;
-    if (bytes != null && _hash(bytes) != _imageBeforeInkCopy) {
-      await insertBytes(context, bytes);
+    if (bytes != null && !await _isInk(bytes)) {
+      if (!context.mounted) return;
+      await insertBytes(context, bytes, screen: screen);
       return;
     }
     // Plain text newer than the copied ink becomes a new text box.
     final text = await _clipboardText();
     if (!context.mounted) return; // The editor closed meanwhile.
-    if (text != null && (services.clipboard.isEmpty || text != _textBeforeInkCopy)) {
+    if (text != null && (services.clipboard.isEmpty || !_isInkText(text))) {
       final html = plain || RichTextController.isOwnClip(text) ? null : await _readHtml();
       if (!context.mounted) return;
       final rich = html == null ? null : textFromHtml(html, tools.textStyle);
-      content.pasteText(rich ?? RichTextController.pasted(text, tools.textStyle));
+      content.pasteText(
+        rich ?? RichTextController.pasted(text, tools.textStyle),
+        at: _worldAt(screen),
+      );
     } else if (content.selection.clipboard.isEmpty) {
       if (context.mounted) showMessage(context, 'Nothing to paste');
+    } else if (_worldAt(screen) case final at?) {
+      content.selection.paste(at);
     } else {
       content.pasteAtCentre();
     }
+  }
+
+  /// The world point under [screen], on the page there (null: the centre).
+  Offset? _worldAt(Offset? screen) {
+    if (screen == null) return null;
+    activateAt?.call(screen);
+    return content.viewport.toWorld(screen);
   }
 
   // ---------------------------------------------------------------------------
@@ -217,7 +232,8 @@ class EditorImages {
       id: clock.newId(),
       now: clock.nowMs(),
     );
-    tools.tool = EditorTool.lasso;
+    // Selected, the tool kept: tap away and write on (a live selection,
+    // as the side button's lasso makes).
     content.selection.select(const [], [element]);
     return element;
   }
@@ -271,6 +287,16 @@ class EditorImages {
       return null;
     }
   }
+
+  /// Whether the system clipboard's image [bytes] is no newer than the ink
+  /// copied in the app: there before the copy, or its picture.
+  Future<bool> _isInk(Uint8List bytes) async =>
+      !services.clipboard.isEmpty &&
+      (_hash(bytes) == _imageBeforeInkCopy || await services.clipboardMirror.holdsInk(bytes));
+
+  /// As [_isInk], for the system clipboard's [text].
+  bool _isInkText(String text) =>
+      text == _textBeforeInkCopy || services.clipboardMirror.holdsInkText(text);
 
   void _onInkCopied() {
     if (services.clipboard.isEmpty) return;

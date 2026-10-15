@@ -37,7 +37,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   double ascenders; tuned on simulated and reshaped input so far, INK_LAB *Gestures on real ink*)
 
 ## Editing tools
-- ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate
+- ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate;
+  copy also puts a picture of the selection on the system clipboard for other apps (text boxes
+  also as text), while pasting back in Len gives ink
 - ✅ Lasso options: freehand or rectangle; select what it touches, what is mostly inside or only
   what is wholly inside; which items (ink, highlighter, text, images); remembered with the tools;
   the side-button lasso and taps follow them, a rectangle from PDF text selects the text

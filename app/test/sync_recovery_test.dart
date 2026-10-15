@@ -201,6 +201,39 @@ void main() {
       expect((await b.sync()).isEmpty, isTrue, reason: 'announced once');
     });
 
+    test('a database error half way through a page: what it applied is still announced', () async {
+      final (a, b) = twoDevices();
+      final notebooks = [for (var n = 0; n < 4; n++) _notebook(a, 'N$n')];
+      for (final nb in notebooks) {
+        a.s.strokes.save([for (var i = 0; i < 100; i++) bigStroke('${nb.id}-$i', nb.id, 4)]);
+      }
+      await a.sync();
+      // Every stroke slow to write (many slices), the last one failing.
+      final last = '${notebooks.last.id}-99';
+      b.db
+        ..execute('''
+          CREATE TRIGGER test_slow AFTER INSERT ON strokes BEGIN
+            SELECT COUNT(*) FROM (WITH RECURSIVE c(x) AS
+              (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 20000) SELECT x FROM c);
+          END''')
+        ..execute('''
+          CREATE TRIGGER test_fail BEFORE INSERT ON strokes WHEN NEW.id = '$last' BEGIN
+            SELECT RAISE(ABORT, 'disk on fire');
+          END''');
+      await expectLater(b.s.sync.engine.sync(apiFor(a.server)), throwsA(isA<Exception>()));
+      final applied = {
+        for (final r in b.db.select('SELECT DISTINCT surface_id FROM strokes')) r['surface_id'],
+      };
+      expect(applied, isNotEmpty, reason: 'slices before the failing one are in');
+      b.db
+        ..execute('DROP TRIGGER test_slow')
+        ..execute('DROP TRIGGER test_fail');
+
+      final changes = await b.sync();
+      expect(changes.notebooks, isTrue, reason: 'the library must learn about the notebooks');
+      expect(changes.strokeSurfaces, {for (final nb in notebooks) nb.id});
+    });
+
     test('a page is applied in slices; one cut short is pulled again', () async {
       final (a, b) = twoDevices();
       const total = SyncApi.pullLimit;

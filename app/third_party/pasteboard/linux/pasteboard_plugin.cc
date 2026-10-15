@@ -125,6 +125,109 @@ static void clipboard_request_html_callback(
                                  nullptr);
 }
 
+// What "write" put on the clipboard (added in Len's copy): a PNG and / or
+// plain text, offered in every format GTK can convert them to.
+struct ClipContent {
+  GBytes *png;        // Or null.
+  GdkPixbuf *pixbuf;  // [png] decoded, for other image formats; lazily.
+  gchar *text;        // Or null.
+};
+
+enum ClipTarget : guint { kClipPng = 1, kClipImage = 2, kClipText = 3 };
+
+static void clip_content_free(ClipContent *content) {
+  if (content->png) g_bytes_unref(content->png);
+  if (content->pixbuf) g_object_unref(content->pixbuf);
+  g_free(content->text);
+  delete content;
+}
+
+static GdkPixbuf *clip_content_pixbuf(ClipContent *content) {
+  if (content->pixbuf || !content->png) return content->pixbuf;
+  gsize size = 0;
+  auto *data = static_cast<const guchar *>(g_bytes_get_data(content->png, &size));
+  GdkPixbufLoader *loader = gdk_pixbuf_loader_new_with_type("png", nullptr);
+  if (!loader) return nullptr;
+  if (gdk_pixbuf_loader_write(loader, data, size, nullptr) &&
+      gdk_pixbuf_loader_close(loader, nullptr)) {
+    GdkPixbuf *pixbuf = gdk_pixbuf_loader_get_pixbuf(loader);
+    if (pixbuf) content->pixbuf = GDK_PIXBUF(g_object_ref(pixbuf));
+  } else {
+    gdk_pixbuf_loader_close(loader, nullptr);
+  }
+  g_object_unref(loader);
+  return content->pixbuf;
+}
+
+static void clip_content_get(GtkClipboard *clipboard,
+                             GtkSelectionData *selection_data,
+                             guint info,
+                             gpointer user_data) {
+  auto *content = static_cast<ClipContent *>(user_data);
+  if (info == kClipPng && content->png) {
+    gsize size = 0;
+    auto *data = static_cast<const guchar *>(g_bytes_get_data(content->png, &size));
+    gtk_selection_data_set(selection_data, gtk_selection_data_get_target(selection_data), 8,
+                           data, static_cast<gint>(size));
+  } else if (info == kClipImage) {
+    GdkPixbuf *pixbuf = clip_content_pixbuf(content);
+    if (pixbuf) gtk_selection_data_set_pixbuf(selection_data, pixbuf);
+  } else if (info == kClipText && content->text) {
+    gtk_selection_data_set_text(selection_data, content->text, -1);
+  }
+}
+
+static void clip_content_clear(GtkClipboard *clipboard, gpointer user_data) {
+  clip_content_free(static_cast<ClipContent *>(user_data));
+}
+
+// "write": {png?: Uint8List, text?: String} as one clipboard entry.
+static void write_clipboard(FlMethodCall *method_call) {
+  FlValue *args = fl_method_call_get_args(method_call);
+  FlValue *png = nullptr;
+  FlValue *text = nullptr;
+  if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+    png = fl_value_lookup_string(args, "png");
+    text = fl_value_lookup_string(args, "text");
+  }
+  if (png != nullptr && fl_value_get_type(png) != FL_VALUE_TYPE_UINT8_LIST) png = nullptr;
+  if (text != nullptr && fl_value_get_type(text) != FL_VALUE_TYPE_STRING) text = nullptr;
+  if (png == nullptr && text == nullptr) {
+    fl_method_call_respond_success(method_call, fl_value_new_bool(FALSE), nullptr);
+    return;
+  }
+
+  auto *content = new ClipContent{nullptr, nullptr, nullptr};
+  GtkTargetList *targets = gtk_target_list_new(nullptr, 0);
+  if (png != nullptr) {
+    content->png = g_bytes_new(fl_value_get_uint8_list(png), fl_value_get_length(png));
+    // Every format GdkPixbuf can write, the PNG itself byte for byte.
+    GdkAtom png_atom = gdk_atom_intern_static_string("image/png");
+    gtk_target_list_add_image_targets(targets, kClipImage, TRUE);
+    gtk_target_list_remove(targets, png_atom);
+    gtk_target_list_add(targets, png_atom, 0, kClipPng);
+  }
+  if (text != nullptr) {
+    content->text = g_strdup(fl_value_get_string(text));
+    gtk_target_list_add_text_targets(targets, kClipText);
+  }
+
+  gint n_targets = 0;
+  GtkTargetEntry *table = gtk_target_table_new_from_list(targets, &n_targets);
+  auto *clipboard = gtk_clipboard_get_default(gdk_display_get_default());
+  gboolean done = gtk_clipboard_set_with_data(clipboard, table, static_cast<guint>(n_targets),
+                                              clip_content_get, clip_content_clear, content);
+  if (done) {
+    // A clipboard manager may keep it once Len quits.
+    gtk_clipboard_set_can_store(clipboard, nullptr, 0);
+  } else {
+    clip_content_free(content);
+  }
+  gtk_target_table_free(table, n_targets);
+  gtk_target_list_unref(targets);
+  fl_method_call_respond_success(method_call, fl_value_new_bool(done), nullptr);
+}
+
 // Called when a method call is received from Flutter.
 static void pasteboard_plugin_handle_method_call(
     PasteboardPlugin *self,
@@ -171,6 +274,8 @@ static void pasteboard_plugin_handle_method_call(
 
     gtk_clipboard_request_image(clipboard, clipboard_request_image_callback, g_object_ref(method_call));
 
+  } else if (strcmp(method, "write") == 0) {
+    write_clipboard(method_call);
   } else if (strcmp(method, "html") == 0) {
     auto *clipboard = gtk_clipboard_get_default(gdk_display_get_default());
     gtk_clipboard_request_contents(clipboard, gdk_atom_intern_static_string("text/html"),

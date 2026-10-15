@@ -1,11 +1,16 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '../domain/stroke.dart';
 import '../ink/input/sample_source.dart';
 import '../ink/input/wet_ink.dart';
+import '../ink/render/stroke_renderer.dart';
+import 'low_latency_frames.dart';
+import 'low_latency_log.dart';
 
 /// Control messages for the native low-latency ink overlay (`WetInkOverlay.kt`).
 const String lowLatencyInkChannel = 'len/low_latency_ink';
@@ -28,6 +33,23 @@ void _onPointer(PointerEvent event) {
 
 void _send(List<Object?> message) => _overlay.send(message).ignore();
 
+/// The frames built while the overlay draws, reported to it.
+final LowLatencyFrames lowLatencyFrames = LowLatencyFrames(_send);
+
+/// The flicker log's side of the overlay's messages (created with the
+/// first source: it needs the bindings).
+LowLatencyLog? _log;
+
+LowLatencyLog get _flicker => _log ??= () {
+  final log = LowLatencyLog(_send);
+  lowLatencyFrames.onReport = log.reported;
+  _overlay.setMessageHandler((m) async {
+    if (m is List<Object?>) log.handle(m);
+    return null;
+  });
+  return log;
+}();
+
 /// Tells the overlay which contact to draw and how far Flutter has got.
 ///
 /// Messages: `[arm, argb, radii px, shape, clip]` or `[arm]` (while the
@@ -36,10 +58,12 @@ void _send(List<Object?> message) => _overlay.send(message).ignore();
 /// device, downTimeUs, argb, radii px, shape (`WetInkShape.toList`, px),
 /// clip [l, t, r, b] px]` (at pen-down: ink shows from there), `[skip,
 /// device, downTimeUs]` (that stylus down is not ink), `[progress,
-/// eventTimeUs]` (after a frame showing input up to that event was built),
-/// `[end, device, downTimeUs]` (after the frame that shows the finished
-/// stroke), `[cancel, device, downTimeUs]` (the overlay's ink is no longer
-/// right: remove it now). Pixels are the Flutter view's physical pixels.
+/// eventTimeUs, frameId]` (after each frame built while there is overlay
+/// ink: it shows input up to that event; [LowLatencyFrames]), `[end,
+/// device, downTimeUs, taperEnd px]` (right after the report of the frame
+/// that shows the committed stroke), `[cancel, device, downTimeUs]` (the
+/// overlay's ink is no longer right: remove it now). Pixels are the
+/// Flutter view's physical pixels.
 class LowLatencySource implements SampleSource {
   /// Draws with [_style] (the stroke's look, null: not overlay ink),
   /// [_next] (the next stroke's, while hovering) and [_view] (where), at
@@ -49,6 +73,7 @@ class LowLatencySource implements SampleSource {
       _routed = true;
       GestureBinding.instance.pointerRouter.addGlobalRoute(_onPointer);
     }
+    _flicker;
   }
 
   final SampleSource _inner;
@@ -60,8 +85,9 @@ class LowLatencySource implements SampleSource {
   PointerDownEvent? _contact;
   WetInkView? _started;
   bool _drawing = false;
-  int _processedUs = 0;
-  bool _progressScheduled = false;
+
+  /// The contact's samples, while the flicker log records.
+  LoggedContact? _logged;
 
   // The last `arm` sent and when (µs of the hover event).
   List<Object?>? _armed;
@@ -70,6 +96,10 @@ class LowLatencySource implements SampleSource {
   /// While hovering, `arm` is re-sent this often (the overlay only trusts a
   /// recent one).
   static const int _rearmUs = 150000;
+
+  /// How long after `end` the overlay may still draw a stroke, at most
+  /// (`WetInkHandover.LOST_AFTER_MS`): the view moving meanwhile cancels it.
+  static const Duration _heldAfterEnd = Duration(seconds: 1);
 
   @override
   void hover(PointerHoverEvent event) {
@@ -124,12 +154,14 @@ class LowLatencySource implements SampleSource {
     if (view.clip.isEmpty) return;
     _drawing = true;
     _started = view;
+    _logged = _flicker.begin(contact, style, view, _dpr());
     _send([
       'begin',
       contact.device,
       contact.timeStamp.inMicroseconds.toDouble(),
       ..._payload(style, view, contact.position - contact.localPosition),
     ]);
+    lowLatencyFrames.input(contact.timeStamp.inMicroseconds);
   }
 
   @override
@@ -140,49 +172,87 @@ class LowLatencySource implements SampleSource {
     final style = _style();
     if (!_drawing && style != null) {
       _start();
-    } else if (_drawing && (style == null || !_view().sameTransform(_started!))) {
-      // Straightened, no longer ink, or the view moved: Flutter draws it.
-      _send(['cancel', contact.device, contact.timeStamp.inMicroseconds.toDouble()]);
+      _logged = null; // Started late: its samples so far are not known here.
+    } else if (_drawing && style == null) {
+      // Straightened, or no longer ink: Flutter draws it (the pen rests
+      // when a stroke snaps, so Flutter's frames have caught up).
+      _send(_cancel(contact));
+      _flicker.cancelled('straightened (or no longer ink) while writing');
       _drawing = false;
       _contact = null;
       return samples;
+    } else if (_drawing && !_view().sameTransform(_started!)) {
+      // The view moved: Flutter draws the stroke elsewhere from the next
+      // frame on; the overlay's ink goes once that frame is built.
+      _drawing = false;
+      _contact = null;
+      lowLatencyFrames.afterNextFrame(() => _send(_cancel(contact)));
+      _flicker.cancelled('the view moved while writing');
+      return samples;
     }
-    _processedUs = event.timeStamp.inMicroseconds;
-    _scheduleProgress();
+    if (_drawing) {
+      _logged?.add(event, samples);
+      lowLatencyFrames.input(event.timeStamp.inMicroseconds);
+    }
     return samples;
   }
 
   @override
-  void end({double taperEnd = 0}) {
+  void end({Stroke? committed}) {
     _inner.end();
-    _finish(taperEnd);
+    final contact = _contact;
+    if (_drawing && contact != null) _finish(contact, committed);
+    _drawing = false;
     _contact = null;
   }
 
-  /// `end`, with the committed stroke's end taper in the overlay's pixels.
-  void _finish(double taperEnd) {
-    final contact = _contact;
-    if (!_drawing || contact == null) return;
-    _drawing = false;
-    final message = [
-      'end',
-      contact.device,
-      contact.timeStamp.inMicroseconds.toDouble(),
-      taperEnd * _started!.scale * _dpr(),
-    ];
-    SchedulerBinding.instance
-      ..addPostFrameCallback((_) => _send(message))
-      ..ensureVisualUpdate();
-  }
-
-  void _scheduleProgress() {
-    if (_progressScheduled) return;
-    _progressScheduled = true;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      _progressScheduled = false;
-      if (_drawing) _send(['progress', _processedUs.toDouble()]);
+  /// After the next frame (built without the live stroke): `end`, with
+  /// the [committed] stroke's end taper in the overlay's pixels, or
+  /// `cancel` when nothing was committed or the view moved. Until the
+  /// overlay has let go, a view that moves cancels it (its ink would stay
+  /// where the stroke was on the screen).
+  void _finish(PointerDownEvent contact, Stroke? committed) {
+    final view = _started!;
+    final logged = _logged;
+    _logged = null;
+    if (committed == null) {
+      // A bounce, a scribble that erased, a cancelled contact: Flutter's
+      // frames show the live stroke until the one without it, so the
+      // overlay's tail goes with that frame (not after it, alone).
+      lowLatencyFrames.afterNextFrame(() => _send(_cancel(contact)));
+      _flicker.cancelled('nothing committed (a bounce, a scribble that erased)');
+      return;
+    }
+    final taper = StrokeRenderer.specFor(committed.width, committed.style).taperEnd;
+    lowLatencyFrames.afterNextFrame(() {
+      if (!_view().sameTransform(view)) {
+        _flicker.cancelled('the view moved at the lift');
+        return _send(_cancel(contact));
+      }
+      _send([
+        'end',
+        contact.device,
+        contact.timeStamp.inMicroseconds.toDouble(),
+        taper * view.scale * _dpr(),
+      ]);
+      _flicker.ended(lowLatencyFrames.frameId);
+      if (logged != null) scheduleMicrotask(() => _flicker.measure(logged, committed));
+      final until = SchedulerBinding.instance.currentSystemFrameTimeStamp + _heldAfterEnd;
+      lowLatencyFrames.watch(() {
+        if (SchedulerBinding.instance.currentSystemFrameTimeStamp > until) return false;
+        if (_view().sameTransform(view)) return true;
+        _send(_cancel(contact));
+        _flicker.cancelled('the view moved after the lift');
+        return false;
+      });
     });
   }
+
+  static List<Object?> _cancel(PointerDownEvent contact) => [
+    'cancel',
+    contact.device,
+    contact.timeStamp.inMicroseconds.toDouble(),
+  ];
 
   static bool _sameMessage(List<Object?> a, List<Object?> b) {
     if (a.length != b.length) return false;
