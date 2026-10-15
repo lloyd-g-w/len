@@ -1,58 +1,54 @@
 import '../../domain/text/text_data.dart';
+import 'text_insert.dart';
+import 'text_plan.dart';
 
 /// Maps offsets between a text box's text (model offsets) and the laid-out
-/// (display) text, which inserts
+/// (display) text, which adds the [TextInsert]s of its `TextPlan`:
 ///
 /// - one placeholder character (U+FFFC) before each list line, where its
-///   marker sits, and
-/// - at each *wrap* of a list item (see `TextWraps`) a line break plus a
-///   placeholder as wide as the marker column ([wrapText]), so the
-///   continuation line hangs under the item's text.
+///   marker sits,
+/// - at each *wrap* of a list item a line break plus a placeholder as wide
+///   as the marker column ([wrapText]), so the continuation line hangs
+///   under the item's text, and
+/// - around paragraphs running against the box's direction, isolates and
+///   the placeholders that align their lines (with a break at each wrap).
 ///
 /// The model offset at a wrap maps to the start of the continuation line.
 class MarkerOffsets {
-  MarkerOffsets(TextData data, [List<int> wraps = const []])
-    : _inserts = _merge(_listStarts(data), wraps);
+  MarkerOffsets(List<TextInsert> inserts) : _inserts = inserts;
 
-  /// What is inserted at a wrap.
+  /// The offsets of [data] laid out in a box [width] wide (see [TextPlan]).
+  factory MarkerOffsets.of(TextData data, [double width = double.infinity]) =>
+      TextPlan.of(data, width).offsets;
+
+  /// What is inserted at the wrap of a list item running in the box's
+  /// direction.
   static const String wrapText = '\n\uFFFC';
 
-  /// Model offsets of the inserts, ascending; `wrap` false = a marker.
-  final List<({int at, bool wrap})> _inserts;
-
-  static List<int> _listStarts(TextData data) {
-    final out = <int>[];
-    var start = 0;
-    for (final p in data.paras) {
-      if (p.isList) out.add(start);
-      final nl = data.text.indexOf('\n', start);
-      if (nl < 0) break;
-      start = nl + 1;
-    }
-    return out;
-  }
-
-  static List<({int at, bool wrap})> _merge(List<int> markers, List<int> wraps) {
-    final out = [
-      for (final m in markers) (at: m, wrap: false),
-      for (final w in wraps) (at: w, wrap: true),
-    ];
-    // A wrap is never at a line start, so offsets are unique.
-    out.sort((a, b) => a.at.compareTo(b.at));
-    return out;
-  }
-
-  static int _length(({int at, bool wrap}) i) => i.wrap ? wrapText.length : 1;
+  /// Sorted by offset, one per offset.
+  final List<TextInsert> _inserts;
 
   bool get isEmpty => _inserts.isEmpty;
 
-  /// Display offset of model offset [m]: after the marker of its line, and
-  /// at a wrap at the start of the continuation line.
+  /// Display offset of model offset [m] as a caret position: after the
+  /// marker of its line, at a wrap at the start of the continuation line,
+  /// at the end of a paragraph before its closing isolate.
   int toDisplay(int m) {
     var d = m;
     for (final i in _inserts) {
       if (i.at > m) break;
-      d += _length(i);
+      d += i.at == m ? i.caret : i.length;
+    }
+    return d;
+  }
+
+  /// Display offset of the character at model offset [m] (after every
+  /// insert in front of it).
+  int charAt(int m) {
+    var d = m;
+    for (final i in _inserts) {
+      if (i.at > m) break;
+      d += i.length;
     }
     return d;
   }
@@ -63,41 +59,84 @@ class MarkerOffsets {
     for (final i in _inserts) {
       final start = i.at + shift;
       if (d <= start) break;
-      if (d < start + _length(i)) return i.at;
-      shift += _length(i);
+      if (d < start + i.length) return i.at;
+      shift += i.length;
     }
     return d - shift;
   }
 
-  /// The insert covering display character [d], if any.
-  ({int at, bool wrap})? _insertAt(int d) {
+  /// The insert at display position [d] (0 ≤ index ≤ its length), if any.
+  ({TextInsert insert, int index})? _around(int d) {
     var shift = 0;
     for (final i in _inserts) {
       final start = i.at + shift;
       if (d < start) return null;
-      if (d < start + _length(i)) return i;
-      shift += _length(i);
+      if (d <= start + i.length) return (insert: i, index: d - start);
+      shift += i.length;
     }
     return null;
   }
 
-  /// Whether display character [d] is a list marker.
-  bool isMarker(int d) => _insertAt(d)?.wrap == false;
+  /// The inserted character at display offset [d], if it is one.
+  InsertPiece? pieceAt(int d) {
+    final a = _around(d);
+    if (a == null || a.index == a.insert.length) return null;
+    return a.insert.pieces[a.index];
+  }
 
-  /// Whether display character [d] belongs to a wrap.
-  bool isWrap(int d) => _insertAt(d)?.wrap == true;
+  /// Whether display character [d] is a list marker.
+  bool isMarker(int d) => pieceAt(d)?.kind == InsertKind.marker;
+
+  /// Whether display character [d] was inserted by the layout.
+  bool isInserted(int d) => pieceAt(d) != null;
 
   /// Whether the caret must not rest at display offset [d]: just before a
-  /// marker, or between a wrap's break and its indent.
+  /// marker, between a wrap's break and its indent, around isolates and
+  /// alignment padding.
   bool isHidden(int d) {
-    var shift = 0;
-    for (final i in _inserts) {
-      final start = i.at + shift;
-      if (d < start) return false;
-      if (d == (i.wrap ? start + 1 : start)) return true;
-      shift += _length(i);
+    final a = _around(d);
+    return a != null && !a.insert.allowed.contains(a.index);
+  }
+
+  /// The nearest display offset to [d] (in a text of [length]) where the
+  /// caret may rest: searching backwards first ([step] -1), forwards first
+  /// ([step] 1), or both alike (0; ties go forwards).
+  int allowedNear(int d, int length, {int step = 0}) {
+    if (!isHidden(d)) return d;
+    int? back() {
+      for (var p = d - 1; p >= 0; p--) {
+        if (!isHidden(p)) return p;
+      }
+      return null;
     }
-    return false;
+
+    int? forth() {
+      for (var p = d + 1; p <= length; p++) {
+        if (!isHidden(p)) return p;
+      }
+      return null;
+    }
+
+    if (step < 0) return back() ?? forth() ?? d;
+    if (step > 0) return forth() ?? back() ?? d;
+    final b = back(), f = forth();
+    if (b == null || f == null) return b ?? f ?? d;
+    return d - b < f - d ? b : f;
+  }
+
+  /// The display ranges holding the model text [start, end), without the
+  /// inserts inside it.
+  List<(int, int)> displayRanges(int start, int end) {
+    final out = <(int, int)>[];
+    var from = start;
+    for (final i in _inserts) {
+      if (i.at <= start) continue;
+      if (i.at >= end) break;
+      out.add((charAt(from), charAt(from) + i.at - from));
+      from = i.at;
+    }
+    if (end > from) out.add((charAt(from), charAt(from) + end - from));
+    return out;
   }
 
   /// The laid-out text of [text].
@@ -108,7 +147,7 @@ class MarkerOffsets {
     for (final i in _inserts) {
       out
         ..write(text.substring(last, i.at))
-        ..write(i.wrap ? wrapText : '\uFFFC');
+        ..write(i.text);
       last = i.at;
     }
     out.write(text.substring(last));

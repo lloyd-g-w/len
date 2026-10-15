@@ -32,7 +32,8 @@ List<List<RotatedRect>>? textMatchRects({
   final data = TextData.fromJson(decoded);
   final lead = data.text.indexOf(body);
   if (lead < 0) return null;
-  final layout = TextBoxLayout(data, data.autoWidth ? double.infinity : box.width);
+  // (Auto-width boxes are as wide as their text: nothing wraps.)
+  final layout = TextBoxLayout(data, box.width);
   final centre = box.center;
   final cos = math.cos(rotation), sin = math.sin(rotation);
   RotatedRect place(Rect local) {
@@ -45,15 +46,7 @@ List<List<RotatedRect>>? textMatchRects({
   try {
     return [
       for (final range in ranges)
-        [
-          for (final b in layout.painter.getBoxesForSelection(
-            TextSelection(
-              baseOffset: layout.offsets.toDisplay(lead + range.start),
-              extentOffset: layout.offsets.toDisplay(lead + range.end),
-            ),
-          ))
-            place(b.toRect()),
-        ],
+        [for (final b in layout.boxesOf(lead + range.start, lead + range.end)) place(b.toRect())],
     ];
   } finally {
     layout.dispose();

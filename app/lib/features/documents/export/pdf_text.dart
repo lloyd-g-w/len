@@ -136,21 +136,15 @@ class PdfTextWriter {
   }
 
   /// Laid-out boxes of the text [start, end) (model offsets, one line of
-  /// the box's text), without the breaks and gaps of hanging indents.
-  static List<Rect> _boxes(TextBoxLayout layout, int start, int end) {
-    final cuts = [start, ...layout.wraps.where((w) => w > start && w < end), end];
-    return [
-      for (var k = 0; k + 1 < cuts.length; k++)
-        for (final b in layout.painter.getBoxesForSelection(
-          TextSelection(
-            baseOffset: layout.offsets.toDisplay(cuts[k]),
-            extentOffset: layout.offsets.toDisplay(cuts[k]) + cuts[k + 1] - cuts[k],
-          ),
-          boxHeightStyle: ui.BoxHeightStyle.includeLineSpacingMiddle,
-        ))
-          b.toRect(),
-    ];
-  }
+  /// the box's text), without what the layout inserts (breaks, gaps).
+  static List<Rect> _boxes(TextBoxLayout layout, int start, int end) => [
+    for (final b in layout.boxesOf(
+      start,
+      end,
+      boxHeightStyle: ui.BoxHeightStyle.includeLineSpacingMiddle,
+    ))
+      b.toRect(),
+  ];
 
   /// Adds the word [start, end) to [run]: whole, or character by character
   /// when the layout broke it across lines.

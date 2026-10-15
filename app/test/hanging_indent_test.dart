@@ -31,11 +31,7 @@ const double wrappedListWidth = 260;
 
 /// Left edge of the laid-out character at model offset [m].
 double leftOf(TextBoxLayout layout, int m) {
-  final d = layout.offsets.toDisplay(m);
-  return layout.painter
-      .getBoxesForSelection(TextSelection(baseOffset: d, extentOffset: d + 1))
-      .first
-      .left;
+  return layout.boxesOf(m, m + 1).first.left;
 }
 
 void main() {
@@ -47,7 +43,16 @@ void main() {
         text: 'ab cd',
         paras: const [ParaStyle(list: ListKind.bullet)],
       );
-      final m = MarkerOffsets(d, const [3]);
+      final marker = TextLayout.markersOf(d).single;
+      final m = MarkerOffsets([
+        TextInsert(0, [InsertPiece.marker(marker)], caret: 1, allowed: {1}),
+        TextInsert(
+          3,
+          [InsertPiece.lineBreak, InsertPiece.space(marker.size)],
+          caret: 2,
+          allowed: {0, 2},
+        ),
+      ]);
       expect(m.display(d.text), '\uFFFCab \n\uFFFCcd');
       expect(m.toDisplay(0), 1);
       expect(m.toDisplay(3), 6);
@@ -58,9 +63,9 @@ void main() {
       expect(m.isHidden(5), isTrue);
       expect(m.isHidden(4), isFalse);
       expect(
-        [for (var i = 0; i < 8; i++) m.isWrap(i)],
+        [for (var i = 0; i < 8; i++) m.isInserted(i)],
         [
-          false, false, false, false, true, true, false, false, //
+          true, false, false, false, true, true, false, false, //
         ],
       );
       expect(m.isMarker(0), isTrue);
@@ -134,7 +139,7 @@ void main() {
     test('backspace at a continuation line deletes the character before the wrap', () {
       final c = controller();
       final w = TextWraps.of(wrappedList, wrappedListWidth).first;
-      final offsets = MarkerOffsets(wrappedList, TextWraps.of(wrappedList, wrappedListWidth));
+      final offsets = MarkerOffsets.of(wrappedList, wrappedListWidth);
       c.selection = TextSelection.collapsed(offset: offsets.toDisplay(w));
       backspace(c);
       expect(c.data.text, wrappedList.text.replaceRange(w - 1, w, ''));
@@ -144,10 +149,7 @@ void main() {
     test('the caret steps over the gap of a wrap', () {
       final c = controller();
       final w = TextWraps.of(wrappedList, wrappedListWidth).first;
-      final d = MarkerOffsets(
-        wrappedList,
-        TextWraps.of(wrappedList, wrappedListWidth),
-      ).toDisplay(w);
+      final d = MarkerOffsets.of(wrappedList, wrappedListWidth).toDisplay(w);
       c.selection = TextSelection.collapsed(offset: d);
       c.selection = TextSelection.collapsed(offset: d - 1); // left arrow
       expect(c.selection.baseOffset, d - 2); // the end of the line above
@@ -159,7 +161,7 @@ void main() {
       final c = controller();
       final end = wrappedList.text.indexOf('\n', 6);
       c.selection = TextSelection.collapsed(
-        offset: MarkerOffsets(c.data, TextWraps.of(c.data, wrappedListWidth)).toDisplay(end),
+        offset: MarkerOffsets.of(c.data, wrappedListWidth).toDisplay(end),
       );
       type(c, ' and even more words');
       expect(c.data.text, contains('lines and even more words\n'));
@@ -171,7 +173,7 @@ void main() {
 
     test('auto-width boxes edit without wraps', () {
       final c = RichTextController(wrappedList.copyWith(autoWidth: true))..wrapWidth = 100;
-      expect(c.text, MarkerOffsets(c.data).display(c.data.text));
+      expect(c.text, MarkerOffsets.of(c.data).display(c.data.text));
     });
   });
 }

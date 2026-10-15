@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../../domain/text/html_text.dart';
-import '../../../../domain/text/paragraph_direction.dart';
 import '../../../../domain/text/rich_text_buffer.dart';
 import '../../../../domain/text/text_data.dart';
 import '../../../../ink/elements/text_edit_session.dart' show BoxHistory;
@@ -66,12 +65,14 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
   }
 
   /// Keeps the caret off the spot before a list marker (and inside a wrap's
-  /// insert): it steps over it in the direction it was moving.
+  /// or an isolate's insert): it steps over it in the direction it was
+  /// moving, or to the nearest spot after a jump.
   TextSelection _normalize(TextSelection s, TextSelection old) {
     if (!s.isValid || _offsets.isEmpty) return s;
     int fix(int d, int was) {
       if (!_offsets.isHidden(d)) return d;
-      return was == d + 1 && d > 0 ? d - 1 : d + 1;
+      final step = was == d + 1 ? -1 : (was == d - 1 ? 1 : 0);
+      return _offsets.allowedNear(d, text.length, step: step);
     }
 
     return s.copyWith(
@@ -115,10 +116,14 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
       for (var d = p; d < removedEnd; d++)
         if (_offsets.isMarker(d) && _offsets.toModel(d) == start) line,
     };
-    if (inserted.isEmpty && start == end && removedEnd > p && _offsets.isWrap(p)) {
-      // Only a wrap's break or gap deleted: delete the character before
-      // (backspace at a continuation line's start) or after it.
-      if (o.codeUnitAt(removedEnd - 1) == PlaceholderSpan.placeholderCodeUnit) {
+    if (inserted.isEmpty && start == end && removedEnd > p && unlisted.isEmpty) {
+      // Only inserted characters deleted (a wrap's break or gap, an
+      // isolate, padding): delete the character before (backspace at a
+      // line's start) or after (delete at its end) instead.
+      final back = was.isValid && was.isCollapsed
+          ? was.extentOffset >= removedEnd
+          : o.codeUnitAt(removedEnd - 1) == PlaceholderSpan.placeholderCodeUnit;
+      if (back) {
         if (start > 0) start--;
       } else if (end < _buffer.length) {
         end++;
@@ -162,9 +167,10 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
     }
     _pending = null;
     _data = null;
-    final offsets = _offsetsOf(data);
+    final plan = _planOf(data);
+    final offsets = plan.offsets;
     final display = offsets.display(_buffer.text);
-    _offsets = offsets;
+    _plan = plan;
     if (display == n) {
       super.value = next.copyWith(selection: _normalize(next.selection, old.selection));
     } else {
@@ -276,8 +282,8 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
     final build = markerBuilder;
     return TextLayout.spanOf(
       data,
+      _plan,
       underlined: composing,
-      wraps: _wraps,
       marker: (m) => WidgetSpan(
         alignment: PlaceholderAlignment.middle,
         child: build == null ? SizedBox.fromSize(size: m.size) : build(m),

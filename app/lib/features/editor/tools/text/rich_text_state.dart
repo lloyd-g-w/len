@@ -22,9 +22,10 @@ abstract class _RichTextState extends TextEditingController {
 
   TextData _box;
   RichTextBuffer _buffer;
-  late MarkerOffsets _offsets;
-  List<int> _wraps = const [];
+  late TextPlan _plan;
   double _wrapWidth = double.infinity;
+
+  MarkerOffsets get _offsets => _plan.offsets;
   TextData? _data;
 
   /// Style for the next typed text at [_pendingAt] (a toggled format with a
@@ -44,29 +45,35 @@ abstract class _RichTextState extends TextEditingController {
 
   bool get isEmpty => _buffer.length == 0;
 
-  /// The width the box wraps at (its world width), for hanging indents.
+  /// The width of the box (its world width): list items wrap with
+  /// hanging indents and paragraphs against the box's direction align at it.
   double get wrapWidth => _wrapWidth;
   set wrapWidth(double width) {
+    if (width == _wrapWidth) return;
     _wrapWidth = width;
-    if (listEquals(_wrapsOf(data), _wraps)) return;
+    final plan = _planOf(data);
+    if (listEquals(plan.inserts, _plan.inserts)) return;
+    if (plan.offsets.display(_buffer.text) == text) {
+      // Only padding changed: the same text, laid out anew.
+      _plan = plan;
+      notifyListeners();
+      return;
+    }
     _sync(
       selection.isValid ? _modelSelection(selection) : const TextSelection.collapsed(offset: 0),
     );
   }
+
+  /// How the field lays out (see [TextPlan]).
+  TextPlan get plan => _plan;
 
   TextSelection _modelSelection(TextSelection s) => s.copyWith(
     baseOffset: _offsets.toModel(s.baseOffset),
     extentOffset: _offsets.toModel(s.extentOffset),
   );
 
-  /// The display offsets of [data] at [wrapWidth].
-  MarkerOffsets _offsetsOf(TextData data) {
-    _wraps = _wrapsOf(data);
-    return MarkerOffsets(data, _wraps);
-  }
-
-  /// Auto-width boxes grow instead of wrapping.
-  List<int> _wrapsOf(TextData data) => data.autoWidth ? const [] : TextWraps.of(data, _wrapWidth);
+  /// The plan of [data] at [wrapWidth].
+  TextPlan _planOf(TextData data) => TextPlan.of(data, _wrapWidth);
 
   /// Replaces everything (a new box started).
   void load(TextData data) {
@@ -87,7 +94,7 @@ abstract class _RichTextState extends TextEditingController {
   /// Rebuilds the display text and selects [model] (box-text offsets).
   void _sync(TextSelection model, {bool changed = false}) {
     _data = null;
-    _offsets = _offsetsOf(data);
+    _plan = _planOf(data);
     super.value = TextEditingValue(
       text: _offsets.display(_buffer.text),
       selection: model.copyWith(

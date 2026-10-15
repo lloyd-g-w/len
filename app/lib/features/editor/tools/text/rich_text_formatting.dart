@@ -25,7 +25,15 @@ mixin _RichTextFormatting on _RichTextState {
   ParaStyle get currentPara => _buffer.para(caretLine);
 
   /// The direction of the caret's paragraph.
-  TextDirection get caretDirection => ParagraphDirection.of(_buffer.text)[caretLine];
+  TextDirection get caretDirection => _plan.directions[caretLine];
+
+  /// The direction of the paragraph the selection's extent is in (where
+  /// arrow keys move it).
+  TextDirection get extentDirection {
+    final s = selection;
+    if (!s.isValid) return caretDirection;
+    return _plan.directions[_buffer.lineOf(_offsets.toModel(s.extentOffset))];
+  }
 
   /// Font size at the caret, in world units.
   double get currentSize => TextLayout.sizeOf(_box, currentStyle, currentPara);
