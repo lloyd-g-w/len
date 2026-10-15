@@ -7,6 +7,8 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/link_target.dart';
 import 'package:len/domain/notebook.dart';
+import 'package:len/domain/notebook_page.dart';
+import 'package:len/domain/notebook_style.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 
@@ -113,6 +115,72 @@ void main() {
       expect(ink.id, isNot('ink'));
       expect(ink.points, content.loadAll(first.id).single.points);
       expect(content.loadAllElements(copy.id).single.id, isNot('box'));
+    });
+  });
+
+  group('a page added after a slide (UX_AUDIT R18-2)', () {
+    /// [n] slides, as an import makes them (no other pages).
+    List<NotebookPage> slides(Notebook nb, int n) {
+      final fresh = s.pages.pagesOf(nb.id);
+      final deck = s.pages.insertPages(nb.id, [
+        for (var i = 0; i < n; i++)
+          (
+            size: const Size(960, 540),
+            paper: Paper.blank,
+            color: PaperColor.white,
+            background: PageBackground.pdf(blob: 'a' * 64, pageIndex: i),
+          ),
+      ]);
+      for (final p in fresh) {
+        s.pages.delete(p.id);
+      }
+      return deck;
+    }
+
+    test('is college ruled at the slide’s size', () {
+      final nb = paged();
+      final actions = PageActions(s, nb.id);
+      final deck = slides(nb, 3);
+      final spec = actions.blankPageAfter(deck[1]);
+      expect(spec.size, const Size(960, 540));
+      expect(spec.paper.style, PaperStyle.collegeRuled);
+      expect(spec.background, isNull);
+    });
+
+    test('takes the default notebook style’s template', () {
+      final nb = paged();
+      final style = s.notebookStyles.create(
+        name: 'Grid',
+        choice: const NotebookChoice(
+          paper: PaperStyle.gridSmall,
+          paperColor: PaperColor.white,
+          coverColor: 0,
+        ),
+      );
+      s.notebookStyles.setDefault(style.id, isDefault: true);
+      final deck = slides(nb, 2);
+      expect(PageActions(s, nb.id).blankPageAfter(deck[0]).paper.style, PaperStyle.gridSmall);
+    });
+
+    test('follows the nearest notes page before it', () {
+      final nb = paged();
+      final actions = PageActions(s, nb.id);
+      final deck = slides(nb, 4);
+      final notes = actions.add((
+        size: const Size(960, 540),
+        paper: const Paper(PaperStyle.dotted),
+        color: PaperColor.white,
+        background: null,
+      ), after: deck[0]);
+      expect(actions.blankPageAfter(deck[2]).paper.style, PaperStyle.dotted);
+      // A notes page after it is copied as ever.
+      expect(actions.blankPageAfter(notes).paper.style, PaperStyle.dotted);
+    });
+
+    test('a page without a background is copied as before', () {
+      final nb = paged();
+      final first = s.pages.pagesOf(nb.id).first;
+      expect(PageActions(s, nb.id).blankPageAfter(first).paper.style, first.paper.style);
     });
   });
 

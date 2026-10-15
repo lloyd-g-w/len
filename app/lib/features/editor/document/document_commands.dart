@@ -93,14 +93,15 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
   }
 
   /// Adds a page like the current one (same paper and size; a planner's
-  /// next day, week or month) after it.
-  void addPage() => edits.add([PageActions.blankAfter(_current)], after: _current);
+  /// next day, week or month; after a slide, lined paper at its size:
+  /// [PageActions.blankAfter]) after it.
+  void addPage() => edits.add([actions.blankPageAfter(_current)], after: _current);
 
   /// Adds a page like page [index] after it (the zoom window writing on
   /// past the last page), and shows it.
   void addPageAfter(int index) {
     final page = doc.pages[index];
-    edits.add([PageActions.blankAfter(page)], after: page);
+    edits.add([actions.blankPageAfter(page)], after: page);
   }
 
   /// Follows a planner link: shows the page with template [target], or
@@ -135,7 +136,7 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
   Future<void> run(BuildContext context, PageCommand command, NotebookPage page) async {
     switch (command) {
       case PageCommand.insertAfter:
-        edits.add([PageActions.blankAfter(page)], after: page);
+        edits.add([actions.blankPageAfter(page)], after: page);
       case PageCommand.insertWithTemplate:
         await addPageWithTemplate(context, after: page);
       case PageCommand.duplicate:

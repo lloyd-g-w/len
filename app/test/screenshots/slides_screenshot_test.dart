@@ -75,7 +75,7 @@ void main() {
       await pumpApp(tester, services, EditorScreen(notebook: nb!));
       await pumpUntilPdfRendered(tester);
       await settle(tester);
-      await shoot(tester, 'slides_${name}');
+      await shoot(tester, 'slides_$name');
 
       await tester.tap(find.byTooltip('More options'));
       await settle(tester);
@@ -84,12 +84,12 @@ void main() {
       await tester.tap(find.text('Add page after'));
       await pumpUntilPdfRendered(tester);
       await settle(tester);
-      await shoot(tester, 'slides_added_${name}');
+      await shoot(tester, 'slides_added_$name');
 
       await tester.tap(find.byTooltip('All pages'));
       await pumpUntilPdfRendered(tester);
       await settle(tester);
-      await shoot(tester, 'slides_overview_${name}');
+      await shoot(tester, 'slides_overview_$name');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
