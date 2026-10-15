@@ -76,11 +76,22 @@ void main() {
       expect(_read(html).text, data.text);
     });
 
-    test('black and grey text, Inter and left alignment add nothing', () {
+    test('black and grey text, Inter and start alignment add nothing', () {
       expect(htmlFromText(const TextData(text: 'plain')), '<div>plain</div>');
       expect(
         htmlFromText(const TextData(text: 'x', color: 0xFF2E7D32, align: TextAlignment.center)),
         '<div style="text-align:center"><span style="color:#2e7d32">x</span></div>',
+      );
+    });
+
+    test('right-to-left paragraphs say so; end alignment is physical', () {
+      expect(
+        htmlFromText(const TextData(text: 'שלום\nhi')),
+        '<div dir="rtl">שלום</div><div>hi</div>',
+      );
+      expect(
+        htmlFromText(const TextData(text: 'שלום\nhi', align: TextAlignment.end)),
+        '<div dir="rtl" style="text-align:left">שלום</div><div style="text-align:right">hi</div>',
       );
     });
 

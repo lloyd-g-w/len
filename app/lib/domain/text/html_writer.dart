@@ -1,4 +1,7 @@
+import 'dart:ui' show TextDirection;
+
 import 'html_css.dart';
+import 'paragraph_direction.dart';
 import 'text_data.dart';
 
 /// Formatted text as an HTML fragment for other apps (Google Docs, Word,
@@ -74,10 +77,21 @@ class _BoxWriter {
   final _lists = <_OpenList>[];
   late final List<SpanStyle> _styles = data.charStyles();
 
-  String get _align => switch (data.align) {
-    TextAlignment.left => '',
-    final a => ' style="text-align:${a.name}"',
-  };
+  /// Each paragraph's direction (its first strong character's).
+  late final List<TextDirection> _dirs = ParagraphDirection.of(data.text);
+
+  /// The current paragraph's direction and alignment as attributes. Start
+  /// and end become left / right (apps such as Word ignore CSS's logical
+  /// keywords); right-to-left paragraphs say so.
+  String _attrs(int i) {
+    final rtl = _dirs[i] == TextDirection.rtl;
+    final align = switch (data.align) {
+      TextAlignment.start => null,
+      TextAlignment.center => 'center',
+      TextAlignment.end => rtl ? 'left' : 'right',
+    };
+    return '${rtl ? ' dir="rtl"' : ''}${align == null ? '' : ' style="text-align:$align"'}';
+  }
 
   void write() {
     final paras = data.paras;
@@ -85,7 +99,7 @@ class _BoxWriter {
     for (final (i, line) in data.text.split('\n').indexed) {
       final p = paras[i];
       if (p.isList) {
-        _item(p);
+        _item(p, i);
       } else {
         _closeLists(0);
       }
@@ -94,7 +108,7 @@ class _BoxWriter {
         2 => 'h2',
         _ => p.isList ? null : 'div',
       };
-      if (tag != null) out.write('<$tag${p.isList ? '' : _align}>');
+      if (tag != null) out.write('<$tag${p.isList ? '' : _attrs(i)}>');
       if (p.list == ListKind.check) {
         out.write('<span aria-hidden="true">${p.checked ? '☑' : '☐'} </span>');
       }
@@ -106,7 +120,7 @@ class _BoxWriter {
   }
 
   /// Opens the list item of [p], closing and opening lists to its level.
-  void _item(ParaStyle p) {
+  void _item(ParaStyle p, int i) {
     final level = p.indent;
     _closeLists(level + 1);
     if (_lists.length == level + 1 && _lists.last.kind != p.list) _closeLists(level);
@@ -120,7 +134,7 @@ class _BoxWriter {
       _lists.add(_OpenList(p.list));
     }
     final check = p.list == ListKind.check ? ' role="checkbox" aria-checked="${p.checked}"' : '';
-    out.write('<li$check$_align>');
+    out.write('<li$check${_attrs(i)}>');
     _lists.last.itemOpen = true;
   }
 
