@@ -1646,7 +1646,11 @@ surface.
   .paste` skips a clipboard image that is the copy's picture — the same
   bytes, or the same size and a 16 × 16 thumbnail within a small tolerance
   (`ImageSignature`), since GTK and browsers re-encode it and Windows reads
-  back the flattened DIB — and text that is the copy's text.
+  back the flattened DIB — and text that is the copy's text. Copy never
+  reads the system clipboard (Android 12+ announces every read as a paste):
+  its write replaced what was there, so nothing on it is older than the ink.
+  Only when that write fails (`ClipboardMirror.written`) does `EditorImages`
+  read what the clipboard holds, to treat it as older than the ink.
 - **Editing a shape's points**: a single shape selected on its own surface
   (`SelectionController.shapeStroke`, by the lasso or a tap — with the
   lasso, or the Shape tool on a shape) shows its control points as handles

@@ -212,16 +212,26 @@ void main() {
       tester,
       seed: (s, nb) async => s.strokes.save([seedStroke(nb.id)]),
     );
-    mockClipboardImage(pngOf(50, 50));
+    // A clipboard Copy cannot write: what it holds is read once the write
+    // failed, as older than the ink.
+    var reads = 0;
+    final image = pngOf(50, 50);
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(const MethodChannel('pasteboard'), (call) async {
+      if (call.method == 'image') reads++;
+      return switch (call.method) {
+        'image' => image,
+        'write' => false,
+        _ => const <Object>[],
+      };
+    });
+    addTearDown(() => mockClipboardImage(null));
     await key(tester, LogicalKeyboardKey.keyL);
     await mouseDrag(tester, const [Offset(150, 401)]);
     await ctrl(tester, LogicalKeyboardKey.keyC);
-    await tester.pump();
+    await settleReal(tester, () => reads == 1);
     await ctrl(tester, LogicalKeyboardKey.keyV);
-    for (var i = 0; i < 4; i++) {
-      await tester.pump(); // Reads the clipboard's image, then its text.
-    }
-    expect(liveStrokes(services, nb.id), hasLength(2));
+    await settleReal(tester, () => liveStrokes(services, nb.id).length == 2);
     expect(liveElements(services, nb.id), isEmpty);
   });
 

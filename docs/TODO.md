@@ -103,10 +103,10 @@ From the reports; the owner picks. Status as above.
   system clipboard as well (GoodNotes / Notability parity: paste a diagram into a chat or an
   e-mail). Done (feat/copy-to-apps): Copy / Cut also write a transparent PNG (≈ 290 dpi, ≤ 4096
   px) and, for text boxes alone, their plain text; Len's own paste still gives ink.
-- ⬜ **No clipboard read on Copy**: `EditorImages` still reads the system clipboard on every
-  lasso copy (to know what is older than the ink), which Android 12+ announces as a paste.
-  Since Copy now replaces the clipboard, read it only when `ClipboardMirror`'s write fails
-  (tests that copy then paste with a mocked clipboard must then wait for the write).
+- ✅ **No clipboard read on Copy**: `EditorImages` read the system clipboard on every lasso
+  copy (to know what is older than the ink), which Android 12+ announces as a paste. Done
+  (fix/leftovers-r7): Copy replaces the clipboard, so it is read only when `ClipboardMirror`'s
+  write fails.
 - ⬜ **Paste here only when there is something to paste** (UX_AUDIT R13-2): the canvas menu
   now always offers it, as the system clipboard can't be asked for an image without reading
   it (Android announces every read). A native "has image / has text" probe in the vendored
