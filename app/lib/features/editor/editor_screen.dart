@@ -42,7 +42,9 @@ import 'tabs/open_notebooks.dart';
 import 'zoom/zoom_window_state.dart';
 
 part 'editor_screen_actions.dart';
+part 'editor_screen_host.dart';
 part 'editor_screen_layout.dart';
+part 'editor_screen_parts.dart';
 
 /// Full-screen editor for a paged notebook or an infinite canvas: the
 /// surface, the content tools' layer and the chrome around them.
@@ -66,48 +68,6 @@ class EditorScreen extends StatefulWidget {
   State<EditorScreen> createState() => _EditorHostState();
 }
 
-/// Hosts the editor under a [MessageInsets], so every message shown from
-/// the editor (its own state included) clears the bottom chrome.
-class _EditorHostState extends State<EditorScreen> {
-  final _messageInset = ValueNotifier<double>(0);
-
-  @override
-  void dispose() {
-    _messageInset.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => MessageInsets(
-    bottom: _messageInset,
-    child: _EditorView(
-      notebook: widget.notebook,
-      messageInset: _messageInset,
-      split: widget.split,
-      secondPane: widget.secondPane,
-    ),
-  );
-}
-
-class _EditorView extends StatefulWidget {
-  const _EditorView({
-    required this.notebook,
-    required this.messageInset,
-    this.split,
-    this.secondPane = false,
-  });
-
-  final Notebook notebook;
-  final SplitController? split;
-  final bool secondPane;
-
-  /// Updated with the room the bottom chrome takes.
-  final ValueNotifier<double> messageInset;
-
-  @override
-  State<_EditorView> createState() => _EditorScreenState();
-}
-
 class _EditorScreenState extends State<_EditorView> {
   late final AppServices _services = AppScope.read(context);
 
@@ -115,19 +75,7 @@ class _EditorScreenState extends State<_EditorView> {
   late final SharedNotebook _shared = _services.sharedNotebooks.acquire(widget.notebook)
     ..addListener(_onShared);
   Notebook get _notebook => _shared.notebook;
-  late final EditorSession _session = EditorSession(
-    services: _services,
-    shared: _shared,
-    onStylusDetected: _onStylusDetected,
-    initialView: widget.secondPane
-        ? _services.openNotebooks.splitView
-        : _services.openNotebooks.viewOf(widget.notebook.id) ??
-              EditorViewState.decode(_services.settings.editorView(widget.notebook.id)),
-    // The second pane leaves the zoom window to the first.
-    initialZoom: widget.secondPane
-        ? null
-        : ZoomWindowState.decode(_services.settings.zoomWindow(widget.notebook.id)),
-  );
+  late final EditorSession _session = _newSession();
 
   /// App lifecycle, remote changes, remembering the view, closing.
   late final EditorLifecycle _lifecycle = EditorLifecycle(
@@ -138,20 +86,7 @@ class _EditorScreenState extends State<_EditorView> {
   );
 
   /// This editor as the split view sees it.
-  late final SplitPane? _pane = widget.split == null
-      ? null
-      : SplitPane(
-          session: _session,
-          secondary: widget.secondPane,
-          area: () => _areaKey.currentContext?.findRenderObject() as RenderBox?,
-          showMessage: (message) {
-            if (mounted) showMessage(context, message);
-          },
-          // Leaving focus mode puts back the tool in both panes.
-          onLeave: () {
-            if (_focus) _setFocus(false, disposing: true);
-          },
-        );
+  late final SplitPane? _pane = widget.split == null ? null : _newPane();
   final GlobalKey _areaKey = GlobalKey(debugLabel: 'editor area');
 
   final HudController _hud = HudController();
@@ -162,23 +97,7 @@ class _EditorScreenState extends State<_EditorView> {
 
   /// One-time tips (stylus side button, hold to snap, the lasso, scribble
   /// to erase), at most one per opening.
-  late final TipsController _tips =
-      TipsController(
-        seen: (id) => _services.settings.seenTips.contains(id),
-        markSeen: _services.settings.markTipSeen,
-        lastShownAt: () => _services.settings.lastTipAt,
-        shownAt: (ms) => _services.settings.lastTipAt = ms,
-        clock: _services.clock,
-      )..followTools(
-        _session.tools,
-        hasPdf: () => _session.pdf?.hasPdf ?? false,
-        selection: Listenable.merge([_session.content.selection, _session.pdf?.selection]),
-        selected: () =>
-            !_session.content.selection.isEmpty || !(_session.pdf?.selection.isEmpty ?? true),
-        pen: _session.live,
-        lasso: _session.content.lassoPath,
-        penButton: () => _services.preferences.penButtonAction,
-      );
+  late final TipsController _tips = _newTips();
 
   /// In-notebook search, Ctrl+F (features/search).
   late final EditorSearchController _search;
@@ -219,16 +138,7 @@ class _EditorScreenState extends State<_EditorView> {
     title: () => _notebook.title,
   );
 
-  late final EditorScreenCommands _commands = EditorScreenCommands(
-    back: _back,
-    rename: () => unawaited(renameNotebook(context, _shared)),
-    toggleFocus: _toggleFocus,
-    setStylusOnly: _setStylusOnly,
-    openSettings: _openSettings,
-    setFlow: _setFlow,
-    pickBackground: () => unawaited(pickCanvasBackground(context, _shared)),
-    openSearch: _search.open,
-  );
+  late final EditorScreenCommands _commands = _newCommands();
 
   @override
   void initState() {
@@ -360,10 +270,6 @@ class _EditorScreenState extends State<_EditorView> {
     if (!mounted || _closing) return;
     final menu = canvasMenuAt(context, _session, at, onFollowLink: _followLink);
     if (menu != null) setState(() => _menu = menu);
-  }
-
-  void _followLink(Paper target) {
-    if (mounted && !_closing) _session.commands?.followLink(context, target);
   }
 
   void _closeMenu() {
