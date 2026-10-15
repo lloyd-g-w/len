@@ -258,8 +258,17 @@ class InkDrawing {
   bool get inked => _inked;
   bool _inked = false;
 
-  /// Ends the current contact. [liftTime] is the pen-up timestamp, when known.
-  void finish({Duration? liftTime}) {
+  /// Ends a pen's ink contact the platform cancelled: the ink is kept as
+  /// written, but never erases (a scribble already dimming what it would
+  /// erase is dropped instead, as before: nothing goes without a lift).
+  void keep() {
+    if (!inking || _scribble.previewing) return cancel();
+    finish(mayErase: false);
+  }
+
+  /// Ends the current contact. [liftTime] is the pen-up timestamp, when
+  /// known; a scribble erases only if [mayErase].
+  void finish({Duration? liftTime, bool mayErase = true}) {
     _inked = false;
     final tool = _tool;
     if (tool != null) {
@@ -285,7 +294,7 @@ class InkDrawing {
       if (points.isNotEmpty &&
           !dismissTap &&
           !_isBounce(liftTime) &&
-          !_scribble.erase(model, snapped: snapped)) {
+          !(mayErase && _scribble.erase(model, snapped: snapped))) {
         _commit(points, liftTime, snapped: snapped, shape: shape);
         _inked = true;
       }

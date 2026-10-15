@@ -96,8 +96,10 @@ away, and a palm is only a palm on the canvas it rests on.
   notification, a dialog, rotation, a system gesture): the line just
   written disappears.
 - *Fix:* a stylus's ink contact that is cancelled is committed as
-  written (no bounce check: there was no lift); erasing and tools still
-  cancel, fingers still drop their stroke (a pinch or palm). Effort S.
+  written (no bounce check: there was no lift) but erases nothing: a
+  scribble cancelled while dimming ink is dropped, nothing goes without
+  a lift. Erasing and tools still cancel, fingers still drop their
+  stroke (a pinch or palm). Effort S.
 
 **R15-6 P3 · A stroke from the screen's edge can become Back.** ⬜
 - *What:* with gesture navigation, Android may take a stylus swipe from
