@@ -57,12 +57,26 @@ class ClipboardMirror {
     _image = null;
     final png = _render(strokes, elements);
     unawaited(_remember(copy, png));
-    return _written = _write(png: png, text: text).then((written) async {
-      if (written || text == null) return written;
-      // No image support: the text alone, the usual way.
+    return _written = _writeOrText(png, text);
+  }
+
+  /// Writes [png] and [text]; failing that, [text] alone, the usual way
+  /// (no image support). Whether either worked; never an error.
+  Future<bool> _writeOrText(Future<Uint8List?> png, String? text) async {
+    var written = false;
+    try {
+      written = await _write(png: png, text: text);
+    } on Object catch (e) {
+      debugPrint('Copying to the system clipboard failed: $e');
+    }
+    if (written || text == null) return written;
+    try {
       await Clipboard.setData(ClipboardData(text: text));
       return true;
-    }, onError: (Object e) => false);
+    } on Object catch (e) {
+      debugPrint('Copying text to the system clipboard failed: $e');
+      return false;
+    }
   }
 
   /// Whether the system clipboard's image [bytes] is the picture of the

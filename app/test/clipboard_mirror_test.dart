@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/painting.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:len/domain/stroke.dart';
@@ -213,6 +214,19 @@ void main() {
       );
       expect(sent, isNull);
       expect(mirror.holdsInkText('First'), isFalse);
+    });
+
+    testWidgets('a failed text fallback reports false, never an error', (tester) async {
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') throw PlatformException(code: 'copy_fail');
+        return null;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(SystemChannels.platform, null));
+      final mirror = ClipboardMirror(images: _noImages(), write: ({png, text}) async => false);
+      final box = _box('a', 'Hi', const Rect.fromLTWH(0, 0, 100, 30));
+      expect(await tester.runAsync(() => mirror.copy(const [], [box])), isFalse);
+      expect(await tester.runAsync(() => mirror.written!), isFalse);
     });
 
     test('plain text needs text boxes only', () {
