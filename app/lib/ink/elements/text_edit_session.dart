@@ -72,7 +72,8 @@ class TextEditSession extends ChangeNotifier {
   /// [autoWidthLimit], then wrapping).
   void create(Offset at, {required TextData style, double? width, String text = ''}) {
     _end(notify: false);
-    _edited = false;
+    // A box started by typing holds what was typed: an edit to undo.
+    _edited = text.isNotEmpty;
     _startWidth = 0;
     final data = style.copyWith(text: text, autoWidth: width == null);
     final w = width ?? TextLayout.naturalWidth(data);

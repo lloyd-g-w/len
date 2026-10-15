@@ -136,6 +136,23 @@ void main() {
     expect(field, findsNothing);
   });
 
+  testWidgets('a box started by typing on an untouched page can be undone', (tester) async {
+    final (services, nb) = await openCanvas(tester);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await key(tester, LogicalKeyboardKey.keyA);
+    await tester.pumpAndSettle();
+    expect(typed(tester), 'a');
+    final undo = find.byTooltip('Undo (Ctrl+Z)');
+    final button = tester.widget<BarButton>(
+      find.ancestor(of: undo, matching: find.byType(BarButton)),
+    );
+    expect(button.onPressed, isNotNull);
+    await tester.tap(undo);
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+    expect(liveElements(services, nb.id), isEmpty);
+  });
+
   testWidgets('Back finishes the box being typed in, then leaves', (tester) async {
     final (services, nb) = await openCanvas(tester);
     await key(tester, LogicalKeyboardKey.keyT);
