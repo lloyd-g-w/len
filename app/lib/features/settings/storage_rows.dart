@@ -153,7 +153,8 @@ Future<void> freeUpDownloads(BuildContext context, StorageOverview overview) asy
     message:
         'Removes this device’s copies of ${count == 1 ? '1 file' : '$count files'} the sync '
         'server keeps: PDFs, images and recordings of notebooks that aren’t open. They '
-        'download again when you open them, which needs a connection. This can’t be undone.',
+        'download again when you open them, which needs a connection. This can’t be undone.\n'
+        'The sync server must keep its files: one restored from an older backup may lack them.',
     confirmLabel: 'Free up',
   );
   if (!confirmed || !context.mounted) return;

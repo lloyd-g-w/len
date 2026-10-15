@@ -6,6 +6,7 @@ import '../core/clock.dart';
 import '../data/settings_repository.dart';
 import '../data/sync_token_store.dart';
 import 'blob_sync.dart';
+import 'freed_files.dart';
 import 'revival_notice.dart';
 import 'sync_api.dart';
 import 'sync_engine.dart';
@@ -259,7 +260,9 @@ class SyncController extends ChangeNotifier {
 
   /// Downloads blob [sha] from the server if it is not stored locally.
   /// Returns whether it is available now; never throws (a missing blob is
-  /// retried the next time it is needed).
+  /// retried the next time it is needed). A file Free up removed here that
+  /// the server no longer has is named to the user, once per run of the app
+  /// ([notices]).
   Future<bool> fetchBlob(String sha) async {
     final blobs = engine.blobs;
     if (blobs == null) return false;
@@ -272,12 +275,19 @@ class SyncController extends ChangeNotifier {
     SyncApi? api;
     try {
       api = apiFactory(settings.syncUrl, tokens.token);
-      return await BlobSync(blobs).download(
+      final fetched = await BlobSync(blobs).download(
         api,
         sha,
         fromCurrentServer: () =>
             generation == _configGeneration && serverId == settings.syncServerId,
       );
+      if (!fetched && !_disposed && !_toldMissing.contains(sha)) {
+        if (FreedFiles(blobs, engine.blobReferences).missingNotice(sha) case final notice?) {
+          _toldMissing.add(sha);
+          _notices.add(notice);
+        }
+      }
+      return fetched;
     } on SyncException catch (e) {
       debugPrint('Cannot fetch blob $sha: ${e.message}');
       return false;
@@ -313,6 +323,9 @@ class SyncController extends ChangeNotifier {
       api?.close();
     }
   }
+
+  /// Freed files found missing on the server that the user was told of.
+  final Set<String> _toldMissing = {};
 
   static String _files(int n) => n == 1 ? '1 file' : '$n files';
 

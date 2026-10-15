@@ -206,6 +206,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Free up 3 MB?'), findsOneWidget);
       expect(find.textContaining('can’t be undone'), findsOneWidget);
+      expect(find.textContaining('The sync server must keep its files'), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, 'Free up'));
       await pumpUntil(tester, () => find.text('Freed up 3 MB').evaluate().isNotEmpty);
       await pumpUntil(tester, () => !s.storage.freeing && s.storage.survey!.freeable == 0);

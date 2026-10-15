@@ -23,7 +23,19 @@ abstract final class SchemaMigrations {
     ChunkDigestMigration.migrate,
     _tombstonePayloadIndexes,
     _notebookStyles,
+    _freedBlobs,
   ];
+
+  /// Version 13: files whose copies here Free up removed (`FreedBlobs`;
+  /// local only).
+  static void _freedBlobs(CommonDatabase db) {
+    db.execute('''
+      CREATE TABLE freed_blobs (
+        sha256   TEXT PRIMARY KEY NOT NULL,
+        mime     TEXT NOT NULL,
+        freed_at INTEGER NOT NULL
+      )''');
+  }
 
   /// Version 12: the user's notebook styles (collection `notebook_styles`,
   /// see `NotebookStyleRepository`); `style` is `NotebookChoice.toJson`.

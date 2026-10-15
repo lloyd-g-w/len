@@ -11,6 +11,7 @@ import '../domain/cancellation.dart';
 import 'app_database.dart';
 import 'blob_backend.dart';
 import 'blob_mime.dart';
+import 'freed_blobs.dart';
 
 /// Content-addressed storage for large binary data (PDFs, later images).
 ///
@@ -20,11 +21,15 @@ import 'blob_mime.dart';
 /// records which blobs are present and whether they have been uploaded to
 /// the sync server yet.
 class BlobStore {
-  BlobStore(this.database, this.backend, {this.clock = const Clock()});
+  BlobStore(this.database, this.backend, {this.clock = const Clock()})
+    : freed = FreedBlobs(database);
 
   final AppDatabase database;
   final BlobBackend backend;
   final Clock clock;
+
+  /// Files whose copies here [removeLocalCopies] removed.
+  final FreedBlobs freed;
 
   static final _sha256 = RegExp(r'^[0-9a-f]{64}$');
 
@@ -190,6 +195,7 @@ class BlobStore {
     final live = referenced();
     final due = <String>[];
     database.transaction(() {
+      freed.keepOnly(live);
       for (final row in database.db.select('SELECT sha256, unreferenced_since FROM blobs')) {
         final sha = row['sha256'] as String;
         final since = row['unreferenced_since'] as int?;
@@ -248,6 +254,7 @@ class BlobStore {
         ).firstOrNull;
         if (row == null || !stillRemovable(sha)) return null;
         database.db.execute('DELETE FROM blobs WHERE sha256 = ?', [sha]);
+        freed.add(sha, row['mime'] as String, clock.nowMs());
         return row;
       });
       if (row == null) continue;
@@ -255,7 +262,10 @@ class BlobStore {
         await backend.delete(sha);
       } on Object catch (e) {
         debugPrint('Blob $sha was not removed: $e');
-        _restoreRow(row);
+        database.transaction(() {
+          _restoreRow(row);
+          freed.remove(sha);
+        });
         continue;
       }
       count++;
@@ -355,6 +365,7 @@ class BlobStore {
   /// Records a stored blob. A blob stored again counts as freshly used, so
   /// garbage collection restarts its grace period.
   void _record(String sha, int size, String mime, {required bool uploaded}) {
+    freed.remove(sha);
     database.db.execute(
       '''
       INSERT INTO blobs (sha256, size, mime, created_at, uploaded) VALUES (?, ?, ?, ?, ?)

@@ -772,7 +772,14 @@ once `PdfBackgroundCache.onFetched` says it is back, an export fetches one freed
 while it runs); garbage collection and uploads never see it. Before this device
 leaves its server (Turn off sync, or a server with another id), Sync settings
 downloads every referenced blob without a row (`ServerOnlyFiles`), asking whether
-to go on without those it can't. A notebook's Recordings opens it and asks its editor to show the
+to go on without those it can't. Each freed blob's id and MIME type stays in
+`freed_blobs` (`FreedBlobs`, local; gone once stored again or unreferenced): only for
+those does the server's 404 mean a loss, so `fetchBlob` names the file and its
+notebook once (`FreedFiles.missingNotice`), and after the server changed or lost
+history the next sync asks it for each (`FreedFiles.checkServer`) and says once
+which are gone. Free up's confirmation says the server must keep its files; when
+nothing goes, its message says why (`NothingFreed`: not on the server, in use, the
+server changed). A notebook's Recordings opens it and asks its editor to show the
 recordings list (`OpenNotebooks.requestRecordings`).
 
 PDF import (`features/documents/pdf/`) stores the file once as a blob and

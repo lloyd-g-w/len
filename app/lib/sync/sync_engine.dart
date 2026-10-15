@@ -8,6 +8,7 @@ import '../data/settings_repository.dart';
 import '../data/syncable.dart';
 import '../platform/pull_decoder.dart';
 import 'blob_sync.dart';
+import 'freed_files.dart';
 import 'pull_applier.dart';
 import 'pull_worker.dart';
 import 'remote_changes.dart';
@@ -96,6 +97,22 @@ class SyncEngine {
     return reason;
   }
 
+  /// Whether the next cycle asks the server for the files freed here: it
+  /// changed or lost history, so it may lack them ([FreedFiles]).
+  bool _checkFreed = false;
+
+  /// What that check found missing, until the controller has told the
+  /// user ([takeLostFiles]).
+  String? _lostFiles;
+
+  /// Says (once) which files freed here a changed or restored server
+  /// lacks; null if none (or nothing changed since the last call).
+  String? takeLostFiles() {
+    final notice = _lostFiles;
+    _lostFiles = null;
+    return notice;
+  }
+
   /// What pulls applied in syncs that failed afterwards (a dropped
   /// connection on a later page): carried into the next sync's result, so
   /// open screens still refresh and deletion conflicts are still resolved.
@@ -156,6 +173,7 @@ class SyncEngine {
         if (e.kind != SyncFailure.historyLost || attempt > 0 || cancelled()) rethrow;
         debugPrint('The sync server lost changes; uploading everything again');
         resetForNewServer();
+        _checkFreed = true;
         _resync = 'The sync server lost recent changes, so everything was synced again';
       }
     }
@@ -171,11 +189,17 @@ class SyncEngine {
       if (settings.syncServerId.isNotEmpty) {
         debugPrint('Another sync server (or a restored one); syncing everything again');
         _resync ??= 'The sync server changed, so everything was synced again';
+        _checkFreed = true;
       }
       resetForNewServer(serverId: info.serverId);
     }
     // Blobs first: a record must not reach the server before its blob.
     final blobs = this.blobs;
+    if (_checkFreed && blobs != null) {
+      _lostFiles = await FreedFiles(blobs, blobReferences).checkServer(api);
+      _checkFreed = false;
+      if (cancelled()) return RemoteChanges();
+    }
     if (blobs != null) await _uploadBlobs(api, blobs, info, cancelled);
     if (cancelled()) return RemoteChanges();
     await _push(api, cancelled);
