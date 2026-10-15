@@ -111,6 +111,9 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
   void _onSelection() {
     final element = _session.current;
     if (element == null || !mounted || _text.selection == _revealedSelection) return;
+    // Over pages, the format bar goes to the part with the caret.
+    final frame = _session.frames.length < 2 ? 0 : _session.frameOf(_text.modelSelection.end);
+    if (frame != _caretFrame) setState(() => _caretFrame = frame);
     _scheduleReveal(element, _revealBounds(element));
   }
 
@@ -146,6 +149,9 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
   }
 
   TextSelection? _revealedSelection;
+
+  /// Which of the session's frames the caret is in.
+  int _caretFrame = 0;
 
   /// Keeps the caret clear of the keyboard and the docked bar (after this
   /// frame).
@@ -208,8 +214,9 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
       builder: (context, _) {
         final element = _session.current;
         if (element == null) return const SizedBox.shrink();
-        final bounds = _screenBounds(element);
-        _scheduleReveal(element, _revealBounds(element));
+        // Over pages, the part with the caret (the bar goes with it).
+        final bounds = _revealBounds(element);
+        _scheduleReveal(element, bounds);
         if (_text.breaks.isNotEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) => _measureRooms());
         }
