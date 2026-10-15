@@ -420,6 +420,13 @@ void main() {
     expect(find('gam').single.refId, 't');
   });
 
+  test('words with vowel signs are found', () {
+    final nb = paged('मेरा गणित');
+    s.elements.save([textBox('t', s.pages.pagesOf(nb.id).single.id, 'บันทึกการเรียน')]);
+    expect(find('गणित').single.kind, SearchHitKind.notebookTitle);
+    expect(find('บันทึก').single.refId, 't');
+  });
+
   test('without FTS5 queries fall back to LIKE with the same word rules', () {
     final like = SearchIndex(s.database, preferFts: false);
     final nb = paged('Fallback');
@@ -443,6 +450,17 @@ void main() {
       final q = SearchQuery('the them');
       expect(q.ranges('them, theme; other'), [(start: 0, end: 4), (start: 6, end: 10)]);
       expect(q.ftsExpression, '"them"* "the"*');
+    });
+
+    test('words with combining marks match and highlight whole', () {
+      // Devanagari vowel signs and decomposed accents are marks: dropped
+      // from terms, so dropped from the text matched too.
+      final hindi = SearchQuery('गणित');
+      expect(hindi.matches('गणित नोट्स'), isTrue);
+      expect(hindi.ranges('मेरा गणित'), [(start: 5, end: 9)]);
+      final etude = SearchQuery('etu');
+      expect(etude.matches('E\u0301tude'), isTrue);
+      expect(etude.ranges('E\u0301tude'), [(start: 0, end: 4)]);
     });
 
     test('snippets centre on the first match with ellipses', () {

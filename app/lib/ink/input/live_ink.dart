@@ -129,6 +129,12 @@ class LiveInk extends ChangeNotifier {
     });
   }
 
+  /// Keeps the cursors: the pen touches (it can't have left range).
+  void keepCursors() {
+    _hoverExpiry?.cancel();
+    _hoverExpiry = null;
+  }
+
   @override
   void dispose() {
     _hoverExpiry?.cancel();

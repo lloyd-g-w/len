@@ -22,3 +22,15 @@ EditorViewState? resumeView(AppServices services, Notebook notebook) {
   if (index < 0 || index == kept?.page) return kept;
   return EditorViewState.page(index, fit: kept?.fit);
 }
+
+/// When this device leaves notebook [notebookId] ([EditorViewState.savedAt]):
+/// now, or the newest version of what other devices wrote in it if later.
+/// Versions are the writing device's clock: one running fast must not
+/// make ink already seen here look newer than this device's leaving, and
+/// move the notebook to it on every open.
+int leftAt(AppServices services, String notebookId) {
+  final now = services.clock.nowMs();
+  final newest = SurfaceStats(services.database)
+      .newestElsewhere(notebookId, deviceId: services.strokes.deviceId);
+  return newest > now ? newest : now;
+}

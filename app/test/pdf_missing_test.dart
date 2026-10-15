@@ -135,6 +135,21 @@ void main() {
     expect(fetched, hasLength(2));
   });
 
+  test('a PDF fetched again says so (its text and links are read again)', () async {
+    final fetched = <String>[];
+    final cache = PdfBackgroundCache(
+      blobs: services.blobs,
+      fetch: (sha) async => sha != 'f' * 64,
+      onFetched: fetched.add,
+    );
+    addTearDown(cache.dispose);
+    cache
+      ..imageFor(PageBackground.pdf(blob: 'e' * 64, pageIndex: 0), 300)
+      ..imageFor(PageBackground.pdf(blob: 'f' * 64, pageIndex: 0), 300);
+    await pumpEventQueue();
+    expect(fetched, ['e' * 64]);
+  });
+
   Future<Notebook> pumpMissing(WidgetTester tester, String blob) async {
     tester.view
       ..physicalSize = const Size(900, 1200)

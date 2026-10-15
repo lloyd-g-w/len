@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/blob_backend.dart';
 import 'package:len/data/raster_store.dart';
 import 'package:len/data/storage_queries.dart';
 import 'package:len/domain/image_data.dart';
@@ -17,15 +18,42 @@ import 'package:len/domain/surface_element.dart';
 import 'package:len/features/storage/storage_overview.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:len/platform/storage_survey.dart';
+import 'package:len/sync/server_only_files.dart';
 import 'package:len/sync/sync_api.dart';
 
 import 'support/fake_server.dart';
+
+/// A file backend that runs [onDelete] before each delete.
+class _HookedBackend implements BlobBackend {
+  _HookedBackend(this.inner);
+
+  final FileBlobBackend inner;
+  void Function(String sha)? onDelete;
+
+  @override
+  Future<bool> contains(String sha) => inner.contains(sha);
+  @override
+  Future<Uint8List?> read(String sha) => inner.read(sha);
+  @override
+  Stream<List<int>> openRead(String sha) => inner.openRead(sha);
+  @override
+  Future<void> write(String sha, Stream<List<int>> data) => inner.write(sha, data);
+  @override
+  Future<void> delete(String sha) async {
+    onDelete?.call(sha);
+    await inner.delete(sha);
+  }
+
+  @override
+  String? localPath(String sha) => inner.localPath(sha);
+}
 
 void main() {
   late Directory dir;
   late FakeServer server;
   late AppServices s;
   late MemoryRasterStore rasters;
+  late _HookedBackend backend;
 
   setUp(() {
     dir = Directory.systemTemp.createTempSync('len_storage_test_');
@@ -33,7 +61,7 @@ void main() {
     rasters = MemoryRasterStore();
     s = AppServices.create(
       AppDatabase.inMemory(),
-      blobBackend: FileBlobBackend(dir.path),
+      blobBackend: backend = _HookedBackend(FileBlobBackend(dir.path)),
       rasterStore: rasters,
       syncApiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: server.client),
     );
@@ -107,6 +135,13 @@ void main() {
     [sha],
   );
 
+  /// Marks every row as synced (files only unsynced rows show stay).
+  void synced() {
+    for (final table in ['pages', 'elements', 'recordings']) {
+      s.database.execute('UPDATE $table SET dirty = 0');
+    }
+  }
+
   void configureSync() => s.sync.configure(url: 'http://sync.test', token: FakeServer.token);
 
   group('queries', () {
@@ -161,12 +196,39 @@ void main() {
       image(page(open).id, shared);
       s.templates.create(name: 'T', blob: template, size: const Size(10, 10));
       expect(unreferenced, isNotEmpty);
+      synced();
 
       final ids = {
         for (final b in queries().freeable(keep: {open.id})) b.sha,
       };
       expect(ids, {read, shown});
       expect(queries().kept(keep: {open.id}), containsAll([shared, template, unread]));
+    });
+
+    test('files rows not yet synced show stay (the server may clean them up)', () async {
+      final img = await blob('img', 'image/png'); // On the server already.
+      final n = notebook('N');
+      image(page(n).id, img); // Not pushed yet: no server record shows it.
+      expect(queries().freeable(), isEmpty);
+      expect(queries().kept(), contains(img));
+      synced();
+      expect([for (final b in queries().freeable()) b.sha], [img]);
+    });
+
+    test('measures text in bytes', () {
+      final p = page(notebook('Greek'));
+      s.elements.save([
+        SurfaceElement(
+          id: s.clock.newId(),
+          surfaceId: p.id,
+          type: 'text',
+          rect: const Rect.fromLTWH(0, 0, 10, 10),
+          z: 0,
+          createdAt: s.clock.nowMs(),
+          data: {'text': 'λ' * 20000}, // 40 000 bytes in UTF-8.
+        ),
+      ]);
+      expect(queries().largestNotebooks().single.bytes, greaterThanOrEqualTo(40000));
     });
   });
 
@@ -185,6 +247,7 @@ void main() {
       for (final sha in [img, notUploaded, lost]) {
         image(p.id, sha);
       }
+      synced();
       final overview = s.storage;
       await overview.refresh();
       expect(overview.survey!.freeable, 4000 + 3000 + 1000);
@@ -224,6 +287,7 @@ void main() {
       final img = await blob('img', 'image/png');
       final n = notebook('N');
       image(page(n).id, img);
+      synced();
       final queries = StorageQueries(s.database.db);
       expect(queries.freeable(), hasLength(1));
       final kept = queries.kept(keep: {n.id});
@@ -234,9 +298,47 @@ void main() {
       expect(await s.blobs.has(img), isTrue);
     });
 
+    test('a notebook opened while copies go keeps its files', () async {
+      configureSync();
+      final big = await blob('big', 'image/png', size: 5000);
+      final small = await blob('small', 'image/png', size: 1000);
+      final a = notebook('A'), b = notebook('B');
+      image(page(a).id, big);
+      image(page(b).id, small);
+      synced();
+      // The largest goes first; B opens while its file is removed.
+      backend.onDelete = (sha) {
+        if (sha == big) s.openNotebooks.open(b);
+      };
+      await s.storage.freeUp();
+      expect(await s.blobs.has(big), isFalse);
+      expect(await s.blobs.has(small), isTrue);
+    });
+
+    test('files only the server holds are found and downloaded before leaving it', () async {
+      configureSync();
+      final img = await blob('img', 'image/png');
+      final gone = await blob('gone', 'image/png'); // The server lost it too.
+      final p = page(notebook('N'));
+      image(p.id, img);
+      image(p.id, gone);
+      synced();
+      expect(await s.storage.freeUp(), isA<FreedUp>().having((o) => o.count, 'count', 2));
+      server.blobs.remove(gone);
+
+      final files = ServerOnlyFiles(s.sync);
+      expect(files.find(), {img, gone});
+      final progress = <int>[];
+      expect(await files.download(files.find(), onProgress: (done, _) => progress.add(done)), 1);
+      expect(progress, [1, 2]);
+      expect(await s.blobs.has(img), isTrue);
+      expect(files.find(), {gone});
+    });
+
     test('nothing goes when the server cannot be reached', () async {
       final img = await blob('img', 'image/png');
       image(page(notebook('N')).id, img);
+      synced();
       s.sync.configure(url: 'http://sync.test', token: 'wrong-token-0000000');
       expect(await s.storage.freeUp(), isA<ServerUnreachable>());
       expect(await s.blobs.has(img), isTrue);
@@ -245,6 +347,7 @@ void main() {
     test('without sync nothing is offered', () async {
       final img = await blob('img', 'image/png');
       image(page(notebook('N')).id, img);
+      synced();
       await s.storage.refresh();
       expect(s.storage.survey!.freeable, 1000);
       expect(s.storage.canFreeUp, isFalse);

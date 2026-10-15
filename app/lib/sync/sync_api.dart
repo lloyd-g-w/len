@@ -104,11 +104,12 @@ class SyncApi {
   };
 
   /// Checks that a compatible Len server answers and accepts the token.
-  Future<void> check() async {
-    await serverInfo();
+  Future<ServerInfo> check() async {
+    final info = await serverInfo();
     await _send(
       () => _client.get(_uri('v1/pull', {'since': '0', 'limit': '1'}), headers: _headers),
     );
+    return info;
   }
 
   /// Reads `/v1/health`. Throws [SyncException] if the server cannot be

@@ -135,6 +135,28 @@ void main() {
     test('filters ignoring accents, as full-text search does', () {
       expect(LibraryQuery.matches('Café notes', 'cafe'), isTrue);
       expect(LibraryQuery.matches('Cafe notes', 'CAFÉ'), isTrue);
+      // Decomposed accents (e + U+0301) inside a word.
+      expect(LibraryQuery.matches('E\u0301tude 3', 'etude'), isTrue);
+      expect(LibraryQuery.matches('Re\u0301sume\u0301', 'resume'), isTrue);
+    });
+
+    test('scripts written without spaces match inside a run', () {
+      bool m(String text, String query) => LibraryQuery.matches(text, query);
+      expect(m('東京大学 講義', '大学'), isTrue);
+      expect(m('東京の大学', '大学'), isTrue);
+      expect(m('すうがくノート', 'ノート'), isTrue);
+      expect(m('บันทึกการเรียน', 'การเรียน'), isTrue);
+      expect(m('東京大学', '京都'), isFalse);
+      // Spaced scripts keep word starts.
+      expect(m('Математика', 'тика'), isFalse);
+    });
+
+    test('a query of symbols only matches them, not everything', () {
+      bool m(String text, String query) => LibraryQuery.matches(text, query);
+      expect(m('Ideas 🎵', '🎵'), isTrue);
+      expect(m('Ideas', '🎵'), isFalse);
+      expect(m('C# notes', '#'), isTrue);
+      expect(m('Notes', '#'), isFalse);
     });
   });
 

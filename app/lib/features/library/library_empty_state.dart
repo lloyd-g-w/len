@@ -75,8 +75,12 @@ class LibraryEmptyState extends StatelessWidget {
         'Deleted notebooks stay here for 30 days, then they’re deleted forever',
       ),
     };
+    // (A folder may be empty indeed: it says so, and offers New notebook.)
     final showCreate =
-        onCreate != null && !searching && section == LibrarySection.library && !arriving;
+        onCreate != null &&
+        !searching &&
+        section == LibrarySection.library &&
+        (inFolder || !arriving);
     final firstLaunch = showCreate && !inFolder;
     final secondary = [
       if (firstLaunch && onImportPdf != null)

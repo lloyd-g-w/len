@@ -157,9 +157,12 @@ class StoredRasterIo {
         image = frame.image;
         _known.add(name);
         PerfProbe.count('lodStoreHits');
+      } else {
+        _known.remove(name); // Gone (cached previews cleared): stored again.
       }
     } on Object {
       image = null; // Corrupt: drawn again (and stored over).
+      _known.remove(name);
     }
     _reading.remove(name);
     if (_disposed) {

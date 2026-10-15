@@ -146,6 +146,28 @@ void main() {
     });
   });
 
+  test('the eraser ring stays while the pen erases, resting', () {
+    fakeAsync((async) {
+      tools.tool = EditorTool.eraser;
+      input.handleHover(_hover(const Offset(100, 80)));
+      input.handleDown(
+        const PointerDownEvent(
+          kind: PointerDeviceKind.stylus,
+          position: Offset(100, 80),
+          buttons: kPrimaryButton,
+          pressure: 0.5,
+        ),
+      );
+      async.elapse(LiveInk.stylusHoverTimeout * 2);
+      expect(live.eraserCenter, isNotNull, reason: 'the pen touches: it did not leave');
+      input.handleUp(
+        const PointerUpEvent(kind: PointerDeviceKind.stylus, position: Offset(100, 80)),
+      );
+      async.elapse(LiveInk.stylusHoverTimeout * 1.1);
+      expect(live.eraserCenter, isNull, reason: 'lifted and gone');
+    });
+  });
+
   testWidgets('hover cursors on white and dark paper', (tester) async {
     await tester.binding.setSurfaceSize(const Size(480, 160));
     addTearDown(() => tester.binding.setSurfaceSize(null));

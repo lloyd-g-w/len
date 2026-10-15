@@ -27,6 +27,7 @@ extension _SyncPull on SyncEngine {
         // A pull of more than a page (a first sync, a long catch-up): how
         // far it is, and what it brought so far (UX_AUDIT R16-5).
         onPullProgress?.call((
+          from: start,
           done: since - start,
           total: page.header.lastSeq - start,
           changes: changes,

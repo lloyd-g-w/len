@@ -757,14 +757,19 @@ A blob is freeable when it counts as uploaded to the current server and not refu
 as too large, live pages / elements / recordings reference it, and it is not kept:
 referenced by a notebook open in a tab or in `SharedNotebooks` (being shown, or its
 recording still saving), a user template, or a PDF whose text search has not
-extracted yet (`StorageQueries.kept`). "Free up" measures again, asks the server
+extracted yet, or one only rows not yet pushed reference (no server record keeps
+it from the server's clean-up yet) (`StorageQueries.kept`). "Free up" measures again, asks the server
 for each candidate (`SyncController.blobsOnServer`, `HEAD`; unreachable or a
 server switch meanwhile: nothing goes), then `BlobStore.removeLocalCopies`
 deletes each one's row (exclusively with the `put` methods, checking `uploaded`
 and `kept` again) and then its file; a file that can't be deleted is recorded
 again. Without a row the blob counts as missing, so whatever shows it fetches it
-lazily (`fetchBlob`, recorded as uploaded); garbage collection and uploads never
-see it. A notebook's Recordings opens it and asks its editor to show the
+lazily (`fetchBlob`, recorded as uploaded; a PDF's text and links are read again
+once `PdfBackgroundCache.onFetched` says it is back, an export fetches one freed
+while it runs); garbage collection and uploads never see it. Before this device
+leaves its server (Turn off sync, or a server with another id), Sync settings
+downloads every referenced blob without a row (`ServerOnlyFiles`), asking whether
+to go on without those it can't. A notebook's Recordings opens it and asks its editor to show the
 recordings list (`OpenNotebooks.requestRecordings`).
 
 PDF import (`features/documents/pdf/`) stores the file once as a blob and

@@ -84,4 +84,65 @@ void main() {
     final result = await target.lenFiles.import(await target.lenFiles.open(InputFileStream(path)));
     expect(result.missingBlobs, 0);
   });
+
+  test('a file freed while it is exported is downloaded again', () async {
+    final dir = await Directory.systemTemp.createTemp('len-blob-freed');
+    addTearDown(() => dir.delete(recursive: true));
+    final services = AppServices.create(
+      AppDatabase.inMemory(),
+      blobBackend: FileBlobBackend('${dir.path}/blobs'),
+    );
+    addTearDown(services.dispose);
+    final notebook = services.notebooks.create(
+      title: 'Images',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    final page = services.pages.pagesOf(notebook.id).single;
+    final contents = <String, Uint8List>{};
+    for (var n = 0; n < 2; n++) {
+      final bytes = Uint8List.fromList(List.generate(1000 + n, (i) => (i * 7 + n) & 0xFF));
+      final sha = await services.blobs.putBytes(bytes, mime: 'image/png');
+      services.blobs.markUploaded(sha);
+      contents[sha] = bytes;
+      services.elements.save([
+        SurfaceElement(
+          id: 'img$n',
+          surfaceId: page.id,
+          type: 'image',
+          rect: const Rect.fromLTWH(0, 0, 10, 10),
+          rotation: 0,
+          z: -1,
+          createdAt: 1,
+          data: ImageData(blob: sha, width: 10, height: 10).toJson(),
+        ),
+      ]);
+    }
+    final [first, second] = contents.keys.toList()..sort();
+    final fetched = <String>[];
+    services.lenFiles
+      ..fetchBlob = (sha) async {
+        fetched.add(sha);
+        await services.blobs.putDownloaded(sha, contents[sha]!);
+        return true;
+      }
+      // Settings → Storage → Free up runs while the first file is copied.
+      ..checksumBlobFile = (path) async {
+        if (path == services.blobs.localPath(first)) {
+          await services.blobs.removeLocalCopies([second], stillRemovable: (_) => true);
+        }
+        return fileCrc32(path);
+      };
+
+    final path = '${dir.path}/Images.len';
+    final out = OutputFileStream(path);
+    final report = await services.lenFiles.write(LenScope.notebook(notebook.id), out);
+    await out.close();
+    expect(fetched, [second]);
+    expect(report.blobs, 2);
+    final zip = ZipDecoder().decodeStream(InputFileStream(path));
+    final entry = zip.files.singleWhere((f) => f.name.endsWith(second));
+    expect(entry.readBytes(), contents[second]);
+  });
 }

@@ -5,11 +5,13 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app_services.dart';
+import '../../sync/server_only_files.dart';
 import '../../sync/sync_api.dart';
 import '../../sync/sync_controller.dart';
 import '../../sync/sync_setup_link.dart';
 import '../../ui/app_dialogs.dart';
 import '../../ui/app_theme.dart';
+import '../documents/progress_dialog.dart';
 import 'settings_section.dart';
 import 'sync_setup_dialog.dart';
 import 'sync_status_line.dart';
@@ -169,8 +171,14 @@ class _SyncSettingsState extends State<SyncSettings> {
       _testError = _tokenError = null;
     });
     try {
-      await _sync.test(url: url, token: token);
+      final info = await _sync.test(url: url, token: token);
       if (attempt != _attempt || !mounted) return;
+      // Another server: files only the one left holds come here first.
+      final previous = _services.settings.syncServerId;
+      if (_sync.isConfigured && previous.isNotEmpty && info.serverId != previous) {
+        if (!await _keepServerOnlyFiles(goOn: 'Switch anyway')) return;
+        if (attempt != _attempt || !mounted) return;
+      }
       _sync.configure(url: url, token: token);
       _editing = _fromLink = false;
       unawaited(_sync.syncNow());
@@ -191,15 +199,20 @@ class _SyncSettingsState extends State<SyncSettings> {
   }
 
   Future<void> _turnOff() async {
+    final serverOnly = ServerOnlyFiles(_sync).find().isNotEmpty;
     final confirmed = await confirmAction(
       context,
       title: 'Turn off sync?',
-      message:
-          'Your notebooks stay on this device and on the server. This device stops '
-          'syncing until you connect it again.',
+      message: serverOnly
+          ? 'Your notebooks stay on this device and on the server. Some of their files are '
+                'only on the server now: they are downloaded first. This device stops syncing '
+                'until you connect it again.'
+          : 'Your notebooks stay on this device and on the server. This device stops '
+                'syncing until you connect it again.',
       confirmLabel: 'Turn off',
     );
     if (!confirmed || !mounted) return;
+    if (!await _keepServerOnlyFiles(goOn: 'Turn off anyway') || !mounted) return;
     _sync.configure(url: '', token: '');
     setState(() {
       _url.clear();
@@ -207,6 +220,42 @@ class _SyncSettingsState extends State<SyncSettings> {
       _editing = false;
       _testError = null;
     });
+  }
+
+  /// Downloads the files only the server holds before this device leaves
+  /// it ([ServerOnlyFiles]); those that can't be are out of reach after,
+  /// so the user is asked whether to [goOn]. Whether to.
+  Future<bool> _keepServerOnlyFiles({required String goOn}) async {
+    final files = ServerOnlyFiles(_sync);
+    final shas = files.find();
+    if (shas.isEmpty) return true;
+    final int failed;
+    try {
+      failed = await runWithSteps(
+        context,
+        'Downloading files',
+        (progress) => files.download(
+          shas,
+          check: progress.check,
+          onProgress: (done, total) => progress.step(done, total, unit: 'file'),
+        ),
+        cancellable: true,
+      );
+    } on Cancelled {
+      return false;
+    }
+    if (failed == 0) return true;
+    if (!mounted) return false;
+    return confirmAction(
+      context,
+      title: 'Some files couldn’t be downloaded',
+      message: failed == 1
+          ? 'One file your notebooks show couldn’t be downloaded from the server. Without '
+                'the server, it shows as missing on this device.'
+          : '$failed files your notebooks show couldn’t be downloaded from the server. '
+                'Without the server, they show as missing on this device.',
+      confirmLabel: goOn,
+    );
   }
 
   /// Cancel (also while a test runs: its answer is then ignored).

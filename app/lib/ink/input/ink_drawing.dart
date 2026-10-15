@@ -155,6 +155,7 @@ class InkDrawing {
     _eraseStarted = false;
     _lastScreen = e.localPosition;
     live.showPen(null); // The nib is down: its ink, not a preview.
+    live.keepCursors(); // An eraser ring stays while it erases (the pen rests).
     final selection = content?.selection;
     final hadSelection = selection != null && !selection.isEmpty;
     final tool = erase ? null : content?.toolAt(tools.tool, e.localPosition, lasso: lasso);

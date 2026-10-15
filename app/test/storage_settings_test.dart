@@ -175,6 +175,8 @@ void main() {
         title: 'Recording',
         segments: [RecordingSegment(s.clock.nowMs(), 1000)],
       );
+      // Synced (files only unsynced rows show stay).
+      s.database.execute('UPDATE recordings SET dirty = 0');
       return (n, sha);
     }
 

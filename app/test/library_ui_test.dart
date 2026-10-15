@@ -58,13 +58,13 @@ void main() {
   testWidgets('an empty library during the first sync says notebooks are coming (R16-5)', (
     tester,
   ) async {
-    Future<void> show({required bool arriving}) => tester.pumpWidget(
+    Future<void> show({required bool arriving, bool inFolder = false}) => tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light(),
         home: Scaffold(
           body: LibraryEmptyState(
             section: LibrarySection.library,
-            inFolder: false,
+            inFolder: inFolder,
             query: '',
             arriving: arriving,
             onCreate: () {},
@@ -77,6 +77,10 @@ void main() {
     expect(find.text('New notebook'), findsNothing);
     await show(arriving: false);
     expect(find.text('No notebooks yet'), findsOneWidget);
+    expect(find.text('New notebook'), findsOneWidget);
+    // An empty folder says to create a notebook there, and offers it.
+    await show(arriving: true, inFolder: true);
+    expect(find.text('This folder is empty'), findsOneWidget);
     expect(find.text('New notebook'), findsOneWidget);
   });
 
