@@ -154,11 +154,24 @@ class _StoppedNotice extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Flexible(
-                    child: Text(
-                      '${NotebookAudio.stoppedInBackground} · ${backgroundStopDetail(stop)}',
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: Gaps.xs),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            NotebookAudio.stoppedInBackground,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          Text(
+                            backgroundStopDetail(stop),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(width: Gaps.xs),

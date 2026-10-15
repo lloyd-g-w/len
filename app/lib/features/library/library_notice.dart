@@ -151,7 +151,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
         key: const ValueKey('recording-stopped'),
         icon: Symbols.mic_off_sharp,
         title: NotebookAudio.stoppedInBackground,
-        shortTitle: 'Recording stopped in the background',
+        shortTitle: 'Recording stopped and saved',
         body: backgroundStopDetail(stop),
         actions: [
           if (stop.saved != null)
