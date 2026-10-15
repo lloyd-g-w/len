@@ -89,7 +89,7 @@ void main() {
     expect(_diameter(_inkArea(await _cell(big, 2))), closeTo(2 * world * 2, 0.4));
   });
 
-  test('far out, dots fade at half a pixel instead of shrinking, keeping their ink', () async {
+  test('far out, dots stay half a pixel and fade by the square root of the area lost', () async {
     // Sparse and small, so they still show at 20 %: 0.14 px in radius.
     const sparse = Paper(
       PaperStyle.dotted,
@@ -98,8 +98,12 @@ void main() {
     const zoom = 0.2;
     final cell = await _cell(sparse, zoom);
     final r = PaperRenderer.dotRadius * 0.5 * zoom;
-    expect(_inkArea(cell), closeTo(math.pi * r * r, 0.02));
-    expect(_peak(cell), lessThan(0.25));
+    const min = PaperRenderer.minDotRadius;
+    // Opacity r / min = √(r² / min²): more ink than the dot's own area
+    // (contrast far out), as much as lines keep by the same rule.
+    expect(_inkArea(cell), closeTo(math.pi * min * min * (r / min), 0.02));
+    expect(_inkArea(cell), greaterThan(2 * math.pi * r * r));
+    expect(_peak(cell), lessThan(0.3));
   });
 
   test('PNG export draws the dots at their world size (288 dpi)', () async {

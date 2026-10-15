@@ -79,6 +79,10 @@ void main() {
   const paper = Paper(PaperStyle.collegeRuled, look: _black);
   final world = PaperRenderer.lineWidth(PatternWeight.normal);
 
+  test('a normal line is a logical pixel wide at 100 %, as before lines scaled', () {
+    expect(world, 1);
+  });
+
   test('lines scale with the page: their device-pixel width is linear in the zoom', () async {
     for (final zoom in [1.0, 2.0, 4.0, 8.0]) {
       final (rgba, w) = await _strip(paper, zoom);
@@ -99,12 +103,16 @@ void main() {
     );
   });
 
-  test('far out, lines fade at half a pixel instead of thinning, keeping their ink', () async {
-    // 0.3 × 2/3: a fifth of a pixel wide, still above the density threshold.
+  test('far out, lines stay half a pixel and fade by the square root of the width lost', () async {
+    // 0.3 px wide on the page, still above the density threshold.
     const zoom = 0.3;
+    const min = PaperRenderer.minLineWidth;
     final (rgba, w) = await _strip(paper, zoom);
     final ink = _inkPerColumn(rgba, w, 0, rgba.lengthInBytes ~/ (4 * w));
-    expect(ink, closeTo(world * zoom, 0.03));
+    // Half a pixel at √(0.3 / 0.5): more ink than the line's own (contrast
+    // far out and on phones), less than a solid half-pixel line.
+    expect(ink, closeTo(min * math.sqrt(world * zoom / min), 0.03));
+    expect(ink, greaterThan(world * zoom + 0.05));
     expect(_peak(rgba), lessThan(0.5));
   });
 
@@ -145,9 +153,9 @@ void main() {
       }
     }
     image.dispose();
-    // 0.5 pt at 4 pixels per point.
+    // 0.75 pt at 4 pixels per point.
     expect(_inkPerColumn(cell, band, 0, 2 * half), closeTo(world * scale, 0.08 * world * scale));
-    expect(world * scale, closeTo(2, 1e-9));
+    expect(world * scale, closeTo(3, 1e-9));
   });
 
   test('PDF export writes the lines at the same world widths', () async {
@@ -169,9 +177,9 @@ void main() {
       map: (o) => o * 0.75,
       k: 0.75,
     );
-    // 0.3, 0.5, 0.9 and 0.9 pt × the weight.
+    // 0.45, 0.75, 1.35 and 1.35 pt × the weight.
     expect(g.widths, [
-      for (final w in [0.3, 0.5, 0.9, 0.9]) closeTo(w * 1.5, 1e-9),
+      for (final w in [0.45, 0.75, 1.35, 1.35]) closeTo(w * 1.5, 1e-9),
     ]);
   });
 }

@@ -50,12 +50,13 @@ abstract final class PaperRenderer {
   static const double minMiniatureLine = 1, minMiniatureDot = 0.8;
 
   /// The width of a pattern line of [weight] in world units (× the look's
-  /// line weight): what PDF export prints (0.3, 0.5 and 0.9 pt), drawn the
-  /// same on the page at every zoom.
+  /// line weight): a normal line is a logical pixel wide at 100 %, as
+  /// before lines scaled; PDF export prints the same (0.45, 0.75 and
+  /// 1.35 pt), drawn the same on the page at every zoom.
   static double lineWidth(PatternWeight weight) => switch (weight) {
-    PatternWeight.fine => 0.4,
-    PatternWeight.normal => 2 / 3,
-    PatternWeight.heavy || PatternWeight.margin => 1.2,
+    PatternWeight.fine => 0.6,
+    PatternWeight.normal => 1,
+    PatternWeight.heavy || PatternWeight.margin => 1.8,
   };
 
   /// The thinnest a line is drawn, in target pixels (logical pixels on
@@ -173,8 +174,10 @@ abstract final class PaperRenderer {
 
   /// Paints [dots] [dotRadius] × the look's dot size in world units, so
   /// they scale with the page and the ink. Smaller on screen than
-  /// [minDotRadius] (far out), they stay that size and fade instead,
-  /// keeping the ink a dot puts down (its area); a strengthened page
+  /// [minDotRadius] (far out), they stay that size and fade by the square
+  /// root of the area they lost, as lines do by their width (the ink kept
+  /// fades slower than the dot shrinks, so far-out paper keeps contrast);
+  /// a strengthened page
   /// thumbnail ([faint]; 1 for template miniatures) keeps them at least
   /// [minMiniatureDot], unfaded.
   static void _paintDots(
@@ -187,7 +190,7 @@ abstract final class PaperRenderer {
   ) {
     final shown = dotRadius * look.dotSize * scale;
     final floor = math.max(minDotRadius, minMiniatureDot * faint);
-    final fade = shown >= floor ? 1.0 : ui.lerpDouble(math.pow(shown / floor, 2), 1, faint)!;
+    final fade = shown >= floor ? 1.0 : ui.lerpDouble(shown / floor, 1, faint)!;
     canvas.drawPoints(
       ui.PointMode.points,
       dots,
@@ -201,7 +204,8 @@ abstract final class PaperRenderer {
   /// The target-pixel width and the opacity of a [weight] line at [scale].
   /// On the page it is [lineWidth] × the look's weight, so it scales with
   /// the page and the ink; thinner than [minLineWidth] (far out) it stays
-  /// that wide and fades by the width it lost, keeping its ink. Miniatures
+  /// that wide and fades by the square root of the width it lost, so
+  /// far-out paper (and a phone's) reads lighter but keeps contrast. Miniatures
   /// ([mini]) keep their lines about a pixel wide (in the weights'
   /// proportions), unfaded; a strengthened page thumbnail ([faint]) at
   /// least [minMiniatureLine].
@@ -219,7 +223,7 @@ abstract final class PaperRenderer {
       return (math.max(shown, math.max(floor, minMiniatureLine * faint)), 1);
     }
     if (shown >= minLineWidth) return (shown, 1);
-    return (minLineWidth, shown / minLineWidth);
+    return (minLineWidth, math.sqrt(shown / minLineWidth));
   }
 
   /// How much a page thumbnail at [scale] strengthens its pattern: 0 from
