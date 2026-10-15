@@ -82,6 +82,16 @@ typing, in a canvas already cut to a third of the screen.
   ⋯, beside Draw with finger — the two ways of writing with a finger
   together; View keeps it on wider screens (one home each). Effort S.
 
+**R20-3 P2 · Nothing tells a finger writer that two fingers scroll.** ✅
+- *What:* on a phone that never saw a stylus, one finger writes (as in
+  GoodNotes and Notability) and two scroll; a paged notebook says neither,
+  so the natural one-finger swipe to scroll leaves a line of ink. Only an
+  empty canvas has a hint.
+- *Fix:* a tip on the first finger stroke while fingers draw by default
+  ("Two fingers scroll and zoom"), on the tips' budget, once per device,
+  first in their order; never once Draw with finger was set either way.
+  Effort S.
+
 **R20-4 P2 · The empty canvas says "Two fingers move" when one finger does.** ✅
 - *What:* `CanvasEmptyHint` words touch as "Two fingers move and zoom"
   whatever Draw with finger says; once a stylus was seen (or the switch is

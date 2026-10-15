@@ -28,6 +28,12 @@ extension _EditorActions on _EditorScreenState {
     _session.input.events.shapeDrawn = null;
   }
 
+  /// A finger wrote: the two-finger tip, until it was shown (R20-3).
+  void _onFingerStroke() {
+    if (!_tips.seen(EditorTip.fingers.name)) return _tips.offer(EditorTip.fingers);
+    _session.input.events.fingerStroke = null;
+  }
+
   void _followLink(Paper target) {
     if (mounted && !_closing) _session.commands?.followLink(context, target);
   }

@@ -162,7 +162,8 @@ class _EditorScreenState extends State<_EditorView> {
     _audio.onNotice = _onAudioNotice;
     _session.input.events
       ..scribbleMissed = _onScribbleMissed
-      ..shapeDrawn = _tips.wantsShapes ? _onShapeDrawn : null;
+      ..shapeDrawn = _tips.wantsShapes ? _onShapeDrawn : null
+      ..fingerStroke = _tips.seen(EditorTip.fingers.name) ? null : _onFingerStroke;
     _services.incomingFiles.targets.add(_importTarget);
     // Of two editors (split view), files go to the one used last.
     _focusNode.addListener(_onFocus);

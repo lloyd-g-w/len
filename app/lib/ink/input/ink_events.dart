@@ -5,6 +5,9 @@ class InkEvents {
   /// or a closed shape) was committed as drawn. Only looked for while set.
   void Function()? shapeDrawn;
 
+  /// A finger wrote a stroke (fingers draw). Only told while set.
+  void Function()? fingerStroke;
+
   /// A scribble to erase over text boxes or images, with no ink under it,
   /// was dropped.
   void Function()? scribbleMissed;

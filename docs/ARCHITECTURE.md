@@ -421,7 +421,9 @@ or deleted pages in order with ink. Snack bars' Undo calls
   when one was last up, so a notebook opened after a snack bar elsewhere waits too), and
   only once the pen has rested 2 s (`LiveInk`: pens and shapes; `LassoPath`: a lasso loop
   being drawn). A tip never replaces another (a later trigger is dropped and waits for its next
-  one); several due at once go by priority (`EditorTip` order): the side button (a stylus
+  one); several due at once go by priority (`EditorTip` order): two fingers scroll (a
+  finger's stroke while fingers draw until a stylus is seen, `InkEvents.fingerStroke`;
+  not once Draw with finger was chosen either way), the side button (a stylus
   contact, from the second opening on: the first has the "Stylus detected" message;
   phrased for `PenButtonAction`), hold to snap (a hand-drawn line or shape,
   `HoldToStraighten.wouldSnap` via `InkEvents.shapeDrawn`; writing on puts it off to the

@@ -91,6 +91,35 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('a finger writing (no stylus yet) learns that two fingers scroll (R20-3)', (
+    tester,
+  ) async {
+    final (s, _) = await pumpEditor(tester, size: const Size(390, 844));
+    const tip = 'Two fingers scroll and zoom';
+    final finger = await tester.startGesture(const Offset(100, 400));
+    for (var i = 1; i <= 8; i++) {
+      await finger.moveTo(Offset(100 + i * 10.0, 400 + i * 2.0));
+    }
+    await finger.up();
+    await tester.pump(TipsController.calmFor);
+    await tester.pumpAndSettle();
+    expect(find.text(tip), findsOneWidget);
+    await tester.pump(TipsController.seenAfter);
+    expect(s.settings.seenTips, contains(EditorTip.fingers.name));
+    await tester.pump(TipsController.visibleFor);
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+
+    // Chosen in ⋯ (Draw with finger set): no tip.
+    final (s2, _) = await pumpEditor(tester, size: const Size(390, 844));
+    s2.preferences.stylusOnly = false;
+    await tester.dragFrom(const Offset(100, 500), const Offset(80, 10));
+    await tester.pump(TipsController.calmFor);
+    await tester.pumpAndSettle();
+    expect(find.text(tip), findsNothing);
+    await closeEditor(tester);
+  });
+
   testWidgets('the side-button tip never follows the stylus-detected message', (tester) async {
     final (s, _) = await pumpEditor(tester);
     await penStroke(tester, const Offset(300, 400));
