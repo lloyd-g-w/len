@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 
@@ -12,6 +14,7 @@ import '../../documents/export/notebook_exporter.dart';
 import '../../documents/pdf/pdf_background_cache.dart';
 import '../../documents/pdf/pdf_import_flow.dart';
 import '../../documents/pdf/pdf_relink_flow.dart';
+import '../../documents/pdf/pdf_replace_flow.dart';
 import '../../documents/progress_dialog.dart';
 import '../../documents/scan/scan_flow.dart';
 import '../../documents/template_picker.dart';
@@ -93,14 +96,15 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
   }
 
   /// Adds a page like the current one (same paper and size; a planner's
-  /// next day, week or month) after it.
-  void addPage() => edits.add([PageActions.blankAfter(_current)], after: _current);
+  /// next day, week or month; after a slide, lined paper at its size:
+  /// [PageActions.blankAfter]) after it.
+  void addPage() => edits.add([actions.blankPageAfter(_current)], after: _current);
 
   /// Adds a page like page [index] after it (the zoom window writing on
   /// past the last page), and shows it.
   void addPageAfter(int index) {
     final page = doc.pages[index];
-    edits.add([PageActions.blankAfter(page)], after: page);
+    edits.add([actions.blankPageAfter(page)], after: page);
   }
 
   /// Follows a planner link: shows the page with template [target], or
@@ -135,7 +139,7 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
   Future<void> run(BuildContext context, PageCommand command, NotebookPage page) async {
     switch (command) {
       case PageCommand.insertAfter:
-        edits.add([PageActions.blankAfter(page)], after: page);
+        edits.add([actions.blankPageAfter(page)], after: page);
       case PageCommand.insertWithTemplate:
         await addPageWithTemplate(context, after: page);
       case PageCommand.duplicate:
@@ -150,6 +154,8 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
         await sendPages(context, [page]);
       case PageCommand.delete:
         await _delete(context, page);
+      case PageCommand.replacePdf:
+        await replacePdf(context, page);
     }
   }
 

@@ -306,6 +306,7 @@ class _PageOverviewState extends State<PageOverview> {
                 controller: _scroll,
                 count: shown.length + (addTile ? 1 : 0),
                 compact: compact,
+                pageAspect: commonPageAspect(_pages),
                 tile: (context, i, columns) => _tile(shown, i, columns),
               ),
       ),
@@ -316,6 +317,7 @@ class _PageOverviewState extends State<PageOverview> {
   Widget _tile(List<int> shown, int i, int columns) {
     if (i == shown.length) {
       return AddPageTile(
+        pageAspect: commonPageAspect(_pages),
         onTap: () => _run(PageCommand.insertAfter, _pages.last),
         onLongPress: () => _run(PageCommand.insertWithTemplate, _pages.last),
       );

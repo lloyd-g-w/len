@@ -1,5 +1,124 @@
 # Len — UX/UI audit
 
+## Round 18 audit — annotating slides (`review/round18`)
+
+Lens: a student who imports the lecturer's 60-slide PDF before class,
+writes on it with the S Pen during the lecture (recording meanwhile),
+highlights the slides' text, adds blank pages between slides for longer
+notes, searches it later and exports the annotated PDF to share — the flow
+GoodNotes 6 and Notability are known for, Samsung Notes the tablet's own.
+Read in the code: `features/documents/pdf/` (import, relink, the
+renderer), `documents/import/` (Open with, share, drops), `editor/pdf/`
+(selection, the text-aware highlighter, links, outline), `PageActions`
+and `DocumentCommands` (adding pages), the overview, the export sheet and
+`PdfExporter`'s page copier. Rendered the PDF, export and overview
+screenshot suites and a new one, `slides_screenshot_test.dart` (a 16:9
+deck on a portrait tablet and a phone: the editor, a page added after a
+slide, the overview). Nothing was run on a device. ⬜ open, ✅ fixed on
+this branch.
+
+Summary: the core of the flow is strong — and in two places ahead of
+the references. Slides fit the width on a portrait tablet with nothing
+lost, the S Pen writes at once, the highlighter drawn along a line snaps
+to its words, text selects with the
+lasso or a long press and copies, PDF text is found from the notebook's
+search and the library's, links work (finger, or Open link), the PDF's
+bookmarks are the overview's Outline, and export copies the slides
+**as vectors** with their links and selectable text, the PDF stored once
+however many pages use it. What a term of lectures runs into is the
+lecturer's *second* version of the deck: the corrected PDF can only
+become a new notebook, the notes stay on the old one (as far as we know neither GoodNotes nor Notability can replace one
+either; Len already has the machinery — Relink — but offers it only for a missing
+file). Smaller: a page added after a slide is blank paper (no lines to
+write on), the overview of a slide deck puts each landscape slide in a
+tall portrait cell (a third of the grid empty), and a PDF dropped on an
+open notebook is ignored.
+
+| Moment | Len | GoodNotes 6 · Notability · Samsung Notes | Verdict |
+|---|---|---|---|
+| Import: share sheet / Open with | Android share and Open with, Linux / Windows Open with, the PWA's file handler; with a notebook open: "Add to this notebook" or "New notebook" | same (iPad share sheet) | Keep |
+| Import: library | ⊕ → Import PDF…, empty library's Import PDF…, drop onto the library | same | Keep |
+| Import: drop onto an open notebook | ignored (only images are taken) | GoodNotes (iPad drag): inserts the pages | R18-4 ✅ |
+| Progress | "Importing PDF · Lecture 5.pdf": Copying file… → Reading pages… → Creating pages… 60 pages, Cancel (nothing half-made) | spinner | Keep |
+| Landscape slides on a portrait tablet | each slide fits the width, stacked; a third of the screen per slide | same; GoodNotes offers horizontal paging | Keep |
+| Margins for notes beside a slide | none; add a page after it | none in GoodNotes / Notability (Notability's infinite page only) | Keep |
+| Writing small | pinch, or the zoom window (works on slides) | same | Keep |
+| Highlighting | the highlighter drawn along a line snaps to its words; or select text → Highlight (the 3 quick colours) | GoodNotes: "highlight text" option; Notability: freehand | Keep (better) |
+| Adding a page after a slide | ⋯ → Page → Add page after: the slide's size, blank paper | GoodNotes: the template last used; Notability: the note's paper | R18-2 ✅ |
+| Navigation | ▦ overview, `3 / 60` → Go to page, the PDF's bookmarks in Outline | same | Keep |
+| … the overview of a deck | landscape slides in portrait cells: big gaps, number far below the thumbnail | cells follow the pages | R18-3 ✅ |
+| … slide numbers after added pages | page numbers count the added pages: "slide 23" is page 26 | same in GoodNotes / Notability | TODO Next |
+| Select / copy text | lasso or long press; Copy, Highlight, Open link; across pages | same | Keep |
+| Search | in the notebook (Ctrl+F) and from the library ("PDF text" hits) | same | Keep |
+| Links | finger tap (pen writes); internal links go to the notebook page | same | Keep |
+| The lecturer's updated PDF | only a new notebook; Relink… is offered only while the PDF is missing | no replace in GoodNotes / Notability, as far as we know | R18-1 ✅ |
+| Export | Export… → PDF: slides copied as vectors (text stays text), ink as vectors, links kept, PDF stored once | GoodNotes: flattens annotations, keeps text; Notability: similar | Keep (better) |
+| File size | the source PDF's objects once + ink polygons | similar | Keep |
+| Sharing | Share (Android share sheet), Save to device, desktop save dialog with Show in folder | same | Keep |
+
+### Prioritised items
+
+**R18-1 P1 · The lecturer's updated slides can't replace the old ones.** ✅
+- *What:* lecturers re-upload decks (a typo fixed, three slides added after
+  the lecture). Importing the new file makes a second notebook; the ink and
+  highlights of the lecture stay on the old one. `relinkPdfFlow` already
+  swaps a notebook's PDF page for page, keeping the notes — but the editor
+  offers it only while the PDF is missing (`MissingPdfNotice`).
+- *Fix:* "Replace PDF…" in the page menu of PDF pages (⋯ → Page, an
+  overview tile's ⋯): pick the new file; confirm; its pages show under the
+  notes page for page; pages it has beyond the old one are added after the
+  last page of the old PDF (so slides 61–63 arrive); a file with fewer
+  pages than the notes use is refused, as Relink does. One undo step.
+  Effort M.
+- *Done:* `PageCommand.replacePdf` (`menuFor(pdf:)`: before Delete, on PDF
+  pages only), `replacePdfFlow` (copies and measures the file behind the
+  cancellable progress, says so for the same file, refuses one too short,
+  asks "Replace the PDF?" with how many pages and whether new ones come),
+  `PageEdits.replacePdf` (relinks just those pages and adds the new ones
+  as one step; "PDF replaced" with Undo). New pages come only when the
+  notebook showed the old PDF's last page (pages 1–10 of a handout don't
+  grow the slides 61–63).
+
+**R18-2 P2 · A page added after a slide has nothing to write on.** ✅
+- *What:* "Add page after" copies the page's paper and size; a PDF page's
+  paper is blank, so the notes page between slides 4 and 5 is plain blank
+  paper — a student writing a derivation wants lines. Changing it takes
+  ⋯ → Page → Change template… each time (or the hold for a template).
+- *Fix:* after a page with a PDF or scan under it, the new page keeps the
+  slide's size and takes the template of the nearest notes page before it
+  (one the student added and gave lines), else the default notebook style's
+  template, else college ruled. Effort S.
+- *Done:* `PageActions.blankAfter` / `blankPageAfter`: the page menu's Add
+  page after, the end of the document, the zoom window writing past the
+  last slide.
+
+**R18-3 P2 · The overview of a slide deck is mostly empty.** ✅
+- *What:* the grid's cells are portrait (`childAspectRatio: 0.62`), so a
+  16:9 slide uses a third of its cell: four slides per row on a portrait
+  tablet with a page number a thumbnail-height below each, 60 slides take
+  15 screens of scrolling (screenshot `slides_overview_tablet_portrait`).
+- *Fix:* the cells take the shape of the notebook's pages (the most common
+  page shape) and wider landscape cells; the Add page tile too. Effort S.
+- *Done:* `commonPageAspect`, `OverviewGrid.pageAspect`: three 16:9 slides
+  across a portrait tablet, two on a phone, the number under each.
+
+**R18-4 P3 · A PDF dropped on an open notebook does nothing.** ✅
+- *What:* the editor's drop target keeps images only; a PDF dropped on it
+  (desktop, web) is silently ignored, while the library takes it.
+- *Fix:* hand dropped PDFs to the same path as Open with (with the
+  notebook open it asks "Add to this notebook" or "New notebook").
+  Effort S.
+- *Done:* `ImageDropTarget` hands anything but images to `IncomingFiles`
+  (Len files and unsupported files get the same answers as Open with).
+
+**R18-5 P3 · "Slide 23" is not page 23 once pages are added.** ⬜ → TODO Next
+- *What:* the indicator, Go to page and the overview count notebook pages;
+  after three notes pages the lecturer's "slide 23" is page 26. The
+  references behave the same.
+- *Idea:* Go to page also takes "slide 23" / the overview tile shows the
+  PDF page number quietly beside a page that has one. Needs a design
+  decision (which PDF when a notebook has several). Effort M.
+
 ## Round 17 audit — recording a lecture (`review/round17`)
 
 Lens: a student who records every lecture on an S Pen tablet (sometimes a

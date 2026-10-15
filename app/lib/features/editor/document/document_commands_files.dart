@@ -36,6 +36,35 @@ mixin _DocumentFiles {
     }
   }
 
+  /// Lets the user pick a new version of the PDF [page] is drawn on (the
+  /// lecturer's corrected slides) and shows it under the notes of every
+  /// page drawn on the old one, as one undoable step (UX_AUDIT R18-1).
+  Future<void> replacePdf(BuildContext context, NotebookPage page, {XFile? file}) async {
+    final current = page.pdf?.blob;
+    if (current == null) return;
+    final services = AppScope.read(context);
+    final replacement = await replacePdfFlow(
+      context,
+      notebookId: notebook().id,
+      current: current,
+      file: file,
+    );
+    if (replacement == null) return;
+    final edit = edits.replacePdf(
+      from: current,
+      to: replacement.blob,
+      extra: replacement.extra,
+      after: replacement.after,
+    );
+    unawaited(services.search.indexPdfs()); // Its text, for search.
+    if (!context.mounted) return;
+    showMessage(
+      context,
+      'PDF replaced',
+      action: SnackBarAction(label: 'Undo', onPressed: () => edits.models.undoEdit(edit)),
+    );
+  }
+
   /// Inserts the pages of PDF [file] (picked by the user if null) after
   /// the current page; a Cancel there cancels [batch].
   Future<void> insertPdf(BuildContext context, {XFile? file, CancellationToken? batch}) async {

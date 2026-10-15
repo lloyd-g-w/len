@@ -135,7 +135,10 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
     icon: Symbols.description_sharp,
     label: 'Page',
     children: [
-      for (final c in PageCommand.menu) ...[if (c.destructive) const Divider(), _command(c)],
+      for (final c in PageCommand.menuFor(pdf: actions.pdfPage)) ...[
+        if (c.destructive) const Divider(),
+        _command(c),
+      ],
     ],
   );
 

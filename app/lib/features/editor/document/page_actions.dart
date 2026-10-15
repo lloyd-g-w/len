@@ -2,6 +2,7 @@ import '../../../app_services.dart';
 import '../../../data/page_repository.dart';
 import '../../../data/surface_copier.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../domain/notebook_style.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
@@ -40,10 +41,43 @@ class PageActions {
   List<NotebookPage> addAll(List<PageSpec> specs, {NotebookPage? after}) =>
       services.pages.insertPages(notebookId, specs, after: after);
 
-  /// A blank page to add after [page]: its paper and exact size (also for
-  /// PDF pages); a planner page is for the following period.
-  static PageSpec blankAfter(NotebookPage page) =>
-      (size: page.size, paper: page.paper.next, color: page.paperColor, background: null);
+  /// A blank page to add after [page]: its paper and exact size; a
+  /// planner page is for the following period. After a page with a PDF or
+  /// scan under it (a slide), a page to take notes on at the slide's size
+  /// (UX_AUDIT R18-2): the template of the nearest page [before] it without
+  /// one (pages nearest first), else [style]'s (planners aside), else
+  /// college ruled.
+  static PageSpec blankAfter(
+    NotebookPage page, {
+    Iterable<NotebookPage> before = const [],
+    NotebookChoice? style,
+  }) {
+    if (page.background == null) {
+      return (size: page.size, paper: page.paper.next, color: page.paperColor, background: null);
+    }
+    final notes = before.where((p) => p.background == null && !p.paper.style.isPlanner);
+    if (notes.firstOrNull case final n?) {
+      return (size: page.size, paper: n.paper, color: n.paperColor, background: null);
+    }
+    if (style != null && !style.paper.isPlanner) {
+      final paper = Paper(style.paper, look: style.look);
+      return (size: page.size, paper: paper, color: style.paperColor, background: null);
+    }
+    const ruled = Paper(PaperStyle.collegeRuled);
+    return (size: page.size, paper: ruled, color: page.paperColor, background: null);
+  }
+
+  /// [blankAfter] for [page] of this notebook, with its pages and the
+  /// default notebook style.
+  PageSpec blankPageAfter(NotebookPage page) {
+    final all = pages;
+    final at = all.indexWhere((p) => p.id == page.id);
+    return blankAfter(
+      page,
+      before: at <= 0 ? const [] : all.sublist(0, at).reversed,
+      style: services.notebookStyles.defaultStyle()?.choice,
+    );
+  }
 
   /// Inserts a copy of [page] (paper, background, ink and text) right after it.
   NotebookPage duplicate(NotebookPage page) {

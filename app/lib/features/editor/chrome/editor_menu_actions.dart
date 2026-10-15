@@ -21,6 +21,7 @@ class EditorMenuActions {
     required this.zoomWindow,
     required this.onZoomWindow,
     this.bookmarked = false,
+    this.pdfPage = false,
     this.onOverview,
     this.onPageCommand,
     this.onExport,
@@ -59,6 +60,10 @@ class EditorMenuActions {
   /// Whether the current page is bookmarked (the page menu's Bookmark
   /// row removes it).
   final bool bookmarked;
+
+  /// Whether the current page shows a PDF page (the page menu offers
+  /// Replace PDF…).
+  final bool pdfPage;
 
   /// Opens the page overview (▦ in the bar).
   final VoidCallback? onOverview;

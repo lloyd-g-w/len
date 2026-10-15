@@ -67,6 +67,32 @@ class PageEdits {
     );
   }
 
+  /// Shows PDF [to] instead of [from] on the pages drawn on it (page for
+  /// page, their notes kept) and adds [extra] pages after [after], as one
+  /// step (UX_AUDIT R18-1); undo puts the old PDF back on just those pages.
+  PageEdit replacePdf({
+    required String from,
+    required String to,
+    List<PageSpec> extra = const [],
+    NotebookPage? after,
+  }) {
+    final repo = actions.services.pages;
+    final id = actions.notebookId;
+    final changed = repo.relinkBackground(id, from: from, to: to).toSet();
+    final added = extra.isEmpty ? const <NotebookPage>[] : actions.addAll(extra, after: after);
+    var deleted = <DeletedPage>[];
+    return _record(
+      () {
+        deleted = actions.deleteAll(added);
+        repo.relinkBackground(id, from: to, to: from, only: changed);
+      },
+      () {
+        repo.relinkBackground(id, from: from, to: to, only: changed);
+        actions.restoreAll(deleted);
+      },
+    );
+  }
+
   /// Deletes [pages] and their content; undo restores them.
   PageEdit delete(List<NotebookPage> pages) {
     var deleted = actions.deleteAll(pages);
