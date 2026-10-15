@@ -78,6 +78,14 @@ class EditorImages {
   /// [_imageBeforeInkCopy], for text).
   String? _textBeforeInkCopy;
 
+  /// Settles once the last copy's write (and, if it failed, the read of
+  /// what the clipboard held) is done: until then the clipboard may still
+  /// hold something older than the ink, which mustn't be pasted.
+  Future<void>? _inkCopySettled;
+
+  /// The longest a paste waits for [_inkCopySettled].
+  static const _inkCopyWait = Duration(seconds: 3);
+
   /// Whether the camera can be offered (Android only).
   bool get canUseCamera => services.camera.available;
 
@@ -167,6 +175,8 @@ class EditorImages {
   /// [plain], Ctrl+Shift+V). What is pasted lands around [screen] (the
   /// middle of the screen by default), selected; the tool stays.
   Future<void> paste(BuildContext context, {bool plain = false, Offset? screen}) async {
+    await _inkCopySettled?.timeout(_inkCopyWait, onTimeout: () {});
+    if (!context.mounted) return;
     final bytes = plain ? null : await _clipboardImage();
     if (!context.mounted) return;
     if (bytes != null && !await _isInk(bytes)) {
@@ -306,7 +316,7 @@ class EditorImages {
     if (services.clipboard.isEmpty) return;
     _textBeforeInkCopy = null;
     _imageBeforeInkCopy = null;
-    unawaited(_rememberOlder(services.clipboardMirror.written));
+    _inkCopySettled = _rememberOlder(services.clipboardMirror.written);
   }
 
   Future<void> _rememberOlder(Future<bool>? written) async {
