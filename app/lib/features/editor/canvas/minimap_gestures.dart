@@ -108,6 +108,9 @@ class _MinimapGesturesState extends State<_MinimapGestures> {
       onHide: _map.widget.onHide,
       keepClear: _keepClear,
       child: Semantics(
+        // A node of its own: merged into the editor's focused node, it made
+        // the whole editor a tappable "Minimap".
+        container: true,
         label: 'Minimap',
         hint: 'Tap to go there, drag to move',
         child: MouseRegion(

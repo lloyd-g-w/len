@@ -73,12 +73,13 @@ in `app/integration_test/`; pictures of each step and the logs go to
 build like a user in Chromium (headed, under Xvfb) and headless Firefox,
 both from nixpkgs — notebook, mouse and pen ink, undo, pages, lasso, text,
 images, PDF import, search, PDF export, backup and a big restore, settings,
-offline reload, phone sizes, shortcuts — by label through the semantics
-tree. Any console error or warning, uncaught exception, failed request or
-failed check fails it, as does a task over 500 ms in a WebAssembly build
-once the page has started; long tasks (with `LEN_EXPLORE_PROFILE=1`, where
-each one's time went) and the JS heap are reported. Screenshots
-of each step and `report.json` go to `$LEN_EXPLORE_OUT` (default
+offline reload, phone sizes, shortcuts, notebook styles, a canvas with a shape
+and its handles, the rectangle lasso, the laser, minimap, zoom window and a
+scan — by label through the semantics tree. Any console error or warning,
+uncaught exception, failed request or failed check fails it, as does a task
+over 500 ms in a WebAssembly build once the page has started; long tasks
+(with `LEN_EXPLORE_PROFILE=1`, where each one's time went) and the JS heap
+are reported. Screenshots of each step and `report.json` go to `$LEN_EXPLORE_OUT` (default
 `/tmp/len-web-explore`); options are at the top of `tool/web_explore.py`.
 
 > **NixOS note:** run the Linux build from inside `nix develop`. nixpkgs' Flutter
