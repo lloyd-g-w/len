@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../data/surface_copier.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../domain/pdf_page_numbers.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/fast_scroll.dart';
@@ -241,6 +242,7 @@ class _PageOverviewState extends State<PageOverview> {
 
   @override
   Widget build(BuildContext context) {
+    final numbers = PdfPageNumbers(_pages);
     final shown = [
       for (var i = 0; i < _pages.length; i++)
         if (!_bookmarksOnly || _pages[i].bookmarked) i,
@@ -307,14 +309,14 @@ class _PageOverviewState extends State<PageOverview> {
                 count: shown.length + (addTile ? 1 : 0),
                 compact: compact,
                 pageAspect: commonPageAspect(_pages),
-                tile: (context, i, columns) => _tile(shown, i, columns),
+                tile: (context, i, columns) => _tile(shown, numbers, i, columns),
               ),
       ),
     );
   }
 
   /// Tile [i] of the grid: a page of [shown] or, past them, "Add page".
-  Widget _tile(List<int> shown, int i, int columns) {
+  Widget _tile(List<int> shown, PdfPageNumbers numbers, int i, int columns) {
     if (i == shown.length) {
       return AddPageTile(
         pageAspect: commonPageAspect(_pages),
@@ -328,6 +330,7 @@ class _PageOverviewState extends State<PageOverview> {
       key: ValueKey('page-tile-$index'),
       index: index,
       page: page,
+      pdfLabel: numbers.labelOf(index),
       cache: _cache,
       backgrounds: widget.backgrounds,
       current: index == widget.currentPage,
