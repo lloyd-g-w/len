@@ -300,17 +300,28 @@ EdgeInsets menuReservedPadding(BuildContext context) =>
 /// it, and the anchor's own padding doesn't reach the menu (its overlay
 /// substitutes the overlay's), but display features do: menus avoid them
 /// like a hinge. So two [Gaps.sm] strips along the sides are added as
-/// features, for the anchor's menus only.
+/// features, for the anchor's menus only; [keepClear] adds strips as deep
+/// as its sides, chrome the menus stay off (a menu that would overflow
+/// into one moves to the anchor's other side).
 class MenuEdgeMargin extends StatelessWidget {
-  const MenuEdgeMargin({super.key, required this.child});
+  const MenuEdgeMargin({super.key, required this.child, this.keepClear = EdgeInsets.zero});
 
   final Widget child;
 
-  /// The strips for a screen [width] wide.
-  static List<DisplayFeature> strips(double width) => [
+  /// Room along the screen's edges that menus keep out of.
+  final EdgeInsets keepClear;
+
+  /// The strips for a screen [size], with [keepClear] room at its edges.
+  static List<DisplayFeature> strips(Size size, {EdgeInsets keepClear = EdgeInsets.zero}) => [
     for (final rect in [
       Rect.fromLTRB(-1, -1e5, Gaps.sm, 1e5),
-      Rect.fromLTRB(width - Gaps.sm, -1e5, width + 1, 1e5),
+      Rect.fromLTRB(size.width - Gaps.sm, -1e5, size.width + 1, 1e5),
+      if (keepClear.left > 0) Rect.fromLTRB(-1, -1e5, keepClear.left, 1e5),
+      if (keepClear.right > 0)
+        Rect.fromLTRB(size.width - keepClear.right, -1e5, size.width + 1, 1e5),
+      if (keepClear.top > 0) Rect.fromLTRB(-1e5, -1, 1e5, keepClear.top),
+      if (keepClear.bottom > 0)
+        Rect.fromLTRB(-1e5, size.height - keepClear.bottom, 1e5, size.height + 1),
     ])
       DisplayFeature(
         bounds: rect,
@@ -324,7 +335,10 @@ class MenuEdgeMargin extends StatelessWidget {
     final media = MediaQuery.of(context);
     return MediaQuery(
       data: media.copyWith(
-        displayFeatures: [...media.displayFeatures, ...strips(media.size.width)],
+        displayFeatures: [
+          ...media.displayFeatures,
+          ...strips(media.size, keepClear: keepClear),
+        ],
       ),
       child: child,
     );

@@ -182,10 +182,16 @@ laser options); fixes are token and consistency work, no new features.
 - Screenshots of keyboard focus and a golden for the template picker were
   added.
 
-Looked at and left: the minimap's menu opens at the press point (a context
-menu, so on a phone it may cover the bottom bar); the recordings list's ⋯
-sits at the ListTile's padding rather than on the content edge; a sheet
-header's ✕ centres on title plus subtitle.
+Looked at and left, then fixed on `fix/r12-leftovers`:
+
+- ✅ The minimap's menu opened at the press point (a context menu, so on a
+  phone it could cover the bottom bar). It still opens where you press but
+  keeps above and left of the map's far corner (`MinimapMenu.clearOf`, as
+  `MenuEdgeMargin.keepClear` strips), so it moves above the map rather
+  than over the chrome below it.
+- ⬜ The recordings list's ⋯ sits at the ListTile's padding rather than on
+  the content edge.
+- ⬜ A sheet header's ✕ centres on title plus subtitle.
 
 ## Round 10 audit — a real week of notes (`review/round10`)
 

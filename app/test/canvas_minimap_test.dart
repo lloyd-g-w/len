@@ -346,6 +346,29 @@ void main() {
       await _close(tester);
     });
 
+    testWidgets('its menu stays above and left of the map, clear of a phone\'s bottom bar', (
+      tester,
+    ) async {
+      await _pumpCanvas(tester);
+      tester.view.physicalSize = const Size(400, 800);
+      await tester.pumpAndSettle();
+      final map = tester.getRect(_mapPaint);
+      expect(map.bottom, lessThan(800 - 48), reason: 'above the phone\'s bottom toolbar');
+      // Pressed at its far corner, a menu at the press would hang over the bar.
+      await tester.longPressAt(map.bottomRight - const Offset(4, 4));
+      await tester.pumpAndSettle();
+      final menu = find.ancestor(
+        of: find.text('Hide minimap'),
+        matching: find.byType(MenuItemButton),
+      );
+      final row = tester.getRect(menu);
+      expect(row.bottom, lessThanOrEqualTo(map.bottom));
+      expect(row.right, lessThanOrEqualTo(map.right));
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await _close(tester);
+    });
+
     testWidgets('an empty canvas shows no map until there is ink', (tester) async {
       tester.view
         ..physicalSize = const Size(1000, 700)
