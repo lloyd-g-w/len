@@ -52,6 +52,7 @@ extension _EditorActions on _EditorScreenState {
     tools.tool = EditorTool.laser;
     _session.content.selection.clear();
     _session.content.text.end();
+    _session.parkZoomWindow();
     _setFocus(true);
   }
 

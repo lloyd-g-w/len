@@ -183,7 +183,30 @@ class EditorSession {
   }
 
   /// What the notebook keeps of the zoom window; null if it was never used.
-  ZoomWindowState? get zoomState => _zoomCreated ? zoomWindow.state : null;
+  ZoomWindowState? get zoomState {
+    if (!_zoomCreated) return null;
+    final parked = _parkedZoom;
+    return parked != null && !zoomWindow.isOpen ? parked : zoomWindow.state;
+  }
+
+  /// The zoom window put away while presenting ([parkZoomWindow]).
+  ZoomWindowState? _parkedZoom;
+
+  /// Closes the zoom window for a while (presenting: its box takes no
+  /// laser and would cover the page); [unparkZoomWindow] opens it again
+  /// where it was. Kept for the notebook as open meanwhile.
+  void parkZoomWindow() {
+    if (!_zoomCreated || !zoomWindow.isOpen) return;
+    _parkedZoom = zoomWindow.state;
+    zoomWindow.close();
+  }
+
+  /// Opens the zoom window [parkZoomWindow] put away.
+  void unparkZoomWindow() {
+    final parked = _parkedZoom;
+    _parkedZoom = null;
+    if (parked != null && !zoomWindow.isOpen) zoomWindow.restore(parked);
+  }
 
   /// Page and web links: finding, following and making them.
   late final EditorLinks links = EditorLinks(this);

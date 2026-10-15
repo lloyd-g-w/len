@@ -1,8 +1,11 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/features/editor/chrome/tool_puck.dart';
+import 'package:len/features/editor/zoom/zoom_box.dart';
+import 'package:len/ink/tool_settings.dart';
 
 import 'document_editor_test.dart' show closeEditor, pumpEditor;
+import 'support/zoom_fixtures.dart';
 
 Future<void> twoFingerHold(
   WidgetTester tester, {
@@ -54,6 +57,24 @@ void main() {
     await twoFingerHold(tester);
     expect(find.byTooltip('More options').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await closeEditor(tester);
+  });
+
+  testWidgets('presenting (F5) puts the zoom window away and back after', (tester) async {
+    await pumpEditor(tester, size: const Size(1280, 900));
+    final zoom = await openZoom(tester);
+    final session = zoomSession(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+    await tester.pumpAndSettle();
+    expect(session.tools.tool, EditorTool.laser);
+    // The box takes no laser: it would cover the page for nothing.
+    expect(zoom.isOpen, isFalse);
+    expect(find.byType(ZoomBox), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+    await tester.pumpAndSettle();
+    expect(session.tools.tool, EditorTool.pen);
+    expect(zoom.isOpen, isTrue);
     await closeEditor(tester);
   });
 }
