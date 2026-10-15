@@ -92,6 +92,8 @@ static void clipboard_request_image_callback(
   gdk_pixbuf_save_to_buffer(pixbuf, &buffer, &buffer_size, "png", &error, nullptr);
   if (error) {
     fl_method_call_respond_error(method_call, "0", error->message, nullptr, nullptr);
+    g_error_free(error);
+    g_free(buffer);
     return;
   }
 
@@ -100,10 +102,11 @@ static void clipboard_request_image_callback(
     return;
   }
 
-  fl_method_call_respond_success(method_call,
-                                 fl_value_new_uint8_list(reinterpret_cast<const uint8_t *>(buffer), buffer_size),
-                                 nullptr);
-
+  // The response takes a reference of its own (and the value a copy).
+  g_autoptr(FlValue) result =
+      fl_value_new_uint8_list(reinterpret_cast<const uint8_t *>(buffer), buffer_size);
+  g_free(buffer);
+  fl_method_call_respond_success(method_call, result, nullptr);
 }
 
 static void clipboard_request_html_callback(
@@ -120,16 +123,15 @@ static void clipboard_request_html_callback(
     return;
   }
   // Raw bytes: some apps (Firefox) offer UTF-16, decoded on the Dart side.
-  fl_method_call_respond_success(method_call,
-                                 fl_value_new_uint8_list(data, length),
-                                 nullptr);
+  g_autoptr(FlValue) result = fl_value_new_uint8_list(data, length);
+  fl_method_call_respond_success(method_call, result, nullptr);
 }
 
 // What "write" put on the clipboard (added in Len's copy): a PNG and / or
 // plain text, offered in every format GTK can convert them to.
 struct ClipContent {
   GBytes *png;        // Or null.
-  GdkPixbuf *pixbuf;  // [png] decoded, for other image formats; lazily.
+  GdkPixbuf *pixbuf;  // [png] decoded onto white, for other image formats; lazily.
   gchar *text;        // Or null.
 };
 
@@ -151,7 +153,13 @@ static GdkPixbuf *clip_content_pixbuf(ClipContent *content) {
   if (gdk_pixbuf_loader_write(loader, data, size, nullptr) &&
       gdk_pixbuf_loader_close(loader, nullptr)) {
     GdkPixbuf *pixbuf = gdk_pixbuf_loader_get_pixbuf(loader);
-    if (pixbuf) content->pixbuf = GDK_PIXBUF(g_object_ref(pixbuf));
+    // Onto white, as on Windows: formats without alpha (BMP, JPEG) would
+    // otherwise show the transparent background black.
+    if (pixbuf) {
+      content->pixbuf = gdk_pixbuf_composite_color_simple(
+          pixbuf, gdk_pixbuf_get_width(pixbuf), gdk_pixbuf_get_height(pixbuf),
+          GDK_INTERP_NEAREST, 255, 8, 0xFFFFFFFF, 0xFFFFFFFF);
+    }
   } else {
     gdk_pixbuf_loader_close(loader, nullptr);
   }
@@ -193,7 +201,8 @@ static void write_clipboard(FlMethodCall *method_call) {
   if (png != nullptr && fl_value_get_type(png) != FL_VALUE_TYPE_UINT8_LIST) png = nullptr;
   if (text != nullptr && fl_value_get_type(text) != FL_VALUE_TYPE_STRING) text = nullptr;
   if (png == nullptr && text == nullptr) {
-    fl_method_call_respond_success(method_call, fl_value_new_bool(FALSE), nullptr);
+    g_autoptr(FlValue) result = fl_value_new_bool(FALSE);
+    fl_method_call_respond_success(method_call, result, nullptr);
     return;
   }
 
@@ -218,14 +227,21 @@ static void write_clipboard(FlMethodCall *method_call) {
   gboolean done = gtk_clipboard_set_with_data(clipboard, table, static_cast<guint>(n_targets),
                                               clip_content_get, clip_content_clear, content);
   if (done) {
-    // A clipboard manager may keep it once Len quits.
-    gtk_clipboard_set_can_store(clipboard, nullptr, 0);
+    // A clipboard manager may keep it once Len quits: the PNG and the
+    // text, not every image format (each a full encode while quitting).
+    static const GtkTargetEntry stored[] = {
+        {const_cast<gchar *>("image/png"), 0, kClipPng},
+        {const_cast<gchar *>("UTF8_STRING"), 0, kClipText},
+    };
+    gtk_clipboard_set_can_store(clipboard, png != nullptr ? stored : stored + 1,
+                                png != nullptr && text != nullptr ? 2 : 1);
   } else {
     clip_content_free(content);
   }
   gtk_target_table_free(table, n_targets);
   gtk_target_list_unref(targets);
-  fl_method_call_respond_success(method_call, fl_value_new_bool(done), nullptr);
+  g_autoptr(FlValue) result = fl_value_new_bool(done);
+  fl_method_call_respond_success(method_call, result, nullptr);
 }
 
 // Called when a method call is received from Flutter.
