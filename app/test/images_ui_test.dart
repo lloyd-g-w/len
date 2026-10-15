@@ -188,6 +188,25 @@ void main() {
     expect(await selectionOffers(tester, 'Crop'), isFalse);
   });
 
+  testWidgets('long press → Paste here pastes a clipboard image under the finger (R13-2)', (
+    tester,
+  ) async {
+    final (services, nb) = await openImageCanvas(tester);
+    services.preferences.stylusOnly = true;
+    await tester.pump();
+    mockClipboardImage(pngOf(200, 100));
+    final press = await tester.startGesture(const Offset(300, 300));
+    await tester.pump(const Duration(milliseconds: 700));
+    await press.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Paste here'));
+    await settleReal(tester, () => liveElements(services, nb.id).isNotEmpty);
+    await tester.pumpAndSettle();
+    final image = liveElements(services, nb.id).single;
+    expect(image.rect.center, const Offset(300, 300));
+    expect(await selectionOffers(tester, 'Crop'), isTrue);
+  });
+
   testWidgets('Ctrl+V pastes copied ink when it is newer than the clipboard image', (tester) async {
     final (services, nb) = await openImageCanvas(
       tester,

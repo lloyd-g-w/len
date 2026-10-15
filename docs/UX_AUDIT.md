@@ -61,7 +61,7 @@ and paste from the system clipboard.
   Paste keeps the lasso.
 - Effort S.
 
-**R13-2 P1 · Long press → Paste here only knows Len's own clipboard.** ⬜
+**R13-2 P1 · Long press → Paste here only knows Len's own clipboard.** ✅
 - *What:* `canvasActions` offers "Paste here" only when the in-app ink
   clipboard has something; the system clipboard (a screenshot, an image
   copied in the browser, a paragraph from an email) is reached only by

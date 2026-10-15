@@ -160,15 +160,17 @@ class EditorImages {
     }
   }
 
-  /// Ctrl+V: pastes an image from the system clipboard if it holds one
-  /// that is newer than the ink last copied in the app; otherwise pastes
-  /// the app's own clipboard. Text becomes a text box, formatted when the
-  /// clipboard has HTML (unless [plain], Ctrl+Shift+V).
-  Future<void> paste(BuildContext context, {bool plain = false}) async {
+  /// Ctrl+V, and the canvas menu's Paste here: pastes an image from the
+  /// system clipboard if it holds one that is newer than the ink last
+  /// copied in the app; otherwise pastes the app's own clipboard. Text
+  /// becomes a text box, formatted when the clipboard has HTML (unless
+  /// [plain], Ctrl+Shift+V). What is pasted lands around [screen] (the
+  /// middle of the screen by default), selected; the tool stays.
+  Future<void> paste(BuildContext context, {bool plain = false, Offset? screen}) async {
     final bytes = plain ? null : await _clipboardImage();
     if (!context.mounted) return;
     if (bytes != null && _hash(bytes) != _imageBeforeInkCopy) {
-      await insertBytes(context, bytes);
+      await insertBytes(context, bytes, screen: screen);
       return;
     }
     // Plain text newer than the copied ink becomes a new text box.
@@ -178,12 +180,24 @@ class EditorImages {
       final html = plain || RichTextController.isOwnClip(text) ? null : await _readHtml();
       if (!context.mounted) return;
       final rich = html == null ? null : textFromHtml(html, tools.textStyle);
-      content.pasteText(rich ?? RichTextController.pasted(text, tools.textStyle));
+      content.pasteText(
+        rich ?? RichTextController.pasted(text, tools.textStyle),
+        at: _worldAt(screen),
+      );
     } else if (content.selection.clipboard.isEmpty) {
       if (context.mounted) showMessage(context, 'Nothing to paste');
+    } else if (_worldAt(screen) case final at?) {
+      content.selection.paste(at);
     } else {
       content.pasteAtCentre();
     }
+  }
+
+  /// The world point under [screen], on the page there (null: the centre).
+  Offset? _worldAt(Offset? screen) {
+    if (screen == null) return null;
+    activateAt?.call(screen);
+    return content.viewport.toWorld(screen);
   }
 
   // ---------------------------------------------------------------------------

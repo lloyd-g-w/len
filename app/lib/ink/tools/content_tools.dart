@@ -192,12 +192,13 @@ class ContentTools {
     selection.paste(viewport.visibleWorld.center);
   }
 
-  /// Adds a text box showing [data] (e.g. pasted text) at the centre of
-  /// the screen as one undoable edit, and selects it (the tool stays). It is
-  /// as wide as its text, but wraps at [pasteWidthFraction] of the screen.
-  void pasteText(TextData data) {
+  /// Adds a text box showing [data] (e.g. pasted text) centred on [at]
+  /// (world; the centre of the screen by default) as one undoable edit,
+  /// and selects it (the tool stays). It is as wide as its text, but wraps
+  /// at [pasteWidthFraction] of the screen.
+  void pasteText(TextData data, {Offset? at}) {
     if (data.text.trim().isEmpty) return;
-    beforePasteAtCentre?.call();
+    if (at == null) beforePasteAtCentre?.call();
     final area = viewport.visibleWorld;
     var text = data.copyWith(autoWidth: true);
     var width = TextLayout.naturalWidth(text);
@@ -211,7 +212,7 @@ class ContentTools {
       id: clock.newId(),
       surfaceId: model.surfaceId,
       type: ElementType.text.name,
-      rect: Rect.fromCenter(center: area.center, width: width, height: height),
+      rect: Rect.fromCenter(center: at ?? area.center, width: width, height: height),
       z: model.topZ + 1,
       createdAt: clock.nowMs(),
       data: text.toJson(),

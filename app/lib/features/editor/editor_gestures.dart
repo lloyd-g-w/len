@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -21,7 +23,12 @@ EditorMenu? canvasMenuAt(
   required void Function(Paper target) onFollowLink,
 }) {
   if (session.pdf?.selectWordAt(at) ?? false) return null;
-  final actions = canvasActions(session, at, onFollowLink: onFollowLink);
+  final actions = canvasActions(
+    session,
+    at,
+    onFollowLink: onFollowLink,
+    onPaste: () => unawaited(session.images.paste(context, screen: at)),
+  );
   if (openLinkAction(context, session, at) case final link?) actions.insert(0, link);
   return (at: at, actions: actions);
 }
@@ -29,10 +36,15 @@ EditorMenu? canvasMenuAt(
 /// The entries of the canvas context menu for a long press at [screen]:
 /// paste there, select everything on the page (or in view) and add a text
 /// box there. Content only: page commands live in ⋯ → Page (UX_AUDIT R9-3).
+/// Paste here is always offered: [onPaste] pastes what Ctrl+V would, the
+/// system clipboard included (UX_AUDIT R13-2). Whether that holds an image
+/// can't be known without reading it, and Android tells the user of every
+/// read, so it is read only on the tap.
 List<CanvasAction> canvasActions(
   EditorSession session,
   Offset screen, {
   void Function(Paper target)? onFollowLink,
+  required VoidCallback onPaste,
 }) {
   final doc = session.doc;
   // Act on the page under the finger.
@@ -41,12 +53,10 @@ List<CanvasAction> canvasActions(
   final content = session.content;
   final viewport = session.viewport;
   final world = viewport.toWorld(screen);
-  final clipboard = content.selection.clipboard;
   return [
     if (link != null && onFollowLink != null)
       CanvasAction(Symbols.event_sharp, 'Go to ${link.period}', () => onFollowLink(link)),
-    if (!clipboard.isEmpty)
-      CanvasAction(Symbols.content_paste_sharp, 'Paste here', () => content.selection.paste(world)),
+    CanvasAction(Symbols.content_paste_sharp, 'Paste here', onPaste),
     CanvasAction(
       Symbols.select_all_sharp,
       doc == null ? 'Select all in view' : 'Select all on page',
