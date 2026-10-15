@@ -1,5 +1,135 @@
 # Len — UX/UI audit
 
+## Round 19 audit — typing and text (`review/round19`)
+
+Lens: someone who mixes handwriting with typed notes — a tablet with a
+Bluetooth keyboard and with only the soft keyboard, a phone with the soft
+keyboard, a laptop — against GoodNotes 6 (text boxes), Notability (typed
+notes that flow) and Samsung Notes. Read in the code: the Text tool
+(`TextTool`, `ContentTools.addTextAt` / `editText`), `TextEditSession`,
+`TextBoxEditor` and its reveal, `RichTextField` / `RichTextController`
+(buffer mapping, IME composing, the box history), `TextFormatBar` (phone and
+tablet), the editor's key handling and single-key shortcuts, undo targets,
+paste (`rich_paste`, `EditorImages.paste`), editor search matches, layout
+(`TextBoxLayout`, `TextWraps`) and PDF text. Rendered `e_text_*`
+(`editor_surfaces2_screenshot_test.dart`, phone and tablet) and probed the
+flows in widget tests: a soft keyboard (view insets) over a box on a tablet
+and a phone, the top bar's Undo while typing, typing with the Text tool and
+no box, a 26 000-character box. Nothing was run on a device. ⬜ open, ✅
+fixed on this branch.
+
+Summary: the box itself is good — what is typed renders identically on the
+canvas, in thumbnails and in the PDF (real text), lists with hanging
+indents, checklists tickable without opening the box, rich paste from Docs
+and Word, shortcuts for everything, per-word undo. What fails the mixed
+note is the keyboard around the box. On a tablet the soft keyboard simply
+covers a box in the lower half of the page (only phones pan it clear), and
+on a phone a long box pans until its top meets the bar while the caret
+stays under the keyboard. The top bar's Undo while typing undoes the
+*stroke drawn before the box*, not the typing — on a phone or a tablet
+without a keyboard there is no other undo. With the Text tool chosen and a
+keyboard attached, typing does not start a box: the letters are tool
+shortcuts (h → highlighter, e → eraser), so "hello" leaves the user with
+the eraser.
+
+| Moment | Len | GoodNotes 6 · Notability · Samsung Notes | Verdict |
+|---|---|---|---|
+| Start a box | Text tool tap; "Add text here" (long press / right click); Ctrl+V of text (screen centre) | GoodNotes: Text tool tap; Notability: tap anywhere types; Samsung: T mode | Keep |
+| Type with a keyboard, no box open | Text tool on: letters are tool shortcuts (h, e, p, s, l…) | Notability: types into the note; GoodNotes: nothing | R19-3 ✅ |
+| Soft keyboard over the box (tablet) | the keyboard covers a box in the lower half; nothing pans | all three scroll the caret into view | R19-1 ✅ |
+| … on a phone | pans the box above the docked bar, but a tall box stops at the top: caret under the keyboard | caret kept in view | R19-1 ✅ |
+| Format bar | phone: two docked rows, every control showing; tablet: one floating row over the box | GoodNotes: bar above keyboard; Notability: top toolbar | Keep |
+| Shortcuts | B / I / U, Shift+X, lists Ctrl+Shift+7/8/9, headings Ctrl+Alt+1/2/0, Tab indent, Ctrl+Enter ticks, Esc | GoodNotes: B / I / U only | Keep (better) |
+| Lists by typing | "- " or "1. " stays literal | GoodNotes, Samsung, Apple Notes: "- " / "1. " start a list | R19-6 ✅ |
+| Undo while typing | Ctrl+Z: the box's own (per word, formatting too); top bar Undo / two-finger tap: the canvas's last edit (a stroke!) | the box's typing | R19-2 ✅ |
+| Back (Android) while typing | leaves the notebook (the box is committed) | ends text editing | R19-4 ✅ |
+| Move / width / rotate | move grip, width grips (wrapping from then on), lasso rotate and scale | similar; GoodNotes rotates too | Keep |
+| Auto width vs wrapped | new boxes grow with the text to the screen edge, then wrap there | GoodNotes: drag out a width; Notability: the page width | Keep |
+| Fonts, default style | Inter, Lora, JetBrains Mono, Caveat; the empty box's font / size / colour become the default | GoodNotes: system fonts; default per tool | Keep |
+| Select text vs the box | in the box: the field's selection; the lasso selects whole boxes (double tap edits) | same | Keep |
+| Handwriting → text | lasso → Convert to text (a box, or copy) | all three | Keep |
+| Search in a box | the whole box is one match, highlighted as a block (a box of pages: "1 of 1") | each occurrence highlighted | R19-5 ✅ |
+| Copy to other apps | plain text (formatting kept for pasting back into Len) | GoodNotes: plain; Notability: rich | TODO "Next" |
+| Paste from other apps | HTML formatted (Docs, Word, browsers), Ctrl+Shift+V plain | GoodNotes: plain | Keep (better) |
+| IME (Chinese, Japanese) | composing underlined, kept across re-wraps; undo steps through the romaji / pinyin | one step per committed composition | R19-7 ✅ |
+| Long text | one box of 26 000 characters: ≈ 5 ms per layout, three per keystroke (test machine); no page breaks, a box runs off the page | Notability flows onto the next page; GoodNotes boxes stop at the page | TODO "Next" |
+| RTL (Arabic, Hebrew) | boxes are laid out left-to-right: runs reorder, but alignment, punctuation and list markers are LTR | per-paragraph direction | TODO "Next" |
+| Screen reader | text boxes are pixels on the canvas: TalkBack reads nothing | iPadOS reads text boxes | R19-8 ✅ |
+
+### Prioritised items
+
+**R19-1 P1 · The soft keyboard covers the box being typed in.**
+- *What:* the editor's `Scaffold` shrinks above the keyboard, but the
+  canvas stays where it was: on a tablet (`TextBoxReveal` only runs while
+  the format bar is docked, i.e. on phones) a box tapped in the lower half
+  of the page ends under the keyboard, typing blind (probe: a box at y 650
+  on a 800-px tablet, keyboard top at 420). On phones the reveal brings the
+  *whole box* above the bar, never moving its top under the chrome — so a
+  box taller than the space left stops there and the caret, at its end,
+  stays under the keyboard.
+- *Fix:* reveal the caret, on every size: after each change, the view pans
+  just enough that the caret's line sits above the docked bar (phones) or
+  the bottom of the view (the keyboard's edge), keeping the box's top in
+  view while it fits. Effort M.
+
+**R19-2 P1 · Undo while typing undoes the canvas, not the typing.**
+- *What:* the box keeps its own history (Ctrl+Z inside it), but the top
+  bar's Undo, the floating toolbar's and the two-finger tap act on the
+  page's history: typing "hello world" into a box and tapping Undo removes
+  the stroke written before, and the text stays. Without a keyboard
+  (phones, tablets) the typing can't be undone at all.
+- *Fix:* while a box is edited, Undo and Redo (buttons, finger taps) step
+  through the box's history; past its first state, Undo finishes the box
+  and undoes the page as before. Effort S.
+
+**R19-3 P2 · With the Text tool, typing on a keyboard switches tools.**
+- *What:* a laptop or Bluetooth-keyboard user picks the Text tool (T) and
+  starts typing: nothing opens, and every letter that is a shortcut acts —
+  "hello" ends on the eraser (h highlighter, e eraser, l lasso…).
+- *Fix:* with the Text tool and no box open, a typed character starts a
+  box with it — under the box finished last if that is still in view
+  (typing paragraph after paragraph), else in the middle of the view, as
+  pasting does. Effort S.
+
+**R19-4 P2 · Android Back while typing leaves the notebook.**
+- *What:* Back first closes the soft keyboard (system); the next Back pops
+  the editor with the box still open (committed on the way out), where
+  GoodNotes and Samsung Notes end the text editing.
+- *Fix:* while a box is edited, Back finishes it. Effort S.
+
+**R19-5 P2 · Search finds a text box, not the words in it.**
+- *What:* a text box is one match, highlighted as one block: in a box of
+  three pages of typed notes, "exam" four times is "1 of 1" and the whole
+  box glows.
+- *Fix:* one match per occurrence, highlighting the word where the box's
+  layout puts it (rotated with the box). Effort M.
+
+**R19-6 P2 · "- " and "1. " don't start lists.**
+- *What:* the keyboard typist's habit from every notes app: "- " (or "* ")
+  at the start of a line starts bullets, "1. " numbers, "[] " a checklist.
+  Len keeps them literal; lists need the menu or Ctrl+Shift+7 / 8 / 9 (no
+  shortcut on a soft keyboard).
+- *Fix:* typed at the start of a plain line, they turn it into that list;
+  Undo right after gives the typed characters back. Effort S.
+
+**R19-7 P3 · Undo steps through IME compositions.**
+- *What:* with pinyin or romaji, each composing update is an edit; the one
+  that commits "你好" replaces "nihao", so Undo goes back to "nihao" — a
+  state that never was the user's text — before the previous word.
+- *Fix:* a composition and its commit are one undo step. Effort S.
+
+**R19-8 P2 · Screen readers can't read text boxes.**
+- *What:* the canvas is painted; TalkBack (or a browser's reader) finds no
+  text in a note of typed boxes.
+- *Fix:* while a screen reader is on, each text box in view is a node with
+  its text, and activating it edits the box. Effort S–M.
+
+**Next** (docs/TODO.md): text that flows onto the next page (Notability's
+typed notes) for long boxes on pages; right-to-left boxes (direction from
+the first strong character: layout, markers, alignment, PDF); rich copy to
+other apps (HTML on the clipboard).
+
+
 ## Round 17 audit — recording a lecture (`review/round17`)
 
 Lens: a student who records every lecture on an S Pen tablet (sometimes a
