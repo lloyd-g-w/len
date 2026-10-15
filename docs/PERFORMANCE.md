@@ -237,8 +237,8 @@ and the app functions it ran under.
 
 - Anything rebuilt under the editor's `LayoutBuilder` repaints the editor
   layer (see "Paged scroll" above). Per scroll or pan frame nothing does
-  now; dragging a PDF selection's handle or a lasso selection still
-  rebuilds its layer per move (what they show changes).
+  now; dragging a PDF selection's handle still rebuilds the selection's
+  layer per move (the selection itself changes).
 - A corner drag on the scan screen redraws the photo (the display copy,
   ≤ 1,600 px) with the outline on every move; a layer of its own for the
   photo would leave only the outline and loupe.
