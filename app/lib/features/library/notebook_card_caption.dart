@@ -144,7 +144,8 @@ class _CardTitle extends StatelessWidget {
           return painter.width > constraints.maxWidth;
         });
         painter.dispose();
-        return Text(title, style: style, maxLines: splits ? 1 : 2, overflow: TextOverflow.ellipsis);
+        // Cut, it keeps its last word ("Electronics — Lec… 12").
+        return EndKeepingText(title, style: style, maxLines: splits ? 1 : 2);
       },
     );
   }
