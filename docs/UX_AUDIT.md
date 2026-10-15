@@ -193,7 +193,10 @@ Looked at and left, then fixed on `fix/r12-leftovers`:
   Its glyph now mirrors the leading play glyph (8 dp in, as the tab
   switcher's ✕ mirrors the notebook icons), the button's padding hanging
   into the popover's margin (`HitOverhang`).
-- ⬜ A sheet header's ✕ centres on title plus subtitle.
+- ✅ A sheet header's ✕ centred on title plus subtitle. The title's first
+  line and the ✕ now share one band (`SheetHeader`), so the ✕ sits on the
+  title line and neither moves when a subtitle is added or the title
+  wraps (`sheet_header_test`; goldens `template_picker*.png`).
 
 ## Round 10 audit — a real week of notes (`review/round10`)
 
