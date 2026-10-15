@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/name_order.dart';
 import 'package:len/data/surface_stats.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
@@ -91,6 +92,33 @@ void main() {
       // Equal once folded: by id (here the title).
       final twins = [nb('Été'), nb('ete')];
       expect(LibraryQuery.sorted(twins, LibrarySort.name).map((n) => n.id), ['ete', 'Été']);
+    });
+
+    test('sorts numbers in names by value (R16-1)', () {
+      final titles = [
+        'Lecture 10',
+        'Lecture 2',
+        'Lecture 1',
+        'Lecture 02',
+        'Lecture',
+        'Lecture 1b',
+        'Lecture 21',
+        'Week 3 notes',
+        'Week 12',
+      ];
+      final sorted = LibraryQuery.sorted([for (final t in titles) nb(t)], LibrarySort.name);
+      expect(sorted.map((n) => n.title), [
+        'Lecture',
+        'Lecture 1',
+        'Lecture 1b',
+        'Lecture 2',
+        'Lecture 02',
+        'Lecture 10',
+        'Lecture 21',
+        'Week 3 notes',
+        'Week 12',
+      ]);
+      expect(NameOrder.compareKeys('a99999999999999999999', 'a100000000000000000000'), lessThan(0));
     });
 
     test('filters ignoring accents, as full-text search does', () {

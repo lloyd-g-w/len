@@ -51,7 +51,7 @@ undone without a word.
 
 ### Prioritised items
 
-**R16-1 P1 · A→Z sorts lectures 1, 10, 11 … 2.** ⬜
+**R16-1 P1 · A→Z sorts lectures 1, 10, 11 … 2.** ✅
 - *What:* `NameOrder` compares folded names character by character, so
   "Calculus — Lecture 10" sorts before "Lecture 2", and folders "Week
   10" before "Week 2". A year of numbered lectures, weeks and chapters is
