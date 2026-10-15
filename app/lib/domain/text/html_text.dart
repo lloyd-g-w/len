@@ -23,8 +23,10 @@ String fragmentOf(String html) {
   final start = html.indexOf('<!--StartFragment');
   if (start >= 0) {
     final from = html.indexOf('-->', start);
-    final end = html.indexOf('<!--EndFragment', from);
-    if (from >= 0) return html.substring(from + 3, end < 0 ? html.length : end);
+    if (from >= 0) {
+      final end = html.indexOf('<!--EndFragment', from);
+      return html.substring(from + 3, end < 0 ? html.length : end);
+    }
   }
   if (html.startsWith('Version:')) {
     final lt = html.indexOf('<');
