@@ -24,9 +24,12 @@ import 'page_edits.dart';
 import 'page_overview.dart';
 import 'page_transfer_flow.dart';
 
+part 'document_commands_files.dart';
+part 'document_commands_templates.dart';
+
 /// The editor's page-level commands for a paged notebook, with their UI
 /// (pickers, confirmations, undo snack bars).
-class DocumentCommands {
+class DocumentCommands with _DocumentFiles, _DocumentTemplates {
   DocumentCommands({
     required this.services,
     required this.notebook,
@@ -36,10 +39,13 @@ class DocumentCommands {
     edits = PageEdits(actions: actions, models: doc.surfaces.models, shown: _shown);
   }
 
+  @override
   final AppServices services;
 
   /// The open notebook (it may be renamed while open).
+  @override
   final Notebook Function() notebook;
+  @override
   final DocumentController doc;
   final PageActions actions;
 
@@ -48,16 +54,20 @@ class DocumentCommands {
   final VoidCallback? reloadViews;
 
   /// Page changes as steps of the notebook's undo history.
+  @override
   late final PageEdits edits;
 
   /// Whether the page structure changed (pages added, moved, …).
+  @override
   bool changed = false;
 
+  @override
   NotebookPage get _current => doc.pages[doc.currentPage];
 
   /// Reloads the page list, keeping [keep] (or the current page) in view.
   /// A no-op once the editor closed (e.g. a page-delete snack bar's Undo
   /// pressed later still restores the page, but there is nothing to show).
+  @override
   void reload({String? keep}) {
     if (_disposed) return;
     var pages = actions.pages;
@@ -91,21 +101,6 @@ class DocumentCommands {
   void addPageAfter(int index) {
     final page = doc.pages[index];
     edits.add([PageActions.blankAfter(page)], after: page);
-  }
-
-  /// Lets the user choose a template, then adds pages with it after
-  /// [after] (default: the current page).
-  Future<void> addPageWithTemplate(BuildContext context, {NotebookPage? after}) async {
-    final page = after ?? _current;
-    final choice = await showTemplatePicker(
-      context,
-      initial: page.template,
-      mode: TemplatePickerMode.addPage,
-    );
-    if (choice == null) return;
-    edits.add([
-      for (final paper in choice.papers) specOf(choice.template.copyWith(paper: paper)),
-    ], after: page);
   }
 
   /// Follows a planner link: shows the page with template [target], or
@@ -156,58 +151,6 @@ class DocumentCommands {
       case PageCommand.delete:
         await _delete(context, page);
     }
-  }
-
-  /// Adds [page] as it looks now (paper, background, ink and content) to
-  /// My templates.
-  Future<void> _saveAsTemplate(BuildContext context, NotebookPage page) async {
-    final exporter = NotebookExporter(services);
-    try {
-      final png = await runWithProgress(
-        context,
-        'Rendering page',
-        () => exporter.png(page, scale: UserTemplates.renderScaleFor(page.size)),
-      );
-      if (!context.mounted) return;
-      final number = doc.pages.indexWhere((p) => p.id == page.id) + 1;
-      await UserTemplates.savePng(
-        context,
-        png,
-        size: page.size,
-        name: '${notebook().title}, page $number',
-      );
-    } on Cancelled {
-      return;
-    } finally {
-      await exporter.dispose();
-    }
-  }
-
-  Future<void> _changeTemplate(BuildContext context, NotebookPage page) =>
-      changeTemplateOf(context, [page]);
-
-  /// Asks for a template and applies it to [pages] (or every page, if
-  /// chosen) as one step; several get a message with Undo.
-  Future<void> changeTemplateOf(BuildContext context, List<NotebookPage> pages) async {
-    if (pages.isEmpty) return;
-    final choice = await showTemplatePicker(
-      context,
-      initial: pages.first.template,
-      mode: TemplatePickerMode.change,
-    );
-    if (choice == null) return;
-    final targets = choice.allPages ? doc.pages : pages;
-    final edit = edits.setTemplate(
-      targets,
-      choice.template,
-      papers: choice.papersForPages(targets.length),
-    );
-    if (!context.mounted || targets.length < 2) return;
-    showMessage(
-      context,
-      'Template changed on ${targets.length} pages',
-      action: SnackBarAction(label: 'Undo', onPressed: () => edits.models.undoEdit(edit)),
-    );
   }
 
   Future<void> _delete(BuildContext context, NotebookPage page) async {
@@ -308,90 +251,4 @@ class DocumentCommands {
     final now = doc.pages.indexWhere((p) => p.id == pages[index].id);
     doc.goToPage(now == -1 ? index.clamp(0, doc.pages.length - 1) : now);
   }
-
-  /// Lets the user pick a file for PDF [blob], which pages of this notebook
-  /// are drawn on but which can't be had (UX_AUDIT #24).
-  Future<void> relinkPdf(
-    BuildContext context,
-    String blob,
-    PdfBackgroundCache backgrounds, {
-    XFile? file,
-  }) async {
-    final result = await relinkPdfFlow(
-      context,
-      notebookId: notebook().id,
-      missing: blob,
-      file: file,
-    );
-    switch (result) {
-      case RelinkResult.restored:
-        backgrounds.retryMissing();
-        if (context.mounted) showMessage(context, 'PDF found');
-      case RelinkResult.replaced:
-        changed = true;
-        reload();
-        if (context.mounted) showMessage(context, 'PDF relinked');
-      case RelinkResult.none:
-    }
-  }
-
-  /// Inserts the pages of PDF [file] (picked by the user if null) after
-  /// the current page; a Cancel there cancels [batch].
-  Future<void> insertPdf(BuildContext context, {XFile? file, CancellationToken? batch}) async {
-    final inserted = await insertPdfPagesFlow(
-      context,
-      notebookId: notebook().id,
-      after: _current,
-      file: file,
-      batch: batch,
-    );
-    if (inserted == null || inserted.isEmpty) return;
-    edits.added(inserted);
-  }
-
-  /// Scans pages (the scan screen, starting with [photos] if any) and
-  /// inserts them after page [afterPageId] (the current page if null or
-  /// gone).
-  Future<void> insertScan(
-    BuildContext context, {
-    List<XFile> photos = const [],
-    String? afterPageId,
-  }) async {
-    final after = doc.pages.where((p) => p.id == afterPageId).firstOrNull ?? _current;
-    final inserted = await scanIntoNotebookFlow(
-      context,
-      notebookId: notebook().id,
-      after: after,
-      photos: photos,
-    );
-    if (inserted == null || inserted.isEmpty) return;
-    edits.added(inserted);
-  }
-
-  /// Opens the export sheet with [pages] (the overview's selection) as
-  /// its page range, then exports.
-  Future<void> exportPages(BuildContext context, List<NotebookPage> pages) {
-    final all = doc.pages;
-    final ids = {for (final p in pages) p.id};
-    return exportFlow(
-      context,
-      notebook: notebook(),
-      pages: all,
-      currentPage: doc.currentPage,
-      initialPages: [
-        for (var i = 0; i < all.length; i++)
-          if (ids.contains(all[i].id)) i,
-      ],
-    );
-  }
-
-  /// Opens the export sheet with [range] (all pages or the current one)
-  /// preselected, then exports.
-  Future<void> export(BuildContext context, {ExportRange range = ExportRange.all}) => exportFlow(
-    context,
-    notebook: notebook(),
-    pages: doc.pages,
-    currentPage: doc.currentPage,
-    initialRange: range,
-  );
 }
