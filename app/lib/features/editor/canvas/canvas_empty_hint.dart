@@ -98,7 +98,7 @@ class _CanvasEmptyHintState extends State<CanvasEmptyHint> {
                       // touch screen on the web, gets its own words.
                       !Targets.touchFirst
                           ? 'Scroll to move, Ctrl + scroll to zoom\nRight-click for more options'
-                          : (widget.tools?.stylusOnly ?? false)
+                          : (widget.tools?.fingersNavigate ?? false)
                           ? 'Drag to move, pinch to zoom\nLong-press for more options'
                           : 'Two fingers move and zoom\nLong-press for more options',
                       textAlign: TextAlign.center,

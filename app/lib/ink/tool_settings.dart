@@ -64,6 +64,7 @@ class ToolSettings extends ChangeNotifier {
   /// The inks offered in the toolbar: the pen (ballpoint) and highlighter.
   static const List<InkTool> inks = [InkTool.ballpoint, InkTool.highlighter];
 
+  /// The tool in hand. Picking another one starts writing ([reading] off).
   EditorTool get tool => _tool;
   set tool(EditorTool value) {
     if (value == _tool) return;
@@ -72,6 +73,7 @@ class ToolSettings extends ChangeNotifier {
   }
 
   void _select(EditorTool value) {
+    _reading = false;
     _tool = value;
     if (_used.first != value) _used = [value, ..._used.where((t) => t != value).take(3)];
   }
@@ -88,6 +90,13 @@ class ToolSettings extends ChangeNotifier {
     }
     if (!skipEraser) return EditorTool.eraser;
     return _tool == EditorTool.highlighter ? EditorTool.pen : EditorTool.highlighter;
+  }
+
+  /// Picks [value] from the toolbar: the active tool too starts writing.
+  void pick(EditorTool value) {
+    if (value == _tool && !_reading) return;
+    _select(value);
+    notifyListeners();
   }
 
   /// Swaps [tool] and [previousTool].
@@ -237,8 +246,28 @@ class ToolSettings extends ChangeNotifier {
   set stylusOnly(bool? value) {
     if (value == _stylusOnly) return;
     _stylusOnly = value;
+    if (value != null) _reading = false;
     notifyListeners();
   }
+
+  bool _reading = false;
+
+  /// Reading (R20-6): while fingers draw because no stylus was ever seen
+  /// ([stylusOnly] null), one finger scrolls, zooms, taps links and opens
+  /// the menu, as with palm rejection, until a tool is chosen (any change
+  /// of [tool] or of its options, [pick], or `reading = false`). Never
+  /// on once [stylusOnly] is decided: setting it then does nothing.
+  bool get reading => _reading;
+  set reading(bool value) {
+    if (value && _stylusOnly != null) return;
+    if (value == _reading) return;
+    _reading = value;
+    notifyListeners();
+  }
+
+  /// Whether one finger pans and zooms rather than draws: palm rejection
+  /// ([stylusOnly]) or [reading].
+  bool get fingersNavigate => (_stylusOnly ?? false) || _reading;
 
   /// Takes over [other]'s tool and customisation (linked tools of a split
   /// view). Notifies only when something differed; [other] persists it.
@@ -309,7 +338,10 @@ class ToolSettings extends ChangeNotifier {
     if (data['text'] case final Map<String, Object?> text) _text = TextData.fromJson(text);
   }
 
+  /// The customisation changed: an option chosen (a quick slot, a size, a
+  /// colour) starts writing too.
   void _changed() {
+    _reading = false;
     notifyListeners();
     if (_store == null) return;
     _saveTimer?.cancel();

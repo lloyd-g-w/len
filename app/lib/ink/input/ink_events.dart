@@ -8,6 +8,10 @@ class InkEvents {
   /// A finger wrote a stroke (fingers draw). Only told while set.
   void Function()? fingerStroke;
 
+  /// A contact started drawing: ink, erasing or a pointer tool (not a
+  /// pan or zoom). The editor counts it as writing (reading, R20-6).
+  void Function()? contact;
+
   /// A scribble to erase over text boxes or images, with no ink under it,
   /// was dropped.
   void Function()? scribbleMissed;

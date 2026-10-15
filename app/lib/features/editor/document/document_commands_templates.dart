@@ -8,6 +8,7 @@ mixin _DocumentTemplates {
   DocumentController get doc;
   PageEdits get edits;
   NotebookPage get _current;
+  VoidCallback? get onBlankPage;
 
   /// Lets the user choose a template, then adds pages with it after
   /// [after] (default: the current page).
@@ -22,6 +23,7 @@ mixin _DocumentTemplates {
     edits.add([
       for (final paper in choice.papers) specOf(choice.template.copyWith(paper: paper)),
     ], after: page);
+    onBlankPage?.call();
   }
 
   /// Adds [page] as it looks now (paper, background, ink and content) to

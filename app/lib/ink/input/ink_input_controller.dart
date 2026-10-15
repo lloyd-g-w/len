@@ -29,7 +29,8 @@ import 'stylus_proximity.dart';
 ///  * **Touch** is ignored while a stylus is down or was near within
 ///    [palmQuiet] (it is almost certainly the palm: between strokes the
 ///    pen lifts only briefly). Otherwise it navigates when palm rejection
-///    ([ToolSettings.stylusOnly]) is on; if off, one finger draws and a
+///    ([ToolSettings.stylusOnly]) is on or the editor is in reading
+///    ([ToolSettings.reading]); if not, one finger draws and a
 ///    second finger turns the gesture into pan/zoom.
 ///  * **Mouse**: left button draws, middle/right drag pans, wheel scrolls,
 ///    Ctrl/⌘+wheel zooms.
@@ -139,7 +140,7 @@ class InkInputController {
   void handleDown(PointerDownEvent e) {
     _stylus.note(e);
     kinetic?.begin();
-    gestures?.down(e, navigates: tools.stylusOnly ?? false);
+    gestures?.down(e, navigates: tools.fingersNavigate);
     switch (e.kind) {
       case PointerDeviceKind.stylus || PointerDeviceKind.invertedStylus:
         _stylusDown(e);
@@ -264,8 +265,8 @@ class InkInputController {
     // cursor would linger; a finger is a good moment to clear it.
     _draw.showEraser(null);
     _draw.showPen(null);
-    final palmRejection = tools.stylusOnly ?? false;
-    if (palmRejection) {
+    // Palm rejection, or reading (one finger scrolls until a tool is chosen).
+    if (tools.fingersNavigate) {
       _nav.add(e.pointer, e.localPosition, slop: kTouchSlop);
       return;
     }

@@ -125,6 +125,8 @@ class TipsController extends ValueNotifier<TipMessage?> {
   }
 
   void _onTools() {
+    // Writing is what the reading tip asks for.
+    if (value?.tip == EditorTip.reading && !_tools!.reading) _hide(done: true);
     final tool = _tools!.tool;
     if (tool == _tool) return;
     _tool = tool;
@@ -181,6 +183,8 @@ class TipsController extends ValueNotifier<TipMessage?> {
   bool _applies(EditorTip tip) {
     final tools = _tools;
     return switch (tip) {
+      // Only while reading: a tool chosen is the tip done.
+      EditorTip.reading => tools == null || tools.reading,
       // Automatic only: someone who chose finger drawing knows.
       EditorTip.fingers => tools == null || tools.stylusOnly == null,
       EditorTip.penButton => _penButton() != PenButtonAction.none,

@@ -27,7 +27,7 @@ class ColorSlots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final config = tools.configOf(ink);
-    final active = !editable || tools.tool.usesInk;
+    final active = !editable || (tools.tool.usesInk && !tools.reading);
     return Flex(
       direction: ToolbarAxis.of(context),
       mainAxisSize: MainAxisSize.min,
@@ -81,7 +81,7 @@ class WidthSlots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final config = tools.configOf(ink);
-    final active = !editable || tools.tool.usesInk;
+    final active = !editable || (tools.tool.usesInk && !tools.reading);
     return Flex(
       direction: ToolbarAxis.of(context),
       mainAxisSize: MainAxisSize.min,
