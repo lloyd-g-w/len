@@ -266,9 +266,31 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
       (n) => matches(n.title) || (isSearching && (_recordingTitles[n.id]?.any(matches) ?? false)),
     );
     // The trash lists the most recently deleted first, whatever the sort.
-    return _section == LibrarySection.trash
-        ? matching.toList()
-        : LibraryQuery.sorted(matching, sort);
+    if (_section == LibrarySection.trash) return matching.toList();
+    final sorted = LibraryQuery.sorted(matching, sort);
+    final folder = _folderId;
+    if (!isSearching || folder == null) return sorted;
+    // A search started in a folder spans the library, but lists what is in
+    // that folder (or below it) first (UX_AUDIT R16-8).
+    final inside = [
+      for (final n in sorted)
+        if (_isWithin(n, folder)) n,
+    ];
+    return [
+      ...inside,
+      for (final n in sorted)
+        if (!_isWithin(n, folder)) n,
+    ];
+  }
+
+  /// Whether [notebook] is in folder [folderId] or one of its subfolders.
+  bool _isWithin(Notebook notebook, String folderId) {
+    String? current = LibraryQuery.folderOf(notebook, _folderById);
+    for (var depth = 0; current != null && depth <= _folders.length; depth++) {
+      if (current == folderId) return true;
+      current = _parentById[current];
+    }
+    return false;
   }
 
   /// The library root's Recent row (UX_AUDIT R7-6): the notebooks opened

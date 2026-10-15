@@ -253,6 +253,30 @@ void main() {
       expect(c.locationOf(lecture), 'Library');
     });
 
+    test('a search from a folder lists that folder\'s matches first (R16-8)', () {
+      final calculus = c.createFolder('Calculus', color: 1);
+      c.openFolder(calculus.id);
+      final week = c.createFolder('Week 3', color: 1);
+      Notebook make(String title) => c.createNotebook(
+        title: title,
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
+      make('Calculus — Lecture 3');
+      c.openFolder(week.id);
+      make('Calculus — Lecture 3b');
+      c.openFolder(null);
+      clock.now += 1000;
+      make('Physics — Lecture 3'); // Edited last: first by date.
+      c.openFolder(calculus.id);
+      c.query = 'lecture 3';
+      expect(c.visibleNotebooks.map((n) => n.title).last, 'Physics — Lecture 3');
+      c.openFolder(null);
+      c.query = 'lecture 3';
+      expect(c.visibleNotebooks.map((n) => n.title).first, 'Physics — Lecture 3');
+    });
+
     test('search spans folders; favourites and trash have their own views', () {
       final f = c.createFolder('Work', color: 1);
       c.openFolder(f.id);

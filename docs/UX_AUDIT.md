@@ -33,7 +33,7 @@ undone without a word.
 
 | Moment | Len | GoodNotes 6 · Notability | Verdict |
 |---|---|---|---|
-| A notebook from last March | 🔍 + a word or two of its title (1 tap, results across folders with their path); or ☰ → Year 1 → Spring → Calculus → scroll (4 taps) | GoodNotes: search or the folder path; Notability: subjects (one level) | Keep, after R16-2 |
+| A notebook from last March | 🔍 + a word or two of its title (1 tap, results across folders with their path); or ☰ → Year 1 → Spring → Calculus → scroll (4 taps) | GoodNotes: search or the folder path; Notability: subjects (one level) | Keep, after R16-2 and R16-8 |
 | Sorting a course's lectures by name | A→Z by characters: Lecture 1, 10, 11 … 19, 2, 20 | both sort numbers by value (Finder order) | R16-1 |
 | Title search | each term anywhere in the title: "lecture 3" → Lecture 13, 23, 3 (by date) | GoodNotes: word starts | R16-2 |
 | Recent | 8 notebooks opened lately, with "Year 1 › Spring › …" under each | GoodNotes: Recents tab; Notability: none | R16-3 (caption) |
@@ -41,7 +41,7 @@ undone without a word.
 | Move many | Select → Move… → folder tree; Undo | same | Keep |
 | Nested folders, rename, colours | any depth; sidebar tree with drop targets; colour per folder | GoodNotes: same; Notability: dividers › subjects | Keep |
 | Trash | 30 days, then purged on every device; Empty trash…; Undo | same (GoodNotes 30 days) | Keep |
-| Space used | web only (Settings → Storage); native: per recording "N MB on this device" and Free up trimmed audio; nothing for the library | Notability: per-note sizes in Settings → Storage; GoodNotes: none | R16-7 |
+| Space used | web only (Settings → Storage); native: per recording "N MB on this device" and Free up trimmed audio; nothing for the library | the system's per-app total (neither app breaks it down well) | R16-7 |
 | Backup / restore of a big library | streamed `.len` file, "Last backup …", restore beside what's there or skip what's here, Undo | GoodNotes: zip of PDFs/.goodnotes; Notability: auto-backup to a cloud drive | Keep |
 | Sync status day to day | sidebar caption "Synced 2m" / "Syncing…" / red "Sync failed"; never a dialog | an icon in GoodNotes' settings; Notability: banner on failure | Keep |
 | Same page written on two devices offline | both sets of ink kept (stroke records merge); a text box edited on both: the later edit wins | GoodNotes: conflict copy of the document | Keep |
@@ -110,6 +110,14 @@ undone without a word.
   "“Calculus — Lecture 4” is back in the trash: another device wrote in
   it" / "2 deleted pages of “Lab book” are back: another device wrote on
   them". Devices that didn't delete anything say nothing. Effort S–M.
+
+**R16-8 P3 · A search from inside a folder buries that folder's notebooks.** ✅
+- *What:* in Year 1 › Spring › Calculus, typing "lecture 3" searches the
+  whole library (rightly: the caption says so) but lists the matches by
+  date, so "Calculus — Lecture 3" sits sixth, under Project, Electronics
+  and Statistics.
+- *Fix:* still across every folder, but what is in the open folder (or
+  below it) comes first, each part in the chosen order. Effort S.
 
 **R16-7 P2 · Nothing says what takes the space.** ⬜
 - *What:* natively there is no storage view: a year of lectures recorded
