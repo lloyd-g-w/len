@@ -19,9 +19,13 @@
       tools you reach for.
     </p>
     <ul>
-      <li>Paged notebooks with paper templates, planners and imported PDFs</li>
-      <li>A truly infinite canvas that stays fast however much you draw</li>
+      <li>Paged notebooks with paper templates, planners, imported PDFs and scanned paper</li>
+      <li>A truly infinite canvas that stays fast however much you draw, with a minimap</li>
       <li>Pens, highlighter, eraser, lasso and shapes, with pressure</li>
+      <li>Scribble to erase, shapes you reshape by their handles and fill, a lasso that
+        selects freehand or by rectangle</li>
+      <li>A zoom window: write large in a box, small on the page</li>
+      <li>Saved notebook styles, with a default for new notebooks</li>
       <li>Text boxes, images, audio recordings and a laser pointer</li>
       <li>Search, export to PDF and PNG, and presentation mode</li>
       <li>Len files to back up or share notebooks, folders or the whole library</li>
@@ -95,8 +99,10 @@
   <releases>
     <release version="0.1.0" date="2026-10-12">
       <description>
-        <p>The first release: notebooks and canvases, PDFs, text, images and audio,
-          search and export, Len files and self-hosted sync.</p>
+        <p>The first release: notebooks and canvases, PDFs, document scan, text, images
+          and audio, shapes with handles and fill, lasso options, scribble to erase, a zoom
+          window, a canvas minimap, notebook styles, keyboard access, search and export, Len
+          files and self-hosted sync.</p>
       </description>
     </release>
   </releases>
