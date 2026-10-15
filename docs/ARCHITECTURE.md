@@ -1966,6 +1966,46 @@ GoodNotes-style rich text inside a box.
   the soft keyboard and the phone's docked bar (the whole box while it fits). While a box is edited the editor's Undo / Redo (bar
   buttons, finger taps) step through its history (`EditingUndo` over the box's
   `BoxHistory`); undo past its first state finishes the box and undoes the page.
+- **Flow across pages** (`ink/elements/text_flow_*.dart`, `domain/text/text_flow.dart`,
+  `features/editor/document/document_text_flow.dart`): on a paged notebook a box (not
+  rotated) reaching the page's bottom margin (6 % of the page height) continues in a box at
+  the top margin of the next page (below a header area), lined up with it, and so on; a page
+  like the last is added when the text runs past it. The first box (the *head*) holds the
+  chain's position, width and box style; each continuation is an element of its own page
+  holding its part of the text, with `TextData.flow` (`TextFlow`: the box it continues,
+  whether its first line goes on with that box's last paragraph — `joined`, its list
+  marker then not drawn but its indent kept — and how many numbered items run on into it per
+  indent level). So every page draws, thumbnails, searches and exports (PNG, PDF) on its own,
+  and the chain's text is `TextFlow.join` of the parts. `TextFlowLayout.split` cuts one
+  `TextBoxLayout` of the whole text at line boundaries (a paragraph may split, at least one
+  line per part); `TextFlowChains` finds a chain (continuations on the very next pages,
+  `TextFlowChains.continuationsOf` / `headOf`, read from storage) and `reflow`s it into
+  per-page edits (continuations keep their ids on their page; ones no longer needed go).
+  `TextFlowPages` is the editor's view of the notebook (`DocumentTextFlow`): pages, margins,
+  where pages lie in continuous flow, models, adding pages and the notebook-wide undo group.
+  **Editing**: with the pages shown together (continuous flow) the session edits the whole
+  chain as one text in one field (opening a continuation makes the head's page active and
+  puts the caret at the end of that part): the field's text gets, at each page break, a line
+  holding a placeholder as tall as the room to the next page (`FlowBreak`, a third kind of
+  insert in `MarkerOffsets`, which the caret steps over; ↑ out of it goes to the page
+  before), so typing, deleting, selecting, formatting and the IME work across pages
+  natively and each part shows where it will be stored (the editor measures the field's room
+  line once and corrects the placeholders by what the field adds,
+  `RichTextController.roomExtra`). The other pages' boxes are hidden meanwhile and drawn as
+  typed in other views (lifted content). One page at a time (single-page flow) the box tapped
+  is edited alone and its chain flows again when it ends. Either way the end is one
+  notebook-wide undo step (`PageModels.group`; pages added for the text are recorded last, so
+  undo deletes them with their text and redo restores both). The session lays the text out
+  once per keystroke (`TextLayoutCache`: width, height, split and the field's breaks read one
+  layout; the field lays out on its own). **Lasso**: a continuation is not selected on its own
+  (it follows its head); moving, resizing, restyling or rotating a head flows its chain again
+  from where it is (`SelectionPlan.flowText`, same undo step; a rotated head takes the whole
+  text and stops flowing), deleting it deletes the chain, copy / cut / duplicate take the whole
+  text (pasted on a page it flows; on a canvas it is one tall box). Ctrl+V of plain text on a
+  page flows too. **Broken chains**: a continuation whose box before is gone or not on the page
+  before (pages deleted, moved or copied alone) stands alone, drawn as it was; edited, it
+  becomes a box of its own (its flow dropped); the chain before it simply ends. Duplicating a
+  notebook relinks its chains to the copies. Infinite canvases have no pages: boxes grow there.
 - **Size**: new boxes are **auto-width** (as wide as their text, growing up to
   the screen edge, then wrapping there); dragging a side handle sets a width and
   wraps from then on. Lasso corner scaling scales every size in the box.

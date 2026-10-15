@@ -81,14 +81,18 @@ From the reports; the owner picks. Status as above.
   Go to page's strip show a PDF page's own number quietly where it differs ("26 · Slide 23",
   "PDF p. 23" for portrait PDFs), and Go to page takes "s23" / "slide 23" (several PDFs: the
   current page's wins, else it asks which).
-- ⬜ **Typed notes that flow across pages** (UX_AUDIT round 19): a text box on a page grows
-  past the page's bottom and runs off it (GoodNotes stops boxes at the page; Notability's
-  typed notes flow onto the next page). Proposal: a box reaching the bottom margin continues
-  in a linked box at the top of the next page (added if needed), laid out as one text
-  (`TextBoxLayout` split by height); editing moves the caret across. Large: layout, the
-  session, undo, sync of linked boxes, PDF export. Typing cost meanwhile: a 26 000-character
-  box lays out in ≈ 5 ms, three layouts per keystroke (session width, height, field) on
-  the test machine — fine, but one cached layout would cut it.
+- ✅ **Typed notes that flow across pages** (UX_AUDIT round 19, feat/text-flow): on a paged
+  notebook a box reaching the bottom margin continues in a linked box at the top margin of
+  the next page (a page like the last is added when needed); each page holds its part
+  (`data.flow`: the box it continues, a paragraph split mid-way, list numbers running on), so
+  pages draw, search and export alone. In continuous flow the whole chain is edited as one
+  text in one field (page-break rooms the caret steps over: typing, deleting, selecting,
+  formatting and the IME cross pages); one page at a time the box is edited alone and the
+  chain flows when it ends. One undo step per edit; the lasso carries a chain by its first
+  box (move, resize, restyle, delete, copy the whole text); deleted or reordered pages leave
+  the rest standing alone; canvases keep growing boxes. A keystroke lays the box out once
+  (plus the field's own layout). See ARCHITECTURE "Text boxes", SYNC_PROTOCOL "Text flowing
+  across pages".
 - 🚧 (feat/rtl-text) **Right-to-left text boxes** (UX_AUDIT round 19): boxes are laid out LTR everywhere
   (`TextBoxLayout`, `TextWraps`, the field, PDF), so Arabic / Hebrew runs reorder but sit
   left-aligned with punctuation and list markers on the wrong side. Proposal: a box's

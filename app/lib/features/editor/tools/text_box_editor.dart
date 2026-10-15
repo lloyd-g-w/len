@@ -316,7 +316,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
               dockedKey: _dockedBar,
               controller: _text,
               tools: widget.tools,
-              onBoxChanged: (box) => widget.tools.textStyle = box,
+              onBoxChanged: (box) => widget.tools.textStyle = box.withFlow(null),
               onDelete: () {
                 _session.setData(const TextData());
                 _session.end();
