@@ -142,8 +142,9 @@ class _CanvasMinimapState extends State<CanvasMinimap> with SingleTickerProvider
 
   void _attach() {
     _changes = widget.model.changes.listen((change) {
-      // Loading brings in stored content only: nothing new to map.
-      if (change.loaded) return;
+      // Loading and evicting only move stored content in and out of
+      // memory: nothing new to map.
+      if (!change.altersContent) return;
       _refresh?.cancel();
       _refresh = Timer(CanvasMinimap.refreshDelay, () => unawaited(_load()));
     });

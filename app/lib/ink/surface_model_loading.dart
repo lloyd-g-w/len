@@ -254,6 +254,6 @@ mixin _SurfaceLoading on _SurfaceState {
       evicted.addAll(keys);
     }
     // Nothing visible changed, so listeners need not be notified.
-    if (evicted.isNotEmpty) _changes.add(SurfaceChange(evicted));
+    if (evicted.isNotEmpty) _changes.add(SurfaceChange(evicted, evicted: true));
   }
 }
