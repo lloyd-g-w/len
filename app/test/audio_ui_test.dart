@@ -13,6 +13,7 @@ import 'package:len/domain/recording.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/audio/recording_controller.dart';
 import 'package:len/features/audio/ui/audio_bar_button.dart';
+import 'package:len/features/audio/ui/recording_tile.dart';
 import 'package:len/features/editor/chrome/editor_top_bar.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
@@ -196,6 +197,15 @@ void main() {
     expect(find.text('1 recording, 1\u00A0min'), findsOneWidget);
     // Recorded by the app's clock, which still says the same day.
     expect(find.textContaining(RegExp(r'^Today, \d\d:\d\d$')), findsOneWidget);
+    // The ⋯ glyph mirrors the leading one (round 11: it sat 20 dp further in).
+    final tile = tester.getRect(find.byType(RecordingTile));
+    final lead = tester.getRect(
+      find.descendant(of: find.byType(RecordingTile), matching: find.byType(Icon)).first,
+    );
+    final more = tester.getRect(
+      find.descendant(of: find.byTooltip('More'), matching: find.byType(Icon)),
+    );
+    expect(tile.right - more.right, moreOrLessEquals(lead.left - tile.left, epsilon: 0.5));
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Rename…'));

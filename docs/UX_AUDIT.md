@@ -189,8 +189,10 @@ Looked at and left, then fixed on `fix/r12-leftovers`:
   keeps above and left of the map's far corner (`MinimapMenu.clearOf`, as
   `MenuEdgeMargin.keepClear` strips), so it moves above the map rather
   than over the chrome below it.
-- ⬜ The recordings list's ⋯ sits at the ListTile's padding rather than on
-  the content edge.
+- ✅ The recordings list's ⋯ sat at the ListTile's padding, 22 dp in.
+  Its glyph now mirrors the leading play glyph (8 dp in, as the tab
+  switcher's ✕ mirrors the notebook icons), the button's padding hanging
+  into the popover's margin (`HitOverhang`).
 - ⬜ A sheet header's ✕ centres on title plus subtitle.
 
 ## Round 10 audit — a real week of notes (`review/round10`)

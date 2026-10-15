@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -7,6 +8,7 @@ import '../../../core/format.dart';
 import '../../../domain/recording.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/hit_overhang.dart';
 import '../../../ui/menus.dart';
 import '../../../ui/messages.dart';
 import '../../../ui/text_prompt.dart';
@@ -38,10 +40,18 @@ class RecordingTile extends StatelessWidget {
     final open = audio.playback.recording?.id == recording.id;
     final size = audio.sizeOf(recording);
     final selecting = selected != null;
+    // The ⋯'s glyph mirrors the leading one, Gaps.sm in from the content
+    // edge: its button's padding takes the row's, and what's left over
+    // hangs into the popover's margin.
+    final hit = Targets.barHit(context);
+    final buttonPad = (hit - Glyphs.bar) / 2;
     return ListTile(
       key: ValueKey('recording-${recording.id}'),
       selected: open && !selecting,
-      contentPadding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
+      contentPadding: EdgeInsetsDirectional.only(
+        start: Gaps.sm,
+        end: selecting ? Gaps.sm : math.max(0, Gaps.sm - buttonPad),
+      ),
       leading: selecting
           ? Checkbox(value: selected, onChanged: (_) => onSelect())
           : Icon(
@@ -75,45 +85,46 @@ class RecordingTile extends StatelessWidget {
       onLongPress: selecting ? null : onSelect,
       trailing: selecting
           ? null
-          : MenuIconButton<String>(
-              tooltip: 'More',
-              icon: const Icon(Symbols.more_horiz_sharp),
-              onSelected: (action) => unawaited(_run(context, action)),
-              items: () => [
-                if (size != null)
-                  MenuRow(
-                    value: 'size',
-                    icon: Symbols.storage_sharp,
-                    label: '${formatBytes(size)} on this device',
-                    enabled: false,
-                  ),
-                const MenuRow(value: 'rename', icon: Symbols.edit_sharp, label: 'Rename…'),
-                const MenuRow(value: 'trim', icon: Symbols.content_cut_sharp, label: 'Trim…'),
-                if (recording.trimmed)
-                  const MenuRow(value: 'untrim', icon: Symbols.restore_sharp, label: 'Reset trim'),
-                if (freeUpSpaceLabel(audio, recording) case final label?)
-                  MenuRow(value: 'free', icon: Symbols.delete_sweep_sharp, label: label),
-                MenuRow(
-                  value: 'export',
-                  icon: Symbols.ios_share_sharp,
-                  label: audio.canSaveToDevice ? 'Share…' : 'Export…',
-                ),
-                if (audio.canSaveToDevice)
-                  const MenuRow(
-                    value: 'save',
-                    icon: Symbols.download_sharp,
-                    label: 'Save to device…',
-                  ),
-                const MenuRow(
-                  value: 'delete',
-                  icon: Symbols.delete_sharp,
-                  label: 'Delete…',
-                  destructive: true,
-                ),
-              ],
+          : HitOverhang(
+              overhang: EdgeInsetsDirectional.only(end: math.max(0, buttonPad - Gaps.sm)),
+              child: SizedBox.square(dimension: hit, child: _menu(context, size)),
             ),
     );
   }
+
+  Widget _menu(BuildContext context, int? size) => MenuIconButton<String>(
+    tooltip: 'More',
+    icon: const Icon(Symbols.more_horiz_sharp),
+    onSelected: (action) => unawaited(_run(context, action)),
+    items: () => [
+      if (size != null)
+        MenuRow(
+          value: 'size',
+          icon: Symbols.storage_sharp,
+          label: '${formatBytes(size)} on this device',
+          enabled: false,
+        ),
+      const MenuRow(value: 'rename', icon: Symbols.edit_sharp, label: 'Rename…'),
+      const MenuRow(value: 'trim', icon: Symbols.content_cut_sharp, label: 'Trim…'),
+      if (recording.trimmed)
+        const MenuRow(value: 'untrim', icon: Symbols.restore_sharp, label: 'Reset trim'),
+      if (freeUpSpaceLabel(audio, recording) case final label?)
+        MenuRow(value: 'free', icon: Symbols.delete_sweep_sharp, label: label),
+      MenuRow(
+        value: 'export',
+        icon: Symbols.ios_share_sharp,
+        label: audio.canSaveToDevice ? 'Share…' : 'Export…',
+      ),
+      if (audio.canSaveToDevice)
+        const MenuRow(value: 'save', icon: Symbols.download_sharp, label: 'Save to device…'),
+      const MenuRow(
+        value: 'delete',
+        icon: Symbols.delete_sharp,
+        label: 'Delete…',
+        destructive: true,
+      ),
+    ],
+  );
 
   Future<void> _play(BuildContext context) async {
     if (await audio.play(recording)) return;
