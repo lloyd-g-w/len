@@ -437,6 +437,21 @@ void main() {
     expect(like.search(SearchQuery('fall')).single.kind, SearchHitKind.notebookTitle);
   });
 
+  test('the LIKE fallback folds marks and accents as the index does', () {
+    final like = SearchIndex(s.database, preferFts: false);
+    final nb = paged('मेरा गणित');
+    final page = s.pages.pagesOf(nb.id).single.id;
+    s.elements.save([
+      textBox('t', page, 'บันทึกการเรียน'),
+      textBox('u', page, 'E\u0301tude Ça va'),
+    ]);
+    expect(like.search(SearchQuery('गणित')).single.kind, SearchHitKind.notebookTitle);
+    expect(like.search(SearchQuery('บันทึก')).single.refId, 't');
+    expect(like.search(SearchQuery('etude')).single.refId, 'u');
+    expect(like.search(SearchQuery('ca')).single.refId, 'u');
+    expect(like.searchFolders(SearchQuery('गणित')), isEmpty);
+  });
+
   group('SearchQuery', () {
     test('folds case and accents, keeps offsets', () {
       // Ł keeps its stroke: the index (unicode61) only drops accents that
