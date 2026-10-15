@@ -3,6 +3,7 @@ import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/features/documents/notebook_gone.dart';
 import 'package:len/features/documents/scan/scan_import.dart';
 import 'package:len/features/documents/scan/scan_session.dart';
 
@@ -33,6 +34,28 @@ void main() {
       expect(repeat.single.background, page.background);
       await again.discard();
       expect(await s.blobs.has(sha), isTrue);
+    });
+  });
+  testWidgets('a scan finished after its notebook was deleted elsewhere goes nowhere', (
+    tester,
+  ) async {
+    final s = AppServices.create(AppDatabase.inMemory());
+    addTearDown(s.dispose);
+    final nb = s.notebooks.create(
+      title: 'Scans',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    await tester.runAsync(() async {
+      final importer = ScanImporter(s);
+      final specs = await importer.render([
+        ScanPageDraft(await ScanPhoto.load(deskPhoto())),
+      ], ScanFilter.colour);
+      s.notebooks.delete(nb.id); // Meanwhile, on another device.
+      expect(() => importer.insertPages(specs, notebookId: nb.id), throwsA(isA<NotebookGone>()));
+      expect(s.pages.pagesOf(nb.id), isEmpty);
+      await importer.discard();
     });
   });
 }

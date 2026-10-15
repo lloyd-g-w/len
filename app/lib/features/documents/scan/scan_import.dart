@@ -11,6 +11,7 @@ import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
 import '../../../platform/scan_runner.dart';
+import '../notebook_gone.dart';
 import 'scan_session.dart';
 
 /// Turns the pages of a scan into notebook pages whose backgrounds are
@@ -66,12 +67,17 @@ class ScanImporter {
         return notebook;
       });
 
-  /// Inserts [specs] into [notebookId] after [after] (at the end if null).
+  /// Inserts [specs] into [notebookId] after [after] (at the end if null);
+  /// throws [NotebookGone] if the notebook was deleted meanwhile (on
+  /// another device): pages there would bring it back.
   List<NotebookPage> insertPages(
     List<PageSpec> specs, {
     required String notebookId,
     NotebookPage? after,
-  }) => services.pages.insertPages(notebookId, specs, after: after);
+  }) {
+    NotebookGone.check(services, notebookId);
+    return services.pages.insertPages(notebookId, specs, after: after);
+  }
 
   /// Deletes the blobs stored so far that nothing uses (the scan was
   /// cancelled or failed); a page deleted lately still uses its scan (undo
