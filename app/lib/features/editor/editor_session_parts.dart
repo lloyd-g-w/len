@@ -84,9 +84,11 @@ extension _EditorSessionReading on EditorSession {
   }
 
   /// Whether something is under way that reading would interrupt: a stroke,
-  /// a text box being typed, a selection, the zoom window.
+  /// a text box being typed, a selection, the zoom window, presenting with
+  /// the laser (a finger points).
   bool _busy() =>
       live.isDrawing ||
+      tools.tool == EditorTool.laser ||
       content.text.isEditing ||
       !content.selection.isEmpty ||
       !(pdf?.selection.isEmpty ?? true) ||

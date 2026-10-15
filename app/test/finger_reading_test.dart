@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_scope.dart';
 import 'package:len/data/app_database.dart';
@@ -389,6 +390,21 @@ void main() {
       await pumpUntil(tester, () => inkOf(s, s.pages.pagesOf(nb.id).first).length == 2);
       await tester.pumpAndSettle();
       expect(tools.reading, isFalse, reason: 'the pasted ink is selected, to move by finger');
+      await closeEditor(tester);
+    });
+
+    testWidgets('presenting with the laser never goes back to reading', (tester) async {
+      await pumpEditor(tester, size: phone);
+      final tools = toolsOf(tester);
+      expect(tools.reading, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+      await tester.pumpAndSettle();
+      expect((tools.tool, tools.reading), (EditorTool.laser, false));
+      await tester.pump(FingerReading.idle * 2);
+      await tester.pumpAndSettle();
+      expect(tools.reading, isFalse, reason: 'the finger still points');
+      await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+      await tester.pumpAndSettle();
       await closeEditor(tester);
     });
 
