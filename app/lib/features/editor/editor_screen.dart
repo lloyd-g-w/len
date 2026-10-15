@@ -39,6 +39,7 @@ import 'split/split_controller.dart';
 import 'split/split_view.dart';
 import 'split/split_view_menu.dart';
 import 'tabs/open_notebooks.dart';
+import 'toolbar_measure.dart';
 import 'zoom/zoom_window_state.dart';
 
 part 'editor_screen_actions.dart';
