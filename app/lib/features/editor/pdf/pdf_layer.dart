@@ -8,15 +8,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../domain/notebook_page.dart';
 import '../../../ui/app_dialogs.dart';
-import '../../../ui/app_theme.dart';
-import '../../../ui/floating_panel.dart';
 import '../../documents/progress_dialog.dart' show showMessage;
-import '../links/link_menu.dart';
-import 'pdf_highlight_removal.dart';
-import 'pdf_highlight_swatches.dart';
 import 'pdf_interaction.dart';
 import 'pdf_page_info.dart';
 import 'pdf_selection_handles.dart';
+import 'pdf_selection_menu.dart';
 import 'pdf_selection_paint.dart';
 
 /// Ctrl/⌘+C copies selected PDF text (then calls [copied]), Escape drops
@@ -41,10 +37,9 @@ typedef UrlOpener = Future<bool> Function(Uri url);
 
 Future<bool> _launch(Uri url) => launchUrl(url, mode: LaunchMode.externalApplication);
 
-/// Shows the PDF text selection (with handles and its menu: copy,
-/// highlight in one of the highlighter's quick colours, remove a highlight
-/// over it, select all) over the document, follows links tapped with a
-/// navigating finger, and keeps the visible pages' text and links loaded.
+/// Shows the PDF text selection (with handles and its [PdfSelectionMenu])
+/// over the document, follows links tapped with a navigating finger, and
+/// keeps the visible pages' text and links loaded.
 ///
 /// Pointer events pass through to the canvas beneath, except on the
 /// selection's handles and menu.
@@ -238,7 +233,16 @@ class _PdfLayerState extends State<PdfLayer> {
                         child: PdfSelectionHandles(interaction: _pdf, relayout: view),
                       ),
                     ),
-                    if (_pdf.selection.showsMenu) _menu(context, view),
+                    if (_pdf.selection.showsMenu)
+                      Positioned.fill(
+                        child: PdfSelectionMenu(
+                          interaction: _pdf,
+                          relayout: view,
+                          onPress: () => _onSelection = true,
+                          onCopy: _copy,
+                          onHighlight: _highlight,
+                        ),
+                      ),
                   ],
                 );
               },
@@ -257,109 +261,5 @@ class _PdfLayerState extends State<PdfLayer> {
       final bg = doc.pages[i].pdf;
       if (bg != null) _pdf.info.isLoaded(bg.blob, bg.pageIndex);
     }
-  }
-
-  /// The box around the selected lines on screen.
-  Rect _selectionOnScreen() {
-    final doc = _pdf.doc;
-    final index = doc.pages.indexWhere((p) => p.id == _pdf.selection.page?.id);
-    final frame = index < 0 ? null : doc.layout.frameOf(index);
-    if (frame == null) return Rect.zero;
-    final rects = [
-      for (final r in _pdf.selectionRects)
-        Rect.fromPoints(
-          doc.viewport.toScreen(frame.topLeft + r.topLeft),
-          doc.viewport.toScreen(frame.topLeft + r.bottomRight),
-        ),
-    ];
-    return rects.isEmpty ? Rect.zero : rects.reduce((a, b) => a.expandToInclude(b));
-  }
-
-  /// Windows narrower than this show Copy without its label, and a glyph
-  /// for Highlight.
-  static const double _labelledWidth = 480;
-
-  /// The selection's menu, above the selected lines (below them if there
-  /// is no room above).
-  Widget _menu(BuildContext context, Listenable view) {
-    final roomAbove = MediaQuery.paddingOf(context).top + 64;
-    // Phones: Copy without its label, so the colours and a link fit.
-    final labelled = MediaQuery.sizeOf(context).width >= _labelledWidth;
-    final copy = !labelled
-        ? IconButton(
-            key: const ValueKey('pdf-copy'),
-            tooltip: 'Copy',
-            icon: const Icon(Symbols.content_copy_sharp, size: Glyphs.bar),
-            onPressed: _copy,
-          )
-        : TextButton.icon(
-            key: const ValueKey('pdf-copy'),
-            onPressed: _copy,
-            icon: const Icon(Symbols.content_copy_sharp, size: Glyphs.menu),
-            label: const Text('Copy'),
-          );
-    final highlighted = _pdf.selectionHighlighted;
-    return Positioned.fill(
-      child: CustomSingleChildLayout(
-        delegate: PdfMenuPlacement(_selectionOnScreen, roomAbove: roomAbove, relayout: view),
-        // Moved, not repainted, as the view moves.
-        child: RepaintBoundary(
-          child: Listener(
-            onPointerDown: (_) => _onSelection = true,
-            // A floating panel like the ink selection menu (the pill is the
-            // page indicator's only).
-            child: FloatingPanel(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  copy,
-                  PdfHighlightSwatches(
-                    tools: _pdf.tools,
-                    onHighlight: _highlight,
-                    labelled: labelled,
-                    // Room for Remove highlight on a phone.
-                    count: highlighted && !labelled
-                        ? PdfHighlightSwatches.max - 1
-                        : PdfHighlightSwatches.max,
-                  ),
-                  if (highlighted)
-                    IconButton(
-                      key: const ValueKey('pdf-remove-highlight'),
-                      tooltip: 'Remove highlight',
-                      icon: const Icon(Symbols.format_color_reset_sharp, size: Glyphs.bar),
-                      onPressed: _pdf.removeSelectedHighlights,
-                    ),
-                  if (_pdf.selectedLink != null)
-                    IconButton(
-                      key: const ValueKey('pdf-open-link'),
-                      tooltip: 'Open link',
-                      icon: const Icon(Symbols.open_in_new_sharp, size: Glyphs.bar),
-                      onPressed: _pdf.openSelectedLink,
-                    ),
-                  if (_pdf.onLinkSelection case final link?)
-                    Builder(
-                      builder: (anchor) => IconButton(
-                        key: const ValueKey('pdf-link'),
-                        tooltip: 'Link…',
-                        icon: const Icon(Symbols.link_sharp, size: Glyphs.bar),
-                        onPressed: () async {
-                          final choice = await showLinkMenu(anchor);
-                          if (choice != null) link(url: choice == LinkChoice.url);
-                        },
-                      ),
-                    ),
-                  IconButton(
-                    key: const ValueKey('pdf-select-all'),
-                    tooltip: 'Select all on page',
-                    icon: const Icon(Symbols.select_all_sharp, size: Glyphs.bar),
-                    onPressed: _pdf.selectAll,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
