@@ -151,10 +151,27 @@ class EditorSession {
   /// Inserting images (picker, clipboard, drag and drop, camera).
   late final EditorImages images = EditorImages(
     services: services,
+    notebookId: shared.notebook.id,
     content: content,
     tools: tools,
     activateAt: doc?.activateAt,
+    reveal: _reveal,
   );
+
+  /// Shows page [id] (making it the edited one), or point [at] of the
+  /// canvas [id]; false if there is no such page (or canvas).
+  bool _reveal(String id, Offset at) {
+    if (doc case final doc?) {
+      final index = doc.pages.indexWhere((p) => p.id == id);
+      if (index < 0) return false;
+      doc.goToPage(index);
+      return true;
+    }
+    if (id != canvas!.surfaceId) return false;
+    final nav = canvasNav!;
+    if (!nav.visibleArea.contains(at)) nav.centreOn(at, animate: false);
+    return true;
+  }
 
   /// The zoom window: writing small through a magnified box.
   late final ZoomWindow zoomWindow = () {

@@ -864,7 +864,7 @@ search highlights use the same boxes.
   blob (so they sync like PDFs) and an `image` element at natural size
   (1 px = 1 world unit), shrunk to 70 % of the view and kept on the page.
   Entry points (`EditorImages`): the top bar button (file picker; on Android
-  also the camera via `image_picker`), Ctrl+V (`pasteboard` reads the system
+  also the camera via `Camera`, see *Document scans*), Ctrl+V (`pasteboard` reads the system
   clipboard's image, or a copied image file on desktop; a clipboard image
   older than ink copied in the app loses to the ink) and drag and drop
   (`desktop_drop`). Every insert is one undoable edit and selects the image.
@@ -946,6 +946,26 @@ SYNC_PROTOCOL). All pure Dart, so it works on every platform.
   `image_picker`) the screen starts by offering both. Leaving with pages
   asks first.
   `ScanSources` is the seam for tests (`ScanSources.debugSources`).
+- **Camera photos after a kill** (`features/camera/`, `platform/camera_capture.dart`).
+  Android may kill Len while the camera app is in front (low memory); the
+  photo then comes back only through `image_picker`'s `retrieveLostData()`
+  at the next start. Every camera use goes through `Camera`
+  (`AppServices.camera`), which keeps a `CameraPurpose` in the settings
+  (`camera_purpose`) while the camera is open: a scan into a new notebook,
+  a scan into notebook N after page P, or a photo on surface S (page or
+  canvas) centred on a point. At startup the library asks once
+  (`resumeLostPhoto`, after reopening the workspace) and carries on, saying
+  "Recovered the photo you took": the scan screen with the photo (for an
+  insert, in the notebook's editor, opened or switched to first), or the
+  photo inserted on its page at its spot (`EditorImages.insertRecovered`;
+  a canvas scrolls there). Fallbacks: a scan whose notebook is gone (or
+  trashed) becomes a new notebook; a photo for a deleted page goes on the
+  page shown; a photo whose notebook is gone, or without a purpose, is
+  taken like a shared image (into the shown editor, asked, or a new
+  canvas). Only the photo survives: pages scanned before it in that
+  session were in memory. `CameraCapture` is the platform seam (Android
+  only; elsewhere no camera and nothing to retrieve); tests use
+  `FakeCameraCapture`.
 - **Import** (`scan_flow`, `ScanImporter`): after Done, each page is
   flattened at full size and stored as a blob behind a cancellable progress
   dialog; then one transaction creates the notebook (titled "Scan <date>",
@@ -2156,6 +2176,7 @@ the web:
 | Stylus samples (`stylus_samples`, `low_latency_ink`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
 | Secrets (`secure_store`) | `flutter_secure_storage`: Android Keystore-wrapped keys, Linux Secret Service via libsecret (the desktop keyring; in a Flatpak the secret portal), Windows DPAPI | none: the sync token stays in the database (see *Sync token*) |
 | Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, MediaPlayer, foreground service for background recording; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
+| Camera (`camera_capture`, one file: `image_picker` needs no `dart:io`) | Android: the camera app through `image_picker`, and the photo of one cut off by a kill (`retrieveLostData`); Linux / Windows: none | none |
 | Media controls (`media_controls`) | Android: media session + notification in a `mediaPlayback` foreground service (`PlaybackService.kt`); Linux: MPRIS on the session bus (`mpris_native.dart`, `package:dbus`); Windows: none (media keys as key events) | Media Session API |
 
 **Why web canvas reads are not in a Web Worker.** The IndexedDB VFS keeps

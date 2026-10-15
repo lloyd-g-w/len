@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app_services.dart';
@@ -7,6 +8,7 @@ import '../../../data/page_repository.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../ui/app_theme.dart';
+import '../../camera/camera_purpose.dart';
 import '../progress_dialog.dart';
 import 'scan_import.dart';
 import 'scan_screen.dart';
@@ -14,9 +16,13 @@ import 'scan_session.dart';
 import 'scan_sources.dart';
 
 /// Scans pages (the scan screen) into a new notebook titled after today,
-/// e.g. "Scan Oct 14". Returns it, or null if the user left or it failed
-/// (they have then been told why).
-Future<Notebook?> scanToNewNotebookFlow(BuildContext context, {ScanSources? sources}) {
+/// e.g. "Scan Oct 14", starting with [photos] if any. Returns it, or null
+/// if the user left or it failed (they have then been told why).
+Future<Notebook?> scanToNewNotebookFlow(
+  BuildContext context, {
+  ScanSources? sources,
+  List<XFile> photos = const [],
+}) {
   final today = AppScope.read(context).clock.nowDate();
   final title = 'Scan ${MaterialLocalizations.of(context).formatShortMonthDay(today)}';
   return _scanFlow(
@@ -24,24 +30,30 @@ Future<Notebook?> scanToNewNotebookFlow(BuildContext context, {ScanSources? sour
     doneLabel: 'Create notebook',
     progressTitle: 'Creating notebook',
     sources: sources,
+    purpose: const ScanNewNotebook(),
+    photos: photos,
     store: (importer, specs) =>
         importer.createNotebook(specs, title: title, cover: Palette.covers.first),
   );
 }
 
 /// Scans pages (the scan screen) into notebook [notebookId] after [after]
-/// (at the end if null). Returns the new pages, or null if the user left
-/// or it failed (they have then been told why).
+/// (at the end if null), starting with [photos] if any. Returns the new
+/// pages, or null if the user left or it failed (they have then been told
+/// why).
 Future<List<NotebookPage>?> scanIntoNotebookFlow(
   BuildContext context, {
   required String notebookId,
   NotebookPage? after,
   ScanSources? sources,
+  List<XFile> photos = const [],
 }) => _scanFlow(
   context,
   doneLabel: 'Insert',
   progressTitle: 'Inserting pages',
   sources: sources,
+  purpose: ScanIntoNotebook(notebookId, afterPageId: after?.id),
+  photos: photos,
   store: (importer, specs) => importer.insertPages(specs, notebookId: notebookId, after: after),
 );
 
@@ -50,6 +62,8 @@ Future<T?> _scanFlow<T>(
   required String doneLabel,
   required String progressTitle,
   required ScanSources? sources,
+  required CameraPurpose purpose,
+  required List<XFile> photos,
   required T Function(ScanImporter importer, List<PageSpec> specs) store,
 }) async {
   final services = AppScope.read(context);
@@ -59,8 +73,13 @@ Future<T?> _scanFlow<T>(
     onFilterChanged: (f) => settings.scanFilter = f.name,
   );
   final route = MaterialPageRoute<bool>(
-    builder: (_) =>
-        ScanScreen(session: session, doneLabel: doneLabel, sources: sources ?? ScanSources.current),
+    builder: (_) => ScanScreen(
+      session: session,
+      doneLabel: doneLabel,
+      sources: sources ?? ScanSources.current,
+      purpose: purpose,
+      initialPhotos: photos,
+    ),
   );
   try {
     final done = await Navigator.of(context).push(route);
