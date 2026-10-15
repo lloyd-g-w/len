@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 
@@ -35,7 +36,7 @@ class HoldToStraighten {
   static const double holdTolerance = 4;
 
   /// Strokes shorter than this (screen pixels) are never straightened.
-  static const double minLength = 24;
+  static const double minLength = 48;
 
   /// Closed strokes smaller than this (screen pixels, their longest side)
   /// stay as written: letters and digits ("o", "0", "8").
@@ -65,8 +66,27 @@ class HoldToStraighten {
     return true;
   }
 
+  /// What [points] (world, at [scale]) snap to when the pen rests at
+  /// their end: the recognised shape, unless the stroke is too short or a
+  /// closed one too small (a letter).
+  static ShapeGeometry? snapOf(List<StrokePoint> points, double scale) {
+    if (Straighten.pathLength(points) * scale < minLength) return null;
+    final offsets = [for (final p in points) p.offset];
+    final shape = ShapeRecognizer.recognize(offsets);
+    if (shape == null) return null;
+    if (shape.kind.isClosed && Polyline.bounds(offsets).longestSide * scale < minShape) {
+      return null;
+    }
+    return shape;
+  }
+
   Timer? _timer;
-  Offset? _anchor;
+
+  /// Where the pen has been since it was last more than [holdTolerance]
+  /// from where it is now: (screen position, time in ms, index of the
+  /// live point). The first is where it came to rest: the hold counts
+  /// from then, and what follows is the pen resting, not drawing.
+  final List<(Offset, int, int)> _resting = [];
   StrokePoint? _from;
   bool _shaped = false;
   double _pressure = 0.5;
@@ -78,7 +98,13 @@ class HoldToStraighten {
   /// A stroke started at [screen]; [enabled] reflects the user setting.
   /// With [straight], the live stroke (its first point already added) is a
   /// straight line from that point to the pen until it lifts.
-  void begin(Offset screen, {required bool enabled, required double scale, bool straight = false}) {
+  void begin(
+    Offset screen, {
+    required bool enabled,
+    required double scale,
+    bool straight = false,
+    int timeMs = 0,
+  }) {
     end();
     _scale = scale;
     if (straight) {
@@ -87,14 +113,15 @@ class HoldToStraighten {
       _pressure = from.pressure;
       live.straightened = true;
     } else if (enabled) {
-      _restart(screen);
+      _resting.add((screen, timeMs, live.points.length - 1));
+      _timer = Timer(holdDuration, _snap);
     }
   }
 
-  /// The pen moved to [screen] / [point]. Returns true if the move was
-  /// consumed (the stroke is straight and its end now follows the pen);
-  /// otherwise the caller adds [point] to the live stroke as usual.
-  bool move(Offset screen, StrokePoint point) {
+  /// The pen moved to [screen] / [point] at [timeMs]. Returns true if the
+  /// move was consumed (the stroke is straight and its end now follows the
+  /// pen); otherwise the caller adds [point] to the live stroke as usual.
+  bool move(Offset screen, StrokePoint point, {int timeMs = 0}) {
     if (_shaped) return true;
     final from = _from;
     if (from != null) {
@@ -105,8 +132,7 @@ class HoldToStraighten {
         );
       return true;
     }
-    final anchor = _anchor;
-    if (anchor != null && (screen - anchor).distance > holdTolerance) _restart(screen);
+    if (_resting.isNotEmpty) _rest(screen, timeMs);
     return false;
   }
 
@@ -114,25 +140,40 @@ class HoldToStraighten {
   void end() {
     _timer?.cancel();
     _timer = null;
-    _anchor = null;
+    _resting.clear();
     _from = null;
     _shaped = false;
   }
 
-  void _restart(Offset screen) {
+  /// The pen is at [screen]: the rest starts after the last place it was
+  /// farther than [holdTolerance] from here (a pen coming to rest still
+  /// slows down, then drifts a pixel or so), and the hold counts from then.
+  void _rest(Offset screen, int timeMs) {
+    _resting.add((screen, timeMs, live.points.length)); // [live] adds it next.
+    var from = _resting.length - 1;
+    while (from > 0 && (_resting[from - 1].$1 - screen).distance <= holdTolerance) {
+      from--;
+    }
+    if (from == 0) return;
+    _resting.removeRange(0, from);
+    final held = timeMs - _resting.first.$2;
     _timer?.cancel();
-    _anchor = screen;
-    _timer = Timer(holdDuration, _snap);
+    _timer = Timer(holdDuration - Duration(milliseconds: math.max(0, held)), _snap);
   }
 
   void _snap() {
     _timer = null;
     final points = live.points;
-    if (!live.isDrawing || Straighten.pathLength(points) * _scale < minLength) return;
-    final offsets = [for (final p in points) p.offset];
-    final shape = ShapeRecognizer.recognize(offsets);
+    if (!live.isDrawing) return;
+    // Recognised as drawn: a resting pen drifts by a pixel or so, which
+    // would add a tangle at the end (a line's detour, an arrow's wings).
+    final rest = _resting.isEmpty ? points.length - 1 : _resting.first.$3;
+    final drawn = points.sublist(0, math.min(points.length, rest + 1));
+    var shape = snapOf(drawn, _scale);
     if (shape == null) return;
-    if (shape.kind.isClosed && Polyline.bounds(offsets).longestSide * _scale < minShape) return;
+    if (shape.kind == ShapeKind.line) {
+      shape = ShapeGeometry(ShapeKind.line, [points.first.offset, points.last.offset]);
+    }
     _pressure = Straighten.medianPressure(points);
     live
       ..straightened = true

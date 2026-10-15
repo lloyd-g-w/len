@@ -174,4 +174,52 @@ void main() {
     input.handleUp(const PointerUpEvent(pointer: 1, kind: PointerDeviceKind.stylus));
     expect(committed().shape!.points, [pts.first, const Offset(560, 340)]);
   });
+
+  /// Draws [pts] 4 ms apart, then rests the pen at their end the way a
+  /// real S Pen rests: it slows down, then drifts a pixel or so either
+  /// way while the samples keep coming; lifts it after [restMs].
+  Future<void> drawAndRest(WidgetTester tester, List<Offset> pts, {int restMs = 700}) async {
+    var ms = 0;
+    PointerMoveEvent at(Offset p) => PointerMoveEvent(
+      pointer: 1,
+      kind: PointerDeviceKind.stylus,
+      position: p,
+      pressure: 0.5,
+      timeStamp: Duration(milliseconds: ms),
+    );
+    input.handleDown(
+      PointerDownEvent(pointer: 1, kind: PointerDeviceKind.stylus, position: pts.first),
+    );
+    for (final p in pts.skip(1)) {
+      ms += 4;
+      await tester.pump(const Duration(milliseconds: 4));
+      input.handleMove(at(p));
+    }
+    final end = pts.last, d = pts.last - pts[pts.length - 2];
+    final ahead = d / d.distance;
+    // Slowing down: 3 px more over 60 ms, then drifting.
+    for (var t = 4; t <= restMs; t += 4) {
+      ms += 4;
+      await tester.pump(const Duration(milliseconds: 4));
+      final drift = Offset(1.4 * math.sin(t / 37), 1.2 * math.cos(t / 23));
+      input.handleMove(at(end + ahead * 3 * math.min(1, t / 60) + drift));
+    }
+    input.handleUp(const PointerUpEvent(pointer: 1, kind: PointerDeviceKind.stylus));
+  }
+
+  testWidgets('a pen resting as a real one does (drift) still snaps, as drawn', (tester) async {
+    await drawAndRest(tester, HandShapes(2).line(const Offset(100, 200), const Offset(220, 210)));
+    expect(committed().shape?.kind, ShapeKind.line);
+    // A short stroke ending in a slight hook: the drift makes no arrow head.
+    await drawAndRest(tester, HandShapes(3).line(const Offset(100, 300), const Offset(160, 330)));
+    expect(committed().shape?.kind, ShapeKind.line);
+    final h = HandShapes(4);
+    await drawAndRest(tester, h.ellipse(const Offset(300, 300), 80, 50));
+    expect(committed().shape?.kind, ShapeKind.ellipse);
+  });
+
+  testWidgets('a letter-sized straight stroke held stays as written', (tester) async {
+    await drawAndRest(tester, HandShapes(2).line(const Offset(100, 200), const Offset(110, 240)));
+    expect(committed().shape, isNull);
+  });
 }

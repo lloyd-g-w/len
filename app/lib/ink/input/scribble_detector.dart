@@ -5,7 +5,7 @@ import 'dart:ui';
 /// pen stroke (screen pixels and milliseconds, fed as the pen moves).
 ///
 /// Two quick back-and-forths are enough, yet writing never trips it
-/// (checked against the Ink Lab's real S Pen recordings, simulated cursive
+/// (checked against the Ink Lab's real S Pen recordings at 0.25–3×, simulated cursive
 /// and printed zigzag letters: z, N, M, w, vvv…). A scribble needs
 /// [minPasses] consecutive passes (so `minPasses - 1` sharp reversals),
 /// all within [maxDuration], where every pass
@@ -16,7 +16,8 @@ import 'dart:ui';
 /// and the passes stay in a narrow band: their spread across the
 /// scribble's axis is at most [maxSpread] of its amplitude. Letters (m, n,
 /// u, w, M, N, z) reverse as sharply but move on along the line, so their
-/// spread is large; a scribble drifts a few pixels per pass.
+/// spread is large; a scribble drifts a few pixels per pass, not mostly in
+/// one jump as letters written up and down do ("ll", [_movesOn]).
 ///
 /// Only the part that zigzags counts ([windows]): what the stroke crossed
 /// before or after doesn't erase.
@@ -226,6 +227,9 @@ class ScribbleDetector {
       hi = math.max(hi, across);
     }
     if (hi - lo > maxSpread * amplitude) return null;
+    // Writing that goes up and down one letter, then the next ("ll", "tt"),
+    // moves on in one jump between them; a scribble drifts pass by pass.
+    if (_movesOn(p, passes, n, amplitude)) return null;
     // The outer passes may run on (a lead-in, say): keep their part within
     // the span the inner passes sweep along the axis.
     var min = double.infinity, max = double.negativeInfinity;
@@ -248,4 +252,30 @@ class ScribbleDetector {
     }
     return (a, b);
   }
+
+  /// Whether [passes] spread across the axis [n] mostly in one jump from
+  /// a pass to the next (more than [jumpShare] of the drift, and more
+  /// than [minJump] of the [amplitude]): writing moving on to the next
+  /// letter. Real cursive "ll" at a usual size (real_spen_01 at half
+  /// size): jumps 0.000, 0.128, 0.022 of its amplitude.
+  static bool _movesOn(List<Offset> p, List<(int, int)> passes, Offset n, double amplitude) {
+    double across((int, int) pass) {
+      var sum = 0.0;
+      for (var i = pass.$1; i <= pass.$2; i++) {
+        sum += p[i].dx * n.dx + p[i].dy * n.dy;
+      }
+      return sum / (pass.$2 - pass.$1 + 1);
+    }
+
+    var total = 0.0, jump = 0.0;
+    for (var k = 1; k < passes.length; k++) {
+      final step = (across(passes[k]) - across(passes[k - 1])).abs();
+      total += step;
+      jump = math.max(jump, step);
+    }
+    return jump > minJump * amplitude && jump > jumpShare * total;
+  }
+
+  /// See [_movesOn].
+  static const double minJump = 0.08, jumpShare = 0.7;
 }

@@ -99,6 +99,31 @@ void main() {
       }
     });
 
+    test('but not letters written up and down, then the next ("ll", real_spen_01)', () {
+      // Two ascenders, each retraced, joined at the bottom, 0.24 of their
+      // height apart, as in a real "hello" at half size: as narrow as a
+      // scribble, but it moves on in one jump. The same band crossed pass
+      // by pass is a scribble.
+      for (final height in [30.0, 40.0, 54.0, 80.0]) {
+        for (final ms in [60.0, 100.0, 150.0]) {
+          final gap = 0.24 * height;
+          final ll = polyline([
+            const Offset(300, 300),
+            Offset(300, 300 - height),
+            const Offset(301, 300),
+            Offset(300 + gap, 300 - 2),
+            Offset(300 + gap, 300 - height),
+            Offset(301 + gap, 300),
+          ], segmentSeconds: ms / 1000);
+          expect(motionScribbles(ll), isFalse, reason: '$height px, $ms ms');
+          final even = polyline([
+            for (var k = 0; k <= 4; k++) Offset(300 + k * gap / 4, k.isEven ? 300 : 300 - height),
+          ], segmentSeconds: ms / 1000);
+          expect(motionScribbles(even), isTrue, reason: '$height px, $ms ms');
+        }
+      }
+    });
+
     test('but not too few passes, slow ones, tiny ones or ones moving on', () {
       expect(motionScribbles(scribble(passes: 3)), isFalse, reason: 'two reversals');
       expect(motionScribbles(scribble(passMs: 300)), isFalse, reason: 'slow');

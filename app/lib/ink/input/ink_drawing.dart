@@ -173,6 +173,7 @@ class InkDrawing {
         enabled: tools.holdToStraighten,
         scale: viewport.scale,
         straight: config.straight,
+        timeMs: StrokeSampler.msOf(e.timeStamp),
       );
     }
     // After the live stroke began: a low-latency overlay can start with it.
@@ -229,7 +230,7 @@ class InkDrawing {
     _drawTravel += (at - from).distance;
     _liftSpeed.add(at, timeMs);
     _scribble.add(at, timeMs);
-    if (_straighten.move(at, point)) return;
+    if (_straighten.move(at, point, timeMs: timeMs)) return;
     live.add(point);
   }
 

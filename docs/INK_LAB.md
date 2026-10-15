@@ -655,6 +655,163 @@ made at the bottom of a sharp turn.
   numbers that matter are the shape: per-frame cost flat with length, and
   pen-up no more than a few frames' work.
 
+## Gestures on real ink
+
+Hold to snap and scribble to erase were tuned on simulated input
+(ARCHITECTURE, *Shapes*). Two suites hold them to the real S Pen
+recordings (both part of every `flutter test`, ≈ 2 s and ≈ 10 s):
+
+- `test/real_ink_gestures_test.dart`, the corpus. Contacts are numbered
+  as `rawContacts` lists them; pen strokes are the stylus contacts without
+  a side button. `real_spen_01` (58 pen strokes): large handwriting
+  ("hello", rows of x, "zelle", "xcer", "acer", R's about 130 px tall)
+  and two rings drawn around words (#40, #48). `real_spen_02` (19): a
+  sketch of loops, one straight line (#7), a bracket, ten fast zigzags
+  (#10–#23, passes 100–400 px long, 100–210 ms each, moving on about a
+  pass length each time). Nobody held a shape or scribbled anything out
+  in them.
+  - *As written*: each recording replayed through `ReplayDriver` with hold
+    to snap and scribble to erase on, timers on the recording's own clock
+    (`advance` runs fake time to each entry): the same strokes as with
+    both off, no shape, nothing erased. The longest rest within 4 px in
+    any stroke is 71 ms (`real_spen_01`) and 176 ms (`real_spen_02`), far
+    from the 600 ms hold.
+  - *Every stroke held*: each pen stroke drawn again through the real
+    pipeline (`PenRig`: `InkInputController` on fake time, one event per
+    sample), at 1× and 0.5×, then held 700 ms the way the pen really
+    rests: `realRest` plays back every stretch of the recordings where
+    the pen stayed within 1.5 px for 30 ms or more (it drifts 0.5–0.6 px
+    RMS, 0.07–0.19 px a sample). The rings must become ellipses, #7 a
+    line, the 21 straight letter strokes (stems, bars) a line or nothing,
+    everything else nothing, and nothing may be erased.
+  - *Scribbles*: no pen stroke holds a scribble at 0.25, 0.33, 0.5, 0.75,
+    1, 2 or 3 × its size, written as fast as recorded, twice or three
+    times as fast (1 617 variants). At 0.3–0.5× these recordings are
+    ordinary note-taking size (an ascender of 40–60 px).
+- `test/real_ink_profiles_test.dart`, synthetic input with real
+  profiles. `RealProfile` takes a real stroke (51 strokes of 250 ms or
+  more) apart: when each sample came, how far along its path the pen was
+  then, the pressure, and the jitter (what a quadratic fit over ±8 ms, or
+  ±25 ms to keep the hand's tremor too, does not follow; turned into the
+  path's direction). `apply` draws any path with them, at the stroke's
+  mean speed and its sample intervals. Ten shapes (line, arrow,
+  rectangle, square, triangle, diamond, ellipse, circle, pentagon,
+  hexagon), ideal (exact, closed exactly) and hand-drawn (`HandShapes`:
+  rounded corners, bowed sides, gaps and overshoots, a landing hook), at
+  60, 120 and 240 px, upright and turned 20°, each with every profile,
+  held 700 ms with the real rest: 306 strokes per shape and kind. The
+  suite runs every third profile and needs ≥ 95 % right and ≤ 1 % another
+  kind per shape; `--dart-define=INKLAB_TABLE=true` prints the whole
+  table. Scribbles: the ten real zigzags of `real_spen_02`, squeezed
+  across their passes into a band (`squeezed`: passes of a set amplitude
+  and pace, the pen's own turns, speed changes, pressure and jitter
+  kept); the suite needs all ten at 40–160 px, spreads 0.1–0.3 and
+  60–150 ms a pass, and one of them erasing a real word under it.
+
+### Findings
+
+**G1 (fixed): a resting pen broke hold to snap.** A real S Pen at rest
+keeps reporting samples that wander about a pixel. The hold timer counted
+from the first sample within 4 px of an anchor set while the pen was still
+slowing down, so the drift often restarted it; and the drift, kept as
+points every 0.75 px, became part of the recognised stroke. Held as the
+pen really rests, the line #7 never snapped (its path grew by ≈ 45 px of
+tangle: the detour test failed) and letter strokes #6 and #38 became
+arrows (the tangle made wings). Now (`HoldToStraighten`) the rest starts
+after the last place the pen was more than 4 px from where it is now, the
+hold counts from then on the events' clock, and only the stroke up to
+there is recognised (a line still ends at the pen).
+
+**G2 (fixed): a ring around a word was a hexagon.** #48 (an egg-shaped
+ring, open by 47 px) fits a six-corner polygon with 0.58 of the
+ellipse's mean error; polygons of five or more corners had to beat 0.7 of
+it. They must now halve it: hand-drawn pentagons and hexagons still snap
+as polygons (100 % below), small hand-drawn ellipses no longer become
+hexagons.
+
+**G3 (fixed): letter strokes snapped to lines.** Held, 16 straight letter
+strokes of `real_spen_01` became lines, 10 of them under 48 px (a stem of
+an R at note size is 30–70 px). Strokes under 48 screen px now stay as
+written (24 before), like closed ones under 48 px. Longer straight strokes
+still become lines when held: #47 (124 px, bowed 7 %), #56, #58, #62,
+#64, #66 (91–139 px stems), at 1× and at 0.5×. They are lines by any
+measure; what keeps writing from snapping is that it never rests (G0).
+
+**G0 (no change): writing does not rest.** Replayed as written, nothing
+snaps: the longest rest is 176 ms of the 600 ms hold.
+
+**G4 (fixed): cursive "ll" was a scribble.** `real_spen_01` #1 ("hello")
+at half size, as fast as written (608 ms) and faster: the two l's, each
+written up and down in one line, make four passes 54 px long in a band
+0.299 of that wide (the limit is 0.3). Two back-and-forths that narrow
+are what a quick scribble is too; what differs is the drift: from pass to
+pass the l's move across by 0.000, 0.128, 0.022 of their length (up and
+down one letter, then a jump to the next), a scribble a little every
+pass. A window whose drift is mostly (> 70 %) one jump of more than 0.08
+of its amplitude is now no scribble (`ScribbleDetector._movesOn`). Real
+writing: 3 → 0 of 1 617 variants; the squeezed real zigzags and every
+simulated scribble are recognised as before.
+
+Shapes with real profiles, before (main at d3485b12) → after, jitter
+beyond the ±8 ms fit (±25 ms: within 7 points of these before, the
+same misses after); % snapped to the right kind, and strokes snapped to another kind
+(306 strokes each):
+
+| Shape | ideal | hand-drawn | other kind (hand) |
+|---|---|---|---|
+| line | 0 → 100 % | 0 → 100 % | 0 |
+| arrow | 98.7 → 100 % | 93.1 → 98.0 % | 0 |
+| rectangle | 89.9 → 100 % | 92.5 → 100 % | 0 |
+| square | 89.9 → 100 % | 92.8 → 100 % | 0 |
+| triangle | 99.7 → 100 % | 93.1 → 100 % | 0 |
+| diamond | 98.7 → 100 % | 93.5 → 100 % | 0 |
+| ellipse | 97.7 → 100 % | 82.0 → 100 % | 30 → 0 (polygons) |
+| circle | 98.0 → 100 % | 95.4 → 100 % | 2 → 0 |
+| pentagon | 94.4 → 100 % | 86.9 → 100 % | 0 |
+| hexagon | 95.8 → 100 % | 83.3 → 100 % | 0 |
+
+The misses before were G1 (the drift: every line, and shapes whose hold
+restarted past the 700 ms) and G2. The six misses left are hand-drawn
+arrows at 60 px (heads 9–15 px), which stay as drawn.
+
+Scribbles from the real zigzags (recognised of 10; unchanged by G4):
+
+| Spread | amplitude | 60 ms | 100 ms | 150 ms | 200 ms | 250 ms a pass |
+|---|---|---|---|---|---|---|
+| 0.1–0.3 | 20 px | 6 | 6 | 6 | 2 | 0 |
+| 0.1–0.3 | 40–160 px | 10 | 10 | 10 | 6 | 0 |
+| 0.4 | 40 px | 4 | 4 | 4 | 2 | 0 |
+| 0.4 | 80 px | 9 | 9 | 9 | 6 | 0 |
+| 0.4 | 160 px | 10 | 10 | 10 | 6 | 0 |
+| 0.5 | 20–160 px | 0 | 0 | 0 | 0 | 0 |
+
+(Spread here is the whole squeezed zigzag's band; four passes span less.)
+Four passes must fit in 800 ms, so passes of 200 ms are a scribble only
+where the outer ones are short, 250 ms never; passes under 14 px are
+jitter. As recorded, the zigzags move on a pass length or more each time
+and are no scribble.
+
+**Not settled by these recordings:**
+
+- No real scribble-out and no real held shape was recorded; recall is
+  measured on real profiles applied to shapes and on real zigzags made
+  narrow, not on real scribbles.
+- Four passes are geometrically ambiguous. A cursive "ll" whose second l
+  starts with a slanted upstroke from the first one's foot drifts evenly,
+  like a scribble; simulated (`polyline`, retraced spikes) it is a
+  scribble in 37 of 72 variants (20–120 px, gaps 0.15–0.35, 60–200 ms a
+  pass). The writer of `real_spen_01` joins at the foot and goes up
+  straight (caught by G4). Erasing still needs ink lying mostly inside
+  the zigzag's bounds, so it takes writing over earlier marks.
+- To record next (Ink Lab, clear before each): words with double
+  ascenders at note size ("all", "little", "hello", "Hill", "tt") in
+  cursive and print; scribble-outs of words at note size, quick and slow;
+  held shapes (line, arrow, rectangle, triangle, ellipse, ring around a
+  word), held until the snap.
+
+No Kotlin changes: the wet-ink overlay (`WetInkModel.kt`) shares no code
+with hold to snap or the scribble detector.
+
 ## Rendering performance (committed ink)
 
 Ink quality is measured above; the cost of *showing* committed ink is

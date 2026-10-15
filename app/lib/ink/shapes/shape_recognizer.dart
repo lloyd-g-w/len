@@ -110,8 +110,10 @@ abstract final class ShapeRecognizer {
         : double.infinity;
     final ellipseError = ellipse == null ? double.infinity : ellipse.error / diagonal;
     if (math.min(polygonError, ellipseError) > maxError) return null;
-    // Noisy ellipses fit many-cornered polygons too; those must win clearly.
-    final bias = corners.length >= 5 ? 0.7 : 1.0;
+    // Noisy ellipses fit many-cornered polygons too; those must win clearly
+    // (half the ellipse's error: a real S Pen ring around a word fits a
+    // hexagon with 0.58 of it, hand-drawn pentagons and hexagons far less).
+    final bias = corners.length >= 5 ? 0.5 : 1.0;
     if (ellipseError * bias <= polygonError) return ellipse!.shape;
     return _polygonShape(corners);
   }
