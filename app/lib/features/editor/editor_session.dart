@@ -250,7 +250,7 @@ class EditorSession {
 
   DocumentController _openDocument(Notebook notebook, EditorViewState? view) {
     var pages = services.pages.pagesOf(notebook.id);
-    if (pages.isEmpty) pages = [services.pages.addPage(notebook.id, paper: notebook.paper)];
+    if (pages.isEmpty) pages = [services.pages.addFreshPage(notebook)];
     return DocumentController(
       pages: pages,
       strokes: services.strokes,

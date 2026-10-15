@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:sqlite3/common.dart';
 
+import '../domain/notebook.dart';
 import '../domain/notebook_page.dart';
 import '../domain/paper.dart';
 import 'page_order.dart';
@@ -54,6 +55,17 @@ class PageRepository extends SyncableTable {
         template ??
         PageTemplate(paper: paper == null || paper.style.needsParams ? Paper.blank : paper);
     return insertPages(notebookId, [specOf(t)], after: after).single;
+  }
+
+  /// Adds a page to [notebook], which has none (every page deleted
+  /// elsewhere): its paper (blank for styles that need parameters) in its
+  /// paper colour.
+  NotebookPage addFreshPage(Notebook notebook) {
+    final paper = notebook.paper.style.needsParams ? Paper.blank : notebook.paper;
+    return addPage(
+      notebook.id,
+      template: PageTemplate(paper: paper, color: notebook.paperColor),
+    );
   }
 
   /// Inserts pages in order after [after] (at the end when null) in one

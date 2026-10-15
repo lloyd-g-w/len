@@ -137,6 +137,48 @@ void main() {
     await close(tester);
   });
 
+  testWidgets('undoing an added page keeps a page when the others went elsewhere', (tester) async {
+    await pump(tester);
+    await addPageAfter(tester);
+    final added = pages()[1];
+    // Another device deletes every other page.
+    for (final p in pages()) {
+      if (p.id != added.id) s.notebooks.deletePage(p.id);
+    }
+    await undo(tester); // The addition.
+    expect(pages(), hasLength(1), reason: 'a notebook keeps a page');
+    expect(pages().single.id, isNot(added.id));
+    expect(pages().single.paper.style, PaperStyle.collegeRuled, reason: "the notebook's paper");
+    await close(tester);
+  });
+
+  testWidgets('a notebook opened without pages starts one in its paper colour', (tester) async {
+    await pump(tester);
+    await close(tester);
+    nb = s.notebooks.create(
+      title: 'Yellow',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.dotted,
+      paperColor: PaperColor.cream,
+      coverColor: 0,
+      empty: true,
+    );
+    expect(pages(), isEmpty);
+    await tester.pumpWidget(
+      AppScope(
+        services: s,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: EditorScreen(notebook: nb),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(pages().single.paper.style, PaperStyle.dotted);
+    expect(pages().single.paperColor, PaperColor.cream);
+    await close(tester);
+  });
+
   testWidgets('moving a page in the overview is undone in the editor', (tester) async {
     await pump(tester);
     final original = [for (final p in pages()) p.id];
