@@ -245,8 +245,7 @@ void main() {
     tearDown(() => selection.dispose());
 
     /// The only box on [page] as its model holds it.
-    SurfaceElement live(String page) =>
-        pages.modelOf(page).elementById(textOn(page).single.id)!;
+    SurfaceElement live(String page) => pages.modelOf(page).elementById(textOn(page).single.id)!;
 
     test('moving the first box carries its chain; one undo step', () {
       typeBox(lines(12));

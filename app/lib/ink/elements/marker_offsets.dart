@@ -134,6 +134,22 @@ class MarkerOffsets {
     return null;
   }
 
+  /// Display offset of the placeholder of the page break at model offset
+  /// [at] (its room over the page edge), if there is one.
+  int? roomOf(int at) {
+    var shift = 0;
+    for (final i in _inserts) {
+      if (i.at > at) break;
+      final kind = i.kind;
+      if (i.at == at &&
+          (kind == _Insert.page || kind == _Insert.softPage || kind == _Insert.wrapPage)) {
+        return i.at + shift + kind.text.indexOf('\uFFFC');
+      }
+      shift += kind.text.length;
+    }
+    return null;
+  }
+
   /// Whether display character [d] is a list marker.
   bool isMarker(int d) => _insertAt(d) == _Insert.marker;
 

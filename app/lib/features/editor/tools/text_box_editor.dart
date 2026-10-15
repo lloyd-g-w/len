@@ -114,6 +114,27 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
     _scheduleReveal(element, _revealBounds(element));
   }
 
+  /// Measures how tall the field lays out the line of a page break's room
+  /// and makes its placeholders that much shorter (see
+  /// [RichTextController.roomExtra]), so text on the next page starts at its
+  /// top margin, where it is stored.
+  void _measureRooms() {
+    if (!mounted) return;
+    final breaks = _text.breaks;
+    if (breaks.isEmpty) return;
+    final at = _text.roomOffset(breaks.first);
+    final editable = _focus.context?.findAncestorStateOfType<EditableTextState>()?.renderEditable;
+    if (at == null || editable == null || !editable.attached || !editable.hasSize) return;
+    final boxes = editable.getBoxesForSelection(
+      TextSelection(baseOffset: at, extentOffset: at + 1),
+    );
+    if (boxes.isEmpty) return;
+    final used = math.max(0.0, breaks.first.gap - _text.roomExtra);
+    if (used == 0) return;
+    final extra = boxes.first.bottom - boxes.first.top - used;
+    if ((extra - _text.roomExtra).abs() > 0.01 && extra.abs() < used) _text.roomExtra = extra;
+  }
+
   /// The part of the box to keep in view (on screen): where the caret is,
   /// when the text continues on other pages.
   Rect _revealBounds(SurfaceElement element) {
@@ -189,6 +210,9 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
         if (element == null) return const SizedBox.shrink();
         final bounds = _screenBounds(element);
         _scheduleReveal(element, _revealBounds(element));
+        if (_text.breaks.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _measureRooms());
+        }
         final scale = widget.viewport.scale;
         // The box sits on the paper, not the chrome: ink blue in both themes
         // (like the selection handles).

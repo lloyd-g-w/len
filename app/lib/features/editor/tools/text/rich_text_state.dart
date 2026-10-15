@@ -45,6 +45,24 @@ abstract class _RichTextState extends TextEditingController {
   /// that changes for another reason (the box moved), [refreshLayout].
   List<FlowBreak> Function(TextData data)? breaksOf;
 
+  /// The page breaks shown (see [breaksOf]).
+  List<FlowBreak> get breaks => _breaks;
+
+  /// How much taller than its placeholder the field lays out the line of
+  /// a page break's room (the field's own line metrics; measured by the
+  /// editor): the placeholder is made that much shorter, so the next page's
+  /// text starts where it will be stored.
+  double get roomExtra => _roomExtra;
+  double _roomExtra = 0;
+  set roomExtra(double value) {
+    if (value == _roomExtra) return;
+    _roomExtra = value;
+    notifyListeners(); // Same text, other placeholders: build the spans again.
+  }
+
+  /// Display offset of the room placeholder of page break [b].
+  int? roomOffset(FlowBreak b) => _offsets.roomOf(b.at);
+
   /// The formatted text with the box's defaults.
   TextData get data => _data ??= _buffer.toData(_box);
 

@@ -290,7 +290,9 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
       data,
       underlined: composing,
       wraps: _wraps,
-      breaks: _breaks,
+      breaks: [
+        for (final b in _breaks) (at: b.at, gap: math.max(0, b.gap - roomExtra), soft: b.soft),
+      ],
       marker: (m) => WidgetSpan(
         alignment: PlaceholderAlignment.middle,
         child: build == null ? SizedBox.fromSize(size: m.size) : build(m),
