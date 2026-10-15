@@ -292,12 +292,15 @@ class _Footer extends StatelessWidget {
           Expanded(
             child: tile.pdfLabel == null
                 ? const SizedBox.shrink()
-                : Text(
-                    ' · ${tile.pdfLabel}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFeatures: AppTheme.tabularFigures,
+                // The tile's label says it already.
+                : ExcludeSemantics(
+                    child: Text(
+                      ' · ${tile.pdfLabel}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFeatures: AppTheme.tabularFigures,
+                      ),
                     ),
                   ),
           ),

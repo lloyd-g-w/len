@@ -39,8 +39,12 @@ class PdfPageNumbers {
   String? labelOf(int index) {
     final number = pdfNumberOf(index);
     if (number == null || number == index + 1) return null;
-    return _slides.contains(pages[index].pdf!.blob) ? 'Slide $number' : 'PDF p. $number';
+    return isSlide(index) ? 'Slide $number' : 'PDF p. $number';
   }
+
+  /// Whether page [index] shows a slide: a page of a PDF most of whose
+  /// pages here are landscape.
+  bool isSlide(int index) => _slides.contains(pages[index].pdf?.blob);
 
   /// Whether any page has a [labelOf] (Go to page then offers a keyboard
   /// for "s23").

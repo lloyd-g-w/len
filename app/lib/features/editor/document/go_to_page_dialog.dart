@@ -173,7 +173,7 @@ class _GoToPageDialogState extends State<GoToPageDialog> {
     ];
     final near = labelled.firstWhere((i) => i >= widget.current, orElse: () => labelled.last);
     final number = _numbers.pdfNumberOf(near);
-    return 's$number for ${_numbers.labelOf(near)}';
+    return '${_numbers.isSlide(near) ? 's' : 'pdf '}$number for ${_numbers.labelOf(near)}';
   }
 
   void _submit() {
@@ -199,11 +199,13 @@ class _GoToPageDialogState extends State<GoToPageDialog> {
               decoration: InputDecoration(
                 labelText: 'Page',
                 suffixText: 'of $_count',
-                helperText: _numbers.hasLabels ? _example() : null,
+                helperText: _choices.isNotEmpty
+                    ? 'In ${_choices.length} PDFs: which one?'
+                    : (_numbers.hasLabels ? _example() : null),
                 errorText: _error,
               ),
             ),
-            if (_choices.isNotEmpty) _Choices(choices: _choices, numbers: _numbers, onPick: _go),
+            if (_choices.isNotEmpty) _Choices(choices: _choices, onPick: _go),
             // A short window (a phone held sideways) has no room for the
             // strip; the number is enough.
             if (MediaQuery.sizeOf(context).height >= GoToPageDialog.stripFrom) ...[
@@ -242,36 +244,26 @@ class _GoToPageDialogState extends State<GoToPageDialog> {
 }
 
 /// The pages a PDF page number could mean when several PDFs have it: one
-/// button per page, with the label its tile shows.
+/// button per page, under the field's question.
 class _Choices extends StatelessWidget {
-  const _Choices({required this.choices, required this.numbers, required this.onPick});
+  const _Choices({required this.choices, required this.onPick});
 
   final List<int> choices;
-  final PdfPageNumbers numbers;
   final ValueChanged<int> onPick;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: Gaps.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('In ${choices.length} PDFs: which one?', style: theme.textTheme.bodySmall),
-          Wrap(
-            spacing: Gaps.sm,
-            children: [
-              for (final i in choices)
-                TextButton(
-                  key: ValueKey('go-to-choice-${i + 1}'),
-                  onPressed: () => onPick(i),
-                  child: Text('Page ${i + 1}'),
-                ),
-            ],
+  Widget build(BuildContext context) => Padding(
+    // The buttons' labels line up with the field's text.
+    padding: const EdgeInsets.only(left: Gaps.xs),
+    child: Wrap(
+      children: [
+        for (final i in choices)
+          TextButton(
+            key: ValueKey('go-to-choice-${i + 1}'),
+            onPressed: () => onPick(i),
+            child: Text('Page ${i + 1}'),
           ),
-        ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }
