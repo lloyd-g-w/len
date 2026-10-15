@@ -267,6 +267,82 @@ Debug JIT in the harness on a shared machine; trust the counts.
   layout of the tiles coming in, so the earlier "half of each frame" was
   too high.
 
+## Web read-backs (branch perf/web-readback, Oct 2026)
+
+The JavaScript build (CanvasKit) makes every picture into an image on the
+UI thread: `Picture.toImage` is `toImageSync`, which draws it on one shared
+offscreen surface (its own WebGL context, so the image can't stay on the
+GPU) and reads the pixels back. There is no read-back-free way to make an
+image of a picture there, and keeping pictures instead would replay all
+the ink of the screen every frame, which is what the tiles avoid. So the
+work went into fewer, batched read-backs. The walk-through now counts, with
+`LEN_EXPLORE_PROFILE=1`, the read-backs per step by size, the resizes of the
+surface read from and the shaders compiled (`gl:` lines, `report.json`).
+
+What each cache needs: ink tiles, level-of-detail rasters and page
+thumbnails are only drawn (the persistent LOD store that encodes PNGs is
+native only); exports, the selection image for other apps and user
+templates need pixels and keep their read-backs; library covers
+(`ThumbnailRenderer`, `toImageSync`, one 320 × 444 each) were left alone.
+
+Cost of a read-back under software GL (CanvasKit called from the page,
+SwiftShader, the walk's Chromium): ~25 ms for an empty picture, ~70 ms
+more when the surface changes size; 16 rasters of 128 px with 25 paths
+each 1.06–1.54 s one by one, 72–102 ms on one 512² atlas; 512-px tiles of
+150 paths 171 → 98 ms for 4 on a 1024² atlas, 339 → 228 ms for 8. So
+batching pays for small rasters (per-call cost dominates) and little for
+tiles (the drawing dominates).
+
+- **`RasterBatch`** (`ink/render/raster_batch.dart`): in the JavaScript
+  build LOD rasters and page thumbnails asked for until an atlas is full,
+  or a turn passes without more, are drawn side by side into a 512² atlas
+  (a tile's size: the surface never changes size), one read-back per atlas,
+  one atlas a turn; each gets a `RasterImage` (its own handle on the atlas,
+  its place, its share of the memory). Power-of-two rasters sit on
+  multiples of their size, so mipmaps and minified sampling stay inside
+  them (CanvasKit samples up to half a pixel past a source rectangle when
+  magnifying). Tiles fill an atlas alone and are made at once.
+- **Writing**: a stroke is drawn over its tiles as before, but merged into
+  them once the pen rests 1.2 s (or 24 pile up over a tile) instead of
+  after every stroke, so no read-back falls between two strokes of a word.
+- **Loading**: a surface still loading renders no tiles for up to 1 s
+  (empty meanwhile, stale images standing in), instead of every tile again
+  as each part of it arrives (`ink_tiles_test`: each tile once; natively
+  several times).
+- Natively and in WebAssembly (Skwasm rasterises off the UI thread) nothing
+  changed.
+
+Walk-through, JavaScript, Chromium under SwiftShader on a shared machine:
+two whole walks each, and for the big notebook two more runs of the
+restore and `open_big` alone (`LEN_EXPLORE_BACKUP`). Read-backs count / ms:
+
+| Step | Before | After |
+|---|---|---|
+| Pen stroke (`draw_pen`) | 1 / 65 ms | 0 |
+| Undo, redo | 4 / 355–453 ms | 3 / 357–386 ms |
+| Go to page (`shortcuts`): 2 thumbnails 68 × 96 | 2 / 48–58 ms, a resize | 1 / 44–94 ms |
+| Phone width: 4 LOD rasters 256² | 4 / 184–327 ms, a resize | 2 / 135–146 ms |
+| Open the big notebook (`open_big`) | 71–87 / 14.5–16.6 s (tiles and 3–6 thumbnails); step 33–36 s | 67–75 / 16.9–22.3 s; step 36–42 s |
+| Whole walk | 145–161 read-backs, 7 resizes | 136–138, 5 resizes |
+
+- **The big notebook** is ink tiles drawn by SwiftShader: ~0.2–0.5 s a tile
+  whatever is done around it, ~70 of them (the screen, a tile's ring around
+  it and half a screen of pages ahead, at three places). Fewer read-backs
+  (tiles rendered once per load, thumbnails on one atlas) did not make it
+  faster there: in the measured builds tiles also went through the batch's
+  queue, behind tiles already queued for places the view had left, and the
+  frames waited longer on shader compiles (3.3–3.8 → 3.6–6.5 s), i.e. on
+  GPU work queued before them; the step took 0–5 s longer. Tiles are now
+  made at once again, as before; that last change was not rebuilt (the
+  round's build budget), so `open_big` is to be measured again.
+- **WebAssembly** stays clean: no problem, the longest task once started
+  353 ms (the scan step's garbage collection and `convertToBlob`), the
+  restore 254 ms, the big notebook 147 ms; no read-back on the UI thread.
+- **Still the renderer's**: shader compiles (24–56 per step, 0.1–6.5 s
+  waited under software GL) and WebGL context creation at start are the
+  largest remaining JavaScript long tasks; on a real GPU and with the
+  browser's shader cache they are milliseconds.
+
 ## Current numbers (debug, harness)
 
 - **Library, 1,000 notebooks:** first frame 400–450 ms (a warm 20-notebook
@@ -291,11 +367,12 @@ Debug JIT in the harness on a shared machine; trust the counts.
   layer (see "Paged scroll" above). Per scroll or pan frame nothing does
   now; dragging a PDF selection's handle still rebuilds the selection's
   layer per move (the selection itself changes).
-- Web (JavaScript): ink tiles, thumbnails and LOD rasters become images
-  through a GPU read-back on the main thread (CanvasKit), and alternating
-  image sizes resize its shared surface each time; batching renders by size
-  or keeping tiles as pictures would trade memory or frame time for it.
-  The restore's final transaction marks every imported row for sync at once.
+- Web (JavaScript): every ink tile is still a GPU read-back on the main
+  thread (CanvasKit has no other way to make an image of a picture; see
+  "Web read-backs"); small rasters share atlases, writing and loading
+  spare renders. Shader compiles are the other large cost under software
+  GL. The restore's final transaction marks every imported row for sync at
+  once.
 
 - A first pull (natively) is bound by SQLite inserts in the pull worker
   (~60 µs a stroke with its chunk rows); 2M strokes take about two

@@ -102,8 +102,16 @@ From the reports; the owner picks. Status as above.
 - ✅ **Overview thumbnails** record during a fast drag; defer them while the grid flings
   (PERFORMANCE). Done (perf/leftovers-2): not recorded over two screens a second, filled in
   when it slows.
-- ⬜ **Web (JavaScript)**: tiles, thumbnails and LOD rasters read back on the main thread;
-  batch renders by size or keep tiles as pictures (PERFORMANCE).
+- ✅ **Web (JavaScript)**: tiles, thumbnails and LOD rasters read back on the main thread;
+  batch renders by size or keep tiles as pictures (PERFORMANCE). Done (perf/web-readback):
+  CanvasKit can't make an image without a read-back and pictures would replay the ink every
+  frame, so LOD rasters and page thumbnails share 512² atlases (one read-back each, the surface
+  never resized: 16 small rasters 1.1–1.5 s → 0.1 s under software GL), strokes merge into
+  tiles once the pen rests (no read-back between strokes), a loading page renders each tile
+  once. The walk counts read-backs, resizes and shader compiles per step.
+- ⬜ **Web (JavaScript) big notebook**: measure `open_big` again with tiles made at once (the
+  last perf/web-readback change, not rebuilt); the remaining cost there is ~70 tiles of ink
+  drawn by software GL and shader compiles (PERFORMANCE "Web read-backs").
 - ✅ **Keyboard**: reorder overview pages: Ctrl+← / → a place, Ctrl+↑ / ↓ a row, one undo
   step each, announced ("Page 3 moved to 4"), focus follows; screen readers get Move earlier /
   later (UX_AUDIT).
