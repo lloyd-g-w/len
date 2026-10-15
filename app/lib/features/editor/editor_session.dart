@@ -88,7 +88,7 @@ class EditorSession with _EditorSessionZoom {
         // Pinches ending near 100 % snap to it.
         kinetic: KineticPan(nav.animator, settle: (f, {required zoomed}) => zoomed && zoom.snap(f)),
       );
-      undo = SurfaceUndo(model);
+      undo = EditingUndo(SurfaceUndo(model), content.text);
       zoom = DoubleTapZoom(viewport: viewport, animator: nav.animator, home: () => 1);
     } else {
       final doc = this.doc = _openDocument(current, initialView);
@@ -121,7 +121,7 @@ class EditorSession with _EditorSessionZoom {
       )..highlightSnap = PdfHighlightSnap(doc: doc, info: shared.pdfInfo);
       // Paste onto the page in the middle of the screen.
       content.beforePasteAtCentre = () => doc.activateAt(doc.viewport.size.center(Offset.zero));
-      undo = doc.surfaces;
+      undo = EditingUndo(doc.surfaces, content.text);
       zoom = DoubleTapZoom(
         viewport: doc.viewport,
         animator: animator,
@@ -150,7 +150,7 @@ class EditorSession with _EditorSessionZoom {
 
   late final InkInputController input;
   late final ContentTools content;
-  late final UndoTarget undo;
+  late final EditingUndo undo;
 
   /// Double-tap zoom: page fit (100 % on canvases) ⇄ a closer look.
   late final DoubleTapZoom zoom;
@@ -257,6 +257,7 @@ class EditorSession with _EditorSessionZoom {
     input.cancelDraw(); // Stops a stroke's or tool's pending timers.
     if (_zoomCreated) zoomWindow.dispose();
     images.dispose();
+    undo.dispose();
     content.dispose();
     gestures.dispose();
     canvasNav?.dispose();

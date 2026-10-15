@@ -11,6 +11,19 @@ import '../surface_model.dart';
 import '../undo_history.dart';
 import 'text_layout.dart';
 
+/// The edited box's own history (its editor keeps it): what the editor's
+/// undo and redo act on while a box is edited.
+abstract interface class BoxHistory implements Listenable {
+  bool get canUndo;
+  bool get canRedo;
+
+  /// Steps back; false when there is nothing to undo.
+  bool undo();
+
+  /// Steps forward; false when there is nothing to redo.
+  bool redo();
+}
+
 /// The text box being edited on a surface, if any.
 ///
 /// While editing, the element is hidden from the committed layer and an
@@ -43,6 +56,9 @@ class TextEditSession extends ChangeNotifier {
   SurfaceElement? get current => _current;
 
   bool get isEditing => _current != null;
+
+  /// The history of the box being typed in, set by its editor.
+  BoxHistory? boxHistory;
 
   TextData get data => TextData.fromJson(_current?.data ?? const {});
 

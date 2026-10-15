@@ -1915,7 +1915,9 @@ GoodNotes-style rich text inside a box.
   bullet / numbered / checklist, alignment (scrolls on phones; delete and done
   stay). Shortcuts: Ctrl/⌘+B / I / U, Ctrl+Shift+X strikethrough, Ctrl+Shift+7 /
   8 / 9 lists, Ctrl+Alt+1 / 2 headings (Ctrl+Alt+0 body), Tab / Shift+Tab indent,
-  Ctrl+Enter ticks, Esc finishes.
+  Ctrl+Enter ticks, Esc finishes. While a box is edited the editor's Undo / Redo (bar
+  buttons, finger taps) step through its history (`EditingUndo` over the box's
+  `BoxHistory`); undo past its first state finishes the box and undoes the page.
 - **Size**: new boxes are **auto-width** (as wide as their text, growing up to
   the screen edge, then wrapping there); dragging a side handle sets a width and
   wraps from then on. Lasso corner scaling scales every size in the box.

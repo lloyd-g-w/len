@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import '../../../../domain/text/html_text.dart';
 import '../../../../domain/text/rich_text_buffer.dart';
 import '../../../../domain/text/text_data.dart';
+import '../../../../ink/elements/text_edit_session.dart' show BoxHistory;
 import '../../../../ink/elements/text_layout.dart';
 import '../../../../platform/clipboard_html.dart';
 
@@ -25,7 +26,7 @@ part 'rich_text_state.dart';
 /// Edits the field makes are mapped back onto the buffer; formatting
 /// commands act on the selection (or, with a collapsed caret, on what is
 /// typed next, see [_RichTextFormatting]).
-class RichTextController extends _RichTextState with _RichTextFormatting {
+class RichTextController extends _RichTextState with _RichTextFormatting implements BoxHistory {
   RichTextController(super.data);
 
   /// Text copied from a box here, with its formatting: pasting the same
@@ -189,11 +190,19 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
     onDataChanged?.call();
   }
 
+  @override
+  bool get canUndo => _history.canUndo;
+
+  @override
+  bool get canRedo => _history.canRedo;
+
   /// Undoes the last change in the box, formatting included; false when
   /// there is none.
+  @override
   bool undo() => _restore(_history.undo(_snapshot));
 
   /// Redoes the change undone last; false when there is none.
+  @override
   bool redo() => _restore(_history.redo(_snapshot));
 
   bool _restore(_Snapshot? state) {

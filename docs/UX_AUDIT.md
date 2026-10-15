@@ -72,7 +72,7 @@ the eraser.
   the bottom of the view (the keyboard's edge), keeping the box's top in
   view while it fits. Effort M.
 
-**R19-2 P1 · Undo while typing undoes the canvas, not the typing.**
+**R19-2 P1 · Undo while typing undoes the canvas, not the typing.** ✅
 - *What:* the box keeps its own history (Ctrl+Z inside it), but the top
   bar's Undo, the floating toolbar's and the two-finger tap act on the
   page's history: typing "hello world" into a box and tapping Undo removes
@@ -81,6 +81,8 @@ the eraser.
 - *Fix:* while a box is edited, Undo and Redo (buttons, finger taps) step
   through the box's history; past its first state, Undo finishes the box
   and undoes the page as before. Effort S.
+- *Done:* `EditingUndo` wraps the session's undo target; the box's
+  `RichTextController` is its `BoxHistory`.
 
 **R19-3 P2 · With the Text tool, typing on a keyboard switches tools.**
 - *What:* a laptop or Bluetooth-keyboard user picks the Text tool (T) and

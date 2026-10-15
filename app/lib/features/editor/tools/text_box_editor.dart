@@ -59,7 +59,9 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
           _focus.requestFocus();
         },
       );
-    _session.addListener(_onSession);
+    _session
+      ..boxHistory = _text
+      ..addListener(_onSession);
     _onSession();
   }
 
@@ -69,6 +71,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
   @override
   void dispose() {
     _session.removeListener(_onSession);
+    if (identical(_session.boxHistory, _text)) _session.boxHistory = null;
     _text.dispose();
     _focus.dispose();
     super.dispose();
