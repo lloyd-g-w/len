@@ -162,17 +162,18 @@ class StorageQueries {
   }
 
   /// The [limit] notebooks taking the most here (none taking nothing),
-  /// largest first: ink and elements (as stored) plus the files they show
-  /// that are here, each counted once per notebook.
+  /// largest first: ink and elements (as stored, in bytes: `length` of
+  /// text counts characters) plus the files they show that are here, each
+  /// counted once per notebook.
   List<NotebookFootprint> largestNotebooks({int limit = 5}) {
     final content = <String, int>{
       for (final row in db.select('''
         WITH $_surfaces
         SELECT nb, SUM(b) AS b FROM (
-          SELECT s.nb, length(st.points) + COALESCE(length(st.style), 0) AS b
+          SELECT s.nb, length(st.points) + COALESCE(length(CAST(st.style AS BLOB)), 0) AS b
             FROM strokes st JOIN surfaces s ON s.sid = st.surface_id WHERE st.deleted = 0
           UNION ALL
-          SELECT s.nb, length(e.data)
+          SELECT s.nb, length(CAST(e.data AS BLOB))
             FROM elements e JOIN surfaces s ON s.sid = e.surface_id WHERE e.deleted = 0)
         GROUP BY nb'''))
         row['nb'] as String: row['b'] as int,

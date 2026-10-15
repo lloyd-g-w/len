@@ -107,6 +107,13 @@ void main() {
     [sha],
   );
 
+  /// Marks every row as synced (files only unsynced rows show stay).
+  void synced() {
+    for (final table in ['pages', 'elements', 'recordings']) {
+      s.database.execute('UPDATE $table SET dirty = 0');
+    }
+  }
+
   void configureSync() => s.sync.configure(url: 'http://sync.test', token: FakeServer.token);
 
   group('queries', () {
@@ -161,12 +168,39 @@ void main() {
       image(page(open).id, shared);
       s.templates.create(name: 'T', blob: template, size: const Size(10, 10));
       expect(unreferenced, isNotEmpty);
+      synced();
 
       final ids = {
         for (final b in queries().freeable(keep: {open.id})) b.sha,
       };
       expect(ids, {read, shown});
       expect(queries().kept(keep: {open.id}), containsAll([shared, template, unread]));
+    });
+
+    test('files rows not yet synced show stay (the server may clean them up)', () async {
+      final img = await blob('img', 'image/png'); // On the server already.
+      final n = notebook('N');
+      image(page(n).id, img); // Not pushed yet: no server record shows it.
+      expect(queries().freeable(), isEmpty);
+      expect(queries().kept(), contains(img));
+      synced();
+      expect([for (final b in queries().freeable()) b.sha], [img]);
+    });
+
+    test('measures text in bytes', () {
+      final p = page(notebook('Greek'));
+      s.elements.save([
+        SurfaceElement(
+          id: s.clock.newId(),
+          surfaceId: p.id,
+          type: 'text',
+          rect: const Rect.fromLTWH(0, 0, 10, 10),
+          z: 0,
+          createdAt: s.clock.nowMs(),
+          data: {'text': 'λ' * 20000}, // 40 000 bytes in UTF-8.
+        ),
+      ]);
+      expect(queries().largestNotebooks().single.bytes, greaterThanOrEqualTo(40000));
     });
   });
 
@@ -185,6 +219,7 @@ void main() {
       for (final sha in [img, notUploaded, lost]) {
         image(p.id, sha);
       }
+      synced();
       final overview = s.storage;
       await overview.refresh();
       expect(overview.survey!.freeable, 4000 + 3000 + 1000);
@@ -224,6 +259,7 @@ void main() {
       final img = await blob('img', 'image/png');
       final n = notebook('N');
       image(page(n).id, img);
+      synced();
       final queries = StorageQueries(s.database.db);
       expect(queries.freeable(), hasLength(1));
       final kept = queries.kept(keep: {n.id});
@@ -237,6 +273,7 @@ void main() {
     test('nothing goes when the server cannot be reached', () async {
       final img = await blob('img', 'image/png');
       image(page(notebook('N')).id, img);
+      synced();
       s.sync.configure(url: 'http://sync.test', token: 'wrong-token-0000000');
       expect(await s.storage.freeUp(), isA<ServerUnreachable>());
       expect(await s.blobs.has(img), isTrue);
@@ -245,6 +282,7 @@ void main() {
     test('without sync nothing is offered', () async {
       final img = await blob('img', 'image/png');
       image(page(notebook('N')).id, img);
+      synced();
       await s.storage.refresh();
       expect(s.storage.survey!.freeable, 1000);
       expect(s.storage.canFreeUp, isFalse);
