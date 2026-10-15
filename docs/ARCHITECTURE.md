@@ -68,7 +68,11 @@ The same grid drives three things:
    selection or text editor are kept). Canvases read through
    `BackgroundStrokeReader`: a worker isolate with its own read-only SQLite
    connection (WAL allows it next to the writer), so panning never waits for
-   SQLite (natively; the web reads on the UI thread, see *Platforms*). `SurfaceLoader` keeps one read in flight per surface (the newest
+   SQLite (natively; the web reads on the UI thread, see *Platforms*); once
+   it died, reads fall back to the UI isolate. Both it and the pull worker
+   hear the UI isolate exit (an exit listener it adds on their inbox), so
+   when Android destroys the engine while the process lives on they close
+   their connection and exit instead of living on orphaned. `SurfaceLoader` keeps one read in flight per surface (the newest
    range wins), drops results after `reload()`, and filters strokes and
    elements removed while a read was running (erased, undone, moved by a
    selection), so a stale copy never comes back. `StrokeRepository` is the
@@ -2862,7 +2866,10 @@ the next cycle resumes. Where that runs:
   indexer listens), and what the pull changed comes back per page as
   `RemoteChanges` (also what committed before a database error).
   Cancelling stops it after the current slice; it closes
-  when the pull ends.
+  when the pull ends. It is spawned with exit and error ports, so a worker
+  that dies (before it is ready: the pull runs on the UI thread instead;
+  while applying or between pages: the pull fails and the next sync starts
+  afresh) never leaves sync waiting in "syncing".
 - **Otherwise** (the web, an in-memory database, small pulls) the page is
   decoded in a worker natively (`platform/pull_decoder.dart`; the web
   decodes on the UI thread) and applied on the UI thread in slices of
