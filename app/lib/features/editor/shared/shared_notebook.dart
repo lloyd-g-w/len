@@ -167,7 +167,7 @@ class SharedNotebook extends ChangeNotifier {
     if (_docs.isNotEmpty && changes.pagesOfNotebooks.contains(id)) {
       // Every page deleted elsewhere: start a fresh one, as opening does.
       if (services.pages.pagesOf(id).isEmpty) {
-        services.pages.addPage(id, paper: _notebook.paper);
+        services.pages.addFreshPage(_notebook);
       }
       _reloadPages();
       _backgrounds?.pdf.retryMissing(); // New pages may bring new PDFs.

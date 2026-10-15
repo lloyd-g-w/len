@@ -183,7 +183,39 @@ class EditorSession {
   }
 
   /// What the notebook keeps of the zoom window; null if it was never used.
-  ZoomWindowState? get zoomState => _zoomCreated ? zoomWindow.state : null;
+  ZoomWindowState? get zoomState {
+    if (!_zoomCreated) return null;
+    final parked = _parkedZoom;
+    return parked != null && !zoomWindow.isOpen ? parked : zoomWindow.state;
+  }
+
+  /// Remembers the zoom window as this editor shows it for the next time
+  /// the notebook opens in the first pane (closed if it was never used).
+  void saveZoomState() {
+    if (services.database.isClosed) return;
+    final zoom = zoomState;
+    final keep = zoom == null || zoom.isEmpty ? null : zoom.encode();
+    services.settings.setZoomWindow(notebook.id, keep);
+  }
+
+  /// The zoom window put away while presenting ([parkZoomWindow]).
+  ZoomWindowState? _parkedZoom;
+
+  /// Closes the zoom window for a while (presenting: its box takes no
+  /// laser and would cover the page); [unparkZoomWindow] opens it again
+  /// where it was. Kept for the notebook as open meanwhile.
+  void parkZoomWindow() {
+    if (!_zoomCreated || !zoomWindow.isOpen) return;
+    _parkedZoom = zoomWindow.state;
+    zoomWindow.close();
+  }
+
+  /// Opens the zoom window [parkZoomWindow] put away.
+  void unparkZoomWindow() {
+    final parked = _parkedZoom;
+    _parkedZoom = null;
+    if (parked != null && !zoomWindow.isOpen) zoomWindow.restore(parked);
+  }
 
   /// Page and web links: finding, following and making them.
   late final EditorLinks links = EditorLinks(this);
@@ -227,7 +259,7 @@ class EditorSession {
 
   DocumentController _openDocument(Notebook notebook, EditorViewState? view) {
     var pages = services.pages.pagesOf(notebook.id);
-    if (pages.isEmpty) pages = [services.pages.addPage(notebook.id, paper: notebook.paper)];
+    if (pages.isEmpty) pages = [services.pages.addFreshPage(notebook)];
     return DocumentController(
       pages: pages,
       strokes: services.strokes,
@@ -300,9 +332,11 @@ class EditorSession {
 
   /// The zoom window's input: the editor's tools and live ink, seen through
   /// the box (its own palm rejection, no canvas gestures or pointer tools).
-  /// The low-latency overlay draws in screen pixels: the box's view, moved
-  /// to where the box lies on the screen.
-  InkInputController _zoomInput(SurfaceModel model, ZoomBoxViewport view) => InkInputController(
+  InkInputController _zoomInput(SurfaceModel model, ZoomBoxViewport view) => _zoomInk(model, view)
+    // Highlights over PDF text snap to it there too.
+    ..highlightSnap = doc == null ? null : PdfHighlightSnap(doc: doc!, info: shared.pdfInfo);
+
+  InkInputController _zoomInk(SurfaceModel model, ZoomBoxViewport view) => InkInputController(
     model: model,
     viewport: view,
     tools: tools,
@@ -310,22 +344,16 @@ class EditorSession {
     samples: openStylusSamples(
       wetInk: () => WetInkStyle.of(live, view.scale),
       wetInkNext: () => WetInkStyle.forNextStroke(tools, view.scale),
-      wetInkView: () {
-        final origin = zoomWindow.boxOrigin;
-        var clip = origin & view.size;
-        if (zoomWindow.host.boundsOf(model.surfaceId) case final page?) {
-          clip = clip.intersect(
-            Rect.fromPoints(
-              view.toScreen(page.topLeft),
-              view.toScreen(page.bottomRight),
-            ).shift(origin),
-          );
-        }
-        return WetInkView(clip: clip, scale: view.scale, offset: view.offset + origin);
-      },
+      // The page the frame is on now (it moves on to the next page).
+      wetInkView: () => view.wetInkView(page: _zoomPage()),
     ),
     penButtonAction: () => services.preferences.penButtonAction,
   );
+
+  Rect? _zoomPage() {
+    final frame = zoomWindow.frame;
+    return frame == null ? null : zoomWindow.host.boundsOf(frame.surfaceId);
+  }
 
   /// Keeps document content scrollable clear of the chrome covering
   /// [covered] of the screen, and fits keep canvas content clear of it.

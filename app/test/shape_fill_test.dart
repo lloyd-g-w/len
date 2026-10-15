@@ -225,6 +225,33 @@ void main() {
       expect(restyled.style.opacity, 0.4);
     });
 
+    test('a shape given another pen keeps the even line of shapes', () {
+      final plain = shape('s', box);
+      final rect = plain.withPoints(
+        plain.points,
+        shape: plain.shape,
+        style: ShapeBuilder.styleFor(const StrokeStyle(unit: 0.5)).withFill(tint),
+      );
+      // The pen's handwriting look: thinning, tapers, flat ends, stabiliser.
+      const pen = StrokeStyle(
+        opacity: 0.4,
+        thinning: 0.6,
+        streamline: 0.5,
+        ends: StrokeEnds.flat,
+        taperStart: 8,
+        taperEnd: 8,
+      );
+      final restyled = TransformItems.restyleStroke(
+        rect,
+        id: 'r',
+        tool: InkTool.highlighter,
+        style: pen,
+      );
+      expect(restyled.style, ShapeBuilder.styleFor(pen.copyWith(unit: 0.5)).withFill(tint));
+      expect(restyled.style.opacity, 0.4);
+      expect(restyled.style.unit, 0.5, reason: 'its outline was spaced at that zoom');
+    });
+
     test('the Style panel sets and clears fills of selected shapes, one undo each', () {
       final selection = SelectionController(model: model, clipboard: InkClipboard(), clock: clock);
       addTearDown(selection.dispose);

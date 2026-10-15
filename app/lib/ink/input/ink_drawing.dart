@@ -118,6 +118,9 @@ class InkDrawing {
   /// Whether the contact in progress is a stylus.
   bool get byStylus => isStylusKind(_drawKind);
 
+  /// Whether a finger's erasing is held back (it may be a palm).
+  bool get holdsErase => _heldErase != null;
+
   /// The contact's latest screen position.
   Offset? get lastScreen => _lastScreen;
 
@@ -234,8 +237,14 @@ class InkDrawing {
     live.add(point);
   }
 
+  /// Whether the last contact that ended left a stroke (not erasing, a
+  /// scribble that erased, a bounce or a tool).
+  bool get inked => _inked;
+  bool _inked = false;
+
   /// Ends the current contact. [liftTime] is the pen-up timestamp, when known.
   void finish({Duration? liftTime}) {
+    _inked = false;
     final tool = _tool;
     if (tool != null) {
       _tool = null;
@@ -257,6 +266,7 @@ class InkDrawing {
       // just lifted, for less than `BounceFilter.maxContact`) and goes now.
       if (points.isNotEmpty && !_isBounce(liftTime) && !_scribble.erase(model, snapped: snapped)) {
         _commit(points, liftTime, snapped: snapped, shape: shape);
+        _inked = true;
       }
       _recordLift(liftTime);
     }

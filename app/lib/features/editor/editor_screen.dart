@@ -385,6 +385,7 @@ class _EditorScreenState extends State<_EditorView> {
       final tool = _toolBeforeLaser;
       _toolBeforeLaser = null;
       if (tool != null && _session.tools.tool == EditorTool.laser) _session.tools.tool = tool;
+      if (!disposing) _session.unparkZoomWindow();
     }
     setImmersive(on);
     unawaited(setFullscreen(on));

@@ -70,11 +70,15 @@ class InkInputController {
   /// a stroke in progress is abandoned rather than committed to the wrong
   /// surface.
   SurfaceModel get model => _draw.model;
-  set model(SurfaceModel value) {
+  set model(SurfaceModel value) => switchTo(value);
+
+  /// Sets [model]; [laserShift] moves the laser's trail into the new
+  /// surface's coordinates (see `ContentTools.switchTo`).
+  void switchTo(SurfaceModel value, {Offset? laserShift}) {
     if (identical(value, _draw.model)) return;
     _draw.cancel();
     _draw.model = value;
-    content?.model = value;
+    content?.switchTo(value, laserShift: laserShift);
   }
 
   /// Snaps highlighter strokes over PDF text to it (paged editors).
@@ -178,6 +182,9 @@ class InkInputController {
   void handleHover(PointerHoverEvent e) {
     _stylus.note(e);
     gestures?.hover(e);
+    // A finger whose erasing is held back while it may be a palm is one:
+    // the pen hovers.
+    if (isStylusKind(e.kind) && _draw.holdsErase) _draw.cancel();
     if (_draw.pointer != null) return; // Don't fight the active pointer.
     samples?.hover(e);
     _draw.showEraser(_wantsErase(e) ? e.localPosition : null);
@@ -256,6 +263,9 @@ class InkInputController {
     _nav.add(e.pointer, e.localPosition, slop: kTouchSlop);
   }
 
+  /// Whether the last contact that ended left a stroke.
+  bool get inked => _draw.inked;
+
   /// Whether [pointer] currently pans/zooms the view (rather than drawing,
   /// or being ignored as a palm).
   bool navigates(int pointer) => _nav.contains(pointer);
@@ -269,6 +279,7 @@ class InkInputController {
   /// strokes.
   void stylusElsewhere(PointerEvent e) {
     _stylus.note(e);
+    if (_draw.holdsErase) _draw.cancel(); // A palm, as when the pen hovers here.
     if (e is! PointerDownEvent) return;
     _noteStylus();
     if (_draw.pointer != null && !_draw.byStylus) _draw.cancel();

@@ -59,7 +59,12 @@ class DocumentCommands {
   /// A no-op once the editor closed (e.g. a page-delete snack bar's Undo
   /// pressed later still restores the page, but there is nothing to show).
   void reload({String? keep}) {
-    if (!_disposed) doc.setPages(actions.pages, keepPageId: keep);
+    if (_disposed) return;
+    var pages = actions.pages;
+    // An undo or redo took the last page (the others were deleted
+    // elsewhere): a notebook keeps one, as opening it does.
+    if (pages.isEmpty) pages = [services.pages.addFreshPage(notebook())];
+    doc.setPages(pages, keepPageId: keep);
   }
 
   bool _disposed = false;

@@ -140,10 +140,6 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves {
     _reveal();
   }
 
-  /// Where the box's paper lies on the screen (for the platform's
-  /// low-latency ink, which draws in screen pixels).
-  Offset boxOrigin = Offset.zero;
-
   // ---------------------------------------------------------------------------
   // Input
 

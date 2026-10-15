@@ -112,9 +112,6 @@ class _ZoomBoxState extends State<ZoomBox> {
       _ignored.add(e.pointer);
       return;
     }
-    // Where the box lies on the screen now (the platform's low-latency ink
-    // draws in screen pixels).
-    _zoom.boxOrigin = e.position - e.localPosition;
     final first = _pointer == null;
     if (first || isStylusKind(e.kind)) {
       _pointer = e.pointer;
@@ -152,7 +149,8 @@ class _ZoomBoxState extends State<ZoomBox> {
     input.handleUp(e);
     if (e.pointer != _pointer) return;
     _pointer = null;
-    _zoom.penUp(_inking && !navigated ? _ink : null);
+    // A scribble that erased (or a bounce) left no ink to move on from.
+    _zoom.penUp(_inking && !navigated && input.inked ? _ink : null);
   }
 
   void _cancel(PointerCancelEvent e) {

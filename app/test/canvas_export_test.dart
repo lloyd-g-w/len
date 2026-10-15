@@ -4,9 +4,11 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
+import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/paper_pattern.dart';
 import 'package:len/domain/stroke.dart';
@@ -111,6 +113,32 @@ void main() {
     final onLine = await pixel(png, (lineX - origin.dx).round(), y);
     final paper = await pixel(png, (lineX - origin.dx).round() + 5, y);
     expect(onLine, isNot(paper), reason: 'a grid line where the canvas has one');
+  });
+
+  test('a scanned page under an image template exports with the template', () async {
+    Uint8List solid(int r, int g, int b) {
+      final image = img.Image(width: 8, height: 8)..clear(img.ColorRgb8(r, g, b));
+      return img.encodePng(image);
+    }
+
+    final scan = await services.blobs.putBytes(solid(255, 0, 0), mime: 'image/png');
+    final template = await services.blobs.putBytes(solid(0, 0, 255), mime: 'image/png');
+    final nb = services.notebooks.create(
+      title: 'Scans',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    final page = services.pages.insertPages(nb.id, [
+      (
+        size: const Size(100, 140),
+        paper: Paper.image(template),
+        color: PaperColor.white,
+        background: PageBackground.image(blob: scan),
+      ),
+    ]).single;
+    final png = await exporter.png(page, scale: 1);
+    expect(await pixel(png, 50, 70), const ui.Color(0xFF0000FF), reason: 'the template on top');
   });
 
   test('the PDF is one page the size of the drawing', () async {

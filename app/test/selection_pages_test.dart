@@ -121,6 +121,16 @@ void main() {
     expect(b.isHidden('sb') || b.isHidden('t'), isFalse);
   });
 
+  test('a selection disposed with its editor shows its items again on every page', () {
+    // The pages' models outlive the editor (another view of the notebook).
+    selection.selectLasso(acrossGap);
+    expect(a.isHidden('sa') && b.isHidden('sb'), isTrue);
+    selection.dispose();
+    expect(a.isHidden('sa') || b.isHidden('sb') || b.isHidden('t'), isFalse);
+    expect(a.hasHidden || b.hasHidden, isFalse);
+    selection = SelectionController(model: a, clipboard: InkClipboard());
+  });
+
   test('the lasso options apply on every page it reaches', () {
     Lasso across(LassoConfig config) => Lasso(acrossGap.points, config: config);
     selection.selectLasso(across(const LassoConfig(kinds: {LassoKind.text})));

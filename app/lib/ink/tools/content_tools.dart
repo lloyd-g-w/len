@@ -105,13 +105,21 @@ class ContentTools {
   SurfaceModel get model => selection.model;
 
   /// Switches surface (page turn): the selection is dropped and a text
-  /// edit in progress is committed to the surface it belongs to.
-  set model(SurfaceModel value) {
+  /// edit in progress is committed to the surface it belongs to. The laser
+  /// goes too, unless [laserShift] moves it into the new surface's
+  /// coordinates (both pages in view: it keeps showing where it was).
+  void switchTo(SurfaceModel value, {Offset? laserShift}) {
     text.model = value;
     selection.model = value;
     lassoPath.clear();
-    laser.clear();
+    if (laserShift != null) {
+      laser.shift(laserShift);
+    } else {
+      laser.clear();
+    }
   }
+
+  set model(SurfaceModel value) => switchTo(value);
 
   /// The pointer tool for [tool], or null for inking tools (PDF text is
   /// selected with a long press).

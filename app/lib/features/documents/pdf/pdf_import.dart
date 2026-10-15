@@ -10,6 +10,7 @@ import '../../../domain/cancellation.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
+import '../notebook_gone.dart';
 import 'pdf_renderer.dart';
 
 /// World units (96 per inch) per PDF point (72 per inch).
@@ -107,6 +108,7 @@ class PdfImporter {
   }) async {
     final specs = await specsFor(sha, cancel: cancel);
     onPages?.call(specs.length);
+    NotebookGone.check(services, notebookId); // Deleted while it was read.
     final pages = services.pages.insertPages(notebookId, specs, after: after);
     unawaited(services.search.indexPdfs());
     return pages;

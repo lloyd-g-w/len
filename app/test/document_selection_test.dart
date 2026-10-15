@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/editor_screen.dart';
@@ -9,6 +10,7 @@ import 'package:len/sync/sync_engine.dart';
 import 'content_documents_test.dart' show ctrl, elementsOf;
 import 'content_tools_ui_test.dart' show key, mouseDrag;
 import 'document_editor_test.dart' show closeEditor, drawAt, inkOf, pumpEditor;
+import 'support/zoom_fixtures.dart';
 
 /// Lasso selections spanning the pages of a paged notebook in continuous
 /// scrolling, and selections moved from one page onto another.
@@ -79,6 +81,27 @@ void main() {
     expect(ids(inkOf(s, pages[0])), {'w1', before1.id});
     expect(ids(inkOf(s, pages[1])), {'w2', before2.id});
     expect(tester.takeException(), isNull);
+    await closeEditor(tester);
+  });
+
+  testWidgets('a selection across pages lets go when a page comes in between (sync)', (
+    tester,
+  ) async {
+    final (s, nb) = await pumpEditor(tester);
+    await _measure(tester);
+    final pages = s.pages.pagesOf(nb.id);
+    await drawAt(tester, up(const [Offset(300, 880)]).single);
+    await drawAt(tester, up(const [Offset(300, 1010)]).single);
+    await key(tester, LogicalKeyboardKey.keyL);
+    await lasso(tester, const Rect.fromLTRB(250, 850, 440, 1060).translate(0, -_up));
+    final session = zoomSession(tester);
+    expect(session.content.selection.spansSurfaces, isTrue);
+    // Another device inserts a page between them: page 2's ink moves down.
+    s.pages.addPage(nb.id, paper: const Paper(PaperStyle.blank), after: pages[0]);
+    session.commands!.reload();
+    await tester.pump();
+    expect(session.content.selection.isEmpty, isTrue);
+    expect(session.doc!.surfaces.models.peek(pages[1].id)?.hasHidden ?? false, isFalse);
     await closeEditor(tester);
   });
 

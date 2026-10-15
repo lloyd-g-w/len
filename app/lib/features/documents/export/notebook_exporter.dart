@@ -125,6 +125,7 @@ class NotebookExporter {
     }
     final elements = _copier.loadAllElements(page.id);
     await _loadImages(elements, scale, report);
+    if (!paperOnly) await _loadTemplate(page.paper, page.width * scale, report);
     final image = await renderPageImage(
       page,
       strokes: _copier.loadAll(page.id),
@@ -225,6 +226,16 @@ class NotebookExporter {
       final image = await services.images.load(data, e.rect.width * scale / data.crop.width);
       if (image == null) report?.missingImages++;
     }
+  }
+
+  /// Decodes [paper]'s image template, if it has one, for drawing
+  /// [pixelWidth] wide (the pattern draws it from the decoded images; over
+  /// a scan or a PDF page it is no background).
+  Future<void> _loadTemplate(Paper paper, double pixelWidth, ExportReport? report) async {
+    final template = paper.image;
+    if (template == null) return;
+    final image = ImageData(blob: template, width: 0, height: 0);
+    if (await services.images.load(image, pixelWidth) == null) report?.missingImages++;
   }
 
   Future<Uint8List?> _readBlob(String sha) async =>
