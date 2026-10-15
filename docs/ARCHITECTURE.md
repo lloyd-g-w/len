@@ -2782,7 +2782,8 @@ boxes, the text of imported PDF pages and recognised handwriting (see
   the editor's search takes the jump, fills in the query and reveals and
   highlights the match.
 - **Editor (Ctrl+F or the search button).** `EditorSearchController` holds
-  the query, matches (one per text box, one per occurrence in PDF text) and
+  the query, matches (one per occurrence in a text box — highlighted where the
+  box's layout puts the words, `textMatchRects` — or in PDF text) and
   the current one; Enter/F3 and Shift+Enter/Shift+F3 move, Esc closes.
   It reaches the editor only through `EditorSearchHost` (document: page
   frames + `goToPage` + pan; canvas: viewport pan, zooming out if needed),

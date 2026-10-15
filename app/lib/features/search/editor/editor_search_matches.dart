@@ -6,6 +6,7 @@ import '../../../data/search/search_service.dart';
 import '../../../domain/notebook_page.dart';
 import 'editor_search_host.dart';
 import 'ink_match_rects.dart';
+import 'text_match_rects.dart';
 
 /// One match in the open notebook: a text box, or one occurrence in a
 /// PDF page's text or a recognised line of handwriting.
@@ -17,6 +18,7 @@ class EditorSearchMatch {
     this.pdf,
     this.pageSize,
     this.inkRects,
+    this.textRects,
   });
 
   final SearchHit hit;
@@ -36,6 +38,10 @@ class EditorSearchMatch {
   /// The ink to highlight for a handwriting match: the matched words, or
   /// the whole line (page coordinates). [box] is their union.
   final List<Rect>? inkRects;
+
+  /// The lines of a text box match (page coordinates, rotated with the
+  /// box); [box] is the whole box.
+  final List<RotatedRect>? textRects;
 
   String get surfaceId => hit.surfaceId!;
   int? get pageIndex => hit.pageIndex;
@@ -59,15 +65,34 @@ List<EditorSearchMatch> findEditorSearchMatches(
     final page = host.pageOf(hit.surfaceId!);
     if (hit.kind == SearchHitKind.text) {
       final ranges = parsed.ranges(hit.body);
-      final box = search.index.elementBox(hit.refId);
-      if (box == null) continue;
-      matches.add(
-        EditorSearchMatch(
-          hit: hit,
-          range: ranges.isEmpty ? (start: 0, end: 0) : ranges.first,
-          box: box,
-        ),
-      );
+      final stored = search.index.elementBox(hit.refId);
+      if (stored == null) continue;
+      final box = (rect: stored.rect, rotation: stored.rotation);
+      final words = ranges.isEmpty
+          ? null
+          : textMatchRects(
+              json: stored.data,
+              box: stored.rect,
+              rotation: stored.rotation,
+              body: hit.body,
+              ranges: ranges,
+            );
+      if (words == null) {
+        // The whole box (its text not matched word by word).
+        matches.add(
+          EditorSearchMatch(
+            hit: hit,
+            range: ranges.isEmpty ? (start: 0, end: 0) : ranges.first,
+            box: box,
+          ),
+        );
+      } else {
+        // One match per occurrence, highlighted where the box shows it.
+        for (final (i, range) in ranges.indexed) {
+          if (words[i].isEmpty) continue;
+          matches.add(EditorSearchMatch(hit: hit, range: range, box: box, textRects: words[i]));
+        }
+      }
     } else if (hit.kind == SearchHitKind.handwriting) {
       final boxes = search.index.inkTextBoxes(hit.refId);
       if (boxes == null) continue;
@@ -100,6 +125,8 @@ List<EditorSearchMatch> findEditorSearchMatches(
 int _inReadingOrder(EditorSearchMatch a, EditorSearchMatch b) {
   final page = (a.pageIndex ?? 0).compareTo(b.pageIndex ?? 0);
   if (page != 0) return page;
+  // Occurrences in one text box (or PDF page, or line) in text order.
+  if (identical(a.hit, b.hit)) return a.range.start.compareTo(b.range.start);
   final ab = a.box, bb = b.box;
   if (ab == null || bb == null) {
     if (ab != null) return 1;

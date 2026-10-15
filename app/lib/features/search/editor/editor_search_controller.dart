@@ -172,6 +172,9 @@ class EditorSearchController extends ChangeNotifier {
     if (match.inkRects case final rects?) {
       return [for (final r in rects) (rect: r.inflate(2), rotation: 0.0)];
     }
+    if (match.textRects case final rects?) {
+      return [for (final r in rects) (rect: r.rect.inflate(1), rotation: r.rotation)];
+    }
     if (match.box case final box?) return [box];
     final pdf = match.pdf;
     final size = match.pageSize;

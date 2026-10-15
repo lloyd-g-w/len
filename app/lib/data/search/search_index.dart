@@ -173,17 +173,21 @@ class SearchIndex {
     return ('search_docs d', '($where)', likes);
   }
 
-  /// The box (unrotated rect and rotation about its centre) of live
-  /// element [id], for highlighting a text box hit.
-  ({Rect rect, double rotation})? elementBox(String id) {
+  /// The box (unrotated rect and rotation about its centre) and stored
+  /// data (JSON) of live element [id], for highlighting a text box hit.
+  ({Rect rect, double rotation, String data})? elementBox(String id) {
     final rows = db.select(
-      'SELECT x, y, w, h, rotation FROM elements WHERE id = ? AND deleted = 0',
+      'SELECT x, y, w, h, rotation, data FROM elements WHERE id = ? AND deleted = 0',
       [id],
     );
     if (rows.isEmpty) return null;
     final r = rows.first;
     double d(String c) => (r[c] as num).toDouble();
-    return (rect: Rect.fromLTWH(d('x'), d('y'), d('w'), d('h')), rotation: d('rotation'));
+    return (
+      rect: Rect.fromLTWH(d('x'), d('y'), d('w'), d('h')),
+      rotation: d('rotation'),
+      data: r['data'] as String,
+    );
   }
 
   /// Where recognised handwriting line [refId] is: the line's bounds and,

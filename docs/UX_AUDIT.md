@@ -108,12 +108,15 @@ the eraser.
 - *Fix:* while a box is edited, Back finishes it. Effort S.
 - *Done:* a `PopScope` around the box editor.
 
-**R19-5 P2 · Search finds a text box, not the words in it.**
+**R19-5 P2 · Search finds a text box, not the words in it.** ✅
 - *What:* a text box is one match, highlighted as one block: in a box of
   three pages of typed notes, "exam" four times is "1 of 1" and the whole
   box glows.
 - *Fix:* one match per occurrence, highlighting the word where the box's
   layout puts it (rotated with the box). Effort M.
+- *Done:* `textMatchRects` lays the stored box out (`TextBoxLayout`) and
+  takes the selection boxes of each occurrence; matches in one box keep
+  text order. Goldens `search_editor*` now show the word.
 
 **R19-6 P2 · "- " and "1. " don't start lists.** ✅
 - *What:* the keyboard typist's habit from every notes app: "- " (or "* ")
