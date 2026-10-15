@@ -76,7 +76,7 @@ selects the tint's shape instead.
   circle, equilateral triangle, regular star) snaps to it; so does a
   rectangle's or ellipse's corner handle. Effort S.
 
-**R21-3 P1 · Ink can't be arranged: a filled box hides what it was drawn around.** ⬜
+**R21-3 P1 · Ink can't be arranged: a filled box hides what it was drawn around.** ✅
 - *What:* strokes paint in the order they were drawn, and Bring to front /
   Send to back only move images and text boxes. Writing a label, then
   drawing a box around it and giving the box a solid fill (or drawing it

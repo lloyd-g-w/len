@@ -1800,7 +1800,12 @@ surface.
   copies (new ids, same `createdAt`, width scaled), elements keep their id.
   Every gesture or menu action (delete, duplicate, cut, copy, paste,
   recolour) is one `InkEdit`. The selection frame keeps its rotation across
-  gestures. The clipboard (`InkClipboard`) lives in `AppServices`, so paste
+  gestures. **Arranging** (⋯ → Bring to front / Send to back, offered when
+  the selection overlaps anything else): elements move to the top or bottom
+  `z` (above or beneath the ink); strokes, which paint by `createdAt`, are
+  replaced by copies timed just after or before the unselected ink they
+  overlap (`StrokeOrder.restacked`, keeping their own order; a recording's
+  replay shows them at that time). The clipboard (`InkClipboard`) lives in `AppServices`, so paste
   works across pages and notebooks; paste goes to the screen centre
   (Ctrl+V, menu) or a long-press position.
 - **Copy to other apps** (`ClipboardMirror`, `features/editor/clipboard/`):

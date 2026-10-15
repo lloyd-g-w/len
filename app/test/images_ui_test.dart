@@ -259,6 +259,8 @@ void main() {
     await mouseDrag(tester, const [Offset(150, 400)]);
     expect(await selectionOffers(tester, 'Crop'), isFalse); // The ink.
     expect(find.byTooltip('Style'), findsOneWidget);
+    // Ink can be arranged too (R21-3): it overlaps the image.
+    expect(await selectionOffers(tester, 'Send to back'), isTrue);
     // Screen readers name the pill's buttons (a Tooltip around one named the canvas).
     final semantics = tester.ensureSemantics();
     await tester.pump();
