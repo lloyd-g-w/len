@@ -68,6 +68,33 @@ void main() {
       }
     });
 
+    test('a planner keeps its calendar (week start, language); strictly parsed', () {
+      const calendar = PlannerCalendar(weekStart: WeekStart.sunday, language: PlannerLanguage.de);
+      final planner = NotebookChoice.of(
+        kind: NotebookKind.paged,
+        template: PageTemplate(
+          paper: Paper.planner(PaperStyle.weeklyPlanner, DateTime.utc(2026, 3), calendar: calendar),
+        ),
+        coverColor: 1,
+      )!;
+      expect(planner.calendar, calendar);
+      final json = planner.toJson();
+      expect(json['weekStart'], 'sunday');
+      expect(json['locale'], 'de');
+      expect(NotebookChoice.fromJson(json), planner);
+      expect(NotebookChoice.fromJson(json)!.calendar, calendar);
+      expect(planner, isNot(NotebookChoice.fromJson({...json, 'locale': 'fr'})));
+      for (final key in ['weekStart', 'locale']) {
+        expect(NotebookChoice.fromJson({...json}..remove(key)), isNull, reason: 'no $key');
+      }
+      for (final (key, value) in [('weekStart', 'friday'), ('locale', 'xx'), ('locale', 3)]) {
+        expect(NotebookChoice.fromJson({...json, key: value}), isNull, reason: '$key $value');
+      }
+      // Other templates have no calendar.
+      expect(_lecture.calendar, isNull);
+      expect(_lecture.toJson().keys, isNot(contains('weekStart')));
+    });
+
     test('of: a user image template is no style', () {
       expect(
         NotebookChoice.of(
