@@ -155,15 +155,21 @@ class EditorSession {
     content: content,
     tools: tools,
     activateAt: doc?.activateAt,
-    showSurface: doc == null ? null : _showPage,
+    reveal: _reveal,
   );
 
-  /// Shows page [id] (making it the edited one); false if it is gone.
-  bool _showPage(String id) {
-    final doc = this.doc!;
-    final index = doc.pages.indexWhere((p) => p.id == id);
-    if (index < 0) return false;
-    doc.goToPage(index);
+  /// Shows page [id] (making it the edited one), or point [at] of the
+  /// canvas [id]; false if there is no such page (or canvas).
+  bool _reveal(String id, Offset at) {
+    if (doc case final doc?) {
+      final index = doc.pages.indexWhere((p) => p.id == id);
+      if (index < 0) return false;
+      doc.goToPage(index);
+      return true;
+    }
+    if (id != canvas!.surfaceId) return false;
+    final nav = canvasNav!;
+    if (!nav.visibleArea.contains(at)) nav.centreOn(at, animate: false);
     return true;
   }
 

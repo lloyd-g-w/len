@@ -40,7 +40,7 @@ class EditorImages {
     required this.content,
     required this.tools,
     this.activateAt,
-    this.showSurface,
+    this.reveal,
     ClipboardImageReader? readClipboard,
     Future<String?> Function()? readHtml,
     this.clock = const Clock(),
@@ -61,9 +61,9 @@ class EditorImages {
   /// Makes the page under a screen point the edited one (documents).
   final void Function(Offset screen)? activateAt;
 
-  /// Shows surface (page) [id] and makes it the edited one (documents);
-  /// false if there is no such page.
-  final bool Function(String id)? showSurface;
+  /// Shows point `at` of surface [id] (a page, made the edited one; or the
+  /// canvas); false if there is no such surface here.
+  final bool Function(String id, Offset at)? reveal;
 
   final ClipboardImageReader _readClipboard;
 
@@ -133,7 +133,7 @@ class EditorImages {
     required String surfaceId,
     required Offset at,
   }) async {
-    final shown = showSurface?.call(surfaceId) ?? surfaceId == content.model.surfaceId;
+    final shown = reveal?.call(surfaceId, at) ?? false;
     Offset? screen;
     if (shown) {
       final point = content.viewport.toScreen(at);
