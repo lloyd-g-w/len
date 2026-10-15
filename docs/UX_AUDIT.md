@@ -77,7 +77,7 @@ undone without a word.
   the whole path stays in search results and becomes the tile's tooltip.
   Effort S.
 
-**R16-4 P1 · The laptop opens a notebook where the laptop last was.** ⬜
+**R16-4 P1 · The laptop opens a notebook where the laptop last was.** ✅
 - *What:* the page, zoom and pan are kept per notebook in this device's
   settings (`EditorLifecycle.saveView`). Write pages 14–16 of a lecture
   on the tablet, open the notebook on the laptop at home: it opens on

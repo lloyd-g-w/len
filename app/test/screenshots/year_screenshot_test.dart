@@ -127,8 +127,9 @@ AppServices yearServices() {
       coverColor: Palette.covers[color++ % Palette.covers.length],
       folderId: folder,
     );
-    if (ink)
+    if (ink) {
       s.strokes.save(handwriting(s.pages.pagesOf(n.id).first.id, clock, lines: 6, canvas: false));
+    }
     return n;
   }
 

@@ -10,7 +10,7 @@ extension _EditorParts on _EditorScreenState {
     initialView: widget.secondPane
         ? _services.openNotebooks.splitView
         : _services.openNotebooks.viewOf(widget.notebook.id) ??
-              EditorViewState.decode(_services.settings.editorView(widget.notebook.id)),
+              resumeView(_services, widget.notebook),
     // The second pane leaves the zoom window to the first.
     initialZoom: widget.secondPane
         ? null

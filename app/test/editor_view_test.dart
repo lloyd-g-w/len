@@ -162,6 +162,38 @@ void main() {
     expect(doc().viewport.scale, closeTo(before.scale, 1e-6));
     expect((doc().viewport.offset - before.offset).distance, lessThan(0.5));
   });
+
+  testWidgets('opens on the page another device wrote on since (R16-4)', (tester) async {
+    late Notebook nb;
+    late String third;
+    await pump(tester, (s) {
+      nb = s.notebooks.create(
+        title: 'Lecture',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.collegeRuled,
+        coverColor: 0,
+      );
+      s.pages.addPage(nb.id, template: const PageTemplate());
+      third = s.pages.addPage(nb.id, template: const PageTemplate()).id;
+      s.strokes.save([
+        Stroke(
+          id: 'from-tablet',
+          createdAt: 1,
+          surfaceId: third,
+          tool: InkTool.ballpoint,
+          color: 0xFF000000,
+          width: 2,
+          points: const [StrokePoint(100, 100, 0.5), StrokePoint(200, 100, 0.5)],
+        ),
+      ]);
+      s.database.execute("UPDATE strokes SET device_id = 'tablet'");
+      return nb;
+    });
+    final doc = tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;
+    expect(doc.currentPage, 2);
+    final page = doc.layout.frameOf(2)!;
+    expect(doc.viewport.visibleWorld.overlaps(page), isTrue);
+  });
 }
 
 Future<void> open(WidgetTester tester, AppServices services, Notebook notebook) async {
