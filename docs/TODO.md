@@ -95,12 +95,13 @@ From the reports; the owner picks. Status as above.
   (mirrored icons), markers and hanging indents follow (placeholders are logical already),
   PDF glyph placement checked with an RTL font (the bundled fonts lack Arabic / Hebrew:
   bundling Noto Sans Arabic / Hebrew subsets is part of it).
-- ⬜ **Rich copy to other apps** (UX_AUDIT round 19): Copy in a box puts plain text on the
-  clipboard (formatting is kept only for pasting back into Len). Write HTML too (the
-  inverse of `textFromHtml`: b / i / u / s, colours, h1 / h2, ul / ol / checkboxes) via the
-  vendored `pasteboard` (Windows CF_HTML, Android `ClipData.newHtmlText`, Linux
-  `text/html`, web `ClipboardItem`), so a pasted note keeps its headings and lists in Docs,
-  mail or Notion.
+- ✅ **Rich copy to other apps** (UX_AUDIT round 19): Copy / Cut in a box and lasso Copy of
+  text boxes put HTML on the clipboard besides the plain text (`htmlFromTexts`, the inverse
+  of `textFromHtml`, round-trip property-tested: b / i / u / s, colours, highlights, fonts,
+  h1 / h2, nested ul / ol, checklists with a ☐ / ☑), through the vendored `pasteboard`'s
+  `write` (Linux `text/html`, Windows CF_HTML, Android `ClipData` HTML text, web
+  `ClipboardItem`). Pasting back into Len still uses Len's own copy, now with its
+  paragraph styles too (lists and headings were lost before).
 
 - ✅ **Storage overview** (UX_AUDIT R16-7): Settings → Storage on every platform: the space
   Len uses here by kind (handwriting and text, PDFs, images, recordings, cached previews),
