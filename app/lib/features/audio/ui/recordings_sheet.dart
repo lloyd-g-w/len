@@ -18,11 +18,12 @@ import 'recording_tile.dart';
 /// button to record a new one.
 ///
 /// A popover (REDESIGN §5): a sheet on phones, anchored to the button that
-/// opened it ([context]'s widget) elsewhere.
-Future<void> showRecordingsSheet(BuildContext context, NotebookAudio audio) {
+/// opened it ([context]'s widget, or [anchor]) elsewhere.
+Future<void> showRecordingsSheet(BuildContext context, NotebookAudio audio, {Rect? anchor}) {
   return showAdaptivePopover<void>(
     context: context,
     width: 400,
+    anchor: anchor,
     builder: (_) => RecordingsList(audio: audio),
   );
 }

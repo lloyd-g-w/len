@@ -9,6 +9,7 @@ import '../../domain/paper.dart';
 import '../../domain/preferences.dart';
 import '../../ink/tool_settings.dart';
 import '../../platform/fullscreen.dart';
+import '../../ui/app_theme.dart';
 import '../../ui/context_menu_keys.dart';
 import '../../ui/messages.dart';
 import '../audio/notebook_audio.dart';
@@ -180,7 +181,11 @@ class _EditorScreenState extends State<_EditorView> {
   void _showRecordingsIfAsked() => WidgetsBinding.instance.addPostFrameCallback((_) {
     if (!mounted || _parked || _closing) return;
     if (_services.openNotebooks.takeRecordingsRequest(widget.notebook.id)) {
-      unawaited(showRecordingsSheet(context, _audio));
+      // Where the bar's audio button is: the top right corner.
+      final box = context.findRenderObject()! as RenderBox;
+      final corner = box.localToGlobal(box.size.topRight(Offset.zero));
+      final anchor = Rect.fromLTWH(corner.dx - Targets.bar, corner.dy, Targets.bar, Targets.bar);
+      unawaited(showRecordingsSheet(context, _audio, anchor: anchor));
     }
   });
 
