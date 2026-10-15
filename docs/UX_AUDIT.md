@@ -49,7 +49,7 @@ Counts for a tablet, paged notebook unless noted.
 | 13 | Lasso tip "Circle ink, text or images…" | first lasso pick | **wrong with the Rectangle lasso** | Rename by shape (R12-2) | S |
 | 14 | Laser: Fade (Each stroke / When I stop), "Trail lasts" or "Fades after" | laser popover (Trail only) | owner's ask · yes · "When I stop" is first person, as "My templates" | Keep (two stored durations, one slider shown) | – |
 | 15 | Highlighter "Opacity and feel": + Pressure sensitivity (default Off), Ends (Flat / Round) | highlighter popover, collapsed | owner's ask (the pen's engine, explained by the same controls) · collapsed · yes | Keep | – |
-| 16 | Shape fill (None, three tints, solid), dimmed for lines / arrows | Shapes popover, lasso Style | yes · yes · yes | Keep; the Shapes popover's missing Reset is R12-9 (open) | – |
+| 16 | Shape fill (None, three tints, solid), dimmed for lines / arrows | Shapes popover, lasso Style | yes · yes · yes | Keep; the Shapes popover's missing Reset is R12-9 (fixed) | – |
 | 17 | Smoother mouse ink, scribble tuning | – | no knobs: good | Keep | – |
 | 18 | Roving focus in every choice group | – | no visible cost | Keep | – |
 | **Insert and library** | | | | | |
@@ -129,10 +129,15 @@ View, text menus, playback speed, the zoom box's Left-handed); ⋯ uses
 `AppSwitch` rows. Consistent per menu kind.
 
 **R12-9 P2 · The Shapes popover has no Reset** (every other tool
-popover has one) **and its caption runs to two lines.** ⬜ Open: the
-Shape tool and hold-to-snap are being reworked on another branch
-(`feat/shapes-rework`); left to it. Paths:
-`editor/tools/shape_options_panel.dart`.
+popover has one) **and its caption runs to two lines.** ✅ The header
+has the shared Reset (rectangle, no fill; Undo after), and the caption
+is two short lines that fit the 320-dp popover: "Drag to draw, tap a
+shape to edit it" and "Hold the pen still to snap (Settings → Writing)"
+(Shift's line only with a keyboard). The pen's colour and size need no
+line: the bar's dots and sizes sit beside the tool. Paths:
+`editor/tools/shape_options_panel.dart`, `ink/tool_settings.dart`
+(`defaultShape`, `defaultShapeFill`); `pen_panels_test` checks Reset and
+that no caption line wraps.
 
 Checked and sound: no new Settings rows; no new toolbar buttons; every
 new option sits in the popover or menu of the thing it changes; new
