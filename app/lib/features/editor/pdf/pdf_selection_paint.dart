@@ -32,9 +32,10 @@ class PdfMenuPlacement extends SingleChildLayoutDelegate {
       old.selected != selected || old.roomAbove != roomAbove;
 }
 
-/// Paints the selected lines and their handles.
+/// Paints the selected lines and their handles; repaints when [repaint]
+/// notifies (the selection, the view, the pages' text).
 class PdfSelectionPainter extends CustomPainter {
-  PdfSelectionPainter(this.pdf, this.color);
+  PdfSelectionPainter(this.pdf, this.color, {super.repaint});
 
   final PdfInteraction pdf;
   final Color color;
@@ -90,5 +91,5 @@ class PdfSelectionPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(PdfSelectionPainter old) => true; // Repainted by the builder's listenables.
+  bool shouldRepaint(PdfSelectionPainter old) => old.pdf != pdf || old.color != color;
 }

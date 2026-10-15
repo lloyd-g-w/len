@@ -74,14 +74,32 @@ class _PdfLayerState extends State<PdfLayer> {
   Offset _tapAt = Offset.zero;
   Duration _tapTime = Duration.zero;
 
+  /// What changes the pages in view or their text.
+  late Listenable _preloads = _preloadsOf(_pdf);
+
+  static Listenable _preloadsOf(PdfInteraction pdf) =>
+      Listenable.merge([pdf.selection, pdf.doc.viewport, pdf.info]);
+
   @override
   void initState() {
     super.initState();
     _pdf.onLink = _onLink;
+    _preloads.addListener(_preload);
+    _preload();
+  }
+
+  @override
+  void didUpdateWidget(PdfLayer old) {
+    super.didUpdateWidget(old);
+    if (old.interaction == widget.interaction) return;
+    _preloads.removeListener(_preload);
+    _preloads = _preloadsOf(_pdf)..addListener(_preload);
+    _preload();
   }
 
   @override
   void dispose() {
+    _preloads.removeListener(_preload);
     if (_pdf.onLink == _onLink) _pdf.onLink = null;
     super.dispose();
   }
@@ -162,50 +180,73 @@ class _PdfLayerState extends State<PdfLayer> {
 
   @override
   Widget build(BuildContext context) {
-    final doc = _pdf.doc;
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: _onDown,
       onPointerMove: _onMove,
       onPointerUp: _onUp,
       onPointerCancel: (_) => _tapPointer = null,
+      // The view only matters while something is selected: no rebuild per
+      // scroll frame otherwise (under the editor's LayoutBuilder it would
+      // lay out and repaint the whole editor).
       child: ListenableBuilder(
-        listenable: Listenable.merge([_pdf.selection, doc.viewport, _pdf.info]),
-        builder: (context, _) {
-          _preload();
-          final ends = _pdf.handleEnds;
-          return Stack(
-            children: [
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: CustomPaint(
-                    painter: PdfSelectionPainter(
-                      _pdf,
-                      // Pages are paper in either theme: a mid-tone accent.
-                      HSLColor.fromColor(Theme.of(context).colorScheme.primary)
-                          .withLightness(0.45)
-                          .toColor(),
-                    ),
-                  ),
-                ),
-              ),
-              if (ends != null)
-                Positioned.fill(
-                  child: Listener(
-                    behavior: HitTestBehavior.deferToChild,
-                    onPointerDown: (_) => _onSelection = true,
-                    child: PdfSelectionHandles(interaction: _pdf, ends: ends),
-                  ),
-                ),
-              if (_pdf.selection.showsMenu && ends != null) _menu(context, _selectionOnScreen()),
-            ],
-          );
-        },
+        listenable: _pdf.selection,
+        builder: (context, _) =>
+            _pdf.selection.isEmpty ? const SizedBox.shrink() : _selection(context),
       ),
     );
   }
 
-  /// Asks for the text and links of the pages in view.
+  /// The selected lines (repainted alone as the view moves), their handles
+  /// and the menu.
+  Widget _selection(BuildContext context) {
+    final doc = _pdf.doc;
+    final changes = Listenable.merge([_pdf.selection, doc.viewport, doc, _pdf.info]);
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: PdfSelectionPainter(
+                  _pdf,
+                  // Pages are paper in either theme: a mid-tone accent.
+                  HSLColor.fromColor(Theme.of(context).colorScheme.primary)
+                      .withLightness(0.45)
+                      .toColor(),
+                  repaint: changes,
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: ListenableBuilder(
+            listenable: changes,
+            builder: (context, _) {
+              final ends = _pdf.handleEnds;
+              if (ends == null) return const SizedBox.shrink();
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: Listener(
+                      behavior: HitTestBehavior.deferToChild,
+                      onPointerDown: (_) => _onSelection = true,
+                      child: PdfSelectionHandles(interaction: _pdf, ends: ends),
+                    ),
+                  ),
+                  if (_pdf.selection.showsMenu) _menu(context, _selectionOnScreen()),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Asks for the text and links of the pages in view (as the view, the
+  /// selection or the pages' text change).
   void _preload() {
     final doc = _pdf.doc;
     for (final i in doc.layout.visiblePages(doc.viewport.visibleWorld)) {
