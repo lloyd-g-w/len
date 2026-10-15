@@ -143,18 +143,8 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
       icon: Symbols.visibility_sharp,
       label: 'View',
       children: [
+        // The zoom choices are the menu's one group; the rest switch.
         if (a.isPaged) ...[
-          _radio(
-            a.flow == PageFlow.continuous,
-            'Scroll pages',
-            () => a.onFlow?.call(PageFlow.continuous),
-          ),
-          _radio(
-            a.flow == PageFlow.single,
-            'One page at a time',
-            () => a.onFlow?.call(PageFlow.single),
-          ),
-          const Divider(),
           for (final (fit, keys) in const [
             (PageFit.page, SingleActivator(LogicalKeyboardKey.digit1, shift: true)),
             (PageFit.width, SingleActivator(LogicalKeyboardKey.digit2, shift: true)),
@@ -162,33 +152,37 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           ])
             _radio(a.fit == fit, fit.label, () => a.onFit?.call(fit), shortcut: keys),
           const Divider(),
+          _switch(
+            Symbols.auto_stories_sharp,
+            'One page at a time',
+            a.flow == PageFlow.single,
+            switch (a.onFlow) {
+              final onFlow? => () => onFlow(
+                a.flow == PageFlow.single ? PageFlow.continuous : PageFlow.single,
+              ),
+              null => null,
+            },
+          ),
         ],
-        _radio(
-          a.placement == ToolbarPlacement.docked,
-          'Toolbar docked',
-          () => a.onPlacement(ToolbarPlacement.docked),
-        ),
-        _radio(
+        _switch(
+          Symbols.toolbar_sharp,
+          'Floating toolbar',
           a.placement == ToolbarPlacement.floating,
-          'Toolbar floating',
-          () => a.onPlacement(ToolbarPlacement.floating),
+          () => a.onPlacement(
+            a.placement == ToolbarPlacement.floating
+                ? ToolbarPlacement.docked
+                : ToolbarPlacement.floating,
+          ),
         ),
-        const Divider(),
-        MenuItemButton(
-          leadingIcon: const Icon(Symbols.pageview_sharp),
-          trailingIcon: _MenuSwitch(value: a.zoomWindow),
-          shortcut: Targets.touchFirst ? null : const SingleActivator(LogicalKeyboardKey.keyM),
-          onPressed: a.onZoomWindow,
-          child: const Text('Zoom window'),
+        _switch(
+          Symbols.pageview_sharp,
+          'Zoom window',
+          a.zoomWindow,
+          a.onZoomWindow,
+          shortcut: const SingleActivator(LogicalKeyboardKey.keyM),
         ),
         if (a.minimap case final minimap?)
-          MenuItemButton(
-            leadingIcon: const Icon(Symbols.map_sharp),
-            trailingIcon: _MenuSwitch(value: minimap),
-            shortcut: Targets.touchFirst ? null : minimapShortcut,
-            onPressed: a.onMinimap,
-            child: const Text('Minimap'),
-          ),
+          _switch(Symbols.map_sharp, 'Minimap', minimap, a.onMinimap, shortcut: minimapShortcut),
         _item(
           Symbols.fullscreen_sharp,
           'Focus mode',
@@ -278,6 +272,22 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
         child: Semantics(customSemanticsActions: semanticsActions, child: Text(label)),
       );
     },
+  );
+
+  /// An on/off row: the row toggles its switch; [shortcut] hints only
+  /// where a keyboard is likely.
+  Widget _switch(
+    IconData icon,
+    String label,
+    bool value,
+    VoidCallback? onPressed, {
+    MenuSerializableShortcut? shortcut,
+  }) => MenuItemButton(
+    leadingIcon: Icon(icon),
+    trailingIcon: _MenuSwitch(value: value),
+    shortcut: Targets.touchFirst ? null : shortcut,
+    onPressed: onPressed,
+    child: Text(label),
   );
 
   /// A choice in a group: checked in the accent, like a checked menu row.
