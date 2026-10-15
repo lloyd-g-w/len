@@ -57,11 +57,11 @@ void main() {
     test('frames the drawn content with a margin, at 3 px per unit', () {
       final stroke = _line(const Offset(100, 400), const Offset(200, 400));
       final bounds = SelectionImage.drawnBounds([stroke], const [])!;
-      expect(bounds, const Rect.fromLTRB(98.5, 398.5, 201.5, 401.5));
+      expect(bounds, const Rect.fromLTRB(97, 397, 203, 403));
       final layout = SelectionImage.layoutFor(bounds)!;
       expect(layout.area, bounds.inflate(SelectionImage.margin));
       expect(layout.scale, SelectionImage.scale);
-      expect((layout.width, layout.height), (321, 21));
+      expect((layout.width, layout.height), (330, 30));
     });
 
     test('a large selection is drawn smaller, its longest side capped', () {
@@ -103,6 +103,24 @@ void main() {
       // Off the line: nothing (not paper).
       expect(_pixel(png, image.width - 4, 4).a, 0);
       expect(_pixel(png, 4, image.height - 4).a, 0);
+    });
+
+    test('a thick, hard-pressed stroke is drawn whole (its edges not cut)', () async {
+      final heavy = Stroke(
+        id: 'heavy',
+        surfaceId: 's',
+        tool: InkTool.ballpoint,
+        color: 0xFF000000,
+        width: 20,
+        points: [for (var x = 0; x <= 200; x += 10) StrokePoint(x.toDouble(), 0, 1)],
+        createdAt: 1,
+      );
+      final png = (await SelectionImage.png([heavy], const [], images: _noImages()))!;
+      final image = img.decodePng(png)!;
+      for (final y in [0, image.height - 1]) {
+        final row = [for (var x = 0; x < image.width; x++) image.getPixel(x, y).a];
+        expect(row.every((a) => a == 0), isTrue, reason: 'row $y');
+      }
     });
 
     test('draws text boxes', () async {
