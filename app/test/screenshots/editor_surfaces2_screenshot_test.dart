@@ -144,6 +144,34 @@ void main() {
     });
   }
 
+  // Typing near the bottom with the soft keyboard open (UX_AUDIT R19-1):
+  // the caret stays above the keyboard (and the phone's docked bar).
+  for (final screen in [phoneScreen, tabletScreen]) {
+    testWidgets('e_text_keyboard ${screen.name}', (tester) async {
+      await guardOverflows('e_text_keyboard_${screen.name}', () async {
+        final s = bareServices();
+        await pumpNotebook(tester, s, whiteboard(s), screen: screen, mode: ThemeMode.light);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
+        await tester.pump();
+        final size = tester.view.physicalSize / tester.view.devicePixelRatio;
+        await mouseDrag(tester, [Offset(size.width * 0.15, size.height * 0.8)]);
+        await settle(tester);
+        tester.view.viewInsets = FakeViewPadding(
+          bottom: size.height * 0.4 * tester.view.devicePixelRatio,
+        );
+        addTearDown(tester.view.resetViewInsets);
+        await settle(tester);
+        final field = find.byKey(const ValueKey('text-box-field'));
+        await tester.enterText(
+          field,
+          'Typed with the keyboard open:\n- stays in view\n- above the keys',
+        );
+        await settle(tester);
+        await shoot(tester, 'e_text_keyboard_${screen.name}');
+      });
+    });
+  }
+
   // 5. Text box and shapes (the lasso menu is in part 1).
   for (final screen in [phoneScreen, tabletScreen]) {
     for (final mode in modes) {

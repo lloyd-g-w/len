@@ -77,6 +77,28 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
+- ⬜ **Typed notes that flow across pages** (UX_AUDIT round 19): a text box on a page grows
+  past the page's bottom and runs off it (GoodNotes stops boxes at the page; Notability's
+  typed notes flow onto the next page). Proposal: a box reaching the bottom margin continues
+  in a linked box at the top of the next page (added if needed), laid out as one text
+  (`TextBoxLayout` split by height); editing moves the caret across. Large: layout, the
+  session, undo, sync of linked boxes, PDF export. Typing cost meanwhile: a 26 000-character
+  box lays out in ≈ 5 ms, three layouts per keystroke (session width, height, field) on
+  the test machine — fine, but one cached layout would cut it.
+- ⬜ **Right-to-left text boxes** (UX_AUDIT round 19): boxes are laid out LTR everywhere
+  (`TextBoxLayout`, `TextWraps`, the field, PDF), so Arabic / Hebrew runs reorder but sit
+  left-aligned with punctuation and list markers on the wrong side. Proposal: a box's
+  direction from its first strong character, alignment stored as start / centre / end
+  (mirrored icons), markers and hanging indents follow (placeholders are logical already),
+  PDF glyph placement checked with an RTL font (the bundled fonts lack Arabic / Hebrew:
+  bundling Noto Sans Arabic / Hebrew subsets is part of it).
+- ⬜ **Rich copy to other apps** (UX_AUDIT round 19): Copy in a box puts plain text on the
+  clipboard (formatting is kept only for pasting back into Len). Write HTML too (the
+  inverse of `textFromHtml`: b / i / u / s, colours, h1 / h2, ul / ol / checkboxes) via the
+  vendored `pasteboard` (Windows CF_HTML, Android `ClipData.newHtmlText`, Linux
+  `text/html`, web `ClipboardItem`), so a pasted note keeps its headings and lists in Docs,
+  mail or Notion.
+
 - ✅ **Storage overview** (UX_AUDIT R16-7): Settings → Storage on every platform: the space
   Len uses here by kind (handwriting and text, PDFs, images, recordings, cached previews),
   the largest notebooks (tap to open, or Recordings to open at its recordings), "Free up

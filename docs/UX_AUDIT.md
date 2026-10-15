@@ -146,6 +146,11 @@ the eraser.
   paged notebook that is the page being edited (the others' boxes are
   read once it is the active page).
 
+Screenshots: `e_text_keyboard_{phone,tablet}` (`editor_surfaces2_screenshot_test.dart`,
+a soft keyboard 40 % of the screen tall, the box tapped at 80 % down): the
+caret ends above the keys and the format bar. On phones the tool row stays
+between the bar and the keyboard (one tap back to the pen): kept.
+
 **Next** (docs/TODO.md): text that flows onto the next page (Notability's
 typed notes) for long boxes on pages; right-to-left boxes (direction from
 the first strong character: layout, markers, alignment, PDF); rich copy to
