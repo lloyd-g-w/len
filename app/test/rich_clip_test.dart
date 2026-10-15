@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/domain/text/html_writer.dart';
+import 'package:len/domain/text/rich_text_buffer.dart';
 import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/editor/tools/text/rich_text_controller.dart';
 
@@ -58,5 +60,31 @@ void main() {
     type(s, '-');
     type(s, ' ');
     expect(s.data.paras.last.list, ListKind.bullet);
+  });
+
+  test('a copy that ends at the start of a line leaves that line\'s style behind', () {
+    final b = RichTextBuffer(
+      TextData.rich(
+        text: 'Title\nitem',
+        paras: const [
+          ParaStyle(heading: 1),
+          ParaStyle(list: ListKind.bullet),
+        ],
+      ),
+    );
+    final slice = b.slice(0, 6, const TextData());
+    expect(slice.text, 'Title\n');
+    expect(slice.paras.last, ParaStyle.body);
+    expect(htmlFromText(slice), isNot(contains('<li>')));
+    // Pasted into the middle of a line, the rest of that line keeps its
+    // own style.
+    final into = RichTextBuffer(
+      TextData.rich(
+        text: 'xy',
+        paras: const [ParaStyle(list: ListKind.number)],
+      ),
+    )..insertRich(1, 1, b.slice(0, 6, const TextData()), SpanStyle.plain);
+    expect(into.text, 'xTitle\ny');
+    expect(into.para(1).list, ListKind.number);
   });
 }

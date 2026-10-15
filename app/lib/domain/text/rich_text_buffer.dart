@@ -33,14 +33,19 @@ class RichTextBuffer {
 
   /// [start, end) as formatted text with [box]'s defaults (a copy): with
   /// the paragraph styles of the lines it touches, unless it is part of a
-  /// single line (a word copied out of a heading is no heading).
+  /// single line (a word copied out of a heading is no heading). A copy
+  /// ending at a line's start (taking the break before it) ends with an
+  /// empty line of body text: that line's style stays behind.
   TextData slice(int start, int end, TextData box) {
     final first = lineOf(start), last = lineOf(end);
     final part = first == last && (start > lineStart(first) || end < lineEnd(first));
+    final touched = last > first && end == lineStart(last);
     return TextData.rich(
       text: _text.substring(start, end),
       spans: TextData.compact(_chars.sublist(start, end)),
-      paras: part ? const [] : _paras.sublist(first, last + 1),
+      paras: part
+          ? const []
+          : [..._paras.sublist(first, touched ? last : last + 1), if (touched) ParaStyle.body],
       font: box.font,
       fontSize: box.fontSize,
       color: box.color,
@@ -153,7 +158,10 @@ class RichTextBuffer {
     final paras = fragment.paras;
     final first = fills || (above && paras.length > 1);
     if (first && paras.first != ParaStyle.body) _paras[line] = paras.first;
-    for (var k = 1; k < paras.length - (above ? 1 : 0); k++) {
+    // A fragment ending in a break adds no text to its last line: that
+    // line (the rest of the one pasted into) keeps its style.
+    final keepLast = above || fragment.text.endsWith('\n');
+    for (var k = 1; k < paras.length - (keepLast ? 1 : 0); k++) {
       _paras[line + k] = paras[k];
     }
   }
