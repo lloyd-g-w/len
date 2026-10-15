@@ -82,6 +82,13 @@ typing, in a canvas already cut to a third of the screen.
   ⋯, beside Draw with finger — the two ways of writing with a finger
   together; View keeps it on wider screens (one home each). Effort S.
 
+**R20-4 P2 · The empty canvas says "Two fingers move" when one finger does.** ✅
+- *What:* `CanvasEmptyHint` words touch as "Two fingers move and zoom"
+  whatever Draw with finger says; once a stylus was seen (or the switch is
+  off) one finger moves the canvas, and the hint teaches the wrong gesture.
+- *Fix:* the hint follows the tools: "Drag to move, pinch to zoom" when
+  fingers pan. Effort S.
+
 ## Round 17 audit — recording a lecture (`review/round17`)
 
 Lens: a student who records every lecture on an S Pen tablet (sometimes a
