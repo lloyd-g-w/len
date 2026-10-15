@@ -69,8 +69,10 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 - 🚧 (fix/android-pen-flicker) **The pen still flickers sometimes** on the Android tablet (S Pen),
   no clear pattern: find every handover / prediction / tile cause, test, fix, and add an
   on-device flicker log to catch the rest.
-- 🚧 (fix/paper-dots-scale) **Dotted paper's dots change size on zoom** (they kept a constant
+- ✅ **Dotted paper's dots change size on zoom** (they kept a constant
   on-screen size): dots get a fixed world size and scale with the page everywhere.
+- 🚧 (fix/paper-lines-scale) **Ruled and grid lines** had the same flaw (one screen pixel at
+  every zoom): a fixed page width matching PDF export, at least about a pixel.
 
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
