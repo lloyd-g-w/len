@@ -189,6 +189,7 @@ class InkInputController {
     samples?.hover(e);
     _draw.showEraser(_wantsErase(e) ? e.localPosition : null);
     _draw.showPen(_previewsInk(e) ? e.localPosition : null);
+    if (isStylusKind(e.kind)) live.expireCursorsSoon(); // It may leave unannounced.
     final laser = content?.laser;
     if (laser == null) return;
     if (e.kind == PointerDeviceKind.mouse && tools.tool == EditorTool.laser) {

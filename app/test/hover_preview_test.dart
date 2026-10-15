@@ -1,3 +1,4 @@
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -122,6 +123,27 @@ void main() {
       ),
     );
     expect(live.penCenter, isNull);
+  });
+
+  test('a stylus\'s cursors go once it stops reporting (it left range: no exit on Android)', () {
+    fakeAsync((async) {
+      input.handleHover(_hover(const Offset(100, 80)));
+      async.elapse(LiveInk.stylusHoverTimeout * 0.8);
+      input.handleHover(_hover(const Offset(101, 80)));
+      async.elapse(LiveInk.stylusHoverTimeout * 0.8);
+      expect(live.penCenter, isNotNull, reason: 'still streaming');
+      async.elapse(LiveInk.stylusHoverTimeout * 0.3);
+      expect(live.penCenter, isNull);
+      tools.tool = EditorTool.eraser;
+      input.handleHover(_hover(const Offset(100, 80)));
+      expect(live.eraserCenter, isNotNull);
+      async.elapse(LiveInk.stylusHoverTimeout * 1.1);
+      expect(live.eraserCenter, isNull);
+      // A mouse sends an exit: its eraser ring stays while it rests.
+      input.handleHover(_hover(const Offset(100, 80), kind: PointerDeviceKind.mouse));
+      async.elapse(LiveInk.stylusHoverTimeout * 3);
+      expect(live.eraserCenter, isNotNull);
+    });
   });
 
   testWidgets('hover cursors on white and dark paper', (tester) async {

@@ -66,13 +66,14 @@ away, and a palm is only a palm on the canvas it rests on.
 - *Fix:* a two-tone ring (a dark line inside a light one) that shows on
   any paper and ink. Effort S.
 
-**R15-3 P2 · Hover cursors stay on the page after the pen leaves.** ⬜
+**R15-3 P2 · Hover cursors stay on the page after the pen leaves.** ✅
 - *What:* Android reports no hover exit when the S Pen leaves range
   (noted in `_touchDown`), so the eraser ring stays where the pen was
   until a finger touches; a pen preview (R15-1) would sit there like a
   blot of ink.
 - *Fix:* a stylus's hover cursors expire 400 ms after its last event (a
-  hovering S Pen streams events, so they never blink while it is near).
+  hovering S Pen streams events, so they never blink while it is near);
+  500 ms in the end (`LiveInk.stylusHoverTimeout`).
   Effort S.
 
 **R15-4 P2 · A palm is a palm only on the canvas it rests on.** ⬜

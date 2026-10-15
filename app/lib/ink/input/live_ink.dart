@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -107,6 +108,31 @@ class LiveInk extends ChangeNotifier {
     eraserCenter = center;
     eraserRadius = radius;
     notifyListeners();
+  }
+
+  /// How long a stylus's hover cursors outlast its last event: Android
+  /// reports no hover exit when the pen leaves range, while a pen in range
+  /// streams hover events.
+  static const Duration stylusHoverTimeout = Duration(milliseconds: 500);
+  Timer? _hoverExpiry;
+
+  /// Hides the eraser cursor and the pen's preview unless this is called
+  /// again within [stylusHoverTimeout] (a stylus was seen again).
+  void expireCursorsSoon() {
+    _hoverExpiry?.cancel();
+    _hoverExpiry = null;
+    if (eraserCenter == null && penCenter == null) return;
+    _hoverExpiry = Timer(stylusHoverTimeout, () {
+      _hoverExpiry = null;
+      showEraser(null, 0);
+      showPen(null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _hoverExpiry?.cancel();
+    super.dispose();
   }
 
   /// Moves (or hides, with a null [center]) the hovering pen's preview.

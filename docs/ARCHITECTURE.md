@@ -1298,7 +1298,8 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   eraser tool, the eraser end or the side button set to erase, the eraser's
   ring (two-tone, a dark line inside a light one, so it shows on dark paper
   too; also under a mouse). Both go at pen-down, on exit and when a finger
-  touches.
+  touches; a stylus's also 500 ms after its last event (`LiveInk.expireCursorsSoon`:
+  Android reports no hover exit when the pen leaves range).
 - **Mouse**: left draws, middle/right drag pans (a right click without dragging opens the
   context menu), wheel scrolls (stops a glide), Ctrl+wheel zooms about the cursor
   (`exp(-dy/400)` per event, at most 2× per event).

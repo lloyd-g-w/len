@@ -268,6 +268,7 @@ class InkDrawing {
     } else if (_erasing) {
       _releaseErase();
       showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
+      if (byStylus) live.expireCursorsSoon(); // The pen may leave unannounced.
     } else {
       if (_byMouse) _mouse.finish(); // The ink catches up with the mouse.
       // A snapped shape's end follows no speed (the pen rested to snap it),
