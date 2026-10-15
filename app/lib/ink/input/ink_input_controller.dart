@@ -182,6 +182,9 @@ class InkInputController {
   void handleHover(PointerHoverEvent e) {
     _stylus.note(e);
     gestures?.hover(e);
+    // A finger whose erasing is held back while it may be a palm is one:
+    // the pen hovers.
+    if (isStylusKind(e.kind) && _draw.holdsErase) _draw.cancel();
     if (_draw.pointer != null) return; // Don't fight the active pointer.
     samples?.hover(e);
     _draw.showEraser(_wantsErase(e) ? e.localPosition : null);

@@ -118,6 +118,9 @@ class InkDrawing {
   /// Whether the contact in progress is a stylus.
   bool get byStylus => isStylusKind(_drawKind);
 
+  /// Whether a finger's erasing is held back (it may be a palm).
+  bool get holdsErase => _heldErase != null;
+
   /// The contact's latest screen position.
   Offset? get lastScreen => _lastScreen;
 
