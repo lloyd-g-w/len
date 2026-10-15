@@ -603,8 +603,16 @@ or deleted pages in order with ink. Snack bars' Undo calls
   structure stays, so graph paper gains its millimetre lines as you zoom in.
 - **Drawing.** `PaperRenderer` (`ink/render/paper_painter.dart`) draws a pattern on screen, in
   thumbnails, miniatures and PNG export, with the look's colour, opacity, line weight and dot
-  size (lines are device-pixel hairlines × weight) — vector lines and text in the UI font (laid-out
-  paragraphs cached), crisp at any zoom; image templates are drawn over the page from a
+  size — vector lines and text in the UI font (laid-out paragraphs cached), crisp at any zoom.
+  Lines are screen hairlines × weight (the same on-screen width at every zoom). Dots are part
+  of the paper: `PaperRenderer.dotRadius` (1.4 world units, 0.37 mm) × dot size, so they scale
+  with the page and the ink everywhere — editor, zoom window, thumbnails, PNG and PDF export
+  (`PdfTemplateWriter` uses the same constant). Far out, a dot smaller than
+  `minDotRadius` (half a target pixel) stays that size and fades by its lost area, until the
+  dotted threshold (`minScreenSpacing` × 2 between dots) hides the pattern; page thumbnails
+  (strengthened when small) and template miniatures keep them at least `minMiniatureDot`,
+  unfaded. The paper is painted live each frame (never in the ink tiles or LOD rasters), so
+  no cache depends on the zoom; image templates are drawn over the page from a
   `PaperImageLookup` (the shared `ElementImages` cache; the editor repaints when one is
   decoded). `PdfTemplateWriter` writes the same pattern into exported PDFs as vectors, labels
   in the embedded bundled Inter (shared with text boxes via `PdfTextWriter.font`; subset, with

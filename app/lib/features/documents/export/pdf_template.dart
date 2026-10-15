@@ -73,7 +73,8 @@ class PdfTemplateWriter {
         ..restoreContext();
     }
     if (pattern.dots.isNotEmpty) {
-      final r = 1.05 * look.dotSize;
+      // The world size the screen draws them at.
+      final r = PaperRenderer.dotRadius * look.dotSize * k;
       g
         ..saveContext()
         ..setGraphicState(PdfGraphicState(fillOpacity: ink.a))
