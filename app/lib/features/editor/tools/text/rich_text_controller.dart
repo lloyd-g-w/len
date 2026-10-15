@@ -38,9 +38,12 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
   /// that formatting, so it wins over the clipboard's HTML).
   static bool isOwnClip(String text) => _clip?.text == _clean(text);
 
-  /// [text] without marker placeholders, its line breaks all \n.
-  static String _clean(String text) =>
-      text.replaceAll('\uFFFC', '').replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  /// [text] without marker placeholders and bidi isolates (the layout's,
+  /// in text a browser copied from the field), its line breaks all \n.
+  static String _clean(String text) => text
+      .replaceAll(RegExp('[\uFFFC\u2066-\u2069]'), '')
+      .replaceAll('\r\n', '\n')
+      .replaceAll('\r', '\n');
 
   /// [text] from the clipboard as a new box formatted like [box]; text
   /// last copied from a box here keeps its formatting.
@@ -302,11 +305,31 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
     if (r.isCollapsed) return;
     final clip = _clip = _buffer.slice(r.start, r.end, _box);
     await writeRichClipboard(clip.text, htmlFromText(clip));
-    if (cut) {
-      _buffer.replace(r.start, r.end, '', SpanStyle.plain);
-      _pending = null;
-      _changedKeeping(TextRange.collapsed(r.start));
-    }
+    if (cut) _cut(r);
+  }
+
+  /// The selected text, plain and as HTML, for a browser's copy or cut
+  /// event (which the field's own text, with its layout inserts, must not
+  /// answer); remembers its formatting, and [cut] deletes it. Null when
+  /// nothing is selected.
+  ({String plain, String html})? copyNow({bool cut = false}) {
+    final r = modelSelection;
+    if (r.isCollapsed) return null;
+    final clip = _clip = _buffer.slice(r.start, r.end, _box);
+    if (cut) _cut(r);
+    return (plain: clip.text, html: htmlFromText(clip));
+  }
+
+  void _cut(TextRange r) {
+    _buffer.replace(r.start, r.end, '', SpanStyle.plain);
+    _pending = null;
+    _changedKeeping(TextRange.collapsed(r.start));
+  }
+
+  @override
+  void dispose() {
+    releaseFieldCopies(this);
+    super.dispose();
   }
 
   TextData? _pastedHtml(String inserted) {

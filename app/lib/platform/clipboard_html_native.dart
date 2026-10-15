@@ -18,3 +18,11 @@ String? htmlPastedAs(String plain) => null;
 
 /// Starts watching browser paste events: web only.
 void watchClipboardPastes() {}
+
+/// Answers the browser's copy and cut events with [copy] while [owner]
+/// holds them (web only; a text field whose text differs from what it
+/// copies). [copy] returns null to leave an event to the browser.
+void claimFieldCopies(Object owner, ({String plain, String html})? Function(bool cut) copy) {}
+
+/// Stops [owner]'s [claimFieldCopies] (if it still holds them).
+void releaseFieldCopies(Object owner) {}

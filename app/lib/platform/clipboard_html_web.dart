@@ -13,8 +13,9 @@ bool _watching = false;
 /// How long a paste event's HTML stays claimable.
 const _freshMs = 1500;
 
-/// Starts watching paste events (capturing, so the hidden text field
-/// Flutter edits through reports them too). Idempotent.
+/// Starts watching paste events, and copy and cut events for
+/// [claimFieldCopies] (capturing, so the hidden text field Flutter edits
+/// through reports them too). Idempotent.
 void watchClipboardPastes() {
   if (_watching) return;
   _watching = true;
@@ -39,6 +40,42 @@ void watchClipboardPastes() {
     }).toJS,
     true.toJS,
   );
+  for (final cut in [false, true]) {
+    web.document.addEventListener(
+      cut ? 'cut' : 'copy',
+      ((web.ClipboardEvent e) => _onCopy(e, cut: cut)).toJS,
+      true.toJS,
+    );
+  }
+}
+
+Object? _copyOwner;
+({String plain, String html})? Function(bool cut)? _copy;
+
+/// Answers the browser's copy and cut events with [copy] while [owner]
+/// holds them: a text field whose text (with layout inserts) differs from
+/// what it copies. [copy] returns null to leave an event to the browser.
+void claimFieldCopies(Object owner, ({String plain, String html})? Function(bool cut) copy) {
+  watchClipboardPastes();
+  _copyOwner = owner;
+  _copy = copy;
+}
+
+/// Stops [owner]'s [claimFieldCopies] (if it still holds them).
+void releaseFieldCopies(Object owner) {
+  if (!identical(_copyOwner, owner)) return;
+  _copyOwner = null;
+  _copy = null;
+}
+
+void _onCopy(web.ClipboardEvent e, {required bool cut}) {
+  final data = e.clipboardData;
+  final out = data == null ? null : _copy?.call(cut);
+  if (out == null) return;
+  data!
+    ..setData('text/plain', out.plain)
+    ..setData('text/html', out.html);
+  e.preventDefault();
 }
 
 String _norm(String s) => s.replaceAll('\r\n', '\n').trim();

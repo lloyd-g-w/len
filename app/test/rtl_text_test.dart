@@ -292,6 +292,30 @@ void main() {
       expect(c.modelSelection, TextRange.collapsed(end));
     });
 
+    test('copying (the browser\'s copy event) takes the text without the layout inserts', () {
+      final c = controller(mixed);
+      final (_, end) = paragraphs(mixed)[2];
+      c.selection = TextSelection(baseOffset: 0, extentOffset: c.plan.offsets.toDisplay(end));
+      final out = c.copyNow()!;
+      expect(out.plain, mixed.text.substring(0, end));
+      expect(out.html, contains('dir="rtl"'));
+      expect(c.data.text, mixed.text);
+      // A cut removes it.
+      c.copyNow(cut: true);
+      expect(c.data.text, mixed.text.substring(end));
+      expect(c.modelSelection, const TextRange.collapsed(0));
+    });
+
+    test('text pasted with isolates in it (a browser copy of the field) loses them', () {
+      final c = controller(mixed);
+      final copied = c.text.substring(0, c.plan.offsets.toDisplay(paragraphs(mixed)[1].$2));
+      c.value = TextEditingValue(
+        text: c.text + copied,
+        selection: TextSelection.collapsed(offset: c.text.length + copied.length),
+      );
+      expect(c.data.text, isNot(contains(RegExp('[\u2066-\u2069]'))));
+    });
+
     test('backspace at the start of a paragraph of the other direction joins it', () {
       final c = controller(mixed);
       final (start, _) = paragraphs(mixed)[2];
