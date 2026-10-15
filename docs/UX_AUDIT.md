@@ -20,16 +20,15 @@ this branch.
 Summary: the core of the flow is strong — and in two places ahead of
 the references. Slides fit the width on a portrait tablet with nothing
 lost, the S Pen writes at once, the highlighter drawn along a line snaps
-to its words (GoodNotes needs a setting for that), text selects with the
+to its words, text selects with the
 lasso or a long press and copies, PDF text is found from the notebook's
 search and the library's, links work (finger, or Open link), the PDF's
 bookmarks are the overview's Outline, and export copies the slides
 **as vectors** with their links and selectable text, the PDF stored once
 however many pages use it. What a term of lectures runs into is the
 lecturer's *second* version of the deck: the corrected PDF can only
-become a new notebook, the notes stay on the old one (GoodNotes and
-Notability can't replace either, but both are asked for it constantly; Len
-already has the machinery — Relink — but offers it only for a missing
+become a new notebook, the notes stay on the old one (as far as we know neither GoodNotes nor Notability can replace one
+either; Len already has the machinery — Relink — but offers it only for a missing
 file). Smaller: a page added after a slide is blank paper (no lines to
 write on), the overview of a slide deck puts each landscape slide in a
 tall portrait cell (a third of the grid empty), and a PDF dropped on an
@@ -52,7 +51,7 @@ open notebook is ignored.
 | Select / copy text | lasso or long press; Copy, Highlight, Open link; across pages | same | Keep |
 | Search | in the notebook (Ctrl+F) and from the library ("PDF text" hits) | same | Keep |
 | Links | finger tap (pen writes); internal links go to the notebook page | same | Keep |
-| The lecturer's updated PDF | only a new notebook; Relink… is offered only while the PDF is missing | no replace in GoodNotes / Notability (asked for in both forums) | R18-1 ✅ |
+| The lecturer's updated PDF | only a new notebook; Relink… is offered only while the PDF is missing | no replace in GoodNotes / Notability, as far as we know | R18-1 ✅ |
 | Export | Export… → PDF: slides copied as vectors (text stays text), ink as vectors, links kept, PDF stored once | GoodNotes: flattens annotations, keeps text; Notability: similar | Keep (better) |
 | File size | the source PDF's objects once + ink polygons | similar | Keep |
 | Sharing | Share (Android share sheet), Save to device, desktop save dialog with Show in folder | same | Keep |
@@ -71,6 +70,14 @@ open notebook is ignored.
   last page of the old PDF (so slides 61–63 arrive); a file with fewer
   pages than the notes use is refused, as Relink does. One undo step.
   Effort M.
+- *Done:* `PageCommand.replacePdf` (`menuFor(pdf:)`: before Delete, on PDF
+  pages only), `replacePdfFlow` (copies and measures the file behind the
+  cancellable progress, says so for the same file, refuses one too short,
+  asks "Replace the PDF?" with how many pages and whether new ones come),
+  `PageEdits.replacePdf` (relinks just those pages and adds the new ones
+  as one step; "PDF replaced" with Undo). New pages come only when the
+  notebook showed the old PDF's last page (pages 1–10 of a handout don't
+  grow the slides 61–63).
 
 **R18-2 P2 · A page added after a slide has nothing to write on.** ✅
 - *What:* "Add page after" copies the page's paper and size; a PDF page's
@@ -81,6 +88,9 @@ open notebook is ignored.
   slide's size and takes the template of the nearest notes page before it
   (one the student added and gave lines), else the default notebook style's
   template, else college ruled. Effort S.
+- *Done:* `PageActions.blankAfter` / `blankPageAfter`: the page menu's Add
+  page after, the end of the document, the zoom window writing past the
+  last slide.
 
 **R18-3 P2 · The overview of a slide deck is mostly empty.** ✅
 - *What:* the grid's cells are portrait (`childAspectRatio: 0.62`), so a
@@ -89,6 +99,8 @@ open notebook is ignored.
   15 screens of scrolling (screenshot `slides_overview_tablet_portrait`).
 - *Fix:* the cells take the shape of the notebook's pages (the most common
   page shape) and wider landscape cells; the Add page tile too. Effort S.
+- *Done:* `commonPageAspect`, `OverviewGrid.pageAspect`: three 16:9 slides
+  across a portrait tablet, two on a phone, the number under each.
 
 **R18-4 P3 · A PDF dropped on an open notebook does nothing.** ✅
 - *What:* the editor's drop target keeps images only; a PDF dropped on it
@@ -96,6 +108,8 @@ open notebook is ignored.
 - *Fix:* hand dropped PDFs to the same path as Open with (with the
   notebook open it asks "Add to this notebook" or "New notebook").
   Effort S.
+- *Done:* `ImageDropTarget` hands anything but images to `IncomingFiles`
+  (Len files and unsupported files get the same answers as Open with).
 
 **R18-5 P3 · "Slide 23" is not page 23 once pages are added.** ⬜ → TODO Next
 - *What:* the indicator, Go to page and the overview count notebook pages;

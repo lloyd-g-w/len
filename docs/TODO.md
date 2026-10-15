@@ -77,6 +77,10 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
+- ⬜ **Slide numbers** (UX_AUDIT R18-5): once notes pages sit between slides, "slide 23" is
+  page 26. Go to page could take a slide number, or overview tiles show a PDF page's own
+  number quietly; decide which PDF counts when a notebook has several.
+
 - ✅ **Storage overview** (UX_AUDIT R16-7): Settings → Storage on every platform: the space
   Len uses here by kind (handwriting and text, PDFs, images, recordings, cached previews),
   the largest notebooks (tap to open, or Recordings to open at its recordings), "Free up

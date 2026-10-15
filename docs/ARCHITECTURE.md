@@ -357,7 +357,10 @@ most recently edited page is undone first, back at most 200 steps on at most
 *Selections across pages* under *Editing tools*). Painting mirrors `InkSurface`
 (paper → committed ink → live ink layers) across every visible page.
 
-Page management (`PageActions`, `DocumentCommands`, `PageOverview`): insert,
+Page management (`PageActions`, `DocumentCommands`, `PageOverview`): insert
+(`PageActions.blankAfter`: the page's paper and size, a planner's next period; after a
+page with a PDF or scan under it, lined paper at its size — the nearest notes page's
+template before it, else the default style's, else college ruled),
 duplicate (copies stroke rows wholesale via `SurfaceCopier`, so stroke
 columns added later are copied too), delete (with an Undo snack bar that
 re-saves the page's strokes; the overview's selection goes through
@@ -806,6 +809,15 @@ thumbnails paint a hatched "PDF page unavailable" placeholder
 Relink… (`relinkPdfFlow`): the same file restores the blob; a different one,
 once confirmed and only if it has enough pages, replaces it page for page
 (`PageRepository.relinkBackground`, synced like any page edit).
+**Replace PDF…** (the page menu of a PDF page, `replacePdfFlow`, UX_AUDIT
+R18-1) does the same for a PDF that is present — the lecturer's new version
+of the slides — as one undoable `PageEdits.replacePdf` step: the pages drawn
+on the old PDF show the same pages of the new one under their notes, and the
+new one's pages beyond the old one's end are added after the last of them
+(only when the notebook showed the old one's last page); a file with fewer
+pages than the notes use is refused. The overview's cells take the shape of
+most of the notebook's pages (`commonPageAspect`), so slide decks get
+landscape cells.
 PDFium itself is a native asset downloaded at build time by `pdfium_dart`'s
 build hook (Linux, Windows, Android), so no system package is needed; on the
 web `pdfrx` runs PDFium as WebAssembly in a worker. `PdfRenderer` opens a
@@ -1115,7 +1127,9 @@ SYNC_PROTOCOL). All pure Dart, so it works on every platform.
     `launch_handler: focus-existing` in `manifest.json`; `launchQueue`
     consumer), Chromium-based desktop browsers only. Files can also be dropped
     onto the library on every platform (`LibraryFileDrop`, `desktop_drop`,
-    which supports the web).
+    which supports the web), or onto an open editor (`ImageDropTarget`: images
+    are inserted where dropped, anything else goes to `IncomingFiles` as if
+    opened with Len).
 - **`IncomingFiles`** (in `AppServices`) buffers batches until the library sets
   its handler (cold start) and holds `ImportTargets`: the shown editor
   registers an `EditorImportTarget` (insert PDF pages after the current page /
