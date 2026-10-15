@@ -100,9 +100,12 @@ class MarkerOffsets {
 
   /// The nearest display offset to [d] (in a text of [length]) where the
   /// caret may rest: searching backwards first ([step] -1), forwards first
-  /// ([step] 1), or both alike (0; ties go forwards).
+  /// ([step] 1), or after a jump (0) the caret position of the insert's own
+  /// model offset (a click or Home in the padding before a line lands on
+  /// that line, End after a closing isolate stays at its paragraph's end).
   int allowedNear(int d, int length, {int step = 0}) {
     if (!isHidden(d)) return d;
+    if (step == 0) return toDisplay(toModel(d));
     int? back() {
       for (var p = d - 1; p >= 0; p--) {
         if (!isHidden(p)) return p;
@@ -118,10 +121,7 @@ class MarkerOffsets {
     }
 
     if (step < 0) return back() ?? forth() ?? d;
-    if (step > 0) return forth() ?? back() ?? d;
-    final b = back(), f = forth();
-    if (b == null || f == null) return b ?? f ?? d;
-    return d - b < f - d ? b : f;
+    return forth() ?? back() ?? d;
   }
 
   /// The display ranges holding the model text [start, end), without the

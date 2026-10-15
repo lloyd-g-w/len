@@ -270,6 +270,28 @@ void main() {
       expect(seen, {for (var i = 0; i <= mixed.text.length; i++) i});
     });
 
+    test('a jump into the inserts before a line lands on that line (a click, Home, End)', () {
+      final c = controller(mixed);
+      final (start, _) = paragraphs(mixed)[1];
+      final caret = c.plan.offsets.toDisplay(start);
+      // Every hidden spot in front of the Hebrew line (padding, isolate,
+      // marker) takes the caret to its start, not to the line above.
+      for (var d = caret - 1; c.plan.offsets.isHidden(d); d--) {
+        c.selection = const TextSelection.collapsed(offset: 0);
+        c.selection = TextSelection.collapsed(offset: d);
+        expect(c.modelSelection, TextRange.collapsed(start), reason: 'at $d');
+      }
+      // Home on the line's start keeps it there.
+      c.selection = TextSelection.collapsed(offset: caret);
+      c.selection = TextSelection.collapsed(offset: c.plan.offsets.charAt(start) - 3);
+      expect(c.modelSelection, TextRange.collapsed(start));
+      // End of the Arabic line: after its closing isolate, still its end.
+      final (_, end) = paragraphs(mixed)[2];
+      c.selection = const TextSelection.collapsed(offset: 0);
+      c.selection = TextSelection.collapsed(offset: c.plan.offsets.toDisplay(end) + 1);
+      expect(c.modelSelection, TextRange.collapsed(end));
+    });
+
     test('backspace at the start of a paragraph of the other direction joins it', () {
       final c = controller(mixed);
       final (start, _) = paragraphs(mixed)[2];
