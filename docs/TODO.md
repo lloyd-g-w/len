@@ -85,6 +85,12 @@ From the reports; the owner picks. Status as above.
   "Clear" for cached previews; the web keeps its persistence and quota rows. Also: Recent
   tiles and grid cards keep a cut title's last word ("Electronics… 12").
 
+- ⬜ **Play a recording while it downloads** (UX_AUDIT R17-3): a lecture recorded on another
+  device plays once all its parts are here (fetched three at a time, with progress). Playing
+  the first parts while the rest arrive needs the joined source to grow (or a part-by-part
+  queue for raw AAC, as browser recordings already play), and seeking past what is here to
+  wait for it.
+
 - ⬜ **Stylus edge swipes** (UX_AUDIT R15-6): with gesture navigation, a pen stroke starting
   at the screen's left or right edge may become Back (the stroke is now kept when cancelled,
   R15-5). Check on the tablet whether One UI routes stylus edge swipes at all; if it does,

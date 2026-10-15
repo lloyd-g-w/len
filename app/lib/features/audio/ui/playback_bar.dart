@@ -67,11 +67,13 @@ class PlaybackBar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: Gaps.sm),
-                Text(
-                  '${formatClock(playback.positionMs - playback.startMs)} / '
-                  '${formatClock(recording.lengthMs)}',
-                  style: small,
-                ),
+                Text(switch (playback.downloading) {
+                  // Made on another device: its audio is fetched first.
+                  final done? => 'Downloading… ${(done * 100).floor()}%',
+                  null =>
+                    '${formatClock(playback.positionMs - playback.startMs)} / '
+                        '${formatClock(recording.lengthMs)}',
+                }, style: small),
                 IconButton(
                   tooltip: 'Trim…',
                   iconSize: Glyphs.menu,

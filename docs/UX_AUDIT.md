@@ -49,7 +49,7 @@ anything is recording. Reviewing on the laptop waits for every part of a
 | Finding it later | mic glyph on cards, "2 recordings" in list rows, the title filter matches recording titles | Notability: audio badge | Keep |
 | Share / export | ⋯ → Share… (and Save to device… on Android): one `.aac` | Notability: m4a | Keep |
 | Trim, free space | non-destructive trim, Reset trim; "Free up 12 MB…" | Notability: none; GoodNotes: delete only | Keep (better) |
-| On another device | plays once *every* part is downloaded, one at a time, with no word of it | iCloud: downloads first too | R17-3 |
+| On another device | plays once *every* part is downloaded, one at a time, with no word of it | iCloud: downloads first too | R17-3 ✅ |
 | Delete | ⋯ → Delete… (confirm; on all devices) | same | Keep |
 
 ### Prioritised items
@@ -76,7 +76,7 @@ anything is recording. Reviewing on the laptop waits for every part of a
   player already stays there). Effort S.
 - *Done:* `AudioLayer` docks them whenever the top bar is hidden.
 
-**R17-3 P1 · A recording from another device is silent until all of it has downloaded.** ⬜
+**R17-3 P1 · A recording from another device is silent until all of it has downloaded.** ✅
 - *What:* opening a recording fetches each missing part in turn
   (`AudioplayersPlayback.open`), then plays; for a 90-minute lecture made
   on the tablet that is 18 downloads, one after another, while the laptop's
@@ -84,6 +84,10 @@ anything is recording. Reviewing on the laptop waits for every part of a
 - *Fix:* fetch up to three parts at once and say so in the player
   ("Downloading… 40%"). Playing the first parts while the rest arrive needs
   the player to grow its source: TODO "Next". Effort S–M.
+- *Done:* `PlaybackController` fetches missing parts three at a time
+  before handing the recording to the player, and the player's time reads
+  "Downloading… 40%" (by audio length) meanwhile; a part that can't be had
+  is not asked for again.
 
 **R17-4 P2 · The name is settled after the lecture, in a menu.** ✅
 - *What:* a recording is titled "Recording 09:30" — and the list's second

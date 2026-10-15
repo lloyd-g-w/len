@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +9,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
+import 'package:len/features/audio/playback_controller.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ink/ink_surface.dart';
 import 'package:len/ui/app_theme.dart';
@@ -205,5 +208,50 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byTooltip('Tap ink to play (off)'), findsOneWidget);
     await _close(tester);
+  });
+
+  test('R17-3: a recording made elsewhere downloads a few parts at once, with progress', () async {
+    final audio = FakeAudio();
+    final services = AppServices.create(AppDatabase.inMemory(), audio: audio.backends);
+    addTearDown(services.dispose);
+    final pending = <String, Completer<bool>>{};
+    final playback = PlaybackController(
+      backends: audio.backends,
+      blobs: services.blobs,
+      fetch: (sha) => (pending[sha] = Completer<bool>()).future,
+    );
+    addTearDown(playback.dispose);
+    final parts = [for (var i = 0; i < 6; i++) RecordingPart('$i' * 64, 300000)];
+    final lecture = Recording(
+      id: 'r',
+      notebookId: 'n',
+      title: 'Lecture 12',
+      startedAt: _t0,
+      parts: parts,
+      durationMs: 1800000,
+      updatedAt: _t0,
+      mime: 'audio/aac',
+      segments: const [RecordingSegment(_t0, 1800000)],
+    );
+    final opened = playback.open(lecture);
+    await pumpEventQueue();
+    expect(pending.length, PlaybackController.parallelFetches);
+    expect(playback.downloading, 0);
+    expect(audio.log, isEmpty); // Not handed to the player yet.
+
+    pending['0' * 64]!.complete(true);
+    await pumpEventQueue();
+    expect(playback.downloading, closeTo(1 / 6, 1e-9));
+    expect(pending.length, 4); // The next one started.
+    for (var i = 1; i < 6; i++) {
+      pending['$i' * 64]?.complete(i != 4); // Part 4 can't be had.
+      await pumpEventQueue();
+    }
+    for (final c in pending.values) {
+      if (!c.isCompleted) c.complete(true);
+    }
+    expect(await opened, isTrue);
+    expect(playback.downloading, isNull);
+    expect(audio.log, ['open Lecture 12', 'play']);
   });
 }

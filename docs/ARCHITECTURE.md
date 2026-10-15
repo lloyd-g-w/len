@@ -1179,7 +1179,8 @@ replayed in step with the ink.
   the engine detaches). Other platforms have no keep-alive (desktop apps keep
   the microphone; browsers keep recording in a background tab).
 - **Playback** (`PlaybackController`, `package:audioplayers`): plays one
-  recording at a time, fetching missing blobs from the server first. Raw AAC
+  recording at a time, fetching missing blobs from the server first (three
+  at a time, `downloading` shown in the player as "Downloading… 40%"). Raw AAC
   parts are joined into one source (natively a temporary file streamed from
   the blobs, a single part is played from its blob file; browsers get a blob
   URL), so playback and seeking across parts are seamless; parts that don't

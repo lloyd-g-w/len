@@ -47,6 +47,14 @@ class PlaybackController extends ChangeNotifier {
   bool _loading = false;
   bool get loading => _loading;
 
+  /// How much of the open recording's missing audio has downloaded (0…1)
+  /// while it is fetched before playing, else null.
+  double? get downloading => _downloading;
+  double? _downloading;
+
+  /// How many missing parts [open] fetches at once.
+  static const int parallelFetches = 3;
+
   /// Whether tapping ink seeks to when it was written (instead of drawing).
   bool _tapToSeek = true;
   bool get tapToSeek => _tapToSeek;
@@ -181,7 +189,14 @@ class PlaybackController extends ChangeNotifier {
     try {
       await previous;
       if (open != _opens) return false; // Superseded before it began.
-      await player.open(recording, blobs, fetch);
+      await _download(recording, open);
+      if (open != _opens) return false;
+      final failed = {..._unavailable};
+      await player.open(
+        recording,
+        blobs,
+        failed.isEmpty ? fetch : (sha) async => !failed.contains(sha) && await fetch(sha),
+      );
     } on Object catch (e) {
       if (open != _opens) return false;
       if (e is! AudioUnavailable) debugPrint('Playback failed to open: $e');
@@ -200,6 +215,46 @@ class PlaybackController extends ChangeNotifier {
     if (open == _opens) notifyListeners();
     return true;
   }
+
+  /// Fetches [recording]'s missing parts from the server, a few at a
+  /// time, reporting [downloading] (by audio length). Parts that can't be
+  /// had are left for the player to report.
+  Future<void> _download(Recording recording, int open) async {
+    _unavailable.clear();
+    final missing = <RecordingPart>[];
+    for (final part in recording.parts) {
+      if (!await blobs.has(part.blob)) missing.add(part);
+    }
+    if (missing.isEmpty || open != _opens) return;
+    final total = math.max(1, missing.fold(0, (sum, p) => sum + p.durationMs));
+    var done = 0;
+    _downloading = 0;
+    notifyListeners();
+    final queue = missing.iterator;
+    Future<void> worker() async {
+      while (open == _opens && queue.moveNext()) {
+        final part = queue.current;
+        if (!await fetch(part.blob)) _unavailable.add(part.blob);
+        done += part.durationMs;
+        if (open == _opens) {
+          _downloading = done / total;
+          notifyListeners();
+        }
+      }
+    }
+
+    try {
+      await Future.wait([
+        for (var i = 0; i < math.min(parallelFetches, missing.length); i++) worker(),
+      ]);
+    } finally {
+      if (open == _opens) _downloading = null;
+    }
+  }
+
+  /// Parts [_download] could not fetch (the player is not made to try
+  /// them again).
+  final Set<String> _unavailable = {};
 
   /// Counts [open] and [close] calls: an open finding it changed was
   /// superseded.
@@ -271,6 +326,7 @@ class PlaybackController extends ChangeNotifier {
     final player = _player;
     _opens++;
     _loading = false;
+    _downloading = null;
     _recording = null;
     _timeline = null;
     _trimDraft = null;
