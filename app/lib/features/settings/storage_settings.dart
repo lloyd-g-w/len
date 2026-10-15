@@ -113,28 +113,40 @@ class _StorageSettingsState extends State<StorageSettings> {
     final overview = widget.overview;
     final browser = widget.storage != null;
     final largest = overview.survey?.largest ?? const [];
-    return SettingsSection(
-      title: 'Storage',
-      description: browser
-          ? 'Your notebooks are stored in this browser. Browsers may clear site data when the '
-                'device runs low on space, unless the site may keep its data. Clearing site data '
-                'yourself still deletes it, so back up your library (Backup) or use sync.'
-          : 'What Len keeps on this device.',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ..._browserRows(context),
-        SpaceUsedTile(overview: overview, where: browser ? 'in this browser' : 'on this device'),
-        if (overview.canFreeUp || overview.freeing) FreeUpTile(overview: overview),
-        if ((overview.previews ?? 0) >= StorageOverview.significantPreviews)
-          CachedPreviewsTile(overview: overview),
-        if (largest.isNotEmpty) ...[
-          const LargestNotebooksLabel(),
-          for (final n in largest)
-            NotebookSizeTile(
-              key: ValueKey('storage-${n.id}'),
-              footprint: n,
-              onOpen: ({required recordings}) => unawaited(_open(n.id, recordings: recordings)),
+        SettingsSection(
+          title: 'Storage',
+          description: browser
+              ? 'Your notebooks are stored in this browser. Browsers may clear site data when '
+                    'the device runs low on space, unless the site may keep its data. Clearing '
+                    'site data yourself still deletes it, so back up your library (Backup) or '
+                    'use sync.'
+              : null,
+          children: [
+            ..._browserRows(context),
+            SpaceUsedTile(
+              overview: overview,
+              where: browser ? 'in this browser' : 'on this device',
             ),
-        ],
+            if (overview.canFreeUp || overview.freeing) FreeUpTile(overview: overview),
+            if ((overview.previews ?? 0) >= StorageOverview.significantPreviews)
+              CachedPreviewsTile(overview: overview),
+          ],
+        ),
+        if (largest.isNotEmpty)
+          SettingsSection(
+            title: 'Largest notebooks',
+            children: [
+              for (final n in largest)
+                NotebookSizeTile(
+                  key: ValueKey('storage-${n.id}'),
+                  footprint: n,
+                  onOpen: ({required recordings}) => unawaited(_open(n.id, recordings: recordings)),
+                ),
+            ],
+          ),
       ],
     );
   }

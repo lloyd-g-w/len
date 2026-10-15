@@ -189,7 +189,7 @@ void main() {
       expect(find.text('Largest notebooks'), findsOneWidget);
       final chemistry = tester.getTopLeft(find.text('Chemistry')).dy;
       expect(chemistry, lessThan(tester.getTopLeft(find.text('Physics')).dy));
-      expect(find.text('5 MB, 5 MB of it recordings'), findsOneWidget);
+      expect(find.text('5 MB, all recordings'), findsOneWidget);
       // Without sync nothing offers to free up; no previews to clear.
       expect(find.textContaining('Free up'), findsNothing);
       expect(find.text('Cached previews'), findsNothing);

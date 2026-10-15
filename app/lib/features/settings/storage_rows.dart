@@ -9,7 +9,6 @@ import '../../data/storage_queries.dart';
 import '../../ui/app_dialogs.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/messages.dart';
-import '../../ui/section_label.dart';
 import '../editor/tabs/editor_workspace.dart';
 import '../storage/storage_overview.dart';
 import 'settings_section.dart';
@@ -86,17 +85,6 @@ class _Breakdown extends StatelessWidget {
   }
 }
 
-/// The heading over the largest notebooks.
-class LargestNotebooksLabel extends StatelessWidget {
-  const LargestNotebooksLabel({super.key});
-
-  @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.fromLTRB(SettingsTile.textInset, Gaps.lg, SettingsTile.edge, Gaps.xs),
-    child: SectionLabel('Largest notebooks'),
-  );
-}
-
 /// One of the notebooks taking the most: its size (and its recordings'),
 /// opening it on tap; Recordings opens it at its recordings.
 class NotebookSizeTile extends StatelessWidget {
@@ -113,9 +101,11 @@ class NotebookSizeTile extends StatelessWidget {
     final size = formatBytes(n.bytes);
     final subtitle = n.trashed
         ? '$size, in the trash'
-        : n.recordingBytes > 0
-        ? '$size, ${formatBytes(n.recordingBytes)} of it recordings'
-        : size;
+        : n.recordingBytes == 0
+        ? size
+        : formatBytes(n.recordingBytes) == size
+        ? '$size, all recordings'
+        : '$size, ${formatBytes(n.recordingBytes)} of it recordings';
     return SettingsTile(
       icon: Symbols.menu_book_sharp,
       title: n.title,
@@ -144,7 +134,7 @@ class FreeUpTile extends StatelessWidget {
       subtitle:
           '${formatBytes(bytes)} of PDFs, images and recordings are also on the sync server. '
           'Removed here, they download again when you open them.',
-      trailing: OutlinedButton(
+      control: OutlinedButton(
         onPressed: overview.freeing ? null : () => unawaited(freeUpDownloads(context, overview)),
         child: Text(overview.freeing ? 'Freeing up…' : 'Free up ${formatBytes(bytes)}…'),
       ),
