@@ -22,7 +22,11 @@ export it as PDF (download) → keyboard shortcuts (tools, go to page, focus
 mode, Ctrl+/) → settings and the dark theme → back up the library →
 offline reload → phone width and sideways phone → open and close a
 notebook a few times (memory) → a folder and the list view (cards, folder
-tiles and rows are named buttons for screen readers). Then a second fresh
+tiles and rows are named buttons for screen readers) → save a notebook
+style and create a canvas with it → a rectangle with the Shapes tool, a
+corner handle dragged → the lasso as a rectangle → the laser fading "When
+I stop" → the minimap (Shift+M) → the zoom window (M) → a scan from a
+picked image (its page a JPEG the browser encoded). Then a second fresh
 profile restores that backup made big (big_backup: ~20 MB, 4000 strokes, large images, read in
 slices on the web) and opens the big notebook at a page with an image and
 at its last page.
@@ -130,6 +134,20 @@ def pdf(pages):
     out += f'xref\n0 {len(objs) + 1}\n0000000000 65535 f \n'.encode()
     out += b''.join(f'{o:010d} 00000 n \n'.encode() for o in offsets)
     return out + f'trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n'.encode()
+
+
+def document_photo(width, height):
+    """A PNG like a photo of a page: a light sheet with a few dark lines on
+    a dark desk, so the scan finds its corners."""
+    def pixel(x, y):
+        on_sheet = width * 0.15 < x < width * 0.85 and height * 0.1 < y < height * 0.9
+        line = on_sheet and width * 0.25 < x < width * 0.75 and int(y) % 40 < 3
+        return b'\x20\x20\x20' if line or not on_sheet else b'\xf0\xee\xe8'
+    rows = b''.join(b'\0' + b''.join(pixel(x, y) for x in range(width)) for y in range(height))
+    chunk = lambda kind, data: (struct.pack('>I', len(data)) + kind + data
+                                + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff))
+    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))
 
 
 BIG = 'Big backup'
@@ -455,6 +473,22 @@ async def wheel(page, dy, times=1):
     for _ in range(times):
         await page.mouse.wheel(0, dy)
         await page.wait_for_timeout(150)
+
+
+async def choose(page, label):
+    """Taps the control named [label], whatever its role (a segment is a
+    button or a radio, by Flutter version)."""
+    for role in ('radio', 'button', 'tab', 'checkbox', 'menuitemradio'):
+        item = page.get_by_role(role, name=label, exact=True)
+        if await item.count():
+            await item.first.click(timeout=30000)
+            return
+    w.expect(False, f'a control named "{label}"')
+
+
+async def region(page, x, y, size=160):
+    """A screenshot of the [size] square around ([x], [y]) (PNG bytes)."""
+    return await page.screenshot(clip={'x': x - size / 2, 'y': y - size / 2, 'width': size, 'height': size})
 
 
 _NODES = '''() => [...document.querySelectorAll('flt-semantics-host flt-semantics')].map((e) =>
@@ -809,6 +843,139 @@ class Walk:
         await tap(page, 'Grid', role='menuitem')
         await page.keyboard.press('Escape')
 
+    # Today's features, on a canvas of their own (the Explore notebook's
+    # counts stay as the restore expects them).
+
+    async def notebook_style(self):
+        """Saves the new-notebook form as a style, then creates a canvas."""
+        page = self.page
+        await tap(page, 'New notebook')
+        await tap(page, 'Save as style…')
+        await expect_text(page, 'Save as style')
+        await page.keyboard.press('Control+a')
+        await type_text(page, 'Walk style')
+        await tap(page, 'Save')
+        await page.get_by_role('button', name=re.compile('^Walk style')).first.wait_for(timeout=15000)
+        await wait_query(page, 'SELECT name FROM notebook_styles WHERE deleted = 0',
+                         lambda r: ('Walk style',) in r, 'the style stored')
+        await choose(page, 'Canvas')
+        await page.get_by_role('textbox').first.click()
+        await type_text(page, 'Features')
+        await tap(page, 'Create')
+        await page.get_by_role('button', name='Back', exact=True).wait_for(timeout=30000)
+        await wait_query(page, "SELECT kind FROM notebooks WHERE title = 'Features' AND deleted = 0",
+                         lambda r: r == [('canvas',)], 'a canvas named Features')
+
+    FEATURES = """SELECT s.id, s.points, s.style, s.deleted FROM strokes s JOIN notebooks n
+        ON n.id = s.surface_id WHERE n.title = 'Features' """
+
+    async def shape_handle(self):
+        """A rectangle with the Shapes tool; tapped, its corner handle dragged."""
+        page = self.page
+        x, y = await view_center(page)
+        x0, y0, x1, y1 = x - 220, y - 120, x - 60, y + 10
+        await page.keyboard.press('s')
+        await tap(page, 'Shapes (S)')  # The active tool: its options.
+        await choose(page, 'Rectangle')
+        await page.keyboard.press('Escape')
+        await drag(page, [(x0, y0), (x1, y1)], steps=20)
+        await wait_query(page, self.FEATURES + 'AND s.deleted = 0', lambda r: len(r) == 1,
+                         'the rectangle stored')
+        (_, before, _, _), = await query(page, self.FEATURES + 'AND s.deleted = 0')
+        await page.mouse.click((x0 + x1) / 2, y0)  # On its top side: selected, handles shown.
+        await page.wait_for_timeout(500)
+        await drag(page, [(x1, y1), (x1 + 70, y1 + 50)], steps=20)
+        await wait_query(page, self.FEATURES + 'AND s.deleted = 0',
+                         lambda r: len(r) == 1 and r[0][1] != before, 'the rectangle reshaped')
+        await page.keyboard.press('Escape')
+        self.fx['shape'] = (x0, y0, x1 + 70, y1 + 50)
+
+    async def lasso_rectangle(self):
+        """The lasso switched to Rectangle selects the shape."""
+        page = self.page
+        x0, y0, x1, y1 = self.fx.get('shape', (0, 0, 0, 0))
+        await page.keyboard.press('l')
+        await tap(page, 'Lasso (L)')
+        await choose(page, 'Rectangle')
+        await page.keyboard.press('Escape')
+        await drag(page, [(x0 - 30, y0 - 30), (x1 + 30, y1 + 30)], steps=20)
+        await page.get_by_role('button', name='Style').first.wait_for(timeout=15000)
+        await page.keyboard.press('Escape')
+
+    async def laser_hold(self):
+        """Laser, fading "When I stop": the trail stays after the lift,
+        then goes; nothing is stored."""
+        page = self.page
+        x, y = await view_center(page)
+        x, y = x + 150, y - 60  # Clear of the shape.
+        await page.keyboard.press('k')
+        await tap(page, 'Laser pointer (K)')
+        await choose(page, 'When I stop')
+        await page.keyboard.press('Escape')
+        await page.mouse.move(x + 200, y + 200)
+        await page.wait_for_timeout(500)
+        blank = await region(page, x, y)
+        await drag(page, [(x - 60, y - 20), (x + 60, y + 20)], steps=20)
+        await page.mouse.move(x + 200, y + 200)
+        await page.wait_for_timeout(1000)  # Held (2 s by default).
+        w.expect(await region(page, x, y) != blank, 'the laser trail held after the lift')
+        for _ in range(20):
+            await page.wait_for_timeout(500)
+            if await region(page, x, y) == blank:
+                break
+        w.expect(await region(page, x, y) == blank, 'the laser trail faded')
+        await wait_query(page, self.FEATURES + 'AND s.deleted = 0', lambda r: len(r) == 1,
+                         'the laser stored nothing')
+        await page.keyboard.press('p')
+
+    async def minimap(self):
+        """Shift+M shows the canvas's minimap; a tap on it moves the view."""
+        page = self.page
+        x, y = await view_center(page)
+        await page.mouse.move(x, y)
+        await page.keyboard.press('Shift+M')
+        node = page.get_by_role('button', name='Minimap')
+        if not await node.count():
+            node = page.get_by_label('Minimap', exact=True)
+        await node.first.wait_for(timeout=15000)
+        box = await node.first.bounding_box()
+        await page.mouse.click(box['x'] + box['width'] * 0.15, box['y'] + box['height'] * 0.15)
+        await page.wait_for_timeout(800)  # Glided there.
+        await page.screenshot(path=os.path.join(OUT, f'{self.name}-{self.n:02}-minimap-moved.png'))
+        await page.mouse.move(x, y)
+        await page.keyboard.press('Shift+M')
+        await node.first.wait_for(state='detached', timeout=15000)
+
+    async def zoom_window(self):
+        """M opens the zoom window, M again closes it."""
+        page = self.page
+        x, y = await view_center(page)
+        await page.mouse.move(x, y)
+        await page.keyboard.press('m')
+        options = page.get_by_role('button', name='Zoom window options')
+        await options.first.wait_for(timeout=15000)
+        await page.wait_for_timeout(500)
+        await page.screenshot(path=os.path.join(OUT, f'{self.name}-{self.n:02}-zoom-open.png'))
+        await page.keyboard.press('m')
+        await options.first.wait_for(state='detached', timeout=15000)
+
+    async def scan(self):
+        """Scan document… from a picked image: a notebook whose page is
+        the photo flattened to a JPEG (the browser's encoder)."""
+        page = self.page
+        await tap(page, 'Back')
+        await tap(page, 'New')
+        await pick_file(page, self.fx['photo'], lambda: tap(page, 'Scan document…', role='menuitem'))
+        await tap(page, 'Create notebook')
+        await page.get_by_role('button', name='Back', exact=True).wait_for(timeout=60000)
+        await wait_query(page, """SELECT b.mime, b.size FROM notebooks n JOIN pages p ON p.notebook_id = n.id
+            JOIN blobs b ON p.background LIKE '%' || b.sha256 || '%'
+            WHERE n.title LIKE 'Scan %' AND n.deleted = 0 AND p.deleted = 0""",
+                         lambda r: len(r) == 1 and r[0][0] == 'image/jpeg' and r[0][1] > 1000,
+                         'a scanned page with a JPEG background')
+        await page.wait_for_timeout(1000)  # Painted, for the screenshot.
+        await tap(page, 'Back')
+
     async def restore(self):
         """A fresh profile (a new device) restores the backup, made big."""
         page = self.page
@@ -855,7 +1022,9 @@ class Walk:
         return [self.first_launch, self.new_notebook, self.draw_mouse, self.draw_pen, self.undo_redo,
                 self.add_page, self.lasso_move, self.text_box, self.insert_image, self.view_menu,
                 self.import_pdf, self.search, self.export_pdf, self.shortcuts, self.settings,
-                self.backup, self.offline_reload, self.phone, self.memory, self.library_semantics]
+                self.backup, self.offline_reload, self.phone, self.memory, self.library_semantics,
+                self.notebook_style, self.shape_handle, self.lasso_rectangle, self.laser_hold,
+                self.minimap, self.zoom_window, self.scan]
 
 
 async def launch(p, browser, profile):
@@ -916,9 +1085,12 @@ def firefox_installed(p):
 
 async def main():
     os.makedirs(OUT, exist_ok=True)
-    fixtures = {'png': os.path.join(OUT, 'fixture.png'), 'pdf': os.path.join(OUT, 'fix.pdf')}
+    fixtures = {'png': os.path.join(OUT, 'fixture.png'), 'pdf': os.path.join(OUT, 'fix.pdf'),
+                'photo': os.path.join(OUT, 'photo.png')}
     with open(fixtures['png'], 'wb') as f:
         f.write(png(320, 200))
+    with open(fixtures['photo'], 'wb') as f:
+        f.write(document_photo(800, 600))
     with open(fixtures['pdf'], 'wb') as f:
         f.write(pdf(['Lighthouse keeper notes', 'Second page of the fixture']))
     wanted = [b for b in os.environ.get('LEN_EXPLORE_BROWSERS', 'chromium,firefox').split(',') if b]
