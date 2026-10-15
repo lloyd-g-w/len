@@ -247,6 +247,26 @@ void main() {
       await _close(tester);
     });
 
+    testWidgets('a semantics node of its own, never merged into the editor\'s', (tester) async {
+      // Merged into the editor's focused node (the walk-through saw it with
+      // two tabs open and a tip shown), the map made the whole editor a
+      // tappable "Minimap" with the tip in its label; on the web that node
+      // then lay over the whole canvas, and no Minimap button was left.
+      final semantics = tester.ensureSemantics();
+      await _pumpCanvas(tester);
+      final label = find.descendant(
+        of: find.byType(CanvasMinimap),
+        matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.label == 'Minimap'),
+      );
+      expect(tester.widget<Semantics>(label).container, isTrue);
+      final map = tester.getSemantics(_mapPaint);
+      expect(map.label, 'Minimap');
+      expect(map.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      expect(map.rect.size, tester.getSize(_mapPaint));
+      semantics.dispose();
+      await _close(tester);
+    });
+
     testWidgets('tap glides there; dragging the frame pans live', (tester) async {
       await _pumpCanvas(tester);
       final nav = _nav(tester);
