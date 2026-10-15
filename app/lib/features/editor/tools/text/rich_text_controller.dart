@@ -161,7 +161,7 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
         ? clip
         : _pastedHtml(inserted);
     if (rich != null) {
-      _buffer.insertRich(start, end, rich, style);
+      _buffer.insertRich(start, end, rich, style, exact: identical(rich, clip));
       inserted = rich.text;
     } else {
       _buffer.replace(start, end, inserted, style);

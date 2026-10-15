@@ -125,8 +125,10 @@ class RichTextBuffer {
   /// the paragraph styles of the lines it adds. The first line takes the
   /// fragment's style only if the paste fills it or goes above it, and that
   /// style is not body text (plain text pasted into a list item stays an
-  /// item); a line pasted above keeps its own style.
-  void insertRich(int start, int end, TextData fragment, SpanStyle base) {
+  /// item); a line pasted above keeps its own style. An [exact] fragment
+  /// (Len's own copy, where unset means the box's default) keeps its
+  /// characters' styles as they are.
+  void insertRich(int start, int end, TextData fragment, SpanStyle base, {bool exact = false}) {
     final line = lineOf(start);
     final fills = start == lineStart(line) && end == lineEnd(lineOf(end));
     // Lines pasted at the start of a line go above it: it keeps its style.
@@ -135,16 +137,18 @@ class RichTextBuffer {
     final styles = fragment.charStyles();
     for (var i = 0; i < styles.length; i++) {
       final s = styles[i];
-      _chars[start + i] = SpanStyle(
-        bold: s.bold,
-        italic: s.italic,
-        underline: s.underline,
-        strike: s.strike,
-        color: s.color ?? base.color,
-        highlight: s.highlight ?? base.highlight,
-        size: s.size ?? base.size,
-        font: s.font ?? base.font,
-      );
+      _chars[start + i] = exact
+          ? s
+          : SpanStyle(
+              bold: s.bold,
+              italic: s.italic,
+              underline: s.underline,
+              strike: s.strike,
+              color: s.color ?? base.color,
+              highlight: s.highlight ?? base.highlight,
+              size: s.size ?? base.size,
+              font: s.font ?? base.font,
+            );
     }
     final paras = fragment.paras;
     final first = fills || (above && paras.length > 1);
