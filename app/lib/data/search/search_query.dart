@@ -3,18 +3,21 @@
 /// (`unicode61 remove_diacritics 2` with `"term"*`), so ranges found here
 /// in Dart (snippets, in-notebook matches) agree with what the index found.
 class SearchQuery {
-  SearchQuery._(this.raw, this.terms);
+  SearchQuery._(this.raw, this.terms, this._written);
 
-  /// Parses [input]; words are runs of letters and digits. Combining
-  /// accents (decomposed input: `e` + U+0301) belong to their word and are
-  /// dropped, as the index drops them.
+  /// Parses [input]; words are runs of letters and digits. Combining marks
+  /// (decomposed accents: `e` + U+0301, Indic vowel signs, Thai marks)
+  /// belong to their word and are dropped from [terms].
   factory SearchQuery(String input) {
     final folded = SearchText.fold(input);
-    final terms = <String>{
-      for (final m in _word.allMatches(folded))
-        if (m.group(0)!.replaceAll(_mark, '') case final t when t.isNotEmpty) t,
-    }.toList()..sort((a, b) => b.length.compareTo(a.length)); // Longest first.
-    return SearchQuery._(input, terms);
+    final written = <String, String>{};
+    for (final m in _word.allMatches(folded)) {
+      final word = m.group(0)!;
+      final t = word.replaceAll(_mark, '');
+      if (t.isNotEmpty) written.putIfAbsent(t, () => word);
+    }
+    final terms = written.keys.toList()..sort((a, b) => b.length.compareTo(a.length));
+    return SearchQuery._(input, terms, written); // Longest first.
   }
 
   static final _word = RegExp(r'[\p{L}\p{N}\p{M}]+', unicode: true);
@@ -27,8 +30,14 @@ class SearchQuery {
 
   bool get isEmpty => terms.isEmpty;
 
-  /// The FTS5 MATCH expression: every term as a prefix (implicit AND).
-  String get ftsExpression => terms.map((t) => '"$t"*').join(' ');
+  /// Each term as typed, marks kept.
+  final Map<String, String> _written;
+
+  /// The FTS5 MATCH expression: every term as a prefix (implicit AND). The
+  /// words go as typed: the index's tokenizer drops Latin accents, but
+  /// splits words at other marks (Indic vowel signs, Thai), so `"गणित"*`
+  /// becomes the phrase it indexed.
+  String get ftsExpression => terms.map((t) => '"${_written[t]}"*').join(' ');
 
   /// `LIKE` patterns (one per term, all must match) for databases without
   /// FTS5; `\` escapes.
@@ -36,21 +45,34 @@ class SearchQuery {
     for (final t in terms) '%${t.replaceAllMapped(RegExp(r'[%_\\]'), (m) => '\\${m[0]}')}%',
   ];
 
-  /// Whether every term occurs in [text] as a word prefix.
-  bool matches(String text) {
+  /// Whether every term occurs in [text] as a word prefix. With
+  /// [inUnspacedRuns], a term in a script written without spaces (Chinese,
+  /// Japanese, Thai, …) may also start inside a run of that script, where
+  /// words have no visible start (titles; the index can't do this).
+  bool matches(String text, {bool inUnspacedRuns = false}) {
     if (isEmpty) return false;
-    final folded = SearchText.fold(text);
-    return terms.every((t) => _occurrences(folded, t).isNotEmpty);
+    final (folded, _) = _bare(text);
+    return terms.every((t) => _occurrences(folded, t, inUnspacedRuns).isNotEmpty);
   }
 
   /// Ranges of [text] (sorted, non-overlapping) where any term starts a
-  /// word; each range covers the matched prefix.
+  /// word; each range covers the matched prefix (and the combining marks
+  /// on its last letter).
   List<({int start, int end})> ranges(String text) {
     if (isEmpty) return const [];
-    final folded = SearchText.fold(text);
+    final (folded, offsets) = _bare(text);
+    int endOf(int bareEnd) {
+      var end = offsets[bareEnd - 1] + 1;
+      while (end < text.length && _mark.hasMatch(text[end])) {
+        end++;
+      }
+      return end;
+    }
+
     final found = <({int start, int end})>[
       for (final t in terms)
-        for (final start in _occurrences(folded, t)) (start: start, end: start + t.length),
+        for (final start in _occurrences(folded, t, false))
+          (start: offsets[start], end: endOf(start + t.length)),
     ]..sort((a, b) => a.start != b.start ? a.start - b.start : b.end - a.end);
     final merged = <({int start, int end})>[];
     for (final r in found) {
@@ -64,16 +86,46 @@ class SearchQuery {
     return merged;
   }
 
-  /// Start offsets of [term] in [folded] at word starts.
-  static List<int> _occurrences(String folded, String term) {
+  /// [text] folded with its combining marks dropped, as terms are (so
+  /// decomposed accents, Indic vowel signs and Thai marks match), and for
+  /// each of its units the offset in [text].
+  static (String, List<int>) _bare(String text) {
+    final folded = SearchText.fold(text);
+    if (!_mark.hasMatch(folded)) return (folded, List<int>.generate(folded.length, (i) => i));
+    final out = StringBuffer();
+    final offsets = <int>[];
+    for (var i = 0; i < folded.length; i++) {
+      final c = folded[i];
+      if (_mark.hasMatch(c)) continue;
+      out.write(c);
+      offsets.add(i);
+    }
+    return (out.toString(), offsets);
+  }
+
+  /// Start offsets of [term] in [folded] at word starts (or, with
+  /// [inUnspacedRuns], inside a run of a script written without spaces).
+  static List<int> _occurrences(String folded, String term, bool inUnspacedRuns) {
     final result = <int>[];
+    final unspaced = inUnspacedRuns && _unspaced.hasMatch(term[0]);
     var i = folded.indexOf(term);
     while (i != -1) {
-      if (i == 0 || !SearchText.isWordChar(folded.codeUnitAt(i - 1))) result.add(i);
+      if (i == 0 || !SearchText.isWordChar(folded.codeUnitAt(i - 1))) {
+        result.add(i);
+      } else if (unspaced && _unspaced.hasMatch(folded[i - 1])) {
+        result.add(i);
+      }
       i = folded.indexOf(term, i + 1);
     }
     return result;
   }
+
+  /// Scripts written without spaces between words.
+  static final _unspaced = RegExp(
+    r'[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}'
+    r'\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}\u30FC]',
+    unicode: true,
+  );
 }
 
 /// A short excerpt of a longer text around its first match, with the

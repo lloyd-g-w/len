@@ -10,15 +10,21 @@ abstract final class LibraryQuery {
   /// Whether [text] matches a search [query]: every word of the query
   /// begins a word of [text], ignoring case and accents, as full-text search
   /// does ([SearchQuery]): "lecture 3" finds "Lecture 3", not "Lecture 13"
-  /// (UX_AUDIT R16-2). An empty query matches all.
+  /// (UX_AUDIT R16-2); in scripts written without spaces (Chinese,
+  /// Japanese, Thai) a word may also begin inside a run. A query of symbols
+  /// only (an emoji, `#`) must occur in [text]. An empty query matches all.
   static bool matches(String text, String query) => matcher(query)(text);
 
   /// A predicate equivalent to [matches] for a fixed [query], parsing the
   /// query once (for filtering many items).
   static bool Function(String text) matcher(String query) {
     final parsed = SearchQuery(query);
-    if (parsed.isEmpty) return (_) => true;
-    return parsed.matches;
+    if (parsed.isEmpty) {
+      final symbols = SearchText.fold(query.trim());
+      if (symbols.isEmpty) return (_) => true;
+      return (text) => SearchText.fold(text).contains(symbols);
+    }
+    return (text) => parsed.matches(text, inUnspacedRuns: true);
   }
 
   /// [notebooks] sorted by [sort]: newest first for dates, A→Z for names
