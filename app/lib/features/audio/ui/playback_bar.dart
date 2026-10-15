@@ -68,8 +68,9 @@ class PlaybackBar extends StatelessWidget {
                 ),
                 const SizedBox(width: Gaps.sm),
                 Text(switch (playback.downloading) {
-                  // Made on another device: its audio is fetched first.
+                  // Made on another device: the part to play is on its way.
                   final done? => 'Downloading… ${(done * 100).floor()}%',
+                  null when playback.partMissing => 'Not downloaded',
                   null =>
                     '${formatClock(playback.positionMs - playback.startMs)} / '
                         '${formatClock(recording.lengthMs)}',

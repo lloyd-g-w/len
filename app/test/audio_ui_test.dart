@@ -475,7 +475,7 @@ void main() {
     expect(find.byKey(const ValueKey('recording-pill')), findsNothing);
     expect(find.byTooltip('Record audio'), findsOneWidget);
     // The user hears what happened to the recording.
-    expect(find.textContaining('Recording stopped in the background'), findsOneWidget);
+    expect(find.textContaining('Recording stopped when Len went to the background'), findsOneWidget);
     await _close(tester);
     debugDefaultTargetPlatformOverride = null;
   });

@@ -206,6 +206,9 @@ mixin _LibraryOperations {
   }
 
   void _changed() {
+    // A notebook recording unattended that was just trashed or deleted
+    // stops and saves its recording (into the trash with it).
+    services.sharedNotebooks.notebooksChanged();
     reload();
     unawaited(services.sync.syncInBackground());
   }

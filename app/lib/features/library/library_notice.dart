@@ -8,12 +8,13 @@ import '../../data/schema_reset.dart';
 import '../../platform/browser_storage.dart';
 import '../../ui/messages.dart';
 import '../../ui/sync_status_button.dart';
+import '../audio/notebook_audio.dart';
 import '../audio/recording_controller.dart';
 import '../audio/ui/audio_bar_button.dart';
 import '../audio/ui/audio_format.dart';
 import '../backup/len_file_flows.dart';
+import '../editor/shared/recording_elsewhere_notice.dart';
 import '../editor/shared/shared_notebooks.dart';
-import '../editor/tabs/editor_workspace.dart';
 import '../settings/settings_screen.dart';
 import '../storage/storage_attention.dart';
 import 'library_format.dart';
@@ -66,6 +67,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     _services.writes,
     _services.lenFiles,
     _services.sharedNotebooks.unattended,
+    _services.sharedNotebooks.stoppedInBackground,
     ?widget.notebooks,
   ]);
 
@@ -143,6 +145,23 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   Widget? _notice() {
     if (_services.sharedNotebooks.unattended.value case final shared?) {
       return _recordingNotice(shared);
+    }
+    if (_services.sharedNotebooks.stoppedInBackground.value case final stop?) {
+      return LibraryNotice(
+        key: const ValueKey('recording-stopped'),
+        icon: Symbols.mic_off_sharp,
+        title: NotebookAudio.stoppedInBackground,
+        shortTitle: 'Recording stopped and saved',
+        body: backgroundStopDetail(stop),
+        actions: [
+          if (stop.saved != null)
+            TextButton(
+              onPressed: () => showStoppedRecording(context, stop),
+              child: const Text('Show'),
+            ),
+        ],
+        onDismiss: () => _services.sharedNotebooks.stoppedInBackground.value = null,
+      );
     }
     if (_services.writes.failure case final failure?) {
       return LibraryNotice(
@@ -229,7 +248,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
           body: 'It goes on until you stop it',
           actions: [
             TextButton(
-              onPressed: () => unawaited(openNotebook(context, shared.notebook)),
+              onPressed: () => showRecordingNotebook(context, shared),
               child: const Text('Show'),
             ),
             TextButton(

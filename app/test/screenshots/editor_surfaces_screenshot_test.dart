@@ -6,6 +6,8 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/features/editor/tabs/editor_workspace.dart';
+import 'package:len/features/library/library_screen.dart';
 
 import '../support/fake_audio.dart';
 import '../support/selection_actions.dart';
@@ -302,4 +304,49 @@ void main() {
       await shoot(tester, 'e_audio_playback_phone_large_text');
     });
   });
+
+  // 4. A recording left going in another notebook (R17-1), and one that
+  // had to stop when Len went to the background (Android without its
+  // recording service).
+  for (final (screen, mode) in [(tabletScreen, ThemeMode.light), (phoneScreen, ThemeMode.dark)]) {
+    final name = '${screen.name}_${mode.name}';
+    testWidgets('e_audio elsewhere $name', (tester) async {
+      await guardOverflows('e_audio_elsewhere_$name', () async {
+        final audio = FakeAudio();
+        final clock = StillClock();
+        final s = bareServices(clock: clock, audio: audio.backends);
+        final board = whiteboard(s);
+        final nb = _lecture(s);
+        s.openNotebooks.open(board);
+        await pumpNotebook(tester, s, nb, screen: screen, mode: mode);
+        if (screen == phoneScreen) {
+          await tester.tap(find.byTooltip('More options'));
+          await settle(tester);
+          await tester.tap(find.text('Record audio'));
+        } else {
+          await tester.tap(find.byTooltip('Record audio'));
+        }
+        await settle(tester);
+        clock.now += 754000;
+        await tester.pump(const Duration(milliseconds: 300));
+        s.openNotebooks.open(board); // Another tab.
+        await settle(tester);
+        await tester.pump(const Duration(milliseconds: 300));
+        await shoot(tester, 'e_audio_elsewhere_editor_$name');
+
+        await pumpApp(tester, s, const LibraryScreen(), mode: mode);
+        await settle(tester);
+        await shoot(tester, 'e_audio_elsewhere_library_$name');
+
+        final saved = await s.sharedNotebooks.unattended.value!.audio.recorder.stop();
+        await settle(tester);
+        s.sharedNotebooks.stoppedInBackground.value = (notebook: nb, saved: saved, error: null);
+        await settle(tester);
+        await shoot(tester, 'e_audio_stopped_library_$name');
+        await pumpApp(tester, s, const EditorWorkspace(), mode: mode);
+        await settle(tester);
+        await shoot(tester, 'e_audio_stopped_editor_$name');
+      });
+    });
+  }
 }

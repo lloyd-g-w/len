@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../app_services.dart';
 import '../../../domain/notebook.dart';
+import '../../../domain/recording.dart';
 import '../../../ink/surface_model.dart';
 import '../../../sync/sync_engine.dart';
 import '../../audio/notebook_audio.dart';
@@ -35,12 +36,18 @@ enum NotebookGone { deleted, trashed }
 /// is deleted elsewhere, [gone] is set and listeners close their editors.
 /// Get one from `SharedNotebooks`.
 class SharedNotebook extends ChangeNotifier {
-  SharedNotebook(this.services, Notebook notebook, {this._microphoneBusy}) : _notebook = notebook {
+  SharedNotebook(
+    this.services,
+    Notebook notebook, {
+    this._microphoneBusy,
+    this._stoppedInBackground,
+  }) : _notebook = notebook {
     _remote = services.sync.remoteChanges.listen(_onRemoteChanges);
   }
 
   final AppServices services;
   final String? Function()? _microphoneBusy;
+  final void Function(Recording? saved, String? error)? _stoppedInBackground;
   late final StreamSubscription<RemoteChanges> _remote;
 
   /// The notebook as currently known.
@@ -67,8 +74,12 @@ class SharedNotebook extends ChangeNotifier {
   // Shared parts, made when first asked for
 
   /// Audio recording, playback and the recordings list.
-  NotebookAudio get audio =>
-      _audio ??= NotebookAudio(services, notebookId: id, microphoneBusy: _microphoneBusy);
+  NotebookAudio get audio => _audio ??= NotebookAudio(
+    services,
+    notebookId: id,
+    microphoneBusy: _microphoneBusy,
+    onStoppedInBackground: _stoppedInBackground,
+  );
   NotebookAudio? _audio;
 
   /// The audio if it was asked for (else nothing to reload or save).

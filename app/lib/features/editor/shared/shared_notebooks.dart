@@ -4,10 +4,15 @@ import 'package:flutter/foundation.dart';
 
 import '../../../app_services.dart';
 import '../../../domain/notebook.dart';
+import '../../../domain/recording.dart';
 import '../../audio/recording_controller.dart';
 import 'shared_notebook.dart';
 
 export 'shared_notebook.dart';
+
+/// A recording that stopped when the app went to the background, in
+/// [notebook]: [saved] (null if nothing was kept, with [error]).
+typedef BackgroundStop = ({Notebook notebook, Recording? saved, String? error});
 
 /// The notebooks open in editors, one [SharedNotebook] each, however many
 /// editors show it (a tab and the split view's second pane may show the
@@ -55,11 +60,26 @@ class SharedNotebooks {
     final id = notebook.id;
     _users[id] = (_users[id] ?? 0) + 1;
     if (_kept?.id == id) _attend();
+    if (stoppedInBackground.value?.notebook.id == id) stoppedInBackground.value = null;
     return _open[id] ??= SharedNotebook(
       services,
       notebook,
       microphoneBusy: () => _recordingElsewhere(id),
+      stoppedInBackground: (saved, error) => _onStoppedInBackground(id, saved, error),
     );
+  }
+
+  /// A recording of a notebook no editor showed that had to stop when the
+  /// app went to the background (no foreground service to keep it, R17):
+  /// the library and other editors say so until dismissed, Shown (the
+  /// notebook's recordings) or the notebook is opened.
+  final ValueNotifier<BackgroundStop?> stoppedInBackground = ValueNotifier(null);
+
+  void _onStoppedInBackground(String id, Recording? saved, String? error) {
+    if (_disposed || _users[id] != null) return; // Its editor says so.
+    final notebook = services.notebooks.get(id);
+    if (notebook == null || notebook.isTrashed) return;
+    stoppedInBackground.value = (notebook: notebook, saved: saved, error: error);
   }
 
   /// The shared state of notebook [id] if an editor has it open.
@@ -80,6 +100,14 @@ class SharedNotebooks {
     }
     _users.remove(id);
     if (shared.loadedAudio?.recorder.state.isActive ?? false) return _leaveRecording(shared);
+    _close(shared);
+  }
+
+  /// Disposes [shared] (no editor holds it), which stops and saves a
+  /// running recording; until that is saved the microphone stays busy and
+  /// blob garbage collection keeps the notebook's files ([ids]).
+  void _close(SharedNotebook shared) {
+    final id = shared.id;
     _open.remove(id)!.dispose(); // Saves a running recording.
     final saving = shared.loadedAudio?.saving;
     if (saving == null) return;
@@ -87,11 +115,30 @@ class SharedNotebooks {
     unawaited(
       saving.whenComplete(() {
         _saving.remove(id);
+        // Deleted forever meanwhile: the recording goes with it.
+        if (services.notebooks.get(id) == null) services.recordings.deleteAllOf(id);
         // Reopened meanwhile: its list gains the recording just saved.
         _open[id]?.loadedAudio?.reload();
       }),
     );
   }
+
+  /// Notebooks were trashed or deleted on this device (the library calls
+  /// this after its changes): the [unattended] notebook, if among them, is
+  /// let go at once — its recording stopped and saved into it, so it goes
+  /// to the trash with the notebook and Undo (or Restore) brings back both;
+  /// no notice is left to Show an empty view.
+  void notebooksChanged() {
+    final kept = _kept;
+    if (kept == null || _users[kept.id] != null || !identical(_open[kept.id], kept)) return;
+    final current = services.notebooks.get(kept.id);
+    if (current != null && !current.isTrashed) return;
+    _attend();
+    _close(kept);
+  }
+
+  /// Whether notebook [id] is recording with no editor showing it.
+  bool recordsUnattended(String id) => _kept?.id == id;
 
   /// Keeps [shared] open while it records with no editor; once the
   /// recording is stopped (from the notice, the notification, or because
@@ -147,6 +194,7 @@ class SharedNotebooks {
     _attend();
     _disposed = true;
     unattended.dispose();
+    stoppedInBackground.dispose();
     for (final shared in _open.values) {
       shared.dispose();
     }

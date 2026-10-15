@@ -99,6 +99,22 @@ class RecordingController extends ChangeNotifier {
   /// Whether the running recording continues while the app is in the
   /// background (Android: its foreground service is up).
   bool get recordsInBackground => _keepAlive.background;
+
+  /// Tries once more to start the keep-alive if it is not up (it could not
+  /// start, or failed since): called as the app is about to go to the
+  /// background, while Android still lets a foreground service start.
+  /// Completes with [recordsInBackground].
+  Future<bool> keepInBackground() {
+    if (!_state.isActive || recordsInBackground) return Future.value(recordsInBackground);
+    return _retryingKeepAlive ??= _showKeepAlive().then((_) {
+      _retryingKeepAlive = null;
+      return recordsInBackground;
+    });
+  }
+
+  /// The [keepInBackground] attempt under way, if any.
+  Future<bool>? get retryingKeepAlive => _retryingKeepAlive;
+  Future<bool>? _retryingKeepAlive;
   StreamSubscription<double>? _levels;
   Timer? _ticker;
 
