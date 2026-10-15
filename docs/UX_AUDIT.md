@@ -77,11 +77,10 @@ few strings are touch words under a mouse.
   off. A new user writes "hello", searches for it and gets "No matches"
   (the editor) or "No results" (the library): a dead end that reads as
   a bug.
-- *Fix:* with no matches only, one quiet line saying why ("Handwriting is
-  searched once read on Android", "Handwriting search is off in
-  Settings"): handwriting
-  is searched once Android has read it (no recogniser here), or
-  handwriting search is off in Settings. Effort S.
+- *Fix:* with no matches only, one quiet line saying why: "Handwriting is
+  searched once read on Android" (no recogniser here) or "Handwriting
+  search is off in Settings" (`features/search/handwriting_note.dart`,
+  under the editor's "No matches" and the library's "No results"). Effort S.
 
 **R14-3 P2 · Empty Bookmarked offers nothing to do.** ✅
 - *What:* `NoBookmarks` says "Bookmark pages from their ··· menu"; the

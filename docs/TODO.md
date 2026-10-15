@@ -111,3 +111,7 @@ From the reports; the owner picks. Status as above.
   now always offers it, as the system clipboard can't be asked for an image without reading
   it (Android announces every read). A native "has image / has text" probe in the vendored
   `pasteboard` (Android `ClipDescription`, no read) would let the row hide when empty.
+- ⬜ **What a "Len server" is** (UX_AUDIT R14-9): Settings → Sync says "your own Len
+  server" with no pointer to what that is or how to run one, a dead end for a first-time
+  user. Needs a public page (project site or README section) to link from the section's
+  description; the owner picks the URL.
