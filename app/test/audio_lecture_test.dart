@@ -108,4 +108,47 @@ void main() {
     expect(saved.title, 'Lecture 12 — Integrals');
     await _close(tester);
   });
+
+  testWidgets('R17-5: the list shows the recording being made, and no Record meanwhile', (
+    tester,
+  ) async {
+    final e = await _pump(tester, size: const Size(390, 844));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Record audio'));
+    await _settleAsync(tester);
+    e.clock.now += 65000;
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    expect(find.text('Recordings'), findsNothing); // None finished yet.
+    await tester.tapAt(const Offset(10, 400)); // Close the menu.
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Stop recording'));
+    await _settleAsync(tester);
+    await tester.pump(const Duration(seconds: 5)); // Snack bar.
+    await tester.pumpAndSettle();
+
+    // The second lecture: the list has one, and the one being made.
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Record audio'));
+    await _settleAsync(tester);
+    e.clock.now += 5000;
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Recordings'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('recording-now')), findsOneWidget);
+    expect(find.text('Recording now'), findsOneWidget);
+    expect(find.text('0:05'), findsWidgets);
+    expect(find.widgetWithText(OutlinedButton, 'Record'), findsNothing);
+    expect(find.text('1 recording, 1\u00A0min'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 100)); // Close the sheet.
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Stop recording'));
+    await _settleAsync(tester);
+    await _close(tester);
+  });
 }

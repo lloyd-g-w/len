@@ -8,6 +8,7 @@ import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
 import '../notebook_audio.dart';
+import '../recording_controller.dart';
 import 'audio_bar_button.dart';
 import 'audio_format.dart';
 import 'recording_tile.dart';
@@ -53,7 +54,7 @@ class _RecordingsListState extends State<RecordingsList> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([audio, audio.playback]),
+      listenable: Listenable.merge([audio, audio.playback, audio.recorder]),
       builder: (context, _) {
         final recordings = audio.recordings.reversed.toList(); // Newest first.
         _selected?.removeWhere((id) => !recordings.any((r) => r.id == id));
@@ -67,7 +68,8 @@ class _RecordingsListState extends State<RecordingsList> {
             padding: const EdgeInsets.only(bottom: Gaps.lg),
             children: [
               _selected == null ? _header(context, recordings) : _selectionHeader(recordings),
-              if (recordings.isEmpty) _empty(context),
+              if (audio.recorder.state.isActive) _RecordingNow(audio.recorder),
+              if (recordings.isEmpty && !audio.recorder.state.isActive) _empty(context),
               for (final r in recordings)
                 RecordingTile(
                   audio: audio,
@@ -110,15 +112,18 @@ class _RecordingsListState extends State<RecordingsList> {
               onPressed: () => setState(() => _selected = {}),
               icon: const Icon(Symbols.checklist_sharp),
             ),
-          const SizedBox(width: Gaps.xs),
-          OutlinedButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-              unawaited(startRecording(context, audio));
-            },
-            icon: const Icon(Symbols.mic_sharp),
-            label: const Text('Record'),
-          ),
+          // Recording already: the first row says so.
+          if (audio.recorder.state == RecorderState.idle) ...[
+            const SizedBox(width: Gaps.xs),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                unawaited(startRecording(context, audio));
+              },
+              icon: const Icon(Symbols.mic_sharp),
+              label: const Text('Record'),
+            ),
+          ],
         ],
       ),
     );
@@ -210,5 +215,41 @@ class _RecordingsListState extends State<RecordingsList> {
     if (!confirmed) return;
     audio.deleteAll({for (final r in recordings) r.id});
     if (mounted) setState(() => _selected = null);
+  }
+}
+
+/// The recording being made (listed with the others once stopped): a red
+/// dot (grey while paused), its running time or "Paused".
+class _RecordingNow extends StatelessWidget {
+  const _RecordingNow(this.recorder);
+
+  final RecordingController recorder;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final paused = recorder.state == RecorderState.paused;
+    return ListTile(
+      key: const ValueKey('recording-now'),
+      contentPadding: const EdgeInsetsDirectional.only(start: Gaps.sm, end: Gaps.sm),
+      leading: SizedBox.square(
+        dimension: Glyphs.bar,
+        child: Center(
+          child: Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: paused ? scheme.onSurfaceVariant : scheme.error,
+            ),
+          ),
+        ),
+      ),
+      title: const Text('Recording now'),
+      subtitle: Text(
+        paused ? 'Paused at ${formatClock(recorder.elapsedMs)}' : formatClock(recorder.elapsedMs),
+        style: const TextStyle(fontFeatures: AppTheme.tabularFigures),
+      ),
+    );
   }
 }

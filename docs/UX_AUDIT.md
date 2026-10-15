@@ -40,7 +40,7 @@ anything is recording. Reviewing on the laptop waits for every part of a
 | Screen off, other app (Android) | keeps recording (foreground service, notification with Pause / Stop) | Notability (iPad) keeps; GoodNotes Android stops | Keep (better) |
 | Another tab, or Back to the library | the recording stops and is saved, silently; a new one must be started | GoodNotes keeps recording while another document is viewed | R17-1 |
 | Stop and name | "Saved “Recording 09:30”"; renaming is ⋯ → Rename… in the list | Notability: dated, renamed in the list | R17-4 ✅ |
-| The list during a lecture | the recording being made is missing; "Record" does nothing | n/a | R17-5 |
+| The list during a lecture | the recording being made is missing; "Record" does nothing | n/a | R17-5 ✅ |
 | 90 minutes | ≈ 44 MB (AAC 64 kbit/s), streamed to files; browsers hold at most one part in memory | similar sizes | Keep |
 | Review: tap ink | plays from 1.5 s before it; later ink veiled at 82 %; bursts as dots; Shift+← / → between them | Notability: hand tool, tap a word; Note Replay | Keep |
 | Writing with the player open | with "tap ink to play" on, a pen stroke pans the page | Notability: writing during playback links to it | R17-6 |
@@ -93,12 +93,13 @@ anything is recording. Reviewing on the laptop waits for every part of a
 - *Fix:* the "Saved “Recording 09:30”" message has Rename. Effort S.
 - *Done:* Rename opens the list's rename prompt (`renameRecording`).
 
-**R17-5 P2 · The recordings list doesn't know a lecture is being recorded.** ⬜
+**R17-5 P2 · The recordings list doesn't know a lecture is being recorded.** ✅
 - *What:* opened mid-lecture (to check the last session's length), the list
   leaves the running recording out (on purpose: it is listed once finished)
   and offers "Record", which then does nothing.
 - *Fix:* a first row "Recording now" with its running time (or "Paused"),
   and no Record button while recording. Effort S.
+- *Done:* as proposed (`_RecordingNow`, red dot, grey while paused).
 
 **R17-6 P2 · With the player open, the pen pans instead of writing.** ⬜
 - *What:* "tap ink to play" (on by default) lays a layer over the page that
