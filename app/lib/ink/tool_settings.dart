@@ -23,43 +23,20 @@ export 'selection/lasso_config.dart';
 export 'shapes/shape_fill.dart';
 export 'tools/laser_config.dart';
 
+part 'tool_settings_state.dart';
+
 /// Current tool selection, per-pen customisation and input preferences.
 ///
 /// With a [store], customisation is restored on creation and saved
 /// (debounced) whenever it changes.
-class ToolSettings extends ChangeNotifier {
+class ToolSettings extends _ToolState {
   ToolSettings({
-    this._stylusOnly,
-    this._penButtonErases = false,
-    this._holdToStraighten = true,
-    this._scribbleToErase = true,
-    this._store,
-  }) {
-    final store = _store;
-    if (store == null) return;
-    final json = store.toolPrefs;
-    if (json != null) _restore(json);
-  }
-
-  final SettingsRepository? _store;
-  Timer? _saveTimer;
-
-  EditorTool _tool = EditorTool.pen;
-  final Map<InkTool, PenConfig> _configs = {for (final t in inks) t: PenConfig.defaultsFor(t)};
-  EraserConfig _eraser = const EraserConfig();
-  ShapeKind _shape = defaultShape;
-  ShapeFill _shapeFill = defaultShapeFill;
-  LaserConfig _laser = const LaserConfig();
-  LassoConfig _lasso = const LassoConfig();
-  TextData _text = const TextData();
-  bool _holdToStraighten;
-  bool _scribbleToErase;
-  List<int> _recent = const [];
-
-  /// The tools used, most recent first: [tool], then the ones before it.
-  List<EditorTool> _used = const [EditorTool.pen];
-  bool? _stylusOnly;
-  bool _penButtonErases;
+    bool? stylusOnly,
+    bool penButtonErases = false,
+    bool holdToStraighten = true,
+    bool scribbleToErase = true,
+    SettingsRepository? store,
+  }) : super(stylusOnly, penButtonErases, holdToStraighten, scribbleToErase, store);
 
   /// The inks offered in the toolbar: the pen (ballpoint) and highlighter.
   static const List<InkTool> inks = [InkTool.ballpoint, InkTool.highlighter];
@@ -250,8 +227,6 @@ class ToolSettings extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool _reading = false;
-
   /// Reading (R20-6): while fingers draw because no stylus was ever seen
   /// ([stylusOnly] null), one finger scrolls, zooms, taps links and opens
   /// the menu, as with palm rejection, until a tool is chosen (any change
@@ -296,62 +271,6 @@ class ToolSettings extends ChangeNotifier {
     _text = other._text;
     _recent = other._recent;
     notifyListeners();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Persistence
-
-  /// The persisted customisation.
-  Map<String, Object?> toJson() => {
-    'pens': {for (final e in _configs.entries) e.key.name: e.value.toJson()},
-    'eraser': _eraser.toJson(),
-    'recent': _recent,
-    'shape': _shape.name,
-    'shapeFill': _shapeFill.toJson(),
-    'laser': _laser.toJson(),
-    'lasso': _lasso.toJson(),
-    'text': _text.toJson(),
-  };
-
-  void _restore(String json) {
-    final Object? data;
-    try {
-      data = jsonDecode(json);
-    } on FormatException {
-      return;
-    }
-    if (data is! Map) return;
-    // Strict: a part that is missing or invalid keeps its defaults.
-    if (data['pens'] case final Map<String, Object?> pens) {
-      for (final tool in inks) {
-        if (PenConfig.fromJson(pens[tool.name], tool: tool) case final config?) {
-          _configs[tool] = config;
-        }
-      }
-    }
-    if (EraserConfig.fromJson(data['eraser']) case final eraser?) _eraser = eraser;
-    if (RecentColors.parse(data['recent']) case final recent?) _recent = recent;
-    _shape = ShapeKind.parse(data['shape']);
-    _shapeFill = ShapeFill.parse(data['shapeFill']);
-    _laser = LaserConfig.fromJson(data['laser']);
-    _lasso = LassoConfig.fromJson(data['lasso']);
-    if (data['text'] case final Map<String, Object?> text) _text = TextData.fromJson(text);
-  }
-
-  /// The customisation changed: an option chosen (a quick slot, a size, a
-  /// colour) starts writing too.
-  void _changed() {
-    _reading = false;
-    notifyListeners();
-    if (_store == null) return;
-    _saveTimer?.cancel();
-    _saveTimer = Timer(const Duration(milliseconds: 400), _save);
-  }
-
-  void _save() {
-    _saveTimer?.cancel();
-    _saveTimer = null;
-    _store?.toolPrefs = jsonEncode(toJson());
   }
 
   @override
