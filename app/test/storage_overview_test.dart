@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/blob_backend.dart';
 import 'package:len/data/raster_store.dart';
 import 'package:len/data/storage_queries.dart';
 import 'package:len/domain/image_data.dart';
@@ -21,11 +22,37 @@ import 'package:len/sync/sync_api.dart';
 
 import 'support/fake_server.dart';
 
+/// A file backend that runs [onDelete] before each delete.
+class _HookedBackend implements BlobBackend {
+  _HookedBackend(this.inner);
+
+  final FileBlobBackend inner;
+  void Function(String sha)? onDelete;
+
+  @override
+  Future<bool> contains(String sha) => inner.contains(sha);
+  @override
+  Future<Uint8List?> read(String sha) => inner.read(sha);
+  @override
+  Stream<List<int>> openRead(String sha) => inner.openRead(sha);
+  @override
+  Future<void> write(String sha, Stream<List<int>> data) => inner.write(sha, data);
+  @override
+  Future<void> delete(String sha) async {
+    onDelete?.call(sha);
+    await inner.delete(sha);
+  }
+
+  @override
+  String? localPath(String sha) => inner.localPath(sha);
+}
+
 void main() {
   late Directory dir;
   late FakeServer server;
   late AppServices s;
   late MemoryRasterStore rasters;
+  late _HookedBackend backend;
 
   setUp(() {
     dir = Directory.systemTemp.createTempSync('len_storage_test_');
@@ -33,7 +60,7 @@ void main() {
     rasters = MemoryRasterStore();
     s = AppServices.create(
       AppDatabase.inMemory(),
-      blobBackend: FileBlobBackend(dir.path),
+      blobBackend: backend = _HookedBackend(FileBlobBackend(dir.path)),
       rasterStore: rasters,
       syncApiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: server.client),
     );
@@ -268,6 +295,23 @@ void main() {
       ], stillRemovable: (sha) => !kept.contains(sha));
       expect(removed.count, 0);
       expect(await s.blobs.has(img), isTrue);
+    });
+
+    test('a notebook opened while copies go keeps its files', () async {
+      configureSync();
+      final big = await blob('big', 'image/png', size: 5000);
+      final small = await blob('small', 'image/png', size: 1000);
+      final a = notebook('A'), b = notebook('B');
+      image(page(a).id, big);
+      image(page(b).id, small);
+      synced();
+      // The largest goes first; B opens while its file is removed.
+      backend.onDelete = (sha) {
+        if (sha == big) s.openNotebooks.open(b);
+      };
+      await s.storage.freeUp();
+      expect(await s.blobs.has(big), isFalse);
+      expect(await s.blobs.has(small), isTrue);
     });
 
     test('nothing goes when the server cannot be reached', () async {

@@ -120,10 +120,22 @@ class StorageOverview extends ChangeNotifier {
       if (ids.isEmpty) return const FreedUp(0, 0);
       final answer = await sync.blobsOnServer(ids);
       if (answer == null) return const ServerUnreachable();
-      final kept = StorageQueries(database.db).kept(keep: keep());
+      // Asked again whenever the notebooks open change meanwhile (each
+      // copy waits for its own file's removal).
+      Set<String>? open;
+      var kept = const <String>{};
+      bool keeps(String sha) {
+        final now = keep();
+        if (open == null || !setEquals(now, open)) {
+          open = now;
+          kept = StorageQueries(database.db).kept(keep: now);
+        }
+        return kept.contains(sha);
+      }
+
       final removed = await blobs.removeLocalCopies(
         answer.held,
-        stillRemovable: (sha) => answer.current() && !kept.contains(sha),
+        stillRemovable: (sha) => answer.current() && !keeps(sha),
       );
       return FreedUp(removed.bytes, removed.count);
     } finally {
