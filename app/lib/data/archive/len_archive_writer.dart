@@ -151,6 +151,12 @@ class LenArchiveWriter {
   }
 
   Future<void> _addBlob(ZipEncoder zip, String sha, CancellationToken? cancel) async {
+    // Its copy here may have gone since the index was written (Settings →
+    // Storage → Free up meanwhile): downloaded again.
+    if (!await blobs.has(sha) && !(await fetchBlob?.call(sha) ?? false)) {
+      throw StateError('Blob $sha vanished while exporting');
+    }
+    cancel?.check();
     final path = blobs.localPath(sha);
     final checksum = checksumBlobFile;
     final crc = path == null || checksum == null ? null : await checksum(path);
