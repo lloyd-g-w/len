@@ -55,7 +55,9 @@ cross-origin isolated (README). Environment:
   LEN_EXPLORE_BROWSERS=chromium,firefox  browsers (default both; Firefox if installed)
   LEN_EXPLORE_BACKUP=<file.len>          only restore this backup (made big) and open it
   LEN_EXPLORE_PROFILE=1                  CPU profile per step, its hottest functions printed, and
-                                         per long task where its time went (a trace's tasks)
+                                         per long task where its time went (a trace's tasks);
+                                         WebGL read-backs (by size), surface resizes and shader
+                                         compiles counted per step
   LEN_EXPLORE_CYCLES=5                   open/close cycles of the memory step
   LEN_EXPLORE_CEILING_MS=500             longest task allowed once started (WebAssembly)
   LEN_EXPLORE_BUNDLED=1                  Playwright's own Chromium (CI), not the PATH's
@@ -240,6 +242,51 @@ INIT = '''(() => {
       abort: async () => {} }) };
   };
 })()'''
+
+# With LEN_EXPLORE_PROFILE: WebGL's blocking calls counted into window.lenGl
+# (read-backs by size, size changes of the surface read from, shader
+# compiles), so a step tells which caches read pixels back without names.
+GL_COUNTERS = '''(() => {
+  const gl = window.lenGl = { readbacks: {}, resizes: 0, shaders: [0, 0] };
+  const sizes = new WeakMap();
+  for (const C of [window.WebGLRenderingContext, window.WebGL2RenderingContext]) {
+    if (!C) continue;
+    const p = C.prototype, read = p.readPixels, shader = p.getShaderParameter,
+      program = p.getProgramParameter, compile = p.compileShader;
+    p.readPixels = function readPixels(x, y, w, h) {
+      const size = this.drawingBufferWidth + 'x' + this.drawingBufferHeight;
+      if (sizes.has(this) && sizes.get(this) !== size) gl.resizes++;
+      sizes.set(this, size);
+      const start = performance.now();
+      try { return read.apply(this, arguments); } finally {
+        const r = gl.readbacks[w + 'x' + h] || (gl.readbacks[w + 'x' + h] = [0, 0]);
+        r[0]++; r[1] += performance.now() - start; }
+    };
+    const timed = (f) => function () { const start = performance.now();
+      try { return f.apply(this, arguments); } finally { gl.shaders[1] += performance.now() - start; } };
+    p.getShaderParameter = timed(shader);
+    p.getProgramParameter = timed(program);
+    p.compileShader = function compileShader() { gl.shaders[0]++; return compile.apply(this, arguments); };
+  }
+})()'''
+
+
+async def print_gl(page):
+    """What WebGL blocked on since the last call (GL_COUNTERS), reset."""
+    gl = await page.evaluate('''() => { const g = window.lenGl; if (!g) return null;
+      const r = JSON.parse(JSON.stringify(g)); g.readbacks = {}; g.resizes = 0; g.shaders = [0, 0];
+      return r; }''')
+    if not gl:
+        return None
+    reads = sorted(gl['readbacks'].items(), key=lambda kv: -kv[1][1])
+    count, ms = sum(r[0] for _, r in reads), sum(r[1] for _, r in reads)
+    sizes = ', '.join(f'{k} {n}× {t:.0f} ms' for k, (n, t) in reads[:6])
+    print(f'  gl: {count} read-backs {ms:.0f} ms{f" ({sizes})" if sizes else ""}, '
+          f'{gl["resizes"]} surface resizes, {gl["shaders"][0]} shaders compiled '
+          f'({gl["shaders"][1]:.0f} ms waited)')
+    return {'readbacks': count, 'readback_ms': round(ms), 'resizes': gl['resizes'],
+            'shaders': gl['shaders'][0], 'shader_ms': round(gl['shaders'][1]),
+            'by_size': {k: [n, round(t)] for k, (n, t) in gl['readbacks'].items()}}
 
 
 class Watch:
@@ -606,6 +653,7 @@ class Walk:
             self.cdp.remove_listener('Tracing.dataCollected', collect)
             self.cdp.remove_listener('Tracing.tracingComplete', complete)
             print_long_tasks(profile, trace)
+        gl = await print_gl(page) if PROFILE else None
         if origin != self.origin:  # A new page (or reloaded): its own list.
             self.origin, self.tasks_seen = origin, 0
         new = [t for t in tasks[self.tasks_seen:] if not t[2]]
@@ -623,7 +671,8 @@ class Walk:
         heap = await heap_mb(page, self.cdp)
         self.watch.steps.append({'browser': self.name, 'step': title, 'ok': ok,
                                  'seconds': round(time.monotonic() - started, 1),
-                                 'long_tasks_ms': [t[1] for t in long], 'heap_mb': heap})
+                                 'long_tasks_ms': [t[1] for t in long], 'heap_mb': heap,
+                                 **({'gl': gl} if gl else {})})
         if long:
             print(f'  long tasks: {", ".join(f"{t[1]} ms" for t in long)}')
         return ok
@@ -1061,6 +1110,8 @@ async def launch(p, browser, profile):
     else:
         ctx = await p.firefox.launch_persistent_context(profile, headless=True, **common)
     await ctx.add_init_script(INIT)
+    if PROFILE:
+        await ctx.add_init_script(GL_COUNTERS)
     page = ctx.pages[0] if ctx.pages else await ctx.new_page()
     cdp = None
     if browser == 'chromium':
