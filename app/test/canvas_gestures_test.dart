@@ -356,6 +356,19 @@ void main() {
       stroke(4, const Offset(500, 500), const Offset(600, 500));
       expect(content.selection.isEmpty, isTrue);
       expect(model.loadedStrokeCount, 2);
+
+      // A tap that only drops a selection leaves no dot (R13-1); the next
+      // tap is a dot.
+      content.selection.select(model.strokesNear(const Rect.fromLTWH(0, 0, 800, 800)), const []);
+      input
+        ..handleDown(down(5, const Offset(400, 700), kind: k, t: 2000))
+        ..handleUp(up(5, const Offset(400, 700), kind: k, t: 2200));
+      expect(content.selection.isEmpty, isTrue);
+      expect(model.loadedStrokeCount, 2);
+      input
+        ..handleDown(down(6, const Offset(400, 700), kind: k, t: 3000))
+        ..handleUp(up(6, const Offset(400, 700), kind: k, t: 3200));
+      expect(model.loadedStrokeCount, 3);
     });
 
     test('the side-button lasso follows the lasso options', () {

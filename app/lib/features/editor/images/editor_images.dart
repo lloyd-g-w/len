@@ -217,7 +217,8 @@ class EditorImages {
       id: clock.newId(),
       now: clock.nowMs(),
     );
-    tools.tool = EditorTool.lasso;
+    // Selected, the tool kept: tap away and write on (a live selection,
+    // as the side button's lasso makes).
     content.selection.select(const [], [element]);
     return element;
   }

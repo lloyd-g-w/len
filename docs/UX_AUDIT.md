@@ -41,7 +41,7 @@ and paste from the system clipboard.
 
 ### Prioritised items
 
-**R13-1 P1 · Inserting or pasting swaps the pen for the lasso.** ⬜
+**R13-1 P1 · Inserting or pasting swaps the pen for the lasso.** ✅
 - *What:* an image from Insert ⊕, the camera, a drop or Ctrl+V, pasted
   text and pasted ink all set `tools.tool = EditorTool.lasso`
   (`editor/images/editor_images.dart` `insertBytes`,

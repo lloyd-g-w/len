@@ -46,10 +46,7 @@ List<CanvasAction> canvasActions(
     if (link != null && onFollowLink != null)
       CanvasAction(Symbols.event_sharp, 'Go to ${link.period}', () => onFollowLink(link)),
     if (!clipboard.isEmpty)
-      CanvasAction(Symbols.content_paste_sharp, 'Paste here', () {
-        session.tools.tool = EditorTool.lasso;
-        content.selection.paste(world);
-      }),
+      CanvasAction(Symbols.content_paste_sharp, 'Paste here', () => content.selection.paste(world)),
     CanvasAction(
       Symbols.select_all_sharp,
       doc == null ? 'Select all in view' : 'Select all on page',
