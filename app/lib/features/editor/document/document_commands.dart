@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 
@@ -12,6 +14,7 @@ import '../../documents/export/notebook_exporter.dart';
 import '../../documents/pdf/pdf_background_cache.dart';
 import '../../documents/pdf/pdf_import_flow.dart';
 import '../../documents/pdf/pdf_relink_flow.dart';
+import '../../documents/pdf/pdf_replace_flow.dart';
 import '../../documents/progress_dialog.dart';
 import '../../documents/scan/scan_flow.dart';
 import '../../documents/template_picker.dart';
@@ -151,6 +154,8 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
         await sendPages(context, [page]);
       case PageCommand.delete:
         await _delete(context, page);
+      case PageCommand.replacePdf:
+        await replacePdf(context, page);
     }
   }
 

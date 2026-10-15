@@ -41,6 +41,7 @@ EditorMenuActions editorMenuActions(
     zoomWindow: session.zoomWindow.isOpen,
     onZoomWindow: session.toggleZoomWindow,
     bookmarked: page?.bookmarked ?? false,
+    pdfPage: page?.pdf != null,
     onOverview: paged ? () => openPageOverview(context, session) : null,
     onPageCommand: paged ? (c) => commands.run(context, c, page) : null,
     onExport: paged

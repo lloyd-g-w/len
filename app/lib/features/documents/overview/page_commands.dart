@@ -17,6 +17,10 @@ enum PageCommand {
   saveAsTemplate('Save as template…', Symbols.dashboard_customize_sharp),
   delete('Delete page', Symbols.delete_sharp),
 
+  /// A new version of the PDF the page is drawn on, for every page drawn
+  /// on it (UX_AUDIT R18-1); only on PDF pages ([menuFor]).
+  replacePdf('Replace PDF…', Symbols.find_replace_sharp),
+
   /// Chooses a template, then adds a page with it after the page.
   insertWithTemplate('Add page with template…', Symbols.note_add_sharp);
 
@@ -33,6 +37,11 @@ enum PageCommand {
     template,
     saveAsTemplate,
     delete,
+  ];
+
+  /// The rows for a page: [menu], and Replace PDF… on a [pdf] page.
+  static List<PageCommand> menuFor({required bool pdf}) => [
+    for (final c in menu) ...[if (c == delete && pdf) replacePdf, c],
   ];
 
   /// The row's name for a page that is [bookmarked] or not.
@@ -110,7 +119,7 @@ class OverviewHandlers {
 
 /// The page menu of [page] (an overview tile's ⋯).
 List<PopupMenuEntry<PageCommand>> pageMenuItems(NotebookPage page) => [
-  for (final c in PageCommand.menu) ...[
+  for (final c in PageCommand.menuFor(pdf: page.pdf != null)) ...[
     if (c.destructive) const PopupMenuDivider(),
     MenuRow(
       value: c,
