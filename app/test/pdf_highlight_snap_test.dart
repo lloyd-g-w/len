@@ -12,6 +12,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/pdf/pdf_highlight_snap.dart';
 import 'package:len/features/editor/pdf/pdf_interaction.dart';
+import 'package:len/features/editor/zoom/zoom_frame.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:pdfrx/pdfrx.dart' show Pdfrx;
@@ -19,6 +20,7 @@ import 'package:pdfrx/pdfrx.dart' show Pdfrx;
 import 'pdf_interaction_test.dart' show openPdfEditor, pdfTextAt;
 import 'pdf_rotation_test.dart' show a4, rotatedPdf;
 import 'pdf_test.dart' show pdfium;
+import 'support/zoom_fixtures.dart';
 
 /// The text-aware highlighter: highlighter strokes along PDF text become
 /// clean highlights over the words they cover.
@@ -265,6 +267,43 @@ void main() {
         pdf.doc.surfaces.surfaceOf(page.id).model.strokesNear(Offset.zero & page.size),
         isEmpty,
       );
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('in the zoom window\'s box it snaps the same', skip: pdfium == null, (
+      tester,
+    ) async {
+      final pdf = await openPdfEditor(tester, services, dir);
+      pdf.tools
+        ..stylusOnly = true
+        ..tool = EditorTool.highlighter;
+      final page = pdf.doc.pages.first;
+      final frame = pdf.doc.layout.frameOf(0)!;
+      Offset onPage(Offset screen) => pdf.doc.viewport.toWorld(screen) - frame.topLeft;
+      final from = onPage(pdfTextAt(pdf, 'Hello', i: 1));
+      final to = onPage(pdfTextAt(pdf, 'world', i: 3));
+      final zoom = zoomSession(tester).zoomWindow;
+      zoom.open(
+        at: ZoomFrame(surfaceId: page.id, origin: from - const Offset(20, 40), scale: 2),
+      );
+      await tester.pumpAndSettle();
+      final paper = boxPaper(tester);
+      Offset inBox(Offset p) => paper.topLeft + zoom.view.toScreen(p);
+      final pen = await tester.startGesture(inBox(from), kind: PointerDeviceKind.stylus);
+      for (var t = 0.05; t <= 1.0001; t += 0.05) {
+        await pen.moveTo(inBox(Offset.lerp(from, to, t)!) + Offset(0, t * 10 % 2 < 1 ? 2 : -2));
+        await tester.pump(const Duration(milliseconds: 8));
+      }
+      await pen.up();
+      await tester.pumpAndSettle();
+      final s = pdf.doc.surfaces
+          .surfaceOf(page.id)
+          .model
+          .strokesNear(Offset.zero & page.size)
+          .single;
+      final ys = s.points.map((p) => p.y);
+      expect(ys.reduce(math.max) - ys.reduce(math.min), lessThan(1e-6), reason: 'straight');
+      zoom.close();
       await tester.pumpWidget(const SizedBox());
     });
 
