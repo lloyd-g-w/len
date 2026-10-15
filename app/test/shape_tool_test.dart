@@ -98,20 +98,20 @@ void main() {
           // Out, back in and out again: the preview always spans start → pointer.
           for (final to in const [
             Offset(260, 190),
-            Offset(420, 330),
-            Offset(300, 240),
-            Offset(460, 380),
+            Offset(440, 320),
+            Offset(320, 230),
+            Offset(480, 360),
           ]) {
             input.handleMove(PointerMoveEvent(pointer: id, kind: kind, position: to));
             final expected = ShapeBuilder.dragged(shapeKind, start, viewport.toWorld(to));
             expectPreview(expected, '$shapeKind at $to');
           }
-          input.handleUp(PointerUpEvent(pointer: id, kind: kind, position: const Offset(460, 380)));
+          input.handleUp(PointerUpEvent(pointer: id, kind: kind, position: const Offset(480, 360)));
           final stroke = model.history.takeUndo()!.added.single;
           final expected = ShapeBuilder.dragged(
             shapeKind,
             start,
-            viewport.toWorld(const Offset(460, 380)),
+            viewport.toWorld(const Offset(480, 360)),
           );
           expect(stroke.shape, expected, reason: '$shapeKind');
           expect(
@@ -125,6 +125,41 @@ void main() {
       });
     }
   }
+
+  test('without Shift, near-square boxes and near-level lines snap (a pen has no Shift)', () {
+    var pointer = 1;
+    ShapeGeometry draw(ShapeKind kind, Offset from, Offset to) {
+      tools.shape = kind;
+      final id = pointer++;
+      const pen = PointerDeviceKind.stylus;
+      input.handleDown(PointerDownEvent(pointer: id, kind: pen, position: from));
+      input.handleMove(
+        PointerMoveEvent(pointer: id, kind: pen, position: Offset.lerp(from, to, .5)!),
+      );
+      input.handleMove(PointerMoveEvent(pointer: id, kind: pen, position: to));
+      expect(live.shape, isNotNull);
+      input.handleUp(PointerUpEvent(pointer: id, kind: pen, position: to));
+      return model.history.takeUndo()!.added.single.shape!;
+    }
+
+    expect(
+      draw(ShapeKind.rectangle, const Offset(100, 100), const Offset(304, 296)),
+      ShapeBuilder.dragged(ShapeKind.rectangle, const Offset(100, 100), const Offset(300, 300)),
+    );
+    final level = draw(ShapeKind.line, const Offset(100, 100), const Offset(400, 108)).points;
+    expect(level.first, const Offset(100, 100));
+    expect(level.last.dy, 100);
+    expect(level.last.dx, closeTo(400.107, 1e-3));
+    // Clearly oblong or askew: as drawn.
+    expect(
+      draw(ShapeKind.ellipse, const Offset(100, 100), const Offset(300, 200)),
+      ShapeBuilder.dragged(ShapeKind.ellipse, const Offset(100, 100), const Offset(300, 200)),
+    );
+    expect(
+      draw(ShapeKind.arrow, const Offset(100, 100), const Offset(300, 160)),
+      ShapeBuilder.dragged(ShapeKind.arrow, const Offset(100, 100), const Offset(300, 160)),
+    );
+  });
 
   test('a shape is an even line with round ends, whatever the pen', () {
     tools.updateConfig(

@@ -1757,7 +1757,12 @@ surface.
   or stabiliser). The Shape tool (`tools/shape_tool.dart`) previews the
   shape from the press to the pointer on every move (Shift, pressed or
   released at any time: regular shapes — squares, circles, equilateral
-  triangles, regular stars (`ShapeBuilder.regularAspect`) — and 15° lines) and commits exactly the shape
+  triangles, regular stars (`ShapeBuilder.regularAspect`) — and 15° lines;
+  without Shift, since a pen has none, `ShapeSnap` makes a shape within 6 %
+  of regular proportions regular and a line within 4° of level, upright
+  or diagonal exactly so — as do a held line or arrow once snapped (its end
+  while the pen moves on), the straight pen, a line's end handle and a
+  rectangle's or ellipse's corner handle) and commits exactly the shape
   last shown; a tap on a shape selects it. The live outline is rebuilt
   whenever the live points are replaced rather than extended
   (`LiveInk.generation`; the incremental builder would otherwise keep the

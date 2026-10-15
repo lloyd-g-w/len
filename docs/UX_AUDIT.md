@@ -56,7 +56,7 @@ selects the tint's shape instead.
 
 ### Prioritised items
 
-**R21-1 P1 · Lines snap level only with Shift; a pen has none.** ⬜
+**R21-1 P1 · Lines snap level only with Shift; a pen has none.** ✅
 - *What:* the Shape tool's lines and arrows, a line's end handles and the
   straight pen snap to 15° steps only while Shift is held; a held line
   (hold to snap) keeps the angle the hand drew. On a tablet a graph's axes,
@@ -67,7 +67,7 @@ selects the tint's shape instead.
   snapped (and its end while the pen moves on), the straight pen, a dragged
   end handle; Shift still steps 15°. Effort S.
 
-**R21-2 P1 · Squares and circles need Shift.** ⬜
+**R21-2 P1 · Squares and circles need Shift.** ✅
 - *What:* the Shape tool makes a shape regular only with Shift, and its
   popover says so only with a keyboard; with the pen, a circle is an
   ellipse a few percent off, and two boxes "the same" differ. Hold to snap

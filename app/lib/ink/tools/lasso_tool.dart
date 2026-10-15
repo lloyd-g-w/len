@@ -11,6 +11,7 @@ import '../selection/selection_chrome.dart';
 import '../selection/selection_controller.dart';
 import '../selection/selection_frame.dart';
 import '../shapes/shape_handles.dart';
+import '../shapes/shape_snap.dart';
 import '../viewport.dart';
 import 'content_hit_test.dart';
 import 'pointer_tool.dart';

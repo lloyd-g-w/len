@@ -7,6 +7,7 @@ import '../../domain/stroke.dart';
 import '../input/live_ink.dart';
 import '../selection/selection_controller.dart';
 import '../shapes/shape_builder.dart';
+import '../shapes/shape_snap.dart';
 import '../surface_model.dart';
 import '../tool_settings.dart';
 import '../viewport.dart';
@@ -17,11 +18,12 @@ import 'pointer_tool.dart';
 /// for lines and arrows, from end to end), with the current pen's colour,
 /// width and opacity; closed shapes get [ToolSettings.shapeFill]. The
 /// preview is always the shape from the press to the pointer, and the
-/// shape committed is the one last shown. Holding Shift (pressed or
-/// released at any time during the drag) makes the shape regular
-/// (squares, circles, equilateral triangles, regular stars) or snaps lines
-/// to 15° steps. A tap on a shape selects it, to
-/// edit its points.
+/// shape committed is the one last shown. Without Shift, nearly regular
+/// shapes and nearly level, upright or diagonal lines snap ([ShapeSnap]);
+/// holding Shift (pressed or released at any time during the drag) makes
+/// the shape regular (squares, circles, equilateral triangles, regular
+/// stars) or steps lines by 15°. A tap on a shape selects it, to edit its
+/// points.
 class ShapeTool implements PointerTool {
   ShapeTool({
     required this.model,
@@ -97,7 +99,9 @@ class ShapeTool implements PointerTool {
   void _show() {
     final start = _start!;
     final kind = tools.shape;
-    final end = HardwareKeyboard.instance.isShiftPressed ? constrain(kind, start, _end) : _end;
+    final end = HardwareKeyboard.instance.isShiftPressed
+        ? constrain(kind, start, _end)
+        : ShapeSnap.dragEnd(kind, start, _end);
     final shape = live.shape = _shape = ShapeBuilder.dragged(kind, start, end);
     live.replaceAll(ShapeBuilder.pointsOf(shape, spacing: 2 / viewport.scale));
   }

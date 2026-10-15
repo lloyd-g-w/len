@@ -7,10 +7,10 @@ extension _LassoPicking on LassoTool {
   /// Where a dragged shape point goes for the pointer at [world]. With
   /// Shift, a line's or arrow's end keeps to 15° steps around the other,
   /// and a rectangle's or ellipse's corner to its diagonal (proportions
-  /// kept).
+  /// kept); without, they snap when nearly level or square ([ShapeSnap]).
   Offset _reshapeTarget(Offset world) {
     final shape = _shape!;
-    if (!HardwareKeyboard.instance.isShiftPressed) return world;
+    if (!HardwareKeyboard.instance.isShiftPressed) return _snapTarget(shape, world);
     switch (shape.kind) {
       case ShapeKind.line || ShapeKind.arrow:
         return ShapeTool.constrain(shape.kind, shape.points[1 - _point], world);
@@ -20,6 +20,22 @@ extension _LassoPicking on LassoTool {
         final d = world - opposite;
         final t = (d.dx * diagonal.dx + d.dy * diagonal.dy) / diagonal.distanceSquared;
         return diagonal == Offset.zero ? world : opposite + diagonal * t;
+      case ShapeKind.triangle || ShapeKind.diamond || ShapeKind.polygon || ShapeKind.star:
+        return world;
+    }
+  }
+
+  /// [world] snapped for a dragged point of [shape] without Shift: a
+  /// line's end nearly level, upright or diagonal, a rectangle's or
+  /// ellipse's corner nearly square.
+  Offset _snapTarget(ShapeGeometry shape, Offset world) {
+    switch (shape.kind) {
+      case ShapeKind.line || ShapeKind.arrow:
+        return ShapeSnap.lineEnd(shape.points[1 - _point], world);
+      case ShapeKind.rectangle || ShapeKind.ellipse:
+        if (_point > 3) return world;
+        final opposite = ShapeHandles.of(shape)[(_point + 2) % 4];
+        return ShapeSnap.squareCorner(opposite, world, ShapeHandles.angleOf(shape));
       case ShapeKind.triangle || ShapeKind.diamond || ShapeKind.polygon || ShapeKind.star:
         return world;
     }
