@@ -256,7 +256,8 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
                       left: 0,
                       top: 0,
                       width: width,
-                      height: element.rect.height,
+                      height: frames.length < 2 ? null : element.rect.height,
+                      bottom: frames.length < 2 ? 0 : null,
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
