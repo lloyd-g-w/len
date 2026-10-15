@@ -61,7 +61,7 @@ few strings are touch words under a mouse.
 
 ### Prioritised items
 
-**R14-1 P2 · The web warns about losing notebooks before there are any.** ⬜
+**R14-1 P2 · The web warns about losing notebooks before there are any.** ✅
 - *What:* on a first visit (sync off, storage not yet persistent, which
   is most browsers until Len is installed or used a while)
   `LibraryNotices` puts "This browser may clear your notebooks" with

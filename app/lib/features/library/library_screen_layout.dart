@@ -4,6 +4,7 @@ part of 'library_screen.dart';
 /// a bottom selection bar on phones.
 extension _LibraryLayout on _LibraryScreenState {
   Widget _content({Widget? headerLeading}) => LibraryNotices(
+    notebooks: _controller,
     child: AnimatedSwitcher(
       duration: Motion.medium,
       switchInCurve: Motion.standard,
