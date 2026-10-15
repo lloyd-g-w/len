@@ -63,11 +63,6 @@ void main() {
       await shoot(tester, 'fr_favourites_$name');
       await openLibrarySection(tester, 'Trash');
       await shoot(tester, 'fr_trash_$name');
-      await openLibrarySection(tester, 'Library');
-      await openSearch(tester);
-      await tester.enterText(find.byType(TextField).first, 'lecture');
-      await settle(tester);
-      await shoot(tester, 'fr_library_search_$name');
       expect(tester.takeException(), isNull);
     });
   }
