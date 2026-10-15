@@ -168,6 +168,12 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="http"/>
         </intent>
+        <!-- Photos for Insert → Camera and document scans (image_picker's
+             ACTION_IMAGE_CAPTURE): the camera apps it grants the photo's
+             file to. No CAMERA permission: the system camera app takes it. -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE"/>
+        </intent>
         <intent>
             <action android:name="android.intent.action.SENDTO"/>
             <data android:scheme="mailto"/>
