@@ -69,25 +69,33 @@ class _CanvasEmptyHintState extends State<CanvasEmptyHint> {
         duration: Motion.slow,
         curve: Motion.standard,
         child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(Gaps.xl),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Symbols.gesture_sharp, size: Glyphs.empty, color: colour),
-                const SizedBox(height: Gaps.sm),
-                Text('Draw anywhere', style: theme.textTheme.titleMedium?.copyWith(color: colour)),
-                const SizedBox(height: Gaps.xs),
-                Text(
-                  // By input, not platform: a tablet with a mouse, or a
-                  // touch screen on the web, gets its own words.
-                  Targets.touchFirst
-                      ? 'Two fingers move and zoom\nLong-press for more options'
-                      : 'Scroll to move, Ctrl + scroll to zoom\nRight-click for more options',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: colour),
-                ),
-              ],
+          // Scaled down where the room is short (the soft keyboard up on a
+          // phone held sideways).
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Padding(
+              padding: const EdgeInsets.all(Gaps.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Symbols.gesture_sharp, size: Glyphs.empty, color: colour),
+                  const SizedBox(height: Gaps.sm),
+                  Text(
+                    'Draw anywhere',
+                    style: theme.textTheme.titleMedium?.copyWith(color: colour),
+                  ),
+                  const SizedBox(height: Gaps.xs),
+                  Text(
+                    // By input, not platform: a tablet with a mouse, or a
+                    // touch screen on the web, gets its own words.
+                    Targets.touchFirst
+                        ? 'Two fingers move and zoom\nLong-press for more options'
+                        : 'Scroll to move, Ctrl + scroll to zoom\nRight-click for more options',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: colour),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

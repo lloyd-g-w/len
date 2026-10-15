@@ -42,6 +42,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
   final RichTextController _text = RichTextController(const TextData());
   final FocusNode _focus = FocusNode(debugLabel: 'TextBoxEditor');
   final GlobalKey _dockedBar = GlobalKey(debugLabel: 'docked format bar');
+  final GlobalKey _field = GlobalKey(debugLabel: 'text box field');
   final TextBoxReveal _reveal = TextBoxReveal();
   String? _editingId;
 
@@ -127,13 +128,19 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
         if (element == null) return const SizedBox.shrink();
         final bounds = _screenBounds(element);
         final docked = MediaQuery.sizeOf(context).width < TextFormatBar.dockBelowWidth;
+        // (The content layer's padding is what the chrome covers.)
+        final covered = MediaQuery.paddingOf(context);
         _reveal.schedule(
           host: context,
           viewport: widget.viewport,
           id: element.id,
           box: bounds,
+          world: element.rect,
           bar: docked ? _dockedBar : null,
-          top: MediaQuery.paddingOf(context).top + TextBoxReveal.gap,
+          top: covered.top + TextBoxReveal.gap,
+          bottom: covered.bottom,
+          field: _field.currentContext,
+          caret: _text.selection.extentOffset,
         );
         final scale = widget.viewport.scale;
         // The box sits on the paper, not the chrome: ink blue in both themes
@@ -169,6 +176,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
                 ),
                 child: DefaultTextEditingShortcuts(
                   child: RichTextField(
+                    key: _field,
                     controller: _text,
                     focusNode: _focus,
                     cursorWidth: cursor,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderEditable;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_data.dart';
@@ -149,6 +150,48 @@ void main() {
     await expectClear();
     await tester.enterText(field, 'milk\neggs\nbread\nbutter');
     await expectClear();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('phones: a box too tall for the room keeps its caret above the format bar', (
+    tester,
+  ) async {
+    await openCanvas(tester, size: const Size(390, 844));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetViewInsets);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(120, 300)]);
+    await tester.pumpAndSettle();
+    final field = find.byKey(const ValueKey('text-box-field'));
+    await tester.enterText(field, List.generate(16, (i) => 'Line ${i + 1}').join('\n'));
+    await tester.pumpAndSettle();
+    final bar = find.ancestor(
+      of: find.byTooltip('Done (Esc)'),
+      matching: find.byType(FloatingPanel),
+    );
+    final editable = tester.allRenderObjects.whereType<RenderEditable>().single;
+    final caret = editable.getLocalRectForCaret(
+      TextPosition(offset: editable.text!.toPlainText().length),
+    );
+    final caretBottom = editable.localToGlobal(caret.bottomLeft).dy;
+    expect(caretBottom, lessThanOrEqualTo(tester.getRect(bar).top), reason: 'caret in view');
+    expect(caretBottom, greaterThan(0));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a phone held sideways: the box stays above the soft keyboard', (tester) async {
+    await openCanvas(tester, size: const Size(844, 390));
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(300, 300)]);
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 190);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    final field = find.byKey(const ValueKey('text-box-field'));
+    await tester.enterText(field, 'Exam on Friday\nRevise');
+    await tester.pumpAndSettle();
+    expect(tester.getRect(field).bottom, lessThanOrEqualTo(390 - 190));
+    expect(tester.getRect(field).top, greaterThan(0));
     expect(tester.takeException(), isNull);
   });
 

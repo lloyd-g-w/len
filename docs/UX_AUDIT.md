@@ -1,5 +1,77 @@
 # Len — UX/UI audit
 
+## Round 20 audit — a phone only (`review/round20`)
+
+Lens: someone who has Len only on an Android phone (6.1–6.7", 390-ish dp
+wide), writes with a finger, sometimes one-handed on the bus, sometimes
+with the phone sideways; GoodNotes 6 and Notability on phones and Samsung
+Notes are the references. Read in the code: the phone library
+(`library_screen_layout.dart`, `cover_grid.dart`, the drawer and FAB), the
+editor's `ChromeLayout` (phone and short windows), `PageFit`, the input
+routing for fingers (`ToolSettings.stylusOnly`, "Stylus detected"), the
+phone toolbar (switcher, previous tool, quick slots, sheets), the zoom
+window, text boxes (`TextBoxEditor`, `TextBoxReveal`, `TextFormatBar`),
+`EditorTips`, `CanvasEmptyHint`, ⋯ (`EditorMoreMenu`), sheets
+(`showDialogOrSheet`, `adaptive_popover.dart`). Rendered the phone and
+phone-sideways variants of the library, editor, toolbar, surfaces,
+overview and settings suites, plus probes for what they lacked: the soft
+keyboard over a text box (portrait and sideways), a notch on the left with
+the phone sideways, the library scrolled to its end, 1.3× text. Nothing was
+run on a device. ⬜ open, ✅ fixed on this branch.
+
+Summary: the phone layout is sound and calm — one bottom tool row in thumb
+reach (switcher, the previous tool, three colours and three sizes), the
+tool options as bottom sheets, ⊕ as a FAB, one row of chrome sideways that
+respects a notch, Recent and folders as strips above two columns of
+covers, and fingers that draw until a stylus is seen. What breaks on a
+phone is typing and finding the phone's tools: with the phone sideways the
+soft keyboard simply covers the text box being typed (and a long box's
+caret slides under the format bar in portrait); the zoom window — the
+answer GoodNotes gives to writing legibly with a finger on a 6" screen —
+is three levels down in ⋯ → View; nothing tells a finger writer that two
+fingers scroll; and the bottom tool row sits over the keyboard while
+typing, in a canvas already cut to a third of the screen.
+
+| Moment | Len | GoodNotes 6 · Notability (phone) · Samsung Notes | Verdict |
+|---|---|---|---|
+| Library | ☰ Library 🔍 ⇅; Recent and folders strips; 2 columns of covers; ⊕ FAB (hold: canvas, PDF, folder) | GoodNotes: 2–3 columns, + top right; Samsung: 2 columns, FAB | Keep |
+| One-handed | ⊕ and the tool row in thumb reach; 🔍, ☰ and undo at the top | the same in all three | Keep |
+| Sideways library | one row of chrome, covers fill the height, notch respected | similar | Keep |
+| Open a notebook | A4 fits the width (≈ 370 dp): reading is fine, writing needs zoom | the same | Keep |
+| Sideways notebook | Automatic fit keeps 55 % of a page in view (≈ 330 dp wide); Fit width in ⋯ → View | GoodNotes fits the width | Keep |
+| Finger draws (no stylus seen) | one finger writes, two pan and zoom; ⋯ → Draw with finger | GoodNotes, Notability: the same; Samsung: view / edit mode | Keep; hint R20-3 ✅ |
+| Canvas empty hint | "Two fingers move and zoom" — also when one finger pans | n/a | R20-4 ✅ |
+| Reading without writing | no one-finger scrolling while fingers draw | GoodNotes: read-only mode; Samsung: view mode | R20-6 → TODO |
+| Tool row | switcher ▾, previous tool, 3 colours, 3 sizes; options as sheets | GoodNotes: one scrolling row; Notability: the same | Keep |
+| Writing with a finger | zoom window: ⋯ → View → Zoom window (3 taps, no hint) | GoodNotes: zoom window in the toolbar | R20-2 ✅ |
+| Text box, portrait | the box pans clear of the docked format bar; a long box's caret goes under it | caret kept above the keyboard | R20-1 ✅ |
+| Text box, sideways | the keyboard covers the box being typed | the view follows the caret | R20-1 ✅ |
+| Keyboard up | the bottom tool row stays over it | GoodNotes, Samsung: the toolbar gives way to the format bar | R20-5 ✅ |
+| Lasso | floating menu over the selection; options as a sheet | the same | Keep |
+| Page navigation | peeking `3 / 12` pill; ▦ overview in 2 columns | GoodNotes: page thumbnails | Keep |
+| Recording | ⋯ → Record audio; controls docked above the tool row | Notability: mic in the toolbar | Keep |
+| Search | ⋯ → Search in notebook, matches folded under the field | the same | Keep |
+| Sheets vs dialogs | task sheets on phones, prompts as dialogs; both clear the keyboard | the same | Keep |
+| Safe areas | status bar, gesture bar and a notch sideways respected in library and editor | the same | Keep |
+| Large text (1.3×) | the library, settings and sheets reflow; the tool row keeps its icons | the same | Keep |
+
+### Prioritised items
+
+**R20-1 P1 · The soft keyboard covers the text box (sideways), and a long box's caret (portrait).** ✅
+- *What:* `TextBoxReveal` kept the box clear only of the docked format bar,
+  which docks only below 600 dp wide. Sideways (844 × 390) the bar floats,
+  so nothing moved the view when the keyboard opened: the box being typed
+  stayed where it was, under the keyboard. In portrait a box taller than
+  the room above the bar (about ten lines with the keyboard up) kept its
+  top in view and let the caret slide under the bar and keyboard. On an
+  empty canvas sideways, the "Draw anywhere" hint also overflowed the
+  200 dp left above the keyboard.
+- *Fix:* the edge is the docked bar's top, or else the bottom of the room
+  the chrome and keyboard leave; a box too tall for the room keeps its
+  caret's line above the edge. Re-checked when the box, its caret, the edge
+  or the zoom changes (not on the user's own pans). The empty hint scales
+  down. Effort S.
+
 ## Round 17 audit — recording a lecture (`review/round17`)
 
 Lens: a student who records every lecture on an S Pen tablet (sometimes a
