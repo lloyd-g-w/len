@@ -120,6 +120,20 @@ anything is recording. Reviewing on the laptop waits for every part of a
 - *Done:* as proposed; pen taps on ink still play, fingers still pan and
   zoom.
 
+Checked and sound: the first recording asks for the microphone (and the
+notification, Android 13+) only when Record is tapped, and a refusal says
+where to allow it with a Settings button; capture starts behind a small
+spinner and the time runs from the first frame; 5-minute parts keep a
+90-minute lecture safe from a crash (recovery offers the rest at the next
+start) and bound a browser's memory to one part; the waveform costs ≈ 36 KB
+an hour; pause in the bar or the notification maps ink written while
+paused to the resume; ink replay, tap-to-play (1.5 s lead), burst markers,
+speeds, ±10 s and media controls work as documented; trims are
+non-destructive and "Free up…" releases only what no other recording
+shares; export is one `.aac` per recording. Left for later (TODO "Next"):
+playing a recording while its parts download (R17-3). Not proposed:
+skip-silence (neither reference app has it, and it would be a setting).
+
 ## Round 16 audit — a year of notes (`review/round16`)
 
 Lens: a student a year in, with ~300 notebooks in nested folders
