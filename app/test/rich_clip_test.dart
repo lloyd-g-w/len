@@ -25,4 +25,38 @@ void main() {
     expect(chars[5], SpanStyle.plain);
     expect(chars[6], SpanStyle.plain);
   });
+
+  test('typing what was last copied is typing, not a paste', () {
+    final c = RichTextController(TextData.rich(text: 'ab'));
+    select(c, 0, 1);
+    c.toggleBold();
+    c.copyNow();
+    select(c, 2, 2);
+    type(c, 'a');
+    expect(c.data.charStyles()[2].bold, isFalse);
+    // A copied line break: Enter after a heading is still body text.
+    final h = RichTextController(
+      TextData.rich(
+        text: 'Title\nitem',
+        paras: const [
+          ParaStyle(heading: 1),
+          ParaStyle(list: ListKind.bullet),
+        ],
+      ),
+    );
+    select(h, 5, 6);
+    h.copyNow();
+    select(h, 10, 10);
+    type(h, '\n');
+    expect(h.data.paras.last.list, ListKind.bullet);
+    expect(h.data.paras.last.heading, 0);
+    // A copied space doesn't stop "- " from starting a list.
+    final s = RichTextController(TextData.rich(text: 'x y\n'));
+    select(s, 1, 2);
+    s.copyNow();
+    select(s, 4, 4);
+    type(s, '-');
+    type(s, ' ');
+    expect(s.data.paras.last.list, ListKind.bullet);
+  });
 }

@@ -153,11 +153,14 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
         : end > start && _buffer.text.codeUnitAt(start) != 0x0A
         ? _buffer.charStyle(start)
         : _buffer.styleAt(start);
-    // Text copied from a box here keeps its formatting; a browser paste
-    // (web) of HTML from another app is formatted.
+    // Text copied from a box here keeps its formatting (a paste: more
+    // than one character at once, not composed by the keyboard, so what
+    // is typed or swiped is never taken for it); a browser paste (web) of
+    // HTML from another app is formatted.
+    final pasted = inserted.length > 1 && !(next.composing.isValid && !next.composing.isCollapsed);
     final rich = inserted.isEmpty
         ? null
-        : clip?.text == inserted
+        : pasted && clip?.text == inserted
         ? clip
         : _pastedHtml(inserted);
     if (rich != null) {
