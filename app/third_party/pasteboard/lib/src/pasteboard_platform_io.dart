@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'cf_html.dart';
 import 'pasteboard_platform.dart';
 
 const PasteboardPlatform pasteboard = PasteboardPlatformIO();
@@ -92,7 +93,7 @@ class PasteboardPlatformIO implements PasteboardPlatform {
   }
 
   @override
-  Future<bool> write({Future<Uint8List?>? png, String? text}) async {
+  Future<bool> write({Future<Uint8List?>? png, String? text, String? html}) async {
     if (!(Platform.isAndroid || Platform.isLinux || Platform.isWindows)) return false;
     try {
       final image = await png;
@@ -100,6 +101,12 @@ class PasteboardPlatformIO implements PasteboardPlatform {
       final done = await _channel.invokeMethod<bool>('write', {
         if (image != null) 'png': image,
         if (text != null) 'text': text,
+        if (html != null)
+          'html': Platform.isWindows
+              ? encodeCfHtml(html)
+              : Platform.isLinux
+              ? '<meta charset="utf-8">$html'
+              : html,
       });
       return done ?? false;
     } catch (error) {

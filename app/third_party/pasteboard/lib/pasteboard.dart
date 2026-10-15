@@ -5,6 +5,7 @@ import 'src/pasteboard_platform_web.dart'
     if (dart.library.io) 'src/pasteboard_platform_io.dart';
 import 'src/pasteboard_platform.dart';
 
+export 'src/cf_html.dart' show encodeCfHtml;
 export 'src/pasteboard_platform.dart' show PasteboardKind;
 
 class Pasteboard {
@@ -26,14 +27,16 @@ class Pasteboard {
   /// HTML format: https://docs.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/aa767917(v=vs.85)
   static Future<String?> get html => pasteboard.html;
 
-  /// Puts a PNG image and / or plain text on the system clipboard as one
-  /// entry (other apps take the format they understand). Added in this
-  /// copy; available on Android, Linux, Windows and the web. [png] may
-  /// still be rendering: the web hands the browser a promise of it, as
-  /// Safari only lets a user gesture write the clipboard synchronously.
-  /// Returns whether the clipboard now holds it.
-  static Future<bool> write({Future<Uint8List?>? png, String? text}) =>
-      pasteboard.write(png: png, text: text);
+  /// Puts a PNG image, plain text and / or an HTML fragment (only with
+  /// [text], its plain version) on the system clipboard as one entry
+  /// (other apps take the format they understand). Added in this copy;
+  /// available on Android, Linux, Windows and the web. [png] may still be
+  /// rendering: the web hands the browser a promise of it, as Safari only
+  /// lets a user gesture write the clipboard synchronously. [html] is
+  /// wrapped as each platform expects (Windows' CF_HTML header, a UTF-8
+  /// `<meta>` for GTK). Returns whether the clipboard now holds it.
+  static Future<bool> write({Future<Uint8List?>? png, String? text, String? html}) =>
+      pasteboard.write(png: png, text: text, html: text == null ? null : html);
 
   /// available on iOS, Android, Web
   ///
