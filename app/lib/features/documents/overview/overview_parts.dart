@@ -6,6 +6,7 @@ import '../../../ui/context_menu_keys.dart';
 import '../../../ui/empty_state.dart';
 import '../../../ui/messages.dart';
 import '../../../ui/roving_focus.dart';
+import 'overview_grid.dart';
 
 export 'overview_selection.dart';
 
@@ -128,9 +129,12 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
 /// The last tile of the overview: adds a page at the end; held down (or
 /// right-clicked), with a template.
 class AddPageTile extends StatelessWidget {
-  const AddPageTile({super.key, required this.onTap, this.onLongPress});
+  const AddPageTile({super.key, required this.onTap, this.onLongPress, this.pageAspect = a4Aspect});
 
   final VoidCallback onTap;
+
+  /// The shape of the grid's pages, which the tile takes.
+  final double pageAspect;
   final VoidCallback? onLongPress;
 
   @override
@@ -142,7 +146,7 @@ class AddPageTile extends StatelessWidget {
         Expanded(
           child: Center(
             child: AspectRatio(
-              aspectRatio: 794 / 1123,
+              aspectRatio: pageAspect,
               child: Padding(
                 // Where a page tile's paper sits inside its selection ring.
                 padding: const EdgeInsets.all(Hairline.rule + Gaps.xxs),
@@ -178,7 +182,7 @@ class AddPageTile extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: Gaps.xs + 40),
+        const SizedBox(height: OverviewGrid.footer),
       ],
     );
   }
