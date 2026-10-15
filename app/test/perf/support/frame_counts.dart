@@ -1,7 +1,5 @@
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
-import 'package:len/features/editor/document/document_painters.dart';
-import 'package:len/ink/render/ink_painters.dart';
 
 /// What [n] frames of [step] cost after [warmUp] more: widgets rebuilt and
 /// render objects painted a frame (the most frequent by type), and the
@@ -22,14 +20,11 @@ Future<String> countFrames(Future<void> Function(int i) step, int n, {int warmUp
   };
   debugProfilePaintsEnabled = true;
   debugOnProfilePaint = (r) {
+    // A boundary left clean is only composited again, not painted.
+    if (r.isRepaintBoundary && !r.debugNeedsPaint) return;
+    // Custom paints by painter, so a layer left alone shows by its absence.
     final painter = r is RenderCustomPaint ? r.painter : null;
-    final name = switch (painter) {
-      DocumentPaperPainter() ||
-      DocumentInkPainter() ||
-      CommittedInkPainter() ||
-      LiveInkPainter() => 'CP:${painter.runtimeType}',
-      _ => r.runtimeType.toString(),
-    };
+    final name = painter == null ? r.runtimeType.toString() : 'CP:${painter.runtimeType}';
     painted[name] = (painted[name] ?? 0) + 1;
   };
   final watch = Stopwatch()..start();

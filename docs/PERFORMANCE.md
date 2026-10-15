@@ -215,6 +215,23 @@ and the app functions it ran under.
   task over 500 ms in any step once the page has started (it was the big
   notebook only).
 
+## Leftovers 2 (branch perf/leftovers-2, Oct 2026)
+
+Debug JIT in the harness on a shared machine; trust the counts.
+
+| Scenario | Before | After |
+|---|---|---|
+| Scan screen, corner drag (a frame) | 2 rebuilds, 6 paints, the one painter drawing the whole photo (≤ 1,600 px) and the loupe's copy of it; 2.7 ms | 2 rebuilds, 7 paints: the photo's painter not at all (a layer of its own), the outline painter's loupe draws only the 37-px patch it shows; 3.0–3.6 ms |
+
+- **Scan corner drag.** The photo is painted by its own painter behind a
+  `RepaintBoundary` and repaints only when the photo or its place changes;
+  a move repaints the outline, the dimming, the handles and the loupe. The
+  harness can't time rasterising, which is where the saving is (one full
+  photo `drawImageRect` with mipmaps a frame, two with the loupe); the
+  benchmark checks that the photo's painter stays out of the frame. The
+  frame counter now names every custom painter and leaves out boundaries
+  that are only composited again.
+
 ## Current numbers (debug, harness)
 
 - **Library, 1,000 notebooks:** first frame 400–450 ms (a warm 20-notebook
@@ -239,10 +256,6 @@ and the app functions it ran under.
   layer (see "Paged scroll" above). Per scroll or pan frame nothing does
   now; dragging a PDF selection's handle still rebuilds the selection's
   layer per move (the selection itself changes).
-- A corner drag on the scan screen redraws the photo (the display copy,
-  ≤ 1,600 px) with the outline on every move; a layer of its own for the
-  photo would leave only the outline and loupe.
-
 - Web (JavaScript): ink tiles, thumbnails and LOD rasters become images
   through a GPU read-back on the main thread (CanvasKit), and alternating
   image sizes resize its shared surface each time; batching renders by size

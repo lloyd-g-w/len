@@ -75,7 +75,7 @@ From the reports; the owner picks. Status as above.
 - ⬜ **Tablet checks** (INK_LAB): the low-latency overlay's front buffer and pen-up
   handover by eye; perf-probe numbers for the later tile / LOD rounds and the background
   recogniser; writing while a 15 000-stroke canvas loads (pen-up p90 47 ms, GC pauses).
-- ⬜ **Scan corner drag** redraws the photo with the outline per move; a layer of its own
+- ✅ **Scan corner drag** redraws the photo with the outline per move; a layer of its own
   for the photo would leave only the outline and loupe (PERFORMANCE).
 - ⬜ **First pull** bound by SQLite inserts on the UI isolate; apply in a worker with its
   own connection (PERFORMANCE).

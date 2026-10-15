@@ -13,7 +13,7 @@ import 'support/frame_counts.dart';
 
 /// A frame of a corner drag on the scan screen (three pages in the strip):
 /// widgets rebuilt and render objects painted while the outline follows
-/// the pointer.
+/// the pointer (the photo beneath must not repaint).
 ///
 /// Run: `tool/light.sh flutter test test/perf/scan_screen_perf_test.dart`.
 void main() {
@@ -60,6 +60,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 16));
     }, 120);
     report('SCAN corner drag: $run');
+    // The photo has a layer of its own: only the outline and loupe repaint.
+    expect(run, isNot(contains('_PhotoPainter')));
     await pointer.up();
     await tester.pumpWidget(const SizedBox());
     session.dispose();
