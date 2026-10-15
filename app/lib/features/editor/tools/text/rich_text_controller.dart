@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import '../../../../domain/text/html_text.dart';
 import '../../../../domain/text/rich_text_buffer.dart';
 import '../../../../domain/text/text_data.dart';
+import '../../../../ink/elements/text_edit_session.dart' show BoxHistory;
 import '../../../../ink/elements/text_layout.dart';
 import '../../../../platform/clipboard_html.dart';
 
@@ -25,7 +26,7 @@ part 'rich_text_state.dart';
 /// Edits the field makes are mapped back onto the buffer; formatting
 /// commands act on the selection (or, with a collapsed caret, on what is
 /// typed next, see [_RichTextFormatting]).
-class RichTextController extends _RichTextState with _RichTextFormatting {
+class RichTextController extends _RichTextState with _RichTextFormatting implements BoxHistory {
   RichTextController(super.data);
 
   /// Text copied from a box here, with its formatting: pasting the same
@@ -185,15 +186,52 @@ class RichTextController extends _RichTextState with _RichTextFormatting {
           ? start + 1
           : (backspaced ? start : -1),
       deletes: backspaced,
+      composing: next.composing.isValid && !next.composing.isCollapsed,
     );
     onDataChanged?.call();
+    if (typed && inserted == ' ' && rich == null) _autoList(start);
   }
+
+  /// What typed at a plain line's start, before a space, starts a list.
+  static const Map<String, ListKind> listPrefixes = {
+    '-': ListKind.bullet,
+    '*': ListKind.bullet,
+    '•': ListKind.bullet,
+    '1.': ListKind.number,
+    '1)': ListKind.number,
+    '[]': ListKind.check,
+    '[ ]': ListKind.check,
+  };
+
+  /// A space just typed at [space] after one of [listPrefixes] at the start
+  /// of a line that is no list: the line becomes that list, the prefix
+  /// goes. A step of its own, so undo gives the typed characters back.
+  void _autoList(int space) {
+    final line = _buffer.lineOf(space);
+    if (_buffer.para(line).isList) return;
+    final from = _buffer.lineStart(line);
+    final kind = listPrefixes[_buffer.text.substring(from, space)];
+    if (kind == null) return;
+    _buffer
+      ..replace(from, space + 1, '', _buffer.styleAt(from))
+      ..updateParas(line, line, (p) => p.copyWith(list: kind));
+    _pending = null;
+    _changedKeeping(TextRange.collapsed(from));
+  }
+
+  @override
+  bool get canUndo => _history.canUndo;
+
+  @override
+  bool get canRedo => _history.canRedo;
 
   /// Undoes the last change in the box, formatting included; false when
   /// there is none.
+  @override
   bool undo() => _restore(_history.undo(_snapshot));
 
   /// Redoes the change undone last; false when there is none.
+  @override
   bool redo() => _restore(_history.redo(_snapshot));
 
   bool _restore(_Snapshot? state) {

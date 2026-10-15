@@ -4,6 +4,7 @@ import 'dart:ui';
 import '../../domain/surface_element.dart';
 import '../elements/text_edit_session.dart';
 import '../elements/text_hit_test.dart';
+import '../elements/text_layout.dart';
 import '../tool_settings.dart';
 import '../viewport.dart';
 import 'content_hit_test.dart';
@@ -64,6 +65,29 @@ class TextTool implements PointerTool {
     _limitAt(at.dx);
     session.create(at, style: tools.textStyle);
   }
+
+  /// Starts a box holding [text] (typed with no box open): under the box
+  /// finished last when that is in view, else at the middle of the view's
+  /// left half.
+  void startTyping(String text) {
+    final style = tools.textStyle;
+    final line = TextLayout.heightOf(style.copyWith(text: ''), TextLayout.minWidth);
+    final visible = viewport.visibleWorld;
+    final last = session.lastBox;
+    var at = last == null || last.surfaceId != session.model.surfaceId
+        ? null
+        : Offset(last.rect.left, last.rect.bottom + line);
+    if (at == null || !visible.deflate(line).contains(at)) {
+      final c = visible.center;
+      at = Offset(c.dx - math.min(visible.width / 4, maxTypingInset / viewport.scale), c.dy);
+    }
+    _limitAt(at.dx);
+    session.create(at, style: style, text: text);
+  }
+
+  /// Furthest left of the centre (screen pixels) a box typed with no box
+  /// open starts.
+  static const double maxTypingInset = 200;
 
   /// Auto-width boxes starting at [left] wrap at the screen's edge.
   void _limitAt(double left) {

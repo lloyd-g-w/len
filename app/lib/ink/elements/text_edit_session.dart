@@ -11,6 +11,19 @@ import '../surface_model.dart';
 import '../undo_history.dart';
 import 'text_layout.dart';
 
+/// The edited box's own history (its editor keeps it): what the editor's
+/// undo and redo act on while a box is edited.
+abstract interface class BoxHistory implements Listenable {
+  bool get canUndo;
+  bool get canRedo;
+
+  /// Steps back; false when there is nothing to undo.
+  bool undo();
+
+  /// Steps forward; false when there is nothing to redo.
+  bool redo();
+}
+
 /// The text box being edited on a surface, if any.
 ///
 /// While editing, the element is hidden from the committed layer and an
@@ -44,16 +57,23 @@ class TextEditSession extends ChangeNotifier {
 
   bool get isEditing => _current != null;
 
+  /// The box finished last (not emptied): typing on goes under it.
+  ({String surfaceId, Rect rect})? lastBox;
+
+  /// The history of the box being typed in, set by its editor.
+  BoxHistory? boxHistory;
+
   TextData get data => TextData.fromJson(_current?.data ?? const {});
 
-  /// Starts a new, empty text box at world point [at] (its first line's
-  /// middle), formatted like [style]. Without a [width] the box is as wide
-  /// as its text (growing up to [autoWidthLimit], then wrapping).
-  void create(Offset at, {required TextData style, double? width}) {
+  /// Starts a new text box at world point [at] (its first line's middle),
+  /// formatted like [style], holding [text] (empty by default). Without a
+  /// [width] the box is as wide as its text (growing up to
+  /// [autoWidthLimit], then wrapping).
+  void create(Offset at, {required TextData style, double? width, String text = ''}) {
     _end(notify: false);
     _edited = false;
     _startWidth = 0;
-    final data = style.copyWith(text: '', autoWidth: width == null);
+    final data = style.copyWith(text: text, autoWidth: width == null);
     final w = width ?? TextLayout.naturalWidth(data);
     final height = TextLayout.heightOf(data, w);
     _current = SurfaceElement(
@@ -156,6 +176,7 @@ class TextEditSession extends ChangeNotifier {
     _current = null;
     final data = TextData.fromJson(current.data);
     final empty = data.text.trim().isEmpty;
+    lastBox = empty ? null : (surfaceId: current.surfaceId, rect: current.rect);
     if (original == null) {
       if (!empty) _model.commit(InkEdit(addedElements: [current]));
     } else if (empty) {

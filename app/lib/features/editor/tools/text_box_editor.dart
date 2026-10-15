@@ -59,7 +59,10 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
           _focus.requestFocus();
         },
       );
-    _session.addListener(_onSession);
+    _session
+      ..boxHistory = _text
+      ..addListener(_onSession);
+    _text.addListener(_onSelection);
     _onSession();
   }
 
@@ -69,6 +72,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
   @override
   void dispose() {
     _session.removeListener(_onSession);
+    if (identical(_session.boxHistory, _text)) _session.boxHistory = null;
     _text.dispose();
     _focus.dispose();
     super.dispose();
@@ -102,6 +106,45 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
     });
   }
 
+  /// The caret moved (arrows, a tap): keep it in view.
+  void _onSelection() {
+    final element = _session.current;
+    if (element == null || !mounted || _text.selection == _revealedSelection) return;
+    _scheduleReveal(element, _screenBounds(element));
+  }
+
+  TextSelection? _revealedSelection;
+
+  /// Keeps the caret clear of the keyboard and the docked bar (after this
+  /// frame).
+  void _scheduleReveal(SurfaceElement element, Rect bounds) {
+    final docked = MediaQuery.sizeOf(context).width < TextFormatBar.dockBelowWidth;
+    final padding = MediaQuery.paddingOf(context);
+    final selection = _revealedSelection = _text.selection;
+    _reveal.schedule(
+      host: context,
+      viewport: widget.viewport,
+      state: (element.id, element.rect, element.rotation, selection),
+      box: bounds,
+      caret: _caretRect,
+      bar: docked ? _dockedBar : null,
+      top: padding.top + TextBoxReveal.gap,
+      bottom: padding.bottom,
+    );
+  }
+
+  /// The caret's rect in global coordinates, if the field is laid out.
+  Rect? _caretRect() {
+    if (!mounted || _session.current == null) return null; // The box ended.
+    final field = _focus.context?.findAncestorStateOfType<EditableTextState>();
+    final editable = field?.renderEditable;
+    if (editable == null || !editable.attached || !editable.hasSize) return null;
+    final selection = _text.selection;
+    if (!selection.isValid) return null;
+    final local = editable.getLocalRectForCaret(selection.extent);
+    return MatrixUtils.transformRect(editable.getTransformTo(null), local);
+  }
+
   /// Converts a global pointer position to world coordinates.
   Offset _world(Offset global) {
     final box = context.findRenderObject()! as RenderBox;
@@ -114,8 +157,16 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
     // otherwise (it would lay out and repaint the editor).
     return ListenableBuilder(
       listenable: _session,
-      builder: (context, _) =>
-          _session.current == null ? const SizedBox.shrink() : _editor(context),
+      builder: (context, _) => _session.current == null
+          ? const SizedBox.shrink()
+          // Back (Android's) finishes the box before it leaves the editor.
+          : PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop) _session.end();
+              },
+              child: _editor(context),
+            ),
     );
   }
 
@@ -126,15 +177,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
         final element = _session.current;
         if (element == null) return const SizedBox.shrink();
         final bounds = _screenBounds(element);
-        final docked = MediaQuery.sizeOf(context).width < TextFormatBar.dockBelowWidth;
-        _reveal.schedule(
-          host: context,
-          viewport: widget.viewport,
-          id: element.id,
-          box: bounds,
-          bar: docked ? _dockedBar : null,
-          top: MediaQuery.paddingOf(context).top + TextBoxReveal.gap,
-        );
+        _scheduleReveal(element, bounds);
         final scale = widget.viewport.scale;
         // The box sits on the paper, not the chrome: ink blue in both themes
         // (like the selection handles).

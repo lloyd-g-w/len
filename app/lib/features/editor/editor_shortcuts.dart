@@ -30,13 +30,17 @@ VoidCallback unlessTyping(VoidCallback action) => () {
 /// Ctrl, Alt or ⌘): the editor lets it through to the platform's text
 /// input untouched, as Flutter does for Space, instead of letting a
 /// single-key shortcut swallow it.
-bool typesCharacter(KeyEvent event) {
-  if (event is KeyUpEvent || !isTyping()) return false;
+bool typesCharacter(KeyEvent event) => isTyping() && typedCharacter(event) != null;
+
+/// The printable character [event] types (no Ctrl, Alt or ⌘), if any.
+String? typedCharacter(KeyEvent event) {
+  if (event is KeyUpEvent) return null;
   final character = event.character;
-  if (character == null || character.isEmpty || character.codeUnitAt(0) < 0x20) return false;
-  if (character.codeUnitAt(0) == 0x7f) return false;
+  if (character == null || character.isEmpty || character.codeUnitAt(0) < 0x20) return null;
+  if (character.codeUnitAt(0) == 0x7f) return null;
   final keyboard = HardwareKeyboard.instance;
-  return !keyboard.isControlPressed && !keyboard.isAltPressed && !keyboard.isMetaPressed;
+  if (keyboard.isControlPressed || keyboard.isAltPressed || keyboard.isMetaPressed) return null;
+  return character;
 }
 
 const _digitKeys = [

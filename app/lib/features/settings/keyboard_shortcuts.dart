@@ -180,6 +180,9 @@ final List<ShortcutGroup> shortcutGroups = [
       SingleActivator(LogicalKeyboardKey.tab, shift: true),
     ], shown: 'Tab / Shift+Tab'),
     const ShortcutHelp('Done', [SingleActivator(LogicalKeyboardKey.escape)]),
+    // Handled by the editor's key handler (R19-3).
+    const ShortcutHelp('New text box (Text tool)', [], shown: 'Type'),
+    const ShortcutHelp('Back to the tool before (Text tool)', [], shown: 'Esc'),
   ]),
   ShortcutGroup('Library', [
     ShortcutHelp('New notebook', [_ctrl(LogicalKeyboardKey.keyN)]),

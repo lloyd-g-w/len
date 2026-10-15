@@ -49,6 +49,7 @@ extension _EditorLayout on _EditorScreenState {
       return KeyEventResult.handled;
     }
     if (escape && _guard.closeMenus()) return KeyEventResult.handled;
+    if (escape && _session.content.leaveTextTool()) return KeyEventResult.handled;
     // The Menu key or Shift+F10 on the page: the canvas menu, at the
     // middle of the view.
     if (node.hasPrimaryFocus && ContextMenuKeys.accepts(event)) {
@@ -58,7 +59,18 @@ extension _EditorLayout on _EditorScreenState {
     // A character typed into a text box goes to the text, past the
     // editor's single-key shortcuts (Space turning pages, P for the pen…).
     if (typesCharacter(event)) return KeyEventResult.skipRemainingHandlers;
+    // With the Text tool and no box open, typing starts a box (letters
+    // are not tool shortcuts then).
+    if (node.hasPrimaryFocus && _typeIntoNewBox(event)) return KeyEventResult.handled;
     return handlePlaybackKey(_audio, event);
+  }
+
+  /// Starts a text box with the character [event] types, when the Text
+  /// tool is on and no box is open.
+  bool _typeIntoNewBox(KeyEvent event) {
+    if (event is! KeyDownEvent || isTyping()) return false;
+    final character = typedCharacter(event);
+    return character != null && _session.content.typeText(character);
   }
 
   Widget _buildArea(

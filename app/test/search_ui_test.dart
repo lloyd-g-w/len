@@ -349,6 +349,42 @@ void main() {
 
 /// R5-15: a match at the very top of page 1 lands below the bar.
 void searchBarClearsTheFirstMatch() {
+  testWidgets('editor: each occurrence in a text box is a match, highlighted on its word', (
+    tester,
+  ) async {
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    final nbs = seed(services);
+    final first = services.pages.pagesOf(nbs.biology.id).first;
+    final box = textBox(
+      'long',
+      first.id,
+      'Exam soon.\nRevise, then the exam\nexam!',
+      const Offset(90, 400),
+    );
+    services.elements.save([box]);
+    await pumpEditorFor(tester, services, nbs.biology);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    await typeSearch(tester, 'exam');
+    expect(find.text('3 matches'), findsOneWidget);
+    final search = tester.widget<EditorSearchBar>(find.byType(EditorSearchBar)).controller;
+    final rects = [for (final m in search.matches) search.rectsOf(m).single.rect];
+    // In text order, one word each, inside the box, on three lines.
+    expect([for (final m in search.matches) m.range.start], [0, 28, 33]);
+    for (final r in rects) {
+      expect(
+        box.rect.inflate(2).contains(r.topLeft) && box.rect.inflate(2).contains(r.bottomRight),
+        isTrue,
+      );
+      expect(r.width, lessThan(box.rect.width / 2));
+    }
+    expect(rects[0].top, lessThan(rects[1].top));
+    expect(rects[1].top, lessThan(rects[2].top));
+  });
+
   testWidgets('phone: the first match shows below the bar on open and when stepping', (
     tester,
   ) async {

@@ -1860,6 +1860,10 @@ surface.
   it; a disposed `SurfaceModel` ignores edits.
 - **Text** (`elements/text_edit_session.dart`): tapping with the Text tool
   creates or edits a box; double-tapping a box with the lasso edits it too.
+  With the Text tool and no box open, a typed character starts a box with it
+  (`ContentTools.typeText`: under the box finished last when in view, else left
+  of the view's middle), so letters are not tool shortcuts then; Esc goes back to
+  the tool used before (`leaveTextTool`).
   While editing, the element is hidden and a real `TextField` is laid out
   in world units and transformed by the viewport — `TextLayout` gives the
   field and the renderer the same complete (non-inheriting) styles, so text
@@ -1930,7 +1934,8 @@ GoodNotes-style rich text inside a box.
   onto the buffer (common prefix/suffix diff, the caret disambiguating repeated
   characters); the field's text is the laid-out text with placeholders, which
   the caret steps over. Backspace after a marker removes the list, Enter on an
-  empty item ends it. Formatting acts on the selection, or with a collapsed caret
+  empty item ends it; "- ", "* ", "1. " or "[] " typed at a plain line's start
+  makes it a list (`listPrefixes`; undo right after gives them back). Formatting acts on the selection, or with a collapsed caret
   on what is typed next; in an empty box font, size and colour set the box
   defaults (remembered as the default text style, also in the Text tool's
   settings). Copy / cut put the plain text on the clipboard and remember its
@@ -1939,13 +1944,19 @@ GoodNotes-style rich text inside a box.
   bullet / numbered / checklist, alignment (scrolls on phones; delete and done
   stay). Shortcuts: Ctrl/⌘+B / I / U, Ctrl+Shift+X strikethrough, Ctrl+Shift+7 /
   8 / 9 lists, Ctrl+Alt+1 / 2 headings (Ctrl+Alt+0 body), Tab / Shift+Tab indent,
-  Ctrl+Enter ticks, Esc finishes.
+  Ctrl+Enter ticks, Esc finishes. `TextBoxReveal` pans the view so the caret stays clear of
+  the soft keyboard and the phone's docked bar (the whole box while it fits). While a box is edited the editor's Undo / Redo (bar
+  buttons, finger taps) step through its history (`EditingUndo` over the box's
+  `BoxHistory`); undo past its first state finishes the box and undoes the page.
 - **Size**: new boxes are **auto-width** (as wide as their text, growing up to
   the screen edge, then wrapping there); dragging a side handle sets a width and
   wraps from then on. Lasso corner scaling scales every size in the box.
 - **Checklists**: ticking (tap the box while editing, or with the Text tool on a
   committed box, `TextHitTest`) is undoable; ticked items are struck through and
   faded.
+- **Screen readers**: while semantics are on, `TextBoxSemantics` lays a node
+  over each text box in view on the edited surface (its text, in reading
+  order; activating it edits the box).
 - **Lasso**: *Style* (`selection_style_panel.dart`) changes font and size of the
   selected boxes and pen type / width of selected ink (`SelectionController
   .restyleText` / `restyleInk`, one undo step each); *Colour* recolours all text.
@@ -2798,7 +2809,8 @@ boxes, the text of imported PDF pages and recognised handwriting (see
   the editor's search takes the jump, fills in the query and reveals and
   highlights the match.
 - **Editor (Ctrl+F or the search button).** `EditorSearchController` holds
-  the query, matches (one per text box, one per occurrence in PDF text) and
+  the query, matches (one per occurrence in a text box — highlighted where the
+  box's layout puts the words, `textMatchRects` — or in PDF text) and
   the current one; Enter/F3 and Shift+Enter/Shift+F3 move, Esc closes.
   It reaches the editor only through `EditorSearchHost` (document: page
   frames + `goToPage` + pan; canvas: viewport pan, zooming out if needed),

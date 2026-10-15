@@ -7,7 +7,7 @@ typedef _Snapshot = ({TextData data, TextSelection selection});
 /// Undo and redo inside the box being edited, formatting included (the
 /// text field's own undo only knows plain text). A run of typed characters
 /// up to a space or line break, or of characters deleted one by one, is one
-/// step.
+/// step; so is an IME composition (pinyin, romaji) with its commit.
 class _TextHistory {
   static const _limit = 200;
 
@@ -22,6 +22,9 @@ class _TextHistory {
   int _runAt = -1;
   bool _runDeletes = false;
 
+  /// Whether the last change left an IME composition open.
+  bool _composing = false;
+
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
 
@@ -31,6 +34,7 @@ class _TextHistory {
     _redo.clear();
     _last = state;
     _runAt = -1;
+    _composing = false;
   }
 
   /// The selection moved to [selection] without a change.
@@ -41,10 +45,18 @@ class _TextHistory {
 
   /// The text changed to [state]. A typing run continues when the edit
   /// starts at [runFrom] where the last one ended; it then goes on at
-  /// [runTo] (-1 ends the run).
-  void changed(_Snapshot state, {int runFrom = -1, int runTo = -1, bool deletes = false}) {
+  /// [runTo] (-1 ends the run). Changes while [composing] (and the one
+  /// that ends the composition) go on the same step.
+  void changed(
+    _Snapshot state, {
+    int runFrom = -1,
+    int runTo = -1,
+    bool deletes = false,
+    bool composing = false,
+  }) {
     final last = _last;
-    final continues = runFrom >= 0 && runFrom == _runAt && deletes == _runDeletes;
+    final continues = _composing || (runFrom >= 0 && runFrom == _runAt && deletes == _runDeletes);
+    _composing = composing;
     if (!continues && last != null) {
       _undo.add(last);
       if (_undo.length > _limit) _undo.removeAt(0);
@@ -65,6 +77,7 @@ class _TextHistory {
     if (from.isEmpty) return null;
     to.add(now);
     _runAt = -1;
+    _composing = false;
     return _last = from.removeLast();
   }
 }
