@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
+import '../stroke_hit_test.dart';
 import 'lasso_config.dart';
 
 /// A closed lasso polygon (world coordinates; a freehand loop or a
@@ -17,7 +18,8 @@ import 'lasso_config.dart';
 /// is judged by where its length actually is. A dot (single point / zero
 /// length) is selected when its point is inside. [LassoCover.whole]: every
 /// point inside and no segment crossing the outline. [LassoCover.touching]:
-/// a point inside or a segment crossing the outline.
+/// a point inside or a segment crossing the outline, or (a filled shape)
+/// the lasso drawn within its fill.
 ///
 /// **Elements**, [LassoCover.mostly]: their centre is inside, or at least
 /// half of their outline samples (corners and edge midpoints) are; for
@@ -108,7 +110,10 @@ class Lasso {
     return switch (config.cover) {
       LassoCover.mostly => insideShare(stroke) >= strokeShare,
       LassoCover.whole => _encloses([for (final p in stroke.points) p.offset]),
-      LassoCover.touching => _touches([for (final p in stroke.points) p.offset]),
+      // A lasso drawn within a filled shape touches it, as a tap there does.
+      LassoCover.touching =>
+        _touches([for (final p in stroke.points) p.offset]) ||
+            StrokeHitTest.fillContains(stroke, points.first),
     };
   }
 
