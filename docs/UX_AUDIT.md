@@ -88,7 +88,7 @@ undone without a word.
   (or it never opened it here), a paged notebook opens framed on that
   page; otherwise as kept. Effort M.
 
-**R16-5 P1 · A new device's first sync is a silent wait in an empty library.** ⬜
+**R16-5 P1 · A new device’s first sync is a silent wait in an empty library.** ✅
 - *What:* the first pull of a year (tens of thousands of records) runs
   for a minute or more with "Syncing…" and no measure of it; the
   library hears about the new notebooks only when the whole sync ends

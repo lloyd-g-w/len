@@ -2918,6 +2918,15 @@ the next cycle resumes. Where that runs:
   decodes on the UI thread) and applied on the UI thread in slices of
   about 4 ms with a turn of the event loop between (also between pages), so
   a first sync never holds the UI for a frame.
+A pull of more than a page reports after each page how far it is
+(`SyncEngine.onPullProgress`: the feed entries pulled of the server's `lastSeq` when it
+began) and what it changed so far: `SyncController.progress` makes the sidebar's caption
+and Settings → Sync say "Syncing… 40%", and at most every 2 s the controller announces the
+notebooks and folders brought so far (a `RemoteChanges` with only those flags), so a new
+device's library fills in while the rest arrives; the whole change set follows at the
+end as usual. While the first sync with a server runs (`firstSyncUnderWay`), an empty
+library says the notebooks are on their way instead of offering to create one
+(UX_AUDIT R16-5).
 Each cycle starts with `/v1/health`: its `serverId` decides whether this is
 the server last synced with — a new id (another server, or a wiped or
 restored one) resets the feed position and marks every row and blob for

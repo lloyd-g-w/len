@@ -30,6 +30,7 @@ class SyncController extends ChangeNotifier {
     }
     _refreshTooLarge();
     tokens.addListener(_tokenChanged);
+    engine.onPullProgress = _onPullProgress;
   }
 
   final SyncEngine engine;
@@ -75,6 +76,41 @@ class SyncController extends ChangeNotifier {
 
   SyncState get state => _state;
 
+  /// How far a long pull is (0..1) while [state] is syncing, once it is
+  /// more than a page (a new device's first sync, a long catch-up); null
+  /// otherwise (UX_AUDIT R16-5).
+  double? get progress => _progress;
+  double? _progress;
+
+  /// When the library last heard of notebooks and folders a long pull
+  /// brought ([_onPullProgress]).
+  int _announcedAt = 0;
+
+  /// How often a long pull tells the library about the notebooks and
+  /// folders it brought so far, so a new device's library fills in while
+  /// the rest arrives.
+  static const Duration announceEvery = Duration(seconds: 2);
+
+  void _onPullProgress(PullProgress p) {
+    if (_disposed || _state != SyncState.syncing) return;
+    final progress = p.total <= 0 ? null : (p.done / p.total).clamp(0.0, 1.0);
+    final percent = progress == null ? null : (progress * 100).floor();
+    if (percent != (_progress == null ? null : (_progress! * 100).floor())) {
+      _progress = progress;
+      notifyListeners();
+    }
+    final now = clock.nowMs();
+    final library = p.changes.notebooks || p.changes.folders;
+    if (library && now - _announcedAt >= announceEvery.inMilliseconds) {
+      _announcedAt = now;
+      _remoteChanges.add(
+        RemoteChanges()
+          ..notebooks = p.changes.notebooks
+          ..folders = p.changes.folders,
+      );
+    }
+  }
+
   /// Files that couldn't be uploaded when the rest of the last sync worked
   /// (retried next time); 0 unless that is all that failed.
   int get filesNotUploaded => _state == SyncState.error ? _filesNotUploaded : 0;
@@ -94,6 +130,10 @@ class SyncController extends ChangeNotifier {
   /// access token, which retrying cannot fix. Saving settings (or "Sync
   /// now") tries again.
   bool get waitsForSettings => lastFailure == SyncFailure.auth;
+
+  /// Whether this is the first sync with a server, under way: nothing of
+  /// the other devices' notes may be here yet.
+  bool get firstSyncUnderWay => _state == SyncState.syncing && settings.syncLastSeq == 0;
 
   /// When sync last succeeded (kept across launches), or null if never.
   DateTime? get lastSuccess => _lastSuccess;
@@ -246,6 +286,7 @@ class SyncController extends ChangeNotifier {
   void _setState(SyncState state) {
     if (_disposed) return;
     if (state == SyncState.disabled) _failingSince = null;
+    if (state != SyncState.syncing) _progress = null;
     _state = state;
     notifyListeners();
   }

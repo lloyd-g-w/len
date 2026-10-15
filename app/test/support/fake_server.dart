@@ -21,6 +21,9 @@ class FakeServer {
   /// Number of pull requests received.
   int pulls = 0;
 
+  /// The largest pull page served, if smaller than the client asks for.
+  int? maxPage;
+
   /// Extra raw records served by pull (for malformed-input tests).
   final List<Object?> injected = [];
 
@@ -139,7 +142,8 @@ class FakeServer {
         pulls++;
         final since = int.parse(request.url.queryParameters['since'] ?? '0');
         if (_historyLost(since) case final lost?) return lost;
-        final limit = int.parse(request.url.queryParameters['limit'] ?? '500');
+        var limit = int.parse(request.url.queryParameters['limit'] ?? '500');
+        if (maxPage case final max? when max < limit) limit = max;
         final all = _records.values.where((r) => (r['seq']! as int) > since).toList()
           ..sort((a, b) => (a['seq']! as int).compareTo(b['seq']! as int));
         final page = all.take(limit).toList();
@@ -148,6 +152,7 @@ class FakeServer {
             'records': [...injected, ...page],
             'nextSince': page.isEmpty ? since : page.last['seq'],
             'hasMore': all.length > page.length,
+            'lastSeq': _seq,
           }),
           200,
         );
@@ -178,6 +183,11 @@ Stroke bigStroke(String id, String surface, int points) => Stroke(
 /// A pull response with the given records and one page.
 http.Response pullResponse(List<Object?> records, {int nextSince = 1, bool hasMore = false}) =>
     http.Response(
-      jsonEncode({'records': records, 'nextSince': nextSince, 'hasMore': hasMore}),
+      jsonEncode({
+        'records': records,
+        'nextSince': nextSince,
+        'hasMore': hasMore,
+        'lastSeq': nextSince,
+      }),
       200,
     );

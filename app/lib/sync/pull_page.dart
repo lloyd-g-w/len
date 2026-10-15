@@ -10,12 +10,17 @@ class PullPage {
     required this.records,
     required this.nextSince,
     required this.hasMore,
+    required this.lastSeq,
     this.malformed = 0,
   });
 
   final List<SyncRecord> records;
   final int nextSince;
   final bool hasMore;
+
+  /// The server's newest seq when it read the page (≥ [nextSince]): how
+  /// far the feed goes, for showing progress.
+  final int lastSeq;
 
   /// Records on this page that could not be parsed and were dropped.
   final int malformed;
@@ -41,9 +46,12 @@ PullPage? decodePullPage(Uint8List body, {required int since}) {
   final rawRecords = decoded['records'];
   final nextSince = decoded['nextSince'];
   final hasMore = decoded['hasMore'];
+  final lastSeq = decoded['lastSeq'];
   if (rawRecords is! List ||
       nextSince is! int ||
       hasMore is! bool ||
+      lastSeq is! int ||
+      lastSeq < nextSince ||
       nextSince < since ||
       (hasMore && nextSince == since)) {
     return null;
@@ -60,7 +68,13 @@ PullPage? decodePullPage(Uint8List body, {required int since}) {
     }
     records.add(_prepare(record));
   }
-  return PullPage(records: records, nextSince: nextSince, hasMore: hasMore, malformed: malformed);
+  return PullPage(
+    records: records,
+    nextSince: nextSince,
+    hasMore: hasMore,
+    lastSeq: lastSeq,
+    malformed: malformed,
+  );
 }
 
 SyncRecord _prepare(SyncRecord record) {

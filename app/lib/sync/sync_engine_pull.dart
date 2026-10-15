@@ -6,6 +6,7 @@ extension _SyncPull on SyncEngine {
   Future<RemoteChanges> _pull(SyncApi api, CancelCheck cancelled) async {
     final changes = _unannounced ??= RemoteChanges();
     var since = settings.syncLastSeq;
+    final start = since;
     var next = api.pullBody(since: since);
     PullWorker? worker;
     var triedWorker = false;
@@ -23,6 +24,13 @@ extension _SyncPull on SyncEngine {
             : await _applyInWorker(worker, api, body, since, changes, cancelled, (n) => next = n);
         if (page.applied < page.total || !page.header.hasMore) break;
         since = page.header.nextSince;
+        // A pull of more than a page (a first sync, a long catch-up): how
+        // far it is, and what it brought so far (UX_AUDIT R16-5).
+        onPullProgress?.call((
+          done: since - start,
+          total: page.header.lastSeq - start,
+          changes: changes,
+        ));
         // The next page is often in already: still let a frame in first.
         if (worker == null) await Future<void>.delayed(Duration.zero);
       }
@@ -48,7 +56,12 @@ extension _SyncPull on SyncEngine {
     void Function(Future<Uint8List>) next,
   ) async {
     final page = await decodePulled(body, since: since) ?? (throw SyncException.unexpected);
-    final header = (nextSince: page.nextSince, hasMore: page.hasMore, malformed: page.malformed);
+    final header = (
+      nextSince: page.nextSince,
+      hasMore: page.hasMore,
+      lastSeq: page.lastSeq,
+      malformed: page.malformed,
+    );
     if (cancelled()) {
       return WorkedPage(header: header, applied: 0, total: page.records.length, changes: changes);
     }

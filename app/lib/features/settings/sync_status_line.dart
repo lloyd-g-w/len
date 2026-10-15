@@ -7,6 +7,7 @@ import '../../core/format.dart';
 import '../../sync/sync_controller.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/error_details.dart';
+import '../../ui/sync_status_button.dart';
 
 /// The sync status as a chip (with the last error and its Details), and
 /// any files too large to sync.
@@ -31,7 +32,11 @@ class SyncStatusLine extends StatelessWidget {
             scheme.onSurfaceVariant,
             'Sync is off: your notes are only on this device',
           ),
-          SyncState.syncing => (Symbols.cloud_sync_sharp, scheme.primary, 'Syncing…'),
+          SyncState.syncing => (
+            Symbols.cloud_sync_sharp,
+            scheme.primary,
+            syncingCaption(sync.progress),
+          ),
           SyncState.error => (
             Symbols.error_sharp,
             scheme.error,

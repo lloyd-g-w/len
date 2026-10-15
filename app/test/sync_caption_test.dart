@@ -12,6 +12,7 @@ void main() {
     expect(idle(const Duration(days: 2)), 'Synced 2d');
     expect(syncCaption(SyncState.idle, null, now), 'Not synced yet');
     expect(syncCaption(SyncState.syncing, now, now), 'Syncing…');
+    expect(syncCaption(SyncState.syncing, null, now, progress: 0.426), 'Syncing… 42%');
     expect(syncCaption(SyncState.error, now, now), 'Sync failed');
     expect(syncCaption(SyncState.disabled, null, now), deviceOnlyCaption);
   });

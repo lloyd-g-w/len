@@ -194,6 +194,7 @@ Response _pull(Request request, RecordStore store) {
     'records': [for (final r in page.records) r.toJson()],
     'nextSince': page.nextSince,
     'hasMore': page.hasMore,
+    'lastSeq': page.lastSeq,
   });
 }
 

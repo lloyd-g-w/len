@@ -62,7 +62,7 @@ class FakeBlobServer {
       return http.Response('{"applied":0,"ignored":0,"serverSeq":0}', 200);
     }
     if (path == '/v1/pull') {
-      return http.Response('{"records":[],"nextSince":0,"hasMore":false}', 200);
+      return http.Response('{"records":[],"nextSince":0,"hasMore":false,"lastSeq":0}', 200);
     }
     return http.Response('', 404);
   });
