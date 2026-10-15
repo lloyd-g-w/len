@@ -76,11 +76,12 @@ From the reports; the owner picks. Status as above.
   handover by eye; perf-probe numbers for the later tile / LOD rounds and the background
   recogniser; writing while a 15 000-stroke canvas loads (pen-up p90 47 ms, GC pauses).
 - ✅ **Scan corner drag** redraws the photo with the outline per move; a layer of its own
-  for the photo would leave only the outline and loupe (PERFORMANCE).
+  for the photo would leave only the outline and loupe (PERFORMANCE). Done (perf/leftovers-2).
 - ⬜ **First pull** bound by SQLite inserts on the UI isolate; apply in a worker with its
   own connection (PERFORMANCE).
-- ⬜ **Overview thumbnails** record during a fast drag; defer them while the grid flings
-  (PERFORMANCE).
+- ✅ **Overview thumbnails** record during a fast drag; defer them while the grid flings
+  (PERFORMANCE). Done (perf/leftovers-2): not recorded over two screens a second, filled in
+  when it slows.
 - ⬜ **Web (JavaScript)**: tiles, thumbnails and LOD rasters read back on the main thread;
   batch renders by size or keep tiles as pictures (PERFORMANCE).
 - ⬜ **Keyboard**: reorder overview pages (drag only today; UX_AUDIT).

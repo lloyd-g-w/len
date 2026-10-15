@@ -5,14 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
-import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/document/document_controller.dart';
 import 'package:len/features/editor/document/page_models.dart';
 import 'package:len/features/editor/document/page_overview.dart';
-import 'package:len/features/editor/document/page_thumbnail.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ui/app_theme.dart';
@@ -24,7 +22,6 @@ import 'support/big_library.dart';
 /// device, so they show as missing; their cost here is the page model).
 void main() {
   _longSession();
-  _overview();
   testWidgets('500 pages: open, go to the end, page overview', (tester) async {
     tester.view
       ..physicalSize = const Size(1200, 900)
@@ -128,90 +125,13 @@ void main() {
   });
 }
 
-/// A 500-page notebook of handwriting.
-(AppServices, Notebook) _lectures({int pages = 500, int lines = 20}) {
-  final clock = BenchClock();
-  final s = AppServices.create(AppDatabase.inMemory(), clock: clock);
-  final nb = s.notebooks.create(
-    title: 'Lectures',
-    kind: NotebookKind.paged,
-    paper: PaperStyle.collegeRuled,
-    coverColor: 0,
-  );
-  s.database.transaction(() {
-    s.pages.insertPages(nb.id, [
-      for (var i = 1; i < pages; i++)
-        (
-          size: const Size(595, 842),
-          paper: Paper(PaperStyle.collegeRuled),
-          color: PaperColor.white,
-          background: null,
-        ),
-    ]);
-    for (final p in s.pages.pagesOf(nb.id)) {
-      s.strokes.save(pageOfInk(p.id, clock, lines: lines, seed: 3));
-    }
-  });
-  return (s, nb);
-}
-
-void _overview() {
-  testWidgets('500 pages: the page overview renders what is on screen, bounded', (tester) async {
-    tester.view
-      ..physicalSize = const Size(1200, 900)
-      ..devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final (s, nb) = _lectures();
-    addTearDown(s.dispose);
-    final watch = Stopwatch()..start();
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light(),
-        home: PageOverview(
-          currentPage: 0,
-          copier: SurfaceCopier(s.strokes, elements: s.elements),
-          handlers: OverviewHandlers(
-            load: () => s.pages.pagesOf(nb.id),
-            move: s.pages.move,
-            command: (context, command, page) async {},
-          ),
-        ),
-      ),
-    );
-    final firstFrame = watch.elapsedMilliseconds;
-    await tester.pumpAndSettle();
-    final settled = watch.elapsedMilliseconds;
-    final rss = ProcessInfo.currentRss;
-    final frames = <int>[];
-    // One long, fast drag (25,000 px/s), then letting go.
-    final drag = await tester.startGesture(tester.getCenter(find.byType(Scrollable).first));
-    for (var i = 0; i < 80; i++) {
-      final frame = Stopwatch()..start();
-      await drag.moveBy(const Offset(0, -400));
-      await tester.pump(const Duration(milliseconds: 16));
-      frames.add(frame.elapsedMilliseconds);
-    }
-    await drag.up();
-    await tester.pumpAndSettle();
-    frames.sort();
-    final built = find.byType(PageThumbnail, skipOffstage: false).evaluate().length;
-    expect(built, lessThan(80), reason: 'a lazy grid');
-    report(
-      'overview, 500 pages: first frame ${firstFrame}ms, settled ${settled}ms; scroll frames '
-      'median ${frames[frames.length ~/ 2]}ms, max ${frames.last}ms; $built thumbnails '
-      'built; RSS +${(ProcessInfo.currentRss - rss) >> 20} MB after scrolling through all',
-    );
-    await tester.pumpWidget(const SizedBox());
-  });
-}
-
 void _longSession() {
   testWidgets('a long session: writing on 300 pages keeps few pages in memory', (tester) async {
     tester.view
       ..physicalSize = const Size(1200, 900)
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final (s, nb) = _lectures(lines: 10);
+    final (s, nb) = lectureNotebook(lines: 10);
     addTearDown(s.dispose);
     await tester.pumpWidget(
       AppScope(

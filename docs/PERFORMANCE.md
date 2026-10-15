@@ -14,7 +14,8 @@ how long the UI thread is held, `bestMs`, `report`).
 | File | Scenario |
 |---|---|
 | `library_scale_perf_test.dart` | 1,000 notebooks in 50 folders (100 favourites, 200 trashed), 10,000 pages of text and PDF text: open, scroll, search as you type, sort / layout, folder tree, content search |
-| `big_notebook_perf_test.dart` | 500-page notebook (45k strokes, half PDF pages): open, go to page 500, scroll; page overview; a long session writing on 300 pages (memory, undo) |
+| `big_notebook_perf_test.dart` | 500-page notebook (45k strokes, half PDF pages): open, go to page 500, scroll; a long session writing on 300 pages (memory, undo) |
+| `overview_scroll_perf_test.dart` | page overview of 500 pages of handwriting: a fast drag, a fling and a slow drag (frame times, pages recorded, tiles left blank) |
 | `sync_scale_perf_test.dart` | first full pull of 73k records (67k strokes) from a mock server (records encoded ahead, so serving costs the shared thread only a copy), then an incremental and an idle sync |
 | `scribble_perf_test.dart` | scribble to erase on very long strokes (writing, and a scribble going on): µs per pen move at 4k and 64k moves must stay flat |
 | `restore_scale_perf_test.dart` | restore a 21 MB library backup (200 notebooks, 45k strokes, 12 records parts): total time and the longest UI turn |
@@ -221,6 +222,9 @@ Debug JIT in the harness on a shared machine; trust the counts.
 
 | Scenario | Before | After |
 |---|---|---|
+| Overview, 500 pages, fast drag (60 frames at 25,000 px/s, stops mid-grid) | frames median 84–91 ms; 476 pages recorded while dragging | median 67–72 ms; 6 recorded while dragging (before it measures fast), 20 once it rests |
+| Overview, fling at 12,000 px/s | 142 frames, median 11 ms; 162 pages recorded | median 4–7 ms; 42 recorded |
+| Overview, slow drag at 300 px/s | median 2–3 ms; no tile blank for a frame | same |
 | Scan screen, corner drag (a frame) | 2 rebuilds, 6 paints, the one painter drawing the whole photo (≤ 1,600 px) and the loupe's copy of it; 2.7 ms | 2 rebuilds, 7 paints: the photo's painter not at all (a layer of its own), the outline painter's loupe draws only the 37-px patch it shows; 3.0–3.6 ms |
 
 - **Scan corner drag.** The photo is painted by its own painter behind a
@@ -231,6 +235,17 @@ Debug JIT in the harness on a shared machine; trust the counts.
   benchmark checks that the photo's painter stays out of the frame. The
   frame counter now names every custom painter and leaves out boundaries
   that are only composited again.
+- **Overview while scrolling fast.** `FastScroll` (`ui/fast_scroll.dart`)
+  measures the grid's speed frame to frame (a drag reports no velocity, so
+  `Scrollable.recommendDeferredLoadingForContext` alone sees only flings);
+  over two viewports a second, or a fling its physics would defer for, the
+  `ThumbnailCache` neither records nor rasterises. Pages scrolled past leave
+  the queue; those on screen are recorded once it slows or rests 100 ms.
+  The benchmark (`overview_scroll_perf_test.dart`) also flings and drags
+  slowly: at 300 px/s nothing is deferred and no tile is blank for a frame.
+  Profiled after the change, a fast-drag frame is all framework build and
+  layout of the tiles coming in, so the earlier "half of each frame" was
+  too high.
 
 ## Current numbers (debug, harness)
 
@@ -245,8 +260,8 @@ Debug JIT in the harness on a shared machine; trust the counts.
 - **500-page notebook:** first frame 155 ms (1-page: 66 ms); go to page 500
   102 ms; scroll median 18 ms. Overview: first frame 444 ms, 20 thumbnails
   built, +8 MB after scrolling all 500; one drag at 25,000 px/s: frames median
-  57 ms (seven new tiles a frame, about half of it recording their thumbnails;
-  27 ms without).
+  67–72 ms on a loaded machine (seven new tiles a frame built and laid out;
+  thumbnails wait until it slows), a fling median 4–7 ms.
 - **Startup:** database open 16 ms, services 1 ms, library 24 ms; blob GC
   (next day) 37 ms.
 
@@ -266,8 +281,8 @@ Debug JIT in the harness on a shared machine; trust the counts.
   with its chunk rows, 4 ms slices). Applying in a worker with its own
   connection would free the UI thread entirely, at the price of a second
   writer.
-- Overview thumbnails record during a fast drag; deferring them while the
-  grid flings (as `Image` does) would halve those frames.
+- Overview: a fast drag still builds and lays out ~7 new tiles a frame
+  (all of the remaining 55–70 ms in the harness, framework widget work).
 - Opening a folder (100–250 ms) and switching layouts build the new screen in
   full; `BlobReferences.all` still reads every live page and element once a
   day (33 ms for 10,000 pages; see above).
