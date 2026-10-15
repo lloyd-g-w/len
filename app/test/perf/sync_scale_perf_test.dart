@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -9,6 +10,7 @@ import 'package:http/testing.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/sync/sync_api.dart';
+import 'package:len/sync/sync_engine.dart';
 
 import 'support/big_library.dart';
 
@@ -89,6 +91,9 @@ List<Map<String, Object?>> _recordsOf(AppServices s) {
   return out;
 }
 
+/// Run: `tool/light.sh flutter test test/perf/sync_scale_perf_test.dart`;
+/// with `LEN_PULL_IN_PLACE=1` pages are applied on the UI isolate as on
+/// the web (no pull worker), for comparison.
 void main() {
   test('first full pull of a large library, then an incremental sync', () async {
     final clock = BenchClock();
@@ -112,12 +117,29 @@ void main() {
     addTearDown(files.dispose);
     final device = AppServices.create(AppDatabase.open(files.dbPath), clock: BenchClock(9));
     addTearDown(device.dispose);
+    if (Platform.environment['LEN_PULL_IN_PLACE'] == '1') SyncEngine.workerFromBytes = 1 << 40;
+    addTearDown(() => SyncEngine.workerFromBytes = 64 * 1024);
     final feed = _Feed(records)..encodeAhead();
     final rssBefore = ProcessInfo.currentRss;
     final watch = Stopwatch()..start();
     var done = false;
     final syncing = device.sync.engine.sync(feed.api).whenComplete(() => done = true);
+    // The app writing meanwhile (a transaction every 25 ms): how long it
+    // waits for the pull's own transactions.
+    final writes = <int>[];
+    final writer = Timer.periodic(const Duration(milliseconds: 25), (_) {
+      final wait = Stopwatch()..start();
+      device.database.transaction(
+        () => device.database.execute(
+          "INSERT OR REPLACE INTO settings (key, value) VALUES ('bench_write', ?)",
+          ['${writes.length}'],
+        ),
+      );
+      writes.add(wait.elapsedMicroseconds);
+    });
     final turns = (await turnsUntil(() => done))..sort();
+    writer.cancel();
+    writes.sort();
     final changes = await syncing;
     final full = watch.elapsedMilliseconds;
     expect(changes.notebooks, isTrue);
@@ -125,11 +147,17 @@ void main() {
     final peak = feed.rss.fold(0, math.max);
     report(
       'first pull: ${records.length} records ($strokes strokes) in ${feed.pulls} pages, '
-      '${full}ms (${(full * 1000 / records.length).round()}µs a record); UI thread blocked: '
+      '${full}ms (${(full * 1000 / records.length).round()}µs a record); UI thread busy '
+      '${turns.fold(0, (a, b) => a + b)}ms in all, blocked: '
       'p50 ${turns[turns.length ~/ 2]}ms, p99 ${turns[turns.length * 99 ~/ 100]}ms, '
-      'max ${turns.last}ms; RSS +${(peak - rssBefore) >> 20} MB; '
-      'db ${files.dbBytes >> 20} MB',
+      'max ${turns.last}ms (${turns.where((t) => t > 16).length} turns over 16 ms: '
+      '${turns.reversed.take(5).join(', ')}); RSS +${(peak - rssBefore) >> 20} MB; '
+      'db ${files.dbBytes >> 20} MB; ${writes.length} writes meanwhile waited p50 '
+      '${writes[writes.length ~/ 2]}µs, p99 ${writes[writes.length * 99 ~/ 100]}µs, '
+      'max ${writes.last}µs',
     );
+    // Writes wait at most for a slice of the pull, never for its whole.
+    expect(writes.last, lessThan(500 * 1000));
 
     // A few changes from another device: one renamed notebook, three strokes.
     final tail = records.length;

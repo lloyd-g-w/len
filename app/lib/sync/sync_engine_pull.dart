@@ -1,106 +1,104 @@
 part of 'sync_engine.dart';
 
-/// Pulling: applies the server's change feed page by page.
+/// Pulling: applies the server's change feed page by page, here in slices
+/// between frames, or (a large pull, natively) in a [PullWorker].
 extension _SyncPull on SyncEngine {
   Future<RemoteChanges> _pull(SyncApi api, CancelCheck cancelled) async {
     final changes = _unannounced ??= RemoteChanges();
-    var next = api.pull(since: settings.syncLastSeq);
-    while (!cancelled()) {
-      final since = settings.syncLastSeq;
-      final page = await next;
-      if (cancelled()) break;
-      // Fetch (and decode) the next page while this one is applied. Unused
-      // when this one is cut short; its failure surfaces only once awaited.
-      if (page.hasMore) next = api.pull(since: page.nextSince)..ignore();
-      if (page.malformed > 0) {
-        debugPrint('Skipped ${page.malformed} malformed records after seq $since');
-      }
-      final revival = Revival();
-      final records = page.records;
-      var applied = 0;
-      while (true) {
-        // A slice (a few ms) per transaction, with a turn of the event loop between
-        // them: applying a whole page at once held the UI thread for a
-        // frame or more. Only the last slice moves the feed position, so a
-        // page cut short is pulled again (applying a record twice is a
-        // no-op under last-write-wins).
-        final slice = Stopwatch()..start();
-        database.transaction(() {
-          while (applied < records.length && slice.elapsedMicroseconds < SyncEngine.applyBudgetUs) {
-            _apply(records[applied++], changes, revival);
-          }
-          if (applied < records.length) return;
-          // Once everything is in: deletions that raced edits come back.
-          if (!page.hasMore && !changes.isEmpty) _conflicts.resolve(revival);
-          settings.syncLastSeq = page.nextSince;
-        });
-        if (applied == records.length) break;
-        await Future<void>.delayed(Duration.zero);
+    var since = settings.syncLastSeq;
+    var next = api.pullBody(since: since);
+    PullWorker? worker;
+    var triedWorker = false;
+    try {
+      while (!cancelled()) {
+        final body = await next;
         if (cancelled()) break;
+        if (!triedWorker && pullWorker != null && body.length >= SyncEngine.workerFromBytes) {
+          triedWorker = true;
+          worker = await pullWorker!();
+          if (cancelled()) break;
+        }
+        final page = worker == null
+            ? await _applyHere(api, body, since, changes, cancelled, (n) => next = n)
+            : await _applyInWorker(worker, api, body, since, changes, cancelled, (n) => next = n);
+        if (page.applied < page.total || !page.header.hasMore) break;
+        since = page.header.nextSince;
+        // The next page is often in already: still let a frame in first.
+        if (worker == null) await Future<void>.delayed(Duration.zero);
       }
-      changes.addRevival(revival);
-      if (applied < records.length || !page.hasMore) break;
-      // The next page is often in already: still let a frame in first.
-      await Future<void>.delayed(Duration.zero);
+    } finally {
+      await worker?.close();
     }
     return changes;
   }
 
-  void _apply(SyncRecord record, RemoteChanges changes, Revival revival) {
-    final store = _stores[record.collection];
-    if (store == null) return; // A collection this app does not know.
-    try {
-      // Look up the owner (surface or notebook) before applying: a tombstone
-      // may not carry one.
-      final previousOwner = switch (store) {
-        StrokeRepository() => strokes.surfaceOf(record.id),
-        ElementRepository() => elements.surfaceOf(record.id),
-        RecordingRepository() => recordings.notebookOf(record.id),
-        OutlineRepository() => outline.notebookOf(record.id),
-        _ => null,
-      };
-      // A deleted notebook or page edited elsewhere: see DeletionConflicts.
-      final deletion = record.deleted ? null : _conflicts.tombstoneOf(record.collection, record.id);
-      if (!store.applyRemote(record)) return;
-      if (deletion != null) {
-        _conflicts.reviveDeleted(record.collection, record.id, deletion, revival);
-      }
-      switch (store) {
-        case FolderRepository():
-          changes.folders = true;
-        case TemplateRepository():
-          changes.templates = true;
-        case NotebookRepository():
-          changes.notebooks = true;
-        case PageRepository():
-          _addKnown(changes.pagesOfNotebooks, pages.notebookOf(record.id));
-        // A live stroke or element is now on the surface its record names
-        // (written as such); a tombstone stays where it was.
-        case StrokeRepository() || ElementRepository():
-          _addKnown(changes.strokeSurfaces, record.data?['surfaceId'] as String?);
-          _addKnown(changes.strokeSurfaces, previousOwner);
-        case OutlineRepository():
-          _addKnown(changes.outlineOfNotebooks, outline.notebookOf(record.id));
-          _addKnown(changes.outlineOfNotebooks, previousOwner);
-        case RecordingRepository():
-          _addKnown(changes.recordingsOfNotebooks, recordings.notebookOf(record.id));
-          _addKnown(changes.recordingsOfNotebooks, previousOwner);
-      }
-    } on FormatException catch (e) {
-      // Skip malformed records instead of blocking sync forever.
-      debugPrint('Skipping malformed ${record.collection}/${record.id}: ${e.message}');
-    } on Error catch (e) {
-      // A value parsing missed (a cast, a range): still one bad record,
-      // which must not stop every later one from syncing. (Database errors
-      // are exceptions and still abort the pull.)
-      if (e is! TypeError && e is! ArgumentError) rethrow;
-      debugPrint('Skipping unreadable ${record.collection}/${record.id}: $e');
-    }
+  /// Fetches the page after [header] ahead, while this one is applied.
+  /// Unused when this one is cut short; its failure surfaces only once
+  /// awaited.
+  void _fetchAhead(SyncApi api, PullHeader header, void Function(Future<Uint8List>) next) {
+    if (header.hasMore) next(api.pullBody(since: header.nextSince)..ignore());
   }
 
-  /// Adds [id] unless it is unknown (null, or empty for placeholder
-  /// tombstones of rows never seen locally).
-  static void _addKnown(Set<String> ids, String? id) {
-    if (id != null && id.isNotEmpty) ids.add(id);
+  Future<WorkedPage> _applyHere(
+    SyncApi api,
+    Uint8List body,
+    int since,
+    RemoteChanges changes,
+    CancelCheck cancelled,
+    void Function(Future<Uint8List>) next,
+  ) async {
+    final page = await decodePulled(body, since: since) ?? (throw SyncException.unexpected);
+    final header = (nextSince: page.nextSince, hasMore: page.hasMore, malformed: page.malformed);
+    if (cancelled()) {
+      return WorkedPage(header: header, applied: 0, total: page.records.length, changes: changes);
+    }
+    _fetchAhead(api, header, next);
+    if (page.malformed > 0) {
+      debugPrint('Skipped ${page.malformed} malformed records after seq $since');
+    }
+    // A slice (a few ms) per transaction, with a turn of the event loop
+    // between them: applying a whole page at once held the UI thread for a
+    // frame or more.
+    final applied = await _applier.applyPage(
+      page,
+      changes,
+      hadChanges: false,
+      budgetUs: SyncEngine.applyBudgetUs,
+      pause: () async {
+        await Future<void>.delayed(Duration.zero);
+        return !cancelled();
+      },
+    );
+    return WorkedPage(
+      header: header,
+      applied: applied,
+      total: page.records.length,
+      changes: changes,
+    );
+  }
+
+  Future<WorkedPage> _applyInWorker(
+    PullWorker worker,
+    SyncApi api,
+    Uint8List body,
+    int since,
+    RemoteChanges changes,
+    CancelCheck cancelled,
+    void Function(Future<Uint8List>) next,
+  ) async {
+    final page = await worker.apply(
+      body,
+      since: since,
+      hadChanges: !changes.isEmpty,
+      onHeader: (header) {
+        if (!cancelled()) _fetchAhead(api, header, next);
+      },
+      cancelled: cancelled,
+    );
+    if (page == null) throw SyncException.unexpected;
+    changes.addAll(page.changes);
+    // Its commits are not this connection's: tell those watching them.
+    if (page.applied > 0) database.announceCommit();
+    return page;
   }
 }

@@ -146,6 +146,33 @@ List<Stroke> pageOfInk(
   return strokes;
 }
 
+/// A 500-page notebook of handwriting.
+(AppServices, Notebook) lectureNotebook({int pages = 500, int lines = 20}) {
+  final clock = BenchClock();
+  final s = AppServices.create(AppDatabase.inMemory(), clock: clock);
+  final nb = s.notebooks.create(
+    title: 'Lectures',
+    kind: NotebookKind.paged,
+    paper: PaperStyle.collegeRuled,
+    coverColor: 0,
+  );
+  s.database.transaction(() {
+    s.pages.insertPages(nb.id, [
+      for (var i = 1; i < pages; i++)
+        (
+          size: const Size(595, 842),
+          paper: Paper(PaperStyle.collegeRuled),
+          color: PaperColor.white,
+          background: null,
+        ),
+    ]);
+    for (final p in s.pages.pagesOf(nb.id)) {
+      s.strokes.save(pageOfInk(p.id, clock, lines: lines, seed: 3));
+    }
+  });
+  return (s, nb);
+}
+
 /// What [BigLibrary.build] made.
 class BigLibrary {
   BigLibrary._(this.folders, this.notebooks, this.trashed, this.pdfBlob);

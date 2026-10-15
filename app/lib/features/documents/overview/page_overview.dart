@@ -4,6 +4,7 @@ import '../../../data/surface_copier.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/fast_scroll.dart';
 import '../../editor/document/page_backgrounds.dart';
 import '../../editor/document/page_thumbnail.dart';
 import 'overview_grid.dart';
@@ -56,7 +57,15 @@ class PageOverview extends StatefulWidget {
 }
 
 class _PageOverviewState extends State<PageOverview> {
-  late final ThumbnailCache _cache = ThumbnailCache(widget.copier, images: widget.images);
+  final ScrollController _scroll = ScrollController();
+
+  /// Thumbnails wait while the grid scrolls fast (rows only passing by).
+  late final FastScroll _fast = FastScroll(_scroll);
+  late final ThumbnailCache _cache = ThumbnailCache(
+    widget.copier,
+    images: widget.images,
+    defer: _fast,
+  );
   late List<NotebookPage> _pages = widget.handlers.load();
   late OverviewFilter _filter =
       widget.outline == null && widget.initialFilter == OverviewFilter.outline
@@ -89,6 +98,8 @@ class _PageOverviewState extends State<PageOverview> {
     for (final node in _focus.values) {
       node.dispose();
     }
+    _fast.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -280,6 +291,7 @@ class _PageOverviewState extends State<PageOverview> {
             : shown.isEmpty
             ? const NoBookmarks()
             : OverviewGrid(
+                controller: _scroll,
                 count: shown.length + (addTile ? 1 : 0),
                 compact: compact,
                 tile: (context, i, columns) => _tile(shown, i, columns),

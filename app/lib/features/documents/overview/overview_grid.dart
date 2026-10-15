@@ -6,7 +6,16 @@ import 'page_moves.dart';
 /// The overview's grid of [count] tiles, built by [tile] with the number
 /// of columns it lays out (what Ctrl+↑ / ↓ move a page by).
 class OverviewGrid extends StatelessWidget {
-  const OverviewGrid({super.key, required this.count, required this.compact, required this.tile});
+  const OverviewGrid({
+    super.key,
+    this.controller,
+    required this.count,
+    required this.compact,
+    required this.tile,
+  });
+
+  /// The grid's scroll controller, if the owner follows its scrolling.
+  final ScrollController? controller;
 
   final int count;
 
@@ -27,6 +36,7 @@ class OverviewGrid extends StatelessWidget {
       builder: (context, box) {
         final columns = gridColumns(delegate, box.maxWidth - 2 * side);
         return GridView.builder(
+          controller: controller,
           padding: EdgeInsets.fromLTRB(
             side,
             Gaps.lg,

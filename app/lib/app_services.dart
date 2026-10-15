@@ -19,8 +19,8 @@ import 'data/notebook_style_repository.dart';
 import 'data/outline_repository.dart';
 import 'data/page_repository.dart';
 import 'data/raster_store.dart';
-import 'data/recognised_text_repository.dart';
 import 'data/recording_repository.dart';
+import 'data/repositories.dart';
 import 'data/search/search_service.dart';
 import 'data/settings_repository.dart';
 import 'data/stroke_reader.dart';
@@ -44,6 +44,7 @@ import 'ink/selection/ink_clipboard.dart';
 import 'platform/camera_capture.dart';
 import 'platform/handwriting_recognizer.dart';
 import 'platform/len_file_io.dart';
+import 'platform/pull_worker.dart';
 import 'platform/secure_store.dart';
 import 'platform/stroke_reader.dart';
 import 'sync/sync_api.dart';
@@ -109,41 +110,28 @@ class AppServices {
     final settings = SettingsRepository(database);
     final tokens = SyncTokenStore(settings, secureStore, clock: clock);
     final deviceId = settings.deviceId(clock);
-    final strokes = StrokeRepository(database, deviceId: deviceId, clock: clock);
-    final elements = ElementRepository(database, deviceId: deviceId, clock: clock);
-    final recordings = RecordingRepository(database, deviceId: deviceId, clock: clock);
-    final pages = PageRepository(database, deviceId: deviceId, clock: clock);
-    final outline = OutlineRepository(database, deviceId: deviceId, clock: clock);
-    final recognisedText = RecognisedTextRepository(database, deviceId: deviceId, clock: clock);
-    final notebooks = NotebookRepository(
-      database,
-      deviceId: deviceId,
-      pages: pages,
-      strokes: strokes,
-      elements: elements,
-      recordings: recordings,
-      outline: outline,
-      recognisedText: recognisedText,
-      clock: clock,
-    );
-    final folders = FolderRepository(database, deviceId: deviceId, clock: clock);
-    final templates = TemplateRepository(database, deviceId: deviceId, clock: clock);
-    final notebookStyles = NotebookStyleRepository(database, deviceId: deviceId, clock: clock);
+    final repositories = Repositories(database, deviceId: deviceId, clock: clock);
+    final Repositories(
+      :strokes,
+      :elements,
+      :recordings,
+      :pages,
+      :outline,
+      :recognisedText,
+      :notebooks,
+      :folders,
+      :templates,
+      :notebookStyles,
+    ) = repositories;
     final blobs = BlobStore(database, blobBackend ?? MemoryBlobBackend(), clock: clock);
     final engine = SyncEngine(
       database: database,
       settings: settings,
-      notebooks: notebooks,
-      pages: pages,
-      strokes: strokes,
-      folders: folders,
+      repositories: repositories,
       blobs: blobs,
-      elements: elements,
-      recordings: recordings,
-      templates: templates,
-      notebookStyles: notebookStyles,
-      outline: outline,
-      recognisedText: recognisedText,
+      pullWorker: database.path == null
+          ? null
+          : () => startPullWorker(database, deviceId: deviceId, clock: clock),
     );
     final search = SearchService(database, readBlob: blobs.read);
     final pointerActivity = PointerActivity();

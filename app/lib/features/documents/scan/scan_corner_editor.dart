@@ -162,17 +162,28 @@ class _ScanCornerEditorState extends State<ScanCornerEditor> {
               onPointerMove: _move,
               onPointerUp: _up,
               onPointerCancel: _up,
-              child: CustomPaint(
-                size: constraints.biggest,
-                painter: _CornerPainter(
-                  photo: widget.photo,
-                  fit: _fit,
-                  quad: _handles(widget.quad),
-                  active: _handle,
-                  loupe: _handle != null && _handle! < 4,
-                  brightness: Theme.of(context).brightness,
-                  edge: Surfaces.border(scheme)?.color ?? scheme.outlineVariant,
-                ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // The photo on a layer of its own: a drag repaints only
+                  // the outline and the loupe over it.
+                  RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _PhotoPainter(photo: widget.photo, fit: _fit),
+                    ),
+                  ),
+                  CustomPaint(
+                    painter: _CornerPainter(
+                      photo: widget.photo,
+                      fit: _fit,
+                      quad: _handles(widget.quad),
+                      active: _handle,
+                      loupe: _handle != null && _handle! < 4,
+                      brightness: Theme.of(context).brightness,
+                      edge: Surfaces.border(scheme)?.color ?? scheme.outlineVariant,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -182,6 +193,39 @@ class _ScanCornerEditorState extends State<ScanCornerEditor> {
   }
 }
 
+/// Draws [photo] into [fit]; with [only], just the part of it inside that
+/// rectangle (same coordinates as [fit]).
+void _drawPhoto(Canvas canvas, ui.Image? photo, Rect fit, {Rect? only}) {
+  if (photo == null || fit.isEmpty) return;
+  final dst = only == null ? fit : fit.intersect(only);
+  if (dst.isEmpty) return;
+  final kx = photo.width / fit.width, ky = photo.height / fit.height;
+  final src = Rect.fromLTRB(
+    (dst.left - fit.left) * kx,
+    (dst.top - fit.top) * ky,
+    (dst.right - fit.left) * kx,
+    (dst.bottom - fit.top) * ky,
+  );
+  canvas.drawImageRect(photo, src, dst, Paint()..filterQuality = FilterQuality.medium);
+}
+
+/// The photo alone, behind a repaint boundary: repainted only when the
+/// photo or its place changes.
+class _PhotoPainter extends CustomPainter {
+  _PhotoPainter({required this.photo, required this.fit});
+
+  final ui.Image? photo;
+  final Rect fit;
+
+  @override
+  void paint(Canvas canvas, Size size) => _drawPhoto(canvas, photo, fit);
+
+  @override
+  bool shouldRepaint(_PhotoPainter old) => old.photo != photo || old.fit != fit;
+}
+
+/// The outline over the photo (dimming outside it), the handles and the
+/// loupe (which draws the photo again, enlarged and clipped).
 class _CornerPainter extends CustomPainter {
   _CornerPainter({
     required this.photo,
@@ -212,14 +256,11 @@ class _CornerPainter extends CustomPainter {
     if (loupe && active != null) _loupe(canvas, size, quad[active!]);
   }
 
-  /// The photo, dimmed outside the outline, the outline [line] wide and
-  /// (with [handles]) the handles.
-  void _scene(Canvas canvas, {bool handles = true, double line = Hairline.rule}) {
-    final image = photo;
-    if (image != null) {
-      final src = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
-      canvas.drawImageRect(image, src, fit, Paint()..filterQuality = FilterQuality.medium);
-    }
+  /// The dimming outside the outline, the outline [line] wide and (with
+  /// [handles]) the handles; with [photoIn], the photo beneath them, as
+  /// much of it as lies in that rectangle.
+  void _scene(Canvas canvas, {Rect? photoIn, bool handles = true, double line = Hairline.rule}) {
+    if (photoIn != null) _drawPhoto(canvas, photo, fit, only: photoIn);
     final outline = Path()..addPolygon(quad.sublist(0, 4), true);
     canvas.drawPath(
       Path()
@@ -260,7 +301,16 @@ class _CornerPainter extends CustomPainter {
       ..scale(ScanCornerEditor.loupeZoom)
       ..translate(-at.dx, -at.dy);
     // A hairline outline however enlarged, so the paper's edge shows.
-    _scene(canvas, handles: false, line: Hairline.width / ScanCornerEditor.loupeZoom);
+    _scene(
+      canvas,
+      photoIn: Rect.fromCenter(
+        center: at,
+        width: side / ScanCornerEditor.loupeZoom,
+        height: side / ScanCornerEditor.loupeZoom,
+      ),
+      handles: false,
+      line: Hairline.width / ScanCornerEditor.loupeZoom,
+    );
     canvas.restore();
     // Crosshair on the corner.
     final cross = Paint()

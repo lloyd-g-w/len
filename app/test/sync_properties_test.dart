@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/core/clock.dart';
-import 'package:len/data/app_database.dart';
 import 'package:len/data/stroke_codec.dart';
 import 'package:len/data/syncable.dart';
 import 'package:len/data/syncable_table.dart';
@@ -14,6 +13,7 @@ import 'package:len/domain/stroke.dart';
 
 import 'support/fake_server.dart';
 import 'support/property.dart';
+import 'support/test_database.dart';
 
 // Properties of sync merging (docs/SYNC_PROTOCOL.md: "Conflict rule (LWW)",
 // "Deletion conflicts"): whatever order or batches devices see changes in,
@@ -41,7 +41,7 @@ class _Clock extends Clock {
 }
 
 AppServices _services(Clock clock) {
-  final s = AppServices.create(AppDatabase.inMemory(), clock: clock);
+  final s = AppServices.create(openTestDatabase(), clock: clock);
   addTearDown(s.dispose);
   return s;
 }

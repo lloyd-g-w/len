@@ -2168,6 +2168,7 @@ the web:
 | Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs` behind `WriteBackBlobBackend` (blobs it can't store wait in memory); if it can't open, memory (`VolatileBlobBackend`), which the library, Settings and a first-write snack say |
 | App dir (`app_directory`) | `path_provider` app-support dir         | none                                             |
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread, time-budgeted slices (`SlicedStrokeReader`) |
+| Applying large pulls (`pull_worker`) | background isolate, own connection, yielding to the app's writes | UI thread, time-budgeted slices |
 | LOD raster cache (`raster_store`) | PNG files in the cache directory (`lod-<format>/`, 96 MB LRU) | none: rasterised again each time |
 | Export (`file_export`) | save dialog + Show in folder / share sheet or Save to device | browser download                                 |
 | Single instance (`single_instance`) | one process (desktop runners forward later launches) | Web Lock + BroadcastChannel: a second tab waits ("open in another tab") or takes over (*Use here*, `TabHandover`) |
@@ -2760,16 +2761,37 @@ malformed record is skipped. Open screens subscribe to
 Robustness (`SyncEngine`): rows are marked clean only for the exact version
 the server confirmed (`markClean` by `updatedAt`). Pulls ask for the server's
 largest page (1,000 records) and fetch the next page while one is applied.
-Natively a page is decoded in a worker isolate (`platform/pull_decoder.dart`;
-the web decodes on the UI thread): JSON, the record checks, and live strokes
-parsed into the rows they are stored as (`StrokeRow`, `SyncRecord.prepared`;
-a stroke within one chunk is checked on its encoded points without being
-built). The UI thread then applies the page in slices of about 4 ms, one
-transaction each with a turn of the event loop between (also between pages),
-so a first sync of a large library never holds the UI for a frame; only the
-last slice moves the feed position, so a dropped connection never loses
+Decoding a page means JSON, the record checks, and live strokes parsed into
+the rows they are stored as (`StrokeRow`, `SyncRecord.prepared`; a stroke
+within one chunk is checked on its encoded points without being built).
+A `PullApplier` then applies the page in slices, one transaction each; only
+the last slice moves the feed position, so a dropped connection never loses
 anything: a page cut short is pulled again (re-applying a record is a no-op);
-the next cycle resumes.
+the next cycle resumes. Where that runs:
+
+- **A large pull, natively** (a page of 64 KB or more: a first sync, a big
+  catch-up) starts a pull worker (`platform/pull_worker.dart`,
+  `sync/background_pull_worker.dart`) for the rest of the pull: an isolate
+  with its own connection to `len.db` (`AppDatabase.attach`, WAL) that
+  decodes the pages (their bytes move there uncopied) and applies them in
+  8 ms slices with a 1 ms pause between, the same `PullApplier` code, so
+  triggers (search, the handwriting queue) fire as on the UI isolate. The UI
+  thread only fetches pages. Two writers on one file: every transaction
+  begins `IMMEDIATE` (one that read first could not upgrade once the other
+  had committed) and waits up to `busy_timeout` 5 s; the app's transactions
+  raise a count in memory the worker reads (`SharedWriteSignal`, the
+  `ffi` package), which ends its slice after the current record and holds
+  the next until the app is done, so the app's write waits about a
+  millisecond (writes outside a transaction wait at most a slice). The
+  worker's commits are announced on `AppDatabase.commits` (the handwriting
+  indexer listens), and what the pull changed comes back per page as
+  `RemoteChanges`. Cancelling stops it after the current slice; it closes
+  when the pull ends.
+- **Otherwise** (the web, an in-memory database, small pulls) the page is
+  decoded in a worker natively (`platform/pull_decoder.dart`; the web
+  decodes on the UI thread) and applied on the UI thread in slices of
+  about 4 ms with a turn of the event loop between (also between pages), so
+  a first sync never holds the UI for a frame.
 Each cycle starts with `/v1/health`: its `serverId` decides whether this is
 the server last synced with — a new id (another server, or a wiped or
 restored one) resets the feed position and marks every row and blob for
