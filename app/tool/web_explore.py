@@ -476,12 +476,16 @@ async def wheel(page, dy, times=1):
 
 
 async def choose(page, label):
-    """Taps the control named [label], whatever its role (a segment is a
-    button or a radio, by Flutter version)."""
+    """Clicks the control named [label], whatever its role (a segment is a
+    button or a radio, by Flutter version), where it shows: by the mouse,
+    as a user would (an empty full-screen semantics node may lie above a
+    tool's popover, which Playwright's click takes for one hiding the
+    control; Flutter hit-tests the click itself)."""
     for role in ('radio', 'button', 'tab', 'checkbox', 'menuitemradio'):
         item = page.get_by_role(role, name=label, exact=True)
         if await item.count():
-            await item.first.click(timeout=30000)
+            box = await item.first.bounding_box()
+            await page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
             return
     w.expect(False, f'a control named "{label}"')
 
@@ -860,13 +864,14 @@ class Walk:
                          lambda r: ('Walk style',) in r, 'the style stored')
         await choose(page, 'Canvas')
         await page.get_by_role('textbox').first.click()
+        await page.wait_for_timeout(300)  # Keys typed before the field took them are lost.
         await type_text(page, 'Features')
         await tap(page, 'Create')
         await page.get_by_role('button', name='Back', exact=True).wait_for(timeout=30000)
         await wait_query(page, "SELECT kind FROM notebooks WHERE title = 'Features' AND deleted = 0",
                          lambda r: r == [('canvas',)], 'a canvas named Features')
 
-    FEATURES = """SELECT s.id, s.points, s.style, s.deleted FROM strokes s JOIN notebooks n
+    FEATURES = """SELECT s.style FROM strokes s JOIN notebooks n
         ON n.id = s.surface_id WHERE n.title = 'Features' """
 
     async def shape_handle(self):
@@ -881,12 +886,12 @@ class Walk:
         await drag(page, [(x0, y0), (x1, y1)], steps=20)
         await wait_query(page, self.FEATURES + 'AND s.deleted = 0', lambda r: len(r) == 1,
                          'the rectangle stored')
-        (_, before, _, _), = await query(page, self.FEATURES + 'AND s.deleted = 0')
+        (before,), = await query(page, self.FEATURES + 'AND s.deleted = 0')
         await page.mouse.click((x0 + x1) / 2, y0)  # On its top side: selected, handles shown.
         await page.wait_for_timeout(500)
         await drag(page, [(x1, y1), (x1 + 70, y1 + 50)], steps=20)
         await wait_query(page, self.FEATURES + 'AND s.deleted = 0',
-                         lambda r: len(r) == 1 and r[0][1] != before, 'the rectangle reshaped')
+                         lambda r: len(r) == 1 and r[0][0] != before, 'the rectangle reshaped')
         await page.keyboard.press('Escape')
         self.fx['shape'] = (x0, y0, x1 + 70, y1 + 50)
 
