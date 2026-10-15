@@ -37,6 +37,7 @@ android {
         // (overridable with --build-name / --build-number).
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appLabel"] = "Len"
     }
 
     signingConfigs {
@@ -48,6 +49,14 @@ android {
                 keyPassword = keystoreProperties.getProperty("keyPassword")
             }
         }
+    }
+
+    // A side-by-side test install (`-PlenTest=true`): its own app id and
+    // label, so it never replaces (or needs uninstalling) a copy signed
+    // with another key, and keeps that copy's notes.
+    if (project.findProperty("lenTest") == "true") {
+        defaultConfig.applicationIdSuffix = ".test"
+        defaultConfig.manifestPlaceholders["appLabel"] = "Len (test)"
     }
 
     buildTypes {

@@ -35,7 +35,7 @@
          data_extraction_rules.xml on Android 12+); a restored database gets a
          new device id at its first start (data/install_identity.dart). -->
     <application
-        android:label="Len"
+        android:label="${appLabel}"
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
