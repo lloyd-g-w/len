@@ -24,6 +24,7 @@ abstract class _RichTextState extends TextEditingController {
   RichTextBuffer _buffer;
   late MarkerOffsets _offsets;
   List<int> _wraps = const [];
+  List<FlowBreak> _breaks = const [];
   double _wrapWidth = double.infinity;
   TextData? _data;
 
@@ -39,6 +40,11 @@ abstract class _RichTextState extends TextEditingController {
   /// [ListMarker.size]).
   Widget Function(ListMarker marker)? markerBuilder;
 
+  /// Where the text, a box flowing across pages, continues on the next
+  /// page when it is [TextData] (see [FlowBreak]); none by default. When
+  /// that changes for another reason (the box moved), [refreshLayout].
+  List<FlowBreak> Function(TextData data)? breaksOf;
+
   /// The formatted text with the box's defaults.
   TextData get data => _data ??= _buffer.toData(_box);
 
@@ -48,10 +54,29 @@ abstract class _RichTextState extends TextEditingController {
   double get wrapWidth => _wrapWidth;
   set wrapWidth(double width) {
     _wrapWidth = width;
-    if (listEquals(_wrapsOf(data), _wraps)) return;
+    refreshLayout();
+  }
+
+  /// Lays the text out again if its wraps or page breaks changed, keeping
+  /// the selection and an IME composition.
+  void refreshLayout() {
+    final breaks = breaksOf?.call(data) ?? const <FlowBreak>[];
+    if (listEquals(_wrapsOf(data), _wraps) && listEquals(breaks, _breaks)) return;
+    final c = value.composing;
+    final composing = c.isValid && !c.isCollapsed
+        ? TextRange(start: _offsets.toModel(c.start), end: _offsets.toModel(c.end))
+        : null;
     _sync(
       selection.isValid ? _modelSelection(selection) : const TextSelection.collapsed(offset: 0),
     );
+    if (composing != null) {
+      super.value = value.copyWith(
+        composing: TextRange(
+          start: _offsets.toDisplay(composing.start),
+          end: _offsets.toDisplay(composing.end),
+        ),
+      );
+    }
   }
 
   TextSelection _modelSelection(TextSelection s) => s.copyWith(
@@ -62,18 +87,20 @@ abstract class _RichTextState extends TextEditingController {
   /// The display offsets of [data] at [wrapWidth].
   MarkerOffsets _offsetsOf(TextData data) {
     _wraps = _wrapsOf(data);
-    return MarkerOffsets(data, _wraps);
+    _breaks = breaksOf?.call(data) ?? const [];
+    return MarkerOffsets(data, _wraps, _breaks);
   }
 
   /// Auto-width boxes grow instead of wrapping.
   List<int> _wrapsOf(TextData data) => data.autoWidth ? const [] : TextWraps.of(data, _wrapWidth);
 
-  /// Replaces everything (a new box started).
-  void load(TextData data) {
+  /// Replaces everything (a new box started), the caret at [caret] (model
+  /// offset; the end by default).
+  void load(TextData data, {int? caret}) {
     _box = data;
     _buffer = RichTextBuffer(data);
     _pending = null;
-    _sync(TextSelection.collapsed(offset: data.text.length));
+    _sync(TextSelection.collapsed(offset: (caret ?? data.text.length).clamp(0, data.text.length)));
     _history.reset(_snapshot);
   }
 

@@ -57,13 +57,14 @@ class PageEdits {
   }
 
   /// Makes adding [pages] (already added elsewhere, e.g. from a PDF)
-  /// undoable and shows the first.
-  PageEdit added(List<NotebookPage> pages) {
+  /// undoable and shows the first (unless not to [show]: pages a text box
+  /// flowed onto).
+  PageEdit added(List<NotebookPage> pages, {bool show = true}) {
     var deleted = <DeletedPage>[];
     return _record(
       () => deleted = actions.deleteAll(pages),
       () => actions.restoreAll(deleted),
-      keep: pages.first.id,
+      keep: show ? pages.first.id : null,
     );
   }
 

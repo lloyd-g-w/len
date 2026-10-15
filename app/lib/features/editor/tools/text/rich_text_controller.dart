@@ -65,12 +65,24 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
   }
 
   /// Keeps the caret off the spot before a list marker (and inside a wrap's
-  /// insert): it steps over it in the direction it was moving.
+  /// or page break's insert): it steps over it in the direction it was
+  /// moving (up out of a page break's room: to the page before).
   TextSelection _normalize(TextSelection s, TextSelection old) {
     if (!s.isValid || _offsets.isEmpty) return s;
     int fix(int d, int was) {
       if (!_offsets.isHidden(d)) return d;
-      return was == d + 1 && d > 0 ? d - 1 : d + 1;
+      final back = _offsets.isPageBreak(d) ? was > d : was == d + 1;
+      var step = back && d > 0 ? -1 : 1;
+      var x = d;
+      for (var tries = 0; tries < 2; tries++) {
+        while (x > 0 && _offsets.isHidden(x)) {
+          x += step;
+        }
+        if (!_offsets.isHidden(x)) return x;
+        step = -step;
+        x = d;
+      }
+      return d;
     }
 
     return s.copyWith(
@@ -117,7 +129,8 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
     if (inserted.isEmpty && start == end && removedEnd > p && _offsets.isWrap(p)) {
       // Only a wrap's break or gap deleted: delete the character before
       // (backspace at a continuation line's start) or after it.
-      if (o.codeUnitAt(removedEnd - 1) == PlaceholderSpan.placeholderCodeUnit) {
+      final backspace = was.isCollapsed && was.extentOffset == removedEnd;
+      if (o.codeUnitAt(removedEnd - 1) == PlaceholderSpan.placeholderCodeUnit || backspace) {
         if (start > 0) start--;
       } else if (end < _buffer.length) {
         end++;
@@ -277,6 +290,7 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
       data,
       underlined: composing,
       wraps: _wraps,
+      breaks: _breaks,
       marker: (m) => WidgetSpan(
         alignment: PlaceholderAlignment.middle,
         child: build == null ? SizedBox.fromSize(size: m.size) : build(m),

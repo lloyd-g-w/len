@@ -35,6 +35,13 @@ class ElementRepository extends SyncableTable {
   List<SurfaceElement> loadChunks(String surfaceId, List<ChunkKey> keys) =>
       _queries.loadElementChunks(surfaceId, keys);
 
+  /// Every live element on [surfaceId].
+  List<SurfaceElement> allOn(String surfaceId) => db
+      .select('SELECT * FROM elements WHERE surface_id = ? AND deleted = 0', [surfaceId])
+      .map(StrokeQueries.rowToElement)
+      .nonNulls
+      .toList();
+
   /// Inserts or updates elements (also revives deleted ones on redo).
   void save(Iterable<SurfaceElement> elements) {
     final now = clock.nowMs();

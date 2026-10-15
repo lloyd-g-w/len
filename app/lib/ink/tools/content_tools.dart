@@ -5,6 +5,7 @@ import '../../core/clock.dart';
 import '../../domain/surface_element.dart';
 import '../../domain/text/text_data.dart';
 import '../elements/text_edit_session.dart';
+import '../elements/text_flow_chains.dart';
 import '../elements/text_layout.dart';
 import '../input/live_ink.dart';
 import '../selection/ink_clipboard.dart';
@@ -139,6 +140,10 @@ class ContentTools {
     _returnTo = null;
     if (back != null && tools.tool == EditorTool.text) tools.tool = back;
   }
+
+  /// Text boxes flowing across the pages of a notebook; null on a canvas.
+  TextFlowChains? get flows => text.flows;
+  set flows(TextFlowChains? value) => text.flows = value;
 
   SurfaceModel get model => selection.model;
 

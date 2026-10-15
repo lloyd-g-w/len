@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../domain/text/rich_text_buffer.dart';
 import '../../domain/text/text_data.dart';
 import 'list_marker.dart';
+import 'marker_offsets.dart';
 
 import 'text_box_layout.dart';
 import 'text_wraps.dart';
@@ -123,45 +124,62 @@ abstract final class TextLayout {
   /// each of [wraps] (model offsets, see [TextWraps]) a list item
   /// continues on a new line behind a gap as wide as its marker (built by
   /// [gap]): a hanging indent. [underlined] (model offsets) is underlined,
-  /// e.g. the IME composing range.
+  /// e.g. the IME composing range. At each of [breaks] (the editing field
+  /// of a box flowing across pages) a line as tall as the room to the next
+  /// page holds a placeholder (see [MarkerOffsets]).
   static TextSpan spanOf(
     TextData data, {
     required InlineSpan Function(ListMarker marker) marker,
     InlineSpan Function(Size size) gap = gapSpan,
     List<int> wraps = const [],
+    List<FlowBreak> breaks = const [],
     TextRange underlined = TextRange.empty,
   }) {
     final text = data.text;
     final chars = data.charStyles();
     final paras = data.paras;
     final markers = {for (final m in markersOf(data)) m.line: m};
+    final rooms = {for (final b in breaks) b.at: b};
+    final wrapped = wraps.toSet();
+    final cuts = {...wraps, for (final b in breaks) ?(b.soft ? b.at : null)}.toList()..sort();
     final children = <InlineSpan>[];
-    var w = 0;
+    var c = 0;
     var start = 0;
     for (var line = 0; line < paras.length; line++) {
       final para = paras[line];
       final m = markers[line];
+      if (rooms[start] case final b? when !b.soft && start > 0) {
+        children
+          ..add(roomSpan(b.gap))
+          ..add(const TextSpan(text: '\n', style: _roomStyle));
+      }
       if (m != null) children.add(m.continued ? gap(m.size) : marker(m));
       final nl = text.indexOf('\n', start);
       final end = nl < 0 ? text.length : nl;
       var from = start;
-      while (w < wraps.length && wraps[w] < end) {
-        final at = wraps[w++];
-        if (at <= from || m == null) continue;
+      while (c < cuts.length && cuts[c] < end) {
+        final at = cuts[c++];
+        final wrap = wrapped.contains(at) && m != null;
+        final room = rooms[at];
+        if (at <= from || (!wrap && room == null)) continue;
         lineRuns(data, chars, para, from, at, children, underlined: underlined);
         // The break hides the line's last style (no highlight or lines).
         final style = styleFor(data, chars[at - 1], para);
-        children
-          ..add(
-            TextSpan(
-              text: '\n',
-              style: style.copyWith(
-                decoration: TextDecoration.none,
-                background: Paint()..color = const Color(0x00000000),
-              ),
+        children.add(
+          TextSpan(
+            text: '\n',
+            style: style.copyWith(
+              decoration: TextDecoration.none,
+              background: Paint()..color = const Color(0x00000000),
             ),
-          )
-          ..add(gap(m.size));
+          ),
+        );
+        if (room != null) {
+          children
+            ..add(roomSpan(room.gap))
+            ..add(const TextSpan(text: '\n', style: _roomStyle));
+        }
+        if (wrap) children.add(gap(m.size));
         from = at;
       }
       lineRuns(data, chars, para, from, end, children, underlined: underlined);
@@ -175,6 +193,21 @@ abstract final class TextLayout {
     }
     return TextSpan(style: baseStyle(data), children: children);
   }
+
+  /// The placeholder of the room over a page edge ([FlowBreak.gap] tall).
+  static InlineSpan roomSpan(double gap) => WidgetSpan(
+    alignment: PlaceholderAlignment.bottom,
+    child: SizedBox(width: 0, height: gap < 0 ? 0 : gap),
+  );
+
+  /// The line break after [roomSpan]: so small the line is as tall as the
+  /// room.
+  static const TextStyle _roomStyle = TextStyle(
+    inherit: false,
+    fontSize: 0.01,
+    height: 1,
+    color: Color(0x00000000),
+  );
 
   /// The placeholder of a hanging indent ([size] is the marker's).
   static InlineSpan gapSpan(Size size) => WidgetSpan(

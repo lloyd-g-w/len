@@ -5,6 +5,9 @@ import 'text_layout.dart';
 /// its width and height and splitting it across pages read one layout, so
 /// a keystroke lays the box out once (beside the editing field's own).
 class TextLayoutCache {
+  /// Layouts made by all caches (for tests).
+  static int debugLayouts = 0;
+
   TextBoxLayout? _layout;
   double _width = 0;
 
@@ -15,6 +18,7 @@ class TextLayoutCache {
     if (cached != null && _width == width && cached.data == data) return cached;
     cached?.dispose();
     _width = width;
+    debugLayouts++;
     return _layout = TextLayout.layout(data, width);
   }
 
