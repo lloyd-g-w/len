@@ -68,7 +68,11 @@ The same grid drives three things:
    selection or text editor are kept). Canvases read through
    `BackgroundStrokeReader`: a worker isolate with its own read-only SQLite
    connection (WAL allows it next to the writer), so panning never waits for
-   SQLite (natively; the web reads on the UI thread, see *Platforms*). `SurfaceLoader` keeps one read in flight per surface (the newest
+   SQLite (natively; the web reads on the UI thread, see *Platforms*); once
+   it died, reads fall back to the UI isolate. Both it and the pull worker
+   hear the UI isolate exit (an exit listener it adds on their inbox), so
+   when Android destroys the engine while the process lives on they close
+   their connection and exit instead of living on orphaned. `SurfaceLoader` keeps one read in flight per surface (the newest
    range wins), drops results after `reload()`, and filters strokes and
    elements removed while a read was running (erased, undone, moved by a
    selection), so a stale copy never comes back. `StrokeRepository` is the
@@ -700,7 +704,11 @@ recordings; the trash is live, "delete forever" releases after 30 days, see
 *Sync*). `LocalBlobGc` (started 20 s after launch, at most daily; old tombstones'
 payloads are dropped first, 2,000 rows per transaction) deletes blobs unreferenced for 7 days
 (`blobs.unreferenced_since`); it runs exclusively with `BlobStore`'s `put`
-methods, and storing a blob again restarts its grace period. The server has its
+methods, and storing a blob again restarts its grace period. Each due blob's
+row is deleted in a transaction of its own that first checks its references
+again (`BlobReferences.keeps`, one blob in SQL), its file after: a pull (in a
+worker, or between slices) committing a record that references it while
+earlier blobs are deleted keeps it; one committed later fetches it again. The server has its
 own admin-run collector (server/README.md).
 
 PDF import (`features/documents/pdf/`) stores the file once as a blob and
@@ -1651,7 +1659,11 @@ surface.
   .paste` skips a clipboard image that is the copy's picture — the same
   bytes, or the same size and a 16 × 16 thumbnail within a small tolerance
   (`ImageSignature`), since GTK and browsers re-encode it and Windows reads
-  back the flattened DIB — and text that is the copy's text.
+  back the flattened DIB — and text that is the copy's text. Copy never
+  reads the system clipboard (Android 12+ announces every read as a paste):
+  its write replaced what was there, so nothing on it is older than the ink.
+  Only when that write fails (`ClipboardMirror.written`) does `EditorImages`
+  read what the clipboard holds, to treat it as older than the ink.
 - **Editing a shape's points**: a single shape selected on its own surface
   (`SelectionController.shapeStroke`, by the lasso or a tap — with the
   lasso, or the Shape tool on a shape) shows its control points as handles
@@ -2859,7 +2871,10 @@ the next cycle resumes. Where that runs:
   indexer listens), and what the pull changed comes back per page as
   `RemoteChanges` (also what committed before a database error).
   Cancelling stops it after the current slice; it closes
-  when the pull ends.
+  when the pull ends. It is spawned with exit and error ports, so a worker
+  that dies (before it is ready: the pull runs on the UI thread instead;
+  while applying or between pages: the pull fails and the next sync starts
+  afresh) never leaves sync waiting in "syncing".
 - **Otherwise** (the web, an in-memory database, small pulls) the page is
   decoded in a worker natively (`platform/pull_decoder.dart`; the web
   decodes on the UI thread) and applied on the UI thread in slices of

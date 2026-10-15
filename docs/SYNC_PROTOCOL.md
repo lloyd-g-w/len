@@ -211,8 +211,9 @@ once no live local row references it (page backgrounds, image templates of pages
 templates; pages, elements and recordings of trashed notebooks are live rows, so they count) for 7 days. Tombstoned
 pages, elements and recordings count for 30 days after their deletion, as long as a
 [deletion conflict](#deletion-conflicts) may still bring them back. The app
-checks this at startup at most once a day. A blob collected locally is fetched again lazily if a
-record referencing it arrives later.
+checks this at startup at most once a day, and checks each due blob again right before deleting it
+(a pull may have committed a record referencing it meanwhile). A blob collected locally is fetched
+again lazily if a record referencing it arrives later.
 
 ## Client algorithm
 

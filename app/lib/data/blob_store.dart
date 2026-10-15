@@ -166,8 +166,15 @@ class BlobStore {
   /// unreferenced blob is never uploaded. Runs exclusively with the `put`
   /// methods, and storing a blob again restarts its grace period, so a blob
   /// being (re)imported is never deleted underneath its new reference.
+  ///
+  /// Each blob's row goes in a transaction of its own that first asks
+  /// [stillReferenced] (cheap: one blob) again, as a pull (in a worker, or
+  /// between slices) may have committed a record referencing it while
+  /// earlier blobs were deleted; its file goes after. A record committed
+  /// later finds the blob missing and fetches it again.
   Future<List<String>> collectGarbage(
     Set<String> Function() referenced, {
+    required bool Function(String sha) stillReferenced,
     Duration grace = gcGrace,
   }) => _exclusive(() async {
     final now = clock.nowMs();
@@ -186,11 +193,21 @@ class BlobStore {
         }
       }
     });
+    final deleted = <String>[];
     for (final sha in due) {
+      final gone = database.transaction(() {
+        if (stillReferenced(sha)) {
+          _setUnreferencedSince(sha, null);
+          return false;
+        }
+        database.db.execute('DELETE FROM blobs WHERE sha256 = ?', [sha]);
+        return true;
+      });
+      if (!gone) continue;
       await backend.delete(sha);
-      database.db.execute('DELETE FROM blobs WHERE sha256 = ?', [sha]);
+      deleted.add(sha);
     }
-    return due;
+    return deleted;
   });
 
   /// Deletes blob [sha] right away unless [referenced] (the ids live rows

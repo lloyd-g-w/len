@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:isolate';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:sqlite3/sqlite3.dart';
 
 import '../domain/chunk_digest.dart';
@@ -27,7 +28,20 @@ class BackgroundStrokeReader implements StrokeReader {
 
   Future<SendPort?>? _worker;
   Isolate? _isolate;
+  SendPort? _port;
   bool _closed = false;
+
+  /// Its exit, heard on the port it is spawned with: requests still
+  /// waiting fall back then, later ones too.
+  final _exit = Completer<void>();
+  RawReceivePort? _exitPort;
+
+  /// The worker isolate once started (tests watch it exit).
+  @visibleForTesting
+  Future<Isolate?> get isolate async {
+    await (_worker ??= _spawn());
+    return _isolate;
+  }
 
   @override
   Future<ChunkLoad> read(String surfaceId, ChunkRange range, {Set<ChunkKey> skip = const {}}) =>
@@ -48,16 +62,18 @@ class BackgroundStrokeReader implements StrokeReader {
   /// Stops the worker isolate.
   void close() {
     _closed = true;
+    if (_port case final port?) Isolate.current.removeOnExitListener(port);
     _isolate?.kill(priority: Isolate.immediate);
     _isolate = null;
+    _exitPort?.close();
   }
 
   Future<T> _call<T>(_Request request, FutureOr<T> Function() orElse) async {
     final worker = _closed ? null : await (_worker ??= _spawn());
-    if (worker == null) return orElse();
+    if (worker == null || _exit.isCompleted) return orElse();
     final reply = ReceivePort();
     worker.send((request, reply.sendPort));
-    final answer = await reply.first;
+    final answer = await Future.any<Object?>([reply.first, _exit.future.then((_) => _gone)]);
     reply.close();
     if (answer is _Failure) return orElse();
     return answer as T;
@@ -65,10 +81,24 @@ class BackgroundStrokeReader implements StrokeReader {
 
   Future<SendPort?> _spawn() async {
     final ready = ReceivePort();
+    final exit = _exitPort = RawReceivePort((_) {
+      if (!_exit.isCompleted) _exit.complete();
+      _exitPort?.close();
+    });
     try {
-      _isolate = await Isolate.spawn(_serve, (path, ready.sendPort), debugName: 'stroke reader');
-      final port = await ready.first;
-      return port is SendPort ? port : null;
+      _isolate = await Isolate.spawn(
+        _serve,
+        (path, ready.sendPort),
+        debugName: 'stroke reader',
+        onExit: exit.sendPort,
+      );
+      final port = await Future.any<Object?>([ready.first, _exit.future.then((_) => _gone)]);
+      if (port is! SendPort) return null;
+      // Added while this isolate surely lives: the worker hears it exit
+      // (the engine destroyed on Android, the process living on) and
+      // exits too, closing its connection, instead of living on orphaned.
+      Isolate.current.addOnExitListener(port, response: _ownerExited);
+      return _port = port;
     } on Object {
       return null;
     } finally {
@@ -89,6 +119,11 @@ class BackgroundStrokeReader implements StrokeReader {
     final inbox = ReceivePort();
     ready.send(inbox.sendPort);
     inbox.listen((message) {
+      if (message == _ownerExited) {
+        inbox.close();
+        db.close();
+        Isolate.exit();
+      }
       final (request, reply) = message as (_Request, SendPort);
       try {
         reply.send(switch (request) {
@@ -107,6 +142,12 @@ class BackgroundStrokeReader implements StrokeReader {
     });
   }
 }
+
+/// What the worker hears when the isolate that started it exits.
+const _ownerExited = 'owner exited';
+
+/// A request's answer once the worker is gone.
+const _gone = _Failure('the worker stopped');
 
 sealed class _Request {
   const _Request(this.surfaceId);

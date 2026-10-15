@@ -49,6 +49,9 @@ class LocalBlobGc {
   Future<List<String>> run() async {
     final now = blobs.clock.nowMs();
     await tombstones?.purge(now);
-    return blobs.collectGarbage(() => references.kept(now));
+    return blobs.collectGarbage(
+      () => references.kept(now),
+      stillReferenced: (sha) => references.keeps(sha, now),
+    );
   }
 }

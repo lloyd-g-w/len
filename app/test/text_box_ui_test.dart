@@ -10,6 +10,7 @@ import 'package:len/ui/menus.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'content_tools_ui_test.dart';
+import 'support/real_async.dart';
 
 /// Presses [key] with Ctrl (and [shift]).
 Future<void> ctrl(WidgetTester tester, LogicalKeyboardKey key, {bool shift = false}) async {
@@ -95,12 +96,26 @@ void main() {
     expect(box.rect.center.dx, closeTo(640, 1));
     expect(find.byTooltip('Style'), findsOneWidget); // selected, the pen kept
 
-    // Copy the ink: the clipboard's text is older now, so ink is pasted.
+    // Copy the ink: it replaces the clipboard (a picture of it, no text),
+    // so ink is pasted.
+    var written = false;
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(const MethodChannel('pasteboard'), (call) async {
+      if (call.method != 'write') return call.method == 'files' ? const <Object>[] : null;
+      await Clipboard.setData(const ClipboardData(text: ''));
+      return written = true;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(
+        const MethodChannel('pasteboard'),
+        (call) async => call.method == 'files' ? const <Object>[] : null,
+      ),
+    );
     await key(tester, LogicalKeyboardKey.escape);
     await key(tester, LogicalKeyboardKey.keyL);
     await mouseDrag(tester, const [Offset(150, 401)]);
     await ctrl(tester, LogicalKeyboardKey.keyC);
-    await tester.pump();
+    await pumpUntil(tester, () => written, reason: 'the copy to reach the clipboard');
     await paste(tester);
     expect(liveStrokes(services, nb.id), hasLength(2));
     expect(liveElements(services, nb.id), hasLength(1));

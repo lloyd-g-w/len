@@ -24,6 +24,26 @@ class BlobReferences {
   /// discarding of a cancelled import go by.
   Set<String> kept(int nowMs) => all(tombstonesSince: TombstonePayloads.keptSince(nowMs));
 
+  /// Whether blob [sha] may be among [kept] at [nowMs]: a check of one
+  /// blob in SQL, without decoding any JSON (a row merely holding the id
+  /// as a string counts, so it errs on keeping). Garbage collection asks
+  /// it again right before deleting a blob.
+  bool keeps(String sha, int nowMs) {
+    const kept = '(deleted = 0 OR updated_at >= ?1)';
+    final since = TombstonePayloads.keptSince(nowMs);
+    final quoted = '"$sha"';
+    return database.db.select(
+          'SELECT EXISTS (SELECT 1 FROM pages WHERE $kept AND '
+          '(instr(background, ?2) > 0 OR instr(paper_data, ?2) > 0)) '
+          'OR EXISTS (SELECT 1 FROM elements WHERE $kept AND instr(data, ?2) > 0) '
+          'OR EXISTS (SELECT 1 FROM recordings WHERE $kept AND '
+          '(instr(audio, ?2) > 0 OR waveform = ?3)) '
+          'OR EXISTS (SELECT 1 FROM templates WHERE deleted = 0 AND blob = ?3) AS found',
+          [since, quoted, sha],
+        ).single['found'] ==
+        1;
+  }
+
   /// Ids of all blobs live rows reference, and with [tombstonesSince] (ms)
   /// also those of pages, elements and recordings tombstoned since then:
   /// sync may still bring them back ([TombstonePayloads.retention]).

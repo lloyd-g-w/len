@@ -298,12 +298,26 @@ class EditorImages {
   bool _isInkText(String text) =>
       text == _textBeforeInkCopy || services.clipboardMirror.holdsInkText(text);
 
+  /// Copy replaced the system clipboard (`ClipboardMirror`): nothing
+  /// there is older than the ink then. Only if that write failed is the
+  /// clipboard read, to know what it held before (a read Android 12+
+  /// announces as a paste).
   void _onInkCopied() {
     if (services.clipboard.isEmpty) return;
-    unawaited(_clipboardText().then((text) => _textBeforeInkCopy = text));
-    unawaited(
-      _clipboardImage().then((bytes) => _imageBeforeInkCopy = bytes == null ? null : _hash(bytes)),
-    );
+    _textBeforeInkCopy = null;
+    _imageBeforeInkCopy = null;
+    unawaited(_rememberOlder(services.clipboardMirror.written));
+  }
+
+  Future<void> _rememberOlder(Future<bool>? written) async {
+    if (written != null && await written) return;
+    // A later copy decides for itself.
+    if (!identical(written, services.clipboardMirror.written)) return;
+    final text = await _clipboardText();
+    final bytes = await _clipboardImage();
+    if (!identical(written, services.clipboardMirror.written)) return;
+    _textBeforeInkCopy = text;
+    _imageBeforeInkCopy = bytes == null ? null : _hash(bytes);
   }
 
   static String _hash(Uint8List bytes) => sha256.convert(bytes).toString();

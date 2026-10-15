@@ -28,15 +28,20 @@ class _SystemClipboard {
           writes++;
           return true;
         case 'image':
+          reads++;
           final bytes = png;
           return bytes == null ? null : img.encodePng(img.decodePng(bytes)!, level: 1);
         case 'files':
+          reads++;
           return const <Object>[];
       }
       return null;
     });
     messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      if (call.method == 'Clipboard.getData') return text == null ? null : {'text': text};
+      if (call.method == 'Clipboard.getData') {
+        reads++;
+        return text == null ? null : {'text': text};
+      }
       return null;
     });
     addTearDown(() {
@@ -51,6 +56,9 @@ class _SystemClipboard {
   Uint8List? png;
   String? text;
   int writes = 0;
+
+  /// Reads of the clipboard (Android 12+ announces each as a paste).
+  int reads = 0;
 }
 
 void main() {
@@ -66,6 +74,8 @@ void main() {
     await mouseDrag(tester, const [Offset(150, 401)]);
     await ctrl(tester, LogicalKeyboardKey.keyC);
     await settleReal(tester, () => clipboard.writes == 1);
+    await tester.pump();
+    expect(clipboard.reads, 0, reason: 'Copy writes the clipboard, never reads it');
     // The ink's picture, transparent, framed around it; no text.
     final picture = img.decodePng(clipboard.png!)!;
     final ink = liveStrokes(services, nb.id).single;

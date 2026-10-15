@@ -274,6 +274,51 @@ void main() {
       expect(s.database.db.select('SELECT id FROM strokes WHERE length(points) > 0'), isEmpty);
     });
 
+    test('a blob a pull references while collection deletes others survives', () async {
+      s.dispose();
+      final backend = _HookedBackend(dir.path);
+      s = AppServices.create(AppDatabase.inMemory(), clock: clock, blobBackend: backend);
+      final a = await blob('a'), b = await blob('b');
+      final page = s.pages.pagesOf(notebook().id).single;
+      await s.blobGc.run();
+      clock.advance(const Duration(days: 8));
+      // Deleting the first, a pull commits a record referencing the other.
+      String? pulled;
+      backend.onDelete = (sha) {
+        backend.onDelete = null;
+        image(page.id, pulled = sha == a ? b : a);
+      };
+      final deleted = await s.blobGc.run();
+      expect(deleted, hasLength(1));
+      expect(deleted, isNot(contains(pulled)));
+      expect(await s.blobs.has(pulled!), isTrue);
+      // Its grace period starts afresh once it is unreferenced again.
+      expect(s.database.db.select('SELECT unreferenced_since FROM blobs').single.values, [null]);
+    });
+
+    test('the one-blob check agrees with the reference graph', () async {
+      final pdf = await blob('pdf'), img = await blob('img'), audio = await blob('audio');
+      final paper = await blob('paper'), mine = await blob('mine'), orphan = await blob('orphan');
+      final n = notebook();
+      final page = pdfPage(n, pdf);
+      image(page.id, img);
+      recording(n, audio);
+      s.pages.setPaper([s.pages.pagesOf(n.id).first.id], paper: Paper.image(paper));
+      s.templates.create(name: 'T', blob: mine, size: const Size(100, 100));
+      final refs = BlobReferences(s.database);
+      final now = clock.nowMs();
+      for (final sha in [pdf, img, audio, paper, mine, orphan]) {
+        expect(refs.keeps(sha, now), refs.kept(now).contains(sha), reason: sha);
+      }
+      s.notebooks.delete(n.id);
+      clock.advance(TombstonePayloads.retention + const Duration(days: 1));
+      final later = clock.nowMs();
+      for (final sha in [pdf, img, audio, paper]) {
+        expect(refs.keeps(sha, later), isFalse, reason: sha);
+      }
+      expect(refs.keeps(mine, later), isTrue);
+    });
+
     test('runIfDue runs at most once a day', () async {
       final sha = await blob('orphan');
       await s.blobGc.runIfDue(); // Marks.
@@ -289,4 +334,17 @@ void main() {
       expect(await s.blobGc.runIfDue(), [again]); // ...deleted a week later.
     });
   });
+}
+
+/// Files, telling [onDelete] before each deletion.
+class _HookedBackend extends FileBlobBackend {
+  _HookedBackend(super.directory);
+
+  void Function(String sha)? onDelete;
+
+  @override
+  Future<void> delete(String sha) async {
+    onDelete?.call(sha);
+    await super.delete(sha);
+  }
 }

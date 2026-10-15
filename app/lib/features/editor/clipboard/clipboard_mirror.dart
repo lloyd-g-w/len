@@ -40,6 +40,13 @@ class ClipboardMirror {
   /// Counts copies, so a slow one doesn't overwrite a later one's record.
   int _copies = 0;
 
+  Future<bool>? _written;
+
+  /// Whether the last copy's write put it on the system clipboard (null
+  /// before the first copy). While it did, nothing there is older than
+  /// the ink copied.
+  Future<bool>? get written => _written;
+
   /// Mirrors a copy of [strokes] and [elements] onto the system clipboard.
   /// Call it within the user's gesture (the web's clipboard needs one):
   /// the write starts at once, the picture follows when rendered.
@@ -50,7 +57,7 @@ class ClipboardMirror {
     _image = null;
     final png = _render(strokes, elements);
     unawaited(_remember(copy, png));
-    return _write(png: png, text: text).then((written) async {
+    return _written = _write(png: png, text: text).then((written) async {
       if (written || text == null) return written;
       // No image support: the text alone, the usual way.
       await Clipboard.setData(ClipboardData(text: text));
