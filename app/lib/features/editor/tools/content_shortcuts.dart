@@ -17,7 +17,7 @@ Map<ShortcutActivator, VoidCallback> contentShortcuts(
   VoidCallback? pastePlain,
 }) {
   final selection = content.selection;
-  void setTool(EditorTool tool) => tools.tool = tool;
+  void setTool(EditorTool tool) => tools.pick(tool);
   return {
     for (final (key, tool) in [
       (LogicalKeyboardKey.keyL, EditorTool.lasso),

@@ -122,7 +122,7 @@ class FingerReading {
     _wrote = false;
     final has = _hasContent();
     if (has is bool) return _settle(has);
-    unawaited(has.then(_settle));
+    unawaited(has.then(_settle, onError: (Object _) => _settle(false)));
   }
 
   void _settle(bool hasContent) {
