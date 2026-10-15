@@ -31,6 +31,7 @@
     }
     #splash img { width: 96px; height: 96px; animation: pulse 1.6s ease-in-out infinite; }
     @keyframes pulse { 50% { opacity: .55; transform: scale(.96); } }
+    @media (prefers-reduced-motion: reduce) { #splash img { animation: none; } }
   </style>
 </head>
 <body>

@@ -110,7 +110,7 @@ red line under both fields, and stay while the user retypes. Token
 errors go on the token field, as URL errors go on the URL field; typing
 clears them. Connection errors stay under the fields. Effort S.
 
-**R14-8 P3 · The web splash pulses under reduced motion.** ⬜
+**R14-8 P3 · The web splash pulses under reduced motion.** ✅
 `web/index.html` animates the logo always; `prefers-reduced-motion`
 stills it. Effort S.
 
