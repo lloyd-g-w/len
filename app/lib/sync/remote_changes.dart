@@ -32,7 +32,7 @@ class RemoteChanges {
   /// another device wrote in them ([Revival.undoneNotebooks],
   /// [Revival.undonePages]).
   final Set<String> undoneNotebooks = {};
-  final Map<String, int> undonePages = {};
+  final Map<String, Set<String>> undonePages = {};
 
   /// Adds what [revival] brought back.
   void addRevival(Revival revival) {
@@ -43,12 +43,14 @@ class RemoteChanges {
     outlineOfNotebooks.addAll(revival.notebooks);
     strokeSurfaces.addAll(revival.surfaces);
     undoneNotebooks.addAll(revival.undoneNotebooks);
-    _addCounts(revival.undonePages);
+    _addPages(revival.undonePages);
   }
 
-  void _addCounts(Map<String, int> pages) {
+  /// Page ids, not counts: a revival reported twice (a slice applied
+  /// again, a pull announced again) counts each page once.
+  void _addPages(Map<String, Set<String>> pages) {
     for (final MapEntry(:key, :value) in pages.entries) {
-      undonePages.update(key, (n) => n + value, ifAbsent: () => value);
+      undonePages.putIfAbsent(key, () => {}).addAll(value);
     }
   }
 
@@ -59,7 +61,7 @@ class RemoteChanges {
     templates |= other.templates;
     revived |= other.revived;
     undoneNotebooks.addAll(other.undoneNotebooks);
-    _addCounts(other.undonePages);
+    _addPages(other.undonePages);
     pagesOfNotebooks.addAll(other.pagesOfNotebooks);
     strokeSurfaces.addAll(other.strokeSurfaces);
     outlineOfNotebooks.addAll(other.outlineOfNotebooks);

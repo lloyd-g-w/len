@@ -24,7 +24,7 @@ List<String> revivalNotices(RemoteChanges changes, String? Function(String id) t
     for (final MapEntry(:key, :value) in changes.undonePages.entries)
       if (!notebooks.contains(key)) key: value,
   };
-  final count = pages.values.fold(0, (a, b) => a + b);
+  final count = pages.values.fold(0, (a, b) => a + b.length);
   if (count == 0) return notices;
   final title = pages.length == 1 ? titleOf(pages.keys.single) : null;
   final where = title == null ? '' : ' in “$title”';

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/data/deletion_conflicts.dart';
 import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/image_data.dart';
 import 'package:len/domain/notebook.dart';
@@ -197,15 +198,76 @@ void main() {
     expect(revivalNotices(onB, (id) => title(b, id)), isEmpty);
   });
 
+  test('a revival is told once a pull failing after it is retried (R9b-9)', () async {
+    final (a, b) = twoDevices();
+    final gone = _notebook(a);
+    final page = a.s.pages.pagesOf(gone.id).single.id;
+    final other = _notebook(a);
+    await send(a, b);
+    a.time.tick();
+    a.s.notebooks.trash(gone.id);
+    a.s.notebooks.delete(gone.id);
+    await a.sync();
+
+    // B, offline since, writes in the notebook after it was deleted.
+    _write(b, gone.id, page, 'first');
+    await b.s.sync.engine.sync(apiFor(b.server));
+    b.s.strokes.save([
+      for (var i = 0; i < 100; i++) bigStroke('s$i', page, 4),
+      bigStroke('late', other.id, 4),
+    ]);
+    await b.s.sync.engine.sync(apiFor(b.server));
+
+    // A's pull revives the notebook in an early slice, then fails.
+    a.db
+      ..execute('''
+        CREATE TRIGGER test_slow AFTER INSERT ON strokes BEGIN
+          SELECT COUNT(*) FROM (WITH RECURSIVE c(x) AS
+            (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 20000) SELECT x FROM c);
+        END''')
+      ..execute('''
+        CREATE TRIGGER test_fail BEFORE INSERT ON strokes WHEN NEW.id = 'late' BEGIN
+          SELECT RAISE(ABORT, 'disk on fire');
+        END''');
+    await expectLater(a.s.sync.engine.sync(apiFor(a.server)), throwsA(isA<Exception>()));
+    expect(_trash(a), [gone.id], reason: 'the revival was committed');
+    a.db
+      ..execute('DROP TRIGGER test_slow')
+      ..execute('DROP TRIGGER test_fail');
+
+    final changes = await a.sync();
+    expect(revivalNotices(changes, (id) => a.s.notebooks.get(id)?.title), [
+      '“Notes” is back in the trash: another device wrote in it after you deleted it',
+    ]);
+  });
+
+  test('revival notices count each page once, however often it is reported', () {
+    final revival = Revival()
+      ..notebooks.add('n1')
+      ..undonePages['n1'] = {'p1', 'p2'};
+    final changes = RemoteChanges()
+      ..addRevival(revival)
+      ..addRevival(revival); // A slice applied again after a database retry.
+    final again = RemoteChanges()..addRevival(revival);
+    changes.addAll(again); // A pull announced again after a failure.
+    expect(revivalNotices(changes, (_) => 'Notes'), [
+      '2 pages you deleted in “Notes” are back: another device wrote on them',
+    ]);
+  });
+
   test('revival notices count pages across notebooks and several notebooks', () {
     final changes = RemoteChanges()
       ..undoneNotebooks.addAll(['n1', 'n2'])
-      ..undonePages.addAll({'n1': 2, 'n3': 1, 'n4': 1});
+      ..undonePages.addAll({
+        'n1': {'a', 'b'},
+        'n3': {'c'},
+        'n4': {'d'},
+      });
     expect(revivalNotices(changes, (_) => 'X'), [
       '2 notebooks you deleted are back in the trash: another device wrote in them',
       '2 pages you deleted are back: another device wrote on them',
     ]);
-    final one = RemoteChanges()..undonePages['n1'] = 1;
+    final one = RemoteChanges()..undonePages['n1'] = {'a'};
     expect(revivalNotices(one, (_) => null), [
       'A page you deleted is back: another device wrote on it',
     ]);
