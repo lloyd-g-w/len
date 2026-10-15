@@ -17,6 +17,7 @@ how long the UI thread is held, `bestMs`, `report`).
 | `big_notebook_perf_test.dart` | 500-page notebook (45k strokes, half PDF pages): open, go to page 500, scroll; page overview; a long session writing on 300 pages (memory, undo) |
 | `sync_scale_perf_test.dart` | first full pull of 73k records (67k strokes) from a mock server (records encoded ahead, so serving costs the shared thread only a copy), then an incremental and an idle sync |
 | `scribble_perf_test.dart` | scribble to erase on very long strokes (writing, and a scribble going on): µs per pen move at 4k and 64k moves must stay flat |
+| `restore_scale_perf_test.dart` | restore a 21 MB library backup (200 notebooks, 45k strokes, 12 records parts): total time and the longest UI turn |
 | `startup_scale_perf_test.dart` | launch with a 335 MB database (325k strokes, 500 blob rows = 5 GB of PDFs, 200 expired trashed notebooks): what runs before the first frame, then trash purge and blob GC |
 | `minimap_perf_test.dart` | canvas of 10,000 strokes over 40,000 × 25,000 (3,762 chunks): a pan frame and a pen move with the minimap on and off (widgets rebuilt, render objects painted), and the map's own work (density read, merge, paint) |
 | `zoom_window_perf_test.dart` | three full ruled pages: a frame of the page view scrolling with the zoom window open and closed; 60 words written in the box against 60 on the page |
@@ -122,6 +123,53 @@ to trust.
 - **Notebook styles.** Two queries of a small table when the new-notebook
   sheet opens; nothing at startup.
 
+## Web long tasks (branch perf/web-long-tasks, Oct 2026)
+
+Measured with the walk-through (`tool/web_explore.sh`, Chromium only,
+headed under Xvfb with SwiftShader, a shared machine under load). Each long
+task was attributed with `LEN_EXPLORE_PROFILE=1`, which now prints, per
+main-thread task over 200 ms (from a trace), the frames that took its time
+and the app functions it ran under.
+
+| Step | Before | After |
+|---|---|---|
+| Restore (JS) | 13 tasks, max 2.0 s; the import's own: 1.2–2.2 s a records part (Dart inflate 0.3 s, JSON 0.4 s, writing 1.1 s, one turn) | 11 tasks, max 1.5 s, none the import's: shader compiles, thumbnail read-backs |
+| Restore (Wasm) | — | longest task 171 ms |
+| Open big notebook (JS) | 36–42 tasks, max 1.2–2.2 s | 32 tasks, max 1.8 s (a shader compile); the rest tile read-backs |
+| Open big notebook (Wasm) | — | longest task 98 ms |
+| Every other step after start (Wasm) | — | longest task ≤ 103 ms |
+| `restore_scale_perf_test` (debug VM) | 13 turns, longest 516 ms, 3.2 s | 320 turns, p99 48 ms, longest 200 ms (the final transaction), 3.5 s |
+
+- **Import.** A records part (~4 MB, thousands of records) was inflated by the
+  archive package in Dart, decoded and parsed whole, then written in one
+  transaction, all in one turn. Browsers now inflate it with
+  `DecompressionStream` and decode it with `TextDecoder` (`platform/browser_inflate`),
+  and records are parsed and written in 8 ms slices, a transaction each, with
+  a turn between them (`LenArchiveReader.sliceBudget`). A backup's contents
+  (the "Restore this backup?" question) parse only up to its first page. The
+  final transaction (notebooks added, everything marked for sync) stays one:
+  ~160 ms for 45k strokes in the harness.
+- **The walk measured itself.** Its IndexedDB reads (`query`, 0.7–0.9 s each
+  for a 30 MB database, base64 in the page) were counted as the restore's long
+  tasks; they are now left out (`probe`). A reloaded page's tasks were
+  skipped (its list restarted below the count already seen).
+- **What remains is the renderer's, not the app's.** In the JavaScript build
+  every remaining long task is CanvasKit's GL work on the main thread, slow
+  under software GL: shader compiles (`getShaderParameter` /
+  `getProgramParameter`, 0.2–1.5 s whenever something new is drawn), pixel
+  read-backs (`Picture.toImage` / `toImageSync` read the pixels back:
+  `readPixels` 0.2–1 s per ink tile, thumbnail or LOD raster, which is where
+  the GPU work actually runs), resizing the shared picture-to-image surface
+  whenever the size asked for changes (0.1–0.4 s) and, at startup, WebGL
+  contexts: flutter.js probing WebGL support (0.6–0.9 s), CanvasKit's
+  context (1.0–1.3 s), the first frame (1.0–1.5 s). The app's own startup
+  work (the schema check's scratch database, opening the database) is
+  ~0.15 s. On a real GPU these are milliseconds. The WebAssembly build
+  (Skwasm renders off the main thread) shows the app's own work: nothing
+  over 200 ms once started, so the walk now fails a WebAssembly build with a
+  task over 500 ms in any step once the page has started (it was the big
+  notebook only).
+
 ## Current numbers (debug, harness)
 
 - **Library, 1,000 notebooks:** first frame 400–450 ms (a warm 20-notebook
@@ -151,6 +199,12 @@ to trust.
 - The scan screen rebuilds as a whole per move of a corner drag (the corner
   editor takes its quad from the session); bounded by the screen (and one
   thumbnail per page), not by the photo.
+
+- Web (JavaScript): ink tiles, thumbnails and LOD rasters become images
+  through a GPU read-back on the main thread (CanvasKit), and alternating
+  image sizes resize its shared surface each time; batching renders by size
+  or keeping tiles as pictures would trade memory or frame time for it.
+  The restore's final transaction marks every imported row for sync at once.
 
 - A first pull is bound by SQLite inserts on the UI isolate (~60 µs a stroke
   with its chunk rows, 4 ms slices). Applying in a worker with its own

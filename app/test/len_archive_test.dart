@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui';
@@ -507,7 +508,20 @@ void main() {
     final bytes = await _export(big, LenScope.notebook(n.id));
     final names = ZipDecoder().decodeBytes(bytes).files.map((f) => f.name);
     expect(names.where((name) => name.startsWith('records/')).length, greaterThan(1));
+    // The records are written in slices with the event loop free between
+    // them: the UI thread is never held for a whole part.
+    final clock = Stopwatch()..start();
+    final turns = Stopwatch()..start();
+    var longest = Duration.zero;
+    final ticker = Timer.periodic(Duration.zero, (_) {
+      if (turns.elapsed > longest) longest = turns.elapsed;
+      turns.reset();
+    });
     final result = await _import(target, bytes);
+    ticker.cancel();
+    final total = clock.elapsed;
+    printOnFailure('import ${total.inMilliseconds} ms, longest turn ${longest.inMilliseconds} ms');
+    expect(longest * 3, lessThan(total));
     expect(
       SurfaceCopier(target.strokes)
           .loadAll(target.pages.pagesOf(result.notebooks.single).single.id),

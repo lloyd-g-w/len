@@ -29,16 +29,18 @@ at its last page.
 
 Collected per step: console errors and warnings, the app's own logs that
 say something failed, uncaught exceptions, failed or 4xx/5xx requests,
-long tasks (> 200 ms, PerformanceObserver; Chromium) and the JS heap after
-a forced GC (Chromium). Any of the first four fails the run, as does a
-step whose check fails or a heap that keeps growing while a notebook is
-opened and closed again. Long tasks are reported, not failed: startup,
-PDF import and restore have some by nature. Except in the big notebook
-(open_big) of a WebAssembly build: a task over LONG_TASK_CEILING_MS
-there fails the run (it froze the tab). Skwasm renders off the main
-thread, so its tasks are the app's own work; CanvasKit (the JavaScript
-build) renders on it, and under software GL (Xvfb, CI) one GPU round trip
-(a tile's pixels read back, the first frame's shaders) takes 0.3-1.5 s,
+long tasks (> 200 ms, PerformanceObserver; Chromium; not those of the walk's
+own IndexedDB reads, `probe`) and the JS heap after a forced GC
+(Chromium). Any of the first four fails the run, as does a step whose
+check fails or a heap that keeps growing while a notebook is opened and
+closed again. In a WebAssembly build, so does any task over
+LONG_TASK_CEILING_MS once the page has started (`Walk.ready`: its first
+screen shown; before that it is the engine starting, e.g. flutter.js
+creating a WebGL context to probe it, ~0.8 s under software GL): it froze
+the tab. Skwasm renders off the main thread, so its tasks are the app's
+own work; CanvasKit (the JavaScript build) renders on it, and under
+software GL (Xvfb, CI) one GPU round trip (a tile's or thumbnail's pixels
+read back, a new shader compiled, the first frame) takes 0.3-1.5 s,
 so there they are only reported. A failed step also leaves
 what a screen reader finds there (<step>.txt).
 
@@ -48,9 +50,10 @@ web_offline_check.py does. Screenshots of every step go to $LEN_EXPLORE_OUT
 cross-origin isolated (README). Environment:
   LEN_EXPLORE_BROWSERS=chromium,firefox  browsers (default both; Firefox if installed)
   LEN_EXPLORE_BACKUP=<file.len>          only restore this backup (made big) and open it
-  LEN_EXPLORE_PROFILE=1                  CPU profile per step, its hottest functions printed
+  LEN_EXPLORE_PROFILE=1                  CPU profile per step, its hottest functions printed, and
+                                         per long task where its time went (a trace's tasks)
   LEN_EXPLORE_CYCLES=5                   open/close cycles of the memory step
-  LEN_EXPLORE_CEILING_MS=500             longest task allowed in the big notebook (WebAssembly)
+  LEN_EXPLORE_CEILING_MS=500             longest task allowed once started (WebAssembly)
   LEN_EXPLORE_BUNDLED=1                  Playwright's own Chromium (CI), not the PATH's
 Exit status 1 if anything failed.
 """
@@ -79,8 +82,7 @@ if os.path.exists(os.path.join(w.BUILD, 'main.dart.wasm')):
 
     w.Handler = _Isolated
 LONG_TASK_MS = 200
-LONG_TASK_CEILING_MS = int(os.environ.get('LEN_EXPLORE_CEILING_MS', 500))  # open_big, WebAssembly.
-CEILING_STEPS = {'open_big'}
+LONG_TASK_CEILING_MS = int(os.environ.get('LEN_EXPLORE_CEILING_MS', 500))  # WebAssembly, once started.
 BUNDLED = os.environ.get('LEN_EXPLORE_BUNDLED')  # Playwright's own Chromium, not the PATH's (CI).
 PROFILE = os.environ.get('LEN_EXPLORE_PROFILE')  # CPU profile of each step (Chromium).
 HEAP_GROWTH_MB = 25  # Allowed JS heap growth over the open/close cycles.
@@ -204,6 +206,7 @@ def big_backup(src, dst):
 # write into window.lenSaved (the picker itself is a native dialog).
 INIT = '''(() => {
   window.lenLongTasks = [];
+  window.lenProbes = [];
   if ((PerformanceObserver.supportedEntryTypes || []).includes('longtask')) try {
     new PerformanceObserver((list) => { for (const e of list.getEntries())
       window.lenLongTasks.push([Math.round(e.startTime), Math.round(e.duration)]); })
@@ -261,6 +264,59 @@ def print_hot(profile, top=12):
         own[key] = own.get(key, 0) + delta / 1000
     for key, ms in sorted(own.items(), key=lambda kv: -kv[1])[:top]:
         print(f'    {ms:8.0f} ms  {key[:150]}')
+
+
+# Frames that say nothing about who ran (the event loop, futures, the
+# framework's build / layout / paint walks), skipped when naming one.
+_PLUMBING = re.compile(r'^(call\$|runUnary|_microtask|_startMicrotask|_Future|_complete|_async|complete\$|'
+                       r'invoke$|_callDart|_invokeFrame|handleDrawFrame|_handleDrawFrame|drawFrame|then\$|'
+                       r'_handlePersistent|_rootRun|_wrapJs|_propagate|_scheduleImmediate|_rootHandle)')
+
+
+_TASKS = {'RunTask', 'ThreadControllerImpl::RunTask'}  # A task in a trace, by Chromium version.
+
+
+def print_long_tasks(profile, trace):
+    """Each long task of the page's main thread (from the trace) with where
+    its time went (the profile's samples in it): the frames that took the
+    time themselves, and the app's own functions under which it went."""
+    main = {(e['pid'], e['tid']) for e in trace
+            if e.get('ph') == 'M' and e.get('name') == 'thread_name'
+            and e.get('args', {}).get('name') == 'CrRendererMain'}
+    tasks = sorted((e['ts'], e['dur']) for e in trace if e.get('ph') == 'X' and e.get('name') in _TASKS
+                   and (e['pid'], e['tid']) in main and e.get('dur', 0) > LONG_TASK_MS * 1000)
+    nodes = {n['id']: n for n in profile['nodes']}
+    parent = {c: n['id'] for n in profile['nodes'] for c in n.get('children', [])}
+    times, t = [], profile['startTime']
+    for d in profile.get('timeDeltas', []):
+        t += d
+        times.append(t)
+    samples = list(zip(times, profile.get('samples', []), profile.get('timeDeltas', [])[1:] + [0]))
+    for start, length in tasks:
+        own, under, total = {}, {}, 0
+        for at, sample, delta in samples:
+            if not start <= at < start + length:
+                continue
+            total += delta
+            frame = nodes[sample]['callFrame']
+            key = frame['functionName'] or '(anonymous)'
+            own[key] = own.get(key, 0) + delta
+            seen, node = set(), sample
+            while node is not None:
+                f = nodes[node]['callFrame']
+                name = f['functionName']
+                if 'main.dart' in f['url'] and name and not _PLUMBING.search(name) and name not in seen:
+                    seen.add(name)
+                    under[name] = under.get(name, 0) + delta
+                node = parent.get(node)
+        if not total:
+            continue
+        top = lambda d, n: ', '.join(f'{k} {v / 1000:.0f}' for k, v in sorted(d.items(), key=lambda kv: -kv[1])[:n])
+        print(f'    task {length / 1000:.0f} ms: own {top(own, 4)}')
+        # The innermost app functions holding most of it: those under which
+        # at least half the task went, deepest first.
+        held = sorted((v, k) for k, v in under.items() if v >= total / 2)
+        print(f'      under: {", ".join(f"{k} {v / 1000:.0f}" for v, k in held[:8])}')
 
 
 async def heap_mb(page, cdp):
@@ -324,9 +380,18 @@ async def drag(page, points, steps=10):
     await page.mouse.up()
 
 
+async def probe(page, script, arg=None):
+    """Evaluates the walk's own [script] (an async function) in the page,
+    its span noted in window.lenProbes: long tasks starting there are the
+    walk's (reading IndexedDB, encoding a file), not the app's."""
+    return await page.evaluate('''async ([script, arg]) => { const start = performance.now();
+      try { return await (0, eval)(script)(arg); }
+      finally { window.lenProbes.push([start, performance.now()]); } }''', [script, arg])
+
+
 async def query(page, sql):
     """Rows of [sql] on the database as stored in IndexedDB."""
-    files = await page.evaluate(w._DUMP)
+    files = await probe(page, w._DUMP)
     data = files and files.get('/len.db')
     if not data:
         return []
@@ -365,7 +430,7 @@ async def saved_file(page, watch, name_part, timeout=60):
                 path = os.path.join(OUT, f'{watch.browser}-{d.suggested_filename}')
                 await d.save_as(path)
                 return path
-        data = await page.evaluate('''async (part) => { for (const [k, b] of Object.entries(window.lenSaved))
+        data = await probe(page, '''async (part) => { for (const [k, b] of Object.entries(window.lenSaved))
             if (k.includes(part)) { delete window.lenSaved[k]; const a = new Uint8Array(await b.arrayBuffer());
               let s = ''; for (let i = 0; i < a.length; i += 0x8000) s += String.fromCharCode(...a.subarray(i, i + 0x8000));
               return [k, btoa(s)]; } return null; }''', name_part)
@@ -428,6 +493,15 @@ class Walk:
     def __init__(self, name, page, cdp, watch, fixtures):
         self.name, self.page, self.cdp, self.watch, self.fx = name, page, cdp, watch, fixtures
         self.n, self.tasks_seen, self.wasm = 0, 0, False
+        # The page (its time origin) whose long tasks were seen, and when
+        # it had started (performance.now(); its first screen shown).
+        self.origin, self.ready_at = None, None
+
+    async def ready(self):
+        """Notes that the page has started: its tasks from now on are the
+        app's work, held to the ceiling (those before, the engine's start,
+        aren't)."""
+        self.ready_at = await self.page.evaluate('[performance.timeOrigin, performance.now()]')
 
     async def step(self, title, body):
         self.n += 1
@@ -438,6 +512,14 @@ class Walk:
         if self.cdp and PROFILE:
             await self.cdp.send('Profiler.enable')
             await self.cdp.send('Profiler.start')
+            trace, traced = [], asyncio.get_running_loop().create_future()
+            collect = lambda e: trace.extend(x for x in e['value'] if x.get('ph') == 'M' or (
+                x.get('name') in _TASKS and x.get('dur', 0) > LONG_TASK_MS * 1000))
+            complete = lambda e: traced.done() or traced.set_result(True)
+            self.cdp.on('Tracing.dataCollected', collect)
+            self.cdp.on('Tracing.tracingComplete', complete)
+            await self.cdp.send('Tracing.start', {'categories': 'toplevel',
+                                                  'transferMode': 'ReportEvents'})
         try:
             await body()
         except (w.CheckFailed, PlaywrightTimeout) as e:
@@ -456,7 +538,10 @@ class Walk:
                 pass
         try:
             await page.screenshot(path=os.path.join(OUT, f'{self.name}-{self.n:02}-{title}.png'))
-            tasks = await page.evaluate('window.lenLongTasks || []')
+            # The app's long tasks: not those of the walk's own probes.
+            origin, tasks = await page.evaluate('''() => [performance.timeOrigin,
+              (window.lenLongTasks || []).map(([start, length]) => [start, length,
+                (window.lenProbes || []).some(([a, b]) => start >= a - 1 && start <= b)])]''')
         except Exception as e:  # The page is gone: the findings say why.
             self.watch.problem(f'page unusable: {e}')
             return False
@@ -465,14 +550,24 @@ class Walk:
             with open(os.path.join(OUT, f'{self.name}-{self.n:02}-{title}.cpuprofile'), 'w') as f:
                 json.dump(profile, f)
             print_hot(profile)
-        new = tasks[self.tasks_seen:]
+            await self.cdp.send('Tracing.end')
+            await asyncio.wait_for(traced, 30)
+            self.cdp.remove_listener('Tracing.dataCollected', collect)
+            self.cdp.remove_listener('Tracing.tracingComplete', complete)
+            print_long_tasks(profile, trace)
+        if origin != self.origin:  # A new page (or reloaded): its own list.
+            self.origin, self.tasks_seen = origin, 0
+        new = [t for t in tasks[self.tasks_seen:] if not t[2]]
         long = [t for t in new if t[1] > LONG_TASK_MS]
         self.tasks_seen = len(tasks)
-        if title in CEILING_STEPS and new:
-            longest = max(t[1] for t in new)
-            print(f'  longest task: {longest} ms')
-            if self.wasm and longest > LONG_TASK_CEILING_MS:
-                self.watch.problem(f'a {longest} ms task froze the tab (ceiling {LONG_TASK_CEILING_MS} ms)')
+        # The app's own work once the page has started (Skwasm renders off
+        # the main thread): a task over the ceiling froze the tab.
+        started_at = self.ready_at[1] if self.ready_at and self.ready_at[0] == origin else None
+        held = [t[1] for t in new if started_at is not None and t[0] >= started_at]
+        if held and self.wasm:
+            print(f'  longest task once started: {max(held)} ms')
+            if max(held) > LONG_TASK_CEILING_MS:
+                self.watch.problem(f'a {max(held)} ms task froze the tab (ceiling {LONG_TASK_CEILING_MS} ms)')
                 ok = False
         heap = await heap_mb(page, self.cdp)
         self.watch.steps.append({'browser': self.name, 'step': title, 'ok': ok,
@@ -489,6 +584,7 @@ class Walk:
         await w.worker_ready(self.page)
         await w.accessible(self.page)
         await expect_text(self.page, 'No notebooks yet', timeout=60000)
+        await self.ready()
         await self.note_build()
 
     async def note_build(self):
@@ -660,6 +756,7 @@ class Walk:
             await w.accessible(page)
             await expect_text(page, 'Explore', timeout=60000)
             await expect_text(page, 'fix')
+            await self.ready()
         finally:
             await page.context.set_offline(False)
             self.watch.offline = False
@@ -719,6 +816,7 @@ class Walk:
         await w.open_app(page)
         await w.accessible(page)
         await expect_text(page, 'No notebooks yet', timeout=60000)
+        await self.ready()
         await self.note_build()
         await tap(page, 'Settings')
         await wheel(page, 400, times=6)

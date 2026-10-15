@@ -245,7 +245,7 @@ Two more things keep pen-up and first show off the frame:
   in slices of ≤ 8 ms with a turn of the event loop between them
   (`SlicedOutlinePreparer`): opening a 4 000-stroke notebook no longer
   blocks the tab for 0.4–0.6 s per page (`tool/web_explore.py` fails a
-  WebAssembly build whose big notebook has a task over 500 ms).
+  WebAssembly build with a task over 500 ms once started).
 - **Reads in blocks** (`SurfaceLoader`): a range of more than 36 chunks (a
   canvas seen from afar) is read in 4 × 4-chunk blocks, middle first, so
   the first ink shows within a second rather than after reading (and
@@ -2088,7 +2088,12 @@ temporary file to share or save, browsers write through the save picker
 else into a blob of 4 MB chunks to download, and warn before backing up
 more than 500 MB of files. Browsers read a picked file in slices
 (`RangedInput` over `Blob.slice`; `RangedZip` loads the zip's structure
-first, then each entry as it is read), natively it is read in place. An
+first, then each entry as it is read), natively it is read in place;
+browsers inflate a records part with their `DecompressionStream`
+(`platform/browser_inflate`, off the UI thread; the archive package's
+inflater in Dart took seconds of it), and records are parsed and written in
+8 ms slices, a transaction each, with a turn of the event loop between them
+(`LenArchiveReader.sliceBudget`). An
 import opens the file (`LenSource`: the
 manifest and, for a backup, the folders and notebooks it holds), stages
 everything, remaps ids (`LenRemap`), checks each blob's hash and commits in
