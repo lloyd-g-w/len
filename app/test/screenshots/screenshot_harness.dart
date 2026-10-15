@@ -14,6 +14,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/library/notebook_card.dart';
 import 'package:len/ui/app_theme.dart';
+import 'package:len/ui/focus_ring.dart';
 import 'package:len/ui/hit_overhang.dart';
 
 /// Whether to write PNGs (`flutter test --dart-define=SCREENSHOTS=true`).
@@ -76,7 +77,8 @@ Future<void> pumpApp(
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: mode,
-          builder: (context, child) => HitOverhangScope(child: child!),
+          // As in the app: the keyboard's focus ring paints over it all.
+          builder: (context, child) => HitOverhangScope(child: FocusRing(child: child!)),
           home: home,
         ),
       ),

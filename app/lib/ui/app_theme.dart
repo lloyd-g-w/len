@@ -14,6 +14,12 @@ export 'tones.dart';
 /// in a six-role scale, Material Symbols Sharp, flat chrome with hairlines,
 /// and depth only for paper ([Shadows]).
 abstract final class AppTheme {
+  /// The weight of the current or chosen row's label in a list (the
+  /// sidebar, Move, the pickers, the outline, the overview, the tab
+  /// switcher): with the margin rule, "a bold label" (DESIGN §6). Selected
+  /// chips and segments, on an Ink plate, stay semibold.
+  static const FontWeight currentWeight = FontWeight.w700;
+
   /// The accent: ruling blue (light theme).
   static const Color seed = Color(0xFF0068C9);
 
@@ -203,6 +209,10 @@ abstract final class Palette {
   /// Bookmark ribbons on pages and thumbnails (a marker, like ink: not
   /// themed).
   static const Color bookmark = Color(0xFFE8590C);
+
+  /// Shades what a crop cuts away (image crop, scan corners): over a photo,
+  /// not the chrome, so the same in both themes.
+  static const Color cropShade = Color(0x99000000);
 
   static const List<int> covers = [
     0xFF3B5BDB, // ink blue

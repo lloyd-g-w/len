@@ -165,13 +165,13 @@ class _PagePickerState extends State<_PagePicker> {
                             leading: Icon(
                               page.bookmarked ? Symbols.bookmark_sharp : Symbols.description_sharp,
                               fill: page.bookmarked ? 1 : 0,
-                              size: 20,
+                              size: Glyphs.bar,
                               color: page.bookmarked ? Palette.bookmark : null,
                             ),
                             title: Text(
                               i == current ? 'Page ${i + 1} (this page)' : 'Page ${i + 1}',
                               style: i == current
-                                  ? const TextStyle(fontWeight: FontWeight.w700)
+                                  ? const TextStyle(fontWeight: AppTheme.currentWeight)
                                   : null,
                             ),
                             subtitle: names == null

@@ -32,7 +32,7 @@ class StrokePreview extends StatelessWidget {
     required this.config,
     this.color,
     this.width,
-    this.height = 64,
+    this.height = PreviewCard.defaultHeight,
     this.sample = PreviewSample.writing,
   });
 
@@ -190,7 +190,7 @@ class PreviewCard extends StatelessWidget {
     required this.config,
     this.color,
     this.width,
-    this.height = 64,
+    this.height = PreviewCard.defaultHeight,
     this.sample = PreviewSample.writing,
   });
 
@@ -200,6 +200,9 @@ class PreviewCard extends StatelessWidget {
   final double? width;
   final double height;
   final PreviewSample sample;
+
+  /// The height of the option panels' previews (ink and laser alike).
+  static const double defaultHeight = 64;
 
   @override
   Widget build(BuildContext context) {

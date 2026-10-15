@@ -106,8 +106,9 @@ class RecentRow extends StatelessWidget {
 }
 
 /// A notebook in the Recent row: a small cover in its colour (with the
-/// darker spine), its title and the folder it lives in (none at the top
-/// level); opens on tap.
+/// darker spine), its title and the folder it lives in (an empty line at
+/// the top level, R8-10, so the titles still share a baseline); opens on
+/// tap.
 class RecentTile extends StatefulWidget {
   const RecentTile({
     super.key,
@@ -162,13 +163,12 @@ class _RecentTileState extends State<RecentTile> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (widget.caption case final caption?)
-                        Text(
-                          caption,
-                          style: theme.textTheme.bodySmall,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      Text(
+                        widget.caption ?? '',
+                        style: theme.textTheme.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),

@@ -140,7 +140,11 @@ class TextFormatBar extends StatelessWidget {
     );
   }
 
-  static const Widget _divider = SizedBox(height: 24, child: VerticalDivider(width: 9));
+  /// A hairline between the groups, as tall as a glyph's plate.
+  static const Widget _divider = SizedBox(
+    height: Gaps.xl,
+    child: VerticalDivider(width: Gaps.sm + Hairline.width),
+  );
 
   /// The controls in three groups: font and size; character formats;
   /// paragraph.

@@ -98,8 +98,8 @@ class _RingPainter extends CustomPainter {
   final Color color;
 
   /// Space between the control and the ring.
-  static const double _gap = 2;
-  static const double _width = 2;
+  static const double _gap = Gaps.xxs;
+  static const double _width = Hairline.rule;
 
   /// The rect to ring, or null when nothing should show.
   static Rect? target(Size window) {

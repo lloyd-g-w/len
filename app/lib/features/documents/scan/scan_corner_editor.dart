@@ -205,7 +205,6 @@ class _CornerPainter extends CustomPainter {
 
   // Handles sit on the photo, not the chrome: fixed colours, as in image crop.
   static const Color _accent = AppTheme.seed;
-  static const Color _dim = Color(0x99000000);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -227,7 +226,7 @@ class _CornerPainter extends CustomPainter {
         ..fillType = PathFillType.evenOdd
         ..addRect(fit)
         ..addPath(outline, Offset.zero),
-      Paint()..color = _dim,
+      Paint()..color = Palette.cropShade,
     );
     final stroke = Paint()
       ..color = _accent

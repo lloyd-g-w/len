@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../ui/app_theme.dart';
+import '../../ui/hit_overhang.dart';
+import 'library_content.dart';
 
 /// The colour of a [LibraryNotice]'s glyph.
 enum NoticeTone {
@@ -59,8 +61,9 @@ class LibraryNotice extends StatelessWidget {
     final scheme = theme.colorScheme;
     final tint = tone == NoticeTone.warning ? scheme.error : scheme.primary;
     final compact = Breakpoints.libraryCompact(MediaQuery.sizeOf(context));
-    // The screen's margin column (DESIGN §3).
-    final margin = compact ? Gaps.lg : Gaps.xl;
+    // The library's margins (DESIGN §3): the glyph and the ✕ on the
+    // covers' edges.
+    final margin = LibraryContent.gutterFor(compact: compact);
     final oneLine = compact ? shortTitle : null;
     final dismiss = onDismiss == null
         ? null
@@ -82,7 +85,10 @@ class LibraryNotice extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(
           margin,
           oneLine != null ? 0 : Gaps.md,
-          dismiss == null ? margin : Gaps.sm,
+          // The one-line notice's ✕ sits in the margin; otherwise the ✕
+          // and the actions keep their labels on the content edge (their
+          // padding hangs into the margin).
+          dismiss == null || oneLine == null ? margin : Gaps.sm,
           oneLine != null ? 0 : (actions.isEmpty ? Gaps.md : Gaps.xs),
         ),
         constraints: BoxConstraints(minHeight: Targets.barHit(context)),
@@ -107,42 +113,67 @@ class LibraryNotice extends StatelessWidget {
                   ?dismiss,
                 ],
               )
-            : Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: Gaps.xxs),
-                    child: glyph,
-                  ),
-                  const SizedBox(width: Gaps.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(title, style: theme.textTheme.labelLarge),
-                        const SizedBox(height: Gaps.xxs),
-                        Text(
-                          body,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: Gaps.xxs),
+                        child: glyph,
+                      ),
+                      const SizedBox(width: Gaps.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(title, style: theme.textTheme.labelLarge),
+                            const SizedBox(height: Gaps.xxs),
+                            Text(
+                              body,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            if (detail case final detail?) ...[
+                              const SizedBox(height: Gaps.xxs),
+                              SelectableText(detail, style: theme.textTheme.bodySmall),
+                            ],
+                          ],
                         ),
-                        if (detail case final detail?) ...[
-                          const SizedBox(height: Gaps.xxs),
-                          SelectableText(detail, style: theme.textTheme.bodySmall),
-                        ],
-                        if (actions.isNotEmpty)
-                          Align(
-                            alignment: AlignmentDirectional.centerEnd,
-                            child: Wrap(spacing: Gaps.xs, children: actions),
-                          ),
-                      ],
-                    ),
+                      ),
+                      if (dismiss != null) _onGlyphLine(context, dismiss),
+                    ],
                   ),
-                  ?dismiss,
+                  // The actions end on the ✕'s edge, under it: one right
+                  // edge for everything at the end of the notice.
+                  if (actions.isNotEmpty)
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: HitOverhang(
+                        overhang: const EdgeInsetsDirectional.only(end: Gaps.md),
+                        child: Wrap(spacing: Gaps.xs, children: actions),
+                      ),
+                    ),
                 ],
               ),
       ),
+    );
+  }
+
+  /// [dismiss] centred on the glyph's line (the title's) with its glyph
+  /// on the content edge: its touch target hangs into the notice's top
+  /// padding and the margin instead of pushing the ✕ down and in.
+  static Widget _onGlyphLine(BuildContext context, Widget dismiss) {
+    final spare = Targets.barHit(context) - Glyphs.bar;
+    return HitOverhang(
+      overhang: EdgeInsetsDirectional.only(
+        top: spare / 2 - Gaps.xxs,
+        bottom: spare / 2 + Gaps.xxs,
+        end: spare / 2,
+      ),
+      child: dismiss,
     );
   }
 }

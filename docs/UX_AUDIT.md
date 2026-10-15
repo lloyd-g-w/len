@@ -1,5 +1,46 @@
 # Len — UX/UI audit
 
+## Design polish round 11 (`design/polish-r11`)
+
+Screenshot review against DESIGN.md (library, app surfaces, editor
+surfaces 1–4, toolbar, overview, flows, notebook styles, minimap, lasso and
+laser options); fixes are token and consistency work, no new features.
+
+- Page orientation in the template picker is a pair of chips like the
+  formats above it (one kind of control for the page size).
+- Library notices sit on the covers' margins with the ✕ on the title line
+  and actions on its edge; the canvas ∞ badge shows on plain covers too;
+  Recent tiles always take two lines, so their titles share a baseline
+  (top-level notebooks keep an empty caption line, not "Library": R8-10).
+- The library header's caption wraps (large text on a phone cut the
+  Trash's "deleted after 30 days").
+- One weight for the current row's label (`AppTheme.currentWeight`): Move,
+  the notebook picker and the tab switcher were semibold, the sidebar,
+  outline and overview bold.
+- The tab switcher's ✕ glyphs sit on the content edge, mirroring the
+  notebook icons (they were 20 dp further in).
+- The focus ring's gap and width come from tokens (`Gaps.xxs`,
+  `Hairline.rule`).
+- Menu and bar glyph sizes from `Glyphs` (sidebar chevron, overview
+  filters, search hit icons, link picker, text heading menu).
+- The unused `BarDivider` is gone; the text format bar's divider uses
+  tokens.
+- Notebook style chips are as high as the page-size chips and segmented
+  buttons beside them (`EvenChoices.height`, 40; they were 48 on touch).
+- "Other readings" in Convert to text is a `SectionLabel` like every other
+  group heading (it was caption text).
+- One preview height for ink and laser option panels
+  (`PreviewCard.defaultHeight`).
+- `Palette.cropShade` shades what image crop and scan corners cut away
+  (was one literal in each); the crop frame and guides use `Hairline`.
+- Screenshots of keyboard focus and a golden for the template picker were
+  added.
+
+Looked at and left: the minimap's menu opens at the press point (a context
+menu, so on a phone it may cover the bottom bar); the recordings list's ⋯
+sits at the ListTile's padding rather than on the content edge; a sheet
+header's ✕ centres on title plus subtitle.
+
 ## Round 10 audit — a real week of notes (`review/round10`)
 
 Lens: a first-time stylus user on an Android tablet and on a phone, and a

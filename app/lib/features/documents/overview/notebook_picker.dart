@@ -259,7 +259,7 @@ class _NotebookRow extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelLarge?.copyWith(
-                            fontWeight: chosen ? FontWeight.w600 : null,
+                            fontWeight: chosen ? AppTheme.currentWeight : null,
                           ),
                         ),
                         Text(

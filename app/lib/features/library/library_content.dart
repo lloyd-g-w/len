@@ -60,6 +60,10 @@ class LibraryContent extends StatefulWidget {
   /// The gap between the grid's columns (the folder row shares them).
   static double gridSpacingFor({required bool compact}) => compact ? Gaps.lg : Gaps.xl;
 
+  /// The library's left and right margin: covers, rows, the header and
+  /// the notices above them share these edges.
+  static double gutterFor({required bool compact}) => compact ? Gaps.lg + Gaps.xs : Gaps.xxl;
+
   @override
   State<LibraryContent> createState() => _LibraryContentState();
 }
@@ -98,7 +102,7 @@ class _LibraryContentState extends State<LibraryContent> {
     // A phone held sideways: one row of chrome, folders beside the title
     // (or, while searching, a row of their own that scrolls sideways).
     final short = Breakpoints.short(MediaQuery.sizeOf(context));
-    final gutter = compact ? Gaps.lg + Gaps.xs : Gaps.xxl;
+    final gutter = LibraryContent.gutterFor(compact: compact);
     final gridSpacing = LibraryContent.gridSpacingFor(compact: compact);
     final folders = _c.visibleFolders;
     final notebooks = _c.visibleNotebooks;

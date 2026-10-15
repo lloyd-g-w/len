@@ -41,6 +41,7 @@ class _TabRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final current = tab.id == tabs.activeId;
+    final hit = Targets.barHit(context);
     return CustomPaint(
       foregroundPainter: current ? MarginRulePainter(scheme.primary) : null,
       child: ListTile(
@@ -48,6 +49,12 @@ class _TabRow extends StatelessWidget {
         selected: current,
         selectedColor: scheme.onSurface,
         selectedTileColor: Colors.transparent,
+        // The ✕'s glyph mirrors the leading icon: on the content edge, its
+        // button's padding in the row's.
+        contentPadding: EdgeInsetsDirectional.only(
+          start: Gaps.lg,
+          end: Gaps.lg - (hit - Glyphs.bar) / 2,
+        ),
         leading: Icon(
           tab.kind == NotebookKind.canvas ? Symbols.gesture_sharp : Symbols.menu_book_sharp,
           fill: current ? 1 : 0,
@@ -56,12 +63,15 @@ class _TabRow extends StatelessWidget {
           tab.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: current ? const TextStyle(fontWeight: FontWeight.w600) : null,
+          style: current ? const TextStyle(fontWeight: AppTheme.currentWeight) : null,
         ),
-        trailing: IconButton(
-          tooltip: 'Close tab',
-          onPressed: () => tabs.close(tab.id),
-          icon: const Icon(Symbols.close_sharp),
+        trailing: SizedBox.square(
+          dimension: hit,
+          child: IconButton(
+            tooltip: 'Close tab',
+            onPressed: () => tabs.close(tab.id),
+            icon: const Icon(Symbols.close_sharp),
+          ),
         ),
         onTap: () {
           Navigator.of(context).pop();

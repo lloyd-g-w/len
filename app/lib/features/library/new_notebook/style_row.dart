@@ -5,6 +5,7 @@ import '../../../domain/notebook_style.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/context_menu_keys.dart';
 import '../../../ui/roving_focus.dart';
+import '../../documents/templates/even_choices.dart';
 
 /// The new-notebook sheet's saved notebook styles: one chip each (its
 /// cover colour and name; the default says so) that fills in the whole
@@ -61,8 +62,8 @@ class StyleRow extends StatelessWidget {
   }
 }
 
-/// The outline and plate of the sheet's chips (as `EvenChoices`): a Rule
-/// edge; selected, an Ink plate.
+/// The outline and plate of the sheet's chips (as `EvenChoices`, as high):
+/// a Rule edge; selected, an Ink plate.
 class _ChipFrame extends StatelessWidget {
   const _ChipFrame({
     super.key,
@@ -98,7 +99,7 @@ class _ChipFrame extends StatelessWidget {
             onSecondaryTapUp: menu == null ? null : (d) => menu(d.globalPosition),
             borderRadius: radius,
             child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: Targets.of(context, 40)),
+              constraints: const BoxConstraints(minHeight: EvenChoices.height),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.xs),
                 child: Row(mainAxisSize: MainAxisSize.min, children: children),

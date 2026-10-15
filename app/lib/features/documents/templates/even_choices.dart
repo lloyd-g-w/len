@@ -34,6 +34,9 @@ class EvenChoices extends StatelessWidget {
 
   static const double leadingSize = 18;
 
+  /// A chip's height (the height of buttons and segmented buttons).
+  static const double height = 40;
+
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.labelLarge;
@@ -107,7 +110,7 @@ class _Chip extends StatelessWidget {
             onTap: choice.onTap,
             borderRadius: radius,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 40),
+              constraints: const BoxConstraints(minHeight: EvenChoices.height),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Gaps.md, vertical: Gaps.xs),
                 child: Row(
