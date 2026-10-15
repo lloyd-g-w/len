@@ -18,6 +18,9 @@ dependencies:
   desktop_drop:
     # Vendored: Built-in Kotlin detector fix (see third_party/README.md).
     path: third_party/desktop_drop
+  # A flag shared with the pull worker isolate (platform/write_signal_native.dart;
+  # already in the lock through sqlite3).
+  ffi: ^2.2.0
   file_selector: ^1.1.0
   google_mlkit_digital_ink_recognition: ^0.16.1
   flutter:

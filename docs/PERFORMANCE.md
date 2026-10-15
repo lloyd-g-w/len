@@ -16,7 +16,7 @@ how long the UI thread is held, `bestMs`, `report`).
 | `library_scale_perf_test.dart` | 1,000 notebooks in 50 folders (100 favourites, 200 trashed), 10,000 pages of text and PDF text: open, scroll, search as you type, sort / layout, folder tree, content search |
 | `big_notebook_perf_test.dart` | 500-page notebook (45k strokes, half PDF pages): open, go to page 500, scroll; a long session writing on 300 pages (memory, undo) |
 | `overview_scroll_perf_test.dart` | page overview of 500 pages of handwriting: a fast drag, a fling and a slow drag (frame times, pages recorded, tiles left blank) |
-| `sync_scale_perf_test.dart` | first full pull of 73k records (67k strokes) from a mock server (records encoded ahead, so serving costs the shared thread only a copy), then an incremental and an idle sync |
+| `sync_scale_perf_test.dart` | first full pull of 73k records (67k strokes) from a mock server (records encoded ahead, so serving costs the shared thread only a copy) while the app writes every 25 ms (`LEN_PULL_IN_PLACE=1`: applied on the UI isolate, as on the web), then an incremental and an idle sync |
 | `scribble_perf_test.dart` | scribble to erase on very long strokes (writing, and a scribble going on): µs per pen move at 4k and 64k moves must stay flat |
 | `restore_scale_perf_test.dart` | restore a 21 MB library backup (200 notebooks, 45k strokes, 12 records parts): total time and the longest UI turn |
 | `startup_scale_perf_test.dart` | launch with a 335 MB database (325k strokes, 500 blob rows = 5 GB of PDFs, 200 expired trashed notebooks): what runs before the first frame, then trash purge and blob GC |
@@ -225,6 +225,8 @@ Debug JIT in the harness on a shared machine; trust the counts.
 | Overview, 500 pages, fast drag (60 frames at 25,000 px/s, stops mid-grid) | frames median 84–91 ms; 476 pages recorded while dragging | median 67–72 ms; 6 recorded while dragging (before it measures fast), 20 once it rests |
 | Overview, fling at 12,000 px/s | 142 frames, median 11 ms; 162 pages recorded | median 4–7 ms; 42 recorded |
 | Overview, slow drag at 300 px/s | median 2–3 ms; no tile blank for a frame | same |
+| First pull, 73k records, the app writing every 25 ms (`LEN_PULL_IN_PLACE=1` for before) | 5.8 s (79–80 µs a record); UI thread busy 4.1–4.2 s, turns p99 6–7 ms, 5–6 over 16 ms (max 37–43 ms); the app's writes waited p50 0.12 ms, p99 0.3–1.2 ms | 6.7–7.1 s (92–97 µs); UI busy 0.72 s, turns p99 0 ms, 4 over 16 ms (max 33–34 ms, as before: not the pull's); writes waited p50 0.7–1.0 ms, p99 3.1 ms, max 3–34 ms |
+| Incremental sync (4 records) / idle sync | 7–8 / 4–5 ms | 8–9 / 4 ms (in place, as before) |
 | Scan screen, corner drag (a frame) | 2 rebuilds, 6 paints, the one painter drawing the whole photo (≤ 1,600 px) and the loupe's copy of it; 2.7 ms | 2 rebuilds, 7 paints: the photo's painter not at all (a layer of its own), the outline painter's loupe draws only the 37-px patch it shows; 3.0–3.6 ms |
 
 - **Scan corner drag.** The photo is painted by its own painter behind a
@@ -235,6 +237,23 @@ Debug JIT in the harness on a shared machine; trust the counts.
   benchmark checks that the photo's painter stays out of the frame. The
   frame counter now names every custom painter and leaves out boundaries
   that are only composited again.
+- **First pull in a worker.** A pull whose page is 64 KB or more (a first
+  sync, a big catch-up) natively starts a worker isolate with its own
+  connection (see ARCHITECTURE *Sync*): pages go there as bytes, are decoded
+  and applied by the same `PullApplier` in 8 ms slices with 1 ms between;
+  the UI thread only fetches them. Safe as a second writer because every
+  transaction now begins `IMMEDIATE` with a 5 s busy timeout, and the app's
+  transactions raise a shared counter (`SharedWriteSignal`, `ffi`) that
+  makes the worker commit after the current record and wait: the app's
+  write waits for the lock's first 1 ms poll instead of a slice (without
+  the signal: p99 10–12 ms, max ~50 ms, a poll missing the gaps). Triggers
+  fire on the worker's connection; its commits are announced on
+  `AppDatabase.commits` (the handwriting indexer wakes on them); what
+  changed comes back per page. `sync_worker_test.dart` runs the sync
+  tests (deletion races, recovery, the convergence properties) with every
+  pull in a worker. The cost: the pull takes ~15 % longer (the pauses, the
+  waits for the app). The web and small pulls keep the 4 ms slices on the
+  UI thread.
 - **Overview while scrolling fast.** `FastScroll` (`ui/fast_scroll.dart`)
   measures the grid's speed frame to frame (a drag reports no velocity, so
   `Scrollable.recommendDeferredLoadingForContext` alone sees only flings);
@@ -277,10 +296,11 @@ Debug JIT in the harness on a shared machine; trust the counts.
   or keeping tiles as pictures would trade memory or frame time for it.
   The restore's final transaction marks every imported row for sync at once.
 
-- A first pull is bound by SQLite inserts on the UI isolate (~60 µs a stroke
-  with its chunk rows, 4 ms slices). Applying in a worker with its own
-  connection would free the UI thread entirely, at the price of a second
-  writer.
+- A first pull (natively) is bound by SQLite inserts in the pull worker
+  (~60 µs a stroke with its chunk rows); 2M strokes take about two
+  minutes, during which the app is free. The few 25–35 ms UI turns left
+  during a pull are there without the worker too (garbage collection of
+  the shared heap, serving the pages in the harness).
 - Overview: a fast drag still builds and lays out ~7 new tiles a frame
   (all of the remaining 55–70 ms in the harness, framework widget work).
 - Opening a folder (100–250 ms) and switching layouts build the new screen in

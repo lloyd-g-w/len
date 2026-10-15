@@ -111,7 +111,7 @@ class HandwritingIndexer extends ChangeNotifier {
     if (_active || _disposed) return;
     _active = true;
     _ownCommits = 0;
-    _commits = (_commitSource ?? _db.commits).listen((_) => _onCommit());
+    _commits = (_commitSource ?? database.commits).listen((_) => _onCommit());
     if (_hasWork) schedule();
     notifyListeners();
   }

@@ -213,12 +213,21 @@ class SyncApi {
   /// Malformed records are dropped (and counted) rather than failing the
   /// whole page, so one bad record can never block sync forever. Pages are
   /// decoded off the UI thread where the platform can ([decodePulled]).
-  Future<PullPage> pull({required int since, int limit = pullLimit}) async {
+  Future<PullPage> pull({required int since, int limit = pullLimit}) async =>
+      await decodePulled(
+        await pullBody(since: since, limit: limit),
+        since: since,
+      ) ??
+      (throw SyncException.unexpected);
+
+  /// Fetches one page of changes after [since], undecoded (see
+  /// `decodePullPage`).
+  Future<Uint8List> pullBody({required int since, int limit = pullLimit}) async {
     final response = await _request(
       () => _client.get(_uri('v1/pull', {'since': '$since', 'limit': '$limit'}), headers: _headers),
     );
     _expectOk(response);
-    return await decodePulled(response.bodyBytes, since: since) ?? (throw SyncException.unexpected);
+    return response.bodyBytes;
   }
 
   // ---------------------------------------------------------------------------
