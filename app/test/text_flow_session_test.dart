@@ -11,6 +11,8 @@ import 'package:len/ink/elements/text_edit_session.dart';
 import 'package:len/ink/elements/text_flow_chains.dart';
 import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/ink/elements/text_layout_cache.dart';
+import 'package:len/ink/selection/ink_clipboard.dart';
+import 'package:len/ink/selection/selection_controller.dart';
 import 'package:len/ink/surface_model.dart';
 
 import 'data_test.dart' show FakeClock;
@@ -227,6 +229,85 @@ void main() {
     }
     expect(session.frames.length, greaterThan(1));
     session.end();
+  });
+
+  group('lasso', () {
+    late SelectionController selection;
+
+    setUp(() {
+      selection = SelectionController(
+        model: pages.modelOf('p0'),
+        clipboard: InkClipboard(),
+        clock: clock,
+      )..flows = chains;
+    });
+
+    tearDown(() => selection.dispose());
+
+    /// The only box on [page] as its model holds it.
+    SurfaceElement live(String page) =>
+        pages.modelOf(page).elementById(textOn(page).single.id)!;
+
+    test('moving the first box carries its chain; one undo step', () {
+      typeBox(lines(12));
+      selection.select(const [], [live('p0')]);
+      selection.nudge(const Offset(0, -480));
+      expect(textOn('p1'), isEmpty, reason: 'it all fits on the first page now');
+      expect(stored().text, lines(12));
+      expect(selection.elements.single.rect.height, textOn('p0').single.rect.height);
+      // The selection holds the box as laid out: moving it back flows again.
+      selection.nudge(const Offset(0, 480));
+      expect(textOn('p1'), hasLength(1));
+      expect(stored().text, lines(12));
+      pages.models.undo();
+      expect(textOn('p1'), isEmpty);
+      pages.models.undo();
+      expect(textOn('p1'), hasLength(1));
+      expect(stored().text, lines(12));
+    });
+
+    test('deleting the first box deletes the chain; undo brings it back', () {
+      typeBox(lines(40));
+      selection.select(const [], [live('p0')]);
+      selection.delete();
+      expect(textOn('p0') + textOn('p1') + textOn('p2'), isEmpty);
+      pages.models.undo();
+      expect(stored().text, lines(40));
+    });
+
+    test('a continuation is not selected on its own; a broken one is', () {
+      typeBox(lines(12));
+      final next = live('p1');
+      final there = SelectionController(
+        model: pages.modelOf('p1'),
+        clipboard: InkClipboard(),
+        clock: clock,
+      )..flows = chains;
+      addTearDown(there.dispose);
+      there.select(const [], [next]);
+      expect(there.isEmpty, isTrue);
+      pages.ids.remove('p0');
+      there.select(const [], [next]);
+      expect(there.elements, hasLength(1));
+    });
+
+    test('copying the first box copies the whole text', () {
+      typeBox(lines(12));
+      selection
+        ..select(const [], [live('p0')])
+        ..copy();
+      expect(TextData.fromJson(selection.clipboard.elements.single.data).text, lines(12));
+    });
+
+    test('rotating the first box gathers the whole text into it', () {
+      typeBox(lines(12));
+      final head = live('p0');
+      selection
+        ..select(const [], [head])
+        ..replaceElements([head.copyWith(rotation: 0.3)]);
+      expect(textOn('p1'), isEmpty);
+      expect(TextData.fromJson(textOn('p0').single.data).text, lines(12));
+    });
   });
 }
 

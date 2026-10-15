@@ -67,9 +67,12 @@ class SelectionController extends _SelectionCore {
   /// The surface the last nudge committed to, its undo count then and when.
   ({SurfaceModel model, int recorded, int at})? _lastNudge;
 
+  /// Copies the selection; a text box flowing across pages is copied with
+  /// its whole text.
   void copy() {
     if (isEmpty) return;
-    clipboard.put(_strokes, _elements, boundsOf(_strokes, _elements));
+    final elements = _whole(_elements);
+    clipboard.put(_strokes, elements, boundsOf(_strokes, elements));
   }
 
   void cut() {
@@ -80,8 +83,9 @@ class SelectionController extends _SelectionCore {
   /// Adds a copy of the selection slightly offset and selects it.
   void duplicate() {
     if (isEmpty) return;
-    final bounds = boundsOf(_strokes, _elements);
-    _paste(_strokes, _elements, bounds, bounds.center + const Offset(24, 24));
+    final elements = _whole(_elements);
+    final bounds = boundsOf(_strokes, elements);
+    _paste(_strokes, elements, bounds, bounds.center + const Offset(24, 24));
   }
 
   /// Pastes the clipboard centred on world point [at] and selects it.
@@ -96,6 +100,30 @@ class SelectionController extends _SelectionCore {
   void pasteItems(List<Stroke> strokes, List<SurfaceElement> elements, Rect bounds, Offset at) {
     if (strokes.isEmpty && elements.isEmpty) return;
     _paste(strokes, elements, bounds, at);
+  }
+
+  /// [elements] with the first box of a chain flowing across pages holding
+  /// the whole text (as tall as it is then).
+  List<SurfaceElement> _whole(List<SurfaceElement> elements) {
+    final chains = flows;
+    if (chains == null) return elements;
+    return [
+      for (final e in elements)
+        if (e.knownType != ElementType.text || TextFlowChains.flowOf(e) != null)
+          e
+        else
+          _withRest(e, chains.continuationsOf(e.surfaceId, e.id)),
+    ];
+  }
+
+  static SurfaceElement _withRest(SurfaceElement head, List<FlowBox> rest) {
+    if (rest.isEmpty) return head;
+    final whole = TextFlowChains.wholeOf(head, rest);
+    final r = head.rect;
+    return head.copyWith(
+      rect: Rect.fromLTWH(r.left, r.top, r.width, TextLayout.heightOf(whole, r.width)),
+      data: whole.toJson(head.data),
+    );
   }
 
   /// Moves the selected elements above everything else on the surface

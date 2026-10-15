@@ -100,7 +100,15 @@ extension _SelectionCommits on _SelectionCore {
   void _commit(SelectionPlan plan) {
     _editing = true;
     try {
-      _committedTo = plan.commit(surfaces?.batch ?? (edits) => edits(), mergeInto: _mergeInto);
+      void commit() =>
+          _committedTo = plan.commit(surfaces?.batch ?? (edits) => edits(), mergeInto: _mergeInto);
+      final chains = flows;
+      if (chains == null || !plan.touchesText) return commit();
+      // Text boxes flow across pages: one step with what that changes.
+      chains.pages.batch(() {
+        plan.flowText(chains);
+        commit();
+      });
     } finally {
       _editing = false;
     }

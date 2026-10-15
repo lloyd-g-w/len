@@ -9,6 +9,8 @@ import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
 import '../../domain/text/text_data.dart';
 import '../elements/element_order.dart';
+import '../elements/text_flow_chains.dart';
+import '../elements/text_layout.dart';
 import '../geometry/affine.dart';
 import '../render/content_painter.dart';
 import '../shapes/shape_builder.dart';
@@ -54,6 +56,11 @@ abstract class _SelectionCore extends ChangeNotifier {
 
   /// Other surfaces the selection may reach (pages of a document).
   SelectionSurfaces? surfaces;
+
+  /// Text boxes flowing across pages (paged notebooks): a box continuing
+  /// another is not selected on its own (it follows its chain's first box,
+  /// which carries the chain along).
+  TextFlowChains? flows;
 
   /// Re-records the selection when one of its images finishes decoding.
   void _watchImages() {
@@ -128,7 +135,10 @@ abstract class _SelectionCore extends ChangeNotifier {
     Map<String, SelectionSource> sources = const {},
   }) {
     _strokes = List.unmodifiable(strokes);
-    _elements = List.unmodifiable(elements);
+    final chains = flows;
+    _elements = List.unmodifiable(
+      chains == null ? elements : elements.where((e) => !_continues(chains, e)),
+    );
     _sources = Map.unmodifiable(sources);
     _preview = Affine.identity;
     _previewFrame = null;
@@ -143,6 +153,10 @@ abstract class _SelectionCore extends ChangeNotifier {
     _model.setLifted(this, isEmpty ? null : _paintLifted);
     notifyListeners();
   }
+
+  /// Whether [e] continues a box on the page before (in a chain that holds).
+  static bool _continues(TextFlowChains chains, SurfaceElement e) =>
+      TextFlowChains.flowOf(e) != null && chains.headOf(e.surfaceId, e) != null;
 
   /// Draws the selected content as shown (with the gesture in progress),
   /// in the selection surface's coordinates.
