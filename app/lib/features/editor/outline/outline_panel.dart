@@ -109,7 +109,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(outlineMargin, Gaps.md, outlineMargin, 0),
                 child: Text(
-                  'Add pages to build a table of contents. Entries can be nested.',
+                  'Add the pages that start a topic to build a table of contents',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

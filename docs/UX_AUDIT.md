@@ -89,12 +89,12 @@ few strings are touch words under a mouse.
   Outline's; one shared `EmptyState` layout for the library's and the
   overview's empty views. Effort S.
 
-**R14-4 P3 · Empty Favourites says what, not how.** ⬜ "Add notebooks
+**R14-4 P3 · Empty Favourites says what, not how.** ✅ "Add notebooks
 you use often to favourites, and find them here" → "Add notebooks to
 favourites from their ··· menu to find them here" (the bookmarks'
 phrasing). Effort S.
 
-**R14-5 P3 · Empty Outline's copy.** ⬜ "Add pages to build a table of
+**R14-5 P3 · Empty Outline's copy.** ✅ "Add pages to build a table of
 contents. Entries can be nested." reads as "make new pages", in two
 sentences over a button that says it all. → "Add the pages that start a
 topic to build a table of contents" (nesting is in each entry's menu).
