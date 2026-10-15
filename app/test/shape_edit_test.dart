@@ -195,6 +195,27 @@ void main() {
       });
     }
 
+    test('arrow keys wait while a handle or the selection is dragged', () {
+      final rect = shapeStroke(
+        ShapeBuilder.dragged(ShapeKind.rectangle, const Offset(50, 50), const Offset(150, 110)),
+      );
+      model.addStroke(rect);
+      model.history.takeUndo();
+      drag([const Offset(50, 80)]);
+      final id = ++pointer;
+      input.handleDown(PointerDownEvent(pointer: id, kind: k, position: const Offset(150, 110)));
+      input.handleMove(PointerMoveEvent(pointer: id, kind: k, position: const Offset(170, 120)));
+      content.selection.nudge(const Offset(1, 0)); // An arrow key mid-drag.
+      input.handleMove(PointerMoveEvent(pointer: id, kind: k, position: const Offset(190, 130)));
+      input.handleUp(PointerUpEvent(pointer: id, kind: k, position: const Offset(190, 130)));
+      final shape = model.strokesNear(const Rect.fromLTWH(0, 0, 400, 400)).single.shape!;
+      expect(shape.points[0], const Offset(50, 50));
+      expect(shape.points[2], const Offset(190, 130));
+      expect(content.selection.shape, shape);
+      expect(model.history.takeUndo(), isNotNull);
+      expect(model.history.canUndo, isFalse, reason: 'the drag is one step, no nudge');
+    });
+
     test('a press on a handle without moving changes nothing', () {
       final line = shapeStroke(
         ShapeGeometry(ShapeKind.line, const [Offset(100, 100), Offset(300, 100)]),

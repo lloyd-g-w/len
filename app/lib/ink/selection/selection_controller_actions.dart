@@ -35,10 +35,11 @@ class SelectionController extends _SelectionCore {
   /// Moves the selection by [delta] (world units, e.g. points on a page):
   /// arrow-key nudges. A burst of nudges is one undo step: a nudge within
   /// [nudgeBurst] of the previous one joins its step, unless anything else
-  /// was edited or undone in between (or the move spans pages).
+  /// was edited or undone in between (or the move spans pages). Ignored
+  /// while a gesture changes the selection (it commits what it shows).
   void nudge(Offset delta) {
     final frame = this.frame;
-    if (isEmpty || frame == null || delta == Offset.zero) return;
+    if (isEmpty || frame == null || delta == Offset.zero || isChanging) return;
     final now = clock.nowMs();
     final last = _lastNudge;
     final history = last?.model.history;
