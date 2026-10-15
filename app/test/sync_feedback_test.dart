@@ -8,6 +8,10 @@ import 'package:http/testing.dart';
 import 'package:len/app.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/domain/image_data.dart';
+import 'package:len/domain/notebook.dart';
+import 'package:len/domain/paper.dart';
+import 'package:len/domain/surface_element.dart';
 import 'package:len/features/settings/settings_screen.dart';
 import 'package:len/features/settings/sync_settings.dart';
 import 'package:len/platform/secure_store.dart';
@@ -19,6 +23,7 @@ import 'package:len/ui/qr_code_view.dart';
 import 'package:len/ui/sync_status_button.dart';
 
 import 'support/fake_server.dart';
+import 'support/real_async.dart';
 
 /// A device syncing with [server] using [token]; [onApi] sees each API
 /// client made.
@@ -32,6 +37,39 @@ AppServices _device(FakeServer server, {required String token, void Function()? 
   );
   s.sync.configure(url: 'http://sync.test', token: token);
   return s;
+}
+
+/// A device synced with [server] whose one file's copy was removed
+/// (Settings → Storage → Free up): only the server holds it.
+Future<(AppServices, String)> _freedDevice(WidgetTester tester, FakeServer server) async {
+  final s = _device(server, token: FakeServer.token);
+  addTearDown(s.dispose);
+  final bytes = Uint8List.fromList(List.generate(500, (i) => i & 0xFF));
+  final sha = await tester.runAsync(() => s.blobs.putBytes(bytes, mime: 'image/png'));
+  final notebook = s.notebooks.create(
+    title: 'N',
+    kind: NotebookKind.paged,
+    paper: PaperStyle.blank,
+    coverColor: 0,
+  );
+  s.elements.save([
+    SurfaceElement(
+      id: 'img',
+      surfaceId: s.pages.pagesOf(notebook.id).single.id,
+      type: 'image',
+      rect: const Rect.fromLTWH(0, 0, 10, 10),
+      z: -1,
+      createdAt: 1,
+      data: ImageData(blob: sha!, width: 10, height: 10).toJson(),
+    ),
+  ]);
+  await tester.runAsync(s.sync.syncNow);
+  expect(server.blobs, contains(sha));
+  // Settings → Storage → Free up.
+  await tester.runAsync(() => s.blobs.removeLocalCopies([sha], stillRemovable: (_) => true));
+  expect(s.blobs.sizeOf(sha), isNull);
+
+  return (s, sha);
 }
 
 void main() {
@@ -160,6 +198,55 @@ void main() {
       // What "your own Len server" is (R14-9).
       expect(find.text('How to run a server'), findsOneWidget);
       expect(SyncSettings.serverGuide.path, endsWith('server/README.md'));
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('turning off downloads the files only the server holds first', (tester) async {
+      final server = FakeServer();
+      final (s, sha) = await _freedDevice(tester, server);
+      await tester.pumpWidget(
+        AppScope(
+          services: s,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const Scaffold(body: SingleChildScrollView(child: SyncSettings())),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Turn off sync…'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('downloaded first'), findsOneWidget);
+      await tester.tap(find.text('Turn off'));
+      await pumpUntil(tester, () => !s.sync.isConfigured, reason: 'sync off');
+      expect(s.blobs.sizeOf(sha), 500);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('switching servers downloads the files only the one left holds first', (
+      tester,
+    ) async {
+      final server = FakeServer();
+      final (s, sha) = await _freedDevice(tester, server);
+      await tester.pumpWidget(
+        AppScope(
+          services: s,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const Scaffold(body: SingleChildScrollView(child: SyncSettings())),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Change…'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'Server URL'), 'http://other.test');
+      server.serverId = 'another-server';
+      await tester.tap(find.text('Connect'));
+      await pumpUntil(
+        tester,
+        () => s.settings.syncUrl == 'http://other.test',
+        reason: 'the new server saved',
+      );
+      expect(s.blobs.sizeOf(sha), 500);
       await tester.pumpWidget(const SizedBox());
     });
 

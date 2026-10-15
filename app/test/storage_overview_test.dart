@@ -18,6 +18,7 @@ import 'package:len/domain/surface_element.dart';
 import 'package:len/features/storage/storage_overview.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:len/platform/storage_survey.dart';
+import 'package:len/sync/server_only_files.dart';
 import 'package:len/sync/sync_api.dart';
 
 import 'support/fake_server.dart';
@@ -312,6 +313,26 @@ void main() {
       await s.storage.freeUp();
       expect(await s.blobs.has(big), isFalse);
       expect(await s.blobs.has(small), isTrue);
+    });
+
+    test('files only the server holds are found and downloaded before leaving it', () async {
+      configureSync();
+      final img = await blob('img', 'image/png');
+      final gone = await blob('gone', 'image/png'); // The server lost it too.
+      final p = page(notebook('N'));
+      image(p.id, img);
+      image(p.id, gone);
+      synced();
+      expect(await s.storage.freeUp(), isA<FreedUp>().having((o) => o.count, 'count', 2));
+      server.blobs.remove(gone);
+
+      final files = ServerOnlyFiles(s.sync);
+      expect(files.find(), {img, gone});
+      final progress = <int>[];
+      expect(await files.download(files.find(), onProgress: (done, _) => progress.add(done)), 1);
+      expect(progress, [1, 2]);
+      expect(await s.blobs.has(img), isTrue);
+      expect(files.find(), {gone});
     });
 
     test('nothing goes when the server cannot be reached', () async {

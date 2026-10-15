@@ -215,11 +215,12 @@ class SyncController extends ChangeNotifier {
     _setState(isConfigured ? SyncState.idle : SyncState.disabled);
   }
 
-  /// Verifies a configuration without saving it. Throws [SyncException].
-  Future<void> test({required String url, required String token}) async {
+  /// Verifies a configuration without saving it and returns what the
+  /// server says of itself. Throws [SyncException].
+  Future<ServerInfo> test({required String url, required String token}) async {
     final api = apiFactory(_normalizeUrl(url), token.trim());
     try {
-      await api.check();
+      return await api.check();
     } finally {
       api.close();
     }
