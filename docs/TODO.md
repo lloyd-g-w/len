@@ -77,9 +77,10 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
-- ⬜ **Slide numbers** (UX_AUDIT R18-5): once notes pages sit between slides, "slide 23" is
-  page 26. Go to page could take a slide number, or overview tiles show a PDF page's own
-  number quietly; decide which PDF counts when a notebook has several.
+- ✅ **Slide numbers** (UX_AUDIT R18-5): page numbers stay the notebook's; overview tiles and
+  Go to page's strip show a PDF page's own number quietly where it differs ("26 · Slide 23",
+  "PDF p. 23" for portrait PDFs), and Go to page takes "s23" / "slide 23" (several PDFs: the
+  current page's wins, else it asks which).
 
 - ✅ **Storage overview** (UX_AUDIT R16-7): Settings → Storage on every platform: the space
   Len uses here by kind (handwriting and text, PDFs, images, recordings, cached previews),

@@ -828,6 +828,16 @@ new one's pages beyond the old one's end are added after the last of them
 pages than the notes use is refused. The overview's cells take the shape of
 most of the notebook's pages (`commonPageAspect`), so slide decks get
 landscape cells.
+**Slide numbers** (UX_AUDIT R18-5): page numbers are always the notebook's
+(indicator, Go to page, links, export). `PdfPageNumbers`
+(`domain/pdf_page_numbers.dart`) maps pages to their PDF page's own number:
+`labelOf` ("Slide 23" when most of that PDF's pages here are landscape, else
+"PDF p. 23"; null when it equals the page number) captions overview tiles
+and Go to page's strip; `parse` reads "s23" / "slide 23" / "pdf 23" and
+`find` resolves it — the PDF of the current page (a notes page: of the PDF
+page before it) wins, else every PDF's first match is returned and Go to page
+asks which. Replace PDF… keeps page indices, so the numbers follow the new
+file.
 PDFium itself is a native asset downloaded at build time by `pdfium_dart`'s
 build hook (Linux, Windows, Android), so no system package is needed; on the
 web `pdfrx` runs PDFium as WebAssembly in a worker. `PdfRenderer` opens a
