@@ -48,6 +48,15 @@ abstract final class PaperRenderer {
   /// thumbnail, in screen pixels.
   static const double minMiniatureLine = 1, minMiniatureDot = 0.8;
 
+  /// The radius of a paper dot in world units (× the look's dot size):
+  /// 0.37 mm, printed as drawn on screen, at every zoom.
+  static const double dotRadius = 1.4;
+
+  /// The smallest radius a dot is drawn at, in target pixels (logical
+  /// pixels on screen, about one device pixel across on a tablet): dots
+  /// smaller on screen fade instead of shrinking into sub-pixel noise.
+  static const double minDotRadius = 0.5;
+
   static double _threshold(PaperStyle style) => switch (style) {
     // Staves are dense by design; dots are counted per area, not per line.
     PaperStyle.music => minScreenSpacing / 2,
@@ -139,20 +148,7 @@ abstract final class PaperRenderer {
         });
       canvas.drawPoints(ui.PointMode.lines, points, paint);
     }
-    if (pattern.dots.isNotEmpty) {
-      final radius = math.max(
-        minMiniatureDot / scale * faint,
-        math.max(1.0, 1.4 * math.min(1.0, scale)) * px / look.lineWeight * look.dotSize,
-      );
-      canvas.drawPoints(
-        ui.PointMode.points,
-        pattern.dots,
-        Paint()
-          ..color = ink
-          ..strokeWidth = radius * 2
-          ..strokeCap = StrokeCap.round,
-      );
-    }
+    if (pattern.dots.isNotEmpty) _paintDots(canvas, pattern.dots, ink, look, scale, faint);
     for (final label in pattern.labels) {
       // Text smaller than ~3 device pixels is unreadable: skip it (keep it
       // as texture in miniatures).
@@ -163,6 +159,32 @@ abstract final class PaperRenderer {
         label.muted ? color.text.withValues(alpha: PatternLabel.mutedOpacity) : color.text,
       );
     }
+  }
+
+  /// Paints [dots] [dotRadius] × the look's dot size in world units, so
+  /// they scale with the page and the ink. Smaller on screen than
+  /// [minDotRadius] (far out), they stay that size and fade instead,
+  /// keeping the ink a dot puts down (its area); a strengthened page
+  /// thumbnail ([faint]) keeps them at least [minMiniatureDot], unfaded.
+  static void _paintDots(
+    Canvas canvas,
+    List<Offset> dots,
+    Color ink,
+    PaperLook look,
+    double scale,
+    double faint,
+  ) {
+    final shown = dotRadius * look.dotSize * scale;
+    final floor = math.max(minDotRadius, minMiniatureDot * faint);
+    final fade = shown >= floor ? 1.0 : ui.lerpDouble(math.pow(shown / floor, 2), 1, faint)!;
+    canvas.drawPoints(
+      ui.PointMode.points,
+      dots,
+      Paint()
+        ..color = ink.withValues(alpha: ink.a * fade)
+        ..strokeWidth = 2 * math.max(shown, floor) / scale
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   /// How much a page thumbnail at [scale] strengthens its pattern: 0 from
