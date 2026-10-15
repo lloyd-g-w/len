@@ -181,11 +181,16 @@ class LiveInkPainter extends CustomPainter {
   LiveOutline? _path;
   int _pathRevision = -1;
 
-  static final Paint _eraserFill = Paint()..color = const Color(0x22000000);
-  static final Paint _penPreview = Paint()..isAntiAlias = true;
+  // The eraser's ring is two-tone, a dark line inside a light one, and its
+  // fill a neutral grey, so it shows on any paper and ink (dark paper too).
+  static final Paint _eraserFill = Paint()..color = const Color(0x2A808080);
   static final Paint _eraserOutline = Paint()
     ..style = PaintingStyle.stroke
     ..color = const Color(0x99000000);
+  static final Paint _eraserHalo = Paint()
+    ..style = PaintingStyle.stroke
+    ..color = const Color(0x99FFFFFF);
+  static final Paint _penPreview = Paint()..isAntiAlias = true;
 
   /// Told how long each live outline took to build (the Ink Lab's stats).
   static void Function(int points, Duration took)? onBuild;
@@ -235,9 +240,12 @@ class LiveInkPainter extends CustomPainter {
       }
     }
     if (eraser != null) {
-      _eraserOutline.strokeWidth = 1 / viewport.scale; // One screen pixel.
+      final px = 1 / viewport.scale; // One screen pixel.
+      _eraserOutline.strokeWidth = px;
+      _eraserHalo.strokeWidth = px;
       canvas
         ..drawCircle(eraser, live.eraserRadius, _eraserFill)
+        ..drawCircle(eraser, live.eraserRadius + px, _eraserHalo)
         ..drawCircle(eraser, live.eraserRadius, _eraserOutline);
     }
     if (pen != null) {

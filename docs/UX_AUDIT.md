@@ -59,7 +59,7 @@ away, and a palm is only a palm on the canvas it rests on.
   (the highlighter at its own lower opacity); gone at pen-down, on a
   finger, on exit. No setting. Effort S.
 
-**R15-2 P2 · The eraser ring vanishes on dark paper.** ⬜
+**R15-2 P2 · The eraser ring vanishes on dark paper.** ✅
 - *What:* the ring is a 1-px `0x99000000` line on a `0x22000000` fill
   (`LiveInkPainter`); on the Dark paper preset (`0xFF202226`) neither
   shows.

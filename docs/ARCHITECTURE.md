@@ -1296,7 +1296,8 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   of the ink's colour and medium-pressure width at the current zoom (at most
   half opaque, so it never reads as ink; at least 2 screen px); with the
   eraser tool, the eraser end or the side button set to erase, the eraser's
-  ring (also under a mouse). Both go at pen-down, on exit and when a finger
+  ring (two-tone, a dark line inside a light one, so it shows on dark paper
+  too; also under a mouse). Both go at pen-down, on exit and when a finger
   touches.
 - **Mouse**: left draws, middle/right drag pans (a right click without dragging opens the
   context menu), wheel scrolls (stops a glide), Ctrl+wheel zooms about the cursor
