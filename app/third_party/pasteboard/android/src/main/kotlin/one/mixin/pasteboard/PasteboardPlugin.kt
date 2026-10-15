@@ -42,7 +42,8 @@ class PasteboardPlugin : FlutterPlugin, MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: Result) {
         val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val cr = context.contentResolver
-        val first = manager.primaryClip?.getItemAt(0)
+        // Lazily: reading the clip makes Android 12+ announce a paste (not on "write").
+        val first by lazy { manager.primaryClip?.getItemAt(0) }
         when (call.method) {
             "image" -> {
                 executor.run {
