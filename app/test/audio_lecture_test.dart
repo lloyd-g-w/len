@@ -11,6 +11,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/features/audio/playback_controller.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/features/library/library_notice.dart';
 import 'package:len/ink/ink_surface.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -253,5 +254,44 @@ void main() {
     expect(await opened, isTrue);
     expect(playback.downloading, isNull);
     expect(audio.log, ['open Lecture 12', 'play']);
+  });
+
+  testWidgets('R17-1: another notebook, or the library, says a lecture is still recording', (
+    tester,
+  ) async {
+    final e = await _pump(tester);
+    await tester.tap(find.byTooltip('Record audio'));
+    await _settleAsync(tester);
+    final physics = e.services.notebooks.create(
+      title: 'Physics',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    Widget app(Widget home) => AppScope(
+      services: e.services,
+      child: MaterialApp(theme: AppTheme.light(), home: home),
+    );
+    // Another tab: the lecture goes on, and this editor says so.
+    await tester.pumpWidget(app(EditorScreen(key: ValueKey(physics.id), notebook: physics)));
+    await tester.pumpAndSettle();
+    e.clock.now += 65000;
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const ValueKey('recording-elsewhere')), findsOneWidget);
+    expect(find.text('Recording in “Calculus”'), findsOneWidget);
+    expect(find.text('1:05'), findsOneWidget);
+    expect(e.services.recordings.listOf(e.notebook.id), isEmpty);
+
+    // The library too.
+    await tester.pumpWidget(app(const Scaffold(body: LibraryNotices(child: SizedBox.expand()))));
+    await tester.pumpAndSettle();
+    expect(find.text('Recording in “Calculus” · 1:05'), findsOneWidget);
+    await tester.tap(find.text('Stop'));
+    await _settleAsync(tester);
+    expect(find.textContaining('Saved “Recording'), findsOneWidget);
+    expect(find.byKey(const ValueKey('recording-elsewhere')), findsNothing);
+    expect(e.services.recordings.listOf(e.notebook.id).single.durationMs, 65000);
+    expect(e.services.sharedNotebooks.unattended.value, isNull);
+    await _close(tester);
   });
 }

@@ -18,6 +18,7 @@ import 'editor_actions.dart';
 import 'editor_session.dart';
 import 'editor_toolbar.dart';
 import 'pen/ink_paper.dart';
+import 'shared/recording_elsewhere_notice.dart';
 import 'split/parked_pane_notice.dart';
 import 'split/split_controller.dart';
 import 'tabs/open_notebooks.dart';
@@ -124,18 +125,16 @@ class EditorChromeHost extends StatelessWidget {
   /// Paged notebooks: says when a PDF their pages are drawn on is missing.
   /// The standing notices: the parked pane (and its recording), a missing PDF.
   Widget? _notices() {
-    final parked = split == null || secondPane ? null : ParkedPaneNotice(split: split!);
-    final pdf = _missingPdfNotice();
-    if (parked == null) return pdf;
-    if (pdf == null) return parked;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        parked,
-        const SizedBox(height: Gaps.sm),
-        pdf,
-      ],
-    );
+    final notices = [
+      // The first pane says it (the second pane's notices are its own).
+      if (!secondPane) RecordingElsewhereNotice(notebooks: session.services.sharedNotebooks),
+      if (split != null && !secondPane) ParkedPaneNotice(split: split!),
+      ?_missingPdfNotice(),
+    ];
+    if (notices.isEmpty) return null;
+    if (notices.length == 1) return notices.single;
+    // (Empty notices are zero-sized: the gaps go between real ones only.)
+    return Column(mainAxisSize: MainAxisSize.min, spacing: Gaps.sm, children: notices);
   }
 
   Widget? _missingPdfNotice() {

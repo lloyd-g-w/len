@@ -491,7 +491,11 @@ or deleted pages in order with ink. Snack bars' Undo calls
   view reload the others (`attachDocument`). It follows remote changes once for all
   its editors (notebook record, page lists, surfaces, PDFs) and sets `gone` when the
   notebook is deleted or trashed elsewhere. One microphone: a notebook can't start
-  recording while another records ("Already recording in …").
+  recording while another records ("Already recording in …"). A notebook whose last
+  editor closes while it records (another tab shown, Back to the library) stays open
+  until the recording stops (`SharedNotebooks.unattended`): other editors show
+  `RecordingElsewhereNotice` and the library a notice ("Recording in “Calculus” ·
+  12:34", Show, Stop); it is stopped if the notebook goes away elsewhere.
 - **Focus mode** (`EditorScreen._setFocus`; "⋯" → View → *Focus mode*, F11, Ctrl/⌘+.) hides
   all chrome (`ChromeLayout.focus`) but the `FocusHandle`, and goes immersive / full
   screen (`platform/fullscreen*`: the browser's fullscreen API on the web; Android hides
@@ -1131,8 +1135,9 @@ replayed in step with the ink.
   its file mode would write MP4 there), which writes them itself; on Linux
   `ffmpeg` writes the `.aac` file. Browsers record AAC in MP4 (Safari) or
   Opus in WebM, held in memory until the recorder stops; WAV is a last
-  resort. Captures under 0.5 s are discarded. Closing the editor stops and
-  saves a running recording.
+  resort. Captures under 0.5 s are discarded. Leaving the notebook does not
+  stop a recording (see `SharedNotebooks` under Editor); closing the app
+  stops and saves it.
 - **Parts: upload while recording** (`RecordingParts`). Every
   `RecordingController.partMs` (5 min) of audio the capture moves on to a
   new file (`AudioCapture.split`): where frames are streamed to Len the cut
@@ -1304,7 +1309,8 @@ replayed in step with the ink.
   to the existing save / share path (`platform/file_export`: save dialog on
   desktop, share sheet on Android, download on the web). `NotebookAudio`
   owns all of it per open notebook (one per notebook, shared by its editors
-  through `SharedNotebook`; saved when its last editor closes) and reloads when
+  through `SharedNotebook`; kept while it records, saved when its last editor has
+  closed and nothing records) and reloads when
   sync reports `recordingsOfNotebooks`. `RecordingController.busy` keeps to one
   recording at a time across notebooks.
 

@@ -5,6 +5,7 @@ import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/features/audio/recording_controller.dart';
 import 'package:len/features/editor/shared/shared_notebooks.dart';
 
 import 'support/fake_audio.dart';
@@ -39,7 +40,8 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 600));
     final saving = Completer<void>();
     audio.capture.holdStop = saving.future;
-    shared.release(first); // Stops and saves the recording.
+    unawaited(first.audio.recorder.stop());
+    shared.release(first); // While its recording is being saved.
 
     final other = shared.acquire(chemistry);
     expect(await other.audio.recorder.start(), isFalse);
@@ -52,6 +54,51 @@ void main() {
 
     expect(await other.audio.recorder.start(), isTrue);
     await other.audio.recorder.stop();
+    shared.dispose();
+  });
+
+  test('R17-1: a notebook left while recording goes on recording until stopped', () async {
+    final audio = FakeAudio();
+    final services = AppServices.create(AppDatabase.inMemory(), audio: audio.backends);
+    Notebook notebook(String title) => services.notebooks.create(
+      title: title,
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    final physics = notebook('Physics'), chemistry = notebook('Chemistry');
+    final shared = SharedNotebooks(services);
+
+    final first = shared.acquire(physics);
+    final recorder = first.audio.recorder;
+    expect(await recorder.start(), isTrue);
+    shared.release(first); // Another tab, or Back to the library.
+    await pumpEventQueue();
+    expect(recorder.state, RecorderState.recording);
+    expect(shared.unattended.value, same(first));
+    expect(shared.ids, contains(physics.id));
+
+    // Looking something up elsewhere: that notebook can't record meanwhile.
+    final other = shared.acquire(chemistry);
+    expect(await other.audio.recorder.start(), isFalse);
+    expect(other.audio.recorder.lastError, contains('Already recording in “Physics”'));
+    shared.release(other);
+
+    // Back in the lecture: the same recorder, still recording.
+    expect(shared.acquire(physics), same(first));
+    await pumpEventQueue();
+    expect(shared.unattended.value, isNull);
+    shared.release(first);
+    await pumpEventQueue();
+    expect(shared.unattended.value, same(first));
+
+    // Stopped from the notice: saved, then let go.
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    expect(await recorder.stop(), isNotNull);
+    await pumpEventQueue();
+    expect(shared.unattended.value, isNull);
+    expect(shared.ids, isEmpty);
+    expect(services.recordings.listOf(physics.id), hasLength(1));
     shared.dispose();
   });
 }

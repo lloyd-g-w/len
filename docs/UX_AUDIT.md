@@ -38,7 +38,7 @@ anything is recording. Reviewing on the laptop waits for every part of a
 | Pause / resume | in the bar and the notification; ink while paused belongs to the resume | same | Keep |
 | 5-minute parts | invisible; each synced as the lecture goes on; at most ~0.3 s gap on Linux / browsers | Notability: one file; suggests a new recording each hour | Keep (better) |
 | Screen off, other app (Android) | keeps recording (foreground service, notification with Pause / Stop) | Notability (iPad) keeps; GoodNotes Android stops | Keep (better) |
-| Another tab, or Back to the library | the recording stops and is saved, silently; a new one must be started | GoodNotes keeps recording while another document is viewed | R17-1 |
+| Another tab, or Back to the library | the recording stops and is saved, silently; a new one must be started | GoodNotes keeps recording while another document is viewed | R17-1 ✅ |
 | Stop and name | "Saved “Recording 09:30”"; renaming is ⋯ → Rename… in the list | Notability: dated, renamed in the list | R17-4 ✅ |
 | The list during a lecture | the recording being made is missing; "Record" does nothing | n/a | R17-5 ✅ |
 | 90 minutes | ≈ 44 MB (AAC 64 kbit/s), streamed to files; browsers hold at most one part in memory | similar sizes | Keep |
@@ -54,7 +54,7 @@ anything is recording. Reviewing on the laptop waits for every part of a
 
 ### Prioritised items
 
-**R17-1 P1 · Another tab, or Back, ends the lecture's recording without a word.** ⬜
+**R17-1 P1 · Another tab, or Back, ends the lecture's recording without a word.** ✅
 - *What:* a notebook's recorder lives as long as an editor shows it
   (`SharedNotebooks.release` disposes it, which stops and saves). Tabs show
   one editor at a time, so tapping the tab of last week's lecture to check a
@@ -66,6 +66,12 @@ anything is recording. Reviewing on the laptop waits for every part of a
   Recording in “Calculus — Lecture 12”", Show, Stop) sits in the other
   editors and the library. Ink written elsewhere is not linked (as in
   GoodNotes). Effort M.
+- *Done:* `SharedNotebooks` keeps a recording notebook open once its last
+  editor closes (`unattended`) and lets it go when the recording stops
+  (from the notice, the notification, or the notebook deleted elsewhere);
+  `RecordingElsewhereNotice` in other editors, a notice strip in the
+  library. Also fixed on the way: Stop then Back at once disposed the
+  recorder mid-save (`shutdown` now waits for a stop under way).
 
 **R17-2 P1 · Focus mode hides the recording.** ✅
 - *What:* on tablets and desktops the recording controls live in the top
