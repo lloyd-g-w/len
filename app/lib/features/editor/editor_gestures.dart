@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/paper.dart';
-import '../../ink/tool_settings.dart';
 import 'chrome/canvas_context_menu.dart';
 import 'chrome/gesture_hud.dart';
 import 'editor_session.dart';
@@ -62,11 +61,7 @@ List<CanvasAction> canvasActions(
       doc == null ? 'Select all in view' : 'Select all on page',
       () => content.selectAllIn(doc?.pageViewport.contentBounds ?? viewport.visibleWorld),
     ),
-    CanvasAction(Symbols.text_fields_sharp, 'Add text here', () {
-      final tools = session.tools;
-      tools.tool = EditorTool.text;
-      content.textTool.startBox(world);
-    }),
+    CanvasAction(Symbols.text_fields_sharp, 'Add text here', () => content.addTextAt(world)),
   ];
 }
 

@@ -76,7 +76,7 @@ and paste from the system clipboard.
   (⬜ TODO: a native "has image" probe in the vendored `pasteboard`).
 - Effort S.
 
-**R13-3 P2 · "Add text here" leaves the text tool on.** ⬜
+**R13-3 P2 · "Add text here" leaves the text tool on.** ✅
 - *What:* the long-press row switches to the text tool and starts a
   box; when the box is done the text tool stays, so the next pen stroke
   starts another box. "Edit text" from the lasso menu already gives the

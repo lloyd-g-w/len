@@ -95,6 +95,16 @@ class ContentTools {
     text.edit(element);
   }
 
+  /// Starts a text box at [world] with the text tool (the canvas menu's
+  /// Add text here). As with [editText], the tool used before comes back
+  /// when the box is done, so the next stroke inks again.
+  void addTextAt(Offset world) {
+    final previous = tools.tool;
+    tools.tool = EditorTool.text;
+    if (previous != EditorTool.text) _returnTo = previous;
+    textTool.startBox(world);
+  }
+
   void _onTextChanged() {
     if (text.isEditing) return;
     final back = _returnTo;
