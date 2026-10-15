@@ -59,6 +59,8 @@ void main() {
     expect(ArabicForms.shape(word, 1, 2).single, (glyph: '\uFE98', start: 1, end: 2));
     // A lam and an alef formatted apart join without their ligature.
     expect(part2('سلام', 0, 2) + part2('سلام', 2, 4), '\uFEB3\uFEE0\uFE8E\uFEE1');
+    // A zero-width joiner joins: heh before it takes its initial form.
+    expect(shaped('ه\u200D'), '\uFEEB\u200D');
     // Persian; other characters pass through.
     expect(shaped('پ'), '\uFB56');
     expect(shaped('a1'), 'a1');

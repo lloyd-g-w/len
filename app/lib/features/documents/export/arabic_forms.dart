@@ -49,8 +49,12 @@ abstract final class ArabicForms {
       c == 0x0670 ||
       (c >= 0x06D6 && c <= 0x06ED && c != 0x06DD && c != 0x06DE && c != 0x06E9);
 
-  static bool _joinsAfter(int c) => _dual.containsKey(c) || c == _tatweel;
-  static bool _joinsBefore(int c) => _dual.containsKey(c) || _right.containsKey(c) || c == _tatweel;
+  /// Zero-width joiner: makes its neighbours join, like tatweel.
+  static const int _zwj = 0x200D;
+
+  static bool _joinsAfter(int c) => _dual.containsKey(c) || c == _tatweel || c == _zwj;
+  static bool _joinsBefore(int c) =>
+      _dual.containsKey(c) || _right.containsKey(c) || c == _tatweel || c == _zwj;
 
   /// [text] (logical order, UTF-16 code units of the Basic Multilingual
   /// Plane) from [from] to [to] (all of it by default) shaped: the glyphs
