@@ -9,13 +9,14 @@ import '../syncable_table.dart';
 import 'len_archive_reader.dart';
 import 'len_archive_writer.dart';
 import 'len_format.dart';
+import 'len_import_result.dart';
 import 'len_scope.dart';
 import 'len_source.dart';
 import 'len_stores.dart';
 
-export 'len_archive_reader.dart' show LenImportResult;
 export 'len_archive_writer.dart' show BlobFetcher, BlobFileChecksum, BlobFileOpener, LenWriteReport;
 export 'len_format.dart';
+export 'len_import_result.dart';
 export 'len_scope.dart' show LenScope;
 export 'len_source.dart' show LenSource;
 

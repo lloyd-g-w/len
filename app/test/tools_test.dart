@@ -18,6 +18,7 @@ import 'package:len/ink/shapes/shape_builder.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/tools/laser.dart';
+import 'package:len/ink/tools/laser_tool.dart';
 import 'package:len/ink/tools/lasso_tool.dart';
 import 'package:len/ink/tools/pointer_tool.dart';
 import 'package:len/ink/tools/shape_tool.dart';

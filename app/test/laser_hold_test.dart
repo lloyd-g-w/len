@@ -6,6 +6,7 @@ import 'package:len/features/editor/tools/laser_options_panel.dart';
 import 'package:len/features/editor/tools/laser_overlay.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/tools/laser.dart';
+import 'package:len/ink/tools/laser_tool.dart';
 import 'package:len/ink/tools/pointer_tool.dart';
 import 'package:len/ink/viewport.dart';
 import 'package:len/ui/app_theme.dart';

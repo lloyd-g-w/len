@@ -16,6 +16,7 @@ import '../tool_settings.dart';
 import '../undo_history.dart';
 import '../viewport.dart';
 import 'laser.dart';
+import 'laser_tool.dart';
 import 'lasso_tool.dart';
 import 'pointer_tool.dart';
 import 'shape_tool.dart';

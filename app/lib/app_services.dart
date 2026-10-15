@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:cross_file/cross_file.dart';
-import 'package:flutter/widgets.dart';
 
 import 'core/clock.dart';
 import 'core/pointer_activity.dart';
@@ -52,6 +51,8 @@ import 'sync/sync_controller.dart';
 import 'sync/sync_engine.dart';
 import 'ui/messages.dart';
 import 'ui/route_owners.dart';
+
+export 'app_scope.dart';
 
 /// Composition root: constructs and owns the app's long-lived services.
 class AppServices {
@@ -323,32 +324,4 @@ class AppServices {
     preferences.dispose();
     database.close();
   }
-}
-
-/// Makes [AppServices] available to the widget tree.
-class AppScope extends InheritedWidget {
-  const AppScope({super.key, required this.services, required super.child});
-
-  final AppServices services;
-
-  static AppServices of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();
-    assert(scope != null, 'No AppScope above this context');
-    return scope!.services;
-  }
-
-  /// The services if there is an [AppScope] above [context] (widgets that
-  /// also work standalone, e.g. in tests), without subscribing.
-  static AppServices? maybeRead(BuildContext context) =>
-      context.getInheritedWidgetOfExactType<AppScope>()?.services;
-
-  /// Like [of] but without subscribing; safe to call from `initState`.
-  static AppServices read(BuildContext context) {
-    final scope = context.getInheritedWidgetOfExactType<AppScope>();
-    assert(scope != null, 'No AppScope above this context');
-    return scope!.services;
-  }
-
-  @override
-  bool updateShouldNotify(AppScope old) => old.services != services;
 }

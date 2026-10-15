@@ -26,6 +26,7 @@ import 'stroke_sampler.dart';
 import 'stylus_buttons.dart';
 
 part 'ink_drawing_commit.dart';
+part 'ink_drawing_erase.dart';
 
 /// The drawing contact of `InkInputController`: one pointer at a time that
 /// inks, erases or drives a pointer tool from [content].
@@ -159,12 +160,7 @@ class InkDrawing {
     if (tool != null) {
       _tool = tool..down(_toolPointer(e));
     } else if (erase) {
-      showEraser(e.localPosition);
-      if (e.kind == PointerDeviceKind.touch) {
-        _heldErase = [e.localPosition];
-      } else {
-        _eraseTo(e.localPosition);
-      }
+      _beginErase(e);
     } else {
       final ink = tools.activeInk;
       final config = tools.configOf(ink);
@@ -320,44 +316,6 @@ class InkDrawing {
     _heldErase = null;
     _lastScreen = null;
     _dropReach = null;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Erasing
-
-  /// Erases to [screen], or holds it while a finger may not be erasing.
-  void _eraseOrHold(Offset screen) {
-    final held = _heldErase;
-    if (held == null) return _eraseTo(screen);
-    held.add(screen);
-    _lastScreen = screen;
-    if ((screen - _drawStartScreen).distance > kTouchSlop) _releaseErase();
-  }
-
-  /// Erases along the held finger path: it is erasing after all.
-  void _releaseErase() {
-    final held = _heldErase;
-    if (held == null) return;
-    _heldErase = null;
-    _lastScreen = held.first;
-    held.forEach(_eraseTo);
-  }
-
-  void _eraseTo(Offset screen) {
-    final from = viewport.toWorld(_lastScreen ?? screen);
-    final to = viewport.toWorld(screen);
-    // Hits within one drag merge into a single undo step — but only after
-    // the first hit, so we never merge into an unrelated earlier edit.
-    final erased = model.eraseAlong(
-      from,
-      to,
-      tools.eraserRadius / viewport.scale,
-      continueEdit: _eraseStarted,
-      mode: tools.eraser.mode,
-      highlighterOnly: tools.eraser.highlighterOnly,
-    );
-    _eraseStarted = _eraseStarted || erased;
-    _lastScreen = screen;
   }
 
   /// Shows the eraser outline at [screen], or hides it.
