@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/empty_state.dart';
+import '../search/handwriting_note.dart';
 import 'library_controller.dart';
 import 'notebook_cover.dart';
 
@@ -84,6 +85,7 @@ class LibraryEmptyState extends StatelessWidget {
       art: art,
       title: title,
       message: message,
+      note: searching ? handwritingSearchNoteOf(context) : null,
       action: showCreate
           ? Column(
               mainAxisSize: MainAxisSize.min,

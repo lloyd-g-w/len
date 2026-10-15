@@ -7,11 +7,24 @@ extension _SearchResults on _EditorSearchBarState {
     final matches = _c.matches;
     final indexing = _c.search.pdfText.isIndexing;
     if (matches.isEmpty) {
+      final note = indexing ? null : handwritingSearchNoteOf(context);
       return Padding(
         padding: const EdgeInsets.all(Gaps.md),
-        child: Text(
-          indexing ? 'Reading PDF text…' : 'No matches',
-          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              indexing ? 'Reading PDF text…' : 'No matches',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (note != null) ...[
+              const SizedBox(height: Gaps.xxs),
+              Text(note, style: theme.textTheme.bodySmall),
+            ],
+          ],
         ),
       );
     }

@@ -12,12 +12,16 @@ class EmptyState extends StatelessWidget {
     required this.art,
     required this.title,
     required this.message,
+    this.note,
     this.action,
   });
 
   final Widget art;
   final String title;
   final String message;
+
+  /// A quieter line under [message], if any (a caveat).
+  final String? note;
 
   /// The next step, if there is one (buttons, laid out by the caller).
   final Widget? action;
@@ -56,6 +60,10 @@ class EmptyState extends StatelessWidget {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
+                if (note case final note?) ...[
+                  const SizedBox(height: Gaps.xs),
+                  Text(note, textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
+                ],
                 if (action case final action?) ...[const SizedBox(height: Gaps.xl), action],
               ],
             ),

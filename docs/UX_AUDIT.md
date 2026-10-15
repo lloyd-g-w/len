@@ -71,13 +71,15 @@ few strings are touch words under a mouse.
 - *Fix:* the notice waits for the first notebook (as "Your notes are
   only on this device" waits a day). Effort S.
 
-**R14-2 P2 · "No matches" when handwriting isn't searched here.** ⬜
+**R14-2 P2 · "No matches" when handwriting isn't searched here.** ✅
 - *What:* on Linux and the web nothing recognises handwriting (only
   what Android synced is found); on Android, Search handwriting may be
   off. A new user writes "hello", searches for it and gets "No matches"
   (the editor) or "No results" (the library): a dead end that reads as
   a bug.
-- *Fix:* with no matches only, one quiet line saying why: handwriting
+- *Fix:* with no matches only, one quiet line saying why ("Handwriting is
+  searched once read on Android", "Handwriting search is off in
+  Settings"): handwriting
   is searched once Android has read it (no recogniser here), or
   handwriting search is off in Settings. Effort S.
 
