@@ -69,6 +69,10 @@ class _SyncSettingsState extends State<SyncSettings> {
   /// Shown under the URL field until it is edited.
   String? _urlError;
 
+  /// Shown under the token field until it is edited: none typed, or the
+  /// server turned it away (UX_AUDIT R14-7).
+  String? _tokenError;
+
   /// The form was filled from a setup link: its caption says where links
   /// come from, for next time.
   bool _fromLink = false;
@@ -119,13 +123,17 @@ class _SyncSettingsState extends State<SyncSettings> {
     _token.text = link.token;
     _editing = _sync.isConfigured;
     _fromLink = true;
-    _testError = _urlError = null;
+    _testError = _urlError = _tokenError = null;
   }
 
   /// A setup link pasted into the URL field fills both fields.
   void _onUrlChanged(String text) {
     if (SyncSetupLink.parse(text) case final link?) return setState(() => _fill(link));
     if (_urlError != null) setState(() => _urlError = null);
+  }
+
+  void _onTokenChanged(String _) {
+    if (_tokenError != null) setState(() => _tokenError = null);
   }
 
   Future<void> _testAndSave() async {
@@ -136,18 +144,23 @@ class _SyncSettingsState extends State<SyncSettings> {
     if (urlError != null) {
       setState(() {
         _urlError = urlError;
-        _testError = null;
+        _testError = _tokenError = null;
       });
       return;
     }
     // What was tested is what gets saved: the fields may change (or Cancel
     // may restore them) while the server answers.
     final token = _token.text.trim();
-    if (token.isEmpty) return setState(() => _testError = 'Enter the access token');
+    if (token.isEmpty) {
+      return setState(() {
+        _tokenError = 'Enter the access token';
+        _testError = null;
+      });
+    }
     final attempt = ++_attempt;
     setState(() {
       _busy = true;
-      _testError = null;
+      _testError = _tokenError = null;
     });
     try {
       await _sync.test(url: url, token: token);
@@ -156,7 +169,13 @@ class _SyncSettingsState extends State<SyncSettings> {
       _editing = _fromLink = false;
       unawaited(_sync.syncNow());
     } on SyncException catch (e) {
-      if (attempt == _attempt) _testError = e.message;
+      if (attempt != _attempt) return;
+      // A wrong token is said on its field; the rest under the form.
+      if (e.kind == SyncFailure.auth) {
+        _tokenError = e.message;
+      } else {
+        _testError = e.message;
+      }
     } on ArgumentError {
       // e.g. the http client rejecting a malformed URI.
       if (attempt == _attempt) _urlError = 'This address isn’t valid';
@@ -191,7 +210,7 @@ class _SyncSettingsState extends State<SyncSettings> {
     _url.text = _services.settings.syncUrl;
     _token.text = _sync.tokens.token;
     _editing = _fromLink = false;
-    _testError = _urlError = null;
+    _testError = _urlError = _tokenError = null;
   });
 
   /// Change…: shows the form although sync is set up.

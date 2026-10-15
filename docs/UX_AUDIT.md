@@ -104,7 +104,7 @@ Effort S.
 footer's caption is a touch word; with a pointer the gesture is a right
 click (the empty canvas already words its hint by input). Effort S.
 
-**R14-7 P3 · Token errors sit apart from the token field.** ⬜ "Enter
+**R14-7 P3 · Token errors sit apart from the token field.** ✅ "Enter
 the access token" and "The server didn't accept the access token" are a
 red line under both fields, and stay while the user retypes. Token
 errors go on the token field, as URL errors go on the URL field; typing
