@@ -157,8 +157,16 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
     // otherwise (it would lay out and repaint the editor).
     return ListenableBuilder(
       listenable: _session,
-      builder: (context, _) =>
-          _session.current == null ? const SizedBox.shrink() : _editor(context),
+      builder: (context, _) => _session.current == null
+          ? const SizedBox.shrink()
+          // Back (Android's) finishes the box before it leaves the editor.
+          : PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop) _session.end();
+              },
+              child: _editor(context),
+            ),
     );
   }
 

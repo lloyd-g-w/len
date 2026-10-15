@@ -101,11 +101,12 @@ the eraser.
   used before, so the single-key shortcuts are one key away. Both are in
   the shortcuts sheet.
 
-**R19-4 P2 · Android Back while typing leaves the notebook.**
+**R19-4 P2 · Android Back while typing leaves the notebook.** ✅
 - *What:* Back first closes the soft keyboard (system); the next Back pops
   the editor with the box still open (committed on the way out), where
   GoodNotes and Samsung Notes end the text editing.
 - *Fix:* while a box is edited, Back finishes it. Effort S.
+- *Done:* a `PopScope` around the box editor.
 
 **R19-5 P2 · Search finds a text box, not the words in it.**
 - *What:* a text box is one match, highlighted as one block: in a box of

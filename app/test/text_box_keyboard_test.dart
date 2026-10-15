@@ -128,4 +128,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(field, findsNothing);
   });
+
+  testWidgets('Back finishes the box being typed in, then leaves', (tester) async {
+    final (services, nb) = await openCanvas(tester);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(300, 400)]);
+    await tester.pumpAndSettle();
+    await tester.enterText(field, 'milk');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+    expect(liveElements(services, nb.id), hasLength(1));
+  });
 }
