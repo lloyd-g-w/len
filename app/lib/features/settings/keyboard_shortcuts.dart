@@ -137,6 +137,13 @@ final List<ShortcutGroup> shortcutGroups = [
     ]),
     ShortcutHelp('Fit page', [SingleActivator(LogicalKeyboardKey.digit1, shift: true)]),
     ShortcutHelp('Fit width', [SingleActivator(LogicalKeyboardKey.digit2, shift: true)]),
+    // Bound on a focused page tile (PageTile).
+    ShortcutHelp('Move page in the overview', const [
+      SingleActivator(LogicalKeyboardKey.arrowLeft, control: true),
+      SingleActivator(LogicalKeyboardKey.arrowRight, control: true),
+      SingleActivator(LogicalKeyboardKey.arrowUp, control: true),
+      SingleActivator(LogicalKeyboardKey.arrowDown, control: true),
+    ], shown: 'Ctrl+← → ↑ ↓'),
   ]),
   ShortcutGroup('Canvas', [
     ShortcutHelp('Zoom in / out', const [

@@ -204,6 +204,39 @@ void main() {
     await close(tester);
   });
 
+  testWidgets('each Ctrl+arrow move in the overview is an undo step', (tester) async {
+    await pump(tester);
+    final original = [for (final p in pages()) p.id];
+    await tester.tap(find.byTooltip('All pages'));
+    await tester.pumpAndSettle();
+    Focus.of(
+      tester.element(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('page-tile-0')),
+              matching: find.byType(Column),
+            )
+            .first,
+      ),
+    ).requestFocus();
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 2; i++) {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+    }
+    expect([for (final p in pages()) p.id], [original[1], original[2], original[0]]);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await undo(tester);
+    expect([for (final p in pages()) p.id], [original[1], original[0], original[2]]);
+    await undo(tester);
+    expect([for (final p in pages()) p.id], original);
+    await close(tester);
+  });
+
   testWidgets('duplicating several pages in the overview is one undo step', (tester) async {
     await pump(tester);
     final original = [for (final p in pages()) p.id];

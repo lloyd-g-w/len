@@ -442,8 +442,10 @@ Menu key), the focus ring (DESIGN §6) the only cue. Tests:
   right after it.
 - Escape from any chrome control returns to the page; menus and popovers
   opened from the keyboard give focus back to their opener.
-- Open: reordering overview pages by keyboard (drag only; the page menu's
-  Move or copy page… covers it).
+- ✅ Reordering overview pages by keyboard: Ctrl+← / → move the focused
+  page a place, Ctrl+↑ / ↓ a row (as the scan strip's Ctrl+arrows); one
+  undo step per move, announced ("Page 3 moved to 4"), focus follows the
+  page; screen readers get "Move earlier" / "Move later" on the tile.
 
 ## Round 9 audit — simplicity (`review/round9`)
 

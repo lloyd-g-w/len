@@ -342,7 +342,8 @@ re-saves the page's strokes; the overview's selection goes through
 `DocumentCommands.deleteMany` → `PageActions.deleteAll`, one step with one Undo
 that restores every page in place — at least one page always remains), reorder (fractional sort keys, `PageOrder`;
 the list is renumbered only when a gap is exhausted; inserting finds the page to follow by
-id), bookmarks, templates, and moving or copying pages to another notebook
+id; in the overview by drag, or Ctrl+arrows on a focused tile — a place along, a row across,
+one undo step each, announced, focus following the page: `overview/page_moves.dart`), bookmarks, templates, and moving or copying pages to another notebook
 (`PageTransfer`, one transaction; its undo never deletes work done since:
 changed copies stay, a notebook made for the pages goes to the Trash, and redo
 reuses the copies still there).
