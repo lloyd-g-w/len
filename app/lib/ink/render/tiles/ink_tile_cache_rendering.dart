@@ -46,16 +46,24 @@ extension _Rendering on InkTileCache {
   }
 
   /// Whether renders wait for the surface to finish loading ([_spare]):
-  /// edits' never do, others up to [InkTileCache.maxLoadWait].
+  /// edits' never do.
   bool _waitForLoad() {
-    if (!_spare || !model.isLoading || _requests.values.any((p) => p == 0)) {
+    if (!_holdForLoad || _requests.values.any((p) => p == 0)) return false;
+    _pumpTimer = Timer(const Duration(milliseconds: 50), _pump);
+    return true;
+  }
+
+  /// Whether a loading surface's tiles wait for the rest of it ([_spare]):
+  /// for up to [InkTileCache.maxLoadWait], they are neither rendered nor
+  /// drawn from vectors (frames of vectors cost as much GPU work as
+  /// rendering), so each is rendered once, complete.
+  bool get _holdForLoad {
+    if (!_spare || !model.isLoading) {
       _loadWait = null;
       return false;
     }
     final wait = _loadWait ??= Stopwatch()..start();
-    if (wait.elapsed >= InkTileCache.maxLoadWait) return false;
-    _pumpTimer = Timer(const Duration(milliseconds: 50), _pump);
-    return true;
+    return wait.elapsed < InkTileCache.maxLoadWait;
   }
 
   /// The most urgent request (lowest priority value, newest first).

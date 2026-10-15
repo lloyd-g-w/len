@@ -169,12 +169,12 @@ void main() {
     });
   });
 
-  testWidgets('read-backs spared (JavaScript): a loading surface renders each tile once', (
+  testWidgets('read-backs spared (JavaScript): a loading surface renders each tile once, loaded', (
     tester,
   ) async {
     await tester.runAsync(() async {
       final strokes = scribbles(400, const Rect.fromLTWH(0, 0, 1200, 900), seed: 4);
-      Future<(int, int)> renders({required bool batching}) async {
+      Future<(int, int, int)> renders({required bool batching}) async {
         final batch = RasterBatch(batching: batching);
         final scene = InkScene(
           strokes,
@@ -184,19 +184,22 @@ void main() {
         );
         expect(scene.model.isLoading, isTrue);
         // Frames while it fills in, slice by slice.
+        var vectors = 0;
         while (scene.model.isLoading) {
           scene.painter().paint(CountingCanvas(), scene.size);
+          vectors += scene.tiles.lastPaint.vectorTiles;
           await Future<void>.delayed(const Duration(milliseconds: 2));
         }
         await scene.warm();
         final tiles = scene.tiles.imageCount;
         scene.dispose();
-        return (batch.readbacks, tiles);
+        return (batch.readbacks, tiles, vectors);
       }
 
-      final (spared, tiles) = await renders(batching: true);
+      final (spared, tiles, vectors) = await renders(batching: true);
       expect(spared, tiles);
-      final (eager, _) = await renders(batching: false);
+      expect(vectors, 0, reason: 'empty until loaded, not frames of vectors');
+      final (eager, _, _) = await renders(batching: false);
       expect(eager, greaterThan(tiles), reason: 'natively tiles fill in as it loads');
     });
   });

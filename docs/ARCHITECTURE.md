@@ -214,6 +214,22 @@ draws a few dozen images, however much ink is on screen.
   160 tiles of 1 MB) shared by every surface and view; evicted tiles are
   re-rendered when needed. Beyond 256 tiles known per cache, those without
   an image or pending work are forgotten.
+- **Web (JavaScript)**: CanvasKit makes every picture into an image on the
+  UI thread, drawing it on one shared offscreen surface and reading the
+  pixels back (a GPU round trip; the surface is resized whenever the size
+  asked for changes). Tiles, level-of-detail rasters and page thumbnails
+  therefore go through `RasterBatch` (`render/raster_batch.dart`): there it
+  draws the pictures asked for until an atlas is full (or a turn passes
+  without more) side by side into one 512² atlas, a tile's size, so one
+  read-back serves many rasters and the surface never changes size; each
+  raster is a `RasterImage` (its own handle on the atlas, the part it
+  occupies, its share of the memory). And `InkTileCache` spares renders
+  there: a loading surface renders no tile for up to a second (vectors and
+  stale images show meanwhile) instead of every tile again per part loaded,
+  and written strokes are merged into their tiles once the pen rests
+  (1.2 s, or 24 over a tile) instead of after every stroke. Natively and in
+  the WebAssembly build (Skwasm rasterises off the UI thread) each raster is
+  its own `Picture.toImage`, as before.
 - **Pages ahead**: paged documents load (`DocumentController`) and render
   (`InkTileCache.prefetch`) the pages within half a screen of the view, so
   a page scrolls in complete and without vector frames.

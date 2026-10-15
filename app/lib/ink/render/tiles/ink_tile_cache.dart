@@ -56,9 +56,9 @@ typedef VectorFallback = void Function(ui.Canvas canvas, TileView view, List<ui.
 ///
 /// Where every render holds the UI thread for a GPU read-back (the
 /// JavaScript build, [RasterBatch.batching]), renders are spared: a
-/// surface still loading renders no tiles for up to [maxLoadWait] (they
-/// are drawn from vectors, stale images standing in), rather than each
-/// tile again as each part arrives; and strokes written are merged into
+/// surface still loading renders no tiles for up to [maxLoadWait] (empty
+/// meanwhile, stale images standing in), rather than each tile again as
+/// each part arrives; and strokes written are merged into
 /// their tiles once the pen has rested for [mergeDelay] (or a tile holds
 /// [maxOverlay] of them), not after every stroke — so a read-back never
 /// falls between two strokes of a word.
@@ -251,12 +251,12 @@ class InkTileCache extends ChangeNotifier {
         continue;
       }
       final uncovered = _drawOld(canvas, view, rect);
-      if (_oldSpace == null) {
+      if (_oldSpace == null && !_holdForLoad) {
         missing.addAll(uncovered); // A first show.
       } else {
-        // Not rendered since a zoom (a rim zooming out exposed): empty
-        // for the frame or two until it is, rather than a frame of
-        // vectors.
+        // Not rendered since a zoom (a rim zooming out exposed), or
+        // waiting for the surface to load: empty for the frame or two
+        // until it is, rather than frames of vectors.
         lastPaint.blankPixels += _pixels(uncovered, view);
       }
     }
