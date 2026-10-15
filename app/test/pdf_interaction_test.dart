@@ -252,6 +252,22 @@ void main() {
       await gesture.up();
       await tester.pumpAndSettle();
       expect(pdf.selection.text, 'Second line of text');
+      // The handles and the menu follow the page as it scrolls.
+      final menu = tester.getTopLeft(find.byKey(const ValueKey('pdf-copy')));
+      pdf.doc.viewport.panBy(const Offset(0, -30));
+      await tester.pump();
+      for (final (key, end) in [
+        ('pdf-handle-start', pdf.handleEnds!.$1),
+        ('pdf-handle-end', pdf.handleEnds!.$2),
+      ]) {
+        expect(tester.getCenter(find.byKey(ValueKey(key))), offsetMoreOrLessEquals(end));
+      }
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('pdf-copy'))),
+        offsetMoreOrLessEquals(menu - const Offset(0, 30)),
+      );
+      pdf.doc.viewport.panBy(const Offset(0, 30));
+      await tester.pump();
       await tester.tap(find.byKey(const ValueKey('pdf-highlight')));
       await tester.pumpAndSettle();
       final page = pdf.doc.pages.first;

@@ -44,54 +44,128 @@ class _AddPageFooterState extends State<AddPageFooter> {
     if (_hint) {
       AppScope.maybeRead(context)?.settings.markTipSeen(AddPageFooter.holdHint);
       setState(() => _hint = false);
+      _moved(); // Without the caption it may end above the screen.
     }
     widget.onAddWithTemplate();
   }
+
+  /// Whether the footer is on screen: it rebuilds when that changes, not
+  /// on every scroll frame (it is placed at layout time).
+  late final ValueNotifier<bool> _shown = ValueNotifier(_onScreen());
+
+  late Listenable _moves = _movesOf(widget.doc);
+
+  static Listenable _movesOf(DocumentController doc) => Listenable.merge([doc, doc.viewport]);
+
+  @override
+  void initState() {
+    super.initState();
+    _moves.addListener(_moved);
+  }
+
+  @override
+  void didUpdateWidget(AddPageFooter old) {
+    super.didUpdateWidget(old);
+    if (old.doc == widget.doc) return;
+    _moves.removeListener(_moved);
+    _moves = _movesOf(widget.doc)..addListener(_moved);
+    _moved();
+  }
+
+  @override
+  void dispose() {
+    _moves.removeListener(_moved);
+    _shown.dispose();
+    super.dispose();
+  }
+
+  void _moved() => _shown.value = _onScreen();
+
+  bool _onScreen() => _placement(widget.doc, hint: _hint) != null;
 
   @override
   Widget build(BuildContext context) {
     final doc = widget.doc;
     const height = AddPageFooter.height;
-    return ListenableBuilder(
-      listenable: Listenable.merge([doc, doc.viewport]),
-      builder: (context, _) {
-        final page = doc.lastPageOnScreen;
-        final size = doc.viewport.size;
-        if (doc.flow != PageFlow.continuous || page == null) return const SizedBox.shrink();
-        final top = page.bottom + AddPageFooter.gap;
-        final bottom = top + height + (_hint ? _captionRoom : 0);
-        if (top > size.height || bottom < 0) return const SizedBox.shrink();
-        final width = math.min(math.max(page.width * 0.6, 200.0), 360.0);
-        return Stack(
-          children: [
-            Positioned(
-              left: page.center.dx - width / 2,
-              top: top,
-              width: width,
-              height: height,
-              child: _AddButton(onAdd: widget.onAdd, onAddWithTemplate: _addWithTemplate),
+    final hint = _hint;
+    final footer = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: height,
+          child: _AddButton(onAdd: widget.onAdd, onAddWithTemplate: _addWithTemplate),
+        ),
+        if (hint) ...[
+          const SizedBox(height: Gaps.xs),
+          // A gesture hint: screen readers offer the button's long press.
+          ExcludeSemantics(
+            child: Text(
+              'Hold for a template',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            if (_hint)
-              Positioned(
-                left: page.center.dx - width / 2,
-                top: top + height + Gaps.xs,
-                width: width,
-                // A gesture hint: screen readers offer the button's long press.
-                child: ExcludeSemantics(
-                  child: Text(
-                    'Hold for a template',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
+          ),
+        ],
+      ],
+    );
+    // It follows the last page through layout alone: per scroll frame
+    // nothing rebuilds, and only the footer's own layer is painted.
+    return RepaintBoundary(
+      child: ValueListenableBuilder(
+        valueListenable: _shown,
+        builder: (context, shown, child) => shown
+            ? CustomSingleChildLayout(
+                delegate: _FooterLayout(doc, hint: hint, relayout: _moves),
+                child: child,
+              )
+            : const SizedBox.shrink(),
+        child: RepaintBoundary(child: footer),
+      ),
     );
   }
+}
+
+/// Where the footer goes on screen (its left, top and width), null when
+/// it is not shown (pages one at a time, no pages, off screen).
+({double left, double top, double width})? _placement(
+  DocumentController doc, {
+  required bool hint,
+}) {
+  final page = doc.lastPageOnScreen;
+  final size = doc.viewport.size;
+  if (doc.flow != PageFlow.continuous || page == null) return null;
+  final top = page.bottom + AddPageFooter.gap;
+  final bottom = top + AddPageFooter.height + (hint ? _captionRoom : 0);
+  if (top > size.height || bottom < 0) return null;
+  final width = math.min(math.max(page.width * 0.6, 200.0), 360.0);
+  return (left: page.center.dx - width / 2, top: top, width: width);
+}
+
+/// Places the footer under the last page, as the document scrolls and
+/// zooms.
+class _FooterLayout extends SingleChildLayoutDelegate {
+  _FooterLayout(this.doc, {required this.hint, required super.relayout});
+
+  final DocumentController doc;
+  final bool hint;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final at = _placement(doc, hint: hint);
+    return BoxConstraints.tightFor(width: at?.width ?? 0);
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    final at = _placement(doc, hint: hint);
+    return at == null ? Offset.zero : Offset(at.left, at.top);
+  }
+
+  @override
+  bool shouldRelayout(_FooterLayout old) => old.doc != doc || old.hint != hint;
 }
 
 /// Room under the button for the caption (inside

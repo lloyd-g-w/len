@@ -159,15 +159,25 @@ class ScanSession extends ChangeNotifier {
     _showCurrent();
   }
 
+  /// Notifies whenever the current page's outline moves (every move of a
+  /// corner drag, which the session itself only hears of when more than
+  /// the outline changes: see [setQuad]).
+  Listenable get outline => _outline;
+  final _outline = _Notifier();
+
   /// Moves the current page's outline to [quad] (while a corner is dragged:
-  /// [preview] false renders the preview only once the drag ends).
+  /// [preview] false renders the preview only once the drag ends, and only
+  /// [outline] notifies, unless the page's shape in the strip (no preview
+  /// yet) or [isWholePhoto] changes with it).
   void setQuad(Quad quad, {bool preview = true}) {
     final page = current;
     if (page == null) return;
+    final whole = isWholePhoto;
     page.quad = quad;
+    _outline.notify();
     if (preview) {
       _refresh(page);
-    } else {
+    } else if (page.preview == null || isWholePhoto != whole) {
       notifyListeners();
     }
   }
@@ -288,6 +298,7 @@ class ScanSession extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _outline.dispose();
     _result.dispose();
     _display?.image.dispose();
     for (final page in _pages) {
@@ -295,4 +306,9 @@ class ScanSession extends ChangeNotifier {
     }
     super.dispose();
   }
+}
+
+/// A [ChangeNotifier] whose listeners anyone in this library can notify.
+class _Notifier extends ChangeNotifier {
+  void notify() => notifyListeners();
 }
