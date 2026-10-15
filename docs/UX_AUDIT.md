@@ -130,7 +130,6 @@ folder's New notebook; Clear search; "Nothing to back up yet"; the sync
 URL's validation; an imported PDF opening at once; the service worker's
 offline shell. No new settings on this branch.
 
-
 ## Round 13 audit — the daily loop (`review/round13`)
 
 Lens: a stylus note-taker who knows GoodNotes 6 and Notability, on an
