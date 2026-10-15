@@ -20,8 +20,8 @@ internal class WetContact(val device: Int, val downMs: Long) {
 
     val began get() = model != null
 
-    /** When Dart said the committed stroke is in a built frame (-1: not yet). */
-    var endedAtMs = -1L
+    /** The frame report ([WetInkHandover]) of the frame Dart said shows the committed stroke (-1: not yet). */
+    var endedAt = -1L
 
     /**
      * Dart has committed the stroke (`end`), with an end taper [taperEnd]

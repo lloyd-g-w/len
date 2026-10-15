@@ -93,8 +93,8 @@ class InkDrawing {
   final LiftSpeed _liftSpeed = LiftSpeed();
   bool _endFollowsSpeed = false;
 
-  /// The end taper (world units) of the stroke just committed.
-  double _committedTaper = 0;
+  /// The stroke the contact just ended left, if any.
+  Stroke? _committed;
 
   int? _drawPointer;
   PointerDeviceKind? _drawKind;
@@ -294,8 +294,8 @@ class InkDrawing {
   void _reset() {
     _straighten.end();
     _scribble.end();
-    samples?.end(taperEnd: _committedTaper);
-    _committedTaper = 0;
+    samples?.end(committed: _committed);
+    _committed = null;
     _drawPointer = null;
     _drawKind = null;
     _byMouse = false;
