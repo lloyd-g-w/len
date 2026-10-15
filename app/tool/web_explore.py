@@ -481,13 +481,23 @@ async def choose(page, label):
     as a user would (an empty full-screen semantics node may lie above a
     tool's popover, which Playwright's click takes for one hiding the
     control; Flutter hit-tests the click itself)."""
-    for role in ('radio', 'button', 'tab', 'checkbox', 'menuitemradio'):
-        item = page.get_by_role(role, name=label, exact=True)
-        if await item.count():
-            box = await item.first.bounding_box()
-            await page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
-            return
+    for _ in range(30):
+        for role in ('radio', 'button', 'tab', 'checkbox', 'menuitemradio'):
+            item = page.get_by_role(role, name=label, exact=True)
+            if await item.count():
+                box = await item.first.bounding_box()
+                await page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+                return
+        await page.wait_for_timeout(500)
     w.expect(False, f'a control named "{label}"')
+
+
+async def tool_options(page, key, tool):
+    """Picks a tool by its [key], then opens its options (a tap on the
+    active tool)."""
+    await page.keyboard.press(key)
+    await page.wait_for_timeout(500)  # Shown as the active tool.
+    await tap(page, tool)
 
 
 async def region(page, x, y, size=160):
@@ -879,8 +889,7 @@ class Walk:
         page = self.page
         x, y = await view_center(page)
         x0, y0, x1, y1 = x - 220, y - 120, x - 60, y + 10
-        await page.keyboard.press('s')
-        await tap(page, 'Shapes (S)')  # The active tool: its options.
+        await tool_options(page, 's', 'Shapes (S)')
         await choose(page, 'Rectangle')
         await page.keyboard.press('Escape')
         await drag(page, [(x0, y0), (x1, y1)], steps=20)
@@ -899,8 +908,7 @@ class Walk:
         """The lasso switched to Rectangle selects the shape."""
         page = self.page
         x0, y0, x1, y1 = self.fx.get('shape', (0, 0, 0, 0))
-        await page.keyboard.press('l')
-        await tap(page, 'Lasso (L)')
+        await tool_options(page, 'l', 'Lasso (L)')
         await choose(page, 'Rectangle')
         await page.keyboard.press('Escape')
         await drag(page, [(x0 - 30, y0 - 30), (x1 + 30, y1 + 30)], steps=20)
@@ -913,8 +921,7 @@ class Walk:
         page = self.page
         x, y = await view_center(page)
         x, y = x + 150, y - 60  # Clear of the shape.
-        await page.keyboard.press('k')
-        await tap(page, 'Laser pointer (K)')
+        await tool_options(page, 'k', 'Laser pointer (K)')
         await choose(page, 'When I stop')
         await page.keyboard.press('Escape')
         await page.mouse.move(x + 200, y + 200)
@@ -939,9 +946,7 @@ class Walk:
         x, y = await view_center(page)
         await page.mouse.move(x, y)
         await page.keyboard.press('Shift+M')
-        node = page.get_by_role('button', name='Minimap')
-        if not await node.count():
-            node = page.get_by_label('Minimap', exact=True)
+        node = page.get_by_role('button', name='Minimap', exact=True)
         await node.first.wait_for(timeout=15000)
         box = await node.first.bounding_box()
         await page.mouse.click(box['x'] + box['width'] * 0.15, box['y'] + box['height'] * 0.15)
