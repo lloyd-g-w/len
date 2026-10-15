@@ -114,9 +114,11 @@ class ScanControls extends StatelessWidget {
           label: retakeLabel,
           onPressed: busy ? null : onRetake,
         ),
+        // Destructive (no undo): in red, last.
         LabelledAction(
           icon: Symbols.delete_sharp,
           label: 'Remove',
+          color: Theme.of(context).colorScheme.error,
           onPressed: session.removeCurrent,
         ),
       ],

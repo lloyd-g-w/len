@@ -95,11 +95,50 @@ void main() {
     tester,
   ) async {
     await pump(tester, ShapeOptionsPanel(tools: tools));
-    expect(find.text('Hold the pen still to snap a shape (Settings → Writing)'), findsOneWidget);
+    expect(find.text('Hold the pen still to snap (Settings → Writing)'), findsOneWidget);
     expect(find.byType(Switch), findsNothing);
     tools.holdToStraighten = false;
     await tester.pump();
-    expect(find.text('Hold to snap is off in Settings → Writing'), findsOneWidget);
+    expect(find.text('Hold to snap is off (Settings → Writing)'), findsOneWidget);
+  });
+
+  testWidgets('shapes: Reset in the header restores the rectangle and no fill (R12-9)', (
+    tester,
+  ) async {
+    await pump(tester, ShapeOptionsPanel(tools: tools));
+    final reset = find.widgetWithText(TextButton, 'Reset');
+    expect(tester.widget<TextButton>(reset).onPressed, isNull, reason: 'at the defaults');
+    tools
+      ..shape = ShapeKind.ellipse
+      ..shapeFill = const ShapeFill.tint(0.25);
+    await tester.pump();
+    await tester.tap(reset);
+    await tester.pump();
+    expect(tools.shape, ShapeKind.rectangle);
+    expect(tools.shapeFill, ShapeFill.none);
+    await tester.tap(find.text('Undo'));
+    await tester.pump();
+    expect(tools.shape, ShapeKind.ellipse);
+    expect(tools.shapeFill, const ShapeFill.tint(0.25));
+  });
+
+  testWidgets('shapes: each caption line fits the popover on one line (R12-9)', (tester) async {
+    await loadFonts();
+    await pump(tester, ShapeOptionsPanel(tools: tools));
+    final caption = Theme.of(tester.element(find.byType(ShapeOptionsPanel))).textTheme.bodySmall;
+    final lines = find.descendant(
+      of: find.byType(ShapeOptionsPanel),
+      matching: find.byWidgetPredicate((w) => w is Text && w.style == caption),
+    );
+    expect(lines, findsWidgets);
+    for (final e in lines.evaluate()) {
+      final box = e.renderObject! as RenderBox;
+      expect(
+        box.size.height,
+        lessThan(2 * caption!.fontSize!),
+        reason: '${(e.widget as Text).data} wraps',
+      );
+    }
   });
 
   testWidgets('shapes: the fill row is inert for lines and arrows', (tester) async {

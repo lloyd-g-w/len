@@ -14,6 +14,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/features/documents/scan/scan_corner_editor.dart';
 import 'package:len/features/documents/scan/scan_import.dart';
 import 'package:len/features/documents/scan/scan_job.dart';
+import 'package:len/features/documents/scan/scan_page_strip.dart';
 import 'package:len/features/documents/scan/scan_photo.dart';
 import 'package:len/features/documents/scan/scan_result_view.dart';
 import 'package:len/features/documents/scan/scan_screen.dart';
@@ -362,6 +363,16 @@ void main() {
     await s.tap(find.text('Choose photos…'));
     await s.untilPages(3);
     expect(find.text('3 pages'), findsOneWidget);
+    // The + is a page-sized outline on the thumbnails' line, as tall as
+    // they are (ScanPageStrip.thumbHeight).
+    final add = tester.getRect(find.byTooltip('Add page'));
+    final thumbs = find.descendant(of: find.byType(ScanPageStrip), matching: find.byType(RawImage));
+    expect(thumbs, findsNWidgets(3));
+    for (final e in thumbs.evaluate()) {
+      final thumb = tester.getRect(find.byWidget(e.widget));
+      expect(thumb.height, ScanPageStrip.thumbHeight);
+      expect((thumb.top, thumb.bottom), (add.top, add.bottom));
+    }
 
     // Retake page 3, then remove page 2.
     final session = tester.widget<ScanScreen>(find.byType(ScanScreen)).session;

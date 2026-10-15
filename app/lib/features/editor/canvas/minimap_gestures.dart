@@ -85,7 +85,16 @@ class _MinimapGesturesState extends State<_MinimapGestures> {
     });
   }
 
-  void _openMenu(Offset at) => _menu.open(position: at);
+  /// The chrome around the map, kept clear by its menu.
+  EdgeInsets _keepClear = EdgeInsets.zero;
+
+  /// Opens the menu at [at], the press, kept above and left of the map's
+  /// far corner: a context menu where you press, but never over the bars
+  /// below the map (on a phone, the bottom toolbar).
+  void _openMenu(Offset at) {
+    setState(() => _keepClear = MinimapMenu.clearOf(context));
+    _menu.open(position: at);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,6 +106,7 @@ class _MinimapGesturesState extends State<_MinimapGestures> {
     return MinimapMenu(
       controller: _menu,
       onHide: _map.widget.onHide,
+      keepClear: _keepClear,
       child: Semantics(
         label: 'Minimap',
         hint: 'Tap to go there, drag to move',

@@ -9,11 +9,15 @@ import 'fill_choices.dart';
 import 'tool_icons.dart';
 
 /// Picks the shape the Shape tool draws: one row of kinds, the selected
-/// one on the neutral pressed plate (one Tab stop; arrows move). Shapes use the pen's colour and
-/// size; closed ones get the [FillChoices] fill.
-/// A caption points to "Hold to snap" in Settings → Writing, the one home
-/// of that writing gesture (it turns a held pen or highlighter stroke into
-/// a shape), and says when it is off.
+/// one on the neutral pressed plate (one Tab stop; arrows move). Shapes use
+/// the pen's colour and size (the bar's dots, beside the tool); closed ones
+/// get the [FillChoices] fill. Reset in the header restores the rectangle
+/// and no fill.
+/// A short caption: how to draw and edit (with a keyboard, Shift), and a
+/// pointer to "Hold to
+/// snap" in Settings → Writing, the one home of that writing gesture (it
+/// turns a held pen or highlighter stroke into a shape), saying when it is
+/// off.
 class ShapeOptionsPanel extends StatelessWidget {
   const ShapeOptionsPanel({super.key, required this.tools});
 
@@ -29,7 +33,16 @@ class ShapeOptionsPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const OptionHeader('Shapes'),
+          OptionHeader(
+            'Shapes',
+            trailing: ResetButton<(ShapeKind, ShapeFill)>(
+              value: (tools.shape, tools.shapeFill),
+              defaults: const (ToolSettings.defaultShape, ToolSettings.defaultShapeFill),
+              onChanged: (v) => tools
+                ..shape = v.$1
+                ..shapeFill = v.$2,
+            ),
+          ),
           const SizedBox(height: Gaps.sm),
           // One Tab stop, at the chosen shape; the arrows move along.
           RovingGroup(
@@ -91,16 +104,15 @@ class ShapeOptionsPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: Gaps.md),
-          Text('Drag to draw, in the pen’s colour and size', style: text.bodySmall),
-          Text('Tap a shape to drag its points', style: text.bodySmall),
+          Text('Drag to draw, tap a shape to edit it', style: text.bodySmall),
           // Only a keyboard has Shift.
           if (!Targets.touchFirst)
             Text('Hold Shift for regular shapes and 15° lines', style: text.bodySmall),
           // Hold to snap is a writing gesture: its switch is in Settings.
           Text(
             tools.holdToStraighten
-                ? 'Hold the pen still to snap a shape (Settings → Writing)'
-                : 'Hold to snap is off in Settings → Writing',
+                ? 'Hold the pen still to snap (Settings → Writing)'
+                : 'Hold to snap is off (Settings → Writing)',
             style: text.bodySmall,
           ),
         ],

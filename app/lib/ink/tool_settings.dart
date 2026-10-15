@@ -47,8 +47,8 @@ class ToolSettings extends ChangeNotifier {
   EditorTool _tool = EditorTool.pen;
   final Map<InkTool, PenConfig> _configs = {for (final t in inks) t: PenConfig.defaultsFor(t)};
   EraserConfig _eraser = const EraserConfig();
-  ShapeKind _shape = ShapeKind.rectangle;
-  ShapeFill _shapeFill = ShapeFill.none;
+  ShapeKind _shape = defaultShape;
+  ShapeFill _shapeFill = defaultShapeFill;
   LaserConfig _laser = const LaserConfig();
   LassoConfig _lasso = const LassoConfig();
   TextData _text = const TextData();
@@ -147,6 +147,10 @@ class ToolSettings extends ChangeNotifier {
   void _leaveNonInk() {
     if (!_tool.usesInk) _select(EditorTool.pen);
   }
+
+  /// The Shape tool's shape and fill until changed (and after Reset).
+  static const defaultShape = ShapeKind.rectangle;
+  static const defaultShapeFill = ShapeFill.none;
 
   /// The shape the Shape tool draws.
   ShapeKind get shape => _shape;

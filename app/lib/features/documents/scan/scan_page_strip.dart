@@ -95,7 +95,9 @@ class _Thumb extends StatelessWidget {
           child: _tooltip(
             AnimatedContainer(
               duration: Motion.fast,
-              padding: const EdgeInsets.all(Hairline.rule + Gaps.xxs),
+              // The ring's width counts as padding too (a Container adds
+              // its border's), so the paper keeps thumbHeight inside it.
+              padding: const EdgeInsets.all(Gaps.xxs),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(Radii.xs),
                 border: Border.all(
@@ -132,21 +134,54 @@ class _Thumb extends StatelessWidget {
         );
 }
 
+/// + at the end of the pages: a page-sized outline, like the overview's
+/// Add page and the library's New tile (a Pencil edge, no plate, an Ink +),
+/// on the thumbnails' line.
 class _AddTile extends StatelessWidget {
   const _AddTile({required this.enabled, required this.onAdd});
 
   final bool enabled;
   final void Function(BuildContext anchor) onAdd;
 
+  /// An A4 page's width at the thumbnails' height.
+  static const double _width = ScanPageStrip.thumbHeight * 210 / 297;
+
   @override
-  Widget build(BuildContext context) => Center(
-    child: Builder(
-      builder: (context) => IconButton(
-        tooltip: 'Add page',
-        icon: const Icon(Symbols.add_sharp),
-        iconSize: Glyphs.bar,
-        onPressed: enabled ? () => onAdd(context) : null,
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(Radii.sm),
+      side: BorderSide(color: enabled ? scheme.outline : scheme.outlineVariant),
+    );
+    return Padding(
+      // Where a thumbnail's paper sits inside its ring.
+      padding: const EdgeInsets.all(Hairline.rule + Gaps.xxs),
+      child: Builder(
+        builder: (context) => Tooltip(
+          message: 'Add page',
+          child: Semantics(
+            button: true,
+            enabled: enabled,
+            child: Material(
+              type: MaterialType.transparency,
+              shape: shape,
+              child: InkWell(
+                customBorder: shape,
+                onTap: enabled ? () => onAdd(context) : null,
+                child: SizedBox(
+                  width: _width,
+                  height: ScanPageStrip.thumbHeight,
+                  child: Icon(
+                    Symbols.add_sharp,
+                    size: Glyphs.bar,
+                    color: enabled ? scheme.onSurface : scheme.onSurface.withValues(alpha: 0.38),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

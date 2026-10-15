@@ -6,7 +6,8 @@ import 'hit_overhang.dart';
 
 /// The header of a task sheet or dialog (REDESIGN §5): a left-aligned
 /// Heading ([TextTheme.titleMedium]) title, an optional Caption [subtitle]
-/// and, for task sheets, a ✕ that closes it ([onClose]).
+/// and, for task sheets, a ✕ that closes it ([onClose]), centred on the
+/// title's first line.
 class SheetHeader extends StatelessWidget {
   const SheetHeader({super.key, required this.title, this.subtitle, this.onClose, this.trailing});
 
@@ -22,31 +23,48 @@ class SheetHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final buttons = onClose != null || trailing != null;
+    // The title's first line and the buttons share one band, centred on
+    // each other whether or not a subtitle follows (the ✕ belongs to the
+    // title, not to title plus subtitle).
+    final hit = Targets.barHit(context);
+    final heading = text.titleMedium;
+    final line =
+        MediaQuery.textScalerOf(context).scale(heading?.fontSize ?? 18) * (heading?.height ?? 1);
+    final band = buttons ? (line > hit ? line : hit) : line;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Semantics(
-                header: true,
-                child: Text(
-                  title,
-                  style: text.titleMedium,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+          child: Padding(
+            padding: EdgeInsets.only(top: (band - line) / 2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Semantics(
+                  header: true,
+                  child: Text(title, style: heading, maxLines: 2, overflow: TextOverflow.ellipsis),
                 ),
-              ),
-              if (subtitle case final s?) ...[
-                const SizedBox(height: Gaps.xxs),
-                Text(s, style: text.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                if (subtitle case final s?) ...[
+                  const SizedBox(height: Gaps.xxs),
+                  Text(s, style: text.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
               ],
-            ],
+            ),
           ),
         ),
-        ?trailing,
-        if (onClose != null) _close(context, onClose!),
+        if (buttons)
+          Padding(
+            padding: EdgeInsets.only(top: (band - hit) / 2),
+            child: SizedBox(
+              height: hit,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [?trailing, if (onClose != null) _close(context, onClose!)],
+              ),
+            ),
+          ),
       ],
     );
   }
