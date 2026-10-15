@@ -828,7 +828,8 @@ search highlights use the same boxes.
   per-page `PdfSpan`s (`PdfInteraction.selectRange`: the anchor's page from
   the anchor on, pages between whole, the focus's page up to the focus),
   copied with a blank line between pages and highlighted page by page. `PdfLayer` paints the selection (one box per line, with
-  handles) and a menu: **Copy** (also Ctrl/⌘+C; icon only under 480 dp),
+  handles) and a menu (`PdfSelectionMenu`; it and the handles follow the view
+  at layout time, without rebuilding): **Copy** (also Ctrl/⌘+C; icon only under 480 dp),
   **Highlight** as the highlighter's quick colours (`PdfHighlightSwatches`:
   up to 3, the current one first and ringed; one tap highlights in that
   colour, the highlighter keeps its own), select all on the page.
@@ -930,7 +931,8 @@ SYNC_PROTOCOL). All pure Dart, so it works on every platform.
   The corner editor drags corners and side middles (folds refused, corners
   kept on the photo) and shows a 3× loupe in the top corner away from the
   finger while a corner moves; the outline's preview re-renders when the
-  drag ends. Preview (or tapping the current page in the strip, or Space)
+  drag ends. A drag's moves notify `ScanSession.outline` (only the corner
+  editor listens), not the session, so the rest of the screen stays put. Preview (or tapping the current page in the strip, or Space)
   switches to its result (`ScanResultView`, `ScanResultRenderer`): the page flattened
   and cleaned up at 1600 px from the photo decoded at that size (kept only
   while shown), re-rendered on every change; tapping it goes back.
