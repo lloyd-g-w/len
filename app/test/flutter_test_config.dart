@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_font.dart';
+import 'package:len/features/editor/finger_reading.dart';
 import 'package:len/ui/app_theme.dart';
 import 'package:len/ui/messages.dart';
 
@@ -21,6 +22,9 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   // Each test starts with no snack bar behind it (the editor's tips keep a
   // minute away from one, app-wide).
   setUp(MessageQueue.debugReset);
+  // Most tests draw with a finger on pages with content: no reading (R20-6)
+  // unless a test turns it on.
+  setUp(() => FingerReading.debugEnabled = false);
   await loadTextFonts();
   await testMain();
 }

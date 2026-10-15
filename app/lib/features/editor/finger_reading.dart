@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import '../../ink/tool_settings.dart';
 import '../../ui/app_theme.dart';
 
@@ -59,7 +61,12 @@ class FingerReading {
   void Function()? onRead;
 
   /// Whether reading applies at all (see the class doc).
-  bool get applies => tools.stylusOnly == null && _touchFirst();
+  bool get applies => debugEnabled && tools.stylusOnly == null && _touchFirst();
+
+  /// Turns reading off in tests (`flutter_test_config.dart`: most draw with
+  /// a finger on pages with content); reading's own tests turn it on.
+  @visibleForTesting
+  static bool debugEnabled = true;
 
   EditorTool _tool;
   Timer? _timer;
