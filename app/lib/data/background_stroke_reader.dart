@@ -75,6 +75,7 @@ class BackgroundStrokeReader implements StrokeReader {
     _isolate?.kill(priority: Isolate.immediate);
     _isolate = null;
     _exitPort?.close();
+    _stopped();
   }
 
   /// The worker is gone (or closed): requests waiting fall back.
@@ -112,7 +113,11 @@ class BackgroundStrokeReader implements StrokeReader {
         onExit: exit.sendPort,
       );
       final port = await Future.any<Object?>([ready.first, _exit.future.then((_) => _gone)]);
-      if (port is! SendPort) return null;
+      if (port is! SendPort || _closed) {
+        // Failed, or closed while it started: never left running.
+        _isolate?.kill(priority: Isolate.immediate);
+        return null;
+      }
       // Added while this isolate surely lives: the worker hears it exit
       // (the engine destroyed on Android, the process living on) and
       // exits too, closing its connection, instead of living on orphaned.

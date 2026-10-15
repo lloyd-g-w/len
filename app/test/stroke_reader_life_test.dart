@@ -52,6 +52,19 @@ void main() {
     expect(reader.waiting, 0);
   });
 
+  test('reads in flight fall back when the reader is closed', () async {
+    final db = AppDatabase.open(path);
+    addTearDown(db.close);
+    final strokes = StrokeRepository(db, deviceId: 'd')..save([_stroke('a')]);
+    final reader = BackgroundStrokeReader(path, fallback: strokes);
+    await reader.isolate;
+    final range = ChunkGrid.rangeFor(const Rect.fromLTWH(0, 0, 1000, 1000));
+    final reads = [for (var i = 0; i < 20; i++) reader.read('s', range)];
+    reader.close();
+    final loads = await Future.wait(reads).timeout(const Duration(seconds: 20));
+    expect(loads.every((l) => l.strokes.length == 1), isTrue);
+  });
+
   test("the reader exits with the app's isolate", () async {
     AppDatabase.open(path).close();
     final exited = ReceivePort();
