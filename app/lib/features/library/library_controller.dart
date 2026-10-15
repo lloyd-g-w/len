@@ -312,5 +312,8 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
   /// level (the Recent row says nothing there).
   String? folderPathOf(Notebook notebook) => LibraryQuery.pathOf(notebook, _folderById);
 
+  /// The folder [notebook] is shown in; null at the top level.
+  Folder? folderOf(Notebook notebook) => _folderById[LibraryQuery.folderOf(notebook, _folderById)];
+
   Folder? folderById(String? id) => _folderById[id];
 }

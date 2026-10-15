@@ -104,6 +104,21 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a Recent tile names its own folder, the path in its tooltip (R16-3)', (
+    tester,
+  ) async {
+    await pumpSeeded(tester, (s) {
+      final year = s.folders.create(name: 'Year 1', color: 0xFF0CA678);
+      final spring = s.folders.create(name: 'Spring', parentId: year.id, color: 0xFF0CA678);
+      final calculus = s.folders.create(name: 'Calculus', parentId: spring.id, color: 0xFF0CA678);
+      final lecture = addNotebook(s, 'Calculus — Lecture 12', folderId: calculus.id);
+      s.settings.recentNotebooks = [lecture.id];
+    });
+    final tile = find.byType(RecentTile);
+    expect(find.descendant(of: tile, matching: find.text('Calculus')), findsOneWidget);
+    expect(find.byTooltip('Year 1 › Spring › Calculus'), findsOneWidget);
+  });
+
   testWidgets('Recent row at the root: notebooks from folders, one tap (R7-6)', (tester) async {
     final s = await pumpSeeded(tester, (s) {
       final school = s.folders.create(name: 'School', color: 0xFF0CA678);

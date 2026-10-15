@@ -69,7 +69,7 @@ undone without a word.
 - *Fix:* each term must begin a word of the title (or recording title,
   folder name), as `SearchQuery` does for contents. Effort S.
 
-**R16-3 P2 · The Recent row cuts off the course.** ⬜
+**R16-3 P2 · The Recent row cuts off the course.** ✅
 - *What:* a Recent tile's caption is the whole path, "Year 1 › Spring ›
   Calculus", ellipsised at the end on every width: the part that tells
   two "… — Lecture" tiles apart is what goes.
