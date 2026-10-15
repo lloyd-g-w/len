@@ -65,7 +65,7 @@ SurfaceElement textBox(String id, String surface, String text, {Rect? rect}) => 
   rect: rect ?? const Rect.fromLTWH(10, 20, 200, 40),
   z: 1,
   createdAt: 1,
-  data: {'text': text, 'size': 24},
+  data: TextData(text: text).toJson(),
 );
 
 void main() {
