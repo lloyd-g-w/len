@@ -28,10 +28,14 @@ class RecordingElsewhereNotice extends StatelessWidget {
       return ListenableBuilder(
         listenable: recorder,
         builder: (context, _) => recorder.state.isActive
-            ? FloatingPanel(
-                key: const ValueKey('recording-elsewhere'),
-                padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.xs, Gaps.xs, Gaps.xs),
-                child: RecordingElsewhereRow(shared: shared),
+            ? Padding(
+                // Apart from the notices below it.
+                padding: const EdgeInsets.only(bottom: Gaps.sm),
+                child: FloatingPanel(
+                  key: const ValueKey('recording-elsewhere'),
+                  padding: const EdgeInsets.fromLTRB(Gaps.md, Gaps.xs, Gaps.xs, Gaps.xs),
+                  child: RecordingElsewhereRow(shared: shared),
+                ),
               )
             : const SizedBox.shrink(),
       );
