@@ -102,28 +102,31 @@ class StorageQueries {
       UNION ALL SELECT notebook_id, id FROM pages WHERE deleted = 0)''';
 
   /// The blobs live rows reference, by notebook, with whether a recording
-  /// holds them (as `BlobReferences.all`, user templates aside): every
-  /// string of a blob id's length in their JSON (malformed JSON: none).
+  /// holds them and whether the row is not yet synced (as
+  /// `BlobReferences.all`, user templates aside): every string of a blob
+  /// id's length in their JSON (malformed JSON: none).
   static final _refs =
       '''
     $_surfaces,
-    refs(nb, sha, audio) AS (
-      SELECT p.notebook_id, j.value, 0 FROM pages p, json_tree(${_json('p.background')}) j
+    refs(nb, sha, audio, dirty) AS (
+      SELECT p.notebook_id, j.value, 0, p.dirty FROM pages p,
+          json_tree(${_json('p.background')}) j
         WHERE p.deleted = 0 AND p.background IS NOT NULL AND j.type = 'text'
           AND length(j.value) = 64
       UNION ALL
-      SELECT p.notebook_id, j.value, 0 FROM pages p, json_tree(${_json('p.paper_data')}) j
+      SELECT p.notebook_id, j.value, 0, p.dirty FROM pages p,
+          json_tree(${_json('p.paper_data')}) j
         WHERE p.deleted = 0 AND p.paper_data <> '{}' AND j.type = 'text'
           AND length(j.value) = 64
       UNION ALL
-      SELECT s.nb, j.value, 0 FROM elements e JOIN surfaces s ON s.sid = e.surface_id,
+      SELECT s.nb, j.value, 0, e.dirty FROM elements e JOIN surfaces s ON s.sid = e.surface_id,
           json_tree(${_json('e.data')}) j
         WHERE e.deleted = 0 AND j.type = 'text' AND length(j.value) = 64
       UNION ALL
-      SELECT r.notebook_id, j.value, 1 FROM recordings r, json_tree(${_json('r.audio')}) j
+      SELECT r.notebook_id, j.value, 1, r.dirty FROM recordings r, json_tree(${_json('r.audio')}) j
         WHERE r.deleted = 0 AND j.type = 'text' AND length(j.value) = 64
       UNION ALL
-      SELECT notebook_id, waveform, 1 FROM recordings WHERE deleted = 0 AND waveform <> '')''';
+      SELECT notebook_id, waveform, 1, dirty FROM recordings WHERE deleted = 0 AND waveform <> '')''';
 
   static String _json(String column) =>
       "CASE WHEN json_valid($column) THEN $column ELSE 'null' END";
@@ -208,8 +211,9 @@ class StorageQueries {
   /// those the sync server holds (uploaded to it, not refused as too
   /// large) that live rows of pages, elements or recordings show. Never
   /// one a notebook in [keep] shows (open in the editor: it may be needed
-  /// offline), a user template (new pages copy it), or a PDF whose text
-  /// search has not read yet.
+  /// offline), one only rows not yet synced show (no server record keeps
+  /// it from the server's clean-up yet), a user template (new pages copy
+  /// it), or a PDF whose text search has not read yet.
   List<({String sha, int size})> freeable({Set<String> keep = const {}}) => [
     for (final row in db.select(
       '''
@@ -218,6 +222,7 @@ class StorageQueries {
       WHERE b.uploaded = 1 AND b.rejected_limit IS NULL
         AND b.sha256 IN (SELECT sha FROM refs)
         AND b.sha256 NOT IN (SELECT sha FROM refs WHERE nb IN (SELECT value FROM json_each(?1)))
+        AND b.sha256 NOT IN (SELECT sha FROM refs WHERE dirty)
         AND b.sha256 NOT IN (SELECT blob FROM templates WHERE deleted = 0)
         AND b.sha256 NOT IN ($_unreadPdfs)
       ORDER BY b.size DESC''',
@@ -227,13 +232,13 @@ class StorageQueries {
   ];
 
   /// Blobs whose copies must stay here whatever the server holds: those
-  /// the notebooks in [keep] show, user templates and PDFs search has not
+  /// the notebooks in [keep] show, rows not yet synced, user templates and PDFs search has not
   /// read yet (as [freeable]; asked again right before copies go).
   Set<String> kept({Set<String> keep = const {}}) => {
     for (final row in db.select(
       '''
       WITH $_refs
-      SELECT sha FROM refs WHERE nb IN (SELECT value FROM json_each(?1))
+      SELECT sha FROM refs WHERE nb IN (SELECT value FROM json_each(?1)) OR dirty
       UNION SELECT blob FROM templates WHERE deleted = 0
       UNION $_unreadPdfs''',
       [jsonEncode(keep.toList())],
