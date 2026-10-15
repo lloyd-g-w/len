@@ -861,7 +861,15 @@ true)`) and parsed again; a page that still cannot be copied (e.g. an
 unsupported filter in a split content stream) is embedded as a 150 dpi
 image, so export never fails because of one page. Text boxes are written as
 selectable text in the embedded bundled fonts (`pdf_text.dart`, see *Text
-boxes*). PNG export rasterises a page with the same painters as the editor.
+boxes*): left-to-right words whole at their laid-out position, right-to-left
+words and fallback-font characters glyph by glyph where the app's layout put
+each one (`pdf_glyph_placer.dart`; brackets mirrored). The `pdf` package has
+no OpenType shaping, so Arabic is written in its contextual presentation
+forms (`ArabicForms`: isolated / final / initial / medial, lam-alef
+ligatures), which Noto Sans Arabic maps to its shaped glyphs and PDF readers
+extract as the letters; marks are centred over their letter (no GPOS anchors,
+so stacked or kashida-sensitive marks are approximate). Number labels of
+right-to-left items are written in visual order (".1"). PNG export rasterises a page with the same painters as the editor.
 **Links** (`PdfLinkWriter`) become link annotations after all pages are
 written: link elements and planner links (to the first exported page with
 the target template) as URI or GoTo actions to named destinations
@@ -1909,9 +1917,12 @@ GoodNotes-style rich text inside a box.
   Google Fonts and subset to Latin/Greek/Cyrillic + symbols): Inter (sans),
   Lora (serif), JetBrains Mono and Caveat (handwriting; no italic, it is
   slanted), all SIL OFL 1.1 with their licence files, registered in the licence page
-  (`core/font_licenses.dart`). Boxes use only bundled fonts, so they measure and
-  wrap the same everywhere and in exported PDFs; characters they lack fall back
-  to system fonts.
+  (`core/font_licenses.dart`). Their fallbacks for right-to-left scripts are
+  bundled too (`FallbackFont`: Noto Sans Arabic and Noto Sans Hebrew, Regular /
+  Bold, subset to their blocks and presentation forms; first in
+  `TextLayout.fallback`). Boxes use only bundled fonts, so they measure and
+  wrap the same everywhere (the web included) and in exported PDFs; other
+  characters they lack (CJK, emoji) fall back to system fonts.
 - **Layout** (`ink/elements/text_layout.dart`): `TextLayout.spanOf` builds one
   `TextSpan` tree; list markers are **inline placeholders** at the start of their
   line (one U+FFFC each), sized by indent level, so bullets, numbers (1. / a. /
@@ -1927,8 +1938,37 @@ GoodNotes-style rich text inside a box.
   to the box width; auto-width boxes never wrap) share that layout. The caret
   steps over the gap; backspace at a continuation line deletes the character
   before. `MarkerOffsets` maps text offsets to laid-out offsets
-  (`marker_offsets.dart`). The editing field disables the strut, so headings
-  keep their line height while editing.
+  (`marker_offsets.dart`). The strut is disabled (headings keep their line
+  height) but, as `EditableText` does for the field, inherits the box's base
+  style (`TextLayout.strutOf`): lines mixing fonts (Arabic in the fallback
+  font, a mono word in Lora) then settle to the same height on the canvas
+  and in the field.
+- **Right-to-left text** (`domain/text/paragraph_direction.dart`,
+  `ink/elements/text_plan.dart`): each paragraph runs in the direction of its
+  first strong character (bidi P2 / P3; one without takes the paragraph
+  before's), and `align` is `start` / `center` / `end` relative to it. A box
+  is still one paragraph laid out in one direction (its first paragraph's,
+  `TextPlan.base`): paragraphs in that direction lay out natively (the
+  painter's and the field's `textDirection`, `TextAlign.start` / `end`), so a
+  Hebrew box has its lines, list markers (`ListMarker.direction`: the column
+  on the text side, numbers reading ".1") and hanging indents on the right. A
+  paragraph against the base (Hebrew in an English box, or the reverse) is
+  wrapped on its own (`TextWraps.linesOf`) and the plan inserts, per line, a
+  directional isolate (U+2066 / U+2067 … U+2069, so its words, punctuation
+  and marker order themselves as in a paragraph of that direction) and empty
+  placeholders before and after that put the line at its own start, centre or
+  end (`TextInsert`; trailing spaces of a wrapped line stay outside the
+  isolate, so they hang over the edge instead of pushing the text in). The
+  caret never rests among those inserts (`TextInsert.allowed`,
+  `MarkerOffsets.allowedNear`: arrows step over them, taps go to the nearest
+  spot); deleting only inserted characters deletes the text character before
+  or after. The field's left / right arrows move visually in right-to-left
+  paragraphs (Flutter moves by logical order; not on the web, where the
+  browser moves the caret), the format bar's alignment icon is mirrored for
+  the caret's paragraph, and an auto-width right-to-left box grows to the left.
+  Mixed-direction text inside a paragraph is ordered by Flutter's bidi.
+  Limits: a paragraph's direction cannot be set by hand (type an RLM / LRM
+  mark first), and selecting across a padded line highlights its padding.
 - **Editing** (`features/editor/tools/text/`): `RichTextController` (a
   `TextEditingController`) renders the spans and maps the field's edits back
   onto the buffer (common prefix/suffix diff, the caret disambiguating repeated
@@ -1948,6 +1988,8 @@ GoodNotes-style rich text inside a box.
   the soft keyboard and the phone's docked bar (the whole box while it fits). While a box is edited the editor's Undo / Redo (bar
   buttons, finger taps) step through its history (`EditingUndo` over the box's
   `BoxHistory`); undo past its first state finishes the box and undoes the page.
+  The data of text elements from sync and Len files is parsed strictly
+  (`TextRecord`; a malformed box is skipped).
 - **Size**: new boxes are **auto-width** (as wide as their text, growing up to
   the screen edge, then wrapping there); dragging a side handle sets a width and
   wraps from then on. Lasso corner scaling scales every size in the box.
