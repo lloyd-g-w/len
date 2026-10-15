@@ -1,4 +1,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="one.mixin.pasteboard">
 
+    <application>
+        <!-- Len's addition: serves the images "write" puts on the clipboard. -->
+        <provider
+            android:name="one.mixin.pasteboard.PasteboardFileProvider"
+            android:authorities="${applicationId}.pasteboard"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/pasteboard_paths" />
+        </provider>
+    </application>
 </manifest>

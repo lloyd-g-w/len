@@ -85,12 +85,14 @@ and paste from the system clipboard.
   edit ends, as Edit text does (`ContentTools.addTextAt`).
 - Effort S.
 
-**R13-4 P3 · Lasso Copy doesn't reach other apps.** ⬜ Copying a
+**R13-4 P3 · Lasso Copy doesn't reach other apps.** ✅ Copying a
 selection fills Len's own clipboard only; GoodNotes and Notability put
 an image of it on the system clipboard, so a diagram can be pasted into
 a chat or an e-mail. Needs a selection render to PNG and a clipboard
 image write on every platform (Linux and the web differ). Effort M–L:
-listed in TODO "Next".
+listed in TODO "Next". Done: Copy and Cut also put a transparent PNG of
+the selection (and the text of text boxes alone) on the system clipboard;
+pasting back in Len still gives ink (ARCHITECTURE, Lasso).
 
 Checked and sound: the Recent row and "Yesterday" captions; the
 reopened workspace and page; the phone's second slot (last tool used);

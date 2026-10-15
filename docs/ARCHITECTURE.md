@@ -875,7 +875,8 @@ search highlights use the same boxes.
   Entry points (`EditorImages`): the top bar button (file picker; on Android
   also the camera via `Camera`, see *Document scans*), Ctrl+V (`pasteboard` reads the system
   clipboard's image, or a copied image file on desktop; a clipboard image
-  older than ink copied in the app loses to the ink) and drag and drop
+  older than ink copied in the app, or the picture that copy put there
+  (*Copy to other apps*), loses to the ink) and drag and drop
   (`desktop_drop`). Every insert is one undoable edit and selects the image.
 - **Decoding** (`ElementImages`, one per app in `AppServices`): bitmaps are
   decoded asynchronously by the engine (`ImageDescriptor`, off the UI thread)
@@ -1622,6 +1623,30 @@ surface.
   gestures. The clipboard (`InkClipboard`) lives in `AppServices`, so paste
   works across pages and notebooks; paste goes to the screen centre
   (Ctrl+V, menu) or a long-press position.
+- **Copy to other apps** (`ClipboardMirror`, `features/editor/clipboard/`):
+  every copy (Copy, Cut, Ctrl+C / X) is also put on the system clipboard,
+  as GoodNotes and Notability do: a PNG of the content alone, transparent
+  (`SelectionImage`, `ink/selection/`: `ContentPainter` over the drawn
+  bounds plus a 2-unit margin, 3 px per unit ≈ 290 dpi, the longest side
+  ≤ 4096 px; images decoded first; links not drawn) and, when only text
+  boxes were copied, their plain text (top to bottom, a blank line
+  between; no HTML: box copies have none). One entry through the vendored
+  `pasteboard`'s `write` (added for Len): **Linux** GTK targets — the PNG
+  byte for byte as `image/png`, every other GdkPixbuf format converted on
+  request, the text targets — stored by a clipboard manager on quit;
+  **Windows** `PNG` (transparency for browsers and Office), a CF_DIB
+  flattened onto white (DIB readers ignore alpha) and CF_UNICODETEXT;
+  **Android** one `ClipData` item with the text and a content URI of the
+  PNG in the cache (`PasteboardFileProvider`, only the latest image kept);
+  **web** `navigator.clipboard.write` with a `ClipboardItem` whose image
+  is a promise, so the write starts within the gesture (Safari and Firefox
+  require user activation) while the picture renders. Where that fails, a
+  text-only copy falls back to plain text. Nothing new in the UI.
+  Len's own paste keeps the in-app clipboard (ink stays ink): `EditorImages
+  .paste` skips a clipboard image that is the copy's picture — the same
+  bytes, or the same size and a 16 × 16 thumbnail within a small tolerance
+  (`ImageSignature`), since GTK and browsers re-encode it and Windows reads
+  back the flattened DIB — and text that is the copy's text.
 - **Editing a shape's points**: a single shape selected on its own surface
   (`SelectionController.shapeStroke`, by the lasso or a tap — with the
   lasso, or the Shape tool on a shape) shows its control points as handles

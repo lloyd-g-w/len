@@ -32,6 +32,7 @@ import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
 import 'features/camera/camera.dart';
 import 'features/documents/import/incoming_files.dart';
+import 'features/editor/clipboard/clipboard_mirror.dart';
 import 'features/editor/shared/shared_notebooks.dart';
 import 'features/editor/tabs/open_notebooks.dart';
 import 'features/editor/tabs/workspace_memory.dart';
@@ -255,8 +256,14 @@ class AppServices {
   final Camera camera;
 
   /// Copied strokes and text, shared by every editor (paste across pages
-  /// and notebooks).
-  final InkClipboard clipboard = InkClipboard();
+  /// and notebooks), mirrored onto the system clipboard ([clipboardMirror]).
+  late final InkClipboard clipboard = InkClipboard(
+    mirror: (strokes, elements) => unawaited(clipboardMirror.copy(strokes, elements)),
+  );
+
+  /// Puts a picture (and text) of what is copied on the system clipboard,
+  /// for other apps.
+  late final ClipboardMirror clipboardMirror = ClipboardMirror(images: images);
 
   /// Notebooks open in editor tabs (with each tab's place in memory).
   final OpenNotebooks openNotebooks = OpenNotebooks();

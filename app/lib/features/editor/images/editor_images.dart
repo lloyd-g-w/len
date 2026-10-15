@@ -169,14 +169,15 @@ class EditorImages {
   Future<void> paste(BuildContext context, {bool plain = false, Offset? screen}) async {
     final bytes = plain ? null : await _clipboardImage();
     if (!context.mounted) return;
-    if (bytes != null && _hash(bytes) != _imageBeforeInkCopy) {
+    if (bytes != null && !await _isInk(bytes)) {
+      if (!context.mounted) return;
       await insertBytes(context, bytes, screen: screen);
       return;
     }
     // Plain text newer than the copied ink becomes a new text box.
     final text = await _clipboardText();
     if (!context.mounted) return; // The editor closed meanwhile.
-    if (text != null && (services.clipboard.isEmpty || text != _textBeforeInkCopy)) {
+    if (text != null && (services.clipboard.isEmpty || !_isInkText(text))) {
       final html = plain || RichTextController.isOwnClip(text) ? null : await _readHtml();
       if (!context.mounted) return;
       final rich = html == null ? null : textFromHtml(html, tools.textStyle);
@@ -286,6 +287,16 @@ class EditorImages {
       return null;
     }
   }
+
+  /// Whether the system clipboard's image [bytes] is no newer than the ink
+  /// copied in the app: there before the copy, or its picture.
+  Future<bool> _isInk(Uint8List bytes) async =>
+      !services.clipboard.isEmpty &&
+      (_hash(bytes) == _imageBeforeInkCopy || await services.clipboardMirror.holdsInk(bytes));
+
+  /// As [_isInk], for the system clipboard's [text].
+  bool _isInkText(String text) =>
+      text == _textBeforeInkCopy || services.clipboardMirror.holdsInkText(text);
 
   void _onInkCopied() {
     if (services.clipboard.isEmpty) return;

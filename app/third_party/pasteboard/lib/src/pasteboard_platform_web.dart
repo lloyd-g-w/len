@@ -1,4 +1,5 @@
 import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
 import 'package:web/web.dart';
 import 'package:flutter/foundation.dart';
@@ -84,6 +85,34 @@ class PasteboardPlatformWeb implements PasteboardPlatform {
     } catch (e) {
       debugPrint('Error writing image to clipboard: $e');
       return;
+    }
+  }
+
+  @override
+  Future<bool> write({Future<Uint8List?>? png, String? text}) async {
+    if (png == null && text == null) return false;
+    try {
+      // Called within the user's gesture: the image goes in as a promise
+      // (Safari and Firefox only let a gesture write the clipboard).
+      final items = JSObject();
+      if (png != null) {
+        final blob = png.then((bytes) {
+          if (bytes == null) throw StateError('No image');
+          return Blob([bytes.toJS].toJS, BlobPropertyBag(type: 'image/png'));
+        });
+        items.setProperty('image/png'.toJS, blob.toJS);
+      }
+      if (text != null) {
+        items.setProperty(
+          'text/plain'.toJS,
+          Blob([text.toJS].toJS, BlobPropertyBag(type: 'text/plain')),
+        );
+      }
+      await _clipboard.write([ClipboardItem(items)].toJS).toDart;
+      return true;
+    } catch (error) {
+      debugPrint('Writing the clipboard failed: $error');
+      return false;
     }
   }
 

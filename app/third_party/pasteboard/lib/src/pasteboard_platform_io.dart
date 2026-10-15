@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
@@ -75,6 +76,23 @@ class PasteboardPlatformIO implements PasteboardPlatform {
       await _channel
           .invokeMethod<Object>('writeImage', {'fileName': file.path});
       file.delete();
+    }
+  }
+
+  @override
+  Future<bool> write({Future<Uint8List?>? png, String? text}) async {
+    if (!(Platform.isAndroid || Platform.isLinux || Platform.isWindows)) return false;
+    try {
+      final image = await png;
+      if (image == null && text == null) return false;
+      final done = await _channel.invokeMethod<bool>('write', {
+        if (image != null) 'png': image,
+        if (text != null) 'text': text,
+      });
+      return done ?? false;
+    } catch (error) {
+      debugPrint('Writing the clipboard failed: $error');
+      return false;
     }
   }
 

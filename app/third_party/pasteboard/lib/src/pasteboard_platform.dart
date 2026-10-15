@@ -7,6 +7,8 @@ abstract class PasteboardPlatform {
 
   Future<void> writeImage(Uint8List? image);
 
+  Future<bool> write({Future<Uint8List?>? png, String? text});
+
   Future<List<String>> files();
 
   Future<bool> writeFiles(List<String> files);
