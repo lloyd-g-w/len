@@ -241,7 +241,10 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
             canvas.clipRect(d)
             canvas.drawRenderNode(node)
             canvas.restore()
-            node.setClipRect(null)
+            // The clip stays (the next frame sets its own): a node's
+            // properties reach the render thread only after this returns,
+            // so resetting it here undid it, and every frame cleared and
+            // composited a layer the size of the view.
             if (traced) Trace.endSection()
         }
 
