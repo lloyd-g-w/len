@@ -72,9 +72,13 @@ abstract final class ArabicForms {
       final joinsPrev = before != null && _joinsAfter(units[before]) && _joinsBefore(c);
       final next = neighbour(i, 1);
       if (c == _lam && next != null && _lamAlef.containsKey(units[next])) {
-        // The ligature stands for lam, the alef and the marks between.
+        // The ligature stands for lam, the alef and the marks between;
+        // those marks follow it.
         final glyph = _lamAlef[units[next]]! + (joinsPrev ? 1 : 0);
         out.add((glyph: String.fromCharCode(glyph), start: i, end: next + 1));
+        for (var k = i + 1; k < next; k++) {
+          out.add((glyph: String.fromCharCode(units[k]), start: k, end: k + 1));
+        }
         i = next + 1;
         continue;
       }

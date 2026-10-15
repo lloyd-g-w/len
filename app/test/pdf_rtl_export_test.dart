@@ -45,6 +45,9 @@ void main() {
     expect(ArabicForms.shape('سلام')[1], (glyph: '\uFEFC', start: 1, end: 3));
     // Marks are transparent to joining and kept.
     expect(shaped('بَب'), '\uFE91\u064E\uFE90');
+    // Marks between lam and alef stay (over the ligature).
+    expect(shaped('لَا'), '\uFEFB\u064E');
+    expect(ArabicForms.shape('لَا')[1], (glyph: '\u064E', start: 1, end: 2));
     // Persian; other characters pass through.
     expect(shaped('پ'), '\uFB56');
     expect(shaped('a1'), 'a1');
