@@ -34,7 +34,7 @@ anything is recording. Reviewing on the laptop waits for every part of a
 | Start | tablet / desktop: 🎙 in the top bar (1 tap); phone: ⋯ → Record audio (2) | Notability: mic in the toolbar (1); GoodNotes: overflow menu (2) | Keep |
 | First time | microphone prompt, then (Android 13+) the notification prompt; refused: "Allow microphone access…" with Settings | same prompts | Keep |
 | While writing | top bar: red dot, time, level, pause, stop; phone: the same docked above the toolbar | Notability: red mic and time in the toolbar | Keep |
-| … in focus mode (tablet) | the top bar fades out with it: no sign of the recording | n/a | R17-2 |
+| … in focus mode (tablet) | the top bar fades out with it: no sign of the recording | n/a | R17-2 ✅ |
 | Pause / resume | in the bar and the notification; ink while paused belongs to the resume | same | Keep |
 | 5-minute parts | invisible; each synced as the lecture goes on; at most ~0.3 s gap on Linux / browsers | Notability: one file; suggests a new recording each hour | Keep (better) |
 | Screen off, other app (Android) | keeps recording (foreground service, notification with Pause / Stop) | Notability (iPad) keeps; GoodNotes Android stops | Keep (better) |
@@ -67,13 +67,14 @@ anything is recording. Reviewing on the laptop waits for every part of a
   editors and the library. Ink written elsewhere is not linked (as in
   GoodNotes). Effort M.
 
-**R17-2 P1 · Focus mode hides the recording.** ⬜
+**R17-2 P1 · Focus mode hides the recording.** ✅
 - *What:* on tablets and desktops the recording controls live in the top
   bar, which focus mode fades out; a 90-minute lecture written in focus mode
   shows no sign it is being recorded (or paused). Phones dock them at the
   bottom and keep them.
 - *Fix:* in focus mode the controls dock at the bottom as on phones (the
   player already stays there). Effort S.
+- *Done:* `AudioLayer` docks them whenever the top bar is hidden.
 
 **R17-3 P1 · A recording from another device is silent until all of it has downloaded.** ⬜
 - *What:* opening a recording fetches each missing part in turn

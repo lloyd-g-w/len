@@ -142,7 +142,9 @@ class EditorLayers extends StatelessWidget {
             audio: audio,
             session: session,
             chromeInsets: layout.covered,
-            compactBar: layout.compactBar,
+            // Focus mode hides the top bar: the recording controls dock at
+            // the bottom then, as on phones.
+            compactBar: layout.compactBar || layout.focus,
             canvasPaper: notebook.paperColor,
           ),
         ),

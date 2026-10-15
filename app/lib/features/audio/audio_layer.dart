@@ -33,8 +33,8 @@ class AudioLayer extends StatefulWidget {
   /// Screen edges covered by chrome; the playback bar sits above the bottom.
   final EdgeInsets chromeInsets;
 
-  /// The top bar is the phone's, without the audio button (phones, short
-  /// windows): the recording controls dock at the bottom instead.
+  /// The top bar has no audio button (phones, short windows) or is hidden
+  /// (focus mode): the recording controls dock at the bottom instead.
   final bool compactBar;
 
   /// Paper colour of an infinite canvas (pages carry their own).
