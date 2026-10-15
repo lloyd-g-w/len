@@ -70,6 +70,7 @@ class PullApplier {
           while (applied < records.length && slice.elapsedMicroseconds < budgetUs) {
             _apply(records[applied++], changes, revival);
             if (yieldNow?.call() ?? false) break;
+            if (applied - start == debugSliceRecords) break;
           }
           if (applied < records.length) return;
           if (!page.hasMore && (hadChanges || !changes.isEmpty)) _conflicts.resolve(revival);
@@ -89,6 +90,11 @@ class PullApplier {
     }
     return applied;
   }
+
+  /// At most this many records per slice, if set: tests cut slices where
+  /// they need them, whatever the machine's speed (a worker isolate takes
+  /// it over when it starts).
+  static int? debugSliceRecords;
 
   /// How many slices in a row may find the database locked (each after
   /// waiting [AppDatabase.busyTimeoutMs]) before the pull fails.

@@ -10,6 +10,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/domain/surface_element.dart';
 
+import 'package:len/sync/pull_applier.dart';
 import 'package:len/sync/remote_changes.dart';
 import 'package:len/sync/revival_notice.dart';
 
@@ -209,31 +210,24 @@ void main() {
     a.s.notebooks.delete(gone.id);
     await a.sync();
 
-    // B, offline since, writes in the notebook after it was deleted.
+    // B, offline since, writes in the notebook after it was deleted, then
+    // elsewhere.
     _write(b, gone.id, page, 'first');
     await b.s.sync.engine.sync(apiFor(b.server));
-    b.s.strokes.save([
-      for (var i = 0; i < 100; i++) bigStroke('s$i', page, 4),
-      bigStroke('late', other.id, 4),
-    ]);
+    b.s.strokes.save([bigStroke('late', other.id, 4)]);
     await b.s.sync.engine.sync(apiFor(b.server));
 
-    // A's pull revives the notebook in an early slice, then fails.
-    a.db
-      ..execute('''
-        CREATE TRIGGER test_slow AFTER INSERT ON strokes BEGIN
-          SELECT COUNT(*) FROM (WITH RECURSIVE c(x) AS
-            (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 20000) SELECT x FROM c);
-        END''')
-      ..execute('''
-        CREATE TRIGGER test_fail BEFORE INSERT ON strokes WHEN NEW.id = 'late' BEGIN
-          SELECT RAISE(ABORT, 'disk on fire');
-        END''');
+    // A's pull revives the notebook in an early slice (a record per slice,
+    // whatever the machine's speed), then fails.
+    PullApplier.debugSliceRecords = 1;
+    addTearDown(() => PullApplier.debugSliceRecords = null);
+    a.db.execute('''
+      CREATE TRIGGER test_fail BEFORE INSERT ON strokes WHEN NEW.id = 'late' BEGIN
+        SELECT RAISE(ABORT, 'disk on fire');
+      END''');
     await expectLater(a.s.sync.engine.sync(apiFor(a.server)), throwsA(isA<Exception>()));
     expect(_trash(a), [gone.id], reason: 'the revival was committed');
-    a.db
-      ..execute('DROP TRIGGER test_slow')
-      ..execute('DROP TRIGGER test_fail');
+    a.db.execute('DROP TRIGGER test_fail');
 
     final changes = await a.sync();
     expect(revivalNotices(changes, (id) => a.s.notebooks.get(id)?.title), [

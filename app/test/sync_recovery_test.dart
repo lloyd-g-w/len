@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
+import 'package:len/sync/pull_applier.dart';
 import 'package:len/sync/sync_api.dart';
 
 import 'support/fake_server.dart';
@@ -208,26 +209,21 @@ void main() {
         a.s.strokes.save([for (var i = 0; i < 100; i++) bigStroke('${nb.id}-$i', nb.id, 4)]);
       }
       await a.sync();
-      // Every stroke slow to write (many slices), the last one failing.
+      // Many slices (a few records each, whatever the machine's speed), the
+      // last record failing.
+      PullApplier.debugSliceRecords = 10;
+      addTearDown(() => PullApplier.debugSliceRecords = null);
       final last = '${notebooks.last.id}-99';
-      b.db
-        ..execute('''
-          CREATE TRIGGER test_slow AFTER INSERT ON strokes BEGIN
-            SELECT COUNT(*) FROM (WITH RECURSIVE c(x) AS
-              (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 20000) SELECT x FROM c);
-          END''')
-        ..execute('''
-          CREATE TRIGGER test_fail BEFORE INSERT ON strokes WHEN NEW.id = '$last' BEGIN
-            SELECT RAISE(ABORT, 'disk on fire');
-          END''');
+      b.db.execute('''
+        CREATE TRIGGER test_fail BEFORE INSERT ON strokes WHEN NEW.id = '$last' BEGIN
+          SELECT RAISE(ABORT, 'disk on fire');
+        END''');
       await expectLater(b.s.sync.engine.sync(apiFor(a.server)), throwsA(isA<Exception>()));
       final applied = {
         for (final r in b.db.select('SELECT DISTINCT surface_id FROM strokes')) r['surface_id'],
       };
       expect(applied, isNotEmpty, reason: 'slices before the failing one are in');
-      b.db
-        ..execute('DROP TRIGGER test_slow')
-        ..execute('DROP TRIGGER test_fail');
+      b.db.execute('DROP TRIGGER test_fail');
 
       final changes = await b.sync();
       expect(changes.notebooks, isTrue, reason: 'the library must learn about the notebooks');
@@ -239,11 +235,15 @@ void main() {
       const total = SyncApi.pullLimit;
       a.s.strokes.save([for (var i = 0; i < total; i++) bigStroke('s$i', 'canvas', 4)]);
       await a.sync();
-      // Cancelled as soon as the first slice is in.
+      // Cancelled as soon as the first slice is in: one record each, so a
+      // worker, told by a timer, is still far from the end then.
+      PullApplier.debugSliceRecords = 1;
+      addTearDown(() => PullApplier.debugSliceRecords = null);
       int count() => b.db.select('SELECT COUNT(*) AS n FROM strokes').single['n'] as int;
       await b.s.sync.engine.sync(apiFor(a.server), isCancelled: () => count() > 0);
       expect(count(), inInclusiveRange(1, total - 1));
       expect(b.s.settings.syncLastSeq, 0, reason: 'the feed position waits for the page');
+      PullApplier.debugSliceRecords = null;
 
       await b.sync();
       expect(b.db.select('SELECT COUNT(*) AS n FROM strokes').single['n'], total);

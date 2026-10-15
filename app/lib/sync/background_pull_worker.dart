@@ -79,6 +79,7 @@ class BackgroundPullWorker implements PullWorker {
           signal: signal.address,
           ready: ready.sendPort,
           onServe: debugOnServe,
+          sliceRecords: PullApplier.debugSliceRecords,
         ),
         debugName: 'pull worker',
         // Set up with the spawn: an exit before a listener added later
@@ -189,10 +190,12 @@ class BackgroundPullWorker implements PullWorker {
       int signal,
       SendPort ready,
       void Function()? onServe,
+      int? sliceRecords,
     })
     args,
   ) {
     args.onServe?.call();
+    PullApplier.debugSliceRecords = args.sliceRecords;
     final writing = WriterWaiting(args.signal);
     final AppDatabase database;
     try {
