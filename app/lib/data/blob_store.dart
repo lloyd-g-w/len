@@ -195,16 +195,29 @@ class BlobStore {
     });
     final deleted = <String>[];
     for (final sha in due) {
-      final gone = database.transaction(() {
+      final row = database.transaction(() {
         if (stillReferenced(sha)) {
           _setUnreferencedSince(sha, null);
-          return false;
+          return null;
         }
+        final row = database.db.select('SELECT * FROM blobs WHERE sha256 = ?', [sha]).first;
         database.db.execute('DELETE FROM blobs WHERE sha256 = ?', [sha]);
-        return true;
+        return row;
       });
-      if (!gone) continue;
-      await backend.delete(sha);
+      if (row == null) continue;
+      try {
+        await backend.delete(sha);
+      } on Object catch (e) {
+        // Recorded again as it was (a later run retries), never left as
+        // a file no row knows; the other blobs still go.
+        debugPrint('Blob $sha was not deleted: $e');
+        database.db.execute(
+          'INSERT OR IGNORE INTO blobs (${row.keys.join(', ')}) '
+          'VALUES (${List.filled(row.length, '?').join(', ')})',
+          row.values,
+        );
+        continue;
+      }
       deleted.add(sha);
     }
     return deleted;
