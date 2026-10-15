@@ -22,7 +22,7 @@ part 'sync_engine_pull.dart';
 typedef CancelCheck = bool Function();
 
 /// How far a pull is (see [SyncEngine.onPullProgress]).
-typedef PullProgress = ({int done, int total, RemoteChanges changes});
+typedef PullProgress = ({int from, int done, int total, RemoteChanges changes});
 
 /// Runs one push-then-pull sync cycle against the server.
 ///
@@ -73,8 +73,9 @@ class SyncEngine {
 
   /// Called after each page of a pull that has more to come: the feed
   /// entries pulled ([PullProgress.done]) of those there were when the
-  /// pull began ([PullProgress.total], growing if the server does), and
-  /// what the pull changed so far.
+  /// pull began ([PullProgress.total], growing if the server does), the
+  /// feed position it began at ([PullProgress.from]: 0 for a first sync)
+  /// and what the pull changed so far.
   void Function(PullProgress progress)? onPullProgress;
 
   /// Blobs whose upload failed in the last sync (they are retried).

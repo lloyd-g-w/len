@@ -292,6 +292,56 @@ void main() {
       },
     );
 
+    test('the library hears of the first sync until the pull ends, not its first page', () async {
+      final server = FakeServer()..maxPage = 3;
+      final a = device(server);
+      final nb = a.notebooks.create(
+        title: 'Lab',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
+      final page = a.pages.addFreshPage(nb);
+      a.strokes.save([
+        for (var i = 0; i < 12; i++)
+          Stroke(
+            id: 's$i',
+            surfaceId: page.id,
+            tool: InkTool.ballpoint,
+            color: 0xFF000000,
+            width: 2,
+            points: const [StrokePoint(1, 2, 0.5), StrokePoint(3, 4, 0.5)],
+            createdAt: 1,
+          ),
+      ]);
+      await a.sync.engine.sync(apiFor(server));
+      // Written in again later: the notebook's record moves to the feed's end.
+      a.notebooks.touch(nb.id);
+      await a.sync.engine.sync(apiFor(server));
+
+      final b = AppServices.create(AppDatabase.inMemory());
+      final controller = SyncController(
+        engine: b.sync.engine,
+        settings: b.settings,
+        tokens: b.sync.tokens,
+        apiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: server.client),
+      );
+      final wrong = <String>[];
+      controller.addListener(() {
+        if (controller.state == SyncState.syncing &&
+            b.notebooks.list().isEmpty &&
+            !controller.firstSyncUnderWay) {
+          wrong.add('empty library, syncing, progress ${controller.progress}, not "arriving"');
+        }
+      });
+      controller.configure(url: 'http://sync.test', token: FakeServer.token);
+      await controller.syncNow();
+      await pumpEventQueue();
+      expect(b.notebooks.list(), hasLength(1));
+      expect(wrong, isEmpty);
+      controller.dispose();
+    });
+
     test('concurrent syncNow calls coalesce into one follow-up run', () async {
       final server = FakeServer();
       final a = AppServices.create(AppDatabase.inMemory());

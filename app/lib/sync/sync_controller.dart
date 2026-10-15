@@ -93,6 +93,7 @@ class SyncController extends ChangeNotifier {
 
   void _onPullProgress(PullProgress p) {
     if (_disposed || _state != SyncState.syncing) return;
+    _pullFrom = p.from;
     final progress = p.total <= 0 ? null : (p.done / p.total).clamp(0.0, 1.0);
     final percent = progress == null ? null : (progress * 100).floor();
     if (percent != (_progress == null ? null : (_progress! * 100).floor())) {
@@ -133,7 +134,13 @@ class SyncController extends ChangeNotifier {
 
   /// Whether this is the first sync with a server, under way: nothing of
   /// the other devices' notes may be here yet.
-  bool get firstSyncUnderWay => _state == SyncState.syncing && settings.syncLastSeq == 0;
+  /// (The feed position moves on with every page pulled: whether this is
+  /// the first is told by where the pull began.)
+  bool get firstSyncUnderWay =>
+      _state == SyncState.syncing && (settings.syncLastSeq == 0 || _pullFrom == 0);
+
+  /// Where the pull under way began in the server's feed, once it told.
+  int? _pullFrom;
 
   /// When sync last succeeded (kept across launches), or null if never.
   DateTime? get lastSuccess => _lastSuccess;
@@ -315,7 +322,10 @@ class SyncController extends ChangeNotifier {
   void _setState(SyncState state) {
     if (_disposed) return;
     if (state == SyncState.disabled) _failingSince = null;
-    if (state != SyncState.syncing) _progress = null;
+    if (state != SyncState.syncing) {
+      _progress = null;
+      _pullFrom = null;
+    }
     _state = state;
     notifyListeners();
   }
