@@ -347,7 +347,7 @@ open notebook is ignored.
 | Adding a page after a slide | ⋯ → Page → Add page after: the slide's size, blank paper | GoodNotes: the template last used; Notability: the note's paper | R18-2 ✅ |
 | Navigation | ▦ overview, `3 / 60` → Go to page, the PDF's bookmarks in Outline | same | Keep |
 | … the overview of a deck | landscape slides in portrait cells: big gaps, number far below the thumbnail | cells follow the pages | R18-3 ✅ |
-| … slide numbers after added pages | page numbers count the added pages: "slide 23" is page 26 | same in GoodNotes / Notability | TODO Next |
+| … slide numbers after added pages | page numbers count the added pages: "slide 23" is page 26 | same in GoodNotes / Notability | R18-5 ✅ |
 | Select / copy text | lasso or long press; Copy, Highlight, Open link; across pages | same | Keep |
 | Search | in the notebook (Ctrl+F) and from the library ("PDF text" hits) | same | Keep |
 | Links | finger tap (pen writes); internal links go to the notebook page | same | Keep |
@@ -411,13 +411,22 @@ open notebook is ignored.
 - *Done:* `ImageDropTarget` hands anything but images to `IncomingFiles`
   (Len files and unsupported files get the same answers as Open with).
 
-**R18-5 P3 · "Slide 23" is not page 23 once pages are added.** ⬜ → TODO Next
+**R18-5 P3 · "Slide 23" is not page 23 once pages are added.** ✅
 - *What:* the indicator, Go to page and the overview count notebook pages;
   after three notes pages the lecturer's "slide 23" is page 26. The
   references behave the same.
 - *Idea:* Go to page also takes "slide 23" / the overview tile shows the
   PDF page number quietly beside a page that has one. Needs a design
   decision (which PDF when a notebook has several). Effort M.
+- *Decision:* page numbers stay the notebook's everywhere (the indicator,
+  Go to page, links, export); a PDF page's own number is a quiet second
+  label where pages are listed, only where it differs.
+- *Done:* `PdfPageNumbers` (domain): overview tiles and Go to page's strip
+  read "26 · Slide 23" ("PDF p. 23" when the PDF's pages are portrait;
+  nothing for a plain import); Go to page takes "s23" / "slide 23" /
+  "pdf 23" (hint under the field). With several PDFs the current page's
+  wins (a notes page belongs to the PDF page before it); else it asks
+  "In 2 PDFs: which one?" with a button per page.
 
 ## Round 17 audit — recording a lecture (`review/round17`)
 

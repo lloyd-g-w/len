@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/notebook_page.dart';
+import '../../../domain/pdf_page_numbers.dart' show PdfPageNumbers;
 import '../../../ui/app_theme.dart';
 import '../../../ui/context_menu_keys.dart';
 import '../../../ui/menus.dart';
@@ -36,10 +37,15 @@ class PageTile extends StatefulWidget {
     required this.onLongPress,
     this.onMove,
     this.focusNode,
+    this.pdfLabel,
   });
 
   final int index;
   final NotebookPage page;
+
+  /// Its PDF page's number when that differs from its own ("Slide 23",
+  /// [PdfPageNumbers.labelOf]): a quiet caption beside the number.
+  final String? pdfLabel;
   final ThumbnailCache cache;
   final PageBackgrounds? backgrounds;
   final bool current;
@@ -84,7 +90,8 @@ class _PageTileState extends State<PageTile> {
   Widget build(BuildContext context) {
     final w = widget;
     final label =
-        'Page ${w.index + 1}${w.page.bookmarked ? ', bookmarked' : ''}'
+        'Page ${w.index + 1}${w.pdfLabel == null ? '' : ', ${w.pdfLabel}'}'
+        '${w.page.bookmarked ? ', bookmarked' : ''}'
         '${w.current ? ', current page' : ''}';
     Widget thumb({bool target = false}) => _Thumb(
       tile: w,
@@ -274,15 +281,28 @@ class _Footer extends StatelessWidget {
             // The number starts just inside the page's left edge.
             child: const SizedBox(width: Gaps.sm, height: 20),
           ),
-          Expanded(
-            child: Text(
-              '${tile.index + 1}',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: current ? scheme.onSurface : scheme.onSurfaceVariant,
-                fontWeight: current ? AppTheme.currentWeight : null,
-                fontFeatures: AppTheme.tabularFigures,
-              ),
+          Text(
+            '${tile.index + 1}',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: current ? scheme.onSurface : scheme.onSurfaceVariant,
+              fontWeight: current ? AppTheme.currentWeight : null,
+              fontFeatures: AppTheme.tabularFigures,
             ),
+          ),
+          Expanded(
+            child: tile.pdfLabel == null
+                ? const SizedBox.shrink()
+                // The tile's label says it already.
+                : ExcludeSemantics(
+                    child: Text(
+                      ' · ${tile.pdfLabel}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFeatures: AppTheme.tabularFigures,
+                      ),
+                    ),
+                  ),
           ),
           if (!tile.selecting)
             MenuIconButton<PageCommand>(

@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../data/surface_copier.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../domain/pdf_page_numbers.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
+import 'go_to_page_strip.dart';
 import 'page_backgrounds.dart';
 import 'page_thumbnail.dart';
 
 /// Asks which page to show (REDESIGN §2.4): a page number field above a
 /// strip of thumbnails. Typing a number scrolls the strip to that page;
-/// tapping a thumbnail goes there at once. Returns the page's index, or
-/// null if cancelled.
+/// tapping a thumbnail goes there at once. In a notebook with PDF pages,
+/// "s23" / "slide 23" names the page showing its PDF's page 23 (UX_AUDIT
+/// R18-5); when several PDFs have one, the current page's PDF wins, else
+/// the matches are offered. Returns the page's index, or null if cancelled.
 Future<int?> showGoToPage(
   BuildContext context, {
   required List<NotebookPage> pages,
@@ -83,8 +86,18 @@ class _GoToPageDialogState extends State<GoToPageDialog> {
     return starts;
   }();
 
+  late final PdfPageNumbers _numbers = PdfPageNumbers(widget.pages);
+  late final bool _hasPdf = widget.pages.any((p) => p.pdf != null);
+
   /// The page the field names, or null while it names none.
   int? _target;
+
+  /// The pages the field's PDF page number could mean (in several PDFs),
+  /// offered to pick from; empty unless ambiguous.
+  List<int> _choices = const [];
+
+  /// Why the field names no page, or null.
+  String? _error;
 
   @override
   void initState() {
@@ -105,11 +118,33 @@ class _GoToPageDialogState extends State<GoToPageDialog> {
   int get _count => widget.pages.length;
 
   void _onTyped() {
-    final number = int.tryParse(_field.text.trim());
-    final target = number != null && number >= 1 && number <= _count ? number - 1 : null;
-    if (target == _target) return;
-    setState(() => _target = target);
-    if (target != null) _reveal(target);
+    final text = _field.text.trim();
+    final number = int.tryParse(text);
+    final pdfNumber = _hasPdf && number == null ? PdfPageNumbers.parse(text) : null;
+    var choices = const <int>[];
+    int? target;
+    String? error;
+    if (pdfNumber != null) {
+      choices = _numbers.find(pdfNumber, current: widget.current);
+      if (choices.length == 1) target = choices.single;
+      if (choices.isEmpty) {
+        error = text.toLowerCase().startsWith('p')
+            ? 'No PDF page $pdfNumber'
+            : 'No slide $pdfNumber';
+      }
+      if (choices.length < 2) choices = const [];
+    } else {
+      target = number != null && number >= 1 && number <= _count ? number - 1 : null;
+      if (target == null && text.isNotEmpty) error = 'Pages 1–$_count';
+    }
+    final changed = target != _target;
+    setState(() {
+      _target = target;
+      _choices = choices;
+      _error = error;
+    });
+    if (changed && target != null) _reveal(target);
+    if (choices.isNotEmpty) _reveal(choices.first);
   }
 
   /// Scrolls the strip so page [index] is centred (as far as it goes).
@@ -130,6 +165,17 @@ class _GoToPageDialogState extends State<GoToPageDialog> {
 
   void _go(int index) => Navigator.pop(context, index);
 
+  /// The field's hint for PDF page numbers, from a page near the current one.
+  String _example() {
+    final labelled = [
+      for (var i = 0; i < _count; i++)
+        if (_numbers.labelOf(i) != null) i,
+    ];
+    final near = labelled.firstWhere((i) => i >= widget.current, orElse: () => labelled.last);
+    final number = _numbers.pdfNumberOf(near);
+    return '${_numbers.isSlide(near) ? 's' : 'pdf '}$number for ${_numbers.labelOf(near)}';
+  }
+
   void _submit() {
     if (_target case final target?) _go(target);
   }
@@ -146,15 +192,20 @@ class _GoToPageDialogState extends State<GoToPageDialog> {
             TextField(
               controller: _field,
               autofocus: true,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              // Letters only where "s23" can mean something.
+              keyboardType: _numbers.hasLabels ? TextInputType.text : TextInputType.number,
+              inputFormatters: [if (!_hasPdf) FilteringTextInputFormatter.digitsOnly],
               onSubmitted: (_) => _submit(),
               decoration: InputDecoration(
                 labelText: 'Page',
                 suffixText: 'of $_count',
-                errorText: _target == null && _field.text.isNotEmpty ? 'Pages 1–$_count' : null,
+                helperText: _choices.isNotEmpty
+                    ? 'In ${_choices.length} PDFs: which one?'
+                    : (_numbers.hasLabels ? _example() : null),
+                errorText: _error,
               ),
             ),
+            if (_choices.isNotEmpty) _Choices(choices: _choices, onPick: _go),
             // A short window (a phone held sideways) has no room for the
             // strip; the number is enough.
             if (MediaQuery.sizeOf(context).height >= GoToPageDialog.stripFrom) ...[
@@ -168,10 +219,11 @@ class _GoToPageDialogState extends State<GoToPageDialog> {
                   itemCount: _count,
                   itemBuilder: (context, i) => Padding(
                     padding: EdgeInsets.only(right: i == _count - 1 ? 0 : GoToPageDialog.gap),
-                    child: _StripPage(
+                    child: StripPage(
                       page: widget.pages[i],
                       number: i + 1,
-                      target: i == _target,
+                      pdfLabel: _numbers.labelOf(i),
+                      target: i == _target || _choices.contains(i),
                       cache: _cache,
                       backgrounds: widget.backgrounds,
                       onTap: () => _go(i),
@@ -191,94 +243,27 @@ class _GoToPageDialogState extends State<GoToPageDialog> {
   }
 }
 
-/// One page in the strip: its thumbnail (ringed while the field names it)
-/// and its number.
-class _StripPage extends StatelessWidget {
-  const _StripPage({
-    required this.page,
-    required this.number,
-    required this.target,
-    required this.cache,
-    required this.backgrounds,
-    required this.onTap,
-  });
+/// The pages a PDF page number could mean when several PDFs have it: one
+/// button per page, under the field's question.
+class _Choices extends StatelessWidget {
+  const _Choices({required this.choices, required this.onPick});
 
-  final NotebookPage page;
-  final int number;
-  final bool target;
-  final ThumbnailCache cache;
-  final PageBackgrounds? backgrounds;
-  final VoidCallback onTap;
+  final List<int> choices;
+  final ValueChanged<int> onPick;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final width = GoToPageDialog.thumbWidth(page);
-    return Semantics(
-      button: true,
-      selected: target,
-      label: 'Page $number${page.bookmarked ? ', bookmarked' : ''}',
-      excludeSemantics: true,
-      child: InkWell(
-        key: ValueKey('go-to-page-$number'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(Radii.sm),
-        child: Padding(
-          padding: const EdgeInsets.all(Gaps.xxs),
-          child: Column(
-            children: [
-              AnimatedContainer(
-                duration: Motion.fast,
-                width: width,
-                height: GoToPageDialog.thumbHeight,
-                // Page miniatures are square; the chosen one gets the 2-dp
-                // accent ring (DESIGN §7).
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: target ? scheme.primary : scheme.outlineVariant,
-                    width: target ? Hairline.rule : Hairline.width,
-                  ),
-                ),
-                child: ClipRect(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      FittedBox(
-                        child: SizedBox(
-                          width: width,
-                          height: width * page.height / page.width,
-                          child: PageThumbnail(page: page, cache: cache, backgrounds: backgrounds),
-                        ),
-                      ),
-                      if (page.bookmarked)
-                        Positioned(
-                          top: 0,
-                          right: Gaps.xs,
-                          child: Icon(
-                            Symbols.bookmark_sharp,
-                            fill: 1,
-                            size: 16,
-                            color: Palette.bookmark,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: Gaps.xs),
-              Text(
-                '$number',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: target ? scheme.onSurface : null,
-                  fontWeight: target ? AppTheme.currentWeight : null,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
+  Widget build(BuildContext context) => Padding(
+    // The buttons' labels line up with the field's text.
+    padding: const EdgeInsets.only(left: Gaps.xs),
+    child: Wrap(
+      children: [
+        for (final i in choices)
+          TextButton(
+            key: ValueKey('go-to-choice-${i + 1}'),
+            onPressed: () => onPick(i),
+            child: Text('Page ${i + 1}'),
           ),
-        ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }

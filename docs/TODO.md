@@ -77,9 +77,10 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
-- 🚧 (feat/slide-numbers) **Slide numbers** (UX_AUDIT R18-5): once notes pages sit between slides, "slide 23" is
-  page 26. Go to page could take a slide number, or overview tiles show a PDF page's own
-  number quietly; decide which PDF counts when a notebook has several.
+- ✅ **Slide numbers** (UX_AUDIT R18-5): page numbers stay the notebook's; overview tiles and
+  Go to page's strip show a PDF page's own number quietly where it differs ("26 · Slide 23",
+  "PDF p. 23" for portrait PDFs), and Go to page takes "s23" / "slide 23" (several PDFs: the
+  current page's wins, else it asks which).
 - ⬜ **Typed notes that flow across pages** (UX_AUDIT round 19): a text box on a page grows
   past the page's bottom and runs off it (GoodNotes stops boxes at the page; Notability's
   typed notes flow onto the next page). Proposal: a box reaching the bottom margin continues
@@ -88,14 +89,14 @@ From the reports; the owner picks. Status as above.
   session, undo, sync of linked boxes, PDF export. Typing cost meanwhile: a 26 000-character
   box lays out in ≈ 5 ms, three layouts per keystroke (session width, height, field) on
   the test machine — fine, but one cached layout would cut it.
-- ⬜ **Right-to-left text boxes** (UX_AUDIT round 19): boxes are laid out LTR everywhere
+- 🚧 (feat/rtl-text) **Right-to-left text boxes** (UX_AUDIT round 19): boxes are laid out LTR everywhere
   (`TextBoxLayout`, `TextWraps`, the field, PDF), so Arabic / Hebrew runs reorder but sit
   left-aligned with punctuation and list markers on the wrong side. Proposal: a box's
   direction from its first strong character, alignment stored as start / centre / end
   (mirrored icons), markers and hanging indents follow (placeholders are logical already),
   PDF glyph placement checked with an RTL font (the bundled fonts lack Arabic / Hebrew:
   bundling Noto Sans Arabic / Hebrew subsets is part of it).
-- ⬜ **Rich copy to other apps** (UX_AUDIT round 19): Copy in a box puts plain text on the
+- 🚧 (feat/rich-copy) **Rich copy to other apps** (UX_AUDIT round 19): Copy in a box puts plain text on the
   clipboard (formatting is kept only for pasting back into Len). Write HTML too (the
   inverse of `textFromHtml`: b / i / u / s, colours, h1 / h2, ul / ol / checkboxes) via the
   vendored `pasteboard` (Windows CF_HTML, Android `ClipData.newHtmlText`, Linux
