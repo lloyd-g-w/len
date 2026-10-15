@@ -9,6 +9,7 @@ import '../../domain/folder.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../domain/preferences.dart';
+import '../../sync/sync_controller.dart';
 import 'library_query.dart';
 
 part 'library_operations.dart';
@@ -133,9 +134,9 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
   void reload() {
     _folders = services.folders.list();
     _folderById = {for (final f in _folders) f.id: f};
-    _notebooks = _unchangedKept(services.notebooks.list(), _notebooks);
-    _trash = _unchangedKept(services.notebooks.trashed(), _trash);
     _pageCounts = SurfaceStats(services.database).pageCounts();
+    _notebooks = _unchangedKept(_arrived(services.notebooks.list()), _notebooks);
+    _trash = _unchangedKept(services.notebooks.trashed(), _trash);
     _recentIds = services.workspace.recent;
     _recordingTitles = services.recordings.titlesByNotebook();
     _parentById = {
@@ -152,6 +153,17 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
     }
     if (_folderId != null && !_folderById.containsKey(_folderId)) _folderId = null;
     notifyListeners();
+  }
+
+  /// [notebooks] but, while a sync runs, those whose pages are still on
+  /// their way (a notebook's record may come before its pages): opened, it
+  /// would start a blank page of its own, synced to every device.
+  List<Notebook> _arrived(List<Notebook> notebooks) {
+    if (services.sync.state != SyncState.syncing) return notebooks;
+    return [
+      for (final n in notebooks)
+        if (n.kind != NotebookKind.paged || (_pageCounts[n.id] ?? 0) > 0) n,
+    ];
   }
 
   /// [fresh] with the notebooks that did not change since [before] as the
