@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../data/surface_copier.dart';
@@ -115,6 +117,16 @@ class _PageOverviewState extends State<PageOverview> {
         return true;
       });
     });
+  }
+
+  /// Bookmarked's empty view, offering the page on screen.
+  Widget _noBookmarks() {
+    final current = widget.currentPage;
+    if (current < 0 || current >= _pages.length) return const NoBookmarks();
+    return NoBookmarks(
+      page: current,
+      onBookmark: () => unawaited(_run(PageCommand.bookmark, _pages[current])),
+    );
   }
 
   Future<void> _run(PageCommand command, NotebookPage page) async {
@@ -289,7 +301,7 @@ class _PageOverviewState extends State<PageOverview> {
                 ),
               )
             : shown.isEmpty
-            ? const NoBookmarks()
+            ? _noBookmarks()
             : OverviewGrid(
                 controller: _scroll,
                 count: shown.length + (addTile ? 1 : 0),

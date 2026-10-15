@@ -81,7 +81,7 @@ few strings are touch words under a mouse.
   is searched once Android has read it (no recogniser here), or
   handwriting search is off in Settings. Effort S.
 
-**R14-3 P2 · Empty Bookmarked offers nothing to do.** ⬜
+**R14-3 P2 · Empty Bookmarked offers nothing to do.** ✅
 - *What:* `NoBookmarks` says "Bookmark pages from their ··· menu"; the
   Outline filter beside it offers "Add page 1 to outline". Its title is
   `titleMedium` with tighter gaps, unlike every other empty view.

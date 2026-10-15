@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/empty_state.dart';
 import 'library_controller.dart';
 import 'notebook_cover.dart';
 
@@ -31,22 +32,17 @@ class LibraryEmptyState extends StatelessWidget {
   final VoidCallback? onImportPdf;
   final VoidCallback? onSetUpSync;
 
-  /// Windows shorter than this leave the picture out.
-  static const double artFrom = 520;
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final searching = query.trim().isNotEmpty;
     final (Widget art, String title, String message) = switch (section) {
       _ when searching => (
-        const _IconArt(Symbols.search_off_sharp),
+        const EmptyGlyph(Symbols.search_off_sharp),
         'No results',
         'Nothing matches “${query.trim()}”',
       ),
       LibrarySection.library when inFolder => (
-        const _IconArt(Symbols.folder_open_sharp),
+        const EmptyGlyph(Symbols.folder_open_sharp),
         'This folder is empty',
         Targets.touchFirst
             ? 'Create a notebook here, or move notebooks into it with Move to folder'
@@ -58,12 +54,12 @@ class LibraryEmptyState extends StatelessWidget {
         'Create a notebook to start writing, or import a PDF to write on',
       ),
       LibrarySection.favorites => (
-        const _IconArt(Symbols.star_sharp),
+        const EmptyGlyph(Symbols.star_sharp),
         'No favourites yet',
         'Add notebooks you use often to favourites, and find them here',
       ),
       LibrarySection.trash => (
-        const _IconArt(Symbols.delete_sharp),
+        const EmptyGlyph(Symbols.delete_sharp),
         'Trash is empty',
         'Deleted notebooks stay here for 30 days, then they’re deleted forever',
       ),
@@ -84,73 +80,35 @@ class LibraryEmptyState extends StatelessWidget {
           label: const Text('Set up sync…'),
         ),
     ];
-    // Short windows (a phone held sideways): no picture, so the button
-    // shows without scrolling.
-    final short = MediaQuery.sizeOf(context).height < artFrom;
-    // A little above the middle, where the eye expects it (the header
-    // already sits above it).
-    return Align(
-      alignment: short ? Alignment.center : const Alignment(0, -0.2),
-      child: Padding(
-        padding: EdgeInsets.all(short ? Gaps.lg : Gaps.xxl),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: Motion.slow,
-            curve: Motion.standard,
-            // A fade only: nothing slides in on its own (DESIGN §5).
-            builder: (context, t, child) => Opacity(opacity: t, child: child),
-            child: Column(
+    return EmptyState(
+      art: art,
+      title: title,
+      message: message,
+      action: showCreate
+          ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!short) ...[art, const SizedBox(height: Gaps.xl)],
-                Text(title, style: theme.textTheme.titleLarge, textAlign: TextAlign.center),
-                const SizedBox(height: Gaps.sm),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                FilledButton.icon(
+                  onPressed: onCreate,
+                  icon: const Icon(Symbols.add_sharp),
+                  label: const Text('New notebook'),
                 ),
-                if (showCreate) ...[
-                  const SizedBox(height: Gaps.xl),
-                  FilledButton.icon(
-                    onPressed: onCreate,
-                    icon: const Icon(Symbols.add_sharp),
-                    label: const Text('New notebook'),
-                  ),
-                  if (secondary.isNotEmpty) ...[
-                    const SizedBox(height: Gaps.sm),
-                    Wrap(alignment: WrapAlignment.center, spacing: Gaps.sm, children: secondary),
-                  ],
-                ],
-                if (searching && onClearSearch != null) ...[
-                  const SizedBox(height: Gaps.xl),
-                  // Quiet: the least important act on the screen.
-                  TextButton.icon(
-                    onPressed: onClearSearch,
-                    icon: const Icon(Symbols.close_sharp),
-                    label: const Text('Clear search'),
-                  ),
+                if (secondary.isNotEmpty) ...[
+                  const SizedBox(height: Gaps.sm),
+                  Wrap(alignment: WrapAlignment.center, spacing: Gaps.sm, children: secondary),
                 ],
               ],
-            ),
-          ),
-        ),
-      ),
+            )
+          : searching && onClearSearch != null
+          // Quiet: the least important act on the screen.
+          ? TextButton.icon(
+              onPressed: onClearSearch,
+              icon: const Icon(Symbols.close_sharp),
+              label: const Text('Clear search'),
+            )
+          : null,
     );
   }
-}
-
-/// The section's glyph, bare (no disc; DESIGN §6 dialog glyphs).
-class _IconArt extends StatelessWidget {
-  const _IconArt(this.icon);
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) =>
-      Icon(icon, size: Glyphs.empty, color: Theme.of(context).colorScheme.onSurfaceVariant);
 }
 
 /// Three upright notebook covers in a row: the shelf the library becomes.

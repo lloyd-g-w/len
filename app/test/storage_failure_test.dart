@@ -37,13 +37,14 @@ void main() {
     }) async {
       final services = AppServices.create(AppDatabase.inMemory());
       addTearDown(services.dispose);
-      if (!empty)
+      if (!empty) {
         services.notebooks.create(
           title: 'Notes',
           kind: NotebookKind.paged,
           paper: PaperStyle.blank,
           coverColor: 0xFF3B5BDB,
         );
+      }
       await tester.pumpWidget(
         AppScope(
           services: services,

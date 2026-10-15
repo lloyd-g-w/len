@@ -15,6 +15,43 @@ import 'keyboard_shortcuts_test.dart' as keys show boundNow, group, unbound;
 import 'support/semantics_actions.dart';
 
 void main() {
+  testWidgets('empty Bookmarked offers the page on screen (R14-3)', (tester) async {
+    final s = AppServices.create(AppDatabase.inMemory());
+    addTearDown(s.dispose);
+    final nb = s.notebooks.create(
+      title: 'N',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    s.pages.addPage(nb.id, template: const PageTemplate());
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: PageOverview(
+          currentPage: 1,
+          copier: SurfaceCopier(s.strokes, elements: s.elements),
+          initialFilter: OverviewFilter.bookmarked,
+          handlers: OverviewHandlers(
+            load: () => s.pages.pagesOf(nb.id),
+            move: s.pages.move,
+            command: (context, command, page) async {
+              if (command == PageCommand.bookmark) s.pages.setBookmarked(page.id, true);
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('No bookmarked pages yet'), findsOneWidget);
+    await tester.tap(find.text('Bookmark page 2'));
+    await tester.pumpAndSettle();
+    expect(find.text('No bookmarked pages yet'), findsNothing);
+    expect(s.pages.pagesOf(nb.id).where((p) => p.bookmarked).map((p) => p.id), [
+      s.pages.pagesOf(nb.id)[1].id,
+    ]);
+  });
+
   testWidgets('selection mode: select, bookmark, delete many; add page tile', (tester) async {
     tester.view
       ..physicalSize = const Size(1000, 900)
