@@ -115,8 +115,8 @@ class BackgroundPullWorker implements PullWorker {
             onHeader(header);
           case _Done(:final applied, :final total, :final changes):
             return WorkedPage(header: header!, applied: applied, total: total, changes: changes);
-          case _Failed(:final message):
-            throw PullWorkerException(message);
+          case _Failed(:final message, :final changes):
+            throw PullWorkerException(message, changes: changes);
           case _exited:
             _dead = true;
             throw const PullWorkerException('the worker stopped');
@@ -178,6 +178,8 @@ class BackgroundPullWorker implements PullWorker {
           inbox.close();
           database.close();
         case _Page(:final body, :final since, :final hadChanges, :final reply):
+          // What the slices committed, also when a later one fails.
+          final changes = RemoteChanges();
           try {
             final page = decodePullPage(body.materialize().asUint8List(), since: since);
             if (page == null) {
@@ -188,7 +190,6 @@ class BackgroundPullWorker implements PullWorker {
               debugPrint('Skipped ${page.malformed} malformed records after seq $since');
             }
             reply.send(_Header(page.nextSince, page.hasMore, page.malformed));
-            final changes = RemoteChanges();
             final applied = await applier.applyPage(
               page,
               changes,
@@ -206,7 +207,7 @@ class BackgroundPullWorker implements PullWorker {
             );
             reply.send(_Done(applied, page.records.length, changes));
           } on Object catch (e) {
-            reply.send(_Failed('$e'));
+            reply.send(_Failed('$e', changes));
           }
       }
     });
@@ -248,8 +249,9 @@ final class _Done {
 }
 
 final class _Failed {
-  const _Failed(this.message);
+  const _Failed(this.message, this.changes);
   final String message;
+  final RemoteChanges changes;
 }
 
 /// What the worker's exit notice says.
