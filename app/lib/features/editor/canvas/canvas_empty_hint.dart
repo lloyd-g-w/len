@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../data/stroke_reader.dart';
+import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 
 /// A quiet "Draw anywhere" note in the middle of an empty infinite canvas
@@ -15,12 +16,17 @@ class CanvasEmptyHint extends StatefulWidget {
     required this.reader,
     required this.surfaceId,
     required this.edits,
+    this.tools,
     this.darkPaper = false,
   });
 
   final StrokeReader reader;
   final String surfaceId;
   final Listenable edits;
+
+  /// The editor's tools: with "Draw with finger" off one finger moves the
+  /// canvas, and the touch wording says so. Null: fingers draw.
+  final ToolSettings? tools;
 
   /// The hint sits on the paper, so its colour follows the paper, not the
   /// UI theme (readable at about 5:1 either way).
@@ -69,25 +75,38 @@ class _CanvasEmptyHintState extends State<CanvasEmptyHint> {
         duration: Motion.slow,
         curve: Motion.standard,
         child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(Gaps.xl),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Symbols.gesture_sharp, size: Glyphs.empty, color: colour),
-                const SizedBox(height: Gaps.sm),
-                Text('Draw anywhere', style: theme.textTheme.titleMedium?.copyWith(color: colour)),
-                const SizedBox(height: Gaps.xs),
-                Text(
-                  // By input, not platform: a tablet with a mouse, or a
-                  // touch screen on the web, gets its own words.
-                  Targets.touchFirst
-                      ? 'Two fingers move and zoom\nLong-press for more options'
-                      : 'Scroll to move, Ctrl + scroll to zoom\nRight-click for more options',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: colour),
-                ),
-              ],
+          // Scaled down where the room is short (the soft keyboard up on a
+          // phone held sideways).
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Padding(
+              padding: const EdgeInsets.all(Gaps.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Symbols.gesture_sharp, size: Glyphs.empty, color: colour),
+                  const SizedBox(height: Gaps.sm),
+                  Text(
+                    'Draw anywhere',
+                    style: theme.textTheme.titleMedium?.copyWith(color: colour),
+                  ),
+                  const SizedBox(height: Gaps.xs),
+                  ListenableBuilder(
+                    listenable: widget.tools ?? widget.edits,
+                    builder: (context, _) => Text(
+                      // By input, not platform: a tablet with a mouse, or a
+                      // touch screen on the web, gets its own words.
+                      !Targets.touchFirst
+                          ? 'Scroll to move, Ctrl + scroll to zoom\nRight-click for more options'
+                          : (widget.tools?.stylusOnly ?? false)
+                          ? 'Drag to move, pinch to zoom\nLong-press for more options'
+                          : 'Two fingers move and zoom\nLong-press for more options',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(color: colour),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

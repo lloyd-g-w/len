@@ -7,6 +7,10 @@ import '../../../ink/selection/lasso_config.dart';
 /// One-time hints about input that has no visible affordance, in order of
 /// priority when several are due at once.
 enum EditorTip {
+  /// One finger writes, two scroll (on a finger's first stroke while
+  /// fingers draw until a stylus is seen: a phone without one).
+  fingers,
+
   /// The stylus side button (on a stylus contact, from the second opening
   /// of a notebook with the pen on: the first has the "Stylus detected"
   /// message).
@@ -41,6 +45,7 @@ TipMessage? tipMessage(
   LassoShape lasso = LassoShape.freehand,
   bool pdf = false,
 }) => switch (tip) {
+  EditorTip.fingers => TipMessage(tip, Symbols.pinch_sharp, 'Two fingers scroll and zoom'),
   EditorTip.penButton => switch (penButton) {
     PenButtonAction.eraser => TipMessage(
       tip,

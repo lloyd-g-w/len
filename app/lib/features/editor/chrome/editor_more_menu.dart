@@ -106,6 +106,9 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
               _submenu(_viewMenu()),
               ?widget.split,
               const Divider(),
+              // Writing with a finger on a phone is writing in the zoom
+              // window (GoodNotes' answer): one tap, not three.
+              if (compact) _zoomWindow(),
               // Automatic (null) draws with a finger until a stylus is seen; with
               // a mouse the switch shows once a stylus was.
               if (a.stylusOnly != null || Targets.touchFirst)
@@ -140,6 +143,14 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
         _command(c),
       ],
     ],
+  );
+
+  Widget _zoomWindow() => _switch(
+    Symbols.pageview_sharp,
+    'Zoom window',
+    actions.zoomWindow,
+    actions.onZoomWindow,
+    shortcut: const SingleActivator(LogicalKeyboardKey.keyM),
   );
 
   _Drill _viewMenu() {
@@ -179,13 +190,8 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
                 : ToolbarPlacement.floating,
           ),
         ),
-        _switch(
-          Symbols.pageview_sharp,
-          'Zoom window',
-          a.zoomWindow,
-          a.onZoomWindow,
-          shortcut: const SingleActivator(LogicalKeyboardKey.keyM),
-        ),
+        // Phones have it on top, by Draw with finger (R20-2).
+        if (!compact) _zoomWindow(),
         if (a.minimap case final minimap?)
           _switch(Symbols.map_sharp, 'Minimap', minimap, a.onMinimap, shortcut: minimapShortcut),
         _item(

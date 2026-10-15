@@ -9,6 +9,7 @@ extension _InkCommit on InkDrawing {
     required bool snapped,
     ShapeGeometry? shape,
   }) {
+    if (kind == PointerDeviceKind.touch) events.fingerStroke?.call();
     final stroke = Stroke(
       id: clock.newId(),
       surfaceId: model.surfaceId,

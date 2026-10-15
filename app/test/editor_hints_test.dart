@@ -7,6 +7,7 @@ import 'package:len/features/editor/canvas/canvas_empty_hint.dart';
 import 'package:len/features/editor/chrome/editor_tips.dart';
 import 'package:len/features/editor/chrome/peeking.dart';
 import 'package:len/features/editor/chrome/tip_banner.dart';
+import 'package:len/features/editor/editor_canvas.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
 import 'package:len/ink/tool_settings.dart';
@@ -87,6 +88,35 @@ void main() {
     await tester.pump(TipsController.visibleFor);
     await tester.pumpAndSettle();
     expect(find.text(tip), findsNothing, reason: 'it goes by itself');
+    await closeEditor(tester);
+  });
+
+  testWidgets('a finger writing (no stylus yet) learns that two fingers scroll (R20-3)', (
+    tester,
+  ) async {
+    final (s, _) = await pumpEditor(tester, size: const Size(390, 844));
+    const tip = 'Two fingers scroll and zoom';
+    final finger = await tester.startGesture(const Offset(100, 400));
+    for (var i = 1; i <= 8; i++) {
+      await finger.moveTo(Offset(100 + i * 10.0, 400 + i * 2.0));
+    }
+    await finger.up();
+    await tester.pump(TipsController.calmFor);
+    await tester.pumpAndSettle();
+    expect(find.text(tip), findsOneWidget);
+    await tester.pump(TipsController.seenAfter);
+    expect(s.settings.seenTips, contains(EditorTip.fingers.name));
+    await tester.pump(TipsController.visibleFor);
+    await tester.pumpAndSettle();
+    await closeEditor(tester);
+
+    // Chosen in ⋯ (Draw with finger set): no tip.
+    final (s2, _) = await pumpEditor(tester, size: const Size(390, 844));
+    s2.preferences.stylusOnly = false;
+    await tester.dragFrom(const Offset(100, 500), const Offset(80, 10));
+    await tester.pump(TipsController.calmFor);
+    await tester.pumpAndSettle();
+    expect(find.text(tip), findsNothing);
     await closeEditor(tester);
   });
 
@@ -193,6 +223,18 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.textContaining('Right-click'), findsOneWidget);
     expect(find.textContaining('Two fingers'), findsNothing);
+  });
+
+  testWidgets('the empty-canvas hint follows Draw with finger (R20-4)', (tester) async {
+    Targets.debugTouchFirst = true;
+    addTearDown(() => Targets.debugTouchFirst = null);
+    await openCanvas(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.textContaining('Two fingers move'), findsOneWidget);
+    tester.widget<EditorCanvas>(find.byType(EditorCanvas)).session.tools.stylusOnly = true;
+    await tester.pump();
+    expect(find.textContaining('Two fingers'), findsNothing);
+    expect(find.textContaining('Drag to move'), findsOneWidget);
   });
 
   testWidgets('a canvas with content shows no hint', (tester) async {

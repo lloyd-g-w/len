@@ -127,7 +127,7 @@ class EditorChrome extends StatelessWidget {
               right: 0,
               bottom: 0,
               child: ChromeFade(
-                visible: !focus,
+                visible: !focus && layout.hasBottomRow,
                 edge: const Offset(0, 1),
                 child: DecoratedBox(
                   decoration: BoxDecoration(

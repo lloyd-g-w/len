@@ -83,6 +83,24 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('phones: Zoom window is on top of ⋯, not in View (R20-2)', (tester) async {
+    await pumpEditor(tester, size: const Size(390, 844));
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    expect(find.text('Zoom window'), findsOneWidget);
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fit width'), findsOneWidget);
+    expect(find.text('Zoom window'), findsNothing);
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Zoom window'));
+    await tester.pumpAndSettle();
+    expect(zoomSession(tester).zoomWindow.isOpen, isTrue);
+  });
+
   testWidgets('the ⋯ menu toggles the window; ✕ closes it', (tester) async {
     await pumpEditor(tester);
     await tester.tap(find.byTooltip('More options'));

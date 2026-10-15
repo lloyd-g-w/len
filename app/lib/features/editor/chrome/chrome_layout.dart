@@ -16,6 +16,7 @@ class ChromeLayout {
     required this.width,
     required this.focus,
     this.short = false,
+    this.keyboard = false,
     this.zoomBox = 0,
     this.zoomBoxAtTop = false,
   });
@@ -30,6 +31,7 @@ class ChromeLayout {
     width: width,
     focus: focus,
     short: short,
+    keyboard: keyboard,
     zoomBox: height,
     zoomBoxAtTop: atTop,
   );
@@ -48,6 +50,10 @@ class ChromeLayout {
 
   /// A short window (a phone held sideways): the chrome is one row.
   final bool short;
+
+  /// The soft keyboard is up: the phone's bottom tool row gives way (the
+  /// text box's format bar has what typing needs, and Done).
+  final bool keyboard;
 
   /// Height of the zoom window's box (0 when it is closed).
   final double zoomBox;
@@ -80,7 +86,10 @@ class ChromeLayout {
   double get toolRowHeight => dock == ToolbarDock.row ? ToolbarMetrics.rowHeight : 0;
 
   /// Height of the phone's bottom tool row, gesture inset excluded.
-  double get bottomRowHeight => dock == ToolbarDock.bottom ? ToolbarMetrics.bottomHeight : 0;
+  double get bottomRowHeight => hasBottomRow ? ToolbarMetrics.bottomHeight : 0;
+
+  /// Whether the phone's bottom tool row shows (not while typing).
+  bool get hasBottomRow => dock == ToolbarDock.bottom && !keyboard;
 
   /// The indicator takes no permanent room on any display size.
   bool get navigatorPeeks => true;

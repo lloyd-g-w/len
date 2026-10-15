@@ -397,7 +397,8 @@ or deleted pages in order with ink. Snack bars' Undo calls
   start-aligned, tap to rename, with the folder as a quiet subtitle — then the tools when
   they are docked inside the bar, then actions — the 🎙▾ audio split button, undo/redo and
   "⋯" `EditorMoreMenu`; phones keep back, the title, undo/redo and ⋯), the toolbar
-  (inside the bar, attached under it, the phone's bottom row, or floating in `ToolbarSlot`
+  (inside the bar, attached under it, the phone's bottom row — which gives way while the soft
+  keyboard is up, `ChromeLayout.keyboard`, read above the Scaffold — or floating in `ToolbarSlot`
   by a grip; see *Toolbar*), `PageNavigator`, `GestureHud` (counts
   repeats: "Undo ×3"), `TipBanner` and, in focus mode, only a `FocusHandle`.
   The `3 / 12` page indicator peeks on every screen (`chrome/peeking.dart`):
@@ -424,7 +425,9 @@ or deleted pages in order with ink. Snack bars' Undo calls
   when one was last up, so a notebook opened after a snack bar elsewhere waits too), and
   only once the pen has rested 2 s (`LiveInk`: pens and shapes; `LassoPath`: a lasso loop
   being drawn). A tip never replaces another (a later trigger is dropped and waits for its next
-  one); several due at once go by priority (`EditorTip` order): the side button (a stylus
+  one); several due at once go by priority (`EditorTip` order): two fingers scroll (a
+  finger's stroke while fingers draw until a stylus is seen, `InkEvents.fingerStroke`;
+  not once Draw with finger was chosen either way), the side button (a stylus
   contact, from the second opening on: the first has the "Stylus detected" message;
   phrased for `PenButtonAction`), hold to snap (a hand-drawn line or shape,
   `HoldToStraighten.wouldSnap` via `InkEvents.shapeDrawn`; writing on puts it off to the
@@ -539,7 +542,7 @@ or deleted pages in order with ink. Snack bars' Undo calls
   displays**: Android mirrors the screen by default; a separate audience window
   (Android `Presentation` API, desktop multi-window) is out of scope — Flutter's
   multi-window API is not stable yet.
-- **Zoom window** (`zoom/`; "⋯" → View → *Zoom window*, `M`): GoodNotes-style writing
+- **Zoom window** (`zoom/`; "⋯" → View → *Zoom window*, on phones "⋯" → *Zoom window*, `M`): GoodNotes-style writing
   through a magnifier. A `ZoomFrame` (surface id, origin, scale) marks a rectangle on a page
   (or the canvas) with the box's aspect; `ZoomBox`, docked above the bottom chrome
   (`ChromeLayout.zoomBox`, counted in `covered` so the page scrolls clear of it), shows it

@@ -132,6 +132,7 @@ class EditorLayers extends StatelessWidget {
                 reader: session.services.strokeReader,
                 surfaceId: notebook.id,
                 edits: session.undo,
+                tools: session.tools,
                 darkPaper: notebook.paperColor.isDark,
               ),
             ),

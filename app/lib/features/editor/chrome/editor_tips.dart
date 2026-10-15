@@ -181,6 +181,8 @@ class TipsController extends ValueNotifier<TipMessage?> {
   bool _applies(EditorTip tip) {
     final tools = _tools;
     return switch (tip) {
+      // Automatic only: someone who chose finger drawing knows.
+      EditorTip.fingers => tools == null || tools.stylusOnly == null,
       EditorTip.penButton => _penButton() != PenButtonAction.none,
       EditorTip.holdToSnap => tools?.holdToStraighten ?? true,
       EditorTip.lasso => (tools == null || tools.tool == EditorTool.lasso) && !_selected(),

@@ -115,6 +115,12 @@ From the reports; the owner picks. Status as above.
   arrive (a short gap per 5-minute joint on this first listen); seeking past what is here
   fetches that part first and waits ("Downloading… 40%"). A growing joined source was not
   possible with the players (see ARCHITECTURE "Playback").
+- ⬜ **Reading on a phone without a stylus** (UX_AUDIT R20-6): one finger always writes while
+  fingers draw, so reading back is two-finger scrolling (one-handed impossible) and a resting
+  thumb marks the page. A reading state on phones (Samsung Notes' view mode, GoodNotes'
+  read-only): e.g. a notebook with ink opens in it when no stylus was ever seen, one finger
+  scrolls, the first tool tap (or ✎ in the bar) starts writing; no new setting.
+
 - ⬜ **Tablet check (fix/r17-leftovers)**: with the recording service failing at start, does
   it start when retried as Len leaves the front (`onPause`)? And the gap between parts
   while a recording plays part by part (ExoPlayer).
