@@ -1664,6 +1664,21 @@ surface.
   its write replaced what was there, so nothing on it is older than the ink.
   Only when that write fails (`ClipboardMirror.written`) does `EditorImages`
   read what the clipboard holds, to treat it as older than the ink.
+- **Paste here** (the canvas menu, `canvasMenuAt`) is offered only when
+  there is something to paste (`mayPaste`, `clipboard/paste_peek.dart`):
+  ink copied in Len, else what `Pasteboard.peek` (added for Len) says the
+  system clipboard holds — images, text, HTML or files — without reading
+  it: **Android** `hasPrimaryClip` + the clip's `ClipDescription` MIME
+  types (`image/*`, `text/*` but intents; unlike reading the clip, no
+  "pasted" notice), **Linux** the GTK targets (`gtk_clipboard_request_
+  targets`), **Windows** `IsClipboardFormatAvailable` (CF_DIB,
+  CF_UNICODETEXT, HTML Format, CF_HDROP), **web** only once the user let
+  the page read the clipboard (`permissions.query('clipboard-read')`
+  granted, Chromium: a silent read of the item types); Firefox, Safari
+  and the rest can't tell (null), as does a platform that doesn't answer
+  within 300 ms: then the row stays and the tap reads the clipboard
+  (`EditorImages.paste`, "Nothing to paste" if empty). The menu opens
+  once the answer is in (a few ms); the latest long press wins.
 - **Editing a shape's points**: a single shape selected on its own surface
   (`SelectionController.shapeStroke`, by the lasso or a tap — with the
   lasso, or the Shape tool on a shape) shows its control points as handles
