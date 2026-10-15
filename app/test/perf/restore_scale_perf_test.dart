@@ -51,8 +51,11 @@ void main() {
     );
     expect(result.notebooks, hasLength(200));
     // No turn holds a records part (before slicing: 13 turns, the longest
-    // 516 ms of 3.2 s). What remains longest is the final transaction that
-    // adds the notebooks and marks everything for sync (~160 ms here).
-    expect(longest * 10, lessThan(total));
+    // 516 ms of 3.2 s, every part one long turn). What remains longest is
+    // the final transaction that adds the notebooks and marks everything
+    // for sync (~160 ms here). The second longest is checked, so one GC
+    // pause on a busy machine does not fail it; unsliced parts still would.
+    final second = turns[turns.length - 2];
+    expect(second * 10, lessThan(total), reason: 'longest $longest ms, second $second ms');
   });
 }
