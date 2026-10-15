@@ -602,22 +602,27 @@ or deleted pages in order with ink. Snack bars' Undo calls
   Repeating detail closer than `minPitch` (too dense at the current zoom) is left out while
   structure stays, so graph paper gains its millimetre lines as you zoom in.
 - **Drawing.** `PaperRenderer` (`ink/render/paper_painter.dart`) draws a pattern on screen, in
-  thumbnails, miniatures and PNG export, with the look's colour, opacity, line weight and dot
-  size — vector lines and text in the UI font (laid-out paragraphs cached), crisp at any zoom.
-  Lines are screen hairlines × weight (the same on-screen width at every zoom). Dots are part
-  of the paper: `PaperRenderer.dotRadius` (1.4 world units, 0.37 mm) × dot size, so they scale
-  with the page and the ink everywhere — editor, zoom window, thumbnails, PNG and PDF export
-  (`PdfTemplateWriter` uses the same constant). Far out, a dot smaller than
-  `minDotRadius` (half a target pixel) stays that size and fades by its lost area, until the
-  dotted threshold (`minScreenSpacing` × 2 between dots) hides the pattern; page thumbnails
-  (strengthened when small) and template miniatures keep them at least `minMiniatureDot`,
-  unfaded. The paper is painted live each frame (never in the ink tiles or LOD rasters), so
-  no cache depends on the zoom; image templates are drawn over the page from a
-  `PaperImageLookup` (the shared `ElementImages` cache; the editor repaints when one is
-  decoded). `PdfTemplateWriter` writes the same pattern into exported PDFs as vectors, labels
-  in the embedded bundled Inter (shared with text boxes via `PdfTextWriter.font`; subset, with
-  ToUnicode, covering Latin, Greek and Cyrillic); image templates are embedded like PDF
-  backgrounds.
+  thumbnails, miniatures and PNG export, with the look's colour, opacity, line weight and dot size
+  — vector lines and text in the UI font (laid-out paragraphs cached), crisp at any zoom. Lines
+  and dots are part of the paper, so they scale with the page and the ink everywhere — editor,
+  zoom window, thumbnails, PNG and PDF export (`PdfTemplateWriter` uses the same constants). Lines
+  are `PaperRenderer.lineWidth(weight)` world units × line weight (fine 0.6, normal 1, heavy and
+  margin 1.8: 0.45, 0.75 and 1.35 pt in print; at 100 % a normal line is a logical pixel, as
+  before lines scaled); dots `dotRadius` (1.4 world units, 0.37 mm) × dot size. Far out, a line
+  thinner than `minLineWidth` (half a target pixel, one device pixel on a 2× tablet) stays that
+  wide and fades by the square root of its lost width, and a dot smaller than `minDotRadius` (half
+  a target pixel) stays that size and fades by the square root of its lost area — the same rule,
+  so lined and dotted paper keep the same share of their ink — so zoomed-out paper (and a phone's)
+  reads lighter, as a page seen from further away, yet keeps its contrast, until the density
+  threshold (`minScreenSpacing` between lines, × 2 between dots) hides the repeating pattern. Page
+  thumbnails (strengthened when small) and template miniatures keep lines about a pixel wide in
+  the weights' proportions and dots at least `minMiniatureDot`, unfaded. The paper is painted live
+  each frame (never in the ink tiles or LOD rasters), so no cache depends on the zoom; image
+  templates are drawn over the page from a `PaperImageLookup` (the shared `ElementImages` cache;
+  the editor repaints when one is decoded). `PdfTemplateWriter` writes the same pattern into
+  exported PDFs as vectors, labels in the embedded bundled Inter (shared with text boxes via
+  `PdfTextWriter.font`; subset, with ToUnicode, covering Latin, Greek and Cyrillic); image
+  templates are embedded like PDF backgrounds.
 - **Planners** (`templates/planner_dates.dart`, `planner_calendar.dart`, `planner_labels.dart`,
   `planner_plan.dart`). `PlannerDates`: pure UTC calendar arithmetic — weeks from Monday or
   Sunday, week numbers (Monday weeks ISO 8601; Sunday weeks the US rule: the week holding
