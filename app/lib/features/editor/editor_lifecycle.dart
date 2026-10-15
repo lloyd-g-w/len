@@ -78,8 +78,7 @@ class EditorLifecycle {
     if (closing || secondPane || services.database.isClosed) return;
     final settings = services.settings;
     settings.setEditorView(_notebook.id, session.viewState.encode());
-    final zoom = session.zoomState;
-    if (zoom != null) settings.setZoomWindow(_notebook.id, zoom.isEmpty ? null : zoom.encode());
+    session.saveZoomState();
   }
 
   /// The notebook was deleted (or [trashed]) on another device: closes

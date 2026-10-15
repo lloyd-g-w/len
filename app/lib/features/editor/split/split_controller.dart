@@ -166,13 +166,18 @@ class SplitController extends ChangeNotifier {
     }
   }
 
-  /// Records where the shown editors look, before the tabs change.
+  /// Records where the shown editors look, and their zoom windows, before
+  /// the tabs change (a notebook may show in the first pane next).
   void _captureViews() {
     for (final pane in _panes) {
       if (pane.secondary) {
-        if (pane.notebookId == tabs.splitId) tabs.splitView = pane.session.viewState;
+        if (pane.notebookId != tabs.splitId) continue;
+        tabs.splitView = pane.session.viewState;
+        // The first pane's zoom window wins when both show the notebook.
+        if (pane.notebookId != tabs.activeId) pane.session.saveZoomState();
       } else if (pane.notebookId == tabs.activeId) {
         tabs.saveView(pane.notebookId, pane.session.viewState);
+        pane.session.saveZoomState();
       }
     }
   }

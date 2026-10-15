@@ -189,6 +189,15 @@ class EditorSession {
     return parked != null && !zoomWindow.isOpen ? parked : zoomWindow.state;
   }
 
+  /// Remembers the zoom window as this editor shows it for the next time
+  /// the notebook opens in the first pane (closed if it was never used).
+  void saveZoomState() {
+    if (services.database.isClosed) return;
+    final zoom = zoomState;
+    final keep = zoom == null || zoom.isEmpty ? null : zoom.encode();
+    services.settings.setZoomWindow(notebook.id, keep);
+  }
+
   /// The zoom window put away while presenting ([parkZoomWindow]).
   ZoomWindowState? _parkedZoom;
 
