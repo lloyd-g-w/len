@@ -1,5 +1,110 @@
 # Len — UX/UI audit
 
+## Round 17 audit — recording a lecture (`review/round17`)
+
+Lens: a student who records every lecture on an S Pen tablet (sometimes a
+phone or the laptop) while writing, then reviews by tapping ink to hear
+what was said; Notability is the reference for this flow, GoodNotes 6 the
+other. Read in the code: `features/audio/` (`RecordingController` and its
+start / storage parts, `RecordingParts`, the journal and recovery, the
+keep-alive, `NotebookAudio`, `PlaybackController`, the audioplayers
+backend, `PlaybackSession`, ink replay, the scrubber, trim and release,
+the recordings list), where editors share and release a notebook
+(`SharedNotebooks`, `EditorWorkspace`, focus mode in `EditorChrome`) and
+the library's mic marker and recording-title search. Rendered the audio
+screenshots (`editor_surfaces_screenshot_test.dart`, `e_audio_*`: phone,
+tablet, large text). Nothing was run on a device. ⬜ open, ✅ fixed on
+this branch.
+
+Summary: capture is the strong part. One tap starts (tablet top bar), the
+audio is written in 5-minute parts that sync while the lecture goes on, a
+foreground service keeps an Android recording alive with the screen off,
+a killed app offers to recover what it had, and review is Notability's
+loop: ink later than the moment heard is veiled, a tap on ink plays from
+just before it, bursts of writing are markers on the waveform, 0.75–2×,
+lock-screen and headset controls. What breaks the lecture is moving
+around: a glance at last week's notebook in another tab, or Back to the
+library, ends the recording without a word (GoodNotes keeps recording
+while another document is viewed), and focus mode on a tablet hides that
+anything is recording. Reviewing on the laptop waits for every part of a
+90-minute lecture to download, one after the other, before a sound.
+
+| Moment | Len | Notability · GoodNotes 6 | Verdict |
+|---|---|---|---|
+| Start | tablet / desktop: 🎙 in the top bar (1 tap); phone: ⋯ → Record audio (2) | Notability: mic in the toolbar (1); GoodNotes: overflow menu (2) | Keep |
+| First time | microphone prompt, then (Android 13+) the notification prompt; refused: "Allow microphone access…" with Settings | same prompts | Keep |
+| While writing | top bar: red dot, time, level, pause, stop; phone: the same docked above the toolbar | Notability: red mic and time in the toolbar | Keep |
+| … in focus mode (tablet) | the top bar fades out with it: no sign of the recording | n/a | R17-2 |
+| Pause / resume | in the bar and the notification; ink while paused belongs to the resume | same | Keep |
+| 5-minute parts | invisible; each synced as the lecture goes on; at most ~0.3 s gap on Linux / browsers | Notability: one file; suggests a new recording each hour | Keep (better) |
+| Screen off, other app (Android) | keeps recording (foreground service, notification with Pause / Stop) | Notability (iPad) keeps; GoodNotes Android stops | Keep (better) |
+| Another tab, or Back to the library | the recording stops and is saved, silently; a new one must be started | GoodNotes keeps recording while another document is viewed | R17-1 |
+| Stop and name | "Saved “Recording 09:30”"; renaming is ⋯ → Rename… in the list | Notability: dated, renamed in the list | R17-4 |
+| The list during a lecture | the recording being made is missing; "Record" does nothing | n/a | R17-5 |
+| 90 minutes | ≈ 44 MB (AAC 64 kbit/s), streamed to files; browsers hold at most one part in memory | similar sizes | Keep |
+| Review: tap ink | plays from 1.5 s before it; later ink veiled at 82 %; bursts as dots; Shift+← / → between them | Notability: hand tool, tap a word; Note Replay | Keep |
+| Writing with the player open | with "tap ink to play" on, a pen stroke pans the page | Notability: writing during playback links to it | R17-6 |
+| Speed, skip | 0.75–2×, ±10 s; no skip-silence | Notability: speeds, no skip-silence | Keep |
+| Background playback | Android media session and lock screen, MPRIS, Media Session in browsers, headset buttons | same on iPad | Keep |
+| Finding it later | mic glyph on cards, "2 recordings" in list rows, the title filter matches recording titles | Notability: audio badge | Keep |
+| Share / export | ⋯ → Share… (and Save to device… on Android): one `.aac` | Notability: m4a | Keep |
+| Trim, free space | non-destructive trim, Reset trim; "Free up 12 MB…" | Notability: none; GoodNotes: delete only | Keep (better) |
+| On another device | plays once *every* part is downloaded, one at a time, with no word of it | iCloud: downloads first too | R17-3 |
+| Delete | ⋯ → Delete… (confirm; on all devices) | same | Keep |
+
+### Prioritised items
+
+**R17-1 P1 · Another tab, or Back, ends the lecture's recording without a word.** ⬜
+- *What:* a notebook's recorder lives as long as an editor shows it
+  (`SharedNotebooks.release` disposes it, which stops and saves). Tabs show
+  one editor at a time, so tapping the tab of last week's lecture to check a
+  formula — or Back to the library to open it — stops the recording; no
+  message says so (the editor that would show it is gone). Back in the
+  lecture the mic is idle and the rest of the lecture is not recorded.
+- *Fix:* a notebook that is recording stays open until the recording is
+  stopped, wherever the student goes; meanwhile a small panel ("● 12:34
+  Recording in “Calculus — Lecture 12”", Show, Stop) sits in the other
+  editors and the library. Ink written elsewhere is not linked (as in
+  GoodNotes). Effort M.
+
+**R17-2 P1 · Focus mode hides the recording.** ⬜
+- *What:* on tablets and desktops the recording controls live in the top
+  bar, which focus mode fades out; a 90-minute lecture written in focus mode
+  shows no sign it is being recorded (or paused). Phones dock them at the
+  bottom and keep them.
+- *Fix:* in focus mode the controls dock at the bottom as on phones (the
+  player already stays there). Effort S.
+
+**R17-3 P1 · A recording from another device is silent until all of it has downloaded.** ⬜
+- *What:* opening a recording fetches each missing part in turn
+  (`AudioplayersPlayback.open`), then plays; for a 90-minute lecture made
+  on the tablet that is 18 downloads, one after another, while the laptop's
+  player sits at 0:00 with disabled buttons and nothing says why.
+- *Fix:* fetch up to three parts at once and say so in the player
+  ("Downloading… 40%"). Playing the first parts while the rest arrive needs
+  the player to grow its source: TODO "Next". Effort S–M.
+
+**R17-4 P2 · The name is settled after the lecture, in a menu.** ⬜
+- *What:* a recording is titled "Recording 09:30" — and the list's second
+  line already says "Today, 09:30" — so naming it is what makes it findable
+  (the library's filter matches recording titles), but the "Saved" message
+  offers nothing; it takes the list → ⋯ → Rename….
+- *Fix:* the "Saved “Recording 09:30”" message has Rename. Effort S.
+
+**R17-5 P2 · The recordings list doesn't know a lecture is being recorded.** ⬜
+- *What:* opened mid-lecture (to check the last session's length), the list
+  leaves the running recording out (on purpose: it is listed once finished)
+  and offers "Record", which then does nothing.
+- *Fix:* a first row "Recording now" with its running time (or "Paused"),
+  and no Record button while recording. Effort S.
+
+**R17-6 P2 · With the player open, the pen pans instead of writing.** ⬜
+- *What:* "tap ink to play" (on by default) lays a layer over the page that
+  takes every pointer: a tap seeks, a drag pans — the S Pen included, so a
+  note added while listening moves the page and leaves no ink.
+- *Fix:* the pen never pans there (as with "stylus only"); a pen drag says
+  once "Tap ink to play is on" with Turn off. Effort S.
+
 ## Round 16 audit — a year of notes (`review/round16`)
 
 Lens: a student a year in, with ~300 notebooks in nested folders
