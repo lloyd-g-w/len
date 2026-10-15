@@ -91,7 +91,7 @@ class BlobStore {
     required String mime,
   }) async {
     _checked(sha);
-    if (await has(sha)) return false;
+    if (await _exclusive(() => _keepIfPresent(sha))) return false;
     var size = 0;
     final actual = await hashStream(
       open().map((chunk) {
@@ -101,11 +101,19 @@ class BlobStore {
     );
     if (actual != sha) throw FormatException('Blob $sha is damaged');
     return _exclusive(() async {
-      if (await has(sha)) return false;
+      if (await _keepIfPresent(sha)) return false;
       if (!await backend.contains(sha)) await backend.write(sha, open());
       _record(sha, size, mime, uploaded: false);
       return true;
     });
+  }
+
+  /// Whether blob [sha] is here; if so it counts as stored again (its
+  /// grace period restarts, as with the other `put`s).
+  Future<bool> _keepIfPresent(String sha) async {
+    if (!await has(sha)) return false;
+    _setUnreferencedSince(sha, null);
+    return true;
   }
 
   /// Stores a blob fetched from the sync server after checking its hash.
@@ -195,16 +203,29 @@ class BlobStore {
     });
     final deleted = <String>[];
     for (final sha in due) {
-      final gone = database.transaction(() {
+      final row = database.transaction(() {
         if (stillReferenced(sha)) {
           _setUnreferencedSince(sha, null);
-          return false;
+          return null;
         }
+        final row = database.db.select('SELECT * FROM blobs WHERE sha256 = ?', [sha]).first;
         database.db.execute('DELETE FROM blobs WHERE sha256 = ?', [sha]);
-        return true;
+        return row;
       });
-      if (!gone) continue;
-      await backend.delete(sha);
+      if (row == null) continue;
+      try {
+        await backend.delete(sha);
+      } on Object catch (e) {
+        // Recorded again as it was (a later run retries), never left as
+        // a file no row knows; the other blobs still go.
+        debugPrint('Blob $sha was not deleted: $e');
+        database.db.execute(
+          'INSERT OR IGNORE INTO blobs (${row.keys.join(', ')}) '
+          'VALUES (${List.filled(row.length, '?').join(', ')})',
+          row.values,
+        );
+        continue;
+      }
       deleted.add(sha);
     }
     return deleted;

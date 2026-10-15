@@ -296,6 +296,27 @@ void main() {
       expect(s.database.db.select('SELECT unreferenced_since FROM blobs').single.values, [null]);
     });
 
+    test('a file that cannot be deleted is kept recorded and tried again; others go', () async {
+      s.dispose();
+      final backend = _HookedBackend(dir.path);
+      s = AppServices.create(AppDatabase.inMemory(), clock: clock, blobBackend: backend);
+      final a = await blob('a'), b = await blob('b');
+      await s.blobGc.run();
+      clock.advance(const Duration(days: 8));
+      // The first file is busy (e.g. open in another program on Windows).
+      String? busy;
+      backend.onDelete = (sha) {
+        backend.onDelete = null;
+        busy = sha;
+        throw const FileSystemException('in use');
+      };
+      final deleted = await s.blobGc.run();
+      expect(deleted, [if (busy == a) b else a]);
+      expect(s.blobs.sizeOf(busy!), isNotNull); // Still recorded: not stranded.
+      expect(await s.blobGc.run(), [busy]); // Its grace period kept: next run.
+      expect(File(s.blobs.localPath(busy!)!).existsSync(), isFalse);
+    });
+
     test('the one-blob check agrees with the reference graph', () async {
       final pdf = await blob('pdf'), img = await blob('img'), audio = await blob('audio');
       final paper = await blob('paper'), mine = await blob('mine'), orphan = await blob('orphan');
@@ -317,6 +338,16 @@ void main() {
         expect(refs.keeps(sha, later), isFalse, reason: sha);
       }
       expect(refs.keeps(mine, later), isTrue);
+    });
+
+    test('a blob a Len file imports again restarts its grace period', () async {
+      final sha = await blob('imported');
+      await s.blobGc.run(); // Marked.
+      clock.advance(const Duration(days: 8));
+      // The import stores it before writing the rows that reference it.
+      final bytes = utf8.encode('imported');
+      expect(await s.blobs.putVerified(sha, () => Stream.value(bytes), mime: 'x/y'), isFalse);
+      expect(await s.blobGc.run(), isEmpty);
     });
 
     test('runIfDue runs at most once a day', () async {

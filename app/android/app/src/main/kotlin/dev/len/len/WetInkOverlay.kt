@@ -192,6 +192,9 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                 // Sent right after the report of the frame that shows it.
                 it.endedAt = handover.latest
                 it.commit((message.getOrNull(3) as? Number)?.toDouble() ?: 0.0)
+                // Its end as Flutter's frame shows it (a taper, no tip):
+                // else the pen-up's blunt end stays over it until let go.
+                render()
             }
             "cancel" -> contacts.find { it.matches(message[1], message[2]) }?.let {
                 contacts.remove(it)

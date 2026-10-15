@@ -47,8 +47,8 @@ abstract final class SelectionImage {
   static Rect? drawnBounds(List<Stroke> strokes, List<SurfaceElement> elements) {
     Rect? r;
     for (final s in strokes) {
-      final b = Stroke.computeBounds(s.points, s.width / 2);
-      r = r == null ? b : r.expandToInclude(b);
+      // The stroke's own bounds: pressure can widen it beyond its width.
+      r = r == null ? s.bounds : r.expandToInclude(s.bounds);
     }
     for (final e in elements) {
       if (!_drawn(e)) continue;

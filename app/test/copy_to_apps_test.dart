@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -23,10 +25,12 @@ class _SystemClipboard {
       switch (call.method) {
         case 'write':
           final args = call.arguments as Map<Object?, Object?>;
+          writes++;
+          // Until the platform has it, the clipboard holds what it held.
+          final written = await (hold?.future ?? Future.value(true));
           png = args['png'] as Uint8List?;
           text = args['text'] as String?;
-          writes++;
-          return true;
+          return written;
         case 'image':
           reads++;
           final bytes = png;
@@ -56,6 +60,9 @@ class _SystemClipboard {
   Uint8List? png;
   String? text;
   int writes = 0;
+
+  /// While set, writes finish only once it completes (with the result).
+  Completer<bool>? hold;
 
   /// Reads of the clipboard (Android 12+ announces each as a paste).
   int reads = 0;
@@ -98,6 +105,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(liveElements(services, nb.id).single.knownType, ElementType.image);
     expect(liveStrokes(services, nb.id), hasLength(2));
+  });
+
+  testWidgets('Ctrl+V right after Ctrl+C pastes the ink, not what the clipboard held', (
+    tester,
+  ) async {
+    final (services, nb) = await openImageCanvas(
+      tester,
+      seed: (s, nb) async => s.strokes.save([seedStroke(nb.id)]),
+    );
+    final clipboard = _SystemClipboard()
+      ..png =
+          pngOf(64, 32) // An older screenshot.
+      ..hold = Completer();
+    await key(tester, LogicalKeyboardKey.keyL);
+    await mouseDrag(tester, const [Offset(150, 401)]);
+    await ctrl(tester, LogicalKeyboardKey.keyC);
+    await settleReal(tester, () => clipboard.writes == 1);
+    // Pasted while the copy's picture is still being written.
+    await ctrl(tester, LogicalKeyboardKey.keyV);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    clipboard.hold!.complete(true);
+    await settleReal(tester, () => liveStrokes(services, nb.id).length == 2);
+    await tester.pumpAndSettle();
+    expect(liveElements(services, nb.id), isEmpty);
   });
 
   testWidgets('copying a text box adds its text; pasting back gives the box, not a new one', (

@@ -620,7 +620,9 @@ or deleted pages in order with ink. Snack bars' Undo calls
   reads lighter, as a page seen from further away, yet keeps its contrast, until the density
   threshold (`minScreenSpacing` between lines, × 2 between dots) hides the repeating pattern. Page
   thumbnails (strengthened when small) and template miniatures keep lines about a pixel wide in
-  the weights' proportions and dots at least `minMiniatureDot`, unfaded. The paper is painted live
+  the weights' proportions, unfaded; template miniatures and fully strengthened thumbnails (scale
+  `faintScaleFull` and below) keep dots at least `minMiniatureDot`, unfaded (in between, a dot's
+  floor and fade move there with the strengthening). The paper is painted live
   each frame (never in the ink tiles or LOD rasters), so no cache depends on the zoom; image
   templates are drawn over the page from a `PaperImageLookup` (the shared `ElementImages` cache;
   the editor repaints when one is decoded). `PdfTemplateWriter` writes the same pattern into

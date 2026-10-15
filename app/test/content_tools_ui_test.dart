@@ -15,6 +15,8 @@ import 'package:len/ink/render/laser_painter.dart';
 import 'package:len/ink/tools/laser.dart';
 import 'package:len/ui/app_theme.dart';
 
+import 'support/real_async.dart';
+
 /// Opens [notebook] in the editor with fresh in-memory services.
 Future<(AppServices, Notebook)> openCanvas(
   WidgetTester tester, {
@@ -137,9 +139,9 @@ void main() {
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-    for (var i = 0; i < 4; i++) {
-      await tester.pump(); // Checks the system clipboard for an image and text first.
-    }
+    // Waits for the cut's own clipboard write (its picture renders for
+    // real), then checks the system clipboard for an image and text.
+    await pumpUntil(tester, () => liveStrokes(services, nb.id).isNotEmpty);
     final pasted = liveStrokes(services, nb.id).single;
     expect(pasted.id, isNot('ink'));
     expect(pasted.points.first.offset.dx, closeTo(640 - 50, 1e-3)); // centred on screen
