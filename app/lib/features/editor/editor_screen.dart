@@ -19,7 +19,7 @@ import '../settings/keyboard_shortcuts.dart';
 import '../settings/settings_screen.dart';
 import 'chrome/canvas_context_menu.dart';
 import 'chrome/canvas_guard.dart';
-import 'chrome/editor_chrome.dart';
+import 'chrome/chrome_layout.dart';
 import 'chrome/editor_tips.dart';
 import 'chrome/editor_top_bar.dart';
 import 'chrome/focus_handle.dart';

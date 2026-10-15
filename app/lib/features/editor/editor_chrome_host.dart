@@ -6,6 +6,7 @@ import '../audio/notebook_audio.dart';
 import '../audio/ui/audio_bar_button.dart';
 import '../settings/sync_alert_button.dart';
 import 'chrome/bar_button.dart';
+import 'chrome/chrome_layout.dart';
 import 'chrome/chrome_metrics.dart';
 import 'chrome/editor_chrome.dart';
 import 'chrome/editor_tips.dart';

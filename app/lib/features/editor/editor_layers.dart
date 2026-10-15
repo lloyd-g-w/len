@@ -11,7 +11,7 @@ import 'canvas/canvas_empty_hint.dart';
 import 'canvas/canvas_minimap.dart';
 import 'chrome/canvas_context_menu.dart';
 import 'chrome/canvas_guard.dart';
-import 'chrome/editor_chrome.dart';
+import 'chrome/chrome_layout.dart';
 import 'editor_canvas.dart';
 import 'editor_gestures.dart';
 import 'editor_session.dart';
