@@ -237,6 +237,12 @@ class _EditorScreenState extends State<_EditorView> {
     _parked = parked;
     // A parked pane takes no files; shown again, it takes them when used.
     if (parked) _services.incomingFiles.targets.remove(_importTarget);
+    // Gone to reading while parked: the reading tip now it shows.
+    if (!parked && _session.tools.reading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_parked && _session.tools.reading) _onReading();
+      });
+    }
   }
 
   void _onTabs() {

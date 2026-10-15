@@ -34,8 +34,11 @@ extension _EditorActions on _EditorScreenState {
     _session.input.events.fingerStroke = null;
   }
 
-  /// The editor went into reading (R20-6): the reading tip, once.
-  void _onReading() => _tips.offer(EditorTip.reading);
+  /// The editor went into reading (R20-6): the reading tip, once (not
+  /// while the split view parks this pane: nobody would see it).
+  void _onReading() {
+    if (!_parked) _tips.offer(EditorTip.reading);
+  }
 
   void _followLink(Paper target) {
     if (mounted && !_closing) _session.commands?.followLink(context, target);
