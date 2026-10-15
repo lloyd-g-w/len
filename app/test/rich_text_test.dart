@@ -40,8 +40,8 @@ void backspace(RichTextController c) {
 }
 
 void select(RichTextController c, int start, int end) => c.selection = TextSelection(
-  baseOffset: MarkerOffsets(c.data).toDisplay(start),
-  extentOffset: MarkerOffsets(c.data).toDisplay(end),
+  baseOffset: MarkerOffsets.of(c.data).toDisplay(start),
+  extentOffset: MarkerOffsets.of(c.data).toDisplay(end),
 );
 
 void main() {
@@ -57,9 +57,18 @@ void main() {
       }
       expect(await rootBundle.loadString(font.licenseAsset), contains('SIL OPEN FONT LICENSE'));
     }
+    for (final font in FallbackFont.values) {
+      for (final bold in [false, true]) {
+        expect((await rootBundle.load(font.asset(bold: bold))).lengthInBytes, greaterThan(10000));
+      }
+      expect(await rootBundle.loadString(font.licenseAsset), contains('SIL OPEN FONT LICENSE'));
+    }
     registerFontLicenses();
     final entries = await LicenseRegistry.licenses.toList();
-    expect(entries.expand((e) => e.packages), containsAll(['Inter font', 'Caveat font']));
+    expect(
+      entries.expand((e) => e.packages),
+      containsAll(['Inter font', 'Caveat font', 'Noto Sans Arabic font', 'Noto Sans Hebrew font']),
+    );
   });
 
   group('TextData', () {
@@ -213,7 +222,7 @@ void main() {
           ParaStyle.body,
         ],
       );
-      final m = MarkerOffsets(d);
+      final m = MarkerOffsets.of(d);
       expect(m.display(d.text), 'ab\n\uFFFCcd\nef');
       expect(m.toDisplay(3), 4); // the caret at the line start sits after the marker
       expect(m.toDisplay(2), 2);
@@ -278,7 +287,7 @@ void main() {
       expect(c.data.paras.last.list, ListKind.none);
 
       // Backspace right after a marker removes the marker, not text.
-      c.selection = TextSelection.collapsed(offset: MarkerOffsets(c.data).toDisplay(4));
+      c.selection = TextSelection.collapsed(offset: MarkerOffsets.of(c.data).toDisplay(4));
       backspace(c);
       expect(c.data.text, 'one\ntwo\n');
       expect(c.data.paras.map((p) => p.list), [ListKind.bullet, ListKind.none, ListKind.none]);

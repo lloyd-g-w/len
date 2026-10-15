@@ -56,3 +56,24 @@ enum TextFont {
     return null;
   }
 }
+
+/// Bundled fallbacks of the text-box fonts for scripts they lack (Noto
+/// Sans, SIL Open Font License 1.1, Regular and Bold): Arabic and Hebrew
+/// render the same on every platform, the web included, and in exported
+/// PDFs. Never stored.
+enum FallbackFont {
+  arabic('Noto Sans Arabic', 'NotoSansArabic'),
+  hebrew('Noto Sans Hebrew', 'NotoSansHebrew');
+
+  const FallbackFont(this.family, this._file);
+
+  /// The family name declared in `pubspec.yaml`.
+  final String family;
+  final String _file;
+
+  /// The asset file of the Regular or [bold] face.
+  String asset({bool bold = false}) => 'assets/fonts/$_file-${bold ? 'Bold' : 'Regular'}.ttf';
+
+  /// The font's licence (SIL Open Font License 1.1) next to its files.
+  String get licenseAsset => 'assets/fonts/$_file-OFL.txt';
+}

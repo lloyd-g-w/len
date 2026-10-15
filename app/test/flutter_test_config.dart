@@ -31,7 +31,8 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
 void mockEmptyClipboard() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
     .setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
 
-/// Loads the UI font (Sofia Sans), every bundled text-box font family and
+/// Loads the UI font (Sofia Sans), every bundled text-box font family (and
+/// their Arabic and Hebrew fallbacks) and
 /// the Material Symbols Sharp icon font, so goldens show real text and
 /// icons.
 Future<void> loadTextFonts() async {
@@ -41,6 +42,12 @@ Future<void> loadTextFonts() async {
       if (italic && !font.hasItalic) continue;
       loader.addFont(rootBundle.load(font.asset(bold: bold, italic: italic)));
     }
+    await loader.load();
+  }
+  for (final font in FallbackFont.values) {
+    final loader = FontLoader(font.family)
+      ..addFont(rootBundle.load(font.asset()))
+      ..addFont(rootBundle.load(font.asset(bold: true)));
     await loader.load();
   }
   final ui = FontLoader(AppTheme.fontFamily);

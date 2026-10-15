@@ -106,3 +106,14 @@ flutter:
         - asset: assets/fonts/Caveat-Regular.ttf
         - asset: assets/fonts/Caveat-Bold.ttf
           weight: 700
+    # Fallbacks of the text-box fonts for right-to-left scripts.
+    - family: Noto Sans Arabic
+      fonts:
+        - asset: assets/fonts/NotoSansArabic-Regular.ttf
+        - asset: assets/fonts/NotoSansArabic-Bold.ttf
+          weight: 700
+    - family: Noto Sans Hebrew
+      fonts:
+        - asset: assets/fonts/NotoSansHebrew-Regular.ttf
+        - asset: assets/fonts/NotoSansHebrew-Bold.ttf
+          weight: 700
