@@ -74,6 +74,9 @@ extension _EditorLayout on _EditorScreenState {
       focus: _focus,
       band: band,
       split: widget.split?.isSplit ?? false,
+      // Read above the Scaffold, which takes the keyboard off its body's
+      // insets (shrinking the body instead).
+      keyboard: MediaQuery.viewInsetsOf(this.context).bottom > 0,
     );
     _session.setChromeInsets(layout.covered);
     widget.messageInset.value = layout.covered.bottom;

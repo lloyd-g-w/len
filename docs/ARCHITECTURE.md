@@ -394,7 +394,8 @@ or deleted pages in order with ink. Snack bars' Undo calls
   start-aligned, tap to rename, with the folder as a quiet subtitle — then the tools when
   they are docked inside the bar, then actions — the 🎙▾ audio split button, undo/redo and
   "⋯" `EditorMoreMenu`; phones keep back, the title, undo/redo and ⋯), the toolbar
-  (inside the bar, attached under it, the phone's bottom row, or floating in `ToolbarSlot`
+  (inside the bar, attached under it, the phone's bottom row — which gives way while the soft
+  keyboard is up, `ChromeLayout.keyboard`, read above the Scaffold — or floating in `ToolbarSlot`
   by a grip; see *Toolbar*), `PageNavigator`, `GestureHud` (counts
   repeats: "Undo ×3"), `TipBanner` and, in focus mode, only a `FocusHandle`.
   The `3 / 12` page indicator peeks on every screen (`chrome/peeking.dart`):

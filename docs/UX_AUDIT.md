@@ -99,6 +99,17 @@ typing, in a canvas already cut to a third of the screen.
 - *Fix:* the hint follows the tools: "Drag to move, pinch to zoom" when
   fingers pan. Effort S.
 
+**R20-5 P2 · The bottom tool row stays over the keyboard while typing.** ✅
+- *What:* with the keyboard up a 6.1" phone has ≈ 540 dp; the top bar, the
+  format bar (two rows) and the bottom tool row leave the text box about a
+  third of the screen, and the row offers nothing typing needs (the format
+  bar has Done, the colour and the styles).
+- *Fix:* the phone's bottom tool row fades out while the soft keyboard is
+  up and the format bar docks on the keyboard in its place (as in GoodNotes
+  and Samsung Notes); it comes back with the keyboard's going. The editor
+  reads the keyboard above its Scaffold (which takes it off its body's
+  insets). Effort S.
+
 ## Round 17 audit — recording a lecture (`review/round17`)
 
 Lens: a student who records every lecture on an S Pen tablet (sometimes a

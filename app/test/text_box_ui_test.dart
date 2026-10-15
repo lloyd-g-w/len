@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart' show RenderEditable;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_data.dart';
+import 'package:len/features/editor/toolbar/tool_switcher.dart';
 import 'package:len/features/editor/tools/text/rich_text_controller.dart';
 import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/ui/color_dot.dart';
@@ -176,6 +177,29 @@ void main() {
     final caretBottom = editable.localToGlobal(caret.bottomLeft).dy;
     expect(caretBottom, lessThanOrEqualTo(tester.getRect(bar).top), reason: 'caret in view');
     expect(caretBottom, greaterThan(0));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('phones: the bottom tool row gives way to the keyboard (R20-5)', (tester) async {
+    await openCanvas(tester, size: const Size(390, 844));
+    final row = find.byType(ToolSwitcherButton).hitTestable();
+    expect(row, findsOneWidget);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(120, 300)]);
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    expect(row, findsNothing);
+    final bar = find.ancestor(
+      of: find.byTooltip('Done (Esc)'),
+      matching: find.byType(FloatingPanel),
+    );
+    // The format bar docks on the keyboard, where the row was.
+    expect(tester.getRect(bar).bottom, greaterThan(844 - 300 - 24));
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    expect(row, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
