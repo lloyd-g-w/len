@@ -22,6 +22,7 @@ import 'package:len/ink/tools/laser_tool.dart';
 import 'package:len/ink/tools/lasso_tool.dart';
 import 'package:len/ink/tools/pointer_tool.dart';
 import 'package:len/ink/tools/shape_tool.dart';
+import 'package:len/ink/tools/text_tool.dart';
 import 'package:len/ink/undo_history.dart';
 import 'package:len/ink/viewport.dart';
 
@@ -219,6 +220,24 @@ void main() {
 
     setUp(() => session = TextEditSession(model: model, clock: clock));
     tearDown(() => session.dispose());
+
+    test('a box typed under the last one stays on its page', () {
+      // A page 600 × 800 centred in a taller view: below it is in view.
+      final viewport = ViewportController(contentBounds: const Rect.fromLTWH(0, 0, 600, 800))
+        ..setSize(const Size(1000, 1200));
+      final tool = TextTool(session: session, tools: ToolSettings(), viewport: viewport);
+      session.lastBox = (surfaceId: model.surfaceId, rect: const Rect.fromLTWH(50, 740, 200, 40));
+      expect(viewport.visibleWorld.bottom, greaterThan(900));
+      expect(tool.typingUnderLast(), isNull);
+      tool.startTyping('x');
+      final box = session.current!.rect;
+      expect(const Rect.fromLTWH(0, 0, 600, 800).contains(box.center), isTrue, reason: '$box');
+      // Under a box higher up: right under it.
+      session
+        ..discard()
+        ..lastBox = (surfaceId: model.surfaceId, rect: const Rect.fromLTWH(50, 100, 200, 40));
+      expect(tool.typingUnderLast()!.dx, 50);
+    });
 
     test('an empty new box is discarded without an undo step', () {
       session

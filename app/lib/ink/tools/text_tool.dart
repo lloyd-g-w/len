@@ -70,20 +70,42 @@ class TextTool implements PointerTool {
   /// finished last when that is in view, else at the middle of the view's
   /// left half.
   void startTyping(String text) {
-    final style = tools.textStyle;
-    final line = TextLayout.heightOf(style.copyWith(text: ''), TextLayout.minWidth);
-    final visible = viewport.visibleWorld;
-    final last = session.lastBox;
-    var at = last == null || last.surfaceId != session.model.surfaceId
-        ? null
-        : Offset(last.rect.left, last.rect.bottom + line);
-    if (at == null || !visible.deflate(line).contains(at)) {
+    var at = typingUnderLast();
+    if (at == null) {
+      final visible = viewport.visibleWorld;
       final c = visible.center;
       at = Offset(c.dx - math.min(visible.width / 4, maxTypingInset / viewport.scale), c.dy);
+      // On a page (the view's middle may fall between pages).
+      final room = _page?.deflate(_line);
+      if (room != null && !room.isEmpty) {
+        at = Offset(
+          at.dx.clamp(room.left, room.right).toDouble(),
+          at.dy.clamp(room.top, room.bottom).toDouble(),
+        );
+      }
     }
     _limitAt(at.dx);
-    session.create(at, style: style, text: text);
+    session.create(at, style: tools.textStyle, text: text);
   }
+
+  /// Where [startTyping] puts a box under the box finished last: a line
+  /// below it, if that is in view (and on its page); else null.
+  Offset? typingUnderLast() {
+    final last = session.lastBox;
+    if (last == null || last.surfaceId != session.model.surfaceId) return null;
+    final line = _line;
+    final at = Offset(last.rect.left, last.rect.bottom + line);
+    var room = viewport.visibleWorld.deflate(line);
+    final page = _page;
+    if (page != null) room = room.intersect(page.deflate(line));
+    return room.contains(at) ? at : null;
+  }
+
+  /// A new box's first line height.
+  double get _line => TextLayout.heightOf(tools.textStyle.copyWith(text: ''), TextLayout.minWidth);
+
+  /// The page being written on (null on a canvas).
+  Rect? get _page => viewport.contentBounds;
 
   /// Furthest left of the centre (screen pixels) a box typed with no box
   /// open starts.

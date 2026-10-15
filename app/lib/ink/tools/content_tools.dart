@@ -111,11 +111,8 @@ class ContentTools {
   /// apply (another tool, a box open, whitespace).
   bool typeText(String character) {
     if (tools.tool != EditorTool.text || text.isEditing || character.trim().isEmpty) return false;
-    final last = text.lastBox;
-    final visible = viewport.visibleWorld;
-    if (last == null || last.surfaceId != model.surfaceId || !visible.overlaps(last.rect)) {
-      beforePasteAtCentre?.call();
-    }
+    // Not under the box finished last: on the page in the middle.
+    if (textTool.typingUnderLast() == null) beforePasteAtCentre?.call();
     selection.clear();
     textTool.startTyping(character);
     return true;
