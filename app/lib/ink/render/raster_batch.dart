@@ -44,8 +44,9 @@ class RasterImage {
 /// side by side into an [atlasSize]² atlas — one read-back each, one
 /// atlas a turn, the surface always the same size —
 /// and each gets a handle of its own on its atlas with the part it
-/// occupies. A picture of the atlas's size is an atlas of its own; larger
-/// ones are made alone.
+/// occupies. A picture as large as an atlas (an ink tile) or larger is
+/// made at once, alone: queued, it would only wait behind others, and a
+/// tile cache asks for the most urgent first.
 class RasterBatch {
   RasterBatch({required this.batching, this.atlasSize = 512});
 
@@ -79,7 +80,10 @@ class RasterBatch {
   /// Rasterises [picture] (drawn from the origin) to [width] × [height]
   /// pixels. The picture must stay undisposed until the future completes.
   Future<RasterImage> rasterize(ui.Picture picture, int width, int height) {
-    if (!batching || width > atlasSize || height > atlasSize) {
+    if (!batching ||
+        width >= atlasSize && height >= atlasSize ||
+        width > atlasSize ||
+        height > atlasSize) {
       readbacks++;
       return picture.toImage(width, height).then(RasterImage.new);
     }
