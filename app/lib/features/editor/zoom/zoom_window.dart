@@ -15,6 +15,7 @@ import 'zoom_window_state.dart';
 
 export 'zoom_window_state.dart';
 
+part 'zoom_window_hand.dart';
 part 'zoom_window_moves.dart';
 
 /// The zoom window (GoodNotes-style): a magnified box at the bottom of the
@@ -28,7 +29,7 @@ part 'zoom_window_moves.dart';
 /// bottom of a page, to the next page (see [ZoomRules]). The main view
 /// follows the frame. The frame is placed by dragging it on the page and
 /// sized with its handle; nothing else is set.
-class ZoomWindow extends ChangeNotifier with _ZoomMoves {
+class ZoomWindow extends ChangeNotifier with _ZoomMoves, _ZoomHandMoves {
   ZoomWindow({
     required this.host,
     required InkInputController Function(SurfaceModel model, ZoomBoxViewport view) input,
