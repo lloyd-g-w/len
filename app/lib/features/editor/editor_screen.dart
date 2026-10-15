@@ -147,6 +147,10 @@ class _EditorScreenState extends State<_EditorView> {
           showMessage: (message) {
             if (mounted) showMessage(context, message);
           },
+          // Leaving focus mode puts back the tool in both panes.
+          onLeave: () {
+            if (_focus) _setFocus(false, disposing: true);
+          },
         );
   final GlobalKey _areaKey = GlobalKey(debugLabel: 'editor area');
 

@@ -61,5 +61,32 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   outline lacks): as smooth at 10 % as at 100 %; at 100 % mouse ink is unchanged, no lag.
 
 ## Done earlier this round
-- ✅ Shape fill, zoom window, document scan, keyboard accessibility, round 10 audit,
-  bug hunts (17 + 8 bugs).
+- ✅ Shape fill, zoom window (and round 2), document scan (and round 2), keyboard
+  accessibility, camera photos recovered after a kill, round 10–12 audits, design polish
+  round 11, performance rounds (pan, paged scroll, web long tasks), bug hunts 1–5.
+
+## Next (open follow-ups, not yet asked for)
+From the reports; the owner picks. Status as above.
+
+- ⬜ **Tablet recordings** (INK_LAB *Gestures on real ink*, Ink Lab, clear before each):
+  words with double ascenders at note size ("all", "little", "hello", "Hill", "tt") in
+  cursive and print; scribble-outs of words at note size, quick and slow; held shapes
+  (line, arrow, rectangle, triangle, ellipse, ring around a word) held until the snap.
+- ⬜ **Tablet checks** (INK_LAB): the low-latency overlay's front buffer and pen-up
+  handover by eye; perf-probe numbers for the later tile / LOD rounds and the background
+  recogniser; writing while a 15 000-stroke canvas loads (pen-up p90 47 ms, GC pauses).
+- ✅ **Scan corner drag** redraws the photo with the outline per move; a layer of its own
+  for the photo would leave only the outline and loupe (PERFORMANCE). Done (perf/leftovers-2).
+- ✅ **First pull** bound by SQLite inserts on the UI isolate; apply in a worker with its
+  own connection (PERFORMANCE). Done (perf/leftovers-2): natively a large pull is applied in
+  a worker isolate yielding to the app's writes; UI busy 4.1 s → 0.7 s for 73k records.
+- ✅ **Overview thumbnails** record during a fast drag; defer them while the grid flings
+  (PERFORMANCE). Done (perf/leftovers-2): not recorded over two screens a second, filled in
+  when it slows.
+- ⬜ **Web (JavaScript)**: tiles, thumbnails and LOD rasters read back on the main thread;
+  batch renders by size or keep tiles as pictures (PERFORMANCE).
+- ✅ **Keyboard**: reorder overview pages: Ctrl+← / → a place, Ctrl+↑ / ↓ a row, one undo
+  step each, announced ("Page 3 moved to 4"), focus follows; screen readers get Move earlier /
+  later (UX_AUDIT).
+- ✅ **⋯ → View is at 9 rows**: now 7; the page flow and toolbar radio pairs are one switch
+  each, "One page at a time" and "Floating toolbar" (UX_AUDIT R12-7).

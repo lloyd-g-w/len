@@ -128,6 +128,32 @@ void main() {
     });
   });
 
+  test('touching: a lasso inside a filled shape takes it, inside an empty outline not', () {
+    Stroke box(String id, {int? fill}) => Stroke(
+      id: id,
+      surfaceId: 's',
+      tool: InkTool.ballpoint,
+      color: 0xFF000000,
+      width: 2,
+      style: const StrokeStyle().withFill(fill),
+      points: [
+        for (final p in const [
+          Offset(-50, -50),
+          Offset(150, -50),
+          Offset(150, 150),
+          Offset(-50, 150),
+          Offset(-50, -50),
+        ])
+          StrokePoint(p.dx, p.dy, 0.5),
+      ],
+      createdAt: 1,
+    );
+    final lasso = _lasso(cover: LassoCover.touching);
+    expect(lasso.selectsStroke(box('filled', fill: 0x8000FF00)), isTrue);
+    expect(lasso.selectsStroke(box('empty')), isFalse);
+    expect(Lasso(_square).selectsStroke(box('filled', fill: 0x8000FF00)), isFalse);
+  });
+
   group('Lasso kinds', () {
     final pen = line('pen', const Offset(10, 20), const Offset(90, 20));
     final marker = _highlight('marker', const Offset(10, 40), const Offset(90, 40));

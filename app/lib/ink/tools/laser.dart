@@ -31,8 +31,32 @@ class LaserTrail extends ChangeNotifier {
   /// loses its oldest points past it).
   final int capacity;
 
-  /// How the laser looks; taken from the tool settings when a gesture starts.
-  LaserConfig config = const LaserConfig();
+  /// How the laser looks; taken from the tool settings when a gesture
+  /// starts. Switching how the trail fades ([holding]) while it shows
+  /// changes nothing abruptly: a held trail fades on from where it is, one
+  /// fading after each stroke goes on fading so beneath what is held next.
+  LaserConfig get config => _config;
+  LaserConfig _config = const LaserConfig();
+  set config(LaserConfig next) {
+    if (next == _config) return;
+    final wasHolding = holding, head = headAlpha;
+    _config = next;
+    if (holding == wasHolding || !isVisible) return;
+    if (wasHolding) {
+      // Every held point fades on from the held trail's opacity.
+      final alpha = _held;
+      for (var i = _legacy; i < _length; i++) {
+        final k = _index(i);
+        if (_t[k] != _pending) _t[k] = _now - (1 - alpha) * lifetime.inMilliseconds;
+      }
+      _legacy = 0;
+    } else {
+      _legacy = _length;
+    }
+    // The dot fades on from where it was.
+    if (_liftedAt != null) _liftedAt = _now - (1 - head) * _headFade.inMilliseconds;
+    notifyListeners();
+  }
 
   /// How long the dot takes to fade after the pointer lifts in dot mode.
   static const Duration dotFade = Duration(milliseconds: 350);
@@ -51,6 +75,10 @@ class LaserTrail extends ChangeNotifier {
 
   /// A mouse hovers with the laser: the dot follows it, unpressed.
   bool _hovering = false;
+
+  /// The oldest points, drawn before the trail began to be held
+  /// ([holding]), which still fade each on its own.
+  int _legacy = 0;
 
   /// Frame time the pointer lifted ([_pending] until the next frame).
   double? _liftedAt;
@@ -88,7 +116,7 @@ class LaserTrail extends ChangeNotifier {
   bool startsAt(int i) => i == 0 || _starts[_index(i)] == 1;
 
   /// Opacity (1 → 0) of point [i] as of [now].
-  double alphaAt(int i) => holding ? _held : _fade(_t[_index(i)], lifetime);
+  double alphaAt(int i) => holding && i >= _legacy ? _held : _fade(_t[_index(i)], lifetime);
 
   /// Whether the trail is held while writing and fades all together
   /// ([LaserFade.pause]).
@@ -114,10 +142,13 @@ class LaserTrail extends ChangeNotifier {
     if (holding) {
       // With the trail while it is held, else fading like the dot alone.
       final own = _fade(_liftedAt ?? _pending, dotFade);
-      return _length > 0 ? math.max(_held, own) : own;
+      return _length > _legacy ? math.max(_held, own) : own;
     }
-    return _fade(_liftedAt ?? _pending, config.mode == LaserMode.dot ? dotFade : lifetime);
+    return _fade(_liftedAt ?? _pending, _headFade);
   }
+
+  /// How long the dot takes to fade on its own after a lift.
+  Duration get _headFade => holding || config.mode == LaserMode.dot ? dotFade : lifetime;
 
   double _fade(double time, Duration over) =>
       time == _pending ? 1 : (1 - (_now - time) / over.inMilliseconds).clamp(0.0, 1.0);
@@ -175,6 +206,7 @@ class LaserTrail extends ChangeNotifier {
     if (_length == capacity) {
       k = _first;
       _first = (_first + 1) % capacity;
+      if (_legacy > 0) _legacy--;
     } else {
       k = _index(_length++);
     }
@@ -195,17 +227,22 @@ class LaserTrail extends ChangeNotifier {
     }
     if (_liftedAt == _pending) _liftedAt = nowMs;
     if (_releasedAt == _pending) _releasedAt = nowMs;
+    final cutoff = nowMs - lifetime.inMilliseconds;
     if (holding) {
+      while (_legacy > 0 && _t[_first] != _pending && _t[_first] <= cutoff) {
+        _first = (_first + 1) % capacity;
+        _length--;
+        _legacy--;
+      }
       final alpha = _held;
-      if (alpha == 0) _length = 0; // Faded: all of it goes.
+      if (alpha == 0) _length = _legacy; // Faded: all that was held goes.
       // While it is held in full, frames change nothing.
-      final still = _length > 0 && !_pressed && alpha == 1 && _heldAlpha == 1;
+      final still = _length > 0 && _legacy == 0 && !_pressed && alpha == 1 && _heldAlpha == 1;
       _heldAlpha = alpha;
       if (!_pressed && headAlpha == 0) _head = null;
       if (!still) notifyListeners();
       return;
     }
-    final cutoff = nowMs - lifetime.inMilliseconds;
     while (_length > 0 && _t[_first] != _pending && _t[_first] <= cutoff) {
       _first = (_first + 1) % capacity;
       _length--;
@@ -218,7 +255,7 @@ class LaserTrail extends ChangeNotifier {
   /// fading. A dot held still (pressed or hovering) needs none.
   /// A held trail needs them only once lifted, to count down and fade.
   bool get animating =>
-      (holding ? _length > 0 && !_pressed : _length > 0) ||
+      (holding ? _length > 0 && !_pressed || _legacy > 0 : _length > 0) ||
       (_head != null && !_pressed && !_hovering && headAlpha > 0);
 
   /// Moves the trail and the dot by [delta] (world units): the surface
@@ -238,6 +275,7 @@ class LaserTrail extends ChangeNotifier {
   void clear() {
     _first = 0;
     _length = 0;
+    _legacy = 0;
     _head = null;
     _pressed = false;
     _hovering = false;

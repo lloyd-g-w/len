@@ -285,7 +285,7 @@ paper colour (`notebooks.paper_color`). Paged documents glide too (single-page f
 only when zoomed in; at the whole page it settles back or turns the page).
 
 **Minimap** (`canvas/canvas_minimap.dart`, a layer of `EditorLayers`; "⋯" → View →
-*Minimap*, Shift+M; local settings `canvas_minimap`, `minimap_in_focus`): a `FloatingPanel`
+*Minimap*, Shift+M; local setting `canvas_minimap`): a `FloatingPanel`
 window onto the paper in the bottom-right corner, clear of the chrome and the audio strip
 (`ChromeLayout.covered`), shaped like the free area (1:1 to 16:10; 176 dp, 120 on phones).
 Content comes from storage — `StrokeReader.chunkDensity` (items per populated chunk, in the
@@ -342,7 +342,8 @@ re-saves the page's strokes; the overview's selection goes through
 `DocumentCommands.deleteMany` → `PageActions.deleteAll`, one step with one Undo
 that restores every page in place — at least one page always remains), reorder (fractional sort keys, `PageOrder`;
 the list is renumbered only when a gap is exhausted; inserting finds the page to follow by
-id), bookmarks, templates, and moving or copying pages to another notebook
+id; in the overview by drag, or Ctrl+arrows on a focused tile — a place along, a row across,
+one undo step each, announced, focus following the page: `overview/page_moves.dart`), bookmarks, templates, and moving or copying pages to another notebook
 (`PageTransfer`, one transaction; its undo never deletes work done since:
 changed copies stay, a notebook made for the pages goes to the Trash, and redo
 reuses the copies still there).
@@ -559,7 +560,7 @@ or deleted pages in order with ink. Snack bars' Undo calls
   then it rests 300 ms so one flick turns one page). Zoomed in, they pan.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
   P / H / E / L / S / T / K; 1–5 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 focus mode with the laser;
-  Ctrl/⌘+E export, Ctrl/⌘+G go to page (paged), Ctrl+F search;
+  M zoom window; Ctrl/⌘+E export, Ctrl/⌘+G go to page (paged), Ctrl+F search;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases (`canvas/canvas_shortcuts.dart`):
   arrows move around (15 % of the screen, gliding), `+` / `-` (also with Ctrl/⌘),
   `0` 100 %, Shift+1 fit content, **Home back to start**, Shift+M minimap. Paged notebooks
@@ -633,7 +634,7 @@ or deleted pages in order with ink. Snack bars' Undo calls
   resolved at tap time to the first page with that exact `Paper`, so reordering, deleting or
   adding pages never breaks links; a missing target offers "Add page". Links are followed by a
   finger tap when fingers navigate (stylus mode), a Ctrl/⌘-click, or the long-press menu ("Go
-  to …") — `PlannerLinkTaps` only watches pointers, so drawing is never disturbed.
+  to …") — `LinkTaps` only watches pointers, so drawing is never disturbed.
 - **My templates** (`templates` collection, `TemplateRepository`, `UserTemplate`): an image blob
   plus the page size it suggests. "Import…" in the picker takes an image (`ImageImport`) or a
   PDF page (rendered to a 2000 px PNG); "Save page as template" (page menu) renders the page
@@ -2167,6 +2168,7 @@ the web:
 | Blobs (`blob_backend`) | files                                     | IndexedDB store `len_blobs` behind `WriteBackBlobBackend` (blobs it can't store wait in memory); if it can't open, memory (`VolatileBlobBackend`), which the library, Settings and a first-write snack say |
 | App dir (`app_directory`) | `path_provider` app-support dir         | none                                             |
 | Canvas reads (`stroke_reader`) | background isolate, own connection  | UI thread, time-budgeted slices (`SlicedStrokeReader`) |
+| Applying large pulls (`pull_worker`) | background isolate, own connection, yielding to the app's writes | UI thread, time-budgeted slices |
 | LOD raster cache (`raster_store`) | PNG files in the cache directory (`lod-<format>/`, 96 MB LRU) | none: rasterised again each time |
 | Export (`file_export`) | save dialog + Show in folder / share sheet or Save to device | browser download                                 |
 | Single instance (`single_instance`) | one process (desktop runners forward later launches) | Web Lock + BroadcastChannel: a second tab waits ("open in another tab") or takes over (*Use here*, `TabHandover`) |
@@ -2292,7 +2294,8 @@ below 31 bits, and use `float32`/`int32` in binary formats.
 ### Native shells and packaging
 
 - **Branding:** one design, `app/tool/generate_icons.sh` (glyph =
-  `Icons.gesture_rounded`, as in the sidebar logo) writes the web icons,
+  Material Symbols "gesture" in `tool/branding/glyph.path`, as the sidebar's
+  `Symbols.gesture_sharp`) writes the web icons,
   Android adaptive/themed/legacy icons and splash icon, Windows `.ico` and
   Linux hicolor icons. Don't edit generated icons by hand.
 - **Android:** `LaunchTheme` = Android 12+ SplashScreen (surface colour +
@@ -2496,8 +2499,8 @@ expect.
   in favourites, trash, search, selection or list layout); ⊕▾ creates everywhere else. Phones
   get the FAB instead, hidden while an empty state offers its own button.
 - **New notebook sheet** (`new_notebook_sheet.dart`, `new_notebook/`): one column (title,
-  Styles, Notebook / Canvas, Template (`PaperRow`, "Background" for a canvas) with the recent papers and "All templates…" → the template
-  picker, `CoverRow`, page size) with `NotebookPreview` beside it in the dialog and as a strip
+  Styles once there are any, Notebook / Canvas, Template (`PaperRow`, "Background" for a canvas) with the recent papers and "All templates…" → the template
+  picker, `CoverRow`, page size, then "Save as style…") with `NotebookPreview` beside it in the dialog and as a strip
   on phones. The papers come from `recentPapers` (`AppPreferences.recentPapers`, filled up with
   defaults; canvases only tiling papers); creating a notebook records its paper. Where the
   library has no ⊕▾ (phones), "Import PDF…" and "Import Len file…" are quiet links at the
@@ -2505,11 +2508,12 @@ expect.
 - **Notebook styles** (`notebook_styles` collection, `NotebookStyleRepository`,
   `domain/notebook_style.dart`): a `NotebookChoice` (notebook or canvas, a built-in template
   and its look, paper colour, page format and orientation, cover colour; never a user's image
-  template) under a name. The sheet's Styles row (`StyleRow`, `style_actions.dart`) shows them
-  as chips that fill in the whole form at once, the one matching the form selected; "Save as
-  style…" names the current choice (hidden when it matches a style). Tapping the selected chip
+  template) under a name. The sheet's Styles row (`StyleRow`, `style_actions.dart`; only once a style exists) shows
+  them as chips that fill in the whole form at once, the one matching the form selected; "Save
+  as style…" (`SaveStyleButton`, under the form) names the current choice (hidden when it
+  matches a style or uses an image template). Tapping the selected chip
   again, a long press, a right click or the Menu key opens its menu: "Default for new
-  notebooks" (checked; one default, `setDefault` clears the others; after concurrent marks the
+  notebooks" (a push pin, checked; one default, `setDefault` clears the others; after concurrent marks the
   latest wins), Rename…, Delete…. The sheet starts from the default style, else from
   `AppPreferences.lastNotebookChoice` (what the last *notebook*, not canvas, was made as,
   recorded by `LibraryActions.createNotebook`), else college ruled. Notebooks copy the values,
@@ -2757,16 +2761,37 @@ malformed record is skipped. Open screens subscribe to
 Robustness (`SyncEngine`): rows are marked clean only for the exact version
 the server confirmed (`markClean` by `updatedAt`). Pulls ask for the server's
 largest page (1,000 records) and fetch the next page while one is applied.
-Natively a page is decoded in a worker isolate (`platform/pull_decoder.dart`;
-the web decodes on the UI thread): JSON, the record checks, and live strokes
-parsed into the rows they are stored as (`StrokeRow`, `SyncRecord.prepared`;
-a stroke within one chunk is checked on its encoded points without being
-built). The UI thread then applies the page in slices of about 4 ms, one
-transaction each with a turn of the event loop between (also between pages),
-so a first sync of a large library never holds the UI for a frame; only the
-last slice moves the feed position, so a dropped connection never loses
+Decoding a page means JSON, the record checks, and live strokes parsed into
+the rows they are stored as (`StrokeRow`, `SyncRecord.prepared`; a stroke
+within one chunk is checked on its encoded points without being built).
+A `PullApplier` then applies the page in slices, one transaction each; only
+the last slice moves the feed position, so a dropped connection never loses
 anything: a page cut short is pulled again (re-applying a record is a no-op);
-the next cycle resumes.
+the next cycle resumes. Where that runs:
+
+- **A large pull, natively** (a page of 64 KB or more: a first sync, a big
+  catch-up) starts a pull worker (`platform/pull_worker.dart`,
+  `sync/background_pull_worker.dart`) for the rest of the pull: an isolate
+  with its own connection to `len.db` (`AppDatabase.attach`, WAL) that
+  decodes the pages (their bytes move there uncopied) and applies them in
+  8 ms slices with a 1 ms pause between, the same `PullApplier` code, so
+  triggers (search, the handwriting queue) fire as on the UI isolate. The UI
+  thread only fetches pages. Two writers on one file: every transaction
+  begins `IMMEDIATE` (one that read first could not upgrade once the other
+  had committed) and waits up to `busy_timeout` 5 s; the app's transactions
+  raise a count in memory the worker reads (`SharedWriteSignal`, the
+  `ffi` package), which ends its slice after the current record and holds
+  the next until the app is done, so the app's write waits about a
+  millisecond (writes outside a transaction wait at most a slice). The
+  worker's commits are announced on `AppDatabase.commits` (the handwriting
+  indexer listens), and what the pull changed comes back per page as
+  `RemoteChanges`. Cancelling stops it after the current slice; it closes
+  when the pull ends.
+- **Otherwise** (the web, an in-memory database, small pulls) the page is
+  decoded in a worker natively (`platform/pull_decoder.dart`; the web
+  decodes on the UI thread) and applied on the UI thread in slices of
+  about 4 ms with a turn of the event loop between (also between pages), so
+  a first sync never holds the UI for a frame.
 Each cycle starts with `/v1/health`: its `serverId` decides whether this is
 the server last synced with — a new id (another server, or a wiped or
 restored one) resets the feed position and marks every row and blob for
@@ -2832,8 +2857,8 @@ again.
   (each a small GPU read-back).
 - Pixel-erasing a long stroke, or moving a selection, rewrites strokes as
   new records (simple and sync-safe, but more rows than a delta).
-- Text boxes: list items have no hanging indent (wrapped lines start at the
-  box edge); text pasted from other apps is plain; PDF export places glyphs
+- Text boxes: paste keeps formatting from HTML only (RTF-only sources such as
+  WordPad paste plain); PDF export places glyphs
   word by word without kerning; boxes with characters outside the bundled
   fonts' subsets export as images.
 - Android: historical stylus samples are merged from a platform channel;
@@ -2861,9 +2886,10 @@ again.
   platforms without a WebM decoder. Waveforms come from the recorder's level
   meter (≈ the loudness of the last buffer every 100 ms), not from decoding
   the audio; recordings without one show a flat scrubber. Trimming is
-  non-destructive (parts outside the trim keep their storage), browser
-  recordings export untrimmed, and no media notification plays in the
-  background; exporting reads the whole audio into memory.
+  non-destructive (parts wholly outside the trim keep their storage until
+  "Free up …"), trimmed browser recordings export the whole parts the trim
+  touches, and Windows has no system media controls (SMTC; media keys only
+  while Len is in front); exporting reads the whole audio into memory.
 - Planners: fixed headings ("Week", "Schedule", "Priorities", "To do", "Notes") are English
   whatever the planner's language; the language list is curated (scripts the bundled Inter
   covers), hours are always 24-hour, and weeks start on Monday or Sunday only. User templates

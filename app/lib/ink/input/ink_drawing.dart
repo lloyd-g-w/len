@@ -45,7 +45,12 @@ class InkDrawing {
     required this.clock,
     this.content,
     this.samples,
-  }) : _straighten = HoldToStraighten(live);
+  }) : _straighten = HoldToStraighten(live) {
+    // A resting mouse's ink catches up with it before the stroke is read.
+    _straighten.beforeSnap = () {
+      if (_byMouse) _mouse.flush();
+    };
+  }
 
   /// The surface strokes are committed to and erased from.
   SurfaceModel model;

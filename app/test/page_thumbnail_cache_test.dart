@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+import 'package:fake_async/fake_async.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/stroke_repository.dart';
@@ -47,6 +49,32 @@ void main() {
       await settle(() => !identical(cache.rasterOf('p', page, 300, 424), first));
       expect(cache.rasterOf('p', page, 300, 424), isNotNull);
       cache.dispose();
+      db.close();
+    });
+  });
+
+  test('nothing is recorded while deferred; what waits on screen is, once it stops', () {
+    fakeAsync((async) {
+      final db = AppDatabase.inMemory();
+      final strokes = StrokeRepository(db, deviceId: 'd');
+      final defer = ValueNotifier(true);
+      final cache = ThumbnailCache(SurfaceCopier(strokes), defer: defer);
+      for (final id in ['a', 'b', 'c']) {
+        cache.shown(id);
+        expect(cache.inkOf(id), isNull);
+      }
+      async.elapse(const Duration(milliseconds: 50));
+      expect(cache.recordings, 0);
+      cache.hidden('a'); // Scrolled past while fast: never recorded.
+      defer.value = false;
+      async.elapse(Duration.zero);
+      expect(cache.recordings, 2);
+      expect(
+        [cache.isRecorded('a'), cache.isRecorded('b'), cache.isRecorded('c')],
+        [false, true, true],
+      );
+      cache.dispose();
+      defer.dispose();
       db.close();
     });
   });

@@ -61,6 +61,15 @@ mixin _ZoomMoves {
   /// Whether the frame jumps instead of gliding (reduced motion).
   bool reducedMotion = false;
 
+  /// Whether tickers run where the box is (`TickerMode`): a parked split
+  /// pane runs none, so a glide waits there (and lands once it shows).
+  bool get ticking => _ticking;
+  bool _ticking = true;
+  set ticking(bool on) {
+    _ticking = on;
+    _glide?.muted = !on;
+  }
+
   /// The frame while open.
   ZoomFrame? get frame => _frame;
 
@@ -226,12 +235,15 @@ mixin _ZoomMoves {
     if (reducedMotion) return _set(frame.copyWith(origin: to));
     _glideFrom = frame.origin;
     _glideEnd = to;
-    _glide = Ticker((elapsed) {
-      final t = math.min(1.0, elapsed.inMicroseconds / Motion.medium.inMicroseconds);
-      final at = Offset.lerp(_glideFrom, _glideEnd, Motion.standard.transform(t))!;
-      _set(_frame!.copyWith(origin: at));
-      if (t >= 1) _stopGlide();
-    }, debugLabel: 'ZoomWindow')..start();
+    _glide =
+        Ticker((elapsed) {
+            final t = math.min(1.0, elapsed.inMicroseconds / Motion.medium.inMicroseconds);
+            final at = Offset.lerp(_glideFrom, _glideEnd, Motion.standard.transform(t))!;
+            _set(_frame!.copyWith(origin: at));
+            if (t >= 1) _stopGlide();
+          }, debugLabel: 'ZoomWindow')
+          ..muted = !_ticking
+          ..start();
   }
 
   /// Jumps a glide in progress to its end (the pen came back).

@@ -119,9 +119,13 @@ page bookmark glyph.** ✅ `Symbols.bookmark_sharp` means "Bookmark page"
 in the page menu. *Fix:* a push pin (`library/new_notebook/style_actions.dart`).
 Effort S.
 
-**R12-7 P3 · ⋯ → View is at 9 rows.** Keep; note for the next toggle:
+**✅ R12-7 P3 · ⋯ → View is at 9 rows.** Keep; note for the next toggle:
 merge before adding (e.g. the two toolbar radios into one "Floating
-toolbar" switch). No change now.
+toolbar" switch). *Done:* 7 rows (paged): the zoom radios (Fit page,
+Fit width, Automatic zoom), then switches only: "One page at a time"
+(was Scroll pages / One page at a time), "Floating toolbar" (was
+Toolbar docked / Toolbar floating), Zoom window, (Minimap on a canvas),
+and Focus mode (`chrome/editor_more_menu.dart`).
 
 **R12-8 P3 · On/off rows in menus: switches in ⋯, checks in popup
 menus.** Keep: `MenuRow` marks state with a check everywhere (library
@@ -438,8 +442,10 @@ Menu key), the focus ring (DESIGN §6) the only cue. Tests:
   right after it.
 - Escape from any chrome control returns to the page; menus and popovers
   opened from the keyboard give focus back to their opener.
-- Open: reordering overview pages by keyboard (drag only; the page menu's
-  Move or copy page… covers it).
+- ✅ Reordering overview pages by keyboard: Ctrl+← / → move the focused
+  page a place, Ctrl+↑ / ↓ a row (as the scan strip's Ctrl+arrows); one
+  undo step per move, announced ("Page 3 moved to 4"), focus follows the
+  page; screen readers get "Move earlier" / "Move later" on the tile.
 
 ## Round 9 audit — simplicity (`review/round9`)
 

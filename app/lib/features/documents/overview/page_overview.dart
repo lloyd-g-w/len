@@ -4,16 +4,20 @@ import '../../../data/surface_copier.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/fast_scroll.dart';
 import '../../editor/document/page_backgrounds.dart';
 import '../../editor/document/page_thumbnail.dart';
+import 'overview_grid.dart';
 import 'overview_parts.dart';
 import 'page_commands.dart';
+import 'page_moves.dart';
 import 'page_tile.dart';
 
 export 'overview_parts.dart' show OverviewFilter;
 export 'page_commands.dart';
 
-/// Grid of live page thumbnails: go to, reorder (long-press and drag),
+/// Grid of live page thumbnails: go to, reorder (long-press and drag, or
+/// Ctrl+arrows on a focused page),
 /// insert, duplicate, delete, bookmark, and a selection mode for acting on
 /// several pages at once. Pops with the index of the page to show, if any.
 class PageOverview extends StatefulWidget {
@@ -53,7 +57,15 @@ class PageOverview extends StatefulWidget {
 }
 
 class _PageOverviewState extends State<PageOverview> {
-  late final ThumbnailCache _cache = ThumbnailCache(widget.copier, images: widget.images);
+  final ScrollController _scroll = ScrollController();
+
+  /// Thumbnails wait while the grid scrolls fast (rows only passing by).
+  late final FastScroll _fast = FastScroll(_scroll);
+  late final ThumbnailCache _cache = ThumbnailCache(
+    widget.copier,
+    images: widget.images,
+    defer: _fast,
+  );
   late List<NotebookPage> _pages = widget.handlers.load();
   late OverviewFilter _filter =
       widget.outline == null && widget.initialFilter == OverviewFilter.outline
@@ -67,6 +79,12 @@ class _PageOverviewState extends State<PageOverview> {
 
   bool get _selecting => _selection != null;
 
+  /// Each page's tile focus, by page id: focus follows a page it moves.
+  final _focus = <String, FocusNode>{};
+
+  FocusNode _focusOf(NotebookPage page) =>
+      _focus[page.id] ??= FocusNode(debugLabel: 'page ${page.id}');
+
   @override
   void initState() {
     super.initState();
@@ -77,6 +95,11 @@ class _PageOverviewState extends State<PageOverview> {
   void dispose() {
     widget.changes?.removeListener(_reload);
     _cache.dispose();
+    for (final node in _focus.values) {
+      node.dispose();
+    }
+    _fast.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -86,6 +109,11 @@ class _PageOverviewState extends State<PageOverview> {
       _pages = widget.handlers.load();
       final ids = {for (final p in _pages) p.id};
       _selection?.removeWhere((id) => !ids.contains(id));
+      _focus.removeWhere((id, node) {
+        if (ids.contains(id)) return false;
+        node.dispose();
+        return true;
+      });
     });
   }
 
@@ -97,6 +125,32 @@ class _PageOverviewState extends State<PageOverview> {
   void _move(NotebookPage page, int toIndex) {
     widget.handlers.move(page, toIndex);
     _reload();
+  }
+
+  /// Moves [page] a step toward [direction] in a grid of [columns]
+  /// (Ctrl+arrows), says where it went and keeps it focused and in view.
+  void _step(NotebookPage page, AxisDirection direction, int columns) {
+    final from = _pages.indexWhere((p) => p.id == page.id);
+    if (from == -1) return;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final to = pageStep(from, direction, columns: columns, count: _pages.length, rtl: rtl);
+    if (to == from) return;
+    _move(page, to);
+    announcePageMove(context, from, to);
+    final node = _focusOf(page);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      node.requestFocus();
+      if (node.context case final context?) {
+        Scrollable.ensureVisible(
+          context,
+          duration: Motion.fast,
+          alignmentPolicy: to > from
+              ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
+              : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+        );
+      }
+    });
   }
 
   void _toggle(NotebookPage page) => setState(() {
@@ -236,47 +290,42 @@ class _PageOverviewState extends State<PageOverview> {
               )
             : shown.isEmpty
             ? const NoBookmarks()
-            : GridView.builder(
-                padding: EdgeInsets.fromLTRB(
-                  compact ? Gaps.lg : Gaps.xxl,
-                  Gaps.lg,
-                  compact ? Gaps.lg : Gaps.xxl,
-                  Gaps.xxl + MediaQuery.paddingOf(context).bottom,
-                ),
-                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: compact ? 180 : 200,
-                  mainAxisSpacing: Gaps.lg,
-                  crossAxisSpacing: compact ? Gaps.lg : Gaps.xl,
-                  childAspectRatio: 0.62,
-                ),
-                itemCount: shown.length + (addTile ? 1 : 0),
-                itemBuilder: (context, i) {
-                  if (i == shown.length) {
-                    return AddPageTile(
-                      onTap: () => _run(PageCommand.insertAfter, _pages.last),
-                      onLongPress: () => _run(PageCommand.insertWithTemplate, _pages.last),
-                    );
-                  }
-                  final index = shown[i];
-                  final page = _pages[index];
-                  return PageTile(
-                    key: ValueKey('page-tile-$index'),
-                    index: index,
-                    page: page,
-                    cache: _cache,
-                    backgrounds: widget.backgrounds,
-                    current: index == widget.currentPage,
-                    reorderable: !_bookmarksOnly,
-                    selecting: _selecting,
-                    selected: _selection?.contains(page.id) ?? false,
-                    onTap: () => _selecting ? _toggle(page) : Navigator.of(context).pop(index),
-                    onLongPress: () => _toggle(page),
-                    onCommand: (c) => _run(c, page),
-                    onDrop: (from) => _move(_pages[from], index),
-                  );
-                },
+            : OverviewGrid(
+                controller: _scroll,
+                count: shown.length + (addTile ? 1 : 0),
+                compact: compact,
+                tile: (context, i, columns) => _tile(shown, i, columns),
               ),
       ),
+    );
+  }
+
+  /// Tile [i] of the grid: a page of [shown] or, past them, "Add page".
+  Widget _tile(List<int> shown, int i, int columns) {
+    if (i == shown.length) {
+      return AddPageTile(
+        onTap: () => _run(PageCommand.insertAfter, _pages.last),
+        onLongPress: () => _run(PageCommand.insertWithTemplate, _pages.last),
+      );
+    }
+    final index = shown[i];
+    final page = _pages[index];
+    return PageTile(
+      key: ValueKey('page-tile-$index'),
+      index: index,
+      page: page,
+      cache: _cache,
+      backgrounds: widget.backgrounds,
+      current: index == widget.currentPage,
+      reorderable: !_bookmarksOnly,
+      selecting: _selecting,
+      selected: _selection?.contains(page.id) ?? false,
+      onTap: () => _selecting ? _toggle(page) : Navigator.of(context).pop(index),
+      onLongPress: () => _toggle(page),
+      onCommand: (c) => _run(c, page),
+      onDrop: (from) => _move(_pages[from], index),
+      focusNode: _focusOf(page),
+      onMove: _bookmarksOnly || _selecting ? null : (direction) => _step(page, direction, columns),
     );
   }
 }

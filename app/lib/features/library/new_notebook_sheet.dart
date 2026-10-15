@@ -153,9 +153,9 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
   NotebookChoice? get _choice =>
       NotebookChoice.of(kind: _kind, template: _template, coverColor: _cover);
 
-  /// Fills in the form from [choice] (planners from today).
+  /// Fills in the form from [choice] (planners from today, in its calendar).
   void _apply(NotebookChoice choice) {
-    final calendar = defaultPlannerCalendar();
+    final calendar = choice.plannerCalendar ?? defaultPlannerCalendar();
     final paper = Paper.defaultFor(choice.paper, today: _today, calendar: calendar)!;
     _kind = choice.kind;
     _cover = choice.coverColor;

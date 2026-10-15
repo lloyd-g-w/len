@@ -107,6 +107,53 @@ void main() {
       expect(trail.alphaAt(0), closeTo(0.5, 1e-9));
     });
 
+    test('switching to fade each stroke while a held trail shows: it fades on from there', () {
+      final trail = LaserTrail()..config = _hold;
+      addTearDown(trail.dispose);
+      _stroke(trail, Offset.zero);
+      trail
+        ..tick(1000)
+        ..tick(2500);
+      final start = 1000 + _hold.hold.inMilliseconds;
+      trail.tick(start + LaserTrail.holdFade.inMilliseconds / 4); // 3/4 left.
+      expect(trail.alphaAt(0), closeTo(0.75, 1e-9));
+      final head = trail.headAlpha;
+      trail.config = const LaserConfig(); // Each stroke, 1 s.
+      expect([for (var i = 0; i < 4; i++) trail.alphaAt(i)], everyElement(closeTo(0.75, 1e-9)));
+      expect(trail.headAlpha, closeTo(head, 1e-9));
+      final now = trail.now;
+      trail.tick(now + 1);
+      expect(trail.length, 4, reason: 'not dropped');
+      trail.tick(now + 500);
+      expect(trail.alphaAt(0), closeTo(0.25, 1e-3));
+      trail.tick(now + 760);
+      expect(trail.isVisible, isFalse);
+    });
+
+    test('switching to fade when I stop while a trail fades: what shows fades on as it was', () {
+      final trail = LaserTrail(); // Each stroke, 1 s.
+      addTearDown(trail.dispose);
+      _stroke(trail, Offset.zero);
+      trail
+        ..tick(0)
+        ..tick(400);
+      final head = trail.headAlpha;
+      trail.config = _hold;
+      expect([for (var i = 0; i < 4; i++) trail.alphaAt(i)], everyElement(closeTo(0.6, 1e-9)));
+      expect(trail.headAlpha, closeTo(head, 1e-9));
+      trail.tick(700);
+      expect(trail.alphaAt(0), closeTo(0.3, 1e-9), reason: 'no flash back');
+      // A new stroke is held, while the old one fades out beneath it.
+      _stroke(trail, const Offset(0, 50));
+      trail.tick(800);
+      expect(trail.length, 8);
+      trail.tick(1100);
+      expect(trail.length, 4, reason: 'the old stroke went');
+      expect([for (var i = 0; i < 4; i++) trail.alphaAt(i)], everyElement(1));
+      trail.tick(800 + _hold.hold.inMilliseconds + LaserTrail.holdFade.inMilliseconds + 1.0);
+      expect(trail.isEmpty, isTrue);
+    });
+
     test('the fade and hold persist; bad values take their defaults', () {
       final db = AppDatabase.inMemory();
       addTearDown(db.close);

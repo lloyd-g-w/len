@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/core/clock.dart';
-import 'package:len/data/app_database.dart';
 import 'package:len/data/syncable.dart';
 import 'package:len/sync/sync_engine.dart';
 import 'package:sqlite3/common.dart';
 
 import 'fake_server.dart';
+import 'test_database.dart';
 
 /// Wall-clock time shared by the devices of a test.
 class TestTime {
@@ -33,7 +33,7 @@ class DeviceClock extends Clock {
 /// [server].
 class TestDevice {
   TestDevice(this.server, this.time, String prefix) : clock = DeviceClock(time, prefix) {
-    s = AppServices.create(AppDatabase.inMemory(), clock: clock);
+    s = AppServices.create(openTestDatabase(), clock: clock);
     addTearDown(s.dispose);
   }
 

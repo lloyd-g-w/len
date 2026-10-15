@@ -3,20 +3,13 @@ import 'package:flutter/foundation.dart';
 import '../data/app_database.dart';
 import '../data/blob_references.dart';
 import '../data/blob_store.dart';
-import '../data/deletion_conflicts.dart';
-import '../data/element_repository.dart';
-import '../data/folder_repository.dart';
-import '../data/notebook_repository.dart';
-import '../data/notebook_style_repository.dart';
-import '../data/outline_repository.dart';
-import '../data/page_repository.dart';
-import '../data/recognised_text_repository.dart';
-import '../data/recording_repository.dart';
+import '../data/repositories.dart';
 import '../data/settings_repository.dart';
-import '../data/stroke_repository.dart';
 import '../data/syncable.dart';
-import '../data/template_repository.dart';
+import '../platform/pull_decoder.dart';
 import 'blob_sync.dart';
+import 'pull_applier.dart';
+import 'pull_worker.dart';
 import 'remote_changes.dart';
 import 'sync_api.dart';
 
@@ -36,50 +29,41 @@ class SyncEngine {
   SyncEngine({
     required this.database,
     required this.settings,
-    required this.notebooks,
-    required this.pages,
-    required this.strokes,
-    required this.folders,
+    required this.repositories,
     this.blobs,
-    required this.elements,
-    required this.recordings,
-    required this.templates,
-    required this.notebookStyles,
-    required this.outline,
-    required this.recognisedText,
+    this.pullWorker,
   });
 
   final AppDatabase database;
   final SettingsRepository settings;
-  final NotebookRepository notebooks;
-  final PageRepository pages;
-  final StrokeRepository strokes;
-  final FolderRepository folders;
+
+  /// The synced repositories.
+  final Repositories repositories;
 
   /// Local blob files; uploaded before any record is pushed.
   final BlobStore? blobs;
-  final ElementRepository elements;
 
-  /// Audio recordings of notebooks (their audio travels as blobs).
-  final RecordingRepository recordings;
+  /// Starts a worker that applies pulled pages off the UI isolate, over
+  /// its own connection (native, file databases); null, or a worker that
+  /// fails to start: pages are applied here in slices between frames.
+  final PullWorkerStart? pullWorker;
 
-  /// The user's own templates (their images travel as blobs).
-  final TemplateRepository templates;
+  /// Pulled pages from this size (bytes) on start a [pullWorker] for the
+  /// rest of the pull: a first sync or a big catch-up. Smaller pulls (an
+  /// incremental sync's few records) are applied in place.
+  @visibleForTesting
+  static int workerFromBytes = 64 * 1024;
 
-  /// The user's notebook styles.
-  final NotebookStyleRepository notebookStyles;
-
-  /// Notebooks' own outlines.
-  final OutlineRepository outline;
-
-  /// Handwriting recognised on devices with a recogniser.
-  final RecognisedTextRepository recognisedText;
+  /// Writes pulled pages (on this isolate).
+  late final PullApplier _applier = PullApplier(
+    database: database,
+    settings: settings,
+    repositories: repositories,
+    stores: _stores,
+  );
 
   /// Which blobs live rows reference.
   late final BlobReferences blobReferences = BlobReferences(database);
-
-  /// Brings back deletions that raced edits elsewhere.
-  late final DeletionConflicts _conflicts = DeletionConflicts(notebooks);
 
   /// What the server reported in the last sync (null before the first).
   ServerInfo? serverInfo;
@@ -120,21 +104,7 @@ class SyncEngine {
   /// splits them by size.
   static const int _pushPageSize = 500;
 
-  late final Map<String, SyncableStore> _stores = {
-    for (final s in <SyncableStore>[
-      folders,
-      templates,
-      notebookStyles,
-      notebooks,
-      pages,
-      outline,
-      strokes,
-      elements,
-      recordings,
-      recognisedText,
-    ])
-      s.collection: s,
-  };
+  Map<String, SyncableStore> get _stores => repositories.byCollection;
 
   /// All syncable stores, in push order (parents before children).
   Iterable<SyncableStore> get stores => _stores.values;

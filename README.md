@@ -9,6 +9,28 @@ optional sync through a tiny server you host yourself.
 - [Sync protocol](docs/SYNC_PROTOCOL.md)
 - [Self-hosting the sync server](server/README.md)
 
+## Features
+
+- **Handwriting first**: low-latency pressure ink (S Pen, other active pens, finger,
+  mouse), palm rejection, stabiliser; mouse ink stays smooth zoomed out.
+- **Pen, highlighter, eraser**: the highlighter uses the pen's engine (pressure, flat or
+  round ends) and sits behind the ink; pixel or stroke eraser, or scribble over ink to
+  erase it.
+- **Shapes**: draw and hold to snap, or the Shape tool (Shift for regular shapes);
+  drag a selected shape's handles to reshape it; closed shapes take a fill.
+- **Lasso**: freehand or rectangle; select what it touches, mostly or wholly encloses,
+  and which items (ink, highlighter, text, images).
+- **Laser pointer**: fades per stroke, or holds everything until you stop writing.
+- **Zoom window**: write large in a docked box, small on the page; it moves along the
+  lines and pages.
+- **Minimap** on infinite canvases: see where content is, tap or drag to move.
+- **Pages**: templates, planners, PDFs to annotate, document scan (edge detection,
+  colour / greyscale / B&W clean-up), saved notebook styles with a default.
+- **More**: text boxes, images, audio recordings with ink replay, search (handwriting on
+  Android), split view, tabs, PDF / PNG export, Len files and backups.
+- **Keyboard access**: shortcuts (Ctrl/⌘+/ lists them), arrow keys within every group,
+  context menus with the Menu key or Shift+F10.
+
 ## Install
 
 Download the latest build from
@@ -200,7 +222,8 @@ Release builds use R8 code + resource shrinking
 
 ## Using it
 
-- **Pen / highlighter / eraser**: toolbar, or keys `P` / `H` / `E`.
+- **Tools**: toolbar, or keys `P` pen, `H` highlighter, `E` eraser, `L` lasso, `S` shapes,
+  `T` text, `K` laser; `M` zoom window, `Shift+M` minimap; `Ctrl+/` lists every shortcut.
 - **S Pen**: hold the side button (or flip to the eraser end) to erase.
 - **Navigate**: two fingers (or one, when *stylus only* is on), trackpad,
   mouse wheel (Ctrl+wheel zooms), middle-drag.

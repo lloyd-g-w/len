@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/surface_copier.dart';
@@ -16,11 +17,28 @@ import '../../../ink/render/content_painter.dart';
 /// finished decoding (it is then recorded again, sharper) and when a
 /// raster is ready.
 class ThumbnailCache extends ChangeNotifier {
-  ThumbnailCache(this.copier, {this.images}) {
+  ThumbnailCache(this.copier, {this.images, this.defer}) {
     _imageChanges = images?.changes.listen(_onImage);
+    defer?.addListener(_deferChanged);
   }
 
   final SurfaceCopier copier;
+
+  /// While true (the grid scrolls fast), nothing is recorded or
+  /// rasterised: pages wait in the queue, those scrolled past leave it
+  /// ([hidden]), and the ones on screen are recorded once it turns false.
+  final ValueListenable<bool>? defer;
+
+  bool get _deferring => defer?.value ?? false;
+
+  /// Pages recorded so far (for benchmarks and tests).
+  @visibleForTesting
+  int recordings = 0;
+
+  /// Whether [pageId]'s picture is there (for benchmarks and tests; unlike
+  /// [inkOf], asks for nothing).
+  @visibleForTesting
+  bool isRecorded(String pageId) => _ink.containsKey(pageId);
 
   /// Decoded bitmaps for image elements.
   final ElementImages? images;
@@ -91,18 +109,25 @@ class ThumbnailCache extends ChangeNotifier {
 
   void _enqueue(String pageId) {
     _queue.add(pageId);
-    _loading ??= Timer(Duration.zero, _loadSome);
+    if (!_deferring) _loading ??= Timer(Duration.zero, _loadSome);
+  }
+
+  void _deferChanged() {
+    if (_disposed || _deferring) return;
+    if (_queue.isNotEmpty) _loading ??= Timer(Duration.zero, _loadSome);
+    notifyListeners(); // Rasters held back are asked for again.
   }
 
   void _loadSome() {
     _loading = null;
-    if (_disposed) return;
+    if (_disposed || _deferring) return;
     final watch = Stopwatch()..start();
     while (_queue.isNotEmpty && watch.elapsed < frameBudget) {
       final pageId = _queue.first;
       _queue.remove(pageId);
       _ink.remove(pageId)?.dispose();
       _ink[pageId] = _record(pageId);
+      recordings++;
     }
     while (_ink.length > maxPages) {
       final oldest = _ink.keys.first;
@@ -159,7 +184,7 @@ class ThumbnailCache extends ChangeNotifier {
         identical(raster.picture, picture) &&
         raster.image.width >= width - 1 &&
         raster.image.width <= width * 2;
-    if (!current && _rastering < 2 && !_pendingRasters.contains(pageId)) {
+    if (!current && !_deferring && _rastering < 2 && !_pendingRasters.contains(pageId)) {
       _rasterise(pageId, picture, page, width, height);
     }
     return raster?.image;
@@ -234,6 +259,7 @@ class ThumbnailCache extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _loading?.cancel();
+    defer?.removeListener(_deferChanged);
     unawaited(_imageChanges?.cancel());
     for (final p in _ink.values) {
       p.dispose();

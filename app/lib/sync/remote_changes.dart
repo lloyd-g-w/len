@@ -38,6 +38,18 @@ class RemoteChanges {
     strokeSurfaces.addAll(revival.surfaces);
   }
 
+  /// Adds what [other] changed.
+  void addAll(RemoteChanges other) {
+    notebooks |= other.notebooks;
+    folders |= other.folders;
+    templates |= other.templates;
+    revived |= other.revived;
+    pagesOfNotebooks.addAll(other.pagesOfNotebooks);
+    strokeSurfaces.addAll(other.strokeSurfaces);
+    outlineOfNotebooks.addAll(other.outlineOfNotebooks);
+    recordingsOfNotebooks.addAll(other.recordingsOfNotebooks);
+  }
+
   bool get isEmpty =>
       !notebooks &&
       !folders &&

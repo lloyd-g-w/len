@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:sqlite3/common.dart';
 
@@ -24,6 +26,12 @@ class AppDatabase {
   factory AppDatabase.open(String path) =>
       AppDatabase.fromConnection(openSqliteFile(path), path: path);
 
+  /// A second connection to the database file at [path], which the app's
+  /// own connection opened (and migrated) already: for a worker isolate
+  /// writing alongside it (see [transaction]). Native only.
+  factory AppDatabase.attach(String path) =>
+      AppDatabase._(openSqliteFile(path), path: path).._configure();
+
   /// Opens the app's own database `len.db` in [directory] — on the web it
   /// lives in IndexedDB instead, [directory] is ignored and the database
   /// joins [writes] (whose writes reach storage asynchronously).
@@ -49,18 +57,34 @@ class AppDatabase {
   ///
   /// Reentrant: when already inside a transaction, [action] simply joins it
   /// (an exception still propagates to, and rolls back, the outermost one).
+  ///
+  /// Transactions take the write lock when they begin (`IMMEDIATE`): with
+  /// a second writer on the file (a pull applied in a worker, see
+  /// [attach]), one that read first could otherwise not upgrade to
+  /// writing once the other had committed (`SQLITE_BUSY`, which no waiting
+  /// cures). Waiting for the other's transaction is bounded by
+  /// [busyTimeoutMs].
   T transaction<T>(T Function() action) {
     if (!db.autocommit) return action();
-    db.execute('BEGIN');
+    final signal = writeSignal?..begin();
     try {
-      final result = action();
-      db.execute('COMMIT');
-      return result;
-    } catch (_) {
-      db.execute('ROLLBACK');
-      rethrow;
+      db.execute('BEGIN IMMEDIATE');
+      try {
+        final result = action();
+        db.execute('COMMIT');
+        return result;
+      } catch (_) {
+        db.execute('ROLLBACK');
+        rethrow;
+      }
+    } finally {
+      signal?.end();
     }
   }
+
+  /// Told when this connection's transactions begin and end, while a
+  /// second writer (a pull worker) yields to them.
+  WriteSignal? writeSignal;
 
   /// Runs the query [sql] with [args] through a prepared statement kept
   /// for reuse. For constant SQL on hot paths (sync, chunk indexes):
@@ -86,6 +110,29 @@ class AppDatabase {
     return _statements[sql] = db.prepare(sql, persistent: true);
   }
 
+  /// Commits of this connection, and those [announceCommit] reports
+  /// (another connection's, e.g. a worker applying a pull).
+  Stream<void> get commits => _commits.stream;
+
+  late final StreamController<void> _commits = StreamController<void>.broadcast(
+    onListen: () => _ownCommits = db.commits.listen(_commits.add),
+    onCancel: () {
+      unawaited(_ownCommits?.cancel());
+      _ownCommits = null;
+    },
+  );
+  StreamSubscription<void>? _ownCommits;
+
+  /// Tells [commits] listeners that another connection committed.
+  void announceCommit() {
+    if (_commits.hasListener) _commits.add(null);
+  }
+
+  /// How long a write waits for another connection's transaction before
+  /// it fails (`PRAGMA busy_timeout`). Only a worker's slices (a few ms)
+  /// and the app's own transactions contend.
+  static const int busyTimeoutMs = 5000;
+
   /// Whether [close] was called.
   bool get isClosed => _closed;
   bool _closed = false;
@@ -96,6 +143,9 @@ class AppDatabase {
       statement.close();
     }
     _statements.clear();
+    unawaited(_ownCommits?.cancel());
+    _ownCommits = null;
+    unawaited(_commits.close());
     db.close();
   }
 
@@ -106,6 +156,7 @@ class AppDatabase {
       // lingers at hundreds of MB (or fills Android's backup quota).
       db.execute('PRAGMA journal_size_limit = 4194304');
     }
+    db.execute('PRAGMA busy_timeout = $busyTimeoutMs');
     db.execute('PRAGMA foreign_keys = OFF');
     db.execute('PRAGMA synchronous = NORMAL');
     // 16 MB of page cache (default 2 MB): writing many rows at random ids
@@ -189,4 +240,11 @@ class AppDatabase {
   /// The schema version of a fully migrated database.
   @visibleForTesting
   static int get latestVersion => SchemaMigrations.all.length;
+}
+
+/// Hears an [AppDatabase]'s transactions begin and end (see
+/// [AppDatabase.writeSignal]).
+abstract interface class WriteSignal {
+  void begin();
+  void end();
 }

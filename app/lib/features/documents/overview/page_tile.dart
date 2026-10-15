@@ -11,12 +11,14 @@ import '../../../ui/sidebar_item.dart' show MarginRulePainter;
 import '../../editor/document/page_backgrounds.dart';
 import '../../editor/document/page_thumbnail.dart';
 import 'page_commands.dart';
+import 'page_moves.dart';
 
 /// One page in the overview: a live thumbnail with its number, bookmark
 /// ribbon, current-page ring, selection check and options menu. Long-press
 /// and drag to reorder (when [reorderable]); a bar shows where it lands.
 /// With the keyboard: a stop of its own, Enter or Space as a tap, the Menu
-/// key or Shift+F10 for the options menu.
+/// key or Shift+F10 for the options menu, Ctrl+arrows to move it ([onMove];
+/// screen readers offer "Move earlier" and "Move later").
 class PageTile extends StatefulWidget {
   const PageTile({
     super.key,
@@ -32,6 +34,8 @@ class PageTile extends StatefulWidget {
     required this.onCommand,
     required this.onDrop,
     required this.onLongPress,
+    this.onMove,
+    this.focusNode,
   });
 
   final int index;
@@ -52,6 +56,13 @@ class PageTile extends StatefulWidget {
 
   /// Long press without dragging (starts selection mode).
   final VoidCallback onLongPress;
+
+  /// Moves the page a step toward a side (Ctrl+arrows; left and right as
+  /// on screen). Null: it can't move from the keyboard.
+  final ValueChanged<AxisDirection>? onMove;
+
+  /// The tile's own focus (the page's, so that focus can follow it).
+  final FocusNode? focusNode;
 
   @override
   State<PageTile> createState() => _PageTileState();
@@ -94,22 +105,28 @@ class _PageTileState extends State<PageTile> {
             ),
           )
         : thumb();
+    final move = w.onMove;
     return Semantics(
       label: label,
       button: true,
       selected: w.selecting && w.selected,
+      customSemanticsActions: move == null ? null : pageMoveActions(context, move),
       // Tab reaches the ⋯ right after its page.
       child: FocusTraversalGroup(
-        child: ContextMenuKeys(
-          onMenu: w.selecting ? null : () => unawaited(_menu()),
-          child: FocusableActionDetector(
-            actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => w.onTap())},
-            child: Column(
-              children: [
-                Expanded(child: body),
-                const SizedBox(height: Gaps.xs),
-                _Footer(tile: w),
-              ],
+        child: CallbackShortcuts(
+          bindings: move == null ? const {} : pageMoveBindings(move),
+          child: ContextMenuKeys(
+            onMenu: w.selecting ? null : () => unawaited(_menu()),
+            child: FocusableActionDetector(
+              focusNode: w.focusNode,
+              actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => w.onTap())},
+              child: Column(
+                children: [
+                  Expanded(child: body),
+                  const SizedBox(height: Gaps.xs),
+                  _Footer(tile: w),
+                ],
+              ),
             ),
           ),
         ),

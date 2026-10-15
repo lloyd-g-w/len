@@ -46,4 +46,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(sessionOf(tester, physics.id).zoomWindow.isOpen, isTrue);
   });
+
+  testWidgets('a parked pane\'s zoom window does not glide while hidden; it lands when shown', (
+    tester,
+  ) async {
+    final (s, _, chemistry) = await pumpWorkspace(tester);
+    s.openNotebooks.openSplit(chemistry.id);
+    await tester.pumpAndSettle();
+    final session = sessionOf(tester, chemistry.id)..toggleZoomWindow();
+    await tester.pumpAndSettle();
+    final zoom = session.zoomWindow;
+    expect(zoom.frameRect, isNotNull);
+    tester.view.physicalSize = const Size(800, 1280); // Parks the second pane.
+    await tester.pumpAndSettle();
+    final before = zoom.frame!.origin;
+    zoom.newLine();
+    final end = zoom.state.frame!.origin;
+    expect(end, isNot(before));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(zoom.frame!.origin, before, reason: 'no frames run in a parked pane');
+    }
+    tester.view.physicalSize = const Size(1440, 900);
+    await tester.pumpAndSettle();
+    expect(zoom.frame!.origin, end);
+  });
 }
