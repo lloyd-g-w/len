@@ -695,7 +695,11 @@ recordings; the trash is live, "delete forever" releases after 30 days, see
 *Sync*). `LocalBlobGc` (started 20 s after launch, at most daily; old tombstones'
 payloads are dropped first, 2,000 rows per transaction) deletes blobs unreferenced for 7 days
 (`blobs.unreferenced_since`); it runs exclusively with `BlobStore`'s `put`
-methods, and storing a blob again restarts its grace period. The server has its
+methods, and storing a blob again restarts its grace period. Each due blob's
+row is deleted in a transaction of its own that first checks its references
+again (`BlobReferences.keeps`, one blob in SQL), its file after: a pull (in a
+worker, or between slices) committing a record that references it while
+earlier blobs are deleted keeps it; one committed later fetches it again. The server has its
 own admin-run collector (server/README.md).
 
 PDF import (`features/documents/pdf/`) stores the file once as a blob and
