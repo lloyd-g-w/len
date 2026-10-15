@@ -15,7 +15,7 @@ import 'support/test_database.dart';
 import 'support/two_devices.dart';
 
 /// The pull worker's isolate dying, or outliving the app's: a pull never
-/// waits for a worker that is gone.
+/// waits for a worker that is gone, and a worker never lives on orphaned.
 void main() {
   late Directory dir;
   var databases = 0;
@@ -82,9 +82,32 @@ void main() {
     );
     await worker.close();
   });
+
+  test("a worker exits with the app's isolate, closing its connection", () async {
+    final path = '${dir.path}/owner.db';
+    AppDatabase.open(path).close();
+    final exited = ReceivePort();
+    // An isolate standing in for the app's: it starts a worker and exits
+    // (as the engine's does when Android destroys it) without closing it.
+    await Isolate.spawn(_startWorkerAndExit, (path, exited.sendPort));
+    await exited.first.timeout(const Duration(seconds: 20));
+    exited.close();
+    // The last connection closed checkpoints the log and removes it.
+    expect(File('$path-wal').existsSync(), isFalse);
+  });
 }
 
 void _die() => throw StateError('the worker died');
+
+Future<void> _startWorkerAndExit((String, SendPort) args) async {
+  final (path, exited) = args;
+  final database = AppDatabase.open(path);
+  final worker = (await BackgroundPullWorker.start(database, deviceId: 'x'))!;
+  // Added while the worker surely lives: it waits for its owner's exit.
+  worker.isolate.addOnExitListener(exited);
+  database.close();
+  Isolate.exit();
+}
 
 int _count(TestDevice d, String table) =>
     d.db.select('SELECT COUNT(*) AS n FROM $table').first['n'] as int;

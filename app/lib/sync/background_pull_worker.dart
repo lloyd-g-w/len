@@ -54,6 +54,10 @@ class BackgroundPullWorker implements PullWorker {
   /// which it yields to) for device [deviceId] ([clock] stamps what
   /// deletion conflicts bring back; it is copied over). Null if it cannot
   /// start (or dies before it is ready).
+  ///
+  /// The worker hears when this isolate exits (the engine destroyed on
+  /// Android, the process living on): it closes its connection and exits
+  /// too, instead of living on orphaned.
   static Future<BackgroundPullWorker?> start(
     AppDatabase database, {
     required String deviceId,
@@ -88,6 +92,8 @@ class BackgroundPullWorker implements PullWorker {
       ]);
       if (answer is SendPort) {
         final port = answer;
+        // Added here, while this isolate surely lives: its exit is heard.
+        Isolate.current.addOnExitListener(port, response: _ownerExited);
         database.writeSignal = signal;
         return BackgroundPullWorker._(isolate, port, database, signal, life);
       }
@@ -158,6 +164,7 @@ class BackgroundPullWorker implements PullWorker {
     if (_closed) return;
     _closed = true;
     if (identical(_database.writeSignal, _signal)) _database.writeSignal = null;
+    Isolate.current.removeOnExitListener(_port);
     if (!_life.dead) _port.send(const _Close());
     // It closes its connection and exits; never wait long for that.
     final exited = await _life.exited
@@ -215,6 +222,14 @@ class BackgroundPullWorker implements PullWorker {
         case _Close():
           inbox.close();
           database.close();
+        case _ownerExited:
+          // The app's isolate is gone (the engine destroyed, the process
+          // living on): nobody to pull for. Between slices: no
+          // transaction open.
+          cancelled = true;
+          inbox.close();
+          database.close();
+          Isolate.exit();
         case _Page(:final body, :final since, :final hadChanges, :final reply):
           // What the slices committed, also when a later one fails.
           final changes = RemoteChanges();
@@ -295,6 +310,9 @@ final class _Failed {
 final class _Exited {
   const _Exited();
 }
+
+/// What the worker hears when the app's isolate exits.
+const _ownerExited = 'owner exited';
 
 /// Hears a worker isolate's exit and errors (on the port it is spawned
 /// with).
