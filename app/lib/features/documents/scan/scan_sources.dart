@@ -1,11 +1,12 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
-import 'package:image_picker/image_picker.dart' as picker;
 
+import '../../camera/camera.dart';
+import '../../camera/camera_purpose.dart';
 import '../../editor/images/image_import.dart';
 
 /// Where the photos of a scan come from: image files (every platform) and,
-/// on Android, the camera. Tests pass their own.
+/// on Android, the app's [Camera]. Tests pass their own.
 class ScanSources {
   const ScanSources({this.pick, this.camera});
 
@@ -15,7 +16,7 @@ class ScanSources {
   /// Takes a photo instead of the system camera (and offers it anywhere).
   final Future<XFile?> Function()? camera;
 
-  /// The platform's: the file picker, and the camera on Android.
+  /// The platform's: the file picker, and the app's camera.
   static const ScanSources system = ScanSources();
 
   /// What the scan flows use when not told (tests set their own).
@@ -25,9 +26,9 @@ class ScanSources {
   /// [debugSources], else [system].
   static ScanSources get current => debugSources ?? system;
 
-  /// Whether photos can be taken ([takePhoto]).
-  bool get hasCamera =>
-      camera != null || (!kIsWeb && defaultTargetPlatform == TargetPlatform.android);
+  /// Whether photos can be taken ([takePhoto]), [system] being the app's
+  /// camera (none without an `AppScope`).
+  bool hasCamera(Camera? system) => camera != null || (system?.available ?? false);
 
   static const _types = [
     XTypeGroup(label: 'Images', extensions: ImageImport.extensions, mimeTypes: ['image/*']),
@@ -36,8 +37,8 @@ class ScanSources {
   /// Lets the user pick photos (none if cancelled).
   Future<List<XFile>> pickPhotos() => pick?.call() ?? openFiles(acceptedTypeGroups: _types);
 
-  /// Takes a photo with the camera (null if cancelled); throws if the
-  /// camera can't be opened.
-  Future<XFile?> takePhoto() =>
-      camera?.call() ?? picker.ImagePicker().pickImage(source: picker.ImageSource.camera);
+  /// Takes a photo for [purpose] with the camera (null if cancelled);
+  /// throws if the camera can't be opened.
+  Future<XFile?> takePhoto(Camera? system, CameraPurpose purpose) =>
+      camera?.call() ?? (system ?? (throw StateError('No camera'))).takePhoto(purpose);
 }

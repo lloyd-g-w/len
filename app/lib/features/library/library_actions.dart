@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -147,10 +148,10 @@ class LibraryActions with _NotebookActions, _FolderActions {
     await openNotebook(context, notebook);
   }
 
-  /// Scans pages into a new notebook, files it like a new notebook and
-  /// opens it.
-  Future<void> scanDocument(BuildContext context) async {
-    final scanned = await scanToNewNotebookFlow(context);
+  /// Scans pages (starting with [photos] if any) into a new notebook,
+  /// files it like a new notebook and opens it.
+  Future<void> scanDocument(BuildContext context, {List<XFile> photos = const []}) async {
+    final scanned = await scanToNewNotebookFlow(context, photos: photos);
     if (scanned == null || !context.mounted) return;
     final notebook = controller.adoptNotebook(scanned);
     await openNotebook(context, notebook);

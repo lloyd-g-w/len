@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../app_services.dart';
 import '../../../ui/app_dialogs.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/menus.dart';
 import '../../../ui/messages.dart';
+import '../../camera/camera.dart';
+import '../../camera/camera_purpose.dart';
 import 'scan_controls.dart';
 import 'scan_corner_editor.dart';
 import 'scan_result_view.dart';
@@ -21,13 +24,17 @@ import 'scan_sources.dart';
 /// (asked first once there are pages).
 ///
 /// Without a camera it opens the file picker at once (and closes again if
-/// nothing is picked); with one it starts by offering both.
+/// nothing is picked); with one it starts by offering both. Given
+/// [initialPhotos] (a photo taken before Len was killed), it starts with
+/// those instead.
 class ScanScreen extends StatefulWidget {
   const ScanScreen({
     super.key,
     required this.session,
     required this.doneLabel,
     this.sources = ScanSources.system,
+    this.purpose = const ScanNewNotebook(),
+    this.initialPhotos = const [],
   });
 
   final ScanSession session;
@@ -35,6 +42,12 @@ class ScanScreen extends StatefulWidget {
   /// The primary action, e.g. "Create notebook" or "Insert".
   final String doneLabel;
   final ScanSources sources;
+
+  /// Where the pages go: kept while the camera is open (see [Camera]).
+  final CameraPurpose purpose;
+
+  /// Photos to start with.
+  final List<XFile> initialPhotos;
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -46,10 +59,22 @@ class _ScanScreenState extends State<ScanScreen> {
   /// Photos being read and searched for pages.
   int _loading = 0;
 
+  /// The app's camera (none without an `AppScope`, e.g. in tests).
+  late final Camera? _system = AppScope.maybeRead(context)?.camera;
+
+  bool get _hasCamera => widget.sources.hasCamera(_system);
+
   @override
   void initState() {
     super.initState();
-    if (!widget.sources.hasCamera) {
+    if (widget.initialPhotos.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        for (final photo in widget.initialPhotos) {
+          if (!mounted) return;
+          await _load(photo, replace: false);
+        }
+      });
+    } else if (!_hasCamera) {
       WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_pick(initial: true)));
     }
   }
@@ -83,7 +108,7 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _camera({bool replace = false}) async {
     final XFile? photo;
     try {
-      photo = await widget.sources.takePhoto();
+      photo = await widget.sources.takePhoto(_system, widget.purpose);
     } on Object catch (e) {
       debugPrint('Camera failed: $e');
       if (mounted) showMessage(context, 'Couldn’t open the camera');
@@ -109,7 +134,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
   /// Adds pages: from the camera or files (asked where there is a camera).
   Future<void> _add(BuildContext anchor) async {
-    if (!widget.sources.hasCamera) return _pick();
+    if (!_hasCamera) return _pick();
     final camera = await showContextMenuAt<bool>(
       anchor,
       items: const [
@@ -189,11 +214,7 @@ class _ScanScreenState extends State<ScanScreen> {
           child: ColoredBox(
             color: Surfaces.canvasBackdrop(Theme.of(context).brightness),
             child: page == null
-                ? ScanEmptyState(
-                    busy: busy,
-                    onCamera: widget.sources.hasCamera ? _camera : null,
-                    onPick: _pick,
-                  )
+                ? ScanEmptyState(busy: busy, onCamera: _hasCamera ? _camera : null, onPick: _pick)
                 : AnimatedSwitcher(
                     duration: Motion.fast,
                     child: _session.showsResult
@@ -212,9 +233,8 @@ class _ScanScreenState extends State<ScanScreen> {
           ScanControls(
             session: _session,
             busy: busy,
-            retakeLabel: widget.sources.hasCamera ? 'Retake' : 'Replace…',
-            onRetake: () =>
-                widget.sources.hasCamera ? _camera(replace: true) : _pick(replace: true),
+            retakeLabel: _hasCamera ? 'Retake' : 'Replace…',
+            onRetake: () => _hasCamera ? _camera(replace: true) : _pick(replace: true),
             onAdd: _add,
           ),
       ],

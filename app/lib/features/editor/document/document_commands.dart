@@ -344,13 +344,20 @@ class DocumentCommands {
     edits.added(inserted);
   }
 
-  /// Scans pages (the scan screen) and inserts them after the current
-  /// page.
-  Future<void> insertScan(BuildContext context) async {
+  /// Scans pages (the scan screen, starting with [photos] if any) and
+  /// inserts them after page [afterPageId] (the current page if null or
+  /// gone).
+  Future<void> insertScan(
+    BuildContext context, {
+    List<XFile> photos = const [],
+    String? afterPageId,
+  }) async {
+    final after = doc.pages.where((p) => p.id == afterPageId).firstOrNull ?? _current;
     final inserted = await scanIntoNotebookFlow(
       context,
       notebookId: notebook().id,
-      after: _current,
+      after: after,
+      photos: photos,
     );
     if (inserted == null || inserted.isEmpty) return;
     edits.added(inserted);

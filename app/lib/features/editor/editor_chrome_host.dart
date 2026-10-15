@@ -18,7 +18,6 @@ import 'document/document_layout.dart';
 import 'editor_actions.dart';
 import 'editor_session.dart';
 import 'editor_toolbar.dart';
-import 'images/editor_images.dart';
 import 'pen/ink_paper.dart';
 import 'split/parked_pane_notice.dart';
 import 'split/split_controller.dart';
@@ -196,7 +195,7 @@ class EditorChromeHost extends StatelessWidget {
     final commands = session.commands;
     return InsertActions(
       image: () => images.pickFiles(context),
-      photo: EditorImages.canUseCamera ? () => images.takePhoto(context) : null,
+      photo: images.canUseCamera ? () => images.takePhoto(context) : null,
       scan: commands == null ? null : () => commands.insertScan(context),
       pdfPages: commands == null ? null : () => commands.insertPdf(context),
     );

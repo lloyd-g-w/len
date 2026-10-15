@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'dart:ui';
+
 import 'package:cross_file/cross_file.dart';
 
 import '../../../domain/cancellation.dart';
@@ -20,6 +22,15 @@ abstract interface class ImportTarget {
 
   /// Inserts [files] as images on the current page or the canvas.
   Future<void> insertImages(List<XFile> files);
+
+  /// Opens the scan screen with [photo] (taken before Android killed Len)
+  /// to insert pages after page [afterPageId] (the current page if gone);
+  /// false if this notebook takes no pages (a canvas).
+  Future<bool> resumeScan(XFile photo, {String? afterPageId});
+
+  /// Inserts [photo] (taken before Android killed Len) centred on [at] on
+  /// surface [surfaceId]; on the current page if that page is gone.
+  Future<void> insertPhoto(XFile photo, {required String surfaceId, required Offset at});
 }
 
 /// The editors currently shown (normally at most one; two while tabs

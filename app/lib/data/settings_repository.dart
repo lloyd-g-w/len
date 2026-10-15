@@ -240,6 +240,12 @@ class SettingsRepository {
   set scanFilter(String? value) =>
       value == null ? _remove('scan_filter') : _set('scan_filter', value);
 
+  /// What the camera app in front was opened for (an opaque string owned
+  /// by `Camera`), or null when no camera is open.
+  String? get cameraPurpose => _get('camera_purpose');
+  set cameraPurpose(String? value) =>
+      value == null ? _remove('camera_purpose') : _set('camera_purpose', value);
+
   /// The editor's open tabs while it is shown (an opaque string owned by
   /// the editor), or null once the user went back to the library.
   String? get workspace => _get('workspace');

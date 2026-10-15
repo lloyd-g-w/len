@@ -10,6 +10,7 @@ import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/messages.dart';
 import '../audio/ui/recover_recording_dialog.dart';
+import '../camera/lost_photo_flow.dart';
 import '../documents/import/import_flow.dart';
 import '../settings/keyboard_shortcuts.dart';
 import '../settings/settings_screen.dart';
@@ -108,10 +109,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
     // the import started (UX_AUDIT R8-15).
     services.lenFiles.openFolder = () =>
         _controller.section == LibrarySection.library ? _controller.folderId : null;
-    // A recording cut off by the app being killed: offer to recover it.
+    // A recording or a camera photo cut off by the app being killed:
+    // offer to recover it, carry on with it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _reopenWorkspace(services);
+      final restored = _reopenWorkspace(services);
+      unawaited(_resumeLostPhoto(services, editorUp: restored != null));
       unawaited(offerRecordingRecovery(context, services));
       _onSyncSetup(); // Launched with a setup link.
     });
@@ -126,11 +129,32 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   /// The app was left in the editor (killed in the background, a window
   /// closed): its tabs open again, the library underneath (UX_AUDIT R7-7).
-  void _reopenWorkspace(AppServices services) {
-    if (services.incomingFiles.targets.active != null) return; // An editor is up.
+  /// Returns the notebook shown, if any.
+  Notebook? _reopenWorkspace(AppServices services) {
+    if (services.incomingFiles.targets.active != null) return null; // An editor is up.
     final active = services.workspace.restore(services.notebooks.get);
     if (active != null) unawaited(_actions.openNotebook(context, active));
+    return active;
   }
+
+  /// Android killed Len while the camera app was in front: the photo
+  /// taken goes where it was meant to ([resumeLostPhoto]). [editorUp]:
+  /// the workspace is being reopened.
+  Future<void> _resumeLostPhoto(AppServices services, {required bool editorUp}) => resumeLostPhoto(
+    context,
+    services,
+    LostPhotoHost(
+      scanNew: (photos) => _actions.scanDocument(context, photos: photos),
+      show: (notebook) {
+        if (editorUp || services.incomingFiles.targets.active != null) {
+          services.openNotebooks.open(notebook); // The editor shows its tab.
+        } else {
+          unawaited(_actions.openNotebook(context, notebook));
+        }
+      },
+      importFiles: (photos) => _imports.enqueue(context, photos),
+    ),
+  );
 
   /// Where the library is: section and folder (not the search, which only
   /// narrows what is shown).

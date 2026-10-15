@@ -151,10 +151,21 @@ class EditorSession {
   /// Inserting images (picker, clipboard, drag and drop, camera).
   late final EditorImages images = EditorImages(
     services: services,
+    notebookId: shared.notebook.id,
     content: content,
     tools: tools,
     activateAt: doc?.activateAt,
+    showSurface: doc == null ? null : _showPage,
   );
+
+  /// Shows page [id] (making it the edited one); false if it is gone.
+  bool _showPage(String id) {
+    final doc = this.doc!;
+    final index = doc.pages.indexWhere((p) => p.id == id);
+    if (index < 0) return false;
+    doc.goToPage(index);
+    return true;
+  }
 
   /// The zoom window: writing small through a magnified box.
   late final ZoomWindow zoomWindow = () {

@@ -40,11 +40,31 @@ class EditorImportTarget implements ImportTarget {
 
   @override
   Future<void> insertImages(List<XFile> files) async {
-    // A just-opened editor has no viewport size until it is laid out.
+    if (!await _laidOut() || !context.mounted) return;
+    await session.images.insertFiles(context, files);
+  }
+
+  @override
+  Future<bool> resumeScan(XFile photo, {String? afterPageId}) async {
+    final commands = session.commands;
+    if (commands == null) return false;
+    if (!await _laidOut() || !context.mounted) return true;
+    await commands.insertScan(context, photos: [photo], afterPageId: afterPageId);
+    return true;
+  }
+
+  @override
+  Future<void> insertPhoto(XFile photo, {required String surfaceId, required Offset at}) async {
+    if (!await _laidOut() || !context.mounted) return;
+    await session.images.insertRecovered(context, photo, surfaceId: surfaceId, at: at);
+  }
+
+  /// Waits until the editor is laid out (a just-opened one has no
+  /// viewport size yet); false if it closed.
+  Future<bool> _laidOut() async {
     for (var i = 0; i < 10 && session.viewport.size.isEmpty; i++) {
       await WidgetsBinding.instance.endOfFrame;
     }
-    if (!context.mounted) return;
-    await session.images.insertFiles(context, files);
+    return context.mounted;
   }
 }

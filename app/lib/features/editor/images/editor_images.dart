@@ -5,7 +5,6 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard;
-import 'package:image_picker/image_picker.dart' as picker;
 import 'package:pasteboard/pasteboard.dart';
 
 import '../../../app_services.dart';
@@ -16,6 +15,8 @@ import '../../../domain/text/html_text.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ink/tools/content_tools.dart';
 import '../../../platform/clipboard_html.dart';
+import '../../../ui/app_theme.dart';
+import '../../camera/camera_purpose.dart';
 import '../../documents/progress_dialog.dart';
 import '../tools/text/rich_text_controller.dart';
 import 'image_import.dart';
@@ -25,7 +26,8 @@ import 'image_placement.dart';
 typedef ClipboardImageReader = Future<Uint8List?> Function();
 
 /// Inserting images into an open editor: from files (picker or drag and
-/// drop), the system clipboard or — on Android — the camera.
+/// drop), the system clipboard or — on Android — the camera (also a photo
+/// taken before Android killed Len, [insertRecovered]).
 ///
 /// Every source ends in [insertBytes]: the image is prepared
 /// ([ImageImport]), stored as a blob, placed on the page or canvas under
@@ -34,9 +36,11 @@ typedef ClipboardImageReader = Future<Uint8List?> Function();
 class EditorImages {
   EditorImages({
     required this.services,
+    required this.notebookId,
     required this.content,
     required this.tools,
     this.activateAt,
+    this.showSurface,
     ClipboardImageReader? readClipboard,
     Future<String?> Function()? readHtml,
     this.clock = const Clock(),
@@ -47,12 +51,19 @@ class EditorImages {
   }
 
   final AppServices services;
+
+  /// The notebook edited.
+  final String notebookId;
   final ContentTools content;
   final ToolSettings tools;
   final Clock clock;
 
   /// Makes the page under a screen point the edited one (documents).
   final void Function(Offset screen)? activateAt;
+
+  /// Shows surface (page) [id] and makes it the edited one (documents);
+  /// false if there is no such page.
+  final bool Function(String id)? showSurface;
 
   final ClipboardImageReader _readClipboard;
 
@@ -68,7 +79,7 @@ class EditorImages {
   String? _textBeforeInkCopy;
 
   /// Whether the camera can be offered (Android only).
-  static bool get canUseCamera => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  bool get canUseCamera => services.camera.available;
 
   static final _typeGroups = [
     const XTypeGroup(label: 'Images', extensions: ImageImport.extensions, mimeTypes: ['image/*']),
@@ -86,11 +97,13 @@ class EditorImages {
     await insertFiles(context, files);
   }
 
-  /// Takes a photo with the camera (Android) and inserts it.
+  /// Takes a photo with the camera (Android) and inserts it. Should
+  /// Android kill Len meanwhile, the photo goes where the screen's centre
+  /// was when Len starts again ([insertRecovered]).
   Future<void> takePhoto(BuildContext context) async {
     final XFile? photo;
     try {
-      photo = await picker.ImagePicker().pickImage(source: picker.ImageSource.camera);
+      photo = await services.camera.takePhoto(_photoPurpose());
     } on Exception catch (e) {
       if (context.mounted) showMessage(context, 'Couldn’t open the camera');
       debugPrint('Camera failed: $e');
@@ -98,6 +111,36 @@ class EditorImages {
     }
     if (photo == null || !context.mounted) return;
     await insertFiles(context, [photo]);
+  }
+
+  /// Where a photo taken now goes: the screen's centre on the page there.
+  PhotoOnSurface _photoPurpose() {
+    final centre = content.viewport.size.center(Offset.zero);
+    activateAt?.call(centre);
+    return PhotoOnSurface(
+      notebookId,
+      surfaceId: content.model.surfaceId,
+      at: content.viewport.toWorld(centre),
+    );
+  }
+
+  /// Inserts [photo], taken before Android killed Len, centred on [at] on
+  /// surface [surfaceId] (shown first); on the shown page's centre if that
+  /// page is gone or [at] is out of sight.
+  Future<void> insertRecovered(
+    BuildContext context,
+    XFile photo, {
+    required String surfaceId,
+    required Offset at,
+  }) async {
+    final shown = showSurface?.call(surfaceId) ?? surfaceId == content.model.surfaceId;
+    Offset? screen;
+    if (shown) {
+      final point = content.viewport.toScreen(at);
+      final view = Offset.zero & content.viewport.size;
+      if (view.deflate(Gaps.xl).contains(point)) screen = point;
+    }
+    await insertFiles(context, [photo], screen: screen);
   }
 
   /// Inserts [files] (e.g. dropped ones) around [screen], cascading them.

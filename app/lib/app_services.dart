@@ -31,6 +31,7 @@ import 'data/tombstone_payloads.dart';
 import 'data/write_back.dart';
 import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
+import 'features/camera/camera.dart';
 import 'features/documents/import/incoming_files.dart';
 import 'features/editor/shared/shared_notebooks.dart';
 import 'features/editor/tabs/open_notebooks.dart';
@@ -40,6 +41,7 @@ import 'ink/recognition/handwriting_recognizer.dart';
 import 'ink/recognition/recognition_service.dart';
 import 'ink/render/outline_preparer.dart';
 import 'ink/selection/ink_clipboard.dart';
+import 'platform/camera_capture.dart';
 import 'platform/handwriting_recognizer.dart';
 import 'platform/len_file_io.dart';
 import 'platform/secure_store.dart';
@@ -77,6 +79,7 @@ class AppServices {
     required this.outline,
     required this.writes,
     required this.rasterStore,
+    required this.camera,
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
@@ -84,7 +87,8 @@ class AppServices {
   /// (in memory if omitted, e.g. in tests). [audio] replaces the
   /// recorder and player (tests use fakes). [incomingFiles] are files
   /// handed to the app from outside, [incomingLinks] links it was opened
-  /// with (`platform/incoming_files`). The sync
+  /// with (`platform/incoming_files`). [camera] replaces the system camera
+  /// (tests). The sync
   /// token goes to [secureStore] (`platformSecureStore`); without one (a
   /// browser, tests) it is kept in the database.
   factory AppServices.create(
@@ -100,6 +104,7 @@ class AppServices {
     StorageWrites? writes,
     RasterStore? rasterStore,
     SecureStore? secureStore,
+    CameraCapture camera = const SystemCameraCapture(),
   }) {
     final settings = SettingsRepository(database);
     final tokens = SyncTokenStore(settings, secureStore, clock: clock);
@@ -186,6 +191,7 @@ class AppServices {
       outline: outline,
       writes: writes ?? StorageWrites(),
       rasterStore: rasterStore,
+      camera: Camera(settings: settings, isClosed: () => database.isClosed, capture: camera),
     );
   }
 
@@ -255,6 +261,9 @@ class AppServices {
 
   /// Files opened with / shared to Len, and the editor they may go into.
   final IncomingFiles incomingFiles;
+
+  /// The camera (Android), and photos taken while Len was killed.
+  final Camera camera;
 
   /// Copied strokes and text, shared by every editor (paste across pages
   /// and notebooks).

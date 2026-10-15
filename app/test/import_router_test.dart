@@ -28,6 +28,12 @@ class _Target implements ImportTarget {
 
   @override
   Future<void> insertPdf(XFile file, {CancellationToken? batch}) async {}
+
+  @override
+  Future<bool> resumeScan(XFile photo, {String? afterPageId}) async => true;
+
+  @override
+  Future<void> insertPhoto(XFile photo, {required String surfaceId, required Offset at}) async {}
 }
 
 void main() {
