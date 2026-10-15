@@ -167,4 +167,25 @@ void main() {
     expect(kept.last, mouse.last);
     expect((kept.first - mouse.first).distance, lessThanOrEqualTo(MouseSmoother.spacing + 1e-9));
   });
+
+  test('a flush catches up with a resting mouse, and smoothing carries on after it', () {
+    final mouse = _mouse(3);
+    final kept = <Offset>[];
+    final smoother = MouseSmoother((at, _) => kept.add(at))..begin(mouse.first, 0, width: 0);
+    final half = mouse.length ~/ 2;
+    for (var i = 1; i <= half; i++) {
+      smoother.add(mouse[i], i * 8);
+    }
+    smoother.flush();
+    expect(kept.last, mouse[half]);
+    final flushed = kept.length;
+    for (var i = half + 1; i < mouse.length; i++) {
+      smoother.add(mouse[i], i * 8);
+    }
+    smoother.finish();
+    expect(kept.length, greaterThan(flushed));
+    expect(kept.last, mouse.last);
+    // No point goes back over the flushed end.
+    expect((kept[flushed] - mouse[half]).distance, lessThanOrEqualTo(MouseSmoother.spacing + 1e-9));
+  });
 }

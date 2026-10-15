@@ -29,6 +29,14 @@ class HoldToStraighten {
 
   final LiveInk live;
 
+  /// Called when the hold is up, before the stroke is read: input still
+  /// held back (a mouse's levelling trail) is added to the live stroke.
+  void Function()? beforeSnap;
+
+  /// Whether [beforeSnap] is running (its points are the rest's, not a
+  /// new movement restarting the hold).
+  bool _flushing = false;
+
   /// How long the pen must rest to straighten the stroke.
   static const Duration holdDuration = Duration(milliseconds: 600);
 
@@ -156,6 +164,7 @@ class HoldToStraighten {
     }
     if (from == 0) return;
     _resting.removeRange(0, from);
+    if (_flushing) return;
     final held = timeMs - _resting.first.$2;
     _timer?.cancel();
     _timer = Timer(holdDuration - Duration(milliseconds: math.max(0, held)), _snap);
@@ -163,6 +172,12 @@ class HoldToStraighten {
 
   void _snap() {
     _timer = null;
+    _flushing = true;
+    try {
+      beforeSnap?.call();
+    } finally {
+      _flushing = false;
+    }
     final points = live.points;
     if (!live.isDrawing) return;
     // Recognised as drawn: a resting pen drifts by a pixel or so, which

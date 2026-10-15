@@ -222,4 +222,36 @@ void main() {
     await drawAndRest(tester, HandShapes(2).line(const Offset(100, 200), const Offset(110, 240)));
     expect(committed().shape, isNull);
   });
+
+  testWidgets('a mouse resting with a hairline pen snaps all it drew, to its end', (tester) async {
+    // Zoomed out the pen is a hairline on screen: the mouse's ink is
+    // levelled and trails it by a few pixels, until the hold flushes them.
+    viewport.setView(scale: 0.25, offset: Offset.zero);
+    const from = Offset(100, 200), to = Offset(400, 200);
+    PointerMoveEvent at(Offset p, int ms) => PointerMoveEvent(
+      pointer: 1,
+      kind: PointerDeviceKind.mouse,
+      buttons: kPrimaryMouseButton,
+      position: p,
+      timeStamp: Duration(milliseconds: ms),
+    );
+    input.handleDown(
+      const PointerDownEvent(
+        pointer: 1,
+        kind: PointerDeviceKind.mouse,
+        buttons: kPrimaryMouseButton,
+        position: from,
+      ),
+    );
+    for (var i = 1; i <= 100; i++) {
+      await tester.pump(const Duration(milliseconds: 4));
+      input.handleMove(at(Offset.lerp(from, to, i / 100)!, i * 4));
+    }
+    await tester.pump(HoldToStraighten.holdDuration + const Duration(milliseconds: 50));
+    expect(live.shape?.kind, ShapeKind.line);
+    final end = viewport.toWorld(to);
+    expect((live.shape!.points.last - end).distance, lessThan(1 / viewport.scale));
+    input.handleUp(const PointerUpEvent(pointer: 1, kind: PointerDeviceKind.mouse));
+    expect((committed().shape!.points.last - end).distance, lessThan(1 / viewport.scale));
+  });
 }
