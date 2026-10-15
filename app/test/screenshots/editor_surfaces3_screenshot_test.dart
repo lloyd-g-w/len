@@ -207,8 +207,11 @@ void main() {
           );
           await tester.tap(find.byTooltip('More options'));
           await settle(tester);
-          await tester.tap(find.text('View'));
-          await settle(tester);
+          // Phones have it at the top of ⋯, wider screens in View.
+          if (find.text('Zoom window').evaluate().isEmpty) {
+            await tester.tap(find.text('View'));
+            await settle(tester);
+          }
           await tester.tap(find.text('Zoom window'));
           await settle(tester);
           final box = tester.getRect(find.byType(ZoomBox));

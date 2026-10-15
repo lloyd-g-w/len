@@ -72,6 +72,16 @@ typing, in a canvas already cut to a third of the screen.
   or the zoom changes (not on the user's own pans). The empty hint scales
   down. Effort S.
 
+**R20-2 P1 · The zoom window is three levels down on a phone.** ✅
+- *What:* at fit width an A4 page is ≈ 370 dp wide, so college-ruled lines
+  are ≈ 20 dp apart: no finger writes legibly in that. GoodNotes' answer on
+  phones is the zoom window, one tap from its toolbar; Len has the same
+  window (with auto-advance and wrap), but on a phone it is ⋯ → View →
+  Zoom window, a drill-in, behind the zoom choices and two layout switches.
+- *Fix:* on phones (and short windows) the switch sits at the top level of
+  ⋯, beside Draw with finger — the two ways of writing with a finger
+  together; View keeps it on wider screens (one home each). Effort S.
+
 ## Round 17 audit — recording a lecture (`review/round17`)
 
 Lens: a student who records every lecture on an S Pen tablet (sometimes a

@@ -536,7 +536,7 @@ or deleted pages in order with ink. Snack bars' Undo calls
   displays**: Android mirrors the screen by default; a separate audience window
   (Android `Presentation` API, desktop multi-window) is out of scope — Flutter's
   multi-window API is not stable yet.
-- **Zoom window** (`zoom/`; "⋯" → View → *Zoom window*, `M`): GoodNotes-style writing
+- **Zoom window** (`zoom/`; "⋯" → View → *Zoom window*, on phones "⋯" → *Zoom window*, `M`): GoodNotes-style writing
   through a magnifier. A `ZoomFrame` (surface id, origin, scale) marks a rectangle on a page
   (or the canvas) with the box's aspect; `ZoomBox`, docked above the bottom chrome
   (`ChromeLayout.zoomBox`, counted in `covered` so the page scrolls clear of it), shows it
