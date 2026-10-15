@@ -141,6 +141,14 @@ extension _SyncSettingsViews on _SyncSettingsState {
                 : const Text('Connect'),
           ),
           if (_editing) TextButton(onPressed: _cancelEditing, child: const Text('Cancel')),
+          // What "your own Len server" is, and how to run one (R14-9).
+          if (!_sync.isConfigured)
+            TextButton(
+              onPressed: () => unawaited(
+                launchUrl(SyncSettings.serverGuide, mode: LaunchMode.externalApplication),
+              ),
+              child: const Text('How to run a server'),
+            ),
         ],
       ),
     ];

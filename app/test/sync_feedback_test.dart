@@ -149,6 +149,7 @@ void main() {
       );
       expect(find.text('http://sync.test'), findsOneWidget);
       expect(find.text('Server URL'), findsNothing);
+      expect(find.text('How to run a server'), findsNothing, reason: 'only while setting up');
       await tester.tap(find.text('Turn off sync…'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Turn off'));
@@ -156,6 +157,9 @@ void main() {
       expect(s.sync.isConfigured, isFalse);
       expect(s.sync.state, SyncState.disabled);
       expect(find.text('Server URL'), findsOneWidget);
+      // What "your own Len server" is (R14-9).
+      expect(find.text('How to run a server'), findsOneWidget);
+      expect(SyncSettings.serverGuide.path, endsWith('server/README.md'));
       await tester.pumpWidget(const SizedBox());
     });
 

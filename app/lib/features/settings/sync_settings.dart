@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app_services.dart';
 import '../../sync/sync_api.dart';
@@ -21,6 +22,11 @@ part 'sync_settings_views.dart';
 /// pasted into the URL field, or opened with Len ([IncomingFiles.syncSetup]).
 class SyncSettings extends StatefulWidget {
   const SyncSettings({super.key, this.reveal = false});
+
+  /// What a Len sync server is and how to run one.
+  static final Uri serverGuide = Uri.parse(
+    'https://github.com/lloyd-g-w/len/blob/main/server/README.md',
+  );
 
   /// Scrolls itself into view once shown (Settings opened from a failed
   /// sync status).

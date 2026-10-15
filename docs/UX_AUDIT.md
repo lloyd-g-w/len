@@ -116,7 +116,9 @@ clears them. Connection errors stay under the fields. Effort S.
 stills it. Effort S.
 
 **R14-9 P3 · "Your own Len server", with no way to learn what that is.**
-⬜ A first-time user who taps Set up sync… meets two fields and no
+✅ (lead: link to the server README) A "How to run a server" link beside Connect, while
+sync is not set up, opens `server/README.md` on GitHub.
+ A first-time user who taps Set up sync… meets two fields and no
 pointer to the server or how to run it. Needs a public page (a project
 site or README) to link to: an owner decision, listed in TODO "Next".
 Effort M.
