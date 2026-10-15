@@ -172,6 +172,7 @@ class LowLatencySource implements SampleSource {
     final style = _style();
     if (!_drawing && style != null) {
       _start();
+      _logged = null; // Started late: its samples so far are not known here.
     } else if (_drawing && style == null) {
       // Straightened, or no longer ink: Flutter draws it (the pen rests
       // when a stroke snaps, so Flutter's frames have caught up).
