@@ -76,7 +76,7 @@ away, and a palm is only a palm on the canvas it rests on.
   500 ms in the end (`LiveInk.stylusHoverTimeout`).
   Effort S.
 
-**R15-4 P2 · A palm is a palm only on the canvas it rests on.** ⬜
+**R15-4 P2 · A palm is a palm only on the canvas it rests on.** ✅
 - *What:* the palm rules live in each `InkInputController`. A palm
   resting on a toolbar button, the page indicator or the Add page footer
   while the pen writes taps it when it lifts (taps have no time limit);

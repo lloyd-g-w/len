@@ -115,6 +115,7 @@ mixin _EditorSessionZoom {
       wetInkView: () => view.wetInkView(page: _zoomPage()),
     ),
     penButtonAction: () => services.preferences.penButtonAction,
+    palms: services.palmGuard,
   );
 
   Rect? _zoomPage() {

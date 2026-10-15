@@ -1293,6 +1293,13 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   **Palm**: a touch landing while the pen touches, hovers, or lifted < 300 ms ago
   (`InkInputController.palmQuiet`, `StylusProximity`) neither navigates nor draws —
   between strokes the pen only lifts briefly.
+  **Across the app** (`input/palm_guard.dart`, `PalmGuard`, a global pointer
+  route attached by `LenApp`): touches already down when a stylus touches,
+  and touches landing while it touches, are cancelled wherever they are
+  (`GestureBinding.cancelPointer`), so a palm resting on a toolbar button,
+  the page indicator or the Add page footer taps nothing when it lifts; a
+  finger on chrome while the pen only hovers still works. Canvases also ask
+  it whether the pen is near *any* canvas (the other split pane).
 - **Hover**: a hovering stylus previews what it would do (`handleHover` →
   `LiveInk`, painted by `LiveInkPainter`): with the pen or highlighter, a dot
   of the ink's colour and medium-pressure width at the current zoom (at most

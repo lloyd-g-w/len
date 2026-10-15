@@ -13,6 +13,7 @@ import 'hold_to_straighten.dart';
 import 'ink_drawing.dart';
 import 'ink_events.dart';
 import 'live_ink.dart';
+import 'palm_guard.dart';
 import 'pointer_navigation.dart';
 import 'sample_source.dart';
 import 'stylus_buttons.dart';
@@ -54,6 +55,7 @@ class InkInputController {
     this.gestures,
     this.samples,
     PenButtonAction Function()? penButtonAction,
+    this.palms,
   }) : _penButtonAction = penButtonAction ?? (() => PenButtonAction.eraser),
        _draw = InkDrawing(
          model: model,
@@ -103,6 +105,10 @@ class InkInputController {
 
   /// Canvas gestures recognised alongside input, if the editor wants them.
   final CanvasGestures? gestures;
+
+  /// The app-wide palm guard, if attached: a pen near another canvas (the
+  /// other split pane, the zoom window's box) makes touches here palms too.
+  final PalmGuard? palms;
 
   /// Stylus samples the platform reported between pointer events (Android
   /// batches several per frame; Flutter forwards only the newest), if any.
@@ -248,7 +254,11 @@ class InkInputController {
 
   void _touchDown(PointerDownEvent e) {
     // A palm while writing, or between strokes.
-    if (_draw.byStylus || _stylus.isNear(e.timeStamp, within: palmQuiet)) return;
+    if (_draw.byStylus ||
+        _stylus.isNear(e.timeStamp, within: palmQuiet) ||
+        (palms?.stylusNear(e.timeStamp, within: palmQuiet) ?? false)) {
+      return;
+    }
     // Android reports no hover exit for a stylus leaving range, so a stale
     // cursor would linger; a finger is a good moment to clear it.
     _draw.showEraser(null);
