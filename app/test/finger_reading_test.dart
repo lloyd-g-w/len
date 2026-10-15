@@ -28,6 +28,7 @@ import 'package:len/ui/app_theme.dart';
 import 'canvas_gestures_test.dart' show down, ms, move, up;
 import 'document_editor_test.dart' show closeEditor, inkOf, pumpEditor;
 import 'support/page_actions.dart';
+import 'support/real_async.dart';
 
 /// R20-6: reading on a phone without a stylus. While fingers draw, a page
 /// with content opens in reading (one finger scrolls) until a tool is
@@ -371,6 +372,23 @@ void main() {
       await tester.longPressAt(const Offset(200, 450));
       await tester.pumpAndSettle();
       expect(find.text('Add text here'), findsOneWidget);
+      await closeEditor(tester);
+    });
+
+    testWidgets('something pasted (or inserted) while reading writes: a finger moves it', (
+      tester,
+    ) async {
+      final (s, nb) = await pumpEditor(tester, size: phone);
+      final tools = toolsOf(tester);
+      expect(tools.reading, isTrue);
+      final ink = inkOf(s, s.pages.pagesOf(nb.id).first);
+      s.clipboard.put(ink, const [], ink.first.bounds);
+      await tester.longPressAt(const Offset(200, 450));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Paste here'));
+      await pumpUntil(tester, () => inkOf(s, s.pages.pagesOf(nb.id).first).length == 2);
+      await tester.pumpAndSettle();
+      expect(tools.reading, isFalse, reason: 'the pasted ink is selected, to move by finger');
       await closeEditor(tester);
     });
 
