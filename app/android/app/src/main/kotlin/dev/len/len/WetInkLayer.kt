@@ -6,7 +6,9 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.RenderNode
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -31,7 +33,9 @@ import kotlin.math.max
  * and no wait for the next vsync or SurfaceFlinger's next composition.
  *
  * Each [Frame] is the whole overlay: its [Frame.dirty] rectangle (what the
- * previous frame and this one cover) is cleared and the ink redrawn, so ink
+ * previous frame and this one cover) is replaced, in one pass, by an
+ * offscreen copy cleared and with the ink redrawn (never cleared in the
+ * front buffer itself, which the display may scan out meanwhile), so ink
  * can also be taken away (the predicted tip, the tail Flutter has caught up
  * with). The multi-buffered layer is never used; [clear] hides and clears
  * the front buffer.
@@ -67,6 +71,10 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
         /** What to clear first: this frame's bounds and the last one's (set when sent). */
         internal val dirty = RectF()
         internal var generation = 0
+
+        /** The layer's size (view px), for the offscreen buffer. */
+        internal var width = 0
+        internal var height = 0
     }
 
     private val view = SurfaceView(parent.context)
@@ -128,6 +136,8 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
         )
         inBuffer.set(frame.bounds)
         frame.generation = generation
+        frame.width = view.width
+        frame.height = view.height
         inFlight.incrementAndGet()
         sentAtMs = now
         renderer.renderFrontBufferedLayer(frame)
@@ -173,6 +183,24 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
     }
 
     private inner class Callback : CanvasFrontBufferedRenderer.Callback<Frame> {
+        /**
+         * Where a frame is drawn before it replaces the dirty rectangle of
+         * the front buffer: a layer composited with [BlendMode.SRC], so its
+         * pixels (cleared or ink) overwrite the buffer's, each once.
+         */
+        private val offscreen = RenderNode("LenWetInk").apply {
+            setHasOverlappingRendering(true)
+            setUseCompositingLayer(
+                true,
+                Paint().apply {
+                    blendMode = BlendMode.SRC
+                    isAntiAlias = false
+                    isFilterBitmap = false
+                },
+            )
+        }
+        private val clipRect = Rect()
+
         // The generation of the frame rendered last (renderer thread only).
         private var drawnGeneration = -1
         private var drawnNewestNs = 0L
@@ -182,20 +210,38 @@ internal class WetInkLayer(parent: ViewGroup, above: View) {
             drawnNewestNs = param.newestNs
             val traced = Trace.isEnabled()
             if (traced) Trace.beginSection("len.wet ${param.newestNs}")
-            canvas.save()
-            canvas.clipRect(param.dirty)
-            canvas.drawColor(Color.TRANSPARENT, BlendMode.CLEAR)
+            // The frame is drawn offscreen (cleared, then the ink) and
+            // copied into the front buffer in one pass that replaces the
+            // dirty rectangle. Clearing and drawing in the front buffer
+            // itself let the display scan out the cleared state between the
+            // two (the buffer is on screen while it is written): the newest
+            // ink vanished for a refresh, at random — the way androidx.ink's
+            // front-buffer renderers avoid it too.
+            val node = offscreen
+            val w = if (param.width > 0) param.width else bufferWidth
+            val h = if (param.height > 0) param.height else bufferHeight
+            if (node.width != w || node.height != h) node.setPosition(0, 0, w, h)
+            val d = param.dirty
+            clipRect.set(d.left.toInt(), d.top.toInt(), d.right.toInt(), d.bottom.toInt())
+            node.setClipRect(clipRect)
+            val c = node.beginRecording()
+            c.drawColor(Color.TRANSPARENT, BlendMode.CLEAR)
             for (ink in param.inks) {
-                canvas.save()
-                canvas.clipRect(ink.clip)
+                c.save()
+                c.clipRect(ink.clip)
                 paint.color = ink.color
                 path.rewind()
                 addHulls(path, ink.hulls, ink.flatStart, ink.flatEnd, ink.cuts, ink.sweeps)
                 addHulls(path, ink.tip, false, ink.flatTipEnd)
-                canvas.drawPath(path, paint)
-                canvas.restore()
+                c.drawPath(path, paint)
+                c.restore()
             }
+            node.endRecording()
+            canvas.save()
+            canvas.clipRect(d)
+            canvas.drawRenderNode(node)
             canvas.restore()
+            node.setClipRect(null)
             if (traced) Trace.endSection()
         }
 

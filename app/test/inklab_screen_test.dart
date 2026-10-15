@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/features/inklab/inklab_screen.dart';
 import 'package:len/features/inklab/inklab_stats_bar.dart';
 import 'package:len/features/settings/about_settings.dart';
+import 'package:len/ink/lab/flicker_log.dart';
 
 /// The figure before [suffix] in the stats bar (e.g. `strokes`).
 int _stat(WidgetTester tester, String suffix) {
@@ -68,5 +69,31 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(InkLabScreen), findsNothing);
+  });
+
+  testWidgets('the flicker log: record, read, clear', (tester) async {
+    final log = FlickerLog.instance;
+    final was = log.enabled;
+    addTearDown(() => log.enabled = was);
+    log
+      ..enabled = false
+      ..clear();
+    await tester.pumpWidget(const MaterialApp(home: InkLabScreen()));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.byTooltip('Flicker log'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nothing logged'), findsOneWidget);
+    await tester.tap(find.text('Record'));
+    await tester.pump();
+    expect(log.enabled, isTrue);
+    log.retract(3, 1000);
+    await tester.pump();
+    expect(find.textContaining('predicted tip taken back 3.00 px'), findsOneWidget);
+    await tester.tap(find.text('Clear'));
+    await tester.pump();
+    expect(log.entries, isEmpty);
+    expect(find.text('Nothing logged'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 500));
   });
 }

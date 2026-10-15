@@ -1362,9 +1362,14 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
 - **Rendering** (`WetInkLayer`): a translucent `SurfaceView` (media-overlay
   z-order, same bounds as the Flutter view) drawn only through the **front
   buffer** of androidx.graphics' `CanvasFrontBufferedRenderer`: no buffer
-  swap, no vsync wait. Each frame clears what the previous one covered and
-  redraws the whole wet ink (a few millimetres), so ink can also be taken
-  away. At most one frame is queued; newer input replaces a waiting one.
+  swap, no vsync wait. Each frame redraws the whole wet ink (a few
+  millimetres) into an offscreen layer, cleared first, which then replaces
+  the rectangle the previous frame and this one cover in one pass
+  (composited with `SRC`), so ink can also be taken away. Clearing and
+  drawing in the front buffer itself let the display scan out the cleared
+  state in between: the newest ink vanished for a refresh, at random (as
+  androidx.ink's front-buffer renderers note and avoid the same way). At
+  most one frame is queued; newer input replaces a waiting one.
   The hull pieces of a stroke are filled as **one path** (they wind the same
   way), so their antialiased edges are not darkened where they overlap.
 - **Same ink as Flutter**: `WetInkModel.kt` is a line-for-line port of the
@@ -1413,27 +1418,49 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   straightened strokes stay on the Flutter path, as do fingers and other
   platforms. Overlay and Flutter ink overlap, so only opaque ink can look
   the same where they do.
-- **Hand-over**: Flutter keeps drawing the live stroke as before; the
-  overlay only adds the part Flutter may not show yet. Dart reports after
-  each built frame the newest input it contains (`progress`); the overlay
-  keeps every point until 70 ms after that report (`SHOWN_AFTER_MS`;
-  report to present measured 21 ms median, 41 ms p99, 48 ms at most), and
-  the whole tail until 70 ms after `end` (sent after the frame with the committed
-  stroke). Retracting earlier would open a gap; later only means more
-  opaque ink lying exactly on Flutter's. Nothing is left behind: when no
-  stroke needs it, the front buffer is cleared and hidden.
+- **Hand-over** (`WetInkHandover`, `platform/low_latency_frames.dart`):
+  Flutter keeps drawing the live stroke as before; the overlay only adds
+  the part Flutter may not show yet. Dart reports every frame it builds
+  while there is overlay ink, one report per frame however many surfaces
+  have input (`progress`: the newest input it contains, and a frame id),
+  and three more frames after the last input (asking for them if nothing
+  else does). The overlay keeps a frame's points until 70 ms after its
+  report (`SHOWN_AFTER_MS`; report to present measured 21 ms median,
+  41 ms p99, 48 ms at most) **and** until a frame built three frames
+  later has been reported, plus two display frames: Flutter builds a
+  frame only into a free slot of its two-deep pipeline, so that report
+  means the raster thread is done with this one. Time alone opened gaps
+  whenever the raster thread fell behind (a busy page, tile renders, a
+  busy CPU): the newest ink vanished for a few frames and came back. The
+  whole tail stays until the frame with the committed stroke (`end` is
+  sent right after its report) is shown by the same rule. Retracting
+  earlier opens a gap; later only means more opaque ink lying exactly on
+  Flutter's. Nothing is left behind: when no stroke needs it, the front
+  buffer is cleared and hidden. A contact that leaves no stroke (a
+  bounce, a scribble that erased) is cancelled right after the frame
+  without it is built, so its tail goes with Flutter's ink, not after it
+  alone; a view that moves before the overlay has let go of a stroke (the
+  zoom window moving on at the lift) cancels it with the frame that
+  moves it, so it does not linger where the stroke was on the screen.
+  `WetInkHandoverTest.kt` runs the rules against a simulated Flutter
+  pipeline (raster stalls mid-stroke and at the lift, slow raster
+  throughout); `test/low_latency_handover_test.dart` checks what Dart
+  sends, frame by frame.
 - **Pen-down**: while the S Pen hovers over a surface with the pen tool,
   Dart sends `arm` (how a stroke starting now would look, re-sent every
   150 ms), so the overlay draws from the first sample; `begin` (sent when
   the input controller starts the live stroke) confirms or restyles it,
   `skip` takes it back (a down that is not ink — another tool, a
   selection, a menu over the canvas: a global pointer route answers every
-  stylus down no surface took). Unconfirmed after 150 ms, it is dropped.
+  stylus down no surface took). Unanswered after 1 s, it is dropped
+  (after 150 ms it was, and a UI thread busy at pen-down made the first
+  ink vanish and come back).
 - **Clip and transform**: `WetInkView` (Dart) gives the writing area — the
   surface less the chrome insets (toolbars), and on a page only the page,
   where committed ink is clipped too — and the view transform. A pan or
-  zoom during a stroke (or straightening it) sends `cancel`: the overlay
-  drops its ink at once and Flutter draws the stroke.
+  zoom during a stroke sends `cancel` once the frame with the moved view
+  is built (straightening it, at once: the pen rests then): the overlay
+  drops its ink and Flutter draws the stroke.
 - **Lifecycle**: the layer is created at `onStart` (or the next touch) and
   follows the Flutter view; the renderer rebuilds its buffers on surface
   changes (rotation, split screen, resume). A pen-up Dart never ends is
@@ -1444,6 +1471,9 @@ Markers for system traces (atrace app `dev.len.len`; event times are
 `len.wetDone <eventTimeNs>` (frame rendered), `len.progress <eventTimeNs>`.
 `tool/wet_ink_check/latency_trace.cfg` (Perfetto) and `latency.sql`
 (trace_processor) turn a trace into the latency table of `docs/INK_LAB.md`.
+The flicker log (`ink/lab/flicker_log.dart`, `platform/low_latency_log.dart`;
+Ink Lab → *Flicker log*, on in debug builds) records hand-over anomalies on
+the device without a trace: `docs/INK_LAB.md`, *Flicker log*.
 
 Resting the pen for 600 ms at the end of a stroke snaps it, in place
 (`input/hold_to_straighten.dart` + `shapes/shape_recognizer.dart`). A real

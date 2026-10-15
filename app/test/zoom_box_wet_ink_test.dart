@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/zoom/zoom_box_viewport.dart';
 import 'package:len/ink/input/sample_source.dart';
 import 'package:len/ink/input/wet_ink.dart';
@@ -14,7 +15,7 @@ class _NoSamples implements SampleSource {
   @override
   List<PointerSample> between(PointerEvent event) => const [];
   @override
-  void end({double taperEnd = 0}) {}
+  void end({Stroke? committed}) {}
   @override
   void hover(PointerHoverEvent event) {}
 }

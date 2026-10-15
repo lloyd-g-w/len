@@ -270,5 +270,34 @@ class WetInkPrediction(
 
         /** The most predicted points [filter] is given (the predictor's are cut to this). */
         const val MAX_POINTS = 32
+
+        /**
+         * How far a predicted tip drawn before was taken back: the largest
+         * distance from one of its [prevCount] points ([prev], x, y pairs)
+         * to what is drawn now along the pen's path, the polyline of the
+         * [pathCount] points of [path] (x, y pairs: the samples since then,
+         * from the one the old tip started at, and the new tip). What the
+         * flicker log records (`FlickerLog.retract`).
+         */
+        fun retraction(prev: FloatArray, prevCount: Int, path: FloatArray, pathCount: Int): Double {
+            if (pathCount == 0) return 0.0
+            var worst = 0.0
+            for (i in 0 until prevCount) {
+                val px = prev[2 * i].toDouble()
+                val py = prev[2 * i + 1].toDouble()
+                var best = Math.hypot(px - path[0], py - path[1])
+                for (k in 1 until pathCount) {
+                    val ax = path[2 * k - 2].toDouble()
+                    val ay = path[2 * k - 1].toDouble()
+                    val dx = path[2 * k] - ax
+                    val dy = path[2 * k + 1] - ay
+                    val l2 = dx * dx + dy * dy
+                    val t = if (l2 > 0) (((px - ax) * dx + (py - ay) * dy) / l2).coerceIn(0.0, 1.0) else 0.0
+                    best = minOf(best, Math.hypot(px - (ax + t * dx), py - (ay + t * dy)))
+                }
+                worst = maxOf(worst, best)
+            }
+            return worst
+        }
     }
 }

@@ -38,7 +38,7 @@ extension _InkCommit on InkDrawing {
       style: stroke.style,
     );
     if (path != null) StrokeRenderer.adopt(stroke, path);
-    _committedTaper = StrokeRenderer.specFor(stroke.width, stroke.style).taperEnd;
+    _committed = stroke;
     PerfProbe.lift(liftTime);
     developer.Timeline.timeSync('len.commitStroke', () => model.addStroke(stroke));
   }

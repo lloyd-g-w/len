@@ -30,7 +30,7 @@ import io.flutter.plugin.common.StandardMessageCodec
  * opaque pens qualify, so where they overlap nothing changes.
  *
  * The overlay keeps each point until the Flutter frame showing it has been
- * on screen for sure: [SHOWN_AFTER_MS] after Dart reported building it.
+ * on screen for sure ([WetInkHandover]).
  */
 class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
     /** Where the overlay lives: the Flutter view. */
@@ -51,9 +51,8 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
     private var latest: WetContact? = null
     private val contacts = ArrayList<WetContact>()
 
-    // `progress` values (µs → ms of input time) with when they arrived, oldest first.
-    private val progressAt = ArrayDeque<Long>()
-    private val progressUpTo = ArrayDeque<Double>()
+    // Flutter's frame reports (`progress`): when the overlay may let go.
+    private val handover = WetInkHandover()
 
     // How a stroke starting now would look (Dart's `arm`, sent while the
     // stylus hovers over a surface) and when it came.
@@ -126,6 +125,7 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                 if (style != null && now - armedAtMs <= ARM_FRESH_MS && event.buttonState == 0) {
                     contact.begin(style.color, WetInkModel(style.radii, style.shape, frameMs()), style.clip)
                     contact.provisionalSinceMs = now
+                    contact.onRetract = retractLog()
                     contacts.add(contact)
                     render()
                     startTicking()
@@ -171,6 +171,7 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                 val style = Style.of(message, 3) ?: return
                 contact.begin(style.color, WetInkModel(style.radii, style.shape, frameMs()), style.clip)
                 contact.provisionalSinceMs = -1
+                contact.onRetract = retractLog()
                 if (contact !in contacts) contacts.add(contact)
                 render()
             }
@@ -184,11 +185,12 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                     Trace.beginSection("len.progress ${(upTo * 1e6).toLong()}")
                     Trace.endSection()
                 }
-                progressAt.addLast(now)
-                progressUpTo.addLast(upTo)
+                handover.frameMs = frameMs()
+                handover.report(now, upTo, (message.getOrNull(2) as? Number)?.toLong() ?: -1)
             }
             "end" -> contacts.find { it.matches(message[1], message[2]) }?.let {
-                it.endedAtMs = now
+                // Sent right after the report of the frame that shows it.
+                it.endedAt = handover.latest
                 it.commit((message.getOrNull(3) as? Number)?.toDouble() ?: 0.0)
             }
             "cancel" -> contacts.find { it.matches(message[1], message[2]) }?.let {
@@ -196,19 +198,9 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                 if (it === current) current = null
                 render()
             }
+            "log" -> logging = message.getOrNull(1) == true
         }
         if (contacts.isNotEmpty()) startTicking()
-    }
-
-    /** Input time of the newest Flutter frame that is on screen for sure at [now]. */
-    private fun shownUpTo(now: Long): Double {
-        var upTo = Double.NEGATIVE_INFINITY
-        while (progressAt.size > 1 && now - progressAt[1] >= SHOWN_AFTER_MS) {
-            progressAt.removeFirst()
-            progressUpTo.removeFirst()
-        }
-        if (progressAt.isNotEmpty() && now - progressAt.first() >= SHOWN_AFTER_MS) upTo = progressUpTo.first()
-        return upTo
     }
 
     /**
@@ -225,10 +217,35 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
 
     /** Drops the contacts Flutter surely shows by [now]; whether there were any. */
     private fun prune(now: Long): Boolean = contacts.removeAll {
-        // Shown by Flutter for sure, or not confirmed by Dart (it went away).
-        (it.endedAtMs >= 0 && now - it.endedAtMs >= SHOWN_AFTER_MS) ||
-            (it.liftedAtMs >= 0 && now - it.liftedAtMs >= LOST_AFTER_MS) ||
-            (it.provisionalSinceMs >= 0 && now - it.provisionalSinceMs >= UNCONFIRMED_MS)
+        // Shown by Flutter for sure, or never answered by Dart (it went away).
+        val gone = handover.releases(now, it.endedAt, it.liftedAtMs, it.provisionalSinceMs)
+        if (gone && logging) logPruned(it, now)
+        gone
+    }
+
+    // The flicker log (`FlickerLog` in Dart, docs/INK_LAB.md): only while
+    // Dart asks for it (`log`), the overlay tells it when it let go of ink.
+    private var logging = false
+
+    private fun send(vararg values: Any?) = channel.send(values.toList())
+
+    /** Each Flutter frame report the overlay lets go of (its ink is drawn no more). */
+    private val released = { _: Double, frameId: Long ->
+        if (frameId >= 0) send("released", frameId, SystemClock.uptimeMillis())
+    }
+
+    private fun retractLog(): ((Double) -> Unit)? {
+        if (!logging) return null
+        return { px -> if (px > RETRACT_LOG_PX) send("retract", px, SystemClock.uptimeMillis()) }
+    }
+
+    private fun logPruned(c: WetContact, now: Long) {
+        val how = when {
+            c.endedAt >= 0 -> "shown"
+            c.provisionalSinceMs >= 0 -> "unanswered"
+            else -> "lost"
+        }
+        send("pruned", c.device, c.downMs * 1000.0, now, how, c.sampleCount, handover.frameIdOf(c.endedAt))
     }
 
     private fun startTicking() {
@@ -241,7 +258,7 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
     private fun render() {
         val layer = layer ?: return
         val now = SystemClock.uptimeMillis()
-        val upTo = shownUpTo(now)
+        val upTo = handover.shownUpTo(now, if (logging) released else null)
         prune(now)
         val inks = ArrayList<WetInkLayer.Ink>(contacts.size)
         val bounds = RectF()
@@ -289,24 +306,11 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
         const val CHANNEL = "len/low_latency_ink"
         private const val TAG = "LenWetInk"
 
-        /**
-         * How long after Dart reports building a frame it is surely on
-         * screen: raster, queued buffers, SurfaceFlinger's latch and the
-         * present. Measured on a Galaxy Tab S8+ (120 Hz): 21 ms median,
-         * 41 ms p99, 48 ms at most (docs/INK_LAB.md, "Low-latency ink").
-         * Too short opens a gap; longer only keeps opaque ink lying on
-         * Flutter's a little longer.
-         */
-        const val SHOWN_AFTER_MS = 70L
-
         /** An `arm` older than this (ms) is not trusted at pen-down. */
         private const val ARM_FRESH_MS = 400L
 
-        /** A contact drawn from `arm` that Dart has not confirmed by then is dropped (ms). */
-        private const val UNCONFIRMED_MS = 150L
-
-        /** A lifted contact Dart has not ended by then is dropped (ms). */
-        private const val LOST_AFTER_MS = 1000L
+        /** A predicted tip taken back further (px) is logged (`FlickerLog.retractLimitPx`). */
+        private const val RETRACT_LOG_PX = 0.5
 
         /** Antialiasing reaches this far (px) past a shape. */
         private const val AA_MARGIN = 2f
