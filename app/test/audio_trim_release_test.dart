@@ -183,7 +183,9 @@ void main() {
       addTearDown(playback.dispose);
       final before = _lecture(trimStart: 310000, trimEnd: 590000);
       await playback.open(before, autoplay: false);
-      expect(audio.log, ['open Lecture', 'seek 310000']);
+      // Its audio is not here: played part by part, from the second.
+      expect(audio.log, ['open Lecture', 'seek 10000']);
+      expect(audio.player.opened!.parts.single.blob, 'bb' * 32);
       playback.update(before.copyWith(title: 'Renamed'));
       expect(audio.log.length, 2);
       playback.update(before.withoutPartsOutsideTrim(waveform: '', updatedAt: 2));

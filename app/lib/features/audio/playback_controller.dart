@@ -6,7 +6,10 @@ import 'package:flutter/foundation.dart';
 import '../../data/blob_store.dart';
 import '../../domain/recording.dart';
 import 'backends/audio_backends.dart';
+import 'part_downloads.dart';
 import 'trim_range.dart';
+
+part 'playback_parts.dart';
 
 /// Plays one recording at a time and relates the playback position to the
 /// ink: [wallTime] is the moment being heard, so strokes written after it
@@ -15,6 +18,9 @@ import 'trim_range.dart';
 /// Positions are in the whole audio of the recording; playback keeps to
 /// its kept range ([startMs]…[endMs]: the trim, or the [trimDraft] being
 /// edited).
+///
+/// A recording whose parts are not all on this device yet plays part by
+/// part as they download (see `playback_parts.dart`).
 class PlaybackController extends ChangeNotifier {
   PlaybackController({required this.backends, required this.blobs, required this.fetch});
 
@@ -48,12 +54,19 @@ class PlaybackController extends ChangeNotifier {
   bool get loading => _loading;
 
   /// How much of the open recording's missing audio has downloaded (0…1)
-  /// while it is fetched before playing, else null.
-  double? get downloading => _downloading;
-  double? _downloading;
+  /// while playback waits for a part of it, else null.
+  double? get downloading => _waiting ? _downloads?.progress : null;
 
-  /// How many missing parts [open] fetches at once.
+  /// Whether playback stopped at a part that couldn't be downloaded (Play
+  /// asks for it again).
+  bool get partMissing => _partMissing;
+
+  /// How many missing parts are fetched at once.
   static const int parallelFetches = 3;
+
+  /// Why a part can't be played: its audio hasn't synced down.
+  static const String notDownloaded =
+      'The audio is not on this device yet. It downloads when you’re online.';
 
   /// Whether tapping ink seeks to when it was written (instead of drawing).
   bool _tapToSeek = true;
@@ -172,6 +185,7 @@ class PlaybackController extends ChangeNotifier {
   /// opened (or the player closed) before it was loaded.
   Future<bool> open(Recording recording, {bool autoplay = true}) async {
     final open = ++_opens;
+    _endPartByPart();
     lastError = null;
     _loading = true;
     _recording = recording;
@@ -189,14 +203,16 @@ class PlaybackController extends ChangeNotifier {
     try {
       await previous;
       if (open != _opens) return false; // Superseded before it began.
-      await _download(recording, open);
+      final missing = <int>{
+        for (var i = 0; i < recording.parts.length; i++)
+          if (!await blobs.has(recording.parts[i].blob)) i,
+      };
       if (open != _opens) return false;
-      final failed = {..._unavailable};
-      await player.open(
-        recording,
-        blobs,
-        failed.isEmpty ? fetch : (sha) async => !failed.contains(sha) && await fetch(sha),
-      );
+      if (missing.isEmpty) {
+        await player.open(recording, blobs, fetch);
+      } else {
+        await _openPartByPart(recording, missing, open);
+      }
     } on Object catch (e) {
       if (open != _opens) return false;
       if (e is! AudioUnavailable) debugPrint('Playback failed to open: $e');
@@ -216,45 +232,21 @@ class PlaybackController extends ChangeNotifier {
     return true;
   }
 
-  /// Fetches [recording]'s missing parts from the server, a few at a
-  /// time, reporting [downloading] (by audio length). Parts that can't be
-  /// had are left for the player to report.
-  Future<void> _download(Recording recording, int open) async {
-    _unavailable.clear();
-    final missing = <RecordingPart>[];
-    for (final part in recording.parts) {
-      if (!await blobs.has(part.blob)) missing.add(part);
-    }
-    if (missing.isEmpty || open != _opens) return;
-    final total = math.max(1, missing.fold(0, (sum, p) => sum + p.durationMs));
-    var done = 0;
-    _downloading = 0;
-    notifyListeners();
-    final queue = missing.iterator;
-    Future<void> worker() async {
-      while (open == _opens && queue.moveNext()) {
-        final part = queue.current;
-        if (!await fetch(part.blob)) _unavailable.add(part.blob);
-        done += part.durationMs;
-        if (open == _opens) {
-          _downloading = done / total;
-          notifyListeners();
-        }
-      }
-    }
+  /// Downloads of the open recording's missing parts, while it plays part
+  /// by part (see `playback_parts.dart`); null when it all was here.
+  PartDownloads? _downloads;
 
-    try {
-      await Future.wait([
-        for (var i = 0; i < math.min(parallelFetches, missing.length); i++) worker(),
-      ]);
-    } finally {
-      if (open == _opens) _downloading = null;
-    }
-  }
+  /// The part in the player while playing part by part (-1: none), and
+  /// where it starts in the whole audio (0 otherwise).
+  int _partIndex = -1;
+  int _partStart = 0;
 
-  /// Parts [_download] could not fetch (the player is not made to try
-  /// them again).
-  final Set<String> _unavailable = {};
+  /// Whether playback waits for a part to download.
+  bool _waiting = false;
+  bool _partMissing = false;
+
+  /// Counts loads of parts: one finding it changed was superseded.
+  int _partLoads = 0;
 
   /// Counts [open] and [close] calls: an open finding it changed was
   /// superseded.
@@ -266,7 +258,8 @@ class PlaybackController extends ChangeNotifier {
   AudioPlayback _createPlayer() {
     final player = backends.playback();
     _positions = player.positions.listen((p) {
-      _positionMs = p.inMilliseconds;
+      if (_waiting) return; // The part left, stopping.
+      _positionMs = _partStart + p.inMilliseconds;
       // The kept audio ends here: stop as if the recording did.
       if (_playing && _recording != null && _positionMs >= endMs) {
         _positionMs = endMs;
@@ -276,6 +269,7 @@ class PlaybackController extends ChangeNotifier {
       notifyListeners();
     });
     _completed = player.completed.listen((_) {
+      if (_nextPart()) return;
       _playing = false;
       if (_recording != null) _positionMs = endMs;
       notifyListeners();
@@ -290,6 +284,7 @@ class PlaybackController extends ChangeNotifier {
     if (_positionMs < startMs || _positionMs >= endMs - 50) await seek(startMs);
     _playing = true;
     notifyListeners();
+    if (_downloads != null) return _playPart();
     await _player?.play();
   }
 
@@ -308,6 +303,7 @@ class PlaybackController extends ChangeNotifier {
     _positionMs = positionMs.clamp(startMs, math.max(startMs, endMs));
     _seeks++;
     notifyListeners();
+    if (_downloads != null) return _seekPart(_positionMs);
     await _player?.seek(Duration(milliseconds: _positionMs));
   }
 
@@ -326,7 +322,7 @@ class PlaybackController extends ChangeNotifier {
     final player = _player;
     _opens++;
     _loading = false;
-    _downloading = null;
+    _endPartByPart();
     _recording = null;
     _timeline = null;
     _trimDraft = null;
@@ -336,9 +332,12 @@ class PlaybackController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _changed() => notifyListeners();
+
   @override
   void dispose() {
     _opens++; // An open under way gives up.
+    _endPartByPart();
     unawaited(_positions?.cancel());
     unawaited(_completed?.cancel());
     final player = _player;

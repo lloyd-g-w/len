@@ -215,7 +215,8 @@ void main() {
     await _close(tester);
   });
 
-  test('R17-3: a recording made elsewhere downloads a few parts at once, with progress', () async {
+  test('R17-3: a recording made elsewhere plays as soon as its first part is here, part by '
+      'part as the rest arrive (a few at a time), and waits for parts not here yet', () async {
     final audio = FakeAudio();
     final services = AppServices.create(AppDatabase.inMemory(), audio: audio.backends);
     addTearDown(services.dispose);
@@ -226,38 +227,125 @@ void main() {
       fetch: (sha) => (pending[sha] = Completer<bool>()).future,
     );
     addTearDown(playback.dispose);
-    final parts = [for (var i = 0; i < 6; i++) RecordingPart('$i' * 64, 300000)];
+    String sha(int i) => '$i' * 64;
+    final parts = [for (var i = 0; i < 8; i++) RecordingPart(sha(i), 300000)];
     final lecture = Recording(
       id: 'r',
       notebookId: 'n',
       title: 'Lecture 12',
       startedAt: _t0,
       parts: parts,
-      durationMs: 1800000,
+      durationMs: 2400000,
       updatedAt: _t0,
       mime: 'audio/aac',
-      segments: const [RecordingSegment(_t0, 1800000)],
+      segments: const [RecordingSegment(_t0, 2400000)],
     );
     final opened = playback.open(lecture);
     await pumpEventQueue();
-    expect(pending.length, PlaybackController.parallelFetches);
+    expect(pending.keys, [sha(0), sha(1), sha(2)]);
     expect(playback.downloading, 0);
-    expect(audio.log, isEmpty); // Not handed to the player yet.
+    expect(playback.loading, isTrue);
+    expect(audio.log, isEmpty); // Nothing to play yet.
 
-    pending['0' * 64]!.complete(true);
+    // The first part is here: it plays at once.
+    pending[sha(0)]!.complete(true);
+    expect(await opened, isTrue);
+    expect(audio.log, ['open Lecture 12', 'play']);
+    expect(audio.player.opened!.parts, [parts[0]]);
+    expect(playback.loading, isFalse);
+    expect(playback.downloading, isNull, reason: 'not waiting');
+    expect(playback.playing, isTrue);
+    expect(pending.keys, contains(sha(3)));
+    audio.player.emit(1000);
+    expect(playback.positionMs, 1000);
+
+    // Its end, before the next part is here: it waits, saying so.
+    audio.log.clear();
+    audio.player.finish();
     await pumpEventQueue();
-    expect(playback.downloading, closeTo(1 / 6, 1e-9));
-    expect(pending.length, 4); // The next one started.
-    for (var i = 1; i < 6; i++) {
-      pending['$i' * 64]?.complete(i != 4); // Part 4 can't be had.
+    expect(playback.positionMs, 300000);
+    expect(playback.playing, isTrue);
+    expect(playback.downloading, isNotNull);
+    expect(audio.log, isEmpty);
+    pending[sha(1)]!.complete(true);
+    await pumpEventQueue();
+    expect(audio.log, ['open Lecture 12', 'play']);
+    expect(audio.player.opened!.parts, [parts[1]]);
+    expect(playback.downloading, isNull);
+    audio.player.emit(5000);
+    expect(playback.positionMs, 305000);
+
+    // Seeking past what is here fetches that part next, and waits for it.
+    audio.log.clear();
+    expect(pending.keys, isNot(contains(sha(7))));
+    unawaited(playback.seek(2200000));
+    await pumpEventQueue();
+    expect(playback.positionMs, 2200000);
+    expect(playback.downloading, isNotNull);
+    audio.player.emit(6000); // The old part, stopping: ignored.
+    expect(playback.positionMs, 2200000);
+    pending[sha(2)]!.complete(true);
+    await pumpEventQueue();
+    expect(pending.keys.last, sha(7), reason: 'wanted first');
+    pending[sha(7)]!.complete(true);
+    await pumpEventQueue();
+    expect(audio.log, ['pause', 'open Lecture 12', 'seek 100000', 'play']);
+    expect(audio.player.opened!.parts, [parts[7]]);
+    audio.player.emit(100500);
+    expect(playback.positionMs, 2200500);
+
+    // A part that can't be had stops playback there, saying so.
+    audio.missingBlobs.add(sha(3));
+    pending[sha(3)]!.complete(false);
+    await pumpEventQueue();
+    await playback.seek(950000);
+    await pumpEventQueue();
+    expect(playback.playing, isFalse);
+    expect(playback.partMissing, isTrue);
+    expect(playback.downloading, isNull);
+    for (var i = 0; i < 4; i++) {
+      for (final c in [...pending.values]) {
+        if (!c.isCompleted) c.complete(true);
+      }
       await pumpEventQueue();
     }
-    for (final c in pending.values) {
-      if (!c.isCompleted) c.complete(true);
-    }
-    expect(await opened, isTrue);
-    expect(playback.downloading, isNull);
-    expect(audio.log, ['open Lecture 12', 'play']);
+    expect(pending, hasLength(8));
+    // Seeking within parts that are here plays on.
+    await playback.seek(1200000);
+    await playback.play();
+    expect(playback.partMissing, isFalse);
+    expect(audio.player.opened!.parts, [parts[4]]);
+    expect(playback.playing, isTrue);
+  });
+
+  test('R17-3: a recording all here opens as one source, as before', () async {
+    final audio = FakeAudio();
+    final services = AppServices.create(AppDatabase.inMemory(), audio: audio.backends);
+    addTearDown(services.dispose);
+    final shas = [
+      for (var i = 0; i < 2; i++)
+        await services.blobs.putBytes(Uint8List.fromList([i, 1, 2]), mime: 'audio/aac'),
+    ];
+    final playback = PlaybackController(
+      backends: audio.backends,
+      blobs: services.blobs,
+      fetch: (_) async => fail('nothing to fetch'),
+    );
+    addTearDown(playback.dispose);
+    final lecture = Recording(
+      id: 'r',
+      notebookId: 'n',
+      title: 'Lecture 12',
+      startedAt: _t0,
+      parts: [for (final s in shas) RecordingPart(s, 1000)],
+      durationMs: 2000,
+      updatedAt: _t0,
+      mime: 'audio/aac',
+    );
+    expect(await playback.open(lecture), isTrue);
+    expect(audio.player.opened!.parts, hasLength(2));
+    audio.player.emit(1500);
+    expect(playback.positionMs, 1500);
   });
 
   testWidgets('R17-1: another notebook, or the library, says a lecture is still recording', (

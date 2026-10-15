@@ -128,7 +128,7 @@ class FakeCapture implements AudioCapture {
 
 /// Plays nothing; tests drive the position with [emit] / [finish].
 class FakePlayback implements AudioPlayback {
-  FakePlayback(this.log, {this.fail = false, this.holds = const {}});
+  FakePlayback(this.log, {this.fail = false, this.holds = const {}, this.missing = const {}});
 
   final List<String> log;
   final bool fail;
@@ -139,6 +139,10 @@ class FakePlayback implements AudioPlayback {
   /// Opening a recording titled as a key waits for its future (a slow
   /// download).
   final Map<String, Future<void>> holds;
+
+  /// Blobs that can't be had: opening audio with one of them fails, as
+  /// the real player's does.
+  final Set<String> missing;
 
   void emit(int ms) => _positions.add(Duration(milliseconds: ms));
   void finish() => _completed.add(null);
@@ -151,7 +155,9 @@ class FakePlayback implements AudioPlayback {
   ) async {
     log.add('open ${recording.title}');
     await holds[recording.title];
-    if (fail) throw const AudioUnavailable('Cannot play');
+    if (fail || recording.blobs.any(missing.contains)) {
+      throw const AudioUnavailable('Cannot play');
+    }
     opened = recording;
   }
 
@@ -293,6 +299,9 @@ class FakeAudio {
   /// [FakePlayback.holds]).
   final Map<String, Future<void>> holds = {};
 
+  /// Blobs players can't open (see [FakePlayback.missing]).
+  final Set<String> missingBlobs = {};
+
   FakeCapture get capture => captures.last;
   FakePlayback get player => players.last;
 
@@ -303,7 +312,7 @@ class FakeAudio {
       return capture;
     },
     playback: () {
-      final player = FakePlayback(log, holds: holds);
+      final player = FakePlayback(log, holds: holds, missing: missingBlobs);
       players.add(player);
       return player;
     },
