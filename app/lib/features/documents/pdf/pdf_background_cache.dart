@@ -35,6 +35,7 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
   PdfBackgroundCache({
     required this.blobs,
     required this.fetch,
+    this.onFetched,
     PdfRenderer? renderer,
     this.budgetBytes = 160 << 20,
   }) : _renderer = renderer ?? PdfRenderer(blobs);
@@ -43,6 +44,10 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
 
   /// Downloads a blob; returns whether it is available now.
   final Future<bool> Function(String sha) fetch;
+
+  /// Told when [fetch] brought a blob (what else read the PDF while it was
+  /// missing, its text and links, may read it again).
+  final void Function(String sha)? onFetched;
 
   /// Memory budget for cached images (4 bytes per pixel).
   final int budgetBytes;
@@ -206,7 +211,9 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
           _fetching.remove(sha); // Also when it threw: [retryMissing] retries.
         }
         if (!ok) _missing.add(sha);
-        if (!_disposed) notifyListeners(); // Repaint re-requests the image.
+        if (_disposed) return;
+        if (ok) onFetched?.call(sha);
+        notifyListeners(); // Repaint re-requests the image.
         return;
       }
       final image = switch (key) {

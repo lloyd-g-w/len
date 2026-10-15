@@ -87,7 +87,13 @@ class SharedNotebook extends ChangeNotifier {
 
   /// Page backgrounds: rendered PDF pages ([pdfBackgrounds]) and scans.
   NotebookBackgrounds get backgrounds => _backgrounds ??= NotebookBackgrounds(
-    pdf: PdfBackgroundCache(blobs: services.blobs, fetch: services.sync.fetchBlob),
+    pdf: PdfBackgroundCache(
+      blobs: services.blobs,
+      fetch: services.sync.fetchBlob,
+      // Its text, links and outline were read as none while it was away
+      // (freed, or not synced yet).
+      onFetched: (_) => _pdfInfo?.retry(),
+    ),
     images: services.images,
   );
   NotebookBackgrounds? _backgrounds;
