@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,7 +6,9 @@ import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/domain/recording.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/ink/ink_surface.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'data_test.dart' show FakeClock;
@@ -25,7 +28,12 @@ class _Editor {
   final FakeClock clock;
 }
 
-Future<_Editor> _pump(WidgetTester tester, {Size size = const Size(1280, 800)}) async {
+Future<_Editor> _pump(
+  WidgetTester tester, {
+  Size size = const Size(1280, 800),
+  NotebookKind kind = NotebookKind.paged,
+  void Function(AppServices s, Notebook nb)? seed,
+}) async {
   tester.view
     ..physicalSize = size
     ..devicePixelRatio = 1;
@@ -36,10 +44,11 @@ Future<_Editor> _pump(WidgetTester tester, {Size size = const Size(1280, 800)}) 
   addTearDown(services.dispose);
   final nb = services.notebooks.create(
     title: 'Calculus',
-    kind: NotebookKind.paged,
+    kind: kind,
     paper: PaperStyle.wideRuled,
     coverColor: 0xFF3B5BDB,
   );
+  seed?.call(services, nb);
   await tester.pumpWidget(
     AppScope(
       services: services,
@@ -149,6 +158,52 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Stop recording'));
     await _settleAsync(tester);
+    await _close(tester);
+  });
+
+  testWidgets('R17-6: with the player open the pen never pans, and says why it leaves no ink', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      kind: NotebookKind.canvas,
+      seed: (s, nb) => s.recordings.save(
+        notebookId: nb.id,
+        parts: [RecordingPart('cd' * 32, 30000)],
+        mime: 'audio/mp4',
+        title: 'Lecture',
+        segments: const [RecordingSegment(_t0, 30000)],
+      ),
+    );
+    await tester.tap(find.byTooltip('Recordings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Lecture'));
+    await _settleAsync(tester);
+    await tester.pumpAndSettle();
+    final viewport = tester.widget<InkSurface>(find.byType(InkSurface)).viewport;
+    final before = viewport.toScreen(Offset.zero);
+
+    final pen = await tester.startGesture(const Offset(500, 300), kind: PointerDeviceKind.stylus);
+    for (var i = 1; i <= 8; i++) {
+      await pen.moveTo(Offset(500.0 + i * 10, 300.0 + i * 4));
+    }
+    await pen.up();
+    await tester.pumpAndSettle();
+    expect(viewport.toScreen(Offset.zero), before); // Not panned.
+    expect(find.text('Tap ink to play is on'), findsOneWidget);
+
+    // A finger still pans.
+    final finger = await tester.startGesture(const Offset(500, 300));
+    for (var i = 1; i <= 8; i++) {
+      await finger.moveTo(Offset(500.0 + i * 10, 300.0));
+    }
+    await finger.up();
+    await tester.pump();
+    expect(viewport.toScreen(Offset.zero), isNot(before));
+
+    await tester.tap(find.text('Turn off'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Tap ink to play (off)'), findsOneWidget);
     await _close(tester);
   });
 }

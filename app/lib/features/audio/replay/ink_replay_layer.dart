@@ -31,6 +31,13 @@ class _InkReplayLayerState extends State<InkReplayLayer> {
   Offset? _focal;
   double _scale = 1;
 
+  /// Where each pen touching the page in seek mode came down: the pen
+  /// taps ink to play but never pans (it writes everywhere else).
+  final Map<int, Offset> _pens = {};
+
+  /// Whether a pen stroke here was explained (once per editor).
+  bool _told = false;
+
   @override
   void initState() {
     super.initState();
@@ -75,7 +82,31 @@ class _InkReplayLayerState extends State<InkReplayLayer> {
     _scale = 1;
   }
 
+  static bool _isPen(PointerDeviceKind kind) =>
+      kind == PointerDeviceKind.stylus || kind == PointerDeviceKind.invertedStylus;
+
+  void _penDown(PointerDownEvent e) {
+    if (_isPen(e.kind)) _pens[e.pointer] = e.localPosition;
+  }
+
+  void _penUp(PointerEvent e) => _pens.remove(e.pointer);
+
+  /// A pen drawn across the page (to write) in seek mode: says once why
+  /// it leaves no ink, with the way out.
+  void _penMove(PointerMoveEvent e) {
+    final down = _pens[e.pointer];
+    if (down == null || _told || (e.localPosition - down).distance <= kTouchSlop) return;
+    _told = true;
+    final playback = widget.audio.playback;
+    showMessage(
+      context,
+      'Tap ink to play is on',
+      action: SnackBarAction(label: 'Turn off', onPressed: () => playback.tapToSeek = false),
+    );
+  }
+
   void _scaleUpdate(ScaleUpdateDetails d) {
+    if (_pens.isNotEmpty) return;
     final viewport = widget.target.viewport;
     final last = _focal;
     if (last != null) viewport.panBy(d.localFocalPoint - last);
@@ -118,6 +149,10 @@ class _InkReplayLayerState extends State<InkReplayLayer> {
             if (playback.tapToSeek)
               Listener(
                 onPointerSignal: _signal,
+                onPointerDown: _penDown,
+                onPointerMove: _penMove,
+                onPointerUp: _penUp,
+                onPointerCancel: _penUp,
                 child: GestureDetector(
                   key: const ValueKey('ink-replay-seek'),
                   behavior: HitTestBehavior.opaque,

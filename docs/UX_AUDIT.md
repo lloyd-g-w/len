@@ -43,7 +43,7 @@ anything is recording. Reviewing on the laptop waits for every part of a
 | The list during a lecture | the recording being made is missing; "Record" does nothing | n/a | R17-5 ✅ |
 | 90 minutes | ≈ 44 MB (AAC 64 kbit/s), streamed to files; browsers hold at most one part in memory | similar sizes | Keep |
 | Review: tap ink | plays from 1.5 s before it; later ink veiled at 82 %; bursts as dots; Shift+← / → between them | Notability: hand tool, tap a word; Note Replay | Keep |
-| Writing with the player open | with "tap ink to play" on, a pen stroke pans the page | Notability: writing during playback links to it | R17-6 |
+| Writing with the player open | with "tap ink to play" on, a pen stroke pans the page | Notability: writing during playback links to it | R17-6 ✅ |
 | Speed, skip | 0.75–2×, ±10 s; no skip-silence | Notability: speeds, no skip-silence | Keep |
 | Background playback | Android media session and lock screen, MPRIS, Media Session in browsers, headset buttons | same on iPad | Keep |
 | Finding it later | mic glyph on cards, "2 recordings" in list rows, the title filter matches recording titles | Notability: audio badge | Keep |
@@ -101,12 +101,14 @@ anything is recording. Reviewing on the laptop waits for every part of a
   and no Record button while recording. Effort S.
 - *Done:* as proposed (`_RecordingNow`, red dot, grey while paused).
 
-**R17-6 P2 · With the player open, the pen pans instead of writing.** ⬜
+**R17-6 P2 · With the player open, the pen pans instead of writing.** ✅
 - *What:* "tap ink to play" (on by default) lays a layer over the page that
   takes every pointer: a tap seeks, a drag pans — the S Pen included, so a
   note added while listening moves the page and leaves no ink.
 - *Fix:* the pen never pans there (as with "stylus only"); a pen drag says
   once "Tap ink to play is on" with Turn off. Effort S.
+- *Done:* as proposed; pen taps on ink still play, fingers still pan and
+  zoom.
 
 ## Round 16 audit — a year of notes (`review/round16`)
 
