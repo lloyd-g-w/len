@@ -124,6 +124,7 @@ void main() {
     await tester.pumpAndSettle();
     final box = elementsOf(s, pages[0].id).single;
 
+    await key(tester, LogicalKeyboardKey.escape); // Leaves the Text tool (letters type there).
     await key(tester, LogicalKeyboardKey.keyL);
     await lasso(tester, const Rect.fromLTRB(250, 840, 600, 930).translate(0, -_up));
     expect(find.byTooltip('Delete (Del)'), findsOneWidget);

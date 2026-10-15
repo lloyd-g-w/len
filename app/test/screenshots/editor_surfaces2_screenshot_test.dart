@@ -191,9 +191,10 @@ void main() {
           await tester.tap(find.byTooltip('Colour'));
           await settle(tester);
           await shoot(tester, 'e_text_colour_$shot');
-          // Esc closes the colours, then finishes the text box (its Done
-          // button is cut off on phones; see the report).
-          for (var i = 0; i < 2; i++) {
+          // Esc closes the colours, finishes the text box (its Done
+          // button is cut off on phones; see the report), then leaves the
+          // Text tool (where letters type).
+          for (var i = 0; i < 3; i++) {
             await tester.sendKeyEvent(LogicalKeyboardKey.escape);
             await settle(tester);
           }

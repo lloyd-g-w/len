@@ -77,7 +77,9 @@ void main() {
     expect(text.rect.top, lessThan(500)); // Page-local, not document space.
     expect(elementsOf(s, pages[0].id), isEmpty);
 
-    // Lasso the wave on page 1 and move it down.
+    // Lasso the wave on page 1 and move it down (Esc leaves the Text tool,
+    // where letters type).
+    await key(tester, LogicalKeyboardKey.escape);
     await key(tester, LogicalKeyboardKey.keyL);
     await mouseDrag(
       tester,
