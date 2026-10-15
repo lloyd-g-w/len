@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:isolate';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 
 import '../core/clock.dart';
 import '../data/app_database.dart';
@@ -25,7 +25,7 @@ import 'remote_changes.dart';
 /// applied by a [PullApplier] as on the UI isolate. Native only (imported
 /// by `platform/pull_worker_native.dart`).
 class BackgroundPullWorker implements PullWorker {
-  BackgroundPullWorker._(this._isolate, this._port, this._database, this._signal);
+  BackgroundPullWorker._(this._isolate, this._port, this._database, this._signal, this._life);
 
   /// How long (µs) a slice (one transaction) may run: as long as the UI
   /// isolate may have to wait to write.
@@ -35,17 +35,25 @@ class BackgroundPullWorker implements PullWorker {
   /// lock (its waits poll every few milliseconds).
   static const Duration gap = Duration(milliseconds: 1);
 
+  /// Runs first thing in the worker isolate (tests make it die there).
+  @visibleForTesting
+  static void Function()? debugOnServe;
+
   final Isolate _isolate;
   final SendPort _port;
   final AppDatabase _database;
   final SharedWriteSignal _signal;
+  final _WorkerLife _life;
   bool _closed = false;
-  bool _dead = false;
+
+  /// The worker isolate (tests watch it exit).
+  @visibleForTesting
+  Isolate get isolate => _isolate;
 
   /// Starts a worker on the file of [database] (the app's connection,
   /// which it yields to) for device [deviceId] ([clock] stamps what
   /// deletion conflicts bring back; it is copied over). Null if it cannot
-  /// start.
+  /// start (or dies before it is ready).
   static Future<BackgroundPullWorker?> start(
     AppDatabase database, {
     required String deviceId,
@@ -55,19 +63,33 @@ class BackgroundPullWorker implements PullWorker {
     if (path == null || database.writeSignal != null) return null;
     final signal = SharedWriteSignal();
     final ready = ReceivePort();
+    final life = _WorkerLife();
     Isolate? isolate;
     try {
-      isolate = await Isolate.spawn(_serve, (
-        path: path,
-        deviceId: deviceId,
-        clock: clock,
-        signal: signal.address,
-        ready: ready.sendPort,
-      ), debugName: 'pull worker');
-      final answer = await ready.first;
+      isolate = await Isolate.spawn(
+        _serve,
+        (
+          path: path,
+          deviceId: deviceId,
+          clock: clock,
+          signal: signal.address,
+          ready: ready.sendPort,
+          onServe: debugOnServe,
+        ),
+        debugName: 'pull worker',
+        // Set up with the spawn: an exit before a listener added later
+        // would never be heard (and a pull would wait for it forever).
+        onExit: life.port.sendPort,
+        onError: life.port.sendPort,
+      );
+      final Object? answer = await Future.any<Object?>([
+        ready.first,
+        life.exited.then((_) => life.reason),
+      ]);
       if (answer is SendPort) {
+        final port = answer;
         database.writeSignal = signal;
-        return BackgroundPullWorker._(isolate, answer, database, signal);
+        return BackgroundPullWorker._(isolate, port, database, signal, life);
       }
       debugPrint('The pull worker did not start: $answer');
     } on Object catch (e) {
@@ -81,6 +103,7 @@ class BackgroundPullWorker implements PullWorker {
     } else {
       signal.free();
     }
+    life.close();
     return null;
   }
 
@@ -93,8 +116,10 @@ class BackgroundPullWorker implements PullWorker {
     required bool Function() cancelled,
   }) async {
     if (_closed) throw const PullWorkerException('closed');
+    if (_life.dead) throw PullWorkerException(_life.reason);
     final replies = ReceivePort();
-    _isolate.addOnExitListener(replies.sendPort, response: _exited);
+    // Its exit (it died between pages, or now) ends the wait for replies.
+    unawaited(_life.exited.then((_) => replies.sendPort.send(const _Exited())));
     var cancelSent = false;
     final watch = Timer.periodic(const Duration(milliseconds: 10), (_) {
       if (cancelSent || !cancelled()) return;
@@ -117,15 +142,13 @@ class BackgroundPullWorker implements PullWorker {
             return WorkedPage(header: header!, applied: applied, total: total, changes: changes);
           case _Failed(:final message, :final changes):
             throw PullWorkerException(message, changes: changes);
-          case _exited:
-            _dead = true;
-            throw const PullWorkerException('the worker stopped');
+          case _Exited():
+            throw PullWorkerException(_life.reason);
         }
       }
       throw const PullWorkerException('no answer');
     } finally {
       watch.cancel();
-      _isolate.removeOnExitListener(replies.sendPort);
       replies.close();
     }
   }
@@ -135,23 +158,29 @@ class BackgroundPullWorker implements PullWorker {
     if (_closed) return;
     _closed = true;
     if (identical(_database.writeSignal, _signal)) _database.writeSignal = null;
-    var exited = _dead;
-    if (!exited) {
-      final exit = ReceivePort();
-      _isolate.addOnExitListener(exit.sendPort, response: _exited);
-      _port.send(const _Close());
-      // It closes its connection and exits; never wait long for that.
-      exited = await exit.first.timeout(const Duration(seconds: 1), onTimeout: () => null) != null;
-      exit.close();
-    }
+    if (!_life.dead) _port.send(const _Close());
+    // It closes its connection and exits; never wait long for that.
+    final exited = await _life.exited
+        .then((_) => true)
+        .timeout(const Duration(seconds: 1), onTimeout: () => false);
     _isolate.kill(priority: Isolate.immediate);
+    _life.close();
     // Freed only once the worker surely reads it no more.
     if (exited) _signal.free();
   }
 
   static void _serve(
-    ({String path, String deviceId, Clock clock, int signal, SendPort ready}) args,
+    ({
+      String path,
+      String deviceId,
+      Clock clock,
+      int signal,
+      SendPort ready,
+      void Function()? onServe,
+    })
+    args,
   ) {
+    args.onServe?.call();
     final writing = WriterWaiting(args.signal);
     final AppDatabase database;
     try {
@@ -263,5 +292,36 @@ final class _Failed {
   final RemoteChanges changes;
 }
 
-/// What the worker's exit notice says.
-const _exited = 'exited';
+final class _Exited {
+  const _Exited();
+}
+
+/// Hears a worker isolate's exit and errors (on the port it is spawned
+/// with).
+class _WorkerLife {
+  _WorkerLife() {
+    port.listen((message) {
+      if (message is List && message.isNotEmpty) {
+        // An uncaught error: fatal, its exit follows.
+        _error ??= '${message.first}';
+        debugPrint('The pull worker failed: ${message.first}\n${message.last}');
+      } else if (!_exit.isCompleted) {
+        _exit.complete();
+      }
+    });
+  }
+
+  final port = ReceivePort();
+  final _exit = Completer<void>();
+  String? _error;
+
+  /// Completes once the isolate exited.
+  Future<void> get exited => _exit.future;
+
+  bool get dead => _exit.isCompleted;
+
+  /// Why it stopped, for the pull's error.
+  String get reason => _error == null ? 'the worker stopped' : 'the worker stopped: $_error';
+
+  void close() => port.close();
+}
