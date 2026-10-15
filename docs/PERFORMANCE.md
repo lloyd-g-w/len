@@ -335,6 +335,13 @@ restore and `open_big` alone (`LEN_EXPLORE_BACKUP`). Read-backs count / ms:
   GPU work queued before them; the step took 0–5 s longer. Tiles are now
   made at once again, as before; that last change was not rebuilt (the
   round's build budget), so `open_big` is to be measured again.
+  Measured again on main after `c27bf200` (tiles immediate again; a full
+  Chromium walk with `LEN_EXPLORE_PROFILE=1`, the machine busy with other
+  builds): `open_big` 72 read-backs / 18.1 s (all 512², 1 resize), 50 shader
+  compiles waiting 4.1 s, step 40.1 s. The count is back in the old range;
+  each read-back took ~250 ms against ~200 ms before, which tracks the load
+  rather than the batching (tiles no longer queue). Software GL only: on a
+  real GPU a read-back is milliseconds.
 - **WebAssembly** stays clean: no problem, the longest task once started
   353 ms (the scan step's garbage collection and `convertToBlob`), the
   restore 254 ms, the big notebook 147 ms; no read-back on the UI thread.
