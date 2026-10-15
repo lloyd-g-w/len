@@ -16,6 +16,7 @@ class SplitPane {
     required this.secondary,
     required this.area,
     required this.showMessage,
+    this.onLeave,
   });
 
   final EditorSession session;
@@ -28,6 +29,14 @@ class SplitPane {
 
   /// Shows a message (snack bar) in this pane.
   final ValueChanged<String> showMessage;
+
+  /// The tabs moved this pane's notebook away (it fades out next): puts
+  /// back what the editor changed in the shared tools for the moment (the
+  /// laser of focus mode), while they are still linked.
+  final VoidCallback? onLeave;
+
+  /// Whether the tabs still show this pane's notebook in its place.
+  bool _showsIn(OpenNotebooks tabs) => notebookId == (secondary ? tabs.splitId : tabs.activeId);
 
   String get notebookId => session.notebook.id;
 
@@ -147,8 +156,9 @@ class SplitController extends ChangeNotifier {
     if (other != null) pane.session.tools.adopt(other.session.tools);
   }
 
+  /// Stops tracking [pane] (its editor went, or is leaving: see [_onTabs]).
   void detach(SplitPane pane) {
-    _panes.remove(pane);
+    if (!_panes.remove(pane)) return;
     pane.session.content.lasso.dragOut = null;
     final listener = _toolListeners.remove(pane);
     if (listener != null) pane.session.tools.removeListener(listener);
@@ -201,6 +211,14 @@ class SplitController extends ChangeNotifier {
   }
 
   void _onTabs() {
+    // An editor whose notebook went from its place fades out for a moment
+    // while the next one comes in: it is no longer part of the split (its
+    // tools link to nothing, nothing drops into it).
+    for (final pane in [..._panes]) {
+      if (pane._showsIn(tabs)) continue;
+      pane.onLeave?.call();
+      detach(pane);
+    }
     // Linked tools: the active editor's tools win.
     if (_panes.length == 2) {
       final primary = _panes.firstWhere((p) => !p.secondary, orElse: () => _panes.first);
