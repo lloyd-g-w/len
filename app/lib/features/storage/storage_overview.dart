@@ -14,12 +14,32 @@ sealed class FreeUpOutcome {
   const FreeUpOutcome();
 }
 
-/// Copies of [count] files were removed, [bytes] in all.
+/// Copies of [count] files (at least one) were removed, [bytes] in all.
 final class FreedUp extends FreeUpOutcome {
   const FreedUp(this.bytes, this.count);
 
   final int bytes;
   final int count;
+}
+
+/// Why [NothingFreed] removed nothing.
+enum NotFreed {
+  /// The server has none of the files (not uploaded yet, or lost).
+  notOnServer,
+
+  /// The files the server has are in use here: their notebooks are open,
+  /// rows showing them aren't synced yet, or the files are busy.
+  inUse,
+
+  /// The device turned to another server (or its history) meanwhile.
+  serverChanged,
+}
+
+/// No copy was removed, for [reason].
+final class NothingFreed extends FreeUpOutcome {
+  const NothingFreed(this.reason);
+
+  final NotFreed reason;
 }
 
 /// The server could not be asked which files it holds: nothing removed.
@@ -117,9 +137,11 @@ class StorageOverview extends ChangeNotifier {
     try {
       await refresh();
       final ids = _survey?.freeableIds ?? const [];
-      if (ids.isEmpty) return const FreedUp(0, 0);
+      // Measured again, none could go: they are kept for open notebooks.
+      if (ids.isEmpty) return const NothingFreed(NotFreed.inUse);
       final answer = await sync.blobsOnServer(ids);
       if (answer == null) return const ServerUnreachable();
+      if (answer.held.isEmpty) return const NothingFreed(NotFreed.notOnServer);
       // Asked again whenever the notebooks open change meanwhile (each
       // copy waits for its own file's removal).
       Set<String>? open;
@@ -137,7 +159,8 @@ class StorageOverview extends ChangeNotifier {
         answer.held,
         stillRemovable: (sha) => answer.current() && !keeps(sha),
       );
-      return FreedUp(removed.bytes, removed.count);
+      if (removed.count > 0) return FreedUp(removed.bytes, removed.count);
+      return NothingFreed(answer.current() ? NotFreed.inUse : NotFreed.serverChanged);
     } finally {
       _freeing = false;
       if (!_disposed) {

@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/blob_backend.dart';
@@ -15,6 +17,7 @@ import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/domain/surface_element.dart';
+import 'package:len/features/settings/storage_rows.dart';
 import 'package:len/features/storage/storage_overview.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:len/platform/storage_survey.dart';
@@ -55,6 +58,9 @@ void main() {
   late MemoryRasterStore rasters;
   late _HookedBackend backend;
 
+  /// Runs before each request to the sync server.
+  void Function()? beforeRequest;
+
   setUp(() {
     dir = Directory.systemTemp.createTempSync('len_storage_test_');
     server = FakeServer();
@@ -63,8 +69,19 @@ void main() {
       AppDatabase.inMemory(),
       blobBackend: backend = _HookedBackend(FileBlobBackend(dir.path)),
       rasterStore: rasters,
-      syncApiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: server.client),
+      syncApiFactory: (url, token) => SyncApi(
+        baseUrl: url,
+        token: token,
+        client: MockClient((request) async {
+          beforeRequest?.call();
+          final copy = http.Request(request.method, request.url)
+            ..headers.addAll(request.headers)
+            ..bodyBytes = request.bodyBytes;
+          return http.Response.fromStream(await server.client.send(copy));
+        }),
+      ),
     );
+    beforeRequest = null;
   });
   tearDown(() {
     s.dispose();
@@ -278,7 +295,29 @@ void main() {
       await s.storage.refresh();
       expect(s.storage.survey!.freeable, 0);
       expect(s.storage.canFreeUp, isFalse);
-      expect(await s.storage.freeUp(), isA<FreedUp>().having((o) => o.count, 'count', 0));
+      final outcome = await s.storage.freeUp();
+      expect(outcome, isA<NothingFreed>().having((o) => o.reason, 'reason', NotFreed.inUse));
+      expect(freeUpMessage(outcome), contains('in use'));
+      expect(await s.blobs.has(img), isTrue);
+    });
+
+    test('says why nothing went: the server lacks the files, or they are in use', () async {
+      configureSync();
+      final img = await blob('img', 'image/png');
+      final n = notebook('N');
+      image(page(n).id, img);
+      synced();
+      server.blobs.remove(img);
+      final missing = await s.storage.freeUp();
+      expect(missing, isA<NothingFreed>().having((o) => o.reason, 'reason', NotFreed.notOnServer));
+      expect(freeUpMessage(missing), contains('doesn’t have'));
+
+      // On the server, but the notebook opens while Free up asks it.
+      server.blobs[img] = (await s.blobs.read(img))!;
+      beforeRequest = () => s.openNotebooks.open(n);
+      final inUse = await s.storage.freeUp();
+      expect(inUse, isA<NothingFreed>().having((o) => o.reason, 'reason', NotFreed.inUse));
+      expect(freeUpMessage(inUse), isNot(contains('server')));
       expect(await s.blobs.has(img), isTrue);
     });
 

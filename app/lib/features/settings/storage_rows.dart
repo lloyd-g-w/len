@@ -159,12 +159,20 @@ Future<void> freeUpDownloads(BuildContext context, StorageOverview overview) asy
   if (!confirmed || !context.mounted) return;
   final outcome = await overview.freeUp();
   if (!context.mounted) return;
-  showMessage(context, switch (outcome) {
-    FreedUp(count: 0) => 'The sync server doesn’t have these files yet, so nothing was removed',
-    FreedUp(:final bytes) => 'Freed up ${formatBytes(bytes)}',
-    ServerUnreachable() => 'Couldn’t reach the sync server, so nothing was removed',
-  });
+  showMessage(context, freeUpMessage(outcome));
 }
+
+/// What to tell after "Free up": what went, or why nothing did.
+String freeUpMessage(FreeUpOutcome outcome) => switch (outcome) {
+  FreedUp(:final bytes) => 'Freed up ${formatBytes(bytes)}',
+  NothingFreed(reason: NotFreed.notOnServer) =>
+    'The sync server doesn’t have these files yet, so nothing was removed',
+  NothingFreed(reason: NotFreed.inUse) =>
+    'These files are in use (open notebooks, changes not synced yet), so nothing was removed',
+  NothingFreed(reason: NotFreed.serverChanged) =>
+    'The sync server changed meanwhile, so nothing was removed',
+  ServerUnreachable() => 'Couldn’t reach the sync server, so nothing was removed',
+};
 
 /// "Cached previews": rasters of zoomed-out pages kept to show them
 /// quickly (shown when they take enough to matter).
