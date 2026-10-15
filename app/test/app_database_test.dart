@@ -5,9 +5,29 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
 import 'package:sqlite3/sqlite3.dart';
 
-/// Two connections to one file (the app's and a pull worker's): a write
-/// waits for the other's transaction, up to [AppDatabase.busyTimeoutMs].
+/// [AppDatabase.transaction] and two connections to one file (the app's
+/// and a pull worker's): a write waits for the other's transaction, up to
+/// [AppDatabase.busyTimeoutMs].
 void main() {
+  test('a transaction SQLite rolled back itself fails with its own error', () {
+    final database = AppDatabase.inMemory();
+    addTearDown(database.close);
+    database.db.execute('''
+      CREATE TEMP TRIGGER test_veto BEFORE INSERT ON settings WHEN NEW.key = 'vetoed' BEGIN
+        SELECT RAISE(ROLLBACK, 'vetoed by a trigger');
+      END''');
+    expect(
+      () => database.transaction(
+        () => database.execute("INSERT INTO settings VALUES ('vetoed', '1')"),
+      ),
+      throwsA(predicate((e) => '$e'.contains('vetoed by a trigger'))),
+    );
+    database.transaction(() => database.execute("INSERT INTO settings VALUES ('fine', '1')"));
+    expect(database.db.select("SELECT value FROM settings WHERE key = 'fine'"), [
+      {'value': '1'},
+    ]);
+  });
+
   late Directory dir;
   setUp(() => dir = Directory.systemTemp.createTempSync('len-busy-'));
   tearDown(() => dir.deleteSync(recursive: true));

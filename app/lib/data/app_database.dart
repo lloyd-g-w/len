@@ -74,7 +74,9 @@ class AppDatabase {
         db.execute('COMMIT');
         return result;
       } catch (_) {
-        db.execute('ROLLBACK');
+        // Some errors (a full disk, a trigger's RAISE(ROLLBACK)) roll back
+        // already: a ROLLBACK then would hide them behind its own error.
+        if (!db.autocommit) db.execute('ROLLBACK');
         rethrow;
       }
     } finally {
