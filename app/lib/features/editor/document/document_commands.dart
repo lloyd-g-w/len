@@ -60,9 +60,14 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
   @override
   late final PageEdits edits;
 
-  /// A blank page was added to write on (the editor starts writing).
-  @override
+  /// Fresh pages were added to write on (the editor starts writing).
   VoidCallback? onBlankPage;
+
+  @override
+  void _addPages(List<PageSpec> specs, {required NotebookPage after}) {
+    edits.add(specs, after: after);
+    onBlankPage?.call();
+  }
 
   /// Whether the page structure changed (pages added, moved, …).
   @override
@@ -102,17 +107,13 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
   /// Adds a page like the current one (same paper and size; a planner's
   /// next day, week or month; after a slide, lined paper at its size:
   /// [PageActions.blankAfter]) after it.
-  void addPage() {
-    edits.add([actions.blankPageAfter(_current)], after: _current);
-    onBlankPage?.call();
-  }
+  void addPage() => _addPages([actions.blankPageAfter(_current)], after: _current);
 
   /// Adds a page like page [index] after it (the zoom window writing on
   /// past the last page), and shows it.
   void addPageAfter(int index) {
     final page = doc.pages[index];
-    edits.add([actions.blankPageAfter(page)], after: page);
-    onBlankPage?.call();
+    _addPages([actions.blankPageAfter(page)], after: page);
   }
 
   /// Follows a planner link: shows the page with template [target], or
@@ -137,7 +138,7 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
             color: current.paperColor,
             background: null,
           );
-          edits.add([spec], after: current);
+          _addPages([spec], after: current);
         },
       ),
     );
@@ -147,7 +148,7 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
   Future<void> run(BuildContext context, PageCommand command, NotebookPage page) async {
     switch (command) {
       case PageCommand.insertAfter:
-        edits.add([actions.blankPageAfter(page)], after: page);
+        _addPages([actions.blankPageAfter(page)], after: page);
       case PageCommand.insertWithTemplate:
         await addPageWithTemplate(context, after: page);
       case PageCommand.duplicate:
