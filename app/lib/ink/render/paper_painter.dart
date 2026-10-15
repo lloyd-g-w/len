@@ -148,7 +148,10 @@ abstract final class PaperRenderer {
         });
       canvas.drawPoints(ui.PointMode.lines, points, paint);
     }
-    if (pattern.dots.isNotEmpty) _paintDots(canvas, pattern.dots, ink, look, scale, faint);
+    if (pattern.dots.isNotEmpty) {
+      // Template miniatures show the pattern, not the page at a zoom.
+      _paintDots(canvas, pattern.dots, ink, look, scale, always ? 1 : faint);
+    }
     for (final label in pattern.labels) {
       // Text smaller than ~3 device pixels is unreadable: skip it (keep it
       // as texture in miniatures).
@@ -165,7 +168,8 @@ abstract final class PaperRenderer {
   /// they scale with the page and the ink. Smaller on screen than
   /// [minDotRadius] (far out), they stay that size and fade instead,
   /// keeping the ink a dot puts down (its area); a strengthened page
-  /// thumbnail ([faint]) keeps them at least [minMiniatureDot], unfaded.
+  /// thumbnail ([faint]; 1 for template miniatures) keeps them at least
+  /// [minMiniatureDot], unfaded.
   static void _paintDots(
     Canvas canvas,
     List<Offset> dots,
