@@ -11,6 +11,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/features/audio/playback_controller.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/features/library/library_controller.dart';
 import 'package:len/features/library/library_notice.dart';
 import 'package:len/ink/ink_surface.dart';
 import 'package:len/ui/app_theme.dart';
@@ -292,6 +293,83 @@ void main() {
     expect(find.byKey(const ValueKey('recording-elsewhere')), findsNothing);
     expect(e.services.recordings.listOf(e.notebook.id).single.durationMs, 65000);
     expect(e.services.sharedNotebooks.unattended.value, isNull);
+    await _close(tester);
+  });
+
+  testWidgets('R17: trashing (or deleting the folder of) a notebook recording unattended stops '
+      'and saves the recording into it; restoring brings back both', (tester) async {
+    for (final viaFolder in [false, true]) {
+      final e = await _pump(
+        tester,
+        seed: viaFolder
+            ? (s, nb) => s.notebooks.moveTo(nb.id, s.folders.create(name: 'Year 1', color: 0).id)
+            : null,
+      );
+      await tester.tap(find.byTooltip('Record audio'));
+      await _settleAsync(tester);
+      e.clock.now += 65000;
+      await tester.pumpWidget(
+        AppScope(
+          services: e.services,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const Scaffold(body: LibraryNotices(child: SizedBox.expand())),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('recording-elsewhere')), findsOneWidget);
+
+      final library = LibraryController(e.services);
+      final List<String> trashed;
+      if (viaFolder) {
+        final folder = e.services.notebooks.get(e.notebook.id)!.folderId!;
+        trashed = library.deleteFolder(folder).notebookIds;
+      } else {
+        trashed = library.trashNotebooks([e.notebook.id]);
+      }
+      await _settleAsync(tester);
+      expect(find.byKey(const ValueKey('recording-elsewhere')), findsNothing);
+      expect(e.services.sharedNotebooks.unattended.value, isNull);
+      expect(e.services.sharedNotebooks.ids, isEmpty);
+      expect(e.services.recordings.listOf(e.notebook.id).single.durationMs, 65000);
+
+      library.restoreNotebooks(trashed);
+      expect(e.services.notebooks.get(e.notebook.id)!.isTrashed, isFalse);
+      expect(e.services.recordings.listOf(e.notebook.id), hasLength(1));
+      library.dispose();
+      await _close(tester);
+    }
+  });
+
+  testWidgets('R17: Show on the library notice never opens a notebook trashed meanwhile', (
+    tester,
+  ) async {
+    final e = await _pump(tester);
+    await tester.tap(find.byTooltip('Record audio'));
+    await _settleAsync(tester);
+    e.clock.now += 65000;
+    await tester.pumpWidget(
+      AppScope(
+        services: e.services,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: const Scaffold(body: LibraryNotices(child: SizedBox.expand())),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // Trashed by a path that doesn't let it go (not the library's).
+    e.services.notebooks.trash(e.notebook.id);
+    await tester.tap(find.text('Show'));
+    await _settleAsync(tester);
+    expect(find.byType(EditorScreen), findsNothing);
+    expect(
+      find.text('“Calculus” is in the trash: its recording stopped and was saved there'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('recording-elsewhere')), findsNothing);
+    expect(e.services.recordings.listOf(e.notebook.id), hasLength(1));
     await _close(tester);
   });
 }

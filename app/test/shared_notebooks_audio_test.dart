@@ -101,4 +101,67 @@ void main() {
     expect(services.recordings.listOf(physics.id), hasLength(1));
     shared.dispose();
   });
+
+  test('R17: a notebook trashed here while it records unattended is let go: its recording '
+      'is stopped and saved into it, so restoring brings back both', () async {
+    final audio = FakeAudio();
+    final services = AppServices.create(AppDatabase.inMemory(), audio: audio.backends);
+    final physics = services.notebooks.create(
+      title: 'Physics',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    final shared = SharedNotebooks(services);
+    final first = shared.acquire(physics);
+    final recorder = first.audio.recorder;
+    expect(await recorder.start(), isTrue);
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    shared.release(first);
+    await pumpEventQueue();
+    expect(shared.unattended.value, same(first));
+
+    services.notebooks.trash(physics.id);
+    shared.notebooksChanged();
+    await pumpEventQueue();
+    expect(shared.unattended.value, isNull);
+    expect(shared.peek(physics.id), isNull, reason: 'no empty notebook to show');
+    await until(() => shared.ids.isEmpty);
+    expect(services.recordings.listOf(physics.id), hasLength(1));
+
+    services.notebooks.restore(physics.id);
+    final reopened = shared.acquire(physics);
+    expect(reopened, isNot(same(first)));
+    expect(reopened.gone, isNull);
+    expect(reopened.audio.recordings, hasLength(1));
+    shared.dispose();
+  });
+
+  test('R17: a recording that finishes saving after its notebook was deleted forever is '
+      'deleted with it', () async {
+    final audio = FakeAudio();
+    final services = AppServices.create(AppDatabase.inMemory(), audio: audio.backends);
+    final physics = services.notebooks.create(
+      title: 'Physics',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    final shared = SharedNotebooks(services);
+    final first = shared.acquire(physics);
+    expect(await first.audio.recorder.start(), isTrue);
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    shared.release(first);
+    await pumpEventQueue();
+    final saving = Completer<void>();
+    audio.capture.holdStop = saving.future;
+    services.notebooks.trash(physics.id);
+    shared.notebooksChanged();
+    services.notebooks.delete(physics.id); // Delete forever while it saves.
+    shared.notebooksChanged();
+    saving.complete();
+    await until(() => shared.ids.isEmpty);
+    expect(services.recordings.listOf(physics.id), isEmpty);
+    shared.dispose();
+  });
 }

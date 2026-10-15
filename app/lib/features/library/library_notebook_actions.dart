@@ -16,11 +16,15 @@ mixin _NotebookActions {
   void _undoable(BuildContext context, String message, VoidCallback undo);
 
   Future<void> trash(BuildContext context, Notebook notebook) async {
+    // Its recording is stopped and saved, and goes to the trash with it.
+    final recording = controller.services.sharedNotebooks.recordsUnattended(notebook.id);
     final trashed = controller.trashNotebooks([notebook.id]);
     if (trashed.isEmpty) return; // Gone or trashed meanwhile (by sync).
     _undoable(
       context,
-      '“${notebook.title}” moved to the trash',
+      recording
+          ? 'Recording saved and “${notebook.title}” moved to the trash'
+          : '“${notebook.title}” moved to the trash',
       () => controller.restoreNotebooks(trashed),
     );
   }

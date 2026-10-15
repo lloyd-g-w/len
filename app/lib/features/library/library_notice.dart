@@ -12,8 +12,8 @@ import '../audio/recording_controller.dart';
 import '../audio/ui/audio_bar_button.dart';
 import '../audio/ui/audio_format.dart';
 import '../backup/len_file_flows.dart';
+import '../editor/shared/recording_elsewhere_notice.dart';
 import '../editor/shared/shared_notebooks.dart';
-import '../editor/tabs/editor_workspace.dart';
 import '../settings/settings_screen.dart';
 import '../storage/storage_attention.dart';
 import 'library_format.dart';
@@ -229,7 +229,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
           body: 'It goes on until you stop it',
           actions: [
             TextButton(
-              onPressed: () => unawaited(openNotebook(context, shared.notebook)),
+              onPressed: () => showRecordingNotebook(context, shared),
               child: const Text('Show'),
             ),
             TextButton(

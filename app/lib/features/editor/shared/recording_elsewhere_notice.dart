@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../app_services.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
+import '../../../ui/messages.dart';
 import '../../audio/recording_controller.dart';
 import '../../audio/ui/audio_bar_button.dart';
 import '../../audio/ui/audio_format.dart';
@@ -88,7 +90,7 @@ class RecordingElsewhereRow extends StatelessWidget {
             ),
             const SizedBox(width: Gaps.xs),
             TextButton(
-              onPressed: () => unawaited(openNotebook(context, shared.notebook)),
+              onPressed: () => showRecordingNotebook(context, shared),
               child: const Text('Show'),
             ),
             TextButton(
@@ -100,4 +102,25 @@ class RecordingElsewhereRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Show on a notice of a notebook recording unattended: opens it as it is
+/// now — or, if it went to the trash or was deleted meanwhile (another
+/// device, a path that didn't let it go), lets it go (its recording stops
+/// and is saved into it) and says so, rather than opening an empty view.
+void showRecordingNotebook(BuildContext context, SharedNotebook shared) {
+  final services = AppScope.read(context);
+  final notebook = services.notebooks.get(shared.id);
+  if (notebook != null && !notebook.isTrashed) {
+    unawaited(openNotebook(context, notebook));
+    return;
+  }
+  services.sharedNotebooks.notebooksChanged();
+  final title = (notebook ?? shared.notebook).title;
+  showMessage(
+    context,
+    notebook == null
+        ? '“$title” was deleted, so its recording stopped'
+        : '“$title” is in the trash: its recording stopped and was saved there',
+  );
 }

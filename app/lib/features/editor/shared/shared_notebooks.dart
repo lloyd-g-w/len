@@ -80,6 +80,14 @@ class SharedNotebooks {
     }
     _users.remove(id);
     if (shared.loadedAudio?.recorder.state.isActive ?? false) return _leaveRecording(shared);
+    _close(shared);
+  }
+
+  /// Disposes [shared] (no editor holds it), which stops and saves a
+  /// running recording; until that is saved the microphone stays busy and
+  /// blob garbage collection keeps the notebook's files ([ids]).
+  void _close(SharedNotebook shared) {
+    final id = shared.id;
     _open.remove(id)!.dispose(); // Saves a running recording.
     final saving = shared.loadedAudio?.saving;
     if (saving == null) return;
@@ -87,11 +95,30 @@ class SharedNotebooks {
     unawaited(
       saving.whenComplete(() {
         _saving.remove(id);
+        // Deleted forever meanwhile: the recording goes with it.
+        if (services.notebooks.get(id) == null) services.recordings.deleteAllOf(id);
         // Reopened meanwhile: its list gains the recording just saved.
         _open[id]?.loadedAudio?.reload();
       }),
     );
   }
+
+  /// Notebooks were trashed or deleted on this device (the library calls
+  /// this after its changes): the [unattended] notebook, if among them, is
+  /// let go at once — its recording stopped and saved into it, so it goes
+  /// to the trash with the notebook and Undo (or Restore) brings back both;
+  /// no notice is left to Show an empty view.
+  void notebooksChanged() {
+    final kept = _kept;
+    if (kept == null || _users[kept.id] != null || !identical(_open[kept.id], kept)) return;
+    final current = services.notebooks.get(kept.id);
+    if (current != null && !current.isTrashed) return;
+    _attend();
+    _close(kept);
+  }
+
+  /// Whether notebook [id] is recording with no editor showing it.
+  bool recordsUnattended(String id) => _kept?.id == id;
 
   /// Keeps [shared] open while it records with no editor; once the
   /// recording is stopped (from the notice, the notification, or because
