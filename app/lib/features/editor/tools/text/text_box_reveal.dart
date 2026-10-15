@@ -19,7 +19,8 @@ class TextBoxReveal {
   Object? _last;
 
   /// Checks after this frame: [box] is the box's screen rect in [host]'s
-  /// coordinates, [caret] gives the caret's rect in global coordinates,
+  /// coordinates, [caret] gives the caret's rect in global coordinates
+  /// (null: nothing to do),
   /// [bar] the docked bar's key (null when the bar floats by the box),
   /// [top] the lowest the box's top may go, [bottom] the chrome's height
   /// at the bottom of [host]. [state] identifies the box, its text and
@@ -56,12 +57,11 @@ class TextBoxReveal {
       if (key == _last) return;
       _last = key;
       final global = caret();
-      final at = global == null
-          ? box
-          : Rect.fromPoints(
-              hostBox.globalToLocal(global.topLeft),
-              hostBox.globalToLocal(global.bottomRight),
-            );
+      if (global == null) return; // Not laid out, or the box ended.
+      final at = Rect.fromPoints(
+        hostBox.globalToLocal(global.topLeft),
+        hostBox.globalToLocal(global.bottomRight),
+      );
       final pan = panFor(box: box, caret: at, top: top, bottom: limit - gap);
       if (pan != 0) viewport.panBy(Offset(0, -pan));
     };

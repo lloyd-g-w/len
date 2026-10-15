@@ -1836,6 +1836,10 @@ surface.
   it; a disposed `SurfaceModel` ignores edits.
 - **Text** (`elements/text_edit_session.dart`): tapping with the Text tool
   creates or edits a box; double-tapping a box with the lasso edits it too.
+  With the Text tool and no box open, a typed character starts a box with it
+  (`ContentTools.typeText`: under the box finished last when in view, else left
+  of the view's middle), so letters are not tool shortcuts then; Esc goes back to
+  the tool used before (`leaveTextTool`).
   While editing, the element is hidden and a real `TextField` is laid out
   in world units and transformed by the viewport — `TextLayout` gives the
   field and the renderer the same complete (non-inheriting) styles, so text

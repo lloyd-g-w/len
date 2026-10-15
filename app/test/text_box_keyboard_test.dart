@@ -92,4 +92,40 @@ void main() {
     expect(caret(tester).top, greaterThan(0));
     expect(caret(tester).bottom, lessThanOrEqualTo(tester.getRect(bar).top));
   });
+
+  testWidgets('with the Text tool, typing starts a box; the next goes under it', (tester) async {
+    final (services, nb) = await openCanvas(tester);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await key(tester, LogicalKeyboardKey.keyH); // not the highlighter
+    await tester.pumpAndSettle();
+    expect(typed(tester), 'h');
+    final first = tester.getRect(field);
+    expect(first.center.dy, closeTo(400, 30), reason: 'in the middle of the view');
+    await tester.enterText(field, 'hello');
+    await key(tester, LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+    await key(tester, LogicalKeyboardKey.space); // whitespace starts nothing
+    expect(field, findsNothing);
+
+    await key(tester, LogicalKeyboardKey.keyE); // not the eraser
+    await tester.pumpAndSettle();
+    expect(typed(tester), 'e');
+    final second = tester.getRect(field);
+    expect(second.left, first.left);
+    expect(second.top, greaterThan(first.bottom));
+    expect(second.top - first.bottom, lessThan(first.height));
+    await key(tester, LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(liveElements(services, nb.id), hasLength(2));
+
+    // Esc goes back to the tool before (the pen); its shortcuts work again.
+    await key(tester, LogicalKeyboardKey.escape);
+    await mouseDrag(tester, const [Offset(600, 100), Offset(700, 150)]);
+    expect(liveStrokes(services, nb.id), hasLength(1));
+    await key(tester, LogicalKeyboardKey.keyP);
+    await key(tester, LogicalKeyboardKey.keyH);
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+  });
 }

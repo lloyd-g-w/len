@@ -135,6 +135,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
 
   /// The caret's rect in global coordinates, if the field is laid out.
   Rect? _caretRect() {
+    if (!mounted || _session.current == null) return null; // The box ended.
     final field = _focus.context?.findAncestorStateOfType<EditableTextState>();
     final editable = field?.renderEditable;
     if (editable == null || !editable.attached || !editable.hasSize) return null;

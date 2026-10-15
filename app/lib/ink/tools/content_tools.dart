@@ -106,6 +106,33 @@ class ContentTools {
     textTool.startBox(world);
   }
 
+  /// Starts a text box holding [character], typed with the Text tool and
+  /// no box open (see [TextTool.startTyping]); false when that doesn't
+  /// apply (another tool, a box open, whitespace).
+  bool typeText(String character) {
+    if (tools.tool != EditorTool.text || text.isEditing || character.trim().isEmpty) return false;
+    final last = text.lastBox;
+    final visible = viewport.visibleWorld;
+    if (last == null || last.surfaceId != model.surfaceId || !visible.overlaps(last.rect)) {
+      beforePasteAtCentre?.call();
+    }
+    selection.clear();
+    textTool.startTyping(character);
+    return true;
+  }
+
+  /// The tool chosen before the Text tool.
+  EditorTool _beforeText = EditorTool.pen;
+
+  /// Esc with the Text tool and no box open: back to the tool before it
+  /// (letters type into new boxes meanwhile, see [typeText]); false when
+  /// that doesn't apply.
+  bool leaveTextTool() {
+    if (tools.tool != EditorTool.text || text.isEditing) return false;
+    tools.tool = _beforeText;
+    return true;
+  }
+
   void _onTextChanged() {
     if (text.isEditing) return;
     final back = _returnTo;
@@ -247,6 +274,7 @@ class ContentTools {
       text.end();
     }
     if (_lastTool == EditorTool.laser) laser.hover(null); // A mouse's dot goes.
+    if (tool == EditorTool.text) _beforeText = _lastTool;
     _lastTool = tool;
   }
 

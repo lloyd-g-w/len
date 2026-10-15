@@ -88,7 +88,7 @@ the eraser.
 - *Done:* `EditingUndo` wraps the session's undo target; the box's
   `RichTextController` is its `BoxHistory`.
 
-**R19-3 P2 · With the Text tool, typing on a keyboard switches tools.**
+**R19-3 P2 · With the Text tool, typing on a keyboard switches tools.** ✅
 - *What:* a laptop or Bluetooth-keyboard user picks the Text tool (T) and
   starts typing: nothing opens, and every letter that is a shortcut acts —
   "hello" ends on the eraser (h highlighter, e eraser, l lasso…).
@@ -96,6 +96,10 @@ the eraser.
   box with it — under the box finished last if that is still in view
   (typing paragraph after paragraph), else in the middle of the view, as
   pasting does. Effort S.
+- *Done:* as proposed (the middle of the view's left half, so the line
+  has room); with the Text tool and no box, Esc goes back to the tool
+  used before, so the single-key shortcuts are one key away. Both are in
+  the shortcuts sheet.
 
 **R19-4 P2 · Android Back while typing leaves the notebook.**
 - *What:* Back first closes the soft keyboard (system); the next Back pops
