@@ -33,11 +33,7 @@ class PaperSwatch extends StatelessWidget {
             height: height,
             width: double.infinity,
             child: CustomPaint(
-              painter: _SwatchPainter(
-                template: template,
-                canvas: canvas,
-                dpr: MediaQuery.maybeDevicePixelRatioOf(context) ?? 1,
-              ),
+              painter: _SwatchPainter(template: template, canvas: canvas),
             ),
           ),
         ),
@@ -47,11 +43,10 @@ class PaperSwatch extends StatelessWidget {
 }
 
 class _SwatchPainter extends CustomPainter {
-  _SwatchPainter({required this.template, required this.canvas, required this.dpr});
+  _SwatchPainter({required this.template, required this.canvas});
 
   final PageTemplate template;
   final bool canvas;
-  final double dpr;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -66,12 +61,12 @@ class _SwatchPainter extends CustomPainter {
       template.color,
       area,
       page: page,
-      scale: dpr,
+      // A logical pixel per unit, as the canvas at 100 % (on any screen).
+      scale: 1,
     );
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_SwatchPainter old) =>
-      old.template != template || old.canvas != canvas || old.dpr != dpr;
+  bool shouldRepaint(_SwatchPainter old) => old.template != template || old.canvas != canvas;
 }

@@ -100,7 +100,8 @@ abstract final class PaperRenderer {
   }
 
   /// Draws the template [paper] within [area] (world units). The canvas
-  /// must already map world units to device pixels at [scale]. Repeating
+  /// must already map world units to target pixels (logical pixels on
+  /// screen, image pixels in a raster) at [scale]. Repeating
   /// lines too dense to read are skipped; [always] (miniature previews)
   /// keeps them down to [minMiniatureSpacing]; a [thumbnail] of a page
   /// also strengthens them when small. Image templates are drawn
