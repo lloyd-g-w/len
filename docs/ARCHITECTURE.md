@@ -285,7 +285,7 @@ paper colour (`notebooks.paper_color`). Paged documents glide too (single-page f
 only when zoomed in; at the whole page it settles back or turns the page).
 
 **Minimap** (`canvas/canvas_minimap.dart`, a layer of `EditorLayers`; "⋯" → View →
-*Minimap*, Shift+M; local settings `canvas_minimap`, `minimap_in_focus`): a `FloatingPanel`
+*Minimap*, Shift+M; local setting `canvas_minimap`): a `FloatingPanel`
 window onto the paper in the bottom-right corner, clear of the chrome and the audio strip
 (`ChromeLayout.covered`), shaped like the free area (1:1 to 16:10; 176 dp, 120 on phones).
 Content comes from storage — `StrokeReader.chunkDensity` (items per populated chunk, in the
@@ -559,7 +559,7 @@ or deleted pages in order with ink. Snack bars' Undo calls
   then it rests 300 ms so one flick turns one page). Zoomed in, they pan.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
   P / H / E / L / S / T / K; 1–5 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 focus mode with the laser;
-  Ctrl/⌘+E export, Ctrl/⌘+G go to page (paged), Ctrl+F search;
+  M zoom window; Ctrl/⌘+E export, Ctrl/⌘+G go to page (paged), Ctrl+F search;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases (`canvas/canvas_shortcuts.dart`):
   arrows move around (15 % of the screen, gliding), `+` / `-` (also with Ctrl/⌘),
   `0` 100 %, Shift+1 fit content, **Home back to start**, Shift+M minimap. Paged notebooks
@@ -633,7 +633,7 @@ or deleted pages in order with ink. Snack bars' Undo calls
   resolved at tap time to the first page with that exact `Paper`, so reordering, deleting or
   adding pages never breaks links; a missing target offers "Add page". Links are followed by a
   finger tap when fingers navigate (stylus mode), a Ctrl/⌘-click, or the long-press menu ("Go
-  to …") — `PlannerLinkTaps` only watches pointers, so drawing is never disturbed.
+  to …") — `LinkTaps` only watches pointers, so drawing is never disturbed.
 - **My templates** (`templates` collection, `TemplateRepository`, `UserTemplate`): an image blob
   plus the page size it suggests. "Import…" in the picker takes an image (`ImageImport`) or a
   PDF page (rendered to a 2000 px PNG); "Save page as template" (page menu) renders the page
@@ -2292,7 +2292,8 @@ below 31 bits, and use `float32`/`int32` in binary formats.
 ### Native shells and packaging
 
 - **Branding:** one design, `app/tool/generate_icons.sh` (glyph =
-  `Icons.gesture_rounded`, as in the sidebar logo) writes the web icons,
+  Material Symbols "gesture" in `tool/branding/glyph.path`, as the sidebar's
+  `Symbols.gesture_sharp`) writes the web icons,
   Android adaptive/themed/legacy icons and splash icon, Windows `.ico` and
   Linux hicolor icons. Don't edit generated icons by hand.
 - **Android:** `LaunchTheme` = Android 12+ SplashScreen (surface colour +
@@ -2496,8 +2497,8 @@ expect.
   in favourites, trash, search, selection or list layout); ⊕▾ creates everywhere else. Phones
   get the FAB instead, hidden while an empty state offers its own button.
 - **New notebook sheet** (`new_notebook_sheet.dart`, `new_notebook/`): one column (title,
-  Styles, Notebook / Canvas, Template (`PaperRow`, "Background" for a canvas) with the recent papers and "All templates…" → the template
-  picker, `CoverRow`, page size) with `NotebookPreview` beside it in the dialog and as a strip
+  Styles once there are any, Notebook / Canvas, Template (`PaperRow`, "Background" for a canvas) with the recent papers and "All templates…" → the template
+  picker, `CoverRow`, page size, then "Save as style…") with `NotebookPreview` beside it in the dialog and as a strip
   on phones. The papers come from `recentPapers` (`AppPreferences.recentPapers`, filled up with
   defaults; canvases only tiling papers); creating a notebook records its paper. Where the
   library has no ⊕▾ (phones), "Import PDF…" and "Import Len file…" are quiet links at the
@@ -2505,11 +2506,12 @@ expect.
 - **Notebook styles** (`notebook_styles` collection, `NotebookStyleRepository`,
   `domain/notebook_style.dart`): a `NotebookChoice` (notebook or canvas, a built-in template
   and its look, paper colour, page format and orientation, cover colour; never a user's image
-  template) under a name. The sheet's Styles row (`StyleRow`, `style_actions.dart`) shows them
-  as chips that fill in the whole form at once, the one matching the form selected; "Save as
-  style…" names the current choice (hidden when it matches a style). Tapping the selected chip
+  template) under a name. The sheet's Styles row (`StyleRow`, `style_actions.dart`; only once a style exists) shows
+  them as chips that fill in the whole form at once, the one matching the form selected; "Save
+  as style…" (`SaveStyleButton`, under the form) names the current choice (hidden when it
+  matches a style or uses an image template). Tapping the selected chip
   again, a long press, a right click or the Menu key opens its menu: "Default for new
-  notebooks" (checked; one default, `setDefault` clears the others; after concurrent marks the
+  notebooks" (a push pin, checked; one default, `setDefault` clears the others; after concurrent marks the
   latest wins), Rename…, Delete…. The sheet starts from the default style, else from
   `AppPreferences.lastNotebookChoice` (what the last *notebook*, not canvas, was made as,
   recorded by `LibraryActions.createNotebook`), else college ruled. Notebooks copy the values,
@@ -2832,8 +2834,8 @@ again.
   (each a small GPU read-back).
 - Pixel-erasing a long stroke, or moving a selection, rewrites strokes as
   new records (simple and sync-safe, but more rows than a delta).
-- Text boxes: list items have no hanging indent (wrapped lines start at the
-  box edge); text pasted from other apps is plain; PDF export places glyphs
+- Text boxes: paste keeps formatting from HTML only (RTF-only sources such as
+  WordPad paste plain); PDF export places glyphs
   word by word without kerning; boxes with characters outside the bundled
   fonts' subsets export as images.
 - Android: historical stylus samples are merged from a platform channel;
@@ -2861,9 +2863,10 @@ again.
   platforms without a WebM decoder. Waveforms come from the recorder's level
   meter (≈ the loudness of the last buffer every 100 ms), not from decoding
   the audio; recordings without one show a flat scrubber. Trimming is
-  non-destructive (parts outside the trim keep their storage), browser
-  recordings export untrimmed, and no media notification plays in the
-  background; exporting reads the whole audio into memory.
+  non-destructive (parts wholly outside the trim keep their storage until
+  "Free up …"), trimmed browser recordings export the whole parts the trim
+  touches, and Windows has no system media controls (SMTC; media keys only
+  while Len is in front); exporting reads the whole audio into memory.
 - Planners: fixed headings ("Week", "Schedule", "Priorities", "To do", "Notes") are English
   whatever the planner's language; the language list is curated (scripts the bundled Inter
   covers), hours are always 24-hour, and weeks start on Monday or Sunday only. User templates
