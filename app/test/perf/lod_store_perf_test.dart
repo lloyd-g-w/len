@@ -110,6 +110,12 @@ class _DiskLike implements RasterStore {
     writes++;
     return _inner.write(name, bytes);
   }
+
+  @override
+  Future<int> size() => _inner.size();
+
+  @override
+  Future<void> clear() => _inner.clear();
 }
 
 /// A canvas opened at 5 % in a 1280 × 800 view at 2×, as the editor does.

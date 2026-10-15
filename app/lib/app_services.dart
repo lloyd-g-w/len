@@ -36,6 +36,7 @@ import 'features/editor/clipboard/clipboard_mirror.dart';
 import 'features/editor/shared/shared_notebooks.dart';
 import 'features/editor/tabs/open_notebooks.dart';
 import 'features/editor/tabs/workspace_memory.dart';
+import 'features/storage/storage_overview.dart';
 import 'ink/images/element_images.dart';
 import 'ink/input/palm_guard.dart';
 import 'ink/recognition/handwriting_recognizer.dart';
@@ -288,6 +289,16 @@ class AppServices {
   /// surfaces, undo and PDF caches), per open notebook.
   late final SharedNotebooks sharedNotebooks = SharedNotebooks(this);
 
+  /// What Len stores on this device (Settings → Storage), measured when
+  /// shown; files of notebooks open in the editor always stay.
+  late final StorageOverview storage = StorageOverview(
+    database: database,
+    blobs: blobs,
+    sync: sync,
+    rasters: rasterStore,
+    keep: () => {for (final tab in openNotebooks.tabs) tab.id, ...sharedNotebooks.ids},
+  );
+
   /// Deletes blobs nothing references anymore; started by the app at launch.
   late final LocalBlobGc blobGc = LocalBlobGc(
     blobs: blobs,
@@ -323,6 +334,7 @@ class AppServices {
     sharedNotebooks.dispose();
     incomingFiles.dispose();
     images.dispose();
+    storage.dispose();
     workspace.dispose();
     openNotebooks.dispose();
     clipboard.dispose();

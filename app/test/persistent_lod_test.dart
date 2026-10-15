@@ -385,4 +385,10 @@ class _PendingStore implements RasterStore {
 
   @override
   Future<void> write(String name, Uint8List bytes) async {}
+
+  @override
+  Future<int> size() async => 0;
+
+  @override
+  Future<void> clear() async {}
 }

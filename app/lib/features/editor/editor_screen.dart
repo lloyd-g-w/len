@@ -13,6 +13,7 @@ import '../../ui/context_menu_keys.dart';
 import '../../ui/messages.dart';
 import '../audio/notebook_audio.dart';
 import '../audio/ui/playback_keys.dart';
+import '../audio/ui/recordings_sheet.dart';
 import '../documents/export/export_flow.dart';
 import '../search/editor/editor_search_controller.dart';
 import '../settings/keyboard_shortcuts.dart';
@@ -171,7 +172,17 @@ class _EditorScreenState extends State<_EditorView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNode.requestFocus();
     });
+    _showRecordingsIfAsked();
   }
+
+  /// Shows the recordings list once shown, if it was asked for (Settings →
+  /// Storage opens a notebook at its recordings).
+  void _showRecordingsIfAsked() => WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!mounted || _parked || _closing) return;
+    if (_services.openNotebooks.takeRecordingsRequest(widget.notebook.id)) {
+      unawaited(showRecordingsSheet(context, _audio));
+    }
+  });
 
   @override
   void dispose() {
@@ -219,7 +230,9 @@ class _EditorScreenState extends State<_EditorView> {
   }
 
   void _onTabs() {
-    if (mounted) setState(() {}); // The tab strip may appear or go.
+    if (!mounted) return;
+    setState(() {}); // The tab strip may appear or go.
+    _showRecordingsIfAsked();
   }
 
   void _onAudioNotice(String message) {
