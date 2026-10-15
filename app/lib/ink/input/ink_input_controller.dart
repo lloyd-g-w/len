@@ -70,11 +70,15 @@ class InkInputController {
   /// a stroke in progress is abandoned rather than committed to the wrong
   /// surface.
   SurfaceModel get model => _draw.model;
-  set model(SurfaceModel value) {
+  set model(SurfaceModel value) => switchTo(value);
+
+  /// Sets [model]; [laserShift] moves the laser's trail into the new
+  /// surface's coordinates (see `ContentTools.switchTo`).
+  void switchTo(SurfaceModel value, {Offset? laserShift}) {
     if (identical(value, _draw.model)) return;
     _draw.cancel();
     _draw.model = value;
-    content?.model = value;
+    content?.switchTo(value, laserShift: laserShift);
   }
 
   /// Snaps highlighter strokes over PDF text to it (paged editors).

@@ -4,10 +4,16 @@ part of 'document_controller.dart';
 /// is on screen.
 mixin _DocumentViewport on _DocumentState {
   void _activate(int index) {
+    // Laid out together (continuous flow), the laser keeps showing where
+    // it was when another page becomes the active one.
+    final was = _pages.indexWhere((p) => p.id == surfaces.active);
+    final from = was == -1 ? null : _layout.frameOf(was);
+    final to = _layout.frameOf(index);
     _active = index;
     surfaces.active = _pages[index].id;
-    pageViewport.showPage(_layout.frameOf(index) ?? _layout.frames.first);
-    input?.model = activeModel;
+    pageViewport.showPage(to ?? _layout.frames.first);
+    final shift = from != null && to != null ? from.topLeft - to.topLeft : null;
+    input?.switchTo(activeModel, laserShift: shift);
   }
 
   void _relayout() {

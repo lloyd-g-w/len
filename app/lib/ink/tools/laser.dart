@@ -221,6 +221,20 @@ class LaserTrail extends ChangeNotifier {
       (holding ? _length > 0 && !_pressed : _length > 0) ||
       (_head != null && !_pressed && !_hovering && headAlpha > 0);
 
+  /// Moves the trail and the dot by [delta] (world units): the surface
+  /// whose coordinates they are in changed, not where they show.
+  void shift(Offset delta) {
+    if (delta == Offset.zero) return;
+    for (var i = 0; i < _length; i++) {
+      final k = _index(i);
+      _x[k] += delta.dx;
+      _y[k] += delta.dy;
+    }
+    final head = _head;
+    if (head != null) _head = head + delta;
+    notifyListeners();
+  }
+
   void clear() {
     _first = 0;
     _length = 0;
