@@ -204,18 +204,7 @@ class _ScanScreenState extends State<ScanScreen> {
                             aspect: page.aspect,
                             onTap: _session.toggleResult,
                           )
-                        : ScanCornerEditor(
-                            key: ObjectKey(page),
-                            photo: _session.display,
-                            photoSize: Size(
-                              page.photo.width.toDouble(),
-                              page.photo.height.toDouble(),
-                            ),
-                            quad: page.quad,
-                            onChanged: (quad, {required done}) => done
-                                ? _session.updatePreview()
-                                : _session.setQuad(quad, preview: false),
-                          ),
+                        : _cornerEditor(page),
                   ),
           ),
         ),
@@ -229,6 +218,26 @@ class _ScanScreenState extends State<ScanScreen> {
             onAdd: _add,
           ),
       ],
+    ),
+  );
+
+  /// The photo with the outline: it alone follows a corner drag (laid out
+  /// and painted alone; the rest of the screen hears of it only when more
+  /// than the outline changes).
+  Widget _cornerEditor(ScanPageDraft page) => RepaintBoundary(
+    key: ObjectKey(page),
+    // It fills the room anyway; tight, it is laid out again alone.
+    child: SizedBox.expand(
+      child: ListenableBuilder(
+        listenable: _session.outline,
+        builder: (context, _) => ScanCornerEditor(
+          photo: _session.display,
+          photoSize: Size(page.photo.width.toDouble(), page.photo.height.toDouble()),
+          quad: page.quad,
+          onChanged: (quad, {required done}) =>
+              done ? _session.updatePreview() : _session.setQuad(quad, preview: false),
+        ),
+      ),
     ),
   );
 
