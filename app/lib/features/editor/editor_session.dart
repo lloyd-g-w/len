@@ -323,8 +323,6 @@ class EditorSession {
 
   /// The zoom window's input: the editor's tools and live ink, seen through
   /// the box (its own palm rejection, no canvas gestures or pointer tools).
-  /// The low-latency overlay draws in screen pixels: the box's view, moved
-  /// to where the box lies on the screen.
   InkInputController _zoomInput(SurfaceModel model, ZoomBoxViewport view) => InkInputController(
     model: model,
     viewport: view,
@@ -333,22 +331,16 @@ class EditorSession {
     samples: openStylusSamples(
       wetInk: () => WetInkStyle.of(live, view.scale),
       wetInkNext: () => WetInkStyle.forNextStroke(tools, view.scale),
-      wetInkView: () {
-        final origin = zoomWindow.boxOrigin;
-        var clip = origin & view.size;
-        if (zoomWindow.host.boundsOf(model.surfaceId) case final page?) {
-          clip = clip.intersect(
-            Rect.fromPoints(
-              view.toScreen(page.topLeft),
-              view.toScreen(page.bottomRight),
-            ).shift(origin),
-          );
-        }
-        return WetInkView(clip: clip, scale: view.scale, offset: view.offset + origin);
-      },
+      // The page the frame is on now (it moves on to the next page).
+      wetInkView: () => view.wetInkView(page: _zoomPage()),
     ),
     penButtonAction: () => services.preferences.penButtonAction,
   );
+
+  Rect? _zoomPage() {
+    final frame = zoomWindow.frame;
+    return frame == null ? null : zoomWindow.host.boundsOf(frame.surfaceId);
+  }
 
   /// Keeps document content scrollable clear of the chrome covering
   /// [covered] of the screen, and fits keep canvas content clear of it.

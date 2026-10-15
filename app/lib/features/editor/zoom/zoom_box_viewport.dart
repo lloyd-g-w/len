@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import '../../../ink/input/wet_ink.dart';
 import '../../../ink/viewport.dart';
 
 /// The zoom window's box as a viewport onto the frame's surface, for the
@@ -20,6 +21,17 @@ class ZoomBoxViewport extends ViewportController {
   void show({required double scale, required Offset offset, required Size size}) {
     super.setSize(size);
     super.setView(scale: scale, offset: offset);
+  }
+
+  /// Where the platform's low-latency ink may draw in the box: all of it,
+  /// or only the [page] (surface coordinates) on a page. In box pixels, as
+  /// the box's pointer events are: the overlay adds where the box lies.
+  WetInkView wetInkView({Rect? page}) {
+    var clip = Offset.zero & size;
+    if (page != null) {
+      clip = clip.intersect(Rect.fromPoints(toScreen(page.topLeft), toScreen(page.bottomRight)));
+    }
+    return WetInkView(clip: clip, scale: scale, offset: offset);
   }
 
   @override
