@@ -62,4 +62,17 @@ void main() {
     final snapped = ShapeSnap.squareCorner(o, turned(97, 100), angle);
     expect((snapped - turned(98.5, 98.5)).distance, lessThan(1e-9));
   });
+
+  test('arrowheads keep one size on long arrows, smaller on short ones', () {
+    double head(double length) {
+      final o = ShapeBuilder.arrow(Offset.zero, Offset(length, 0));
+      return (o[2] - o[1]).distance;
+    }
+
+    expect(head(400), closeTo(ShapeBuilder.maxHead, 1e-9));
+    expect(head(150), closeTo(ShapeBuilder.maxHead, 1e-9));
+    expect(head(80), closeTo(80 * 0.18, 1e-9));
+    expect(head(40), closeTo(ShapeBuilder.minHead, 1e-9));
+    expect(head(20), closeTo(8, 1e-9));
+  });
 }

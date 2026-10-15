@@ -86,11 +86,12 @@ selects the tint's shape instead.
   among the ink they overlap (offered whenever the selection overlaps
   something). One undo step. Effort M.
 
-**R21-4 P2 · Arrowheads grow with the arrow.** ⬜
+**R21-4 P2 · Arrowheads grow with the arrow.** ✅
 - *What:* an arrowhead is 18 % of the arrow (at least 12 pt): a 400-pt
   axis ends in a 72-pt head, a flowchart's long and short arrows have
   different heads.
-- *Fix:* heads of one size (12–24 pt, less on very short arrows). Effort S.
+- *Fix:* heads 18 % of the arrow within 12–20 pt (never more than 40 %
+  of it): every arrow longer than about 110 pt gets the same head. Effort S.
 
 **R21-5 P2 · A tap on ink under a tint selects the tinted shape.** ⬜
 - *What:* a tap selects the topmost stroke it hits, a filled shape by its

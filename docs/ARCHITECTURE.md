@@ -1754,7 +1754,8 @@ surface.
   (`TransformItems.stroke`); the pixel eraser's pieces are free-hand ink.
   A shape's look is the pen's colour, width and opacity as an even line
   with round ends (`ShapeBuilder.styleFor`: no pressure, taper, flat ends
-  or stabiliser). The Shape tool (`tools/shape_tool.dart`) previews the
+  or stabiliser). An arrowhead is 18 % of the arrow within 12–20 units
+  (`ShapeBuilder.minHead` / `maxHead`; at most 40 % of it), so long arrows share one head. The Shape tool (`tools/shape_tool.dart`) previews the
   shape from the press to the pointer on every move (Shift, pressed or
   released at any time: regular shapes — squares, circles, equilateral
   triangles, regular stars (`ShapeBuilder.regularAspect`) — and 15° lines;
