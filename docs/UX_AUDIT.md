@@ -100,7 +100,7 @@ sentences over a button that says it all. → "Add the pages that start a
 topic to build a table of contents" (nesting is in each entry's menu).
 Effort S.
 
-**R14-6 P3 · "Hold for a template" under a mouse.** ⬜ The add-page
+**R14-6 P3 · "Hold for a template" under a mouse.** ✅ The add-page
 footer's caption is a touch word; with a pointer the gesture is a right
 click (the empty canvas already words its hint by input). Effort S.
 

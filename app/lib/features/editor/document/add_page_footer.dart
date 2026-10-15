@@ -13,7 +13,7 @@ import 'document_layout.dart';
 /// the page as the document scrolls and zooms (GoodNotes' end-of-document
 /// affordance). Held down (or right-clicked), it asks for a template, like
 /// "Add page after" in the page menu. Until it has been held once on this
-/// device, a caption under it says so ("Hold for a template").
+/// device, a caption under it says so ([caption]).
 class AddPageFooter extends StatefulWidget {
   const AddPageFooter({
     super.key,
@@ -30,6 +30,11 @@ class AddPageFooter extends StatefulWidget {
 
   /// The one-time notice id ([SettingsRepository.seenTips]) of the caption.
   static const String holdHint = 'add-page-hold';
+
+  /// The caption, in words for the input (UX_AUDIT R14-6): a pointer
+  /// right-clicks.
+  static String get caption =>
+      Targets.touchFirst ? 'Hold for a template' : 'Right-click for a template';
 
   @override
   State<AddPageFooter> createState() => _AddPageFooterState();
@@ -101,7 +106,7 @@ class _AddPageFooterState extends State<AddPageFooter> {
           // A gesture hint: screen readers offer the button's long press.
           ExcludeSemantics(
             child: Text(
-              'Hold for a template',
+              AddPageFooter.caption,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
               maxLines: 1,
