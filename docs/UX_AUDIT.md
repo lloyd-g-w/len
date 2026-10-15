@@ -125,11 +125,12 @@ the eraser.
 - *Done:* `RichTextController._autoList` ("- ", "* ", "• ", "1. ", "1) ",
   "[] ", "[ ] "); on a list line they stay text.
 
-**R19-7 P3 · Undo steps through IME compositions.**
+**R19-7 P3 · Undo steps through IME compositions.** ✅
 - *What:* with pinyin or romaji, each composing update is an edit; the one
   that commits "你好" replaces "nihao", so Undo goes back to "nihao" — a
   state that never was the user's text — before the previous word.
 - *Fix:* a composition and its commit are one undo step. Effort S.
+- *Done:* `_TextHistory.changed(composing:)`.
 
 **R19-8 P2 · Screen readers can't read text boxes.**
 - *What:* the canvas is painted; TalkBack (or a browser's reader) finds no

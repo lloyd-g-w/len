@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/editor/tools/text/rich_text_controller.dart';
@@ -45,5 +46,30 @@ void main() {
       typeEach(l, '- x');
       expect((l.data.text, l.data.paras.single.list), ('- x', ListKind.bullet));
     });
+  });
+
+  test('an IME composition and its commit are one undo step', () {
+    final c = RichTextController(const TextData());
+    typeEach(c, 'ok ');
+    void compose(String text, {bool open = true}) {
+      final base = 'ok ';
+      c.value = TextEditingValue(
+        text: base + text,
+        selection: TextSelection.collapsed(offset: base.length + text.length),
+        composing: open
+            ? TextRange(start: base.length, end: base.length + text.length)
+            : TextRange.empty,
+      );
+    }
+
+    for (final step in ['n', 'ni', 'nih', 'niha', 'nihao']) {
+      compose(step);
+    }
+    compose('你好', open: false);
+    expect(c.data.text, 'ok 你好');
+    c.undo();
+    expect(c.data.text, 'ok ');
+    c.redo();
+    expect(c.data.text, 'ok 你好');
   });
 }

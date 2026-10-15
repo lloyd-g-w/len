@@ -186,6 +186,7 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
           ? start + 1
           : (backspaced ? start : -1),
       deletes: backspaced,
+      composing: next.composing.isValid && !next.composing.isCollapsed,
     );
     onDataChanged?.call();
     if (typed && inserted == ' ' && rich == null) _autoList(start);
