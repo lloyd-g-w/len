@@ -59,6 +59,7 @@ cross-origin isolated (README). Environment:
   LEN_EXPLORE_CYCLES=5                   open/close cycles of the memory step
   LEN_EXPLORE_CEILING_MS=500             longest task allowed once started (WebAssembly)
   LEN_EXPLORE_BUNDLED=1                  Playwright's own Chromium (CI), not the PATH's
+  LEN_EXPLORE_STEPS=first_launch,...     only these main steps (each may need those before it)
 Exit status 1 if anything failed.
 """
 import asyncio, base64, io, json, os, re, shutil, sqlite3, struct, subprocess, sys, tempfile, time, zipfile, zlib
@@ -500,9 +501,11 @@ async def tool_options(page, key, tool):
     await tap(page, tool)
 
 
-async def region(page, x, y, size=160):
-    """A screenshot of the [size] square around ([x], [y]) (PNG bytes)."""
-    return await page.screenshot(clip={'x': x - size / 2, 'y': y - size / 2, 'width': size, 'height': size})
+async def shot(page):
+    """A screenshot of the viewport (PNG bytes). Not clipped: for a clip,
+    Chromium emulates another viewport and sends the page a mouse move to
+    where the pointer would be in it (a laser dot jumps there)."""
+    return await page.screenshot()
 
 
 _NODES = '''() => [...document.querySelectorAll('flt-semantics-host flt-semantics')].map((e) =>
@@ -924,22 +927,29 @@ class Walk:
         await tool_options(page, 'k', 'Laser pointer (K)')
         await choose(page, 'When I stop')
         await page.keyboard.press('Escape')
+        # The dot under the hovering mouse, hidden from the shots (it is
+        # drawn a little differently from one frame to the next).
+        await page.evaluate('''([x, y]) => { const d = document.createElement('div');
+          d.id = 'len-walk-mask'; d.style.cssText = `position: fixed; left: ${x - 30}px;
+            top: ${y - 30}px; width: 60px; height: 60px; background: #888; z-index: 99999;
+            pointer-events: none`; document.body.append(d); }''', [x + 200, y + 200])
         await page.mouse.move(x + 200, y + 200)
         await page.wait_for_timeout(500)
-        blank = await region(page, x, y)
+        blank = await shot(page)
         await drag(page, [(x - 60, y - 20), (x + 60, y + 20)], steps=20)
         await page.mouse.move(x + 200, y + 200)
         await page.wait_for_timeout(1000)  # Held (2 s by default).
-        w.expect(await region(page, x, y) != blank, 'the laser trail held after the lift')
+        w.expect(await shot(page) != blank, 'the laser trail held after the lift')
         for _ in range(20):
             await page.wait_for_timeout(500)
-            if await region(page, x, y) == blank:
+            if await shot(page) == blank:
                 break
-        last = await region(page, x, y)
+        last = await shot(page)
         if last != blank:  # To see why.
             for name, data in (('before', blank), ('after', last)):
                 with open(os.path.join(OUT, f'{self.name}-{self.n:02}-laser-{name}.png'), 'wb') as f:
                     f.write(data)
+        await page.evaluate("() => document.getElementById('len-walk-mask').remove()")
         w.expect(last == blank, 'the laser trail faded')
         await wait_query(page, self.FEATURES + 'AND s.deleted = 0', lambda r: len(r) == 1,
                          'the laser stored nothing')
@@ -1070,7 +1080,10 @@ async def explore(p, browser, fixtures):
         if os.environ.get('LEN_EXPLORE_BACKUP'):  # Only the restore, of this backup.
             fixtures['backup'] = os.environ['LEN_EXPLORE_BACKUP']
         try:
+            only = [s for s in os.environ.get('LEN_EXPLORE_STEPS', '').split(',') if s]
             for step in [] if os.environ.get('LEN_EXPLORE_BACKUP') else walk.main_steps():
+                if only and step.__name__ not in only:
+                    continue
                 if not await walk.step(step.__name__, step):
                     break
         finally:
