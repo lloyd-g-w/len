@@ -36,6 +36,8 @@ void main() {
 
   test('Arabic letters take their joining forms; lam-alef is one ligature', () {
     String shaped(String s) => ArabicForms.shape(s).map((g) => g.glyph).join();
+    String part2(String s, int start, int end) =>
+        ArabicForms.shape(s, start, end).map((g) => g.glyph).join();
     // Seen (initial), meem (medial), kaf (final).
     expect(shaped('سمك'), '\uFEB3\uFEE4\uFEDA');
     // Alef joins only the letter before: beh-alef-beh = initial, final, isolated.
@@ -48,6 +50,15 @@ void main() {
     // Marks between lam and alef stay (over the ligature).
     expect(shaped('لَا'), '\uFEFB\u064E');
     expect(ArabicForms.shape('لَا')[1], (glyph: '\u064E', start: 1, end: 2));
+    // Part of a word (a stretch formatted differently) joins the letters
+    // around it, as on screen: kaf-teh-alef-beh with only teh coloured.
+    final word = 'كتاب';
+    String part(int start, int end) =>
+        ArabicForms.shape(word, start, end).map((g) => g.glyph).join();
+    expect(part(0, 1) + part(1, 2) + part(2, 4), '\uFEDB\uFE98\uFE8E\uFE8F');
+    expect(ArabicForms.shape(word, 1, 2).single, (glyph: '\uFE98', start: 1, end: 2));
+    // A lam and an alef formatted apart join without their ligature.
+    expect(part2('سلام', 0, 2) + part2('سلام', 2, 4), '\uFEB3\uFEE0\uFE8E\uFEE1');
     // Persian; other characters pass through.
     expect(shaped('پ'), '\uFB56');
     expect(shaped('a1'), 'a1');
