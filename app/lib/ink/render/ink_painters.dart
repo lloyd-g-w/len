@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 
@@ -180,6 +182,7 @@ class LiveInkPainter extends CustomPainter {
   int _pathRevision = -1;
 
   static final Paint _eraserFill = Paint()..color = const Color(0x22000000);
+  static final Paint _penPreview = Paint()..isAntiAlias = true;
   static final Paint _eraserOutline = Paint()
     ..style = PaintingStyle.stroke
     ..color = const Color(0x99000000);
@@ -204,7 +207,8 @@ class LiveInkPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final drawing = live.isDrawing && live.tool.isHighlighter == belowInk;
     final eraser = belowInk ? null : live.eraserCenter;
-    if (!drawing && eraser == null) return;
+    final pen = belowInk || live.isDrawing ? null : live.penCenter;
+    if (!drawing && eraser == null && pen == null) return;
     canvas
       ..save()
       ..translate(viewport.offset.dx, viewport.offset.dy)
@@ -235,6 +239,11 @@ class LiveInkPainter extends CustomPainter {
       canvas
         ..drawCircle(eraser, live.eraserRadius, _eraserFill)
         ..drawCircle(eraser, live.eraserRadius, _eraserOutline);
+    }
+    if (pen != null) {
+      // At least a dot two screen pixels wide, so the finest pen shows.
+      final radius = math.max(live.penRadius, 1 / viewport.scale);
+      canvas.drawCircle(pen, radius, _penPreview..color = live.penColor);
     }
     canvas.restore();
   }

@@ -28,6 +28,12 @@ class LiveInk extends ChangeNotifier {
   Offset? eraserCenter;
   double eraserRadius = 0;
 
+  /// The hovering pen's preview, if visible: where its nib would land
+  /// (world), its radius at medium pressure and its colour as previewed.
+  Offset? penCenter;
+  double penRadius = 0;
+  Color penColor = const Color(0x00000000);
+
   List<StrokePoint> get points => _points;
   bool get isDrawing => _points.isNotEmpty;
 
@@ -100,6 +106,17 @@ class LiveInk extends ChangeNotifier {
     if (center == eraserCenter && (center == null || radius == eraserRadius)) return;
     eraserCenter = center;
     eraserRadius = radius;
+    notifyListeners();
+  }
+
+  /// Moves (or hides, with a null [center]) the hovering pen's preview.
+  void showPen(Offset? center, {double radius = 0, Color color = const Color(0x00000000)}) {
+    if (center == penCenter && (center == null || (radius == penRadius && color == penColor))) {
+      return;
+    }
+    penCenter = center;
+    penRadius = radius;
+    penColor = color;
     notifyListeners();
   }
 }

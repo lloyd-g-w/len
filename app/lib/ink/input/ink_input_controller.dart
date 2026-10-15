@@ -177,8 +177,8 @@ class InkInputController {
   }
 
   /// Shows the eraser outline while hovering (mouse or hovering stylus),
-  /// and the laser's dot under a hovering mouse (presenting with a mouse
-  /// needs no button held).
+  /// a hovering pen's preview of its ink, and the laser's dot under a
+  /// hovering mouse (presenting with a mouse needs no button held).
   void handleHover(PointerHoverEvent e) {
     _stylus.note(e);
     gestures?.hover(e);
@@ -188,6 +188,7 @@ class InkInputController {
     if (_draw.pointer != null) return; // Don't fight the active pointer.
     samples?.hover(e);
     _draw.showEraser(_wantsErase(e) ? e.localPosition : null);
+    _draw.showPen(_previewsInk(e) ? e.localPosition : null);
     final laser = content?.laser;
     if (laser == null) return;
     if (e.kind == PointerDeviceKind.mouse && tools.tool == EditorTool.laser) {
@@ -200,6 +201,7 @@ class InkInputController {
 
   void handleExit() {
     _draw.showEraser(null);
+    _draw.showPen(null);
     content?.laser.hover(null);
   }
 
@@ -242,8 +244,9 @@ class InkInputController {
     // A palm while writing, or between strokes.
     if (_draw.byStylus || _stylus.isNear(e.timeStamp, within: palmQuiet)) return;
     // Android reports no hover exit for a stylus leaving range, so a stale
-    // eraser cursor would linger; a finger is a good moment to clear it.
+    // cursor would linger; a finger is a good moment to clear it.
     _draw.showEraser(null);
+    _draw.showPen(null);
     final palmRejection = tools.stylusOnly ?? false;
     if (palmRejection) {
       _nav.add(e.pointer, e.localPosition, slop: kTouchSlop);
@@ -289,6 +292,14 @@ class InkInputController {
   bool _wantsErase(PointerEvent e) =>
       tools.tool == EditorTool.eraser ||
       routeStylus(e.kind, e.buttons, penButtonAction) == StylusRoute.eraser;
+
+  /// Whether a hovering [e] previews the ink it would make: a stylus's
+  /// writing end with the pen or highlighter, its side button not routing
+  /// elsewhere.
+  bool _previewsInk(PointerEvent e) =>
+      e.kind == PointerDeviceKind.stylus &&
+      (tools.tool == EditorTool.pen || tools.tool == EditorTool.highlighter) &&
+      routeStylus(e.kind, e.buttons, penButtonAction) == StylusRoute.tool;
 
   void _noteStylus() {
     if (_stylusSeen) return;

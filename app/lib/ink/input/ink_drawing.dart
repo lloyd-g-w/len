@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 
@@ -153,6 +154,7 @@ class InkDrawing {
     _erasing = erase;
     _eraseStarted = false;
     _lastScreen = e.localPosition;
+    live.showPen(null); // The nib is down: its ink, not a preview.
     final selection = content?.selection;
     final hadSelection = selection != null && !selection.isEmpty;
     final tool = erase ? null : content?.toolAt(tools.tool, e.localPosition, lasso: lasso);
@@ -325,6 +327,24 @@ class InkDrawing {
       tools.eraserRadius / viewport.scale,
     );
   }
+
+  /// Shows the hovering pen's preview at [screen] (the active ink's colour
+  /// and medium-pressure width, at most half opaque so it never reads as
+  /// ink), or hides it.
+  void showPen(Offset? screen) {
+    if (screen == null) return live.showPen(null);
+    final ink = tools.activeInk;
+    final config = tools.configOf(ink);
+    final color = StrokeRenderer.paintFor(config.color, tools.styleFor(ink)).color;
+    live.showPen(
+      viewport.toWorld(screen),
+      radius: config.width / 2,
+      color: color.withValues(alpha: math.min(color.a, previewOpacity)),
+    );
+  }
+
+  /// The pen preview's opacity at most.
+  static const double previewOpacity = 0.5;
 
   ToolPointer _toolPointer(PointerEvent e) => ToolPointer(
     screen: e.localPosition,

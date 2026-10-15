@@ -47,7 +47,7 @@ away, and a palm is only a palm on the canvas it rests on.
 
 ### Prioritised items
 
-**R15-1 P1 · A hovering pen shows nothing.** ⬜
+**R15-1 P1 · A hovering pen shows nothing.** ✅
 - *What:* hovering the S Pen with the pen or highlighter gives no sign
   of what will land: which of three colours and widths is on, how big
   the nib is at this zoom. The eraser already shows its ring
