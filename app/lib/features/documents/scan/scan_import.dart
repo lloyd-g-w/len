@@ -74,12 +74,14 @@ class ScanImporter {
   }) => services.pages.insertPages(notebookId, specs, after: after);
 
   /// Deletes the blobs stored so far that nothing uses (the scan was
-  /// cancelled or failed).
+  /// cancelled or failed); a page deleted lately still uses its scan (undo
+  /// or a deletion conflict may bring it back), as for PDF imports.
   Future<void> discard() async {
-    final references = BlobReferences(services.database).all;
+    final references = BlobReferences(services.database);
+    Set<String> kept() => references.kept(services.blobs.clock.nowMs());
     for (final sha in _stored) {
       try {
-        await services.blobs.discardIfUnreferenced(sha, references);
+        await services.blobs.discardIfUnreferenced(sha, kept);
       } on Object catch (e) {
         debugPrint('Could not discard scan blob $sha: $e');
       }
