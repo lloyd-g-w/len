@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:len/features/editor/chrome/bar_button.dart';
 import 'package:len/ui/floating_panel.dart';
 
 import 'content_tools_ui_test.dart';
@@ -46,6 +47,11 @@ void main() {
     expect(field, findsNothing);
     expect(liveElements(services, nb.id), isEmpty);
     expect(liveStrokes(services, nb.id), isEmpty);
+    // Nothing left to undo, and the finished box's edits don't count.
+    BarButton button(String tooltip) => tester.widget<BarButton>(
+      find.ancestor(of: find.byTooltip(tooltip), matching: find.byType(BarButton)),
+    );
+    expect(button('Undo (Ctrl+Z)').onPressed, isNull);
   });
 
   /// The caret's rect on screen.

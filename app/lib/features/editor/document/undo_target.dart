@@ -73,7 +73,8 @@ class EditingUndo extends ChangeNotifier implements UndoTarget {
   BoxHistory? get _editing => text.isEditing ? text.boxHistory : null;
 
   @override
-  bool get canUndo => (_editing?.canUndo ?? false) || text.isEdited || base.canUndo;
+  bool get canUndo =>
+      (_editing?.canUndo ?? false) || (text.isEditing && text.isEdited) || base.canUndo;
 
   @override
   bool get canRedo => text.isEditing ? (_editing?.canRedo ?? false) : base.canRedo;
