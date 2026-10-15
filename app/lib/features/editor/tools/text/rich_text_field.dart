@@ -122,12 +122,17 @@ class RichTextField extends StatelessWidget {
         // The canvas draws the box at its own size whatever the system text
         // size: the field matches it, so it wraps where the box does.
         // A browser copies the field's own text (with isolates and
-        // breaks at wraps): while it has focus the box's text answers.
+        // breaks at wraps): while it has focus the box's text answers
+        // (checked again per event: a field gone with the box may not
+        // have said it lost focus).
         child: Focus(
           canRequestFocus: false,
           skipTraversal: true,
           onFocusChange: (focused) => focused
-              ? claimFieldCopies(controller, (cut) => controller.copyNow(cut: cut))
+              ? claimFieldCopies(
+                  controller,
+                  (cut) => focusNode.hasFocus ? controller.copyNow(cut: cut) : null,
+                )
               : releaseFieldCopies(controller),
           child: MediaQuery.withNoTextScaling(
             child: TextField(
