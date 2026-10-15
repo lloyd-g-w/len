@@ -41,7 +41,7 @@ and paste from the system clipboard.
 
 ### Prioritised items
 
-**R13-1 P1 · Inserting or pasting swaps the pen for the lasso.** ✅
+**R13-1 P1 · Inserting or pasting swaps the pen for the lasso.** ⬜
 - *What:* an image from Insert ⊕, the camera, a drop or Ctrl+V, pasted
   text and pasted ink all set `tools.tool = EditorTool.lasso`
   (`editor/images/editor_images.dart` `insertBytes`,
@@ -61,7 +61,7 @@ and paste from the system clipboard.
   Paste keeps the lasso.
 - Effort S.
 
-**R13-2 P1 · Long press → Paste here only knows Len's own clipboard.** ✅
+**R13-2 P1 · Long press → Paste here only knows Len's own clipboard.** ⬜
 - *What:* `canvasActions` offers "Paste here" only when the in-app ink
   clipboard has something; the system clipboard (a screenshot, an image
   copied in the browser, a paragraph from an email) is reached only by
@@ -76,7 +76,7 @@ and paste from the system clipboard.
   (⬜ TODO: a native "has image" probe in the vendored `pasteboard`).
 - Effort S.
 
-**R13-3 P2 · "Add text here" leaves the text tool on.** ✅
+**R13-3 P2 · "Add text here" leaves the text tool on.** ⬜
 - *What:* the long-press row switches to the text tool and starts a
   box; when the box is done the text tool stays, so the next pen stroke
   starts another box. "Edit text" from the lasso menu already gives the
