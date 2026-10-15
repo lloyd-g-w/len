@@ -110,6 +110,39 @@ typing, in a canvas already cut to a third of the screen.
   reads the keyboard above its Scaffold (which takes it off its body's
   insets). Effort S.
 
+**R20-6 P2 · No one-finger scrolling for reading while fingers draw.** → TODO "Next"
+- *What:* without a stylus, one finger always writes; reading back a
+  lecture on the bus is two-finger scrolling, one-handed impossible, and a
+  thumb resting on the page leaves marks. Samsung Notes opens notes in a
+  view mode (one finger scrolls, tap ✎ to write); GoodNotes has a
+  read-only mode. Len has only the global Draw with finger switch in ⋯.
+- *Proposal:* a per-notebook reading state on phones — e.g. a notebook
+  opened from the library starts in reading if it has ink and no stylus was
+  ever seen, one finger scrolls, and the first tap on a tool (or a ✎ in the
+  bar) starts writing — with no new setting. It touches the input routing,
+  the chrome and every tool's first tap; worth its own branch. Effort M–L.
+
+Checked and sound: the phone library keeps ⊕ and the bottom tool row in
+thumb reach, its last row scrolls clear of the FAB, and a notch on the left
+with the phone sideways is respected by the library header, the covers and
+the editor's one-row chrome; Recent and folders scroll sideways as strips;
+the FAB's long press offers canvas, PDF and folder (the new-notebook sheet
+links PDF, Len file and Scan too). Opening a notebook fits an A4 page to the
+width; sideways, Automatic keeps 55 % of a page in view (≈ 330 dp wide,
+not narrower than portrait), and Fit width is in ⋯ → View — kept rather than
+a phone-only rule. The phone toolbar's switcher (4 × 2), previous tool,
+quick slots and slot editors work as sheets; the tool options, lasso and
+laser sheets reflow at 1.3× text. "Stylus detected" turns finger drawing off
+with Keep finger drawing; two- and three-finger taps undo and redo. The
+zoom window's box takes about a third of the height and leaves the page
+120 dp, sideways too. Sheets with fields (new notebook, folder, export,
+popovers) pad for the keyboard; prompts are dialogs. Recording on a phone
+(⋯ → Record audio, controls docked above the tool row), search (matches
+folded under the field), the overview (two columns, Select) and settings
+(with large text) read well. Not proposed: a 3-column phone grid (the
+covers would be ≈ 108 dp with two-line titles; the list layout is there
+for density), search at the bottom (none of the three references does).
+
 ## Round 17 audit — recording a lecture (`review/round17`)
 
 Lens: a student who records every lecture on an S Pen tablet (sometimes a
