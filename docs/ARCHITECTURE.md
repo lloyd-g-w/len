@@ -1802,17 +1802,20 @@ surface.
   (`SelectionImage`, `ink/selection/`: `ContentPainter` over the drawn
   bounds plus a 2-unit margin, 3 px per unit ≈ 290 dpi, the longest side
   ≤ 4096 px; images decoded first; links not drawn) and, when only text
-  boxes were copied, their plain text (top to bottom, a blank line
-  between; no HTML: box copies have none). One entry through the vendored
-  `pasteboard`'s `write` (added for Len): **Linux** GTK targets — the PNG
-  byte for byte as `image/png`, every other GdkPixbuf format converted on
-  request, the text targets — stored by a clipboard manager on quit;
-  **Windows** `PNG` (transparency for browsers and Office), a CF_DIB
-  flattened onto white (DIB readers ignore alpha) and CF_UNICODETEXT;
-  **Android** one `ClipData` item with the text and a content URI of the
-  PNG in the cache (`PasteboardFileProvider`, only the latest image kept);
-  **web** `navigator.clipboard.write` with a `ClipboardItem` whose image
-  is a promise, so the write starts within the gesture (Safari and Firefox
+  boxes were copied, their text (top to bottom, a blank line between),
+  plain and as HTML (`htmlFromTexts`, see *Rich copy to other apps* under
+  Text boxes). One entry through the vendored `pasteboard`'s `write`
+  (added for Len): **Linux** GTK targets — the PNG byte for byte as
+  `image/png`, every other GdkPixbuf format converted on request, the text
+  targets, `text/html` (UTF-8, a `<meta charset>` first) — stored by a
+  clipboard manager on quit; **Windows** `PNG` (transparency for browsers
+  and Office), a CF_DIB flattened onto white (DIB readers ignore alpha),
+  CF_UNICODETEXT and `HTML Format` (CF_HTML: the header with the UTF-8
+  byte offsets is written in Dart, `encodeCfHtml`); **Android** one
+  `ClipData` item with the text, its HTML and a content URI of the PNG in
+  the cache (`PasteboardFileProvider`, only the latest image kept);
+  **web** `navigator.clipboard.write` with a `ClipboardItem` (`text/plain`,
+  `text/html`) whose image is a promise, so the write starts within the gesture (Safari and Firefox
   require user activation) while the picture renders. Where that fails, a
   text-only copy falls back to plain text. Nothing new in the UI.
   Len's own paste keeps the in-app clipboard (ink stays ink): `EditorImages
@@ -1996,8 +1999,12 @@ GoodNotes-style rich text inside a box.
   makes it a list (`listPrefixes`; undo right after gives them back). Formatting acts on the selection, or with a collapsed caret
   on what is typed next; in an empty box font, size and colour set the box
   defaults (remembered as the default text style, also in the Text tool's
-  settings). Copy / cut put the plain text on the clipboard and remember its
-  formatting, so pasting the same text into a box (or onto the canvas) keeps it.
+  settings). Copy / cut put the plain text and its HTML on the clipboard
+  (`writeRichClipboard`, see *Rich copy to other apps*) and remember the
+  selection as formatted text (`RichTextBuffer.slice`: spans and the
+  paragraph styles of the lines it touches, none for part of one line), so
+  pasting the same text into a box (`insertRich`) or onto the canvas keeps
+  it — Len's own format, which wins over the clipboard's HTML.
   `TextFormatBar`: font, size, B / I / U / S, colour, highlight, paragraph style,
   bullet / numbered / checklist, alignment (scrolls on phones; delete and done
   stay). Shortcuts: Ctrl/⌘+B / I / U, Ctrl+Shift+X strikethrough, Ctrl+Shift+7 /
@@ -2050,7 +2057,28 @@ GoodNotes-style rich text inside a box.
   is matched by its plain text in `RichTextController._applyEdit`; Ctrl+Shift+V
   there is the browser's plain paste) or else the async Clipboard API (may ask
   for permission). macOS / iOS are not targets (`pasteboard` returns no HTML
-  there). RTF-only clipboards (WordPad) paste as plain text.
+  there). RTF-only clipboards (WordPad) paste as plain text. Content marked
+  `aria-hidden="true"` is skipped (icon glyphs; the ☐ / ☑ Len writes); an
+  empty list item or heading (`<li><br></li>`) keeps its style.
+- **Rich copy to other apps**: `htmlFromTexts` (`domain/text/html_writer.dart`)
+  is the inverse of `textFromHtml`: one block per line (`<div>`, `<h1>` /
+  `<h2>`, `<br>` when empty), list items as nested `<ul>` / `<ol>` (a
+  deeper item inside the open `<li>`, so numbering runs as Len counts it;
+  a new list where the kind changes or a body line comes between),
+  checklist items as `<li role="checkbox" aria-checked>` in a bullet-less
+  list with a ☐ / ☑ marked `aria-hidden` (visible in apps without
+  checklists, skipped when read back), b / i / u / s tags, and in a span's
+  style colours that are not grey (`htmlTextColor`; the box colour too, so
+  red boxes stay red, Len's default ink stays the app's text colour),
+  highlights blended onto white (`htmlHighlight`; Len's are translucent),
+  fonts other than Inter as CSS stacks, alignment as `text-align`; sizes
+  are left to the receiving app. Spaces HTML would collapse (at a line's
+  ends, after another) become `&nbsp;`, tabs a `white-space:pre` span. A
+  property test writes random boxes and reads them back: the same text,
+  spans and paragraphs, up to what the reader keeps (no sizes, fonts other
+  than mono, greys; blank lines at the ends). `pasteboard`'s `write` wraps
+  the fragment per platform (above); where it fails (macOS / iOS, old
+  browsers) the plain text goes alone.
 - **Export**: `PdfTextWriter` writes boxes as real text in the embedded
   (subsetted) fonts, each word at the position the app's layout gives it, with
   vector highlights, decorations and markers; boxes with characters the bundled

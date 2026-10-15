@@ -181,7 +181,7 @@ void main() {
       String? sent = 'unset';
       final mirror = ClipboardMirror(
         images: _noImages(),
-        write: ({png, text}) async {
+        write: ({png, text, html}) async {
           written = await png;
           sent = text;
           return true;
@@ -205,13 +205,14 @@ void main() {
       expect(await mirror.holdsInk(written!), isTrue);
     });
 
-    test('text boxes alone also go as text, top to bottom', () async {
-      String? sent;
+    test('text boxes alone also go as text and HTML, top to bottom', () async {
+      String? sent, sentHtml;
       final mirror = ClipboardMirror(
         images: _noImages(),
-        write: ({png, text}) async {
+        write: ({png, text, html}) async {
           await png;
           sent = text;
+          sentHtml = html;
           return true;
         },
       );
@@ -220,6 +221,10 @@ void main() {
         _box('a', 'First line\nand more  ', const Rect.fromLTWH(50, 0, 100, 30)),
       ]);
       expect(sent, 'First line\nand more\n\nSecond');
+      expect(
+        sentHtml,
+        '<div>First line</div><div>and more &nbsp;</div><div><br></div><div>Second</div>',
+      );
       expect(mirror.holdsInkText('First line\r\nand more\r\n\r\nSecond'), isTrue);
       expect(mirror.holdsInkText('Second'), isFalse);
       // With ink among them: the picture only.
@@ -227,7 +232,7 @@ void main() {
         [_line(Offset.zero, const Offset(9, 9))],
         [_box('a', 'First', const Rect.fromLTWH(50, 0, 100, 30))],
       );
-      expect(sent, isNull);
+      expect((sent, sentHtml), (null, null));
       expect(mirror.holdsInkText('First'), isFalse);
     });
 
@@ -238,7 +243,10 @@ void main() {
         return null;
       });
       addTearDown(() => messenger.setMockMethodCallHandler(SystemChannels.platform, null));
-      final mirror = ClipboardMirror(images: _noImages(), write: ({png, text}) async => false);
+      final mirror = ClipboardMirror(
+        images: _noImages(),
+        write: ({png, text, html}) async => false,
+      );
       final box = _box('a', 'Hi', const Rect.fromLTWH(0, 0, 100, 30));
       expect(await tester.runAsync(() => mirror.copy(const [], [box])), isFalse);
       expect(await tester.runAsync(() => mirror.written!), isFalse);

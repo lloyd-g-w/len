@@ -89,12 +89,13 @@ From the reports; the owner picks. Status as above.
   session, undo, sync of linked boxes, PDF export. Typing cost meanwhile: a 26 000-character
   box lays out in ≈ 5 ms, three layouts per keystroke (session width, height, field) on
   the test machine — fine, but one cached layout would cut it.
-- 🚧 (feat/rich-copy) **Rich copy to other apps** (UX_AUDIT round 19): Copy in a box puts plain text on the
-  clipboard (formatting is kept only for pasting back into Len). Write HTML too (the
-  inverse of `textFromHtml`: b / i / u / s, colours, h1 / h2, ul / ol / checkboxes) via the
-  vendored `pasteboard` (Windows CF_HTML, Android `ClipData.newHtmlText`, Linux
-  `text/html`, web `ClipboardItem`), so a pasted note keeps its headings and lists in Docs,
-  mail or Notion.
+- ✅ **Rich copy to other apps** (UX_AUDIT round 19): Copy / Cut in a box and lasso Copy of
+  text boxes put HTML on the clipboard besides the plain text (`htmlFromTexts`, the inverse
+  of `textFromHtml`, round-trip property-tested: b / i / u / s, colours, highlights, fonts,
+  h1 / h2, nested ul / ol, checklists with a ☐ / ☑), through the vendored `pasteboard`'s
+  `write` (Linux `text/html`, Windows CF_HTML, Android `ClipData` HTML text, web
+  `ClipboardItem`). Pasting back into Len still uses Len's own copy, now with its
+  paragraph styles too (lists and headings were lost before).
 
 - ✅ **Right-to-left text boxes** (UX_AUDIT round 19): each paragraph runs in the direction of
   its first strong character (bidi P2 / P3) and aligns to its own start / centre / end (`align`

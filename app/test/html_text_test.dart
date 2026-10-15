@@ -104,6 +104,20 @@ void main() {
       );
     });
 
+    test('decoration hidden from screen readers is skipped; empty items stay items', () {
+      final d = _parse(
+        '<ul><li role="checkbox" aria-checked="false"><span aria-hidden="true">☐ <br></span>'
+        'todo</li><li><br></li></ul><h1><br></h1><p>end</p>',
+      );
+      expect(d.text, 'todo\n\n\nend');
+      expect(d.paras, const [
+        ParaStyle(list: ListKind.check),
+        ParaStyle(list: ListKind.bullet),
+        ParaStyle(heading: 1),
+        ParaStyle.body,
+      ]);
+    });
+
     test('Google Docs: wrapping non-bold <b>, styled spans, flat nested lists', () {
       const html =
           '<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-1a2b">'

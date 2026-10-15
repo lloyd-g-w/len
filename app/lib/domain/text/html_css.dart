@@ -18,6 +18,7 @@ class ElementFormat {
     this.list,
     this.checked,
     this.listLevel,
+    this.hidden = false,
   });
 
   final String tag;
@@ -44,6 +45,10 @@ class ElementFormat {
   /// Explicit list nesting (0 = top): `aria-level` on an `<li>` (Google
   /// Docs) or Word's `mso-list: … level2` on a paragraph.
   final int? listLevel;
+
+  /// Decoration for sighted readers only (`aria-hidden="true"`, such as
+  /// the ☐ / ☑ Len writes before checklist items): its text is skipped.
+  final bool hidden;
 
   factory ElementFormat.of(String tag, Map<String, String> attrs) {
     final css = parseCss(attrs['style'] ?? '');
@@ -93,6 +98,7 @@ class ElementFormat {
           ? ariaChecked == 'true'
           : null,
       listLevel: level == null ? null : (level - 1).clamp(0, ParaStyle.maxIndent),
+      hidden: attrs['aria-hidden']?.toLowerCase() == 'true',
     );
   }
 
@@ -165,10 +171,16 @@ int? parseColor(String? css) {
   } else {
     rgb = _names[v.split(RegExp(r'\s')).first];
   }
-  if (rgb == null) return null;
+  if (rgb == null || isGreyish(rgb)) return null;
+  return 0xFF000000 + rgb; // (+, not |: web ints are 32-bit in bit operations)
+}
+
+/// Whether the colour [rgb] (alpha ignored) is a grey, black or white
+/// (its channels spread less than 40): such colours are not formatting
+/// (see [parseColor]).
+bool isGreyish(int rgb) {
   final r = rgb >> 16 & 0xFF, g = rgb >> 8 & 0xFF, b = rgb & 0xFF;
   final spread =
       [r, g, b].reduce((a, b) => a > b ? a : b) - [r, g, b].reduce((a, b) => a < b ? a : b);
-  if (spread < 40) return null;
-  return 0xFF000000 + rgb; // (+, not |: web ints are 32-bit in bit operations)
+  return spread < 40;
 }

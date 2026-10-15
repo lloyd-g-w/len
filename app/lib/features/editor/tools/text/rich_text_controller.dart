@@ -1,15 +1,16 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../../domain/text/html_text.dart';
+import '../../../../domain/text/html_writer.dart';
 import '../../../../domain/text/rich_text_buffer.dart';
 import '../../../../domain/text/text_data.dart';
 import '../../../../ink/elements/text_edit_session.dart' show BoxHistory;
 import '../../../../ink/elements/text_layout.dart';
 import '../../../../platform/clipboard_html.dart';
+import '../../clipboard/rich_clipboard.dart';
 
 part 'rich_text_formatting.dart';
 part 'rich_text_history.dart';
@@ -29,13 +30,13 @@ part 'rich_text_state.dart';
 class RichTextController extends _RichTextState with _RichTextFormatting implements BoxHistory {
   RichTextController(super.data);
 
-  /// Text copied from a box here, with its formatting: pasting the same
-  /// plain text keeps the formatting.
-  static ({String text, List<SpanStyle> styles})? _richClip;
+  /// Text copied from a box here, with its formatting (Len's own clipboard
+  /// format): pasting the same plain text keeps the formatting.
+  static TextData? _clip;
 
   /// Whether [text] was last copied from a box here (pasting it keeps
   /// that formatting, so it wins over the clipboard's HTML).
-  static bool isOwnClip(String text) => _richClip?.text == _clean(text);
+  static bool isOwnClip(String text) => _clip?.text == _clean(text);
 
   /// [text] without marker placeholders, its line breaks all \n.
   static String _clean(String text) =>
@@ -45,10 +46,10 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
   /// last copied from a box here keeps its formatting.
   static TextData pasted(String text, TextData box) {
     final clean = _clean(text);
-    final clip = _richClip;
+    final clip = _clip;
     final base = box.copyWith(text: clean);
     if (clip == null || clip.text != clean) return base;
-    return base.withFormatting(spans: TextData.compact(clip.styles));
+    return base.withFormatting(spans: clip.spans, paras: clip.paras);
   }
 
   @override
@@ -143,24 +144,24 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
       _changedKeeping(TextRange.collapsed(start));
       return;
     }
-    final clip = _richClip;
+    final clip = _clip;
     final style = _pending != null && _pendingAt == start
         ? _pending!
         : end > start && _buffer.text.codeUnitAt(start) != 0x0A
         ? _buffer.charStyle(start)
         : _buffer.styleAt(start);
-    // A browser paste (web) of HTML from another app: formatted.
-    final rich = inserted.isEmpty || clip?.text == inserted ? null : _pastedHtml(inserted);
+    // Text copied from a box here keeps its formatting; a browser paste
+    // (web) of HTML from another app is formatted.
+    final rich = inserted.isEmpty
+        ? null
+        : clip?.text == inserted
+        ? clip
+        : _pastedHtml(inserted);
     if (rich != null) {
       _buffer.insertRich(start, end, rich, style);
       inserted = rich.text;
     } else {
       _buffer.replace(start, end, inserted, style);
-    }
-    if (clip != null && clip.text == inserted && inserted.isNotEmpty) {
-      for (var i = 0; i < inserted.length; i++) {
-        _buffer.updateChars(start + i, start + i + 1, (_) => clip.styles[i]);
-      }
     }
     for (final l in unlisted) {
       _buffer.updateParas(l, l, (p) => p.copyWith(list: ListKind.none));
@@ -294,14 +295,13 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
   // ---------------------------------------------------------------------
   // Clipboard.
 
-  /// Copies the selected text (and remembers its formatting); [cut] also
-  /// deletes it.
+  /// Copies the selected text — plain, and as HTML for other apps — and
+  /// remembers its formatting; [cut] also deletes it.
   Future<void> copySelection({bool cut = false}) async {
     final r = modelSelection;
     if (r.isCollapsed) return;
-    final text = _buffer.text.substring(r.start, r.end);
-    _richClip = (text: text, styles: [for (var i = r.start; i < r.end; i++) _buffer.charStyle(i)]);
-    await Clipboard.setData(ClipboardData(text: text));
+    final clip = _clip = _buffer.slice(r.start, r.end, _box);
+    await writeRichClipboard(clip.text, htmlFromText(clip));
     if (cut) {
       _buffer.replace(r.start, r.end, '', SpanStyle.plain);
       _pending = null;

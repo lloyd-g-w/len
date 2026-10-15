@@ -318,7 +318,7 @@ class ScopedClipboard {
   bool opened_;
 };
 
-// Len's addition ("write"): a PNG and / or text as one clipboard entry.
+// Len's addition ("write"): a PNG, text and / or HTML as one clipboard entry.
 
 // A movable global copy of [size] bytes at [data] (null if out of memory).
 HGLOBAL GlobalCopy(const void *data, SIZE_T size) {
@@ -404,9 +404,12 @@ bool SetClipboardGlobal(UINT format, HGLOBAL data) {
 }
 
 // Replaces the clipboard with [png] (as "PNG", which keeps transparency for
-// browsers and Office, and a DIB for everything else) and / or [text].
-bool WriteClipboard(HWND owner, const std::vector<uint8_t> *png, const std::string *text) {
+// browsers and Office, and a DIB for everything else), [text] and / or
+// [html] (UTF-8 CF_HTML, its header already written by the Dart side).
+bool WriteClipboard(HWND owner, const std::vector<uint8_t> *png, const std::string *text,
+                    const std::string *html) {
   HGLOBAL png_data = png ? GlobalCopy(png->data(), png->size()) : nullptr;
+  HGLOBAL html_data = html ? GlobalCopy(html->c_str(), html->size() + 1) : nullptr;
   HGLOBAL dib = png ? DibFromPng(*png) : nullptr;
   HGLOBAL text_data = nullptr;
   if (text) {
@@ -423,8 +426,12 @@ bool WriteClipboard(HWND owner, const std::vector<uint8_t> *png, const std::stri
     dib = nullptr;
     if (SetClipboardGlobal(CF_UNICODETEXT, text_data)) written = true;
     text_data = nullptr;
+    const UINT html_format = RegisterClipboardFormatA("HTML Format");
+    if (html_format && SetClipboardGlobal(html_format, html_data)) written = true;
+    html_data = nullptr;
   }
   if (png_data) GlobalFree(png_data);
+  if (html_data) GlobalFree(html_data);
   if (dib) GlobalFree(dib);
   if (text_data) GlobalFree(text_data);
   return written;
@@ -612,17 +619,20 @@ void PasteboardPlugin::HandleMethodCall(
     const auto *arguments = std::get_if<flutter::EncodableMap>(method_call.arguments());
     const std::vector<uint8_t> *png = nullptr;
     const std::string *text = nullptr;
+    const std::string *html = nullptr;
     if (arguments) {
       auto png_it = arguments->find(flutter::EncodableValue("png"));
       if (png_it != arguments->end()) png = std::get_if<std::vector<uint8_t>>(&png_it->second);
       auto text_it = arguments->find(flutter::EncodableValue("text"));
       if (text_it != arguments->end()) text = std::get_if<std::string>(&text_it->second);
+      auto html_it = arguments->find(flutter::EncodableValue("html"));
+      if (html_it != arguments->end()) html = std::get_if<std::string>(&html_it->second);
     }
     if (!png && !text) {
       result->Success(flutter::EncodableValue(false));
       return;
     }
-    result->Success(flutter::EncodableValue(WriteClipboard(OwnerWindow(), png, text)));
+    result->Success(flutter::EncodableValue(WriteClipboard(OwnerWindow(), png, text, html)));
   }
   else if (method_call.method_name() == "peek") {
     // Len's addition: the kinds of content on the clipboard, without

@@ -210,6 +210,31 @@ void main() {
         [1, 1, 2, 2, 1],
       );
     });
+
+    test('a slice keeps the styles of whole lines, not of part of one', () {
+      final b = RichTextBuffer(
+        TextData.rich(
+          text: 'Title\nitem',
+          spans: const [StyledRange(0, 5, SpanStyle(bold: true))],
+          paras: const [
+            ParaStyle(heading: 1),
+            ParaStyle(list: ListKind.bullet),
+          ],
+        ),
+      );
+      const box = TextData(font: TextFont.lora, color: 0xFFE53935);
+      final all = b.slice(0, 10, box);
+      expect(all.paras, const [ParaStyle(heading: 1), ParaStyle(list: ListKind.bullet)]);
+      expect((all.font, all.color), (TextFont.lora, 0xFFE53935));
+      final across = b.slice(2, 8, box);
+      expect(across.text, 'tle\nit');
+      expect(across.spans, const [StyledRange(0, 3, SpanStyle(bold: true))]);
+      expect(across.paras, const [ParaStyle(heading: 1), ParaStyle(list: ListKind.bullet)]);
+      final word = b.slice(1, 4, box);
+      expect(word.text, 'itl');
+      expect(word.paras, const [ParaStyle.body]);
+      expect(b.slice(6, 10, box).paras, const [ParaStyle(list: ListKind.bullet)]);
+    });
   });
 
   group('MarkerOffsets', () {
