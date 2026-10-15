@@ -11,19 +11,30 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   highlighter stroke is one even layer where it crosses itself
 - ✅ Focused line-up: Pen (ballpoint) + Highlighter + Eraser (older pen types still render)
 - ✅ Smooth ink at any zoom: arc-length filtering, Bézier envelope outlines, tangent round caps
-- ✅ Independent quick colours and quick widths per ink (1–6 slots each, GoodNotes-style editing)
+- ✅ Independent quick colours and quick widths per ink (1–5 slots each, GoodNotes-style editing)
 - ✅ Pen settings: pressure sensitivity, stabiliser (stored per stroke);
   highlighter opacity
 - ✅ Full colour picker (HSV + hex), saved favourite colours
 - ✅ Highlighter renders behind ink; hold to snap a clean line; on PDF text a highlight always
   snaps to the words it covers
-- 🚧 Committed ink from a tile raster cache (frame cost independent of the ink on screen, pen-up
+- ✅ Committed ink from a tile raster cache (frame cost independent of the ink on screen, pen-up
   drawn over tiles, writes after the frame, outlines of loaded strokes on worker isolates; pans and
   scrolls keep tiles, large edits swap in together, pages render ahead, rasterised page
-  thumbnails); tablet numbers in docs/INK_LAB.md (the last round measured headless only)
+  thumbnails); no pen-up flicker (a highlight over many tiles drawn beneath them until they
+  re-render)
+- ⬜ Tablet numbers for the later tile and LOD rounds and the background recogniser (INK_LAB:
+  measured headless only); writing while a 15 000-stroke canvas loads (pen-up p90 47 ms, GC)
+- ⬜ Visual check of the low-latency overlay's front buffer and pen-up handover on a real tablet
+- ✅ Highlighter on the pen's engine (sampling, smoothing, stabiliser, outline) with the pen's
+  feel options: pressure sensitivity (off by default) and flat (default) or round ends
+- ✅ Smooth mouse ink at any zoom: whole-pixel mouse steps levelled on screen first for pens
+  under 2.5 px on screen (`MouseSmoother`); at 100 % mouse ink is unchanged, no lag
 - ✅ Pixel (partial) eraser, eraser size, "erase highlighter only"
-- ✅ Scribble to erase: a quick back-and-forth pen scribble over ink erases it where it zigzags
-  (Settings → Writing, taught once by a tip); what will go dims while scribbling
+- ✅ Scribble to erase: two quick back-and-forths of the pen over ink erase it where it zigzags
+  (Settings → Writing, taught once by a tip); what will go dims while scribbling; zigzag letters,
+  joined-up writing and hatching don't trigger it
+- ⬜ Real tablet recordings for hold to snap and scribble to erase (scribble-outs, held shapes,
+  double ascenders; tuned on simulated and reshaped input so far, INK_LAB *Gestures on real ink*)
 
 ## Editing tools
 - ✅ Lasso: select, move, resize, rotate, recolour, delete, cut/copy/paste (across pages & notebooks), duplicate
@@ -69,8 +80,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   reach the box's right end, wraps to the next ruled line (↵ too) and on to the next page (adding
   one after the last); drag the frame to move it, its corner handle to size it, pinch or pan the
   box; works on pages and the infinite canvas
-- ⬜ Zoom window: remember the frame and box height per notebook, an adjustable box height,
-  left-handed advance (right-to-left scripts)
+- ✅ Zoom window, round 2: frame and box height remembered per notebook, box height dragged at
+  its edge (⋯ → Automatic height undoes it), Left-handed (box docked at the top), the frame moved
+  by its tab so the pen writes inside it on the page, the advance announced as the zone deepens
+- ⬜ Zoom window: right-to-left advance (right-to-left scripts)
 - ✅ Gestures: two-finger tap undo, three-finger tap redo (with a HUD; palm-safe), S Pen side
   button action (eraser / hold to lasso / none), finger long press or right click → canvas menu
   (paste here, select all on page, add text here, page commands)
@@ -138,6 +151,8 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   the strip, Ctrl+← / →); Colour / Greyscale / B&W clean-up (white paper, even light, crisp ink),
   remembered for the next scan; big photos kept at 3200 px so long scans stay light; pages are
   flattened JPEG backgrounds (A4 / Letter when they're that shape), synced as blobs, exported
+- ✅ Camera photos survive a kill: a photo taken while Android killed Len is recovered on the next
+  start and goes where it was meant to (the scan carries on, or Insert → Take photo places it)
 - ✅ Progress for import / export: stage, file name, "Page x of n" bar
 - ✅ Export options sheet: PDF / PNG, current / all pages / page range, page templates and PDF
   backgrounds on or off, PNGs at 288 dpi; several PNGs shared or saved at once
@@ -243,9 +258,21 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   years-old database stay responsive (no library-sized work before the first frame or in one
   event-loop turn; bounded memory in long sessions); benchmarks and numbers in `PERFORMANCE.md`
 - ✅ Scale: decode first-sync pages off the UI thread; lighter page-overview tiles
+- ✅ Smooth frames: no widget rebuilds per pan or scroll frame (canvases and paged notebooks,
+  PDF layer, selection handles, zoom frame), minimap and zoom window behind repaint boundaries;
+  web restores unpacked by the browser and written in 8 ms slices (the walk-through fails any
+  task over 500 ms in WebAssembly builds)
+- ⬜ Web (JavaScript build): CanvasKit's main-thread GL work still makes long tasks (shader
+  compiles, a pixel read-back per ink tile, thumbnail and LOD raster; PERFORMANCE *Known costs*);
+  the WebAssembly build has none over 200 ms once started
 - ✅ Theme mode (system/light/dark)
 - ✅ App shell: sidebar (tablet/desktop), drawer (phone), context menus,
   keyboard shortcuts (a grouped reference: Ctrl/⌘+/ or Settings → General), redesigned settings
+- ✅ Keyboard access: roving focus (arrow keys) in every choice group (toolbar, swatches,
+  segmented controls, templates, settings), context menus from the keyboard (Menu key /
+  Shift+F10) on cards, folders, tabs, overview pages, styles and the page, a sane library Tab
+  order, menus and popovers give focus back to their opener
+- ⬜ Keyboard: reorder overview pages (drag only; the page menu's Move or copy page… covers it)
 - ✅ Settings: theme previews, a Writing section (stylus, gestures, toolbar position) with
   descriptions; everything checked at 1.3× text (see `docs/UX_AUDIT.md`)
 - ✅ Redesigned editor chrome (GoodNotes-style top bar: back, pages, bookmark, title, undo/redo,

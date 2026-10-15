@@ -1,1 +1,1 @@
-The first release: notebooks and canvases, PDFs, text, images and audio, search and export, Len files and self-hosted sync.
+The first release: notebooks and canvases, PDFs, document scan, text, images and audio, shapes with handles and fill, lasso options, scribble to erase, a zoom window, a canvas minimap, notebook styles, search and export, Len files and self-hosted sync.

@@ -4,16 +4,23 @@ Len is a calm, handwriting-first notes app. Write with a stylus (Samsung S Pen a
 • Paged notebooks with paper templates (ruled, grid, dotted, Cornell, music staff, planners) and covers
 • A truly infinite canvas that stays fast however much you draw
 • Import PDFs to annotate them, or add their pages to a notebook
+• Scan paper with the camera: edges found for you, cleaned up in colour, greyscale or black and white
+• Save notebook styles and pick a default for new notebooks
+• A minimap on the infinite canvas
 • Folders, favourites, recent notes and a trash you can restore from
 
 <b>A pen that keeps up</b>
 • Low-latency ink with pressure, palm rejection and a stabiliser
 • Pens, highlighter, eraser (or flip the S Pen / hold its button), lasso and shapes
+• Scribble over ink to erase it; hold the pen still to snap a shape
+• Reshape shapes by their handles and give closed ones a fill
+• Lasso as freehand or rectangle, choosing what it selects
+• A zoom window: write large in a box, small on the page
 • Every edit can be undone
 
 <b>Everything a note needs</b>
 • Text boxes, images and audio recordings next to your writing
-• Search, page overview, bookmarks and presentation mode with a laser pointer
+• Search, page overview, bookmarks and presentation mode with a laser pointer that can stay until you stop writing
 • Export to PDF and PNG, or share whole notebooks as Len files
 
 <b>Your notes stay yours</b>
