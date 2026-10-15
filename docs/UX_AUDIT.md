@@ -128,6 +128,23 @@ undone without a word.
   downloaded copies" for files the server holds (fetched again when
   shown). Effort L: TODO "Next".
 
+Checked and sound: 300 notebooks build only the cards on screen and
+reloads keep unchanged cards; the folder tree, move picker and sidebar
+handle any depth and parent cycles from concurrent moves; every library
+edit has Undo; the trash purges after 30 days on every device; a backup
+streams a library of any size, says when it was last made, and a
+restore can skip what is already here; the sync status lives in one
+quiet caption and only a token the server refuses interrupts; a page
+written on two devices offline keeps both sets of ink (a text box edited
+on both keeps the later edit); a notebook deleted or trashed elsewhere
+closes its editor with a message; the setup link and QR code carry the
+server and token (Android opens `len://sync` links); files arrive lazily
+as pages are shown, so a new device is usable as soon as the records are
+in. Left as is: a Recent tile's title is still cut on narrow tiles when
+titles share a long start ("Electronics — Lec…"; the caption now names
+the course); the server and the app change together (pull pages must
+carry `lastSeq`). No new settings on this branch.
+
 ## Round 15 audit — stylus craft (`review/round15`)
 
 Lens: a demanding S Pen user on a Galaxy Tab writing for hours, who
