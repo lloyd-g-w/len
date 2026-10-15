@@ -101,12 +101,7 @@ class _ThumbnailPainter extends CustomPainter {
       (size.height * dpr).ceil(),
     );
     if (raster != null) {
-      canvas.drawImageRect(
-        raster,
-        Rect.fromLTWH(0, 0, raster.width.toDouble(), raster.height.toDouble()),
-        Offset.zero & page.size,
-        _rasterPaint,
-      );
+      canvas.drawImageRect(raster.image, raster.source, Offset.zero & page.size, _rasterPaint);
     } else if (ink case final ink?) {
       canvas
         ..clipRect(Offset.zero & page.size)

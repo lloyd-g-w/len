@@ -19,6 +19,7 @@ extension _Rendering on InkTileCache {
   void _pump() {
     _pumpTimer = null;
     if (_disposed || _space == null) return;
+    if (_waitForLoad()) return;
     final watch = Stopwatch()..start();
     var first = true;
     while (_requests.isNotEmpty) {
@@ -42,6 +43,27 @@ extension _Rendering on InkTileCache {
       _render(tile);
     }
     _flushBatch();
+  }
+
+  /// Whether renders wait for the surface to finish loading ([_spare]):
+  /// edits' never do.
+  bool _waitForLoad() {
+    if (!_holdForLoad || _requests.values.any((p) => p == 0)) return false;
+    _pumpTimer = Timer(const Duration(milliseconds: 50), _pump);
+    return true;
+  }
+
+  /// Whether a loading surface's tiles wait for the rest of it ([_spare]):
+  /// for up to [InkTileCache.maxLoadWait], they are neither rendered nor
+  /// drawn from vectors (frames of vectors cost as much GPU work as
+  /// rendering), so each is rendered once, complete.
+  bool get _holdForLoad {
+    if (!_spare || !model.isLoading) {
+      _loadWait = null;
+      return false;
+    }
+    final wait = _loadWait ??= Stopwatch()..start();
+    return wait.elapsed < InkTileCache.maxLoadWait;
   }
 
   /// The most urgent request (lowest priority value, newest first).
@@ -94,10 +116,10 @@ extension _Rendering on InkTileCache {
     tile.rendering = true;
     _inFlight++;
     unawaited(
-      picture
-          .toImage(TileSpace.size, TileSpace.size)
+      batch
+          .rasterize(picture, TileSpace.size, TileSpace.size)
           .then(
-            (image) => _store(tile, version, included, image),
+            (raster) => _store(tile, version, included, raster.image),
             onError: (Object error, StackTrace stack) => FlutterError.reportError(
               FlutterErrorDetails(exception: error, stack: stack, library: 'len rendering'),
             ),

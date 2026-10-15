@@ -60,9 +60,11 @@ extension _Invalidation on InkTileCache {
           tile
             ..overlay.add(stroke)
             ..blank = false;
-          if (_inUse) _request(index, 0);
+          if (!_inUse) continue;
+          if (!_spare || tile.overlay.length >= InkTileCache.maxOverlay) _request(index, 0);
         }
       }
+      if (_spare && _inUse) _scheduleMerge();
       return;
     }
     final underlaid = change.underlaid;
@@ -108,6 +110,21 @@ extension _Invalidation on InkTileCache {
         ..underlay.addAll(strokes.where((s) => s.bounds.overlaps(rect)));
       if (_inUse) _request(tile.index, 0);
     }
+  }
+
+  /// Merges the strokes written into their tiles once the pen rests
+  /// ([InkTileCache.mergeDelay]).
+  void _scheduleMerge() {
+    _merge?.cancel();
+    _merge = Timer(InkTileCache.mergeDelay, () {
+      _merge = null;
+      // Painted when the strokes were written; perhaps not since (nothing
+      // moved while the pen rested).
+      if (_disposed) return;
+      for (final tile in _tiles.values) {
+        if (tile.overlay.isNotEmpty) _request(tile.index, 0);
+      }
+    });
   }
 
   /// The tiles of [tiles] overlapping any of [areas].

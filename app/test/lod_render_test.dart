@@ -12,6 +12,7 @@ import 'package:len/ink/render/chunk_picture_cache.dart';
 import 'package:len/ink/render/chunk_raster_cache.dart';
 import 'package:len/ink/render/ink_painters.dart';
 import 'package:len/ink/render/paper_painter.dart';
+import 'package:len/ink/render/raster_batch.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/viewport.dart';
 
@@ -38,7 +39,13 @@ class _CountingCanvas implements Canvas {
 
 /// A surface over [strokes] with its caches, viewed at [scale].
 class _Scene {
-  _Scene(List<Stroke> strokes, {required double scale, required Size size, Offset? centre}) {
+  _Scene(
+    List<Stroke> strokes, {
+    required double scale,
+    required Size size,
+    Offset? centre,
+    this.batch,
+  }) {
     model = SurfaceModel(
       surfaceId: 's',
       repository: StrokeRepository(db, deviceId: 'd'),
@@ -56,7 +63,8 @@ class _Scene {
   final viewport = ViewportController(minScale: 0.01);
   late final SurfaceModel model;
   late final pictures = ChunkPictureCache(model);
-  late final rasters = ChunkRasterCache(pictures, maxBytes: 256 << 20);
+  final RasterBatch? batch;
+  late final rasters = ChunkRasterCache(pictures, maxBytes: 256 << 20, batch: batch);
 
   CommittedInkPainter painter({required bool lod}) => CommittedInkPainter(
     model: model,
@@ -186,74 +194,83 @@ void main() {
     });
   }, timeout: const Timeout(Duration(minutes: 5)));
 
-  testWidgets('far zoom: LOD rendering looks like the vector rendering', (tester) async {
-    final sideBySide = await tester.runAsync(() async {
-      final strokes = [
-        ...scribbles(1500, const Rect.fromLTWH(0, 0, 3000, 1800), seed: 3, points: 24),
-        // Long strokes crossing many chunk borders (seams would show here).
-        for (var i = 0; i < 6; i++)
-          Stroke(
-            id: 'long$i',
-            surfaceId: 's',
-            tool: i.isEven ? InkTool.ballpoint : InkTool.highlighter,
-            color: i.isEven ? 0xFF283593 : 0x88FFD54F,
-            width: i.isEven ? 14 : 40,
-            points: [
-              for (var t = 0; t <= 60; t++)
-                StrokePoint(
-                  t * 52.0,
-                  200 + i * 260 + 120 * (t % 12 < 6 ? t % 6 : 6 - t % 6) / 6,
-                  0.5,
-                ),
-            ],
-            createdAt: 100000 + i,
-          ),
-      ];
-      // 0.2 × 512 = 102 device pixels per chunk: the 128 px level.
-      final scene = _Scene(
-        strokes,
-        scale: 0.2,
-        size: const Size(640, 400),
-        centre: const Offset(1550, 950),
-      );
-      await scene.warmRasters();
-      final (vector, _) = await scene.render(lod: false);
-      final (lod, _) = await scene.render(lod: true);
+  for (final batched in [false, true]) {
+    testWidgets('far zoom: LOD rendering looks like the vector rendering'
+        '${batched ? ' (batched to atlases, as in the JavaScript build)' : ''}', (tester) async {
+      final batch = RasterBatch(batching: batched);
+      final sideBySide = await tester.runAsync(() async {
+        final strokes = [
+          ...scribbles(1500, const Rect.fromLTWH(0, 0, 3000, 1800), seed: 3, points: 24),
+          // Long strokes crossing many chunk borders (seams would show here).
+          for (var i = 0; i < 6; i++)
+            Stroke(
+              id: 'long$i',
+              surfaceId: 's',
+              tool: i.isEven ? InkTool.ballpoint : InkTool.highlighter,
+              color: i.isEven ? 0xFF283593 : 0x88FFD54F,
+              width: i.isEven ? 14 : 40,
+              points: [
+                for (var t = 0; t <= 60; t++)
+                  StrokePoint(
+                    t * 52.0,
+                    200 + i * 260 + 120 * (t % 12 < 6 ? t % 6 : 6 - t % 6) / 6,
+                    0.5,
+                  ),
+              ],
+              createdAt: 100000 + i,
+            ),
+        ];
+        // 0.2 × 512 = 102 device pixels per chunk: the 128 px level.
+        final scene = _Scene(
+          strokes,
+          scale: 0.2,
+          size: const Size(640, 400),
+          centre: const Offset(1550, 950),
+          batch: batch,
+        );
+        await scene.warmRasters();
+        // Batched, the 128-px rasters of a screen take a read-back per 16.
+        if (batched) {
+          expect(batch.readbacks, lessThanOrEqualTo((scene.rasters.length / 16).ceil() + 1));
+        }
+        final (vector, _) = await scene.render(lod: false);
+        final (lod, _) = await scene.render(lod: true);
 
-      // Side by side for a visual check: vector left, LOD right.
-      final recorder = ui.PictureRecorder();
-      Canvas(recorder)
-        ..drawImage(vector, Offset.zero, Paint())
-        ..drawImage(lod, const Offset(640, 0), Paint())
-        ..drawRect(const Rect.fromLTWH(639, 0, 2, 400), Paint()..color = Colors.red);
-      final sideBySide = await recorder.endRecording().toImage(1280, 400);
-      final a = await _rgba(vector);
-      final b = await _rgba(lod);
-      var total = 0;
-      var large = 0;
-      for (var i = 0; i < a.length; i++) {
-        final d = (a[i] - b[i]).abs();
-        total += d;
-        if (d > 64) large++;
-      }
-      final mean = total / a.length;
-      // ignore: avoid_print
-      print(
-        'LOD vs vector: mean channel difference ${mean.toStringAsFixed(2)}, '
-        '${(large / a.length * 100).toStringAsFixed(2)} % channels off by > 64',
-      );
-      vector.dispose();
-      lod.dispose();
-      scene.dispose();
-      return (sideBySide, mean, large / a.length);
+        // Side by side for a visual check: vector left, LOD right.
+        final recorder = ui.PictureRecorder();
+        Canvas(recorder)
+          ..drawImage(vector, Offset.zero, Paint())
+          ..drawImage(lod, const Offset(640, 0), Paint())
+          ..drawRect(const Rect.fromLTWH(639, 0, 2, 400), Paint()..color = Colors.red);
+        final sideBySide = await recorder.endRecording().toImage(1280, 400);
+        final a = await _rgba(vector);
+        final b = await _rgba(lod);
+        var total = 0;
+        var large = 0;
+        for (var i = 0; i < a.length; i++) {
+          final d = (a[i] - b[i]).abs();
+          total += d;
+          if (d > 64) large++;
+        }
+        final mean = total / a.length;
+        // ignore: avoid_print
+        print(
+          'LOD vs vector: mean channel difference ${mean.toStringAsFixed(2)}, '
+          '${(large / a.length * 100).toStringAsFixed(2)} % channels off by > 64',
+        );
+        vector.dispose();
+        lod.dispose();
+        scene.dispose();
+        return (sideBySide, mean, large / a.length);
+      });
+      final (image, mean, outliers) = sideBySide!;
+      if (!batched) await expectLater(image, matchesGoldenFile('goldens/lod_far_zoom.png'));
+      // Hairlines resample slightly differently; misplaced or missing
+      // rasters would differ by far more.
+      expect(mean, lessThan(6));
+      expect(outliers, lessThan(0.01));
     });
-    final (image, mean, outliers) = sideBySide!;
-    await expectLater(image, matchesGoldenFile('goldens/lod_far_zoom.png'));
-    // Hairlines resample slightly differently; misplaced or missing
-    // rasters would differ by far more.
-    expect(mean, lessThan(6));
-    expect(outliers, lessThan(0.01));
-  });
+  }
 
   testWidgets('edits invalidate rasters; memory stays within the budget', (tester) async {
     await tester.runAsync(() async {

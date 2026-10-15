@@ -54,7 +54,7 @@ extension _Storage on ChunkRasterCache {
         // (strokes reaching into it) change nothing stored.
         final same = _stored?.digestOf(key.chunk) == digest;
         final at = same ? _versions.of(key.chunk) : version;
-        return _store(key, at, image, digest: digest, keep: false);
+        return _store(key, at, RasterImage(image), digest: digest, keep: false);
       }
       _misses.add(name);
       _notStored(key);

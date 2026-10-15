@@ -9,6 +9,7 @@ import '../../../domain/stroke.dart';
 import '../../lab/perf_probe.dart';
 import '../../surface_model.dart';
 import '../chunk_picture_cache.dart';
+import '../raster_batch.dart';
 import '../stroke_renderer.dart';
 import 'ink_tile.dart';
 import 'tile_pool.dart';
@@ -49,9 +50,18 @@ typedef VectorFallback = void Function(ui.Canvas canvas, TileView view, List<ui.
 ///   Once zoomed, areas no tile covers yet stay empty until rendered (a
 ///   frame or two) instead of being drawn from vectors; edits always are.
 ///
-/// Rendering is asynchronous ([ui.Picture.toImage]), newest and most
-/// urgent first, a few at a time. Images live in a [TilePool] (LRU by
-/// bytes) shared by all surfaces.
+/// Rendering is asynchronous ([RasterBatch]), newest and most urgent
+/// first, a few at a time. Images live in a [TilePool] (LRU by bytes)
+/// shared by all surfaces.
+///
+/// Where every render holds the UI thread for a GPU read-back (the
+/// JavaScript build, [RasterBatch.batching]), renders are spared: a
+/// surface still loading renders no tiles for up to [maxLoadWait] (empty
+/// meanwhile, stale images standing in), rather than each tile again as
+/// each part arrives; and strokes written are merged into
+/// their tiles once the pen has rested for [mergeDelay] (or a tile holds
+/// [maxOverlay] of them), not after every stroke — so a read-back never
+/// falls between two strokes of a word.
 class InkTileCache extends ChangeNotifier {
   InkTileCache(
     this.pictures, {
@@ -59,7 +69,9 @@ class InkTileCache extends ChangeNotifier {
     this.settleDelay = const Duration(milliseconds: 150),
     this.maxInFlight = 2,
     this.batchBudget = const Duration(milliseconds: 4),
-  }) : pool = pool ?? TilePool.shared {
+    RasterBatch? batch,
+  }) : pool = pool ?? TilePool.shared,
+       batch = batch ?? RasterBatch.shared {
     _subscription = pictures.model.changes.listen(_onChange);
   }
 
@@ -76,6 +88,27 @@ class InkTileCache extends ChangeNotifier {
   /// Time one batch of render recordings may take before yielding.
   final Duration batchBudget;
 
+  /// Makes the tile images.
+  final RasterBatch batch;
+
+  /// Whether renders are spared (see the class doc).
+  bool get _spare => batch.batching;
+
+  /// Longest a loading surface's renders wait for it ([_spare]).
+  static const Duration maxLoadWait = Duration(seconds: 1);
+
+  /// How long the pen must rest before strokes are merged into their
+  /// tiles ([_spare]).
+  static const Duration mergeDelay = Duration(milliseconds: 1200);
+
+  /// Strokes over a tile beyond which they are merged at once ([_spare]).
+  static const int maxOverlay = 24;
+
+  /// Pending merge of written strokes ([_spare]).
+  Timer? _merge;
+
+  /// Since when renders wait for the surface to load ([_spare]).
+  Stopwatch? _loadWait;
   SurfaceModel get model => pictures.model;
 
   late final StreamSubscription<SurfaceChange> _subscription;
@@ -115,7 +148,7 @@ class InkTileCache extends ChangeNotifier {
   final TilePaintStats lastPaint = TilePaintStats();
 
   /// Whether renders are queued or running.
-  bool get isBusy => _requests.isNotEmpty || _inFlight > 0 || _settle != null;
+  bool get isBusy => _requests.isNotEmpty || _inFlight > 0 || _settle != null || _merge != null;
 
   /// Tile renders running.
   @visibleForTesting
@@ -146,7 +179,7 @@ class InkTileCache extends ChangeNotifier {
     if (area.isEmpty) return;
     for (final index in space.covering(area)) {
       final tile = _tiles[index];
-      if (tile == null || tile.needsRender) _request(index, 2);
+      if (tile == null || _wantsRender(tile)) _request(index, 2);
     }
   }
 
@@ -218,12 +251,12 @@ class InkTileCache extends ChangeNotifier {
         continue;
       }
       final uncovered = _drawOld(canvas, view, rect);
-      if (_oldSpace == null) {
+      if (_oldSpace == null && !_holdForLoad) {
         missing.addAll(uncovered); // A first show.
       } else {
-        // Not rendered since a zoom (a rim zooming out exposed): empty
-        // for the frame or two until it is, rather than a frame of
-        // vectors.
+        // Not rendered since a zoom (a rim zooming out exposed), or
+        // waiting for the surface to load: empty for the frame or two
+        // until it is, rather than frames of vectors.
         lastPaint.blankPixels += _pixels(uncovered, view);
       }
     }
@@ -240,7 +273,8 @@ class InkTileCache extends ChangeNotifier {
     // out), rendered after the visible ones.
     if (target.k <= space.k) {
       for (final index in space.covering(ring)) {
-        if (!_tiles.containsKey(index) || _tiles[index]!.needsRender) _request(index, 2);
+        final tile = _tiles[index];
+        if (tile == null || _wantsRender(tile)) _request(index, 2);
       }
     }
     if (_tiles.length > maxTiles) _prune();
@@ -248,6 +282,11 @@ class InkTileCache extends ChangeNotifier {
     PerfProbe.count('tileVector', lastPaint.vectorTiles);
     PerfProbe.count('tileOverlays', lastPaint.overlayStrokes);
   }
+
+  /// Whether [tile] is to be rendered ahead: strokes written over its
+  /// image wait for the pen to rest where renders are spared.
+  bool _wantsRender(InkTile tile) =>
+      tile.needsRender && !(_spare && tile.image != null && !tile.stale);
 
   /// Draws, scaled into [view], what the tiles hold of [world] that is up
   /// to date (images of this or the previous zoom; no stale ones), as a
@@ -296,6 +335,7 @@ class InkTileCache extends ChangeNotifier {
     _disposed = true;
     _settle?.cancel();
     _pumpTimer?.cancel();
+    _merge?.cancel();
     unawaited(_subscription.cancel());
     _releaseAll(_tiles);
     _releaseAll(_old);

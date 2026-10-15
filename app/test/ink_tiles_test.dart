@@ -6,6 +6,8 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/domain/stroke_chunks.dart';
 import 'package:len/ink/render/chunk_picture_cache.dart';
 import 'package:len/ink/render/ink_painters.dart';
+import 'package:len/ink/render/raster_batch.dart';
+import 'package:len/ink/render/sliced_outline_preparer.dart';
 import 'package:len/ink/render/tiles/ink_tile_cache.dart';
 import 'package:len/ink/render/tiles/tile_pool.dart';
 import 'package:len/ink/render/tiles/tile_space.dart';
@@ -135,6 +137,70 @@ void main() {
       await scene.warm();
       expect(scene.tiles.lastPaint.overlayStrokes, 0);
       scene.dispose();
+    });
+  });
+
+  testWidgets('read-backs spared (JavaScript): strokes written are merged once the pen rests', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final batch = RasterBatch(batching: true);
+      final scene = InkScene(
+        scribbles(200, const Rect.fromLTWH(0, 0, 600, 400), seed: 3),
+        batch: batch,
+      );
+      await scene.warm();
+      final rendered = batch.readbacks;
+      // A word: strokes a moment apart, each over the tiles at once.
+      for (var i = 0; i < 4; i++) {
+        scene.model.addStroke(_line('w$i', Offset(40.0 + i * 30, 300), Offset(60.0 + i * 30, 330)));
+        scene.painter().paint(CountingCanvas(), scene.size);
+        expect(scene.tiles.lastPaint.overlayStrokes, i + 1);
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
+      expect(batch.readbacks, rendered, reason: 'no read-back between strokes');
+      final overlaid = await scene.render();
+      await scene.warm(); // The pen rests: merged.
+      expect(scene.tiles.lastPaint.overlayStrokes, 0);
+      expect(batch.readbacks - rendered, 1, reason: 'the one tile they cross, once');
+      final baked = await scene.render();
+      expect(imageDiff(baked, overlaid).$2, lessThan(0.001));
+      scene.dispose();
+    });
+  });
+
+  testWidgets('read-backs spared (JavaScript): a loading surface renders each tile once, loaded', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final strokes = scribbles(400, const Rect.fromLTWH(0, 0, 1200, 900), seed: 4);
+      Future<(int, int, int)> renders({required bool batching}) async {
+        final batch = RasterBatch(batching: batching);
+        final scene = InkScene(
+          strokes,
+          size: const Size(1200, 900),
+          batch: batch,
+          outlines: SlicedOutlinePreparer(budget: Duration.zero),
+        );
+        expect(scene.model.isLoading, isTrue);
+        // Frames while it fills in, slice by slice.
+        var vectors = 0;
+        while (scene.model.isLoading) {
+          scene.painter().paint(CountingCanvas(), scene.size);
+          vectors += scene.tiles.lastPaint.vectorTiles;
+          await Future<void>.delayed(const Duration(milliseconds: 2));
+        }
+        await scene.warm();
+        final tiles = scene.tiles.imageCount;
+        scene.dispose();
+        return (batch.readbacks, tiles, vectors);
+      }
+
+      final (spared, tiles, vectors) = await renders(batching: true);
+      expect(spared, tiles);
+      expect(vectors, 0, reason: 'empty until loaded, not frames of vectors');
+      final (eager, _, _) = await renders(batching: false);
+      expect(eager, greaterThan(tiles), reason: 'natively tiles fill in as it loads');
     });
   });
 

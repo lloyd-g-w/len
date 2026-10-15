@@ -8,6 +8,7 @@ import '../../domain/chunk_digest.dart';
 import '../../domain/chunk_grid.dart';
 import '../lab/perf_probe.dart';
 import 'chunk_picture_cache.dart';
+import 'raster_batch.dart';
 
 /// A chunk's raster at one level (its edge in pixels).
 typedef RasterKey = ({ChunkKey chunk, int level});
@@ -15,8 +16,8 @@ typedef RasterKey = ({ChunkKey chunk, int level});
 /// Makes chunk rasters for `ChunkRasterCache`, off the critical path:
 /// [request] only queues; queued chunks are recorded in short time-boxed
 /// batches (one per event-loop turn, most recently requested first) and
-/// rasterised asynchronously with [ui.Picture.toImage], at most
-/// [maxInFlight] at once.
+/// rasterised asynchronously through [batch], at most [maxInFlight] at
+/// once.
 class ChunkRasteriser {
   ChunkRasteriser(
     this.pictures, {
@@ -26,7 +27,8 @@ class ChunkRasteriser {
     required this.onImage,
     this.batchBudget = const Duration(milliseconds: 6),
     this.maxInFlight = 8,
-  });
+    RasterBatch? batch,
+  }) : batch = batch ?? RasterBatch.shared;
 
   final ChunkPictureCache pictures;
 
@@ -40,7 +42,10 @@ class ChunkRasteriser {
   final ChunkDigest? Function(RasterKey key) storable;
 
   /// Receives a raster made of a content version (owning it).
-  final void Function(RasterKey key, int version, ui.Image image, ChunkDigest? digest) onImage;
+  final void Function(RasterKey key, int version, RasterImage image, ChunkDigest? digest) onImage;
+
+  /// Makes the images (in the JavaScript build, many to an atlas).
+  final RasterBatch batch;
 
   /// Time a batch of recordings may take before yielding.
   final Duration batchBudget;
@@ -105,8 +110,8 @@ class ChunkRasteriser {
     _inFlight++;
     _pending[key] = version;
     unawaited(
-      picture
-          .toImage(level, level)
+      batch
+          .rasterize(picture, level, level)
           .then(
             (image) => _disposed ? image.dispose() : onImage(key, version, image, digest),
             onError: (Object error, StackTrace stack) => FlutterError.reportError(

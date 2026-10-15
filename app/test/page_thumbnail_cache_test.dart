@@ -8,6 +8,7 @@ import 'package:len/data/stroke_repository.dart';
 import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/document/page_thumbnail_cache.dart';
+import 'package:len/ink/render/raster_batch.dart';
 
 import 'support/canvas_fixtures.dart';
 
@@ -48,6 +49,49 @@ void main() {
       expect(cache.rasterOf('p', page, 300, 424), same(first));
       await settle(() => !identical(cache.rasterOf('p', page, 300, 424), first));
       expect(cache.rasterOf('p', page, 300, 424), isNotNull);
+      cache.dispose();
+      db.close();
+    });
+  });
+
+  testWidgets('batched (the JavaScript build), the thumbnails on screen share read-backs', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final db = AppDatabase.inMemory();
+      final strokes = StrokeRepository(db, deviceId: 'd');
+      const page = Size(794, 1123);
+      for (var p = 0; p < 6; p++) {
+        strokes.save([
+          for (final s in scribbles(20, const Rect.fromLTWH(40, 40, 700, 1000), seed: p))
+            Stroke(
+              id: 'p$p-${s.id}',
+              surfaceId: 'p$p',
+              tool: s.tool,
+              color: s.color,
+              width: s.width,
+              points: s.points,
+              createdAt: s.createdAt,
+              style: s.style,
+            ),
+        ]);
+      }
+      final batch = RasterBatch(batching: true);
+      final cache = ThumbnailCache(SurfaceCopier(strokes), batch: batch);
+      final ids = [for (var p = 0; p < 6; p++) 'p$p'];
+      for (final id in ids) {
+        cache.inkOf(id);
+      }
+      await settle(() => ids.every((id) => cache.inkOf(id) != null));
+      // A frame of thumbnails 68 × 96 asks for every raster.
+      bool all() =>
+          [for (final id in ids) cache.rasterOf(id, page, 68, 96)].every((r) => r != null);
+      all();
+      await settle(all);
+      expect(batch.readbacks, 1);
+      final rasters = [for (final id in ids) cache.rasterOf(id, page, 68, 96)!];
+      expect(rasters.map((r) => (r.width, r.height)).toSet(), {(68, 96)});
+      expect(rasters.map((r) => r.source).toSet(), hasLength(6));
       cache.dispose();
       db.close();
     });

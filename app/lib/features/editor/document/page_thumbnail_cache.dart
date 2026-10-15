@@ -9,6 +9,7 @@ import '../../../domain/image_data.dart';
 import '../../../domain/surface_element.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/render/content_painter.dart';
+import '../../../ink/render/raster_batch.dart';
 
 /// Recorded ink, text and images of pages for thumbnails, loaded on first
 /// use, and rasterised at the size they are shown ([rasterOf]): a frame of
@@ -17,12 +18,16 @@ import '../../../ink/render/content_painter.dart';
 /// finished decoding (it is then recorded again, sharper) and when a
 /// raster is ready.
 class ThumbnailCache extends ChangeNotifier {
-  ThumbnailCache(this.copier, {this.images, this.defer}) {
+  ThumbnailCache(this.copier, {this.images, this.defer, RasterBatch? batch})
+    : batch = batch ?? RasterBatch.shared {
     _imageChanges = images?.changes.listen(_onImage);
     defer?.addListener(_deferChanged);
   }
 
   final SurfaceCopier copier;
+
+  /// Makes the rasters (in the JavaScript build, many to an atlas).
+  final RasterBatch batch;
 
   /// While true (the grid scrolls fast), nothing is recorded or
   /// rasterised: pages wait in the queue, those scrolled past leave it
@@ -170,11 +175,15 @@ class ThumbnailCache extends ChangeNotifier {
   /// Memory the rasters may take.
   static const int maxRasterBytes = 48 << 20;
 
+  /// Rasters being made at once: batched, as many as a screen shows (one
+  /// read-back for those sharing an atlas).
+  int get _maxRastering => batch.batching ? 32 : 2;
+
   /// The page's content as an image [width] × [height] pixels, once
   /// rasterised from its picture ([inkOf]), which stands in meanwhile (an
   /// older image stands in after the page changed). Safe while painting:
   /// listeners hear when the raster is ready.
-  ui.Image? rasterOf(String pageId, Size page, int width, int height) {
+  RasterImage? rasterOf(String pageId, Size page, int width, int height) {
     final picture = _ink[pageId];
     final raster = _rasters.remove(pageId);
     if (raster != null) _rasters[pageId] = raster; // Most recently used.
@@ -184,7 +193,10 @@ class ThumbnailCache extends ChangeNotifier {
         identical(raster.picture, picture) &&
         raster.image.width >= width - 1 &&
         raster.image.width <= width * 2;
-    if (!current && !_deferring && _rastering < 2 && !_pendingRasters.contains(pageId)) {
+    if (!current &&
+        !_deferring &&
+        _rastering < _maxRastering &&
+        !_pendingRasters.contains(pageId)) {
       _rasterise(pageId, picture, page, width, height);
     }
     return raster?.image;
@@ -202,8 +214,8 @@ class ThumbnailCache extends ChangeNotifier {
     _rastering++;
     _pendingRasters.add(pageId);
     unawaited(
-      scaled
-          .toImage(width, height)
+      batch
+          .rasterize(scaled, width, height)
           .then((image) {
             if (_disposed || !identical(_ink[pageId], picture)) {
               image.dispose(); // Changed or dropped meanwhile: asked again.
@@ -211,7 +223,7 @@ class ThumbnailCache extends ChangeNotifier {
             }
             _dropRaster(pageId);
             _rasters[pageId] = _Raster(picture, image);
-            _rasterBytes += width * height * 4;
+            _rasterBytes += image.bytes;
             while (_rasterBytes > maxRasterBytes && _rasters.length > 1) {
               _dropRaster(_rasters.keys.first);
             }
@@ -228,7 +240,7 @@ class ThumbnailCache extends ChangeNotifier {
   void _dropRaster(String pageId) {
     final raster = _rasters.remove(pageId);
     if (raster == null) return;
-    _rasterBytes -= raster.image.width * raster.image.height * 4;
+    _rasterBytes -= raster.image.bytes;
     raster.image.dispose();
   }
 
@@ -277,5 +289,5 @@ class _Raster {
   _Raster(this.picture, this.image);
 
   final ui.Picture picture;
-  final ui.Image image;
+  final RasterImage image;
 }

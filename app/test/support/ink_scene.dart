@@ -9,6 +9,8 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/ink/render/chunk_picture_cache.dart';
 import 'package:len/ink/render/chunk_raster_cache.dart';
 import 'package:len/ink/render/ink_painters.dart';
+import 'package:len/ink/render/outline_preparer.dart';
+import 'package:len/ink/render/raster_batch.dart';
 import 'package:len/ink/render/tiles/ink_tile_cache.dart';
 import 'package:len/ink/render/tiles/tile_pool.dart';
 import 'package:len/ink/surface_model.dart';
@@ -48,12 +50,15 @@ class InkScene {
     bool lod = false,
     Duration settleDelay = const Duration(milliseconds: 20),
     Duration batchBudget = const Duration(milliseconds: 4),
+    RasterBatch? batch,
+    OutlinePreparer? outlines,
   }) {
     model = SurfaceModel(
       surfaceId: 's',
       repository: StrokeRepository(db, deviceId: 'd'),
       reader: MemoryStrokeReader(strokes),
       maxLoadedChunks: 1 << 20,
+      outlines: outlines,
     );
     viewport
       ..setSize(size)
@@ -65,6 +70,7 @@ class InkScene {
       pool: pool ?? TilePool(),
       settleDelay: settleDelay,
       batchBudget: batchBudget,
+      batch: batch,
     );
     rasters = lod ? ChunkRasterCache(pictures, maxBytes: 256 << 20) : null;
   }
