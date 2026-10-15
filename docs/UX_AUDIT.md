@@ -197,6 +197,16 @@ Looked at and left, then fixed on `fix/r12-leftovers`:
   line and the ✕ now share one band (`SheetHeader`), so the ✕ sits on the
   title line and neither moves when a subtitle is added or the title
   wraps (`sheet_header_test`; goldens `template_picker*.png`).
+- ✅ The document scan screens had no screenshot review
+  (`scan_screenshot_test`, `s_scan_*`, viewed light and dark, phone and
+  tablet). Against DESIGN.md: the strip's + was a bare glyph where Add
+  page is a page-sized Pencil outline with an Ink + everywhere else (the
+  overview, the library's New tile), now one on the thumbnails' line;
+  Remove (no undo) is in the error colour like every destructive command;
+  the thumbnails were 68 dp, not `thumbHeight` 72 (their ring's width was
+  counted twice), so they now match the + beside them. The rest is on
+  design: Desk around the photo, Board foot with a hairline, ruling-blue
+  handles as image crop's, Ink primary, segmented look.
 
 ## Round 10 audit — a real week of notes (`review/round10`)
 
