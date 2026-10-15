@@ -11,6 +11,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/documents/export/notebook_exporter.dart';
+import 'package:len/ink/elements/text_flow_layout.dart';
 import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:pdfrx/pdfrx.dart';
@@ -209,6 +210,75 @@ void main() {
       expect(checked, greaterThanOrEqualTo(4));
       layout.dispose();
       await doc.dispose();
+    },
+  );
+
+  test(
+    'a box flowing over two pages exports page by page: numbers run on, no marker repeats',
+    skip: pdfium == null ? 'PDFium not built yet (run `flutter build linux` once)' : false,
+    () async {
+      final nb = services.notebooks.create(
+        title: 'Flow',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
+      services.pages.addPage(nb.id);
+      final pages = services.pages.pagesOf(nb.id);
+      final items = [for (var i = 1; i <= 8; i++) 'Item$i ${List.filled(10, 'word$i').join(' ')}'];
+      final whole = TextData.rich(
+        text: items.join('\n'),
+        paras: [for (final _ in items) const ParaStyle(list: ListKind.number)],
+        fontSize: 20,
+      );
+      const width = 300.0;
+      final layout = TextLayout.layout(whole, width);
+      final line = layout.painter.computeLineMetrics().first.height;
+      // Room for 7 lines on the first page: the split falls inside an item.
+      final parts = TextFlowLayout.split(layout, (k) => k == 0 ? line * 7.5 : 10000);
+      layout.dispose();
+      expect(parts, hasLength(2));
+      expect(parts[1].joined, isTrue);
+      final head = SurfaceElement(
+        id: 'head',
+        surfaceId: pages[0].id,
+        type: ElementType.text.name,
+        rect: Rect.fromLTWH(100, 600, width, parts[0].height),
+        z: 1,
+        createdAt: 1,
+        data: parts[0].dataOf(whole).toJson(),
+      );
+      final next = SurfaceElement(
+        id: 'next',
+        surfaceId: pages[1].id,
+        type: ElementType.text.name,
+        rect: Rect.fromLTWH(100, 60, width, parts[1].height),
+        z: 1,
+        createdAt: 1,
+        data: parts[1].dataOf(whole, from: 'head').toJson(),
+      );
+      services.elements.save([head, next]);
+      final exporter = NotebookExporter(services);
+      final bytes = await exporter.pdf(pages);
+      await exporter.dispose();
+      final doc = await PdfDocument.openData(bytes);
+      final first = (await doc.pages[0].loadText())!.fullText;
+      final second = (await doc.pages[1].loadText())!.fullText;
+      await doc.dispose();
+      // Every word once, in order over the two pages.
+      final all = '$first $second'.replaceAll(RegExp(r'\s+'), ' ');
+      for (final item in items) {
+        expect(all, contains(item.split(' ').first));
+      }
+      final split = TextData.fromJson(next.data);
+      final continued = TextLayout.markersOf(split).first;
+      expect(continued.continued, isTrue);
+      // The item cut by the page shows its number on the first page only;
+      // the items after it count on.
+      expect(first, contains(continued.label));
+      expect(second, isNot(contains(continued.label)));
+      expect(second, contains('${continued.number + 1}.'));
+      expect(second, isNot(contains('1.')));
     },
   );
 }
