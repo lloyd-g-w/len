@@ -235,11 +235,15 @@ void main() {
       const total = SyncApi.pullLimit;
       a.s.strokes.save([for (var i = 0; i < total; i++) bigStroke('s$i', 'canvas', 4)]);
       await a.sync();
-      // Cancelled as soon as the first slice is in.
+      // Cancelled as soon as the first slice is in: one record each, so a
+      // worker, told by a timer, is still far from the end then.
+      PullApplier.debugSliceRecords = 1;
+      addTearDown(() => PullApplier.debugSliceRecords = null);
       int count() => b.db.select('SELECT COUNT(*) AS n FROM strokes').single['n'] as int;
       await b.s.sync.engine.sync(apiFor(a.server), isCancelled: () => count() > 0);
       expect(count(), inInclusiveRange(1, total - 1));
       expect(b.s.settings.syncLastSeq, 0, reason: 'the feed position waits for the page');
+      PullApplier.debugSliceRecords = null;
 
       await b.sync();
       expect(b.db.select('SELECT COUNT(*) AS n FROM strokes').single['n'], total);
