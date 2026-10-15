@@ -41,7 +41,7 @@ typing, in a canvas already cut to a third of the screen.
 | Sideways notebook | Automatic fit keeps 55 % of a page in view (≈ 330 dp wide); Fit width in ⋯ → View | GoodNotes fits the width | Keep |
 | Finger draws (no stylus seen) | one finger writes, two pan and zoom; ⋯ → Draw with finger | GoodNotes, Notability: the same; Samsung: view / edit mode | Keep; hint R20-3 ✅ |
 | Canvas empty hint | "Two fingers move and zoom" — also when one finger pans | n/a | R20-4 ✅ |
-| Reading without writing | no one-finger scrolling while fingers draw | GoodNotes: read-only mode; Samsung: view mode | R20-6 → TODO |
+| Reading without writing | pages with content open in reading while fingers draw: one finger scrolls, the pen writes | GoodNotes: read-only mode; Samsung: view mode | R20-6 ✅ |
 | Tool row | switcher ▾, previous tool, 3 colours, 3 sizes; options as sheets | GoodNotes: one scrolling row; Notability: the same | Keep |
 | Writing with a finger | zoom window: ⋯ → View → Zoom window (3 taps, no hint) | GoodNotes: zoom window in the toolbar | R20-2 ✅ |
 | Text box, portrait | the box pans clear of the docked format bar; a long box's caret goes under it | caret kept above the keyboard | R20-1 ✅ |
@@ -110,7 +110,7 @@ typing, in a canvas already cut to a third of the screen.
   reads the keyboard above its Scaffold (which takes it off its body's
   insets). Effort S.
 
-**R20-6 P2 · No one-finger scrolling for reading while fingers draw.** → TODO "Next"
+**R20-6 P2 · No one-finger scrolling for reading while fingers draw.** ✅
 - *What:* without a stylus, one finger always writes; reading back a
   lecture on the bus is two-finger scrolling, one-handed impossible, and a
   thumb resting on the page leaves marks. Samsung Notes opens notes in a
@@ -121,6 +121,19 @@ typing, in a canvas already cut to a third of the screen.
   ever seen, one finger scrolls, and the first tap on a tool (or a ✎ in the
   bar) starts writing — with no new setting. It touches the input routing,
   the chrome and every tool's first tap; worth its own branch. Effort M–L.
+- *Fix:* reading, automatic and light (`FingerReading`). While fingers draw
+  because no stylus was ever seen, on a touch-first device (phones and
+  tablets alike: it is about finger drawing, not size), a page or canvas
+  with content opens in reading: one finger scrolls and zooms, taps follow
+  links, double taps zoom, a long press opens the menu. Choosing any tool
+  (the active one too), option or quick slot, opening the zoom window or
+  adding a blank page writes; two minutes without writing (nothing typed
+  or selected) or reopening reads again; empty pages open in writing. No
+  tool is in hand while reading: the active tool sits in a Pencil outline
+  instead of its plate (on phones the switcher shows the pen alone, "tap to
+  write"), no quick slot selected. A one-time tip: "Reading: one finger
+  scrolls; tap the pen to write". No setting; once a stylus is seen it
+  never applies (fingers scroll anyway).
 
 Checked and sound: the phone library keeps ⊕ and the bottom tool row in
 thumb reach, its last row scrolls clear of the FAB, and a notch on the left
