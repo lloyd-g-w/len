@@ -108,6 +108,12 @@ class InkDrawing {
   bool _erasing = false;
   bool _eraseStarted = false;
 
+  /// Whether this contact dropped a live selection (one kept under the pen
+  /// after an insert, a paste or the side button's lasso): a tap that only
+  /// meant to dismiss it leaves no dot. Null otherwise; else how far the
+  /// contact has moved from where it touched down.
+  double? _dropReach;
+
   /// Where a finger erasing has been while it may still turn out a resting
   /// palm or the start of a pinch: erased once it moves past the touch slop
   /// or lifts, dropped if the contact is cancelled.
@@ -146,7 +152,10 @@ class InkDrawing {
     _erasing = erase;
     _eraseStarted = false;
     _lastScreen = e.localPosition;
+    final selection = content?.selection;
+    final hadSelection = selection != null && !selection.isEmpty;
     final tool = erase ? null : content?.toolAt(tools.tool, e.localPosition, lasso: lasso);
+    _dropReach = hadSelection && tool == null && !erase && selection.isEmpty ? 0 : null;
     if (tool != null) {
       _tool = tool..down(_toolPointer(e));
     } else if (erase) {
@@ -189,6 +198,10 @@ class InkDrawing {
   }
 
   void move(PointerMoveEvent e) {
+    if (_dropReach case final reach?) {
+      final d = (e.localPosition - _drawStartScreen).distance;
+      if (d > reach) _dropReach = d;
+    }
     final tool = _tool;
     if (tool != null) {
       _lastScreen = e.localPosition;
@@ -269,7 +282,11 @@ class InkDrawing {
       final points = shape != null ? finished : StrokeSampler.settleEnd(finished);
       // A bounce was shown while it touched (under the nib, where the pen
       // just lifted, for less than `BounceFilter.maxContact`) and goes now.
-      if (points.isNotEmpty && !_isBounce(liftTime) && !_scribble.erase(model, snapped: snapped)) {
+      final dismissTap = (_dropReach ?? double.infinity) < kTouchSlop;
+      if (points.isNotEmpty &&
+          !dismissTap &&
+          !_isBounce(liftTime) &&
+          !_scribble.erase(model, snapped: snapped)) {
         _commit(points, liftTime, snapped: snapped, shape: shape);
         _inked = true;
       }
@@ -302,6 +319,7 @@ class InkDrawing {
     _erasing = false;
     _heldErase = null;
     _lastScreen = null;
+    _dropReach = null;
   }
 
   // ---------------------------------------------------------------------------

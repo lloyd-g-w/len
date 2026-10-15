@@ -65,6 +65,15 @@ void main() {
     expect(tools.tool, EditorTool.pen);
   });
 
+  test('"Add text here" gives the pen back when the box is done (R13-3)', () {
+    tools.tool = EditorTool.pen;
+    content.addTextAt(const Offset(300, 300));
+    expect(tools.tool, EditorTool.text);
+    expect(content.text.isEditing, isTrue);
+    content.text.end();
+    expect(tools.tool, EditorTool.pen);
+  });
+
   test('moving on to another box keeps the text tool until editing ends', () {
     content.editText(a);
     content.text.edit(b); // A tap on another box with the text tool.

@@ -72,7 +72,7 @@ void main() {
     await press.up();
     await tester.pumpAndSettle();
     expect(find.byType(CanvasContextMenu), findsOneWidget);
-    expect(find.text('Paste here'), findsNothing); // Nothing copied yet.
+    expect(find.text('Paste here'), findsOneWidget); // The system clipboard may hold something.
     await tester.tap(find.text('Select all on page'));
     await tester.pumpAndSettle();
     expect(find.byType(CanvasContextMenu), findsNothing);

@@ -162,6 +162,51 @@ void main() {
     expect(liveElements(services, nb.id), isEmpty);
   });
 
+  testWidgets('a pasted image keeps the pen: drag it, tap away (no dot), write on (R13-1)', (
+    tester,
+  ) async {
+    final (services, nb) = await openImageCanvas(tester);
+    mockClipboardImage(pngOf(320, 160));
+    await ctrl(tester, LogicalKeyboardKey.keyV);
+    await settleReal(tester, () => liveElements(services, nb.id).isNotEmpty);
+    await tester.pumpAndSettle();
+    expect(await selectionOffers(tester, 'Crop'), isTrue);
+    // The pen is still the tool: dragging the selected image moves it.
+    await mouseDrag(tester, const [Offset(640, 400), Offset(700, 400), Offset(740, 400)]);
+    await tester.pumpAndSettle();
+    expect(liveElements(services, nb.id).single.rect.center, const Offset(740, 400));
+    expect(liveStrokes(services, nb.id), isEmpty);
+    // A tap away drops the selection and leaves no dot.
+    await mouseDrag(tester, const [Offset(200, 650)]);
+    await tester.pumpAndSettle();
+    expect(await selectionOffers(tester, 'Crop'), isFalse);
+    expect(liveStrokes(services, nb.id), isEmpty);
+    // The next stroke is ink, not a lasso.
+    await mouseDrag(tester, const [Offset(200, 650), Offset(260, 660), Offset(320, 650)]);
+    await tester.pumpAndSettle();
+    expect(liveStrokes(services, nb.id), hasLength(1));
+    expect(await selectionOffers(tester, 'Crop'), isFalse);
+  });
+
+  testWidgets('long press → Paste here pastes a clipboard image under the finger (R13-2)', (
+    tester,
+  ) async {
+    final (services, nb) = await openImageCanvas(tester);
+    services.preferences.stylusOnly = true;
+    await tester.pump();
+    mockClipboardImage(pngOf(200, 100));
+    final press = await tester.startGesture(const Offset(300, 300));
+    await tester.pump(const Duration(milliseconds: 700));
+    await press.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Paste here'));
+    await settleReal(tester, () => liveElements(services, nb.id).isNotEmpty);
+    await tester.pumpAndSettle();
+    final image = liveElements(services, nb.id).single;
+    expect(image.rect.center, const Offset(300, 300));
+    expect(await selectionOffers(tester, 'Crop'), isTrue);
+  });
+
   testWidgets('Ctrl+V pastes copied ink when it is newer than the clipboard image', (tester) async {
     final (services, nb) = await openImageCanvas(
       tester,

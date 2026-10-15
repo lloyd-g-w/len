@@ -95,6 +95,16 @@ class ContentTools {
     text.edit(element);
   }
 
+  /// Starts a text box at [world] with the text tool (the canvas menu's
+  /// Add text here). As with [editText], the tool used before comes back
+  /// when the box is done, so the next stroke inks again.
+  void addTextAt(Offset world) {
+    final previous = tools.tool;
+    tools.tool = EditorTool.text;
+    if (previous != EditorTool.text) _returnTo = previous;
+    textTool.startBox(world);
+  }
+
   void _onTextChanged() {
     if (text.isEditing) return;
     final back = _returnTo;
@@ -133,7 +143,8 @@ class ContentTools {
 
   /// The pointer tool for a press at [screen] with [tool] selected. [lasso]
   /// (the stylus side button set to lasso) forces the lasso. A selection
-  /// made that way stays live: pressing on it moves or resizes it with the
+  /// made that way (or by an insert or a paste under another tool) stays
+  /// live: pressing on it moves or resizes it with the
   /// lasso, pressing elsewhere drops it and uses [tool] again.
   PointerTool? toolAt(EditorTool tool, Offset screen, {bool lasso = false}) {
     if (lasso) return this.lasso;
@@ -183,21 +194,21 @@ class ContentTools {
   /// middle of the screen the one edited.
   VoidCallback? beforePasteAtCentre;
 
-  /// Pastes the clipboard at the centre of the screen (lasso tool on).
+  /// Pastes the clipboard at the centre of the screen, selected; the tool
+  /// stays (pressing elsewhere drops the selection, see [toolAt]).
   void pasteAtCentre() {
     if (selection.clipboard.isEmpty) return;
-    tools.tool = EditorTool.lasso;
     beforePasteAtCentre?.call();
     selection.paste(viewport.visibleWorld.center);
   }
 
-  /// Adds a text box showing [data] (e.g. pasted text) at the centre of
-  /// the screen as one undoable edit, and selects it with the lasso. It is
-  /// as wide as its text, but wraps at [pasteWidthFraction] of the screen.
-  void pasteText(TextData data) {
+  /// Adds a text box showing [data] (e.g. pasted text) centred on [at]
+  /// (world; the centre of the screen by default) as one undoable edit,
+  /// and selects it (the tool stays). It is as wide as its text, but wraps
+  /// at [pasteWidthFraction] of the screen.
+  void pasteText(TextData data, {Offset? at}) {
     if (data.text.trim().isEmpty) return;
-    tools.tool = EditorTool.lasso;
-    beforePasteAtCentre?.call();
+    if (at == null) beforePasteAtCentre?.call();
     final area = viewport.visibleWorld;
     var text = data.copyWith(autoWidth: true);
     var width = TextLayout.naturalWidth(text);
@@ -211,7 +222,7 @@ class ContentTools {
       id: clock.newId(),
       surfaceId: model.surfaceId,
       type: ElementType.text.name,
-      rect: Rect.fromCenter(center: area.center, width: width, height: height),
+      rect: Rect.fromCenter(center: at ?? area.center, width: width, height: height),
       z: model.topZ + 1,
       createdAt: clock.nowMs(),
       data: text.toJson(),
@@ -227,7 +238,9 @@ class ContentTools {
   void _onToolChanged() {
     final tool = tools.tool;
     if (tool == _lastTool) return;
-    if (_lastTool == EditorTool.lasso) selection.clear();
+    // The lasso's selection goes with it; a live one (under another tool)
+    // goes with any tool but the lasso, which takes it over.
+    if (_lastTool == EditorTool.lasso || tool != EditorTool.lasso) selection.clear();
     if (_lastTool == EditorTool.text) {
       _returnTo = null; // The user picked a tool: keep it.
       text.end();
