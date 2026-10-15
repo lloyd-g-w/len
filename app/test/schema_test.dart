@@ -340,8 +340,7 @@ void main() {
 }
 
 /// Back to before version 10 (the chunk indexes): undoes versions 10 to 13
-/// (14 only rewrites data)
-/// of a fresh database.
+/// of a fresh database (14 only rewrites data).
 void _dropChunkDigests(CommonDatabase db) {
   db.execute('ALTER TABLE stroke_chunks DROP COLUMN digest');
   db.execute('ALTER TABLE element_chunks DROP COLUMN digest');
