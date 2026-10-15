@@ -121,6 +121,17 @@ void main() {
       expect(NameOrder.compareKeys('a99999999999999999999', 'a100000000000000000000'), lessThan(0));
     });
 
+    test('each query word must begin a word of the title (R16-2)', () {
+      bool m(String text, String query) => LibraryQuery.matches(text, query);
+      expect(m('Calculus — Lecture 3', 'lecture 3'), isTrue);
+      expect(m('Calculus — Lecture 30', 'lecture 3'), isTrue);
+      expect(m('Calculus — Lecture 13', 'lecture 3'), isFalse);
+      expect(m('Medical ethics', 'cal'), isFalse);
+      expect(m('Calculus', 'CALC'), isTrue);
+      expect(m('Lecture 3 (draft)', '3 draft'), isTrue);
+      expect(m('Anything', '  '), isTrue);
+    });
+
     test('filters ignoring accents, as full-text search does', () {
       expect(LibraryQuery.matches('Café notes', 'cafe'), isTrue);
       expect(LibraryQuery.matches('Cafe notes', 'CAFÉ'), isTrue);

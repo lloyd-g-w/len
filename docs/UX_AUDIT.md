@@ -60,7 +60,7 @@ undone without a word.
   locale-free so every device agrees; equal values by the digits' length
   ("02" after "2"). Effort S.
 
-**R16-2 P1 · Title search matches inside words and numbers.** ⬜
+**R16-2 P1 · Title search matches inside words and numbers.** ✅
 - *What:* `LibraryQuery.matcher` keeps a title when each term occurs
   *anywhere* in it: "lecture 3" lists Lecture 13, 23, 30 and Lecture 3,
   ordered by date, so the one meant is anywhere in the list; "cal"
