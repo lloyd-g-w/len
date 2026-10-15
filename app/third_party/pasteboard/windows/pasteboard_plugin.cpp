@@ -7,14 +7,20 @@
 
 #include <Windows.h>
 #include <ShlObj.h>
+#include <Shlwapi.h>
 #include <gdiplus.h>
 
+#include <cstdint>
+#include <cstring>
 #include <map>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "strconv.h"
 
 #pragma comment(lib, "GdiPlus")
+#pragma comment(lib, "Shlwapi")
 
 namespace {
 
@@ -312,15 +318,132 @@ class ScopedClipboard {
   bool opened_;
 };
 
+// Len's addition ("write"): a PNG and / or text as one clipboard entry.
+
+// A movable global copy of [size] bytes at [data] (null if out of memory).
+HGLOBAL GlobalCopy(const void *data, SIZE_T size) {
+  HGLOBAL handle = GlobalAlloc(GMEM_MOVEABLE, size);
+  if (!handle) return nullptr;
+  void *target = GlobalLock(handle);
+  if (!target) {
+    GlobalFree(handle);
+    return nullptr;
+  }
+  memcpy(target, data, size);
+  GlobalUnlock(handle);
+  return handle;
+}
+
+// [png] as a bottom-up 32-bit CF_DIB composited over white: apps that read
+// only DIBs ignore alpha (transparent pixels would turn black). Null if
+// GDI+ can't decode it.
+HGLOBAL DibFromPng(const std::vector<uint8_t> &png) {
+  Gdiplus::GdiplusStartupInput input;
+  ULONG_PTR token = 0;
+  if (Gdiplus::GdiplusStartup(&token, &input, nullptr) != Gdiplus::Ok) return nullptr;
+  HGLOBAL result = nullptr;
+  IStream *stream = SHCreateMemStream(png.data(), static_cast<UINT>(png.size()));
+  if (stream) {
+    Gdiplus::Bitmap *bitmap = Gdiplus::Bitmap::FromStream(stream);
+    if (bitmap && bitmap->GetLastStatus() == Gdiplus::Ok) {
+      const UINT width = bitmap->GetWidth();
+      const UINT height = bitmap->GetHeight();
+      Gdiplus::Rect rect(0, 0, static_cast<INT>(width), static_cast<INT>(height));
+      Gdiplus::BitmapData data;
+      if (width > 0 && height > 0 &&
+          bitmap->LockBits(&rect, Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &data) ==
+              Gdiplus::Ok) {
+        const SIZE_T stride = static_cast<SIZE_T>(width) * 4;
+        result = GlobalAlloc(GMEM_MOVEABLE, sizeof(BITMAPINFOHEADER) + stride * height);
+        auto *header = result ? static_cast<BITMAPINFOHEADER *>(GlobalLock(result)) : nullptr;
+        if (header) {
+          ZeroMemory(header, sizeof(BITMAPINFOHEADER));
+          header->biSize = sizeof(BITMAPINFOHEADER);
+          header->biWidth = static_cast<LONG>(width);
+          header->biHeight = static_cast<LONG>(height);  // Bottom-up.
+          header->biPlanes = 1;
+          header->biBitCount = 32;
+          header->biCompression = BI_RGB;
+          header->biSizeImage = static_cast<DWORD>(stride * height);
+          BYTE *pixels = reinterpret_cast<BYTE *>(header + 1);
+          for (UINT y = 0; y < height; ++y) {
+            // GDI+ rows are B, G, R, A (straight alpha), as a DIB's B, G, R, X.
+            const BYTE *src = static_cast<const BYTE *>(data.Scan0) +
+                static_cast<INT_PTR>(y) * static_cast<INT_PTR>(data.Stride);
+            BYTE *dst = pixels + static_cast<SIZE_T>(height - 1 - y) * stride;
+            for (UINT x = 0; x < width; ++x) {
+              const UINT alpha = src[x * 4 + 3];
+              for (UINT c = 0; c < 3; ++c) {
+                dst[x * 4 + c] =
+                    static_cast<BYTE>((src[x * 4 + c] * alpha + 255 * (255 - alpha) + 127) / 255);
+              }
+              dst[x * 4 + 3] = 255;
+            }
+          }
+          GlobalUnlock(result);
+        } else if (result) {
+          GlobalFree(result);
+          result = nullptr;
+        }
+        bitmap->UnlockBits(&data);
+      }
+    }
+    delete bitmap;
+    stream->Release();
+  }
+  Gdiplus::GdiplusShutdown(token);
+  return result;
+}
+
+// Hands [data] to the open clipboard as [format]; frees it if that fails.
+bool SetClipboardGlobal(UINT format, HGLOBAL data) {
+  if (!data) return false;
+  if (SetClipboardData(format, data)) return true;
+  GlobalFree(data);
+  return false;
+}
+
+// Replaces the clipboard with [png] (as "PNG", which keeps transparency for
+// browsers and Office, and a DIB for everything else) and / or [text].
+bool WriteClipboard(HWND owner, const std::vector<uint8_t> *png, const std::string *text) {
+  HGLOBAL png_data = png ? GlobalCopy(png->data(), png->size()) : nullptr;
+  HGLOBAL dib = png ? DibFromPng(*png) : nullptr;
+  HGLOBAL text_data = nullptr;
+  if (text) {
+    const std::wstring wide = utf8_to_wide(*text);
+    text_data = GlobalCopy(wide.c_str(), (wide.size() + 1) * sizeof(wchar_t));
+  }
+  bool written = false;
+  ScopedClipboard clipboard;
+  if (clipboard.Acquire(owner) && EmptyClipboard()) {
+    const UINT png_format = RegisterClipboardFormatW(L"PNG");
+    if (png_format && SetClipboardGlobal(png_format, png_data)) written = true;
+    png_data = nullptr;
+    if (SetClipboardGlobal(CF_DIB, dib)) written = true;
+    dib = nullptr;
+    if (SetClipboardGlobal(CF_UNICODETEXT, text_data)) written = true;
+    text_data = nullptr;
+  }
+  if (png_data) GlobalFree(png_data);
+  if (dib) GlobalFree(dib);
+  if (text_data) GlobalFree(text_data);
+  return written;
+}
+
 class PasteboardPlugin : public flutter::Plugin {
  public:
   static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
 
-  PasteboardPlugin();
+  explicit PasteboardPlugin(flutter::PluginRegistrarWindows *registrar);
 
   virtual ~PasteboardPlugin();
 
  private:
+  // The window owning what "write" puts on the clipboard (null if none).
+  HWND OwnerWindow() const;
+
+  flutter::PluginRegistrarWindows *registrar_;
+
   // Called when a method is called on this plugin's channel from Dart.
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue> &method_call,
@@ -335,7 +458,7 @@ void PasteboardPlugin::RegisterWithRegistrar(
           registrar->messenger(), "pasteboard",
           &flutter::StandardMethodCodec::GetInstance());
 
-  auto plugin = std::make_unique<PasteboardPlugin>();
+  auto plugin = std::make_unique<PasteboardPlugin>(registrar);
 
   channel->SetMethodCallHandler(
       [plugin_pointer = plugin.get()](const auto &call, auto result) {
@@ -345,7 +468,14 @@ void PasteboardPlugin::RegisterWithRegistrar(
   registrar->AddPlugin(std::move(plugin));
 }
 
-PasteboardPlugin::PasteboardPlugin() {}
+PasteboardPlugin::PasteboardPlugin(flutter::PluginRegistrarWindows *registrar)
+    : registrar_(registrar) {}
+
+HWND PasteboardPlugin::OwnerWindow() const {
+  flutter::FlutterView *view = registrar_ ? registrar_->GetView() : nullptr;
+  HWND window = view ? view->GetNativeWindow() : nullptr;
+  return window ? GetAncestor(window, GA_ROOT) : nullptr;
+}
 
 PasteboardPlugin::~PasteboardPlugin() {}
 
@@ -477,6 +607,22 @@ void PasteboardPlugin::HandleMethodCall(
     }
     SetClipboardData(CF_HDROP, storage.hGlobal);
 	result->Success();
+  }
+  else if (method_call.method_name() == "write") {
+    const auto *arguments = std::get_if<flutter::EncodableMap>(method_call.arguments());
+    const std::vector<uint8_t> *png = nullptr;
+    const std::string *text = nullptr;
+    if (arguments) {
+      auto png_it = arguments->find(flutter::EncodableValue("png"));
+      if (png_it != arguments->end()) png = std::get_if<std::vector<uint8_t>>(&png_it->second);
+      auto text_it = arguments->find(flutter::EncodableValue("text"));
+      if (text_it != arguments->end()) text = std::get_if<std::string>(&text_it->second);
+    }
+    if (!png && !text) {
+      result->Success(flutter::EncodableValue(false));
+      return;
+    }
+    result->Success(flutter::EncodableValue(WriteClipboard(OwnerWindow(), png, text)));
   }
   else if (method_call.method_name() == "writeImage") {
 
