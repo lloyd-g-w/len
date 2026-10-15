@@ -310,10 +310,16 @@ abstract class _SelectionCore extends ChangeNotifier {
 
   @override
   void dispose() {
-    _model.setLifted(this, null);
-    _model.removeListener(_onModelChanged);
+    // The surfaces outlive the editor (another view of the notebook): what
+    // this selection hid there shows again.
+    _model
+      ..removeListener(_onModelChanged)
+      ..setLifted(this, null)
+      ..setHidden(const {}, owner: this);
     for (final model in _others) {
-      model.removeListener(_onModelChanged);
+      model
+        ..removeListener(_onModelChanged)
+        ..setHidden(const {}, owner: this);
     }
     unawaited(_imageChanges?.cancel());
     _picture?.dispose();
