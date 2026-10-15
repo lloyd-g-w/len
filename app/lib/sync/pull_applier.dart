@@ -119,10 +119,12 @@ class PullApplier {
       switch (store) {
         case FolderRepository():
           changes.folders = true;
+          changes.libraryWrites++;
         case TemplateRepository():
           changes.templates = true;
         case NotebookRepository():
           changes.notebooks = true;
+          changes.libraryWrites++;
         case PageRepository():
           _addKnown(changes.pagesOfNotebooks, r.pages.notebookOf(record.id));
         // A live stroke or element is now on the surface its record names

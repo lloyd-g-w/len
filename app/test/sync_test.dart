@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:len/app_services.dart';
+import 'package:len/core/clock.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/syncable.dart';
 import 'package:len/domain/chunk_grid.dart';
@@ -16,6 +17,14 @@ import 'package:len/sync/sync_api.dart';
 import 'package:len/sync/sync_controller.dart';
 
 import 'support/fake_server.dart';
+
+/// A clock moving a minute on with every reading.
+class _SteppingClock extends Clock {
+  int _ms = 0;
+
+  @override
+  int nowMs() => _ms += 60000;
+}
 
 void main() {
   test('two devices converge: create, draw, erase, delete', () async {
@@ -292,6 +301,37 @@ void main() {
         controller.dispose();
       },
     );
+
+    test('a long pull reloads the library only after it brought notebooks or folders', () async {
+      final server = FakeServer()..maxPage = 3;
+      final a = device(server);
+      final nb = a.notebooks.create(
+        title: 'Big',
+        kind: NotebookKind.canvas,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
+      await a.sync.engine.sync(apiFor(server));
+      a.strokes.save([for (var i = 0; i < 30; i++) bigStroke('s$i', nb.id, 4)]);
+      await a.sync.engine.sync(apiFor(server));
+      final b = AppServices.create(AppDatabase.inMemory());
+      final controller = SyncController(
+        engine: b.sync.engine,
+        settings: b.settings,
+        tokens: b.sync.tokens,
+        clock: _SteppingClock(), // Every progress report is long after the last.
+        apiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: server.client),
+      );
+      var announced = 0;
+      controller.remoteChanges.listen((_) => announced++);
+      controller.configure(url: 'http://sync.test', token: FakeServer.token);
+      await controller.syncNow();
+      await pumpEventQueue();
+      // Mid-pull: once, for the notebook on the first page (not for each of
+      // the ten pages of strokes after it); then the run's own.
+      expect(announced, 2);
+      controller.dispose();
+    });
 
     test('the library hears of the first sync until the pull ends, not its first page', () async {
       final server = FakeServer()..maxPage = 3;

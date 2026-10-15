@@ -83,8 +83,10 @@ class SyncController extends ChangeNotifier {
   double? _progress;
 
   /// When the library last heard of notebooks and folders a long pull
-  /// brought ([_onPullProgress]).
+  /// brought ([_onPullProgress]), and how many it had been brought then
+  /// ([RemoteChanges.libraryWrites]).
   int _announcedAt = 0;
+  int _announcedWrites = 0;
 
   /// How often a long pull tells the library about the notebooks and
   /// folders it brought so far, so a new device's library fills in while
@@ -100,10 +102,13 @@ class SyncController extends ChangeNotifier {
       _progress = progress;
       notifyListeners();
     }
+    // The library reloads only for notebooks or folders it hasn't heard of
+    // (pages of strokes alone change nothing there).
     final now = clock.nowMs();
-    final library = p.changes.notebooks || p.changes.folders;
-    if (library && now - _announcedAt >= announceEvery.inMilliseconds) {
+    final writes = p.changes.libraryWrites;
+    if (writes != _announcedWrites && now - _announcedAt >= announceEvery.inMilliseconds) {
       _announcedAt = now;
+      _announcedWrites = writes;
       _remoteChanges.add(
         RemoteChanges()
           ..notebooks = p.changes.notebooks
@@ -325,6 +330,7 @@ class SyncController extends ChangeNotifier {
     if (state != SyncState.syncing) {
       _progress = null;
       _pullFrom = null;
+      _announcedWrites = 0;
     }
     _state = state;
     notifyListeners();

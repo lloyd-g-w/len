@@ -9,6 +9,11 @@ class RemoteChanges {
   /// Whether any library folder changed.
   bool folders = false;
 
+  /// How many notebook and folder records were applied (summed when
+  /// merged): a long pull's progress tells by it whether the library has
+  /// news since it last heard.
+  int libraryWrites = 0;
+
   /// Whether any of the user's templates changed.
   bool templates = false;
 
@@ -38,6 +43,7 @@ class RemoteChanges {
   void addRevival(Revival revival) {
     if (revival.isEmpty) return;
     revived = notebooks = true;
+    libraryWrites++;
     pagesOfNotebooks.addAll(revival.notebooks);
     recordingsOfNotebooks.addAll(revival.notebooks);
     outlineOfNotebooks.addAll(revival.notebooks);
@@ -58,6 +64,7 @@ class RemoteChanges {
   void addAll(RemoteChanges other) {
     notebooks |= other.notebooks;
     folders |= other.folders;
+    libraryWrites += other.libraryWrites;
     templates |= other.templates;
     revived |= other.revived;
     undoneNotebooks.addAll(other.undoneNotebooks);
