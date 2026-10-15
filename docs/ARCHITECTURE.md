@@ -495,7 +495,19 @@ or deleted pages in order with ink. Snack bars' Undo calls
   editor closes while it records (another tab shown, Back to the library) stays open
   until the recording stops (`SharedNotebooks.unattended`): other editors show
   `RecordingElsewhereNotice` and the library a notice ("Recording in “Calculus” ·
-  12:34", Show, Stop); it is stopped if the notebook goes away elsewhere.
+  12:34", Show, Stop); it is stopped if the notebook goes away elsewhere. Trashed or
+  deleted on this device (the library calls `SharedNotebooks.notebooksChanged` after its
+  changes: the notebook menu, a selection, a folder deleted), it is let go at once: its
+  recording is stopped and saved into it, so it goes to the trash with the notebook and
+  Undo / Restore brings back both ("Recording saved and “Calculus” moved to the trash");
+  a recording that finishes saving after its notebook was deleted forever is deleted
+  too. Show re-reads the notebook and never opens one gone meanwhile (it lets it go and
+  says so). A recording of a notebook no editor shows that has to stop when the app goes
+  to the background (Android without its service, below) is kept in
+  `SharedNotebooks.stoppedInBackground`: the library and other editors say "Recording
+  stopped when Len went to the background · Saved as “Recording 09:30” in “Calculus”"
+  with Show (the notebook at its recordings) and ✕ until dismissed or the notebook is
+  opened.
 - **Focus mode** (`EditorScreen._setFocus`; "⋯" → View → *Focus mode*, F11, Ctrl/⌘+.) hides
   all chrome (`ChromeLayout.focus`) but the `FocusHandle`, and goes immersive / full
   screen (`platform/fullscreen*`: the browser's fullscreen API on the web; Android hides
@@ -1174,8 +1186,14 @@ replayed in step with the ink.
   background recording (the service is then only listed in the system's task
   manager). With the service up, pausing the app (screen off, another app in
   front) keeps recording (`NotebookAudio`); if it could not start (or reports
-  `failed`), the old behaviour applies: the recording is stopped and saved
-  when the app is paused. Back at the library's root moves Len to the back
+  `failed`), it is tried once more as the app leaves the front
+  (`AppLifecycleState.inactive`, Android's `onPause`: the activity is still visible, so a
+  `microphone` service may start; `RecordingController.keepInBackground`, awaited by the
+  pause), and failing that the recording is stopped and saved when the app is paused
+  and the user is told on return ("Recording stopped when Len went to the background":
+  the editor's message, or the notice above when no editor showed it). Recording is not
+  refused without the service: in front it records fine. The notification permission
+  never stops it (the service runs without its notification). Back at the library's root moves Len to the back
   (`MainActivity.popSystemNavigator`; predictive back does the same) instead
   of finishing the activity, which would end the engine and the recording;
   the activity also handles every configuration change Flutter follows by
@@ -1184,8 +1202,17 @@ replayed in step with the ink.
   the engine detaches). Other platforms have no keep-alive (desktop apps keep
   the microphone; browsers keep recording in a background tab).
 - **Playback** (`PlaybackController`, `package:audioplayers`): plays one
-  recording at a time, fetching missing blobs from the server first (three
-  at a time, `downloading` shown in the player as "Downloading… 40%"). Raw AAC
+  recording at a time. A recording with parts not on this device yet plays part by
+  part as they download (`playback_parts.dart`, `PartDownloads`): three at a time,
+  from the part needed onwards; playback starts as soon as the part holding the kept
+  start is here, each part plays from its own blob file and the next one is loaded at
+  its end (a short gap per joint, only while played this way: it is one source again
+  when next opened); a part not here yet is fetched first and waited for, the player's
+  time reading "Downloading… 40%" (`downloading`); a part that can't be had stops
+  there ("Not downloaded", `partMissing`; Play asks again). Feeding a growing joined
+  source was not taken: ExoPlayer and GStreamer end a file source at its end as read
+  when opened, and browsers' blob URLs can't grow (Media Source Extensions don't take
+  ADTS everywhere). Raw AAC
   parts are joined into one source (natively a temporary file streamed from
   the blobs, a single part is played from its blob file; browsers get a blob
   URL), so playback and seeking across parts are seamless; parts that don't

@@ -120,6 +120,33 @@ anything is recording. Reviewing on the laptop waits for every part of a
 - *Done:* as proposed; pen taps on ink still play, fingers still pan and
   zoom.
 
+**Leftovers** (`fix/r17-leftovers`) ✅
+- *Trashing a notebook that records unattended* (on this device: its menu,
+  a selection, its folder deleted; or delete forever while it saves): the
+  recording went on in the trash, and Show opened an empty editor. Now the
+  notebook is let go at once — its recording stopped and saved into it, so
+  it goes to the trash with it ("Recording saved and “Calculus” moved to the
+  trash"), and Undo or Restore brings back both; a recording finishing its
+  save after the notebook was deleted forever goes with it. Show re-reads
+  the notebook and never opens one gone meanwhile. (Calmer than asking
+  first: the trash is undoable, and nothing recorded is lost.)
+- *Android without the recording service*: a recording in a notebook left
+  stopped silently when Len went to the background. The service is now
+  tried once more as Len leaves the front (the activity still visible), and
+  if the recording still has to stop the user is told on return: the library
+  and other editors show "Recording stopped when Len went to the background
+  · Saved as “Recording 09:30” in “Calculus”" with Show (its recordings) and
+  ✕; in the notebook's own editor the message says the same. Requiring the
+  service was not taken: in front, recording works without it.
+- *Play while it downloads* (R17-3's rest): playback starts with the first
+  part needed and continues part by part as the rest arrive; seeking past
+  what is here fetches that part first and waits ("Downloading…").
+- Screenshots: `e_audio_elsewhere_{editor,library}_*` and
+  `e_audio_stopped_{editor,library}_*` (`editor_surfaces_screenshot_test.dart`,
+  tablet light and phone dark). Inspected: the phone's one-line library
+  notice got a short title ("Recording stopped and saved"); the editor's
+  stopped notice puts the detail under the title.
+
 Checked and sound: the first recording asks for the microphone (and the
 notification, Android 13+) only when Record is tapped, and a refusal says
 where to allow it with a Settings button; capture starts behind a small
@@ -130,8 +157,8 @@ an hour; pause in the bar or the notification maps ink written while
 paused to the resume; ink replay, tap-to-play (1.5 s lead), burst markers,
 speeds, ±10 s and media controls work as documented; trims are
 non-destructive and "Free up…" releases only what no other recording
-shares; export is one `.aac` per recording. Left for later (TODO "Next"):
-playing a recording while its parts download (R17-3). Not proposed:
+shares; export is one `.aac` per recording. Playing a recording while its
+parts download (R17-3) followed in the leftovers above. Not proposed:
 skip-silence (neither reference app has it, and it would be a setting).
 
 ## Round 16 audit — a year of notes (`review/round16`)
