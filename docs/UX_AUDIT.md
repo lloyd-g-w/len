@@ -1,5 +1,125 @@
 # Len — UX/UI audit
 
+## Round 16 audit — a year of notes (`review/round16`)
+
+Lens: a student a year in, with ~300 notebooks in nested folders
+(Year 1 › Spring › Calculus › "Calculus — Lecture 12"), PDFs and lecture
+recordings, syncing an S Pen tablet, a phone and a Linux laptop. Read in
+the code: the library (`features/library/`: `LibraryController`,
+`LibraryQuery`, `RecentRow`, the move dialog, trash purge), search
+(`data/search/`, `features/search/`), names (`data/name_order.dart`),
+backup (`features/backup/`, Settings → Backup), sync (`sync/`:
+`SyncEngine`, `sync_engine_pull.dart`, `DeletionConflicts`,
+`SyncController`, `SyncStatusButton`, the setup link) and where the editor
+reopens (`EditorLifecycle`, `EditorViewState`). Rendered a new suite with
+a year's library (`test/screenshots/year_screenshot_test.dart`: 3 top
+folders, 3 terms, 9 courses, ~200 lectures, a journal a month; phone,
+tablet, desktop). Nothing was run on a device or against a live server.
+Paths are under `app/lib/` unless noted. ⬜ open, ✅ fixed on this branch.
+
+Summary: the plumbing is ready for a year of notes: 300 notebooks build
+only the cards on screen, search reaches titles, typed text, PDF text and
+synced handwriting across every folder with the folder path on each hit,
+backups stream a library of any size, and sync never silently loses a
+stroke (strokes are records of their own, so a page written on two
+devices offline simply holds both; a deletion racing an edit is undone).
+What a year exposes is the ordering and finding of many similar things,
+and how quiet the multi-device moments are: lectures sort 1, 10, 11 … 2;
+"lecture 3" finds Lecture 13 and 23 first; the Recent row cuts off the
+course; the laptop reopens a notebook where *it* last was, not where the
+tablet just wrote; a new device sits on "Syncing…" in an empty library
+until the last record lands; and a deletion another device undid is
+undone without a word.
+
+| Moment | Len | GoodNotes 6 · Notability | Verdict |
+|---|---|---|---|
+| A notebook from last March | 🔍 + a word or two of its title (1 tap, results across folders with their path); or ☰ → Year 1 → Spring → Calculus → scroll (4 taps) | GoodNotes: search or the folder path; Notability: subjects (one level) | Keep, after R16-2 |
+| Sorting a course's lectures by name | A→Z by characters: Lecture 1, 10, 11 … 19, 2, 20 | both sort numbers by value (Finder order) | R16-1 |
+| Title search | each term anywhere in the title: "lecture 3" → Lecture 13, 23, 3 (by date) | GoodNotes: word starts | R16-2 |
+| Recent | 8 notebooks opened lately, with "Year 1 › Spring › …" under each | GoodNotes: Recents tab; Notability: none | R16-3 (caption) |
+| Favourites | ★ section with a count | same | Keep |
+| Move many | Select → Move… → folder tree; Undo | same | Keep |
+| Nested folders, rename, colours | any depth; sidebar tree with drop targets; colour per folder | GoodNotes: same; Notability: dividers › subjects | Keep |
+| Trash | 30 days, then purged on every device; Empty trash…; Undo | same (GoodNotes 30 days) | Keep |
+| Space used | web only (Settings → Storage); native: per recording "N MB on this device" and Free up trimmed audio; nothing for the library | Notability: per-note sizes in Settings → Storage; GoodNotes: none | R16-7 |
+| Backup / restore of a big library | streamed `.len` file, "Last backup …", restore beside what's there or skip what's here, Undo | GoodNotes: zip of PDFs/.goodnotes; Notability: auto-backup to a cloud drive | Keep |
+| Sync status day to day | sidebar caption "Synced 2m" / "Syncing…" / red "Sync failed"; never a dialog | an icon in GoodNotes' settings; Notability: banner on failure | Keep |
+| Same page written on two devices offline | both sets of ink kept (stroke records merge); a text box edited on both: the later edit wins | GoodNotes: conflict copy of the document | Keep |
+| Page or notebook deleted on one, written on another | the deletion is undone (a notebook back into the trash) — silently | GoodNotes: conflict copy | R16-6 |
+| Switching devices mid-notebook | opens where this device last was (page index, zoom), or page 1 | GoodNotes: where that device was; Notability: where it was | R16-4 |
+| A new device joining | QR / `len://sync` link; first sync "Syncing…" with no progress, library empty until done; files fetched as pages are shown | GoodNotes (iCloud): notebooks appear as they download | R16-5 |
+
+### Prioritised items
+
+**R16-1 P1 · A→Z sorts lectures 1, 10, 11 … 2.** ⬜
+- *What:* `NameOrder` compares folded names character by character, so
+  "Calculus — Lecture 10" sorts before "Lecture 2", and folders "Week
+  10" before "Week 2". A year of numbered lectures, weeks and chapters is
+  out of order in every A→Z list (grid, list, sidebar, move picker).
+- *Fix:* runs of digits compare by value (natural order), still
+  locale-free so every device agrees; equal values by the digits' length
+  ("02" after "2"). Effort S.
+
+**R16-2 P1 · Title search matches inside words and numbers.** ⬜
+- *What:* `LibraryQuery.matcher` keeps a title when each term occurs
+  *anywhere* in it: "lecture 3" lists Lecture 13, 23, 30 and Lecture 3,
+  ordered by date, so the one meant is anywhere in the list; "cal"
+  finds "Medical". Full-text search (contents) already requires word
+  starts, so titles and contents disagree.
+- *Fix:* each term must begin a word of the title (or recording title,
+  folder name), as `SearchQuery` does for contents. Effort S.
+
+**R16-3 P2 · The Recent row cuts off the course.** ⬜
+- *What:* a Recent tile's caption is the whole path, "Year 1 › Spring ›
+  Calculus", ellipsised at the end on every width: the part that tells
+  two "… — Lecture" tiles apart is what goes.
+- *Fix:* the caption names the folder the notebook is in (the innermost);
+  the whole path stays in search results and becomes the tile's tooltip.
+  Effort S.
+
+**R16-4 P1 · The laptop opens a notebook where the laptop last was.** ⬜
+- *What:* the page, zoom and pan are kept per notebook in this device's
+  settings (`EditorLifecycle.saveView`). Write pages 14–16 of a lecture
+  on the tablet, open the notebook on the laptop at home: it opens on
+  page 3, where the laptop last looked a week ago (or on page 1 if it
+  never opened it), and the student scrolls to find today's notes.
+- *Fix:* no new sync data: when the notebook's newest ink or text was
+  written on another device after this device last left the notebook
+  (or it never opened it here), a paged notebook opens framed on that
+  page; otherwise as kept. Effort M.
+
+**R16-5 P1 · A new device's first sync is a silent wait in an empty library.** ⬜
+- *What:* the first pull of a year (tens of thousands of records) runs
+  for a minute or more with "Syncing…" and no measure of it; the
+  library hears about the new notebooks only when the whole sync ends
+  (`SyncController` announces `RemoteChanges` once per cycle), so the
+  new tablet shows "No notebooks yet" with its create buttons meanwhile.
+- *Fix:* the server's pull reply says its newest seq (`lastSeq`), so a
+  pull longer than a page shows how far it is ("Syncing… 40%" in the
+  sidebar and Settings → Sync); and the library and search hear about
+  notebooks and folders as pages land (at most every 2 s), so the
+  library fills in while the rest arrives. Effort M.
+
+**R16-6 P2 · A deletion undone by another device says nothing.** ⬜
+- *What:* deleting a page on the phone while the tablet (offline) wrote
+  on it brings the page back at the next sync; a notebook deleted
+  forever comes back into the trash (`DeletionConflicts`). Nothing tells
+  the person who deleted it, so a page "comes back from the dead" or the
+  trash count rises for no reason they know.
+- *Fix:* on the device that made the deletion, a calm notice once:
+  "“Calculus — Lecture 4” is back in the trash: another device wrote in
+  it" / "2 deleted pages of “Lab book” are back: another device wrote on
+  them". Devices that didn't delete anything say nothing. Effort S–M.
+
+**R16-7 P2 · Nothing says what takes the space.** ⬜
+- *What:* natively there is no storage view: a year of lectures recorded
+  is gigabytes, and the only sizes shown are per recording in its panel.
+  Synced files fetched once stay on every device for good.
+- *Fix:* Settings → Storage on every platform: space by kind (notes,
+  PDFs and images, recordings), the largest notebooks, and "Remove
+  downloaded copies" for files the server holds (fetched again when
+  shown). Effort L: TODO "Next".
+
 ## Round 15 audit — stylus craft (`review/round15`)
 
 Lens: a demanding S Pen user on a Galaxy Tab writing for hours, who
