@@ -107,7 +107,9 @@ From the reports; the owner picks. Status as above.
   copy (to know what is older than the ink), which Android 12+ announces as a paste. Done
   (fix/leftovers-r7): Copy replaces the clipboard, so it is read only when `ClipboardMirror`'s
   write fails.
-- ⬜ **Paste here only when there is something to paste** (UX_AUDIT R13-2): the canvas menu
-  now always offers it, as the system clipboard can't be asked for an image without reading
-  it (Android announces every read). A native "has image / has text" probe in the vendored
-  `pasteboard` (Android `ClipDescription`, no read) would let the row hide when empty.
+- ✅ **Paste here only when there is something to paste** (UX_AUDIT R13-2): the canvas menu
+  always offered it, as the system clipboard can't be asked for an image without reading it
+  (Android announces every read). Done (feat/clipboard-peek): `Pasteboard.peek` in the vendored
+  `pasteboard` tells the kinds on the clipboard without reading it (Android `ClipDescription`,
+  GTK targets, Windows formats, the web only where reads are silent); the row shows when Len
+  copied ink or the peek finds an image, text or files, and when the platform can't tell.
