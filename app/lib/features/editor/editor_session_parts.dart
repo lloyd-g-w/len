@@ -57,3 +57,38 @@ extension _EditorSessionParts on EditorSession {
     palms: services.palmGuard,
   );
 }
+
+/// What [FingerReading] asks of an [EditorSession].
+extension _EditorSessionReading on EditorSession {
+  /// Whether the page in view (or the canvas) has anything to read: a PDF
+  /// or scanned background, or ink, text boxes or images (loaded, or
+  /// stored).
+  FutureOr<bool> _hasContent() {
+    final doc = this.doc;
+    final SurfaceModel model;
+    if (doc != null) {
+      final page = doc.pages[doc.currentPage];
+      if (page.background != null) return true;
+      model = doc.activeModel;
+      if (model.surfaceId != page.id) return _stored(page.id);
+    } else {
+      model = canvas!;
+    }
+    if (model.loadedStrokeCount > 0 || model.loadedElementCount > 0) return true;
+    return _stored(model.surfaceId);
+  }
+
+  FutureOr<bool> _stored(String surfaceId) {
+    final bounds = services.strokeReader.contentBounds(surfaceId);
+    return bounds is Future<Rect?> ? bounds.then((b) => b != null) : bounds != null;
+  }
+
+  /// Whether something is under way that reading would interrupt: a stroke,
+  /// a text box being typed, a selection, the zoom window.
+  bool _busy() =>
+      live.isDrawing ||
+      content.text.isEditing ||
+      !content.selection.isEmpty ||
+      !(pdf?.selection.isEmpty ?? true) ||
+      (_zoomCreated && zoomWindow.isOpen);
+}

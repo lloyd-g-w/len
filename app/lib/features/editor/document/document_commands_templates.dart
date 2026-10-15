@@ -8,6 +8,7 @@ mixin _DocumentTemplates {
   DocumentController get doc;
   PageEdits get edits;
   NotebookPage get _current;
+  void _addPages(List<PageSpec> specs, {required NotebookPage after});
 
   /// Lets the user choose a template, then adds pages with it after
   /// [after] (default: the current page).
@@ -19,7 +20,7 @@ mixin _DocumentTemplates {
       mode: TemplatePickerMode.addPage,
     );
     if (choice == null) return;
-    edits.add([
+    _addPages([
       for (final paper in choice.papers) specOf(choice.template.copyWith(paper: paper)),
     ], after: page);
   }

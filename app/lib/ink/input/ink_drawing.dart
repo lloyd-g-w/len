@@ -140,6 +140,7 @@ class InkDrawing {
   /// Starts a contact; [erase] erases (the eraser tool, a stylus button or
   /// end), [lasso] selects (the side button set to the lasso).
   void start(PointerDownEvent e, {required bool erase, bool lasso = false}) {
+    events.contact?.call();
     // Zoomed far out the view may show stored rasters only: what is
     // erased, selected or written over must be in memory.
     model.loadVisible(view: viewport);

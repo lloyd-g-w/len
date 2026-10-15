@@ -425,7 +425,9 @@ or deleted pages in order with ink. Snack bars' Undo calls
   when one was last up, so a notebook opened after a snack bar elsewhere waits too), and
   only once the pen has rested 2 s (`LiveInk`: pens and shapes; `LassoPath`: a lasso loop
   being drawn). A tip never replaces another (a later trigger is dropped and waits for its next
-  one); several due at once go by priority (`EditorTip` order): two fingers scroll (a
+  one); several due at once go by priority (`EditorTip` order): reading (the editor
+  going into reading, R20-6: "one finger scrolls; tap the pen to write"; writing is the
+  tip done), two fingers scroll (a
   finger's stroke while fingers draw until a stylus is seen, `InkEvents.fingerStroke`;
   not once Draw with finger was chosen either way), the side button (a stylus
   contact, from the second opening on: the first has the "Stylus detected" message;
@@ -1418,6 +1420,9 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   already dimming ink is dropped); erasing, tools and fingers cancel.
 - **Touch**: with *stylus only* (palm rejection) on, fingers pan/zoom; off,
   one finger draws and a second finger turns it into a pinch.
+  While fingers draw with no stylus ever seen, pages with content open in
+  *reading* (one finger navigates until a tool is chosen; see "Reading" under the
+  toolbar).
   Stylus-only switches on automatically the first time a stylus is used.
   **Palm**: a touch landing while the pen touches, hovers, or lifted < 300 ms ago
   (`InkInputController.palmQuiet`, `StylusProximity`) neither navigates nor draws —
@@ -2125,6 +2130,30 @@ with a template is "Add page after" held down in the page menu).
   the eraser and starts at the highlighter: pen ↔ highlighter is one tap.
   The slots give up to 4 dp of their 44-dp cells for it (`ToolbarDensity.slot`)
   and it steps aside when they would go under 40 (narrow phones, 5 + 5).
+- **Reading** (R20-6, `features/editor/finger_reading.dart`): while fingers draw
+  because no stylus was ever seen (`ToolSettings.stylusOnly` null) on a
+  touch-first device (`Targets.touchFirst`: phones and tablets alike — it is
+  about finger drawing, not screen size; with a mouse no finger draws), one
+  finger always writes, so reading back took two fingers and a resting thumb
+  marked the page. `FingerReading` puts the editor in `ToolSettings.reading`
+  where there is something to read: opening on a page (or canvas) with ink,
+  text boxes, images or a PDF / scan background (loaded, else
+  `StrokeReader.contentBounds`) starts in reading, an empty one in writing;
+  after `FingerReading.idle` (2 min) without a drawing contact
+  (`InkEvents.contact`) it reads again, if the page has content and nothing is
+  under way (a stroke, a text box typed, a selection, the zoom window).
+  Reading is palm rejection for fingers (`ToolSettings.fingersNavigate`): one
+  finger scrolls and zooms, taps follow links, double taps zoom, a long press
+  opens the menu; a stylus still writes (and, the first time, ends reading for
+  good). Any tool chosen writes: `ToolSettings.pick` (the toolbar, the active
+  tool too), a tool change, any option or quick slot (`_changed`), opening
+  the zoom window, a blank page added (`DocumentCommands.onBlankPage`). No
+  tool is in hand meanwhile: the active tool's plate is a Pencil outline (the
+  phone switcher shows the tool alone, no chevron: "Pen: tap to write"), and
+  no quick slot is selected. A one-time tip (`EditorTip.reading`, first in
+  priority) says so; writing is the tip done. No setting: it only exists while
+  the device has never seen a stylus. Tests turn it off
+  (`FingerReading.debugEnabled`) except `test/finger_reading_test.dart`.
 - **One options popover** (`toolbar/tool_options_popover.dart`,
   `showToolOptions`): `showAdaptivePopover`, anchored and 320 dp wide (368
   on touch: seven 48-dp swatch cells), a

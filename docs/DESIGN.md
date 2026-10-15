@@ -303,7 +303,9 @@ Popover (tool options): Sheet, md, hairline, lifted, 4 dp below its anchor
 └───────────────────────────────────────┘
 ```
 The selected tool keeps its Ink plate (radius `xs`); colour underlines under
-tools stay (they are ink). Page indicator: Sheet pill with tabular figures.
+tools stay (they are ink). While the editor reads (fingers draw, no stylus:
+one finger scrolls) no tool is in hand: the active tool sits in a Pencil
+outline instead, and no quick slot is selected. Page indicator: Sheet pill with tabular figures.
 
 ### 6.3 Dialogs, sheets
 

@@ -127,12 +127,12 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
     const SingleActivator(LogicalKeyboardKey.f11): toggleFocus,
     const SingleActivator(LogicalKeyboardKey.tab, control: true): ?nextTab,
     const SingleActivator(LogicalKeyboardKey.tab, control: true, shift: true): ?previousTab,
-    const SingleActivator(LogicalKeyboardKey.keyP): unlessTyping(() => tools.tool = EditorTool.pen),
+    const SingleActivator(LogicalKeyboardKey.keyP): unlessTyping(() => tools.pick(EditorTool.pen)),
     const SingleActivator(LogicalKeyboardKey.keyH): unlessTyping(
-      () => tools.tool = EditorTool.highlighter,
+      () => tools.pick(EditorTool.highlighter),
     ),
     const SingleActivator(LogicalKeyboardKey.keyE): unlessTyping(
-      () => tools.tool = EditorTool.eraser,
+      () => tools.pick(EditorTool.eraser),
     ),
     const SingleActivator(LogicalKeyboardKey.keyM): unlessTyping(session.toggleZoomWindow),
     // 1–5: quick colours of the pen / highlighter; [ and ]: thinner / thicker.

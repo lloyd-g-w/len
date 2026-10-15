@@ -128,7 +128,7 @@ class _PdfLayerState extends State<PdfLayer> {
   String? _pageIdOf(PageBackground bg) =>
       _pdf.doc.pages.where((p) => p.background == bg).firstOrNull?.id;
 
-  /// Follows links tapped by a finger that navigates (stylus-only on);
+  /// Follows links tapped by a finger that navigates (stylus-only or reading);
   /// any press elsewhere drops a selection made with a long press.
   void _onDown(PointerDownEvent e) {
     if (_onSelection) {
@@ -136,7 +136,7 @@ class _PdfLayerState extends State<PdfLayer> {
       return;
     }
     if (!_pdf.selection.isEmpty) _pdf.selection.clear();
-    final navigating = e.kind == PointerDeviceKind.touch && (_pdf.tools.stylusOnly ?? false);
+    final navigating = e.kind == PointerDeviceKind.touch && _pdf.tools.fingersNavigate;
     _tapPointer = navigating && _tapPointer == null ? e.pointer : null;
     _tapAt = e.localPosition;
     _tapTime = e.timeStamp;

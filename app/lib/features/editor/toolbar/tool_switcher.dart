@@ -11,7 +11,9 @@ import 'tool_cluster.dart';
 /// The phone toolbar's tool button `[✎▾]`: the active tool on the neutral
 /// plate with a chevron. Tap: the [ToolSwitcherPanel] (every tool and
 /// Insert in a 4 × 2 grid); long press: the active tool's options. A
-/// [PreviousToolButton] usually sits beside it.
+/// [PreviousToolButton] usually sits beside it. While the editor reads
+/// ([ToolSettings.reading]) it is the tool alone in a Pencil outline, no
+/// tool in hand: a tap writes with it.
 class ToolSwitcherButton extends StatelessWidget {
   const ToolSwitcherButton({super.key, required this.tools, this.insert});
 
@@ -30,14 +32,19 @@ class ToolSwitcherButton extends StatelessWidget {
       listenable: tools,
       builder: (context, _) {
         final active = editorTools(tools).firstWhere((d) => d.tool == tools.tool);
-        void open() => _open(context);
+        final reading = tools.reading;
+        void open() => reading ? tools.pick(tools.tool) : _open(context);
         void options() => active.openOptions(context);
         // A 40-dp plate in a 48-dp hit area on touch.
         return Tooltip(
-          message: '${active.label}: tap to switch tools',
+          message: reading
+              ? '${active.label}: tap to write'
+              : '${active.label}: tap to switch tools',
           child: Semantics(
             button: true,
-            label: 'Tool: ${active.label}. Switch tools',
+            label: reading
+                ? 'Reading. Write with the ${active.label.toLowerCase()}'
+                : 'Tool: ${active.label}. Switch tools',
             excludeSemantics: true,
             onTap: open,
             onLongPress: options,
@@ -50,8 +57,14 @@ class ToolSwitcherButton extends StatelessWidget {
                 height: Targets.barHit(context),
                 child: Center(
                   child: Material(
-                    color: Surfaces.pressed(scheme),
-                    borderRadius: BorderRadius.circular(Radii.xs),
+                    key: const ValueKey('tool-switcher'),
+                    color: reading ? Colors.transparent : Surfaces.pressed(scheme),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(Radii.xs),
+                      side: reading
+                          ? BorderSide(color: scheme.outline, width: Hairline.width)
+                          : BorderSide.none,
+                    ),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(Radii.xs),
                       onTap: open,
@@ -64,13 +77,15 @@ class ToolSwitcherButton extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              ToolGlyph(descriptor: active, filled: true),
-                              const SizedBox(width: Gaps.xxs),
-                              Icon(
-                                Symbols.expand_more_sharp,
-                                size: 16,
-                                color: scheme.onSurfaceVariant,
-                              ),
+                              ToolGlyph(descriptor: active, filled: !reading),
+                              if (!reading) ...[
+                                const SizedBox(width: Gaps.xxs),
+                                Icon(
+                                  Symbols.expand_more_sharp,
+                                  size: 16,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -173,8 +188,8 @@ class ToolSwitcherPanel extends StatelessWidget {
             selected: d.tool == tools.tool,
             glyph: ToolGlyph(descriptor: d, filled: d.tool == tools.tool),
             onTap: () {
-              final reopen = d.tool == tools.tool;
-              tools.tool = d.tool;
+              final reopen = d.tool == tools.tool && !tools.reading;
+              tools.pick(d.tool);
               Navigator.of(context).pop();
               if (reopen && anchor.mounted) d.openOptions(anchor);
             },

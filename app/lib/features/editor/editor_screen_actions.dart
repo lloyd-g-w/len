@@ -34,6 +34,9 @@ extension _EditorActions on _EditorScreenState {
     _session.input.events.fingerStroke = null;
   }
 
+  /// The editor went into reading (R20-6): the reading tip, once.
+  void _onReading() => _tips.offer(EditorTip.reading);
+
   void _followLink(Paper target) {
     if (mounted && !_closing) _session.commands?.followLink(context, target);
   }

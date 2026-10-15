@@ -164,6 +164,10 @@ class _EditorScreenState extends State<_EditorView> {
       ..scribbleMissed = _onScribbleMissed
       ..shapeDrawn = _tips.wantsShapes ? _onShapeDrawn : null
       ..fingerStroke = _tips.seen(EditorTip.fingers.name) ? null : _onFingerStroke;
+    // Reading where there is something to read, while fingers draw (R20-6).
+    _session.reading
+      ..onRead = _onReading
+      ..open();
     _services.incomingFiles.targets.add(_importTarget);
     // Of two editors (split view), files go to the one used last.
     _focusNode.addListener(_onFocus);

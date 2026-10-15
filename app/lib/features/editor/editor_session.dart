@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../../app_services.dart';
@@ -24,6 +26,7 @@ import 'document/page_backgrounds.dart';
 import 'document/page_fit.dart';
 import 'document/undo_target.dart';
 import 'double_tap_zoom.dart';
+import 'finger_reading.dart';
 import 'images/editor_images.dart';
 import 'links/editor_links.dart';
 import 'pdf/pdf_highlight_snap.dart';
@@ -131,6 +134,9 @@ class EditorSession with _EditorSessionZoom {
     }
     gestures.onDoubleTap = zoom.toggle;
     if (initialZoom != null) _restoreZoom(initialZoom);
+    reading = FingerReading(tools: tools, hasContent: _hasContent, busy: _busy);
+    input.events.contact = reading.wrote;
+    commands?.onBlankPage = reading.write;
   }
 
   @override
@@ -147,6 +153,10 @@ class EditorSession with _EditorSessionZoom {
   /// Multi-finger taps, long press and right click on the canvas; the
   /// editor sets the callbacks.
   final CanvasGestures gestures = CanvasGestures();
+
+  /// Reading while fingers draw (R20-6): one finger scrolls until a tool
+  /// is chosen; the editor calls [FingerReading.open] once shown.
+  late final FingerReading reading;
 
   late final InkInputController input;
   late final ContentTools content;
@@ -254,6 +264,7 @@ class EditorSession with _EditorSessionZoom {
   /// every surface (shared ones stay with the [shared] notebook).
   void dispose() {
     _disposed = true;
+    reading.dispose();
     input.cancelDraw(); // Stops a stroke's or tool's pending timers.
     if (_zoomCreated) zoomWindow.dispose();
     images.dispose();

@@ -27,7 +27,10 @@ mixin _EditorSessionZoom {
   /// eraser is in hand: the box writes and erases), or closes it.
   void toggleZoomWindow() {
     final zoom = zoomWindow;
-    if (!zoom.isOpen) _toolForZoom();
+    if (!zoom.isOpen) {
+      tools.reading = false; // The box writes.
+      _toolForZoom();
+    }
     zoom.toggle();
   }
 

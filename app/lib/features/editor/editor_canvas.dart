@@ -73,7 +73,7 @@ class EditorCanvas extends StatelessWidget {
 
   Widget _surface(BuildContext context) {
     final doc = session.doc;
-    bool fingersNavigate() => session.tools.stylusOnly ?? false;
+    bool fingersNavigate() => session.tools.fingersNavigate;
     void follow(Offset at) {
       if (session.links.followAt(context, at)) return;
       if (doc?.plannerLinkAt(at) case final planner?) onFollowLink(planner);

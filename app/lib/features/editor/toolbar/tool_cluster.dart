@@ -9,7 +9,9 @@ import 'toolbar_metrics.dart';
 
 /// The tools in their fixed order, then Insert ⊕. One neutral `xs` plate
 /// sits behind the active tool and slides to the next one ([Motion.fast];
-/// it jumps with reduced motion). Rebuilds only itself when tools change.
+/// it jumps with reduced motion). While reading ([ToolSettings.reading]) no
+/// tool is in hand: the plate is a Pencil outline, and tapping any tool,
+/// the active one too, writes with it. Rebuilds only itself when tools change.
 class ToolCluster extends StatelessWidget {
   const ToolCluster({super.key, required this.tools, this.insert});
 
@@ -39,6 +41,7 @@ class ToolCluster extends StatelessWidget {
       builder: (context, _) {
         final descriptors = editorTools(tools);
         final index = descriptors.indexWhere((d) => d.tool == tools.tool);
+        final reading = tools.reading;
         final along = index * cell + (cell - Targets.bar) / 2;
         final across = (height - Targets.bar) / 2;
         return SizedBox(
@@ -57,7 +60,10 @@ class ToolCluster extends StatelessWidget {
                   height: Targets.bar,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: Surfaces.pressed(scheme),
+                      color: reading ? null : Surfaces.pressed(scheme),
+                      border: reading
+                          ? Border.all(color: scheme.outline, width: Hairline.width)
+                          : null,
                       borderRadius: BorderRadius.circular(Radii.xs),
                     ),
                   ),
@@ -75,8 +81,9 @@ class ToolCluster extends StatelessWidget {
                           stop: index >= 0 ? d.tool == tools.tool : d == descriptors.first,
                           child: ToolButton(
                             descriptor: d,
-                            selected: d.tool == tools.tool,
-                            onSelect: () => tools.tool = d.tool,
+                            selected: d.tool == tools.tool && !reading,
+                            reading: d.tool == tools.tool && reading,
+                            onSelect: () => tools.pick(d.tool),
                           ),
                         ),
                       ),
@@ -95,17 +102,22 @@ class ToolCluster extends StatelessWidget {
 /// A tool toggle (40 × 40, no background of its own: the cluster's plate
 /// marks the active tool). Inking tools show their colour as a small bar
 /// under the glyph. Tapping the active tool, long-pressing or
-/// right-clicking any tool opens its options.
+/// right-clicking any tool opens its options; while [reading], tapping the
+/// active tool writes with it.
 class ToolButton extends StatelessWidget {
   const ToolButton({
     super.key,
     required this.descriptor,
     required this.selected,
     required this.onSelect,
+    this.reading = false,
   });
 
   final ToolDescriptor descriptor;
   final bool selected;
+
+  /// The active tool while the editor reads: a tap writes with it.
+  final bool reading;
   final VoidCallback onSelect;
 
   @override
@@ -123,7 +135,7 @@ class ToolButton extends StatelessWidget {
       onLongPress: openOptions,
       onSecondaryTap: openOptions,
       child: IconButton(
-        tooltip: descriptor.tooltip,
+        tooltip: reading ? '${descriptor.label}: tap to write' : descriptor.tooltip,
         isSelected: selected,
         constraints: const BoxConstraints.tightFor(width: Targets.bar, height: Targets.bar),
         padding: EdgeInsets.zero,
@@ -133,7 +145,7 @@ class ToolButton extends StatelessWidget {
           tapTargetSize: Targets.touchFirst
               ? MaterialTapTargetSize.padded
               : MaterialTapTargetSize.shrinkWrap,
-          foregroundColor: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+          foregroundColor: selected || reading ? scheme.onSurface : scheme.onSurfaceVariant,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
         ),
         icon: ToolGlyph(descriptor: descriptor, filled: selected),
