@@ -263,6 +263,9 @@ class InkInputController {
     _nav.add(e.pointer, e.localPosition, slop: kTouchSlop);
   }
 
+  /// Whether the last contact that ended left a stroke.
+  bool get inked => _draw.inked;
+
   /// Whether [pointer] currently pans/zooms the view (rather than drawing,
   /// or being ignored as a palm).
   bool navigates(int pointer) => _nav.contains(pointer);
