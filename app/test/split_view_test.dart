@@ -282,6 +282,24 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('a notebook read only in the second pane keeps its leaving for resume', (
+    tester,
+  ) async {
+    final (s, _, chemistry) = await pumpWorkspace(tester);
+    s.settings.setEditorView(
+      chemistry.id,
+      const EditorViewState(scale: 2, offset: Offset(5, 5), page: 0).encode(),
+    );
+    s.openNotebooks.openSplit(chemistry.id);
+    await tester.pumpAndSettle();
+    s.openNotebooks.closeSplit();
+    await tester.pumpAndSettle();
+    final kept = EditorViewState.decode(s.settings.editorView(chemistry.id))!;
+    expect(kept.savedAt, isNotNull, reason: 'its leaving is kept');
+    expect(kept.scale, 2, reason: 'the place it opens at is the first pane\'s');
+    await closeEditor(tester);
+  });
+
   testWidgets('swapping panes keeps where each notebook was looking', (tester) async {
     final (s, physics, chemistry) = await pumpWorkspace(tester);
     s.openNotebooks.openSplit(chemistry.id);

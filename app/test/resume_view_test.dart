@@ -80,6 +80,26 @@ void main() {
     expect(resumeView(s, notebook)!.page, 3);
   });
 
+  test('ink from a device whose clock runs slow, written after this one left, moves it', () {
+    const hour = 3600 * 1000;
+    write(2, 1000); // The tablet's clock is an hour behind this device's.
+    clock.now = 1000 + hour; // This device looked, went to page 0, and left.
+    keep(0, leftAt(s, notebook.id));
+    expect(resumeView(s, notebook)!.page, 0);
+    write(3, 2000); // Written later, by the tablet's clock.
+    expect(resumeView(s, notebook)!.page, 3);
+  });
+
+  test('erased ink from elsewhere, seen here, counts as seen', () {
+    write(2, 5000);
+    s.database.execute('UPDATE strokes SET deleted = 1 WHERE surface_id = ?', [pages[2]]);
+    write(1, 1000);
+    clock.now = 500; // This device's clock runs slow.
+    keep(0, leftAt(s, notebook.id));
+    write(3, 4000); // Older than what was seen: written before this device left.
+    expect(resumeView(s, notebook)!.page, 0);
+  });
+
   test('ink this device wrote, or erased ink, does not move it', () {
     keep(0, 2000);
     write(3, 3000, device: s.strokes.deviceId);

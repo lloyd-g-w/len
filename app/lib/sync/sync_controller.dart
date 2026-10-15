@@ -6,6 +6,7 @@ import '../core/clock.dart';
 import '../data/settings_repository.dart';
 import '../data/sync_token_store.dart';
 import 'blob_sync.dart';
+import 'freed_files.dart';
 import 'revival_notice.dart';
 import 'sync_api.dart';
 import 'sync_engine.dart';
@@ -83,8 +84,10 @@ class SyncController extends ChangeNotifier {
   double? _progress;
 
   /// When the library last heard of notebooks and folders a long pull
-  /// brought ([_onPullProgress]).
+  /// brought ([_onPullProgress]), and how many it had been brought then
+  /// ([RemoteChanges.libraryWrites]).
   int _announcedAt = 0;
+  int _announcedWrites = 0;
 
   /// How often a long pull tells the library about the notebooks and
   /// folders it brought so far, so a new device's library fills in while
@@ -94,16 +97,22 @@ class SyncController extends ChangeNotifier {
   void _onPullProgress(PullProgress p) {
     if (_disposed || _state != SyncState.syncing) return;
     _pullFrom = p.from;
-    final progress = p.total <= 0 ? null : (p.done / p.total).clamp(0.0, 1.0);
+    var progress = p.total <= 0 ? null : (p.done / p.total).clamp(0.0, 1.0);
+    // The feed grows while another device pushes: the share pulled may
+    // shrink, but the bar must not run back within a run.
+    if (progress != null && _progress != null && progress < _progress!) progress = _progress;
     final percent = progress == null ? null : (progress * 100).floor();
     if (percent != (_progress == null ? null : (_progress! * 100).floor())) {
       _progress = progress;
       notifyListeners();
     }
+    // The library reloads only for notebooks or folders it hasn't heard of
+    // (pages of strokes alone change nothing there).
     final now = clock.nowMs();
-    final library = p.changes.notebooks || p.changes.folders;
-    if (library && now - _announcedAt >= announceEvery.inMilliseconds) {
+    final writes = p.changes.libraryWrites;
+    if (writes != _announcedWrites && now - _announcedAt >= announceEvery.inMilliseconds) {
       _announcedAt = now;
+      _announcedWrites = writes;
       _remoteChanges.add(
         RemoteChanges()
           ..notebooks = p.changes.notebooks
@@ -251,7 +260,9 @@ class SyncController extends ChangeNotifier {
 
   /// Downloads blob [sha] from the server if it is not stored locally.
   /// Returns whether it is available now; never throws (a missing blob is
-  /// retried the next time it is needed).
+  /// retried the next time it is needed). A file Free up removed here that
+  /// the server no longer has is named to the user, once per run of the app
+  /// ([notices]).
   Future<bool> fetchBlob(String sha) async {
     final blobs = engine.blobs;
     if (blobs == null) return false;
@@ -264,12 +275,19 @@ class SyncController extends ChangeNotifier {
     SyncApi? api;
     try {
       api = apiFactory(settings.syncUrl, tokens.token);
-      return await BlobSync(blobs).download(
+      final fetched = await BlobSync(blobs).download(
         api,
         sha,
         fromCurrentServer: () =>
             generation == _configGeneration && serverId == settings.syncServerId,
       );
+      if (!fetched && !_disposed && !_toldMissing.contains(sha)) {
+        if (FreedFiles(blobs, engine.blobReferences).missingNotice(sha) case final notice?) {
+          _toldMissing.add(sha);
+          _notices.add(notice);
+        }
+      }
+      return fetched;
     } on SyncException catch (e) {
       debugPrint('Cannot fetch blob $sha: ${e.message}');
       return false;
@@ -306,6 +324,9 @@ class SyncController extends ChangeNotifier {
     }
   }
 
+  /// Freed files found missing on the server that the user was told of.
+  final Set<String> _toldMissing = {};
+
   static String _files(int n) => n == 1 ? '1 file' : '$n files';
 
   /// The token was read from the secure store (after start) or changed:
@@ -325,6 +346,7 @@ class SyncController extends ChangeNotifier {
     if (state != SyncState.syncing) {
       _progress = null;
       _pullFrom = null;
+      _announcedWrites = 0;
     }
     _state = state;
     notifyListeners();

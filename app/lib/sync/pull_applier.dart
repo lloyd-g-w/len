@@ -55,13 +55,16 @@ class PullApplier {
     required Future<bool> Function() pause,
     bool Function()? yieldNow,
   }) async {
-    final revival = Revival();
     final records = page.records;
     var applied = 0;
     var busy = 0;
     while (true) {
       final slice = Stopwatch()..start();
       final start = applied;
+      // What this slice brought back counts once it is committed: a slice
+      // rolled back (and tried again) or failing revived nothing, while
+      // those before it did whatever comes after.
+      final revival = Revival();
       try {
         database.transaction(() {
           while (applied < records.length && slice.elapsedMicroseconds < budgetUs) {
@@ -72,6 +75,7 @@ class PullApplier {
           if (!page.hasMore && (hadChanges || !changes.isEmpty)) _conflicts.resolve(revival);
           settings.syncLastSeq = page.nextSince;
         });
+        changes.addRevival(revival);
         busy = 0;
       } on SqliteException catch (e) {
         // Another connection's transaction outlasted the busy wait (a
@@ -83,7 +87,6 @@ class PullApplier {
       }
       if (applied == records.length || !await pause()) break;
     }
-    changes.addRevival(revival);
     return applied;
   }
 
@@ -116,10 +119,12 @@ class PullApplier {
       switch (store) {
         case FolderRepository():
           changes.folders = true;
+          changes.libraryWrites++;
         case TemplateRepository():
           changes.templates = true;
         case NotebookRepository():
           changes.notebooks = true;
+          changes.libraryWrites++;
         case PageRepository():
           _addKnown(changes.pagesOfNotebooks, r.pages.notebookOf(record.id));
         // A live stroke or element is now on the surface its record names

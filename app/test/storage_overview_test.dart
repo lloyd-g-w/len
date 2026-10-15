@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/blob_backend.dart';
@@ -15,6 +17,7 @@ import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/domain/surface_element.dart';
+import 'package:len/features/settings/storage_rows.dart';
 import 'package:len/features/storage/storage_overview.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:len/platform/storage_survey.dart';
@@ -55,6 +58,9 @@ void main() {
   late MemoryRasterStore rasters;
   late _HookedBackend backend;
 
+  /// Runs before each request to the sync server.
+  void Function()? beforeRequest;
+
   setUp(() {
     dir = Directory.systemTemp.createTempSync('len_storage_test_');
     server = FakeServer();
@@ -63,8 +69,19 @@ void main() {
       AppDatabase.inMemory(),
       blobBackend: backend = _HookedBackend(FileBlobBackend(dir.path)),
       rasterStore: rasters,
-      syncApiFactory: (url, token) => SyncApi(baseUrl: url, token: token, client: server.client),
+      syncApiFactory: (url, token) => SyncApi(
+        baseUrl: url,
+        token: token,
+        client: MockClient((request) async {
+          beforeRequest?.call();
+          final copy = http.Request(request.method, request.url)
+            ..headers.addAll(request.headers)
+            ..bodyBytes = request.bodyBytes;
+          return http.Response.fromStream(await server.client.send(copy));
+        }),
+      ),
     );
+    beforeRequest = null;
   });
   tearDown(() {
     s.dispose();
@@ -278,7 +295,29 @@ void main() {
       await s.storage.refresh();
       expect(s.storage.survey!.freeable, 0);
       expect(s.storage.canFreeUp, isFalse);
-      expect(await s.storage.freeUp(), isA<FreedUp>().having((o) => o.count, 'count', 0));
+      final outcome = await s.storage.freeUp();
+      expect(outcome, isA<NothingFreed>().having((o) => o.reason, 'reason', NotFreed.inUse));
+      expect(freeUpMessage(outcome), contains('in use'));
+      expect(await s.blobs.has(img), isTrue);
+    });
+
+    test('says why nothing went: the server lacks the files, or they are in use', () async {
+      configureSync();
+      final img = await blob('img', 'image/png');
+      final n = notebook('N');
+      image(page(n).id, img);
+      synced();
+      server.blobs.remove(img);
+      final missing = await s.storage.freeUp();
+      expect(missing, isA<NothingFreed>().having((o) => o.reason, 'reason', NotFreed.notOnServer));
+      expect(freeUpMessage(missing), contains('doesn’t have'));
+
+      // On the server, but the notebook opens while Free up asks it.
+      server.blobs[img] = (await s.blobs.read(img))!;
+      beforeRequest = () => s.openNotebooks.open(n);
+      final inUse = await s.storage.freeUp();
+      expect(inUse, isA<NothingFreed>().having((o) => o.reason, 'reason', NotFreed.inUse));
+      expect(freeUpMessage(inUse), isNot(contains('server')));
       expect(await s.blobs.has(img), isTrue);
     });
 
@@ -313,6 +352,79 @@ void main() {
       await s.storage.freeUp();
       expect(await s.blobs.has(big), isFalse);
       expect(await s.blobs.has(small), isTrue);
+    });
+
+    test('a freed file the server lost is named when it is needed, once', () async {
+      configureSync();
+      final pdf = await blob('%PDF lecture', 'application/pdf');
+      textRead(pdf);
+      pdfPage(notebook('Physics'), pdf);
+      synced();
+      expect(await s.storage.freeUp(), isA<FreedUp>());
+      server.blobs.remove(pdf); // A server restored from an older backup.
+      final notices = <String>[];
+      s.sync.notices.listen(notices.add);
+
+      expect(await s.sync.fetchBlob(pdf), isFalse);
+      expect(await s.sync.fetchBlob(pdf), isFalse);
+      await pumpEventQueue();
+      expect(notices, [
+        'A PDF in “Physics” can’t be downloaded: its copy here was removed with Free up, '
+            'and the sync server no longer has it',
+      ]);
+    });
+
+    test('a file not uploaded yet by another device is no loss to report', () async {
+      configureSync();
+      final img = await blob('img', 'image/png');
+      image(page(notebook('N')).id, img);
+      synced();
+      // Never freed here: its row and file go as if never downloaded.
+      s.database.execute('DELETE FROM blobs WHERE sha256 = ?', [img]);
+      server.blobs.remove(img);
+      final notices = <String>[];
+      s.sync.notices.listen(notices.add);
+      expect(await s.sync.fetchBlob(img), isFalse);
+      await pumpEventQueue();
+      expect(notices, isEmpty);
+    });
+
+    test('a file downloaded again is no longer counted as freed', () async {
+      configureSync();
+      final img = await blob('img', 'image/png');
+      image(page(notebook('N')).id, img);
+      synced();
+      await s.storage.freeUp();
+      expect(s.blobs.freed.contains(img), isTrue);
+      expect(await s.sync.fetchBlob(img), isTrue);
+      expect(s.blobs.freed.contains(img), isFalse);
+    });
+
+    test('a restored server missing freed files is reported at the next sync, once', () async {
+      configureSync();
+      final img = await blob('img', 'image/png');
+      final kept = await blob('kept', 'image/png');
+      final n = notebook('Biology');
+      image(page(n).id, img);
+      image(page(n).id, kept);
+      await s.sync.syncNow();
+      expect(s.sync.state.name, 'idle');
+      expect(await s.storage.freeUp(), isA<FreedUp>().having((o) => o.count, 'count', 2));
+      final notices = <String>[];
+      s.sync.notices.listen(notices.add);
+
+      // Restored from a backup that lost one of the files (and the history).
+      server
+        ..restoreBackup(0)
+        ..serverId = 'restored';
+      server.blobs.remove(img);
+      await s.sync.syncNow();
+      await s.sync.syncNow();
+      await pumpEventQueue();
+      expect(notices.where((n) => n.contains('Free up')), [
+        '1 file removed here with Free up isn’t on the sync server any more (in “Biology”): '
+            'unless another device still has it, it’s lost',
+      ]);
     });
 
     test('files only the server holds are found and downloaded before leaving it', () async {

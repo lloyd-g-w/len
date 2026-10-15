@@ -84,14 +84,28 @@ class SearchIndex {
     // A database created where FTS5 was unavailable gets the index as
     // soon as a build with FTS5 opens it.
     _fts = SearchSchema.ensureFts(db) && preferFts;
+    if (!_fts) {
+      db.createFunction(
+        functionName: _bareFunction,
+        argumentCount: const AllowedArgumentCount(1),
+        deterministic: true,
+        directOnly: false,
+        function: (args) => SearchQuery.bare(args[0] as String? ?? ''),
+      );
+    }
   }
+
+  /// The SQL function folding text as [SearchQuery.bare] does (registered
+  /// without FTS5 only), so `LIKE` drops marks and accents as the index's
+  /// tokenizer does.
+  static const _bareFunction = 'len_search_bare';
 
   final AppDatabase database;
   late final bool _fts;
 
   CommonDatabase get db => database.db;
 
-  /// Whether queries use FTS5 (else `LIKE`, slower and accent-sensitive).
+  /// Whether queries use FTS5 (else `LIKE` on folded text, slower).
   bool get usesFts => _fts;
 
   /// Content and title hits for [query], at most [limit], best first —
@@ -169,7 +183,8 @@ class SearchIndex {
       );
     }
     final likes = query.likePatterns;
-    final where = [for (final _ in likes) r"d.body LIKE ? ESCAPE '\'"].join(' AND ');
+    final where = [for (final _ in likes) "$_bareFunction(d.body) LIKE ? ESCAPE '\\'"]
+        .join(' AND ');
     return ('search_docs d', '($where)', likes);
   }
 

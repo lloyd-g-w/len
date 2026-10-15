@@ -40,7 +40,7 @@ class SearchQuery {
   String get ftsExpression => terms.map((t) => '"${_written[t]}"*').join(' ');
 
   /// `LIKE` patterns (one per term, all must match) for databases without
-  /// FTS5; `\` escapes.
+  /// FTS5, to match against [bare] text; `\` escapes.
   List<String> get likePatterns => [
     for (final t in terms) '%${t.replaceAllMapped(RegExp(r'[%_\\]'), (m) => '\\${m[0]}')}%',
   ];
@@ -85,6 +85,10 @@ class SearchQuery {
     }
     return merged;
   }
+
+  /// [text] folded with its combining marks dropped, as terms are: what
+  /// the `LIKE` fallback matches [likePatterns] against.
+  static String bare(String text) => _bare(text).$1;
 
   /// [text] folded with its combining marks dropped, as terms are (so
   /// decomposed accents, Indic vowel signs and Thai marks match), and for

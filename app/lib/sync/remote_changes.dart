@@ -9,6 +9,11 @@ class RemoteChanges {
   /// Whether any library folder changed.
   bool folders = false;
 
+  /// How many notebook and folder records were applied (summed when
+  /// merged): a long pull's progress tells by it whether the library has
+  /// news since it last heard.
+  int libraryWrites = 0;
+
   /// Whether any of the user's templates changed.
   bool templates = false;
 
@@ -32,23 +37,26 @@ class RemoteChanges {
   /// another device wrote in them ([Revival.undoneNotebooks],
   /// [Revival.undonePages]).
   final Set<String> undoneNotebooks = {};
-  final Map<String, int> undonePages = {};
+  final Map<String, Set<String>> undonePages = {};
 
   /// Adds what [revival] brought back.
   void addRevival(Revival revival) {
     if (revival.isEmpty) return;
     revived = notebooks = true;
+    libraryWrites++;
     pagesOfNotebooks.addAll(revival.notebooks);
     recordingsOfNotebooks.addAll(revival.notebooks);
     outlineOfNotebooks.addAll(revival.notebooks);
     strokeSurfaces.addAll(revival.surfaces);
     undoneNotebooks.addAll(revival.undoneNotebooks);
-    _addCounts(revival.undonePages);
+    _addPages(revival.undonePages);
   }
 
-  void _addCounts(Map<String, int> pages) {
+  /// Page ids, not counts: a revival reported twice (a slice applied
+  /// again, a pull announced again) counts each page once.
+  void _addPages(Map<String, Set<String>> pages) {
     for (final MapEntry(:key, :value) in pages.entries) {
-      undonePages.update(key, (n) => n + value, ifAbsent: () => value);
+      undonePages.putIfAbsent(key, () => {}).addAll(value);
     }
   }
 
@@ -56,10 +64,11 @@ class RemoteChanges {
   void addAll(RemoteChanges other) {
     notebooks |= other.notebooks;
     folders |= other.folders;
+    libraryWrites += other.libraryWrites;
     templates |= other.templates;
     revived |= other.revived;
     undoneNotebooks.addAll(other.undoneNotebooks);
-    _addCounts(other.undonePages);
+    _addPages(other.undonePages);
     pagesOfNotebooks.addAll(other.pagesOfNotebooks);
     strokeSurfaces.addAll(other.strokeSurfaces);
     outlineOfNotebooks.addAll(other.outlineOfNotebooks);

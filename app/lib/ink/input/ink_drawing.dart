@@ -259,12 +259,13 @@ class InkDrawing {
   bool get inked => _inked;
   bool _inked = false;
 
-  /// Ends a pen's ink contact the platform cancelled: the ink is kept as
-  /// written, but never erases (a scribble already dimming what it would
-  /// erase is dropped instead, as before: nothing goes without a lift).
-  void keep() {
+  /// Ends a pen's ink contact the platform cancelled at [time]: the ink is
+  /// kept as written, but never erases (a scribble already dimming what it
+  /// would erase is dropped instead, as before: nothing goes without a
+  /// lift). The cancel counts as the lift, so a bounce still goes.
+  void keep(Duration time) {
     if (!inking || _scribble.previewing) return cancel();
-    finish(mayErase: false);
+    finish(liftTime: time, mayErase: false);
   }
 
   /// Ends the current contact. [liftTime] is the pen-up timestamp, when

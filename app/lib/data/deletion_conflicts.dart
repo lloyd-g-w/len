@@ -21,9 +21,10 @@ class Revival {
   /// user who deleted them is told (UX_AUDIT R16-6).
   final Set<String> undoneNotebooks = {};
 
-  /// Pages this device had deleted that came back, counted per notebook
-  /// (not those of an [undoneNotebooks] entry).
-  final Map<String, int> undonePages = {};
+  /// Pages this device had deleted that came back, by notebook (not those
+  /// of an [undoneNotebooks] entry); ids, so a page reported twice counts
+  /// once.
+  final Map<String, Set<String>> undonePages = {};
 
   bool get isEmpty => notebooks.isEmpty && surfaces.isEmpty;
 }
@@ -111,7 +112,7 @@ class DeletionConflicts {
     if (notebook != null) {
       out.notebooks.add(notebook);
       if (mark.deviceId == notebooks.deviceId) {
-        out.undonePages.update(notebook, (n) => n + 1, ifAbsent: () => 1);
+        out.undonePages.putIfAbsent(notebook, () => {}).add(id);
       }
     }
   }

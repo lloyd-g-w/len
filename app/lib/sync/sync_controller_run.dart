@@ -36,6 +36,7 @@ extension _SyncRun on SyncController {
       }
       if (!changes.isEmpty) _remoteChanges.add(changes);
       if (engine.takeResync() case final notice?) _notices.add(notice);
+      if (engine.takeLostFiles() case final notice?) _notices.add(notice);
       revivalNotices(changes, _titleOf).forEach(_notices.add);
     } on SyncException catch (e) {
       _fail(e.message, cancelled(), kind: e.kind, details: e.details);

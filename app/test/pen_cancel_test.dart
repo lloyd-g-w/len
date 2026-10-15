@@ -69,6 +69,58 @@ void main() {
     expect(model.history.canUndo, isTrue);
   });
 
+  test('a cancelled pen bounce just after a lift leaves no dot', () {
+    const kind = PointerDeviceKind.stylus;
+    input
+      ..handleDown(
+        const PointerDownEvent(
+          kind: kind,
+          position: Offset(10, 100),
+          buttons: kPrimaryButton,
+          pressure: 0.5,
+        ),
+      )
+      ..handleMove(
+        const PointerMoveEvent(
+          kind: kind,
+          position: Offset(200, 100),
+          buttons: kPrimaryButton,
+          pressure: 0.5,
+          timeStamp: Duration(milliseconds: 100),
+        ),
+      )
+      ..handleUp(
+        const PointerUpEvent(
+          kind: kind,
+          position: Offset(200, 100),
+          timeStamp: Duration(milliseconds: 110),
+        ),
+      );
+    expect(model.loadedStrokeCount, 1);
+    // The nib bounces where it lifted, and the platform cancels that contact.
+    input
+      ..handleDown(
+        const PointerDownEvent(
+          pointer: 2,
+          kind: kind,
+          position: Offset(201, 100),
+          buttons: kPrimaryButton,
+          pressure: 0.5,
+          timeStamp: Duration(milliseconds: 150),
+        ),
+      )
+      ..handleCancel(
+        const PointerCancelEvent(
+          pointer: 2,
+          kind: kind,
+          position: Offset(201, 100),
+          timeStamp: Duration(milliseconds: 170),
+        ),
+      );
+    expect(model.loadedStrokeCount, 1, reason: 'no stray dot');
+    expect(live.isDrawing, isFalse);
+  });
+
   test('a cancelled finger stroke goes (a pinch\'s start or a palm)', () {
     writeThenCancel(PointerDeviceKind.touch);
     expect(model.loadedStrokeCount, 0);

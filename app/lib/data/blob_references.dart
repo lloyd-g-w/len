@@ -77,6 +77,25 @@ class BlobReferences {
     };
   }
 
+  /// Titles of the live notebooks whose live pages, elements or
+  /// recordings show blob [sha], sorted (as [keeps], by its id in their
+  /// SQL text): to tell the user where a file is missing.
+  List<String> notebookTitlesOf(String sha) => [
+    for (final row in database.db.select(
+      'SELECT title FROM notebooks WHERE deleted = 0 AND id IN ('
+      '  SELECT notebook_id FROM pages WHERE deleted = 0 AND '
+      '    (instr(background, ?1) > 0 OR instr(paper_data, ?1) > 0) '
+      '  UNION SELECT coalesce(p.notebook_id, e.surface_id) FROM elements e '
+      '    LEFT JOIN pages p ON p.id = e.surface_id '
+      '    WHERE e.deleted = 0 AND instr(e.data, ?1) > 0 '
+      '  UNION SELECT notebook_id FROM recordings WHERE deleted = 0 AND '
+      '    (instr(audio, ?1) > 0 OR waveform = ?2)'
+      ') ORDER BY title',
+      ['"$sha"', sha],
+    ))
+      row['title'] as String,
+  ];
+
   /// The blob ids among the strings of a JSON document (malformed: none).
   static Set<String> inJson(String json) {
     // Most documents (paper looks, text boxes) hold none: skip decoding

@@ -23,14 +23,11 @@ EditorViewState? resumeView(AppServices services, Notebook notebook) {
   return EditorViewState.page(index, fit: kept?.fit);
 }
 
-/// When this device leaves notebook [notebookId] ([EditorViewState.savedAt]):
-/// now, or the newest version of what other devices wrote in it if later.
-/// Versions are the writing device's clock: one running fast must not
-/// make ink already seen here look newer than this device's leaving, and
-/// move the notebook to it on every open.
-int leftAt(AppServices services, String notebookId) {
-  final now = services.clock.nowMs();
-  final newest = SurfaceStats(services.database)
-      .newestElsewhere(notebookId, deviceId: services.strokes.deviceId);
-  return newest > now ? newest : now;
-}
+/// When this device leaves notebook [notebookId] ([EditorViewState.savedAt]),
+/// as a version: the newest of what other devices wrote in it that is here
+/// (0 if nothing). Versions are the writing devices' clocks, not this
+/// one's: ink already seen never looks newer (a device whose clock runs
+/// fast), and what a device whose clock runs slow writes later still does.
+int leftAt(AppServices services, String notebookId) =>
+    SurfaceStats(services.database)
+        .newestElsewhere(notebookId, deviceId: services.strokes.deviceId);

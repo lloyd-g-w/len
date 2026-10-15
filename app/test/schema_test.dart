@@ -73,8 +73,8 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 12);
-    expect(AppDatabase.latestVersion, 12);
+    expect(schema['version'], 13);
+    expect(AppDatabase.latestVersion, 13);
     // Version 7: a notebook's paper look.
     expect(schema['notebooks'], contains("paper_data TEXT 1 '{}' 0"));
     // Version 3: recording waveforms, stroke times per surface.
@@ -107,6 +107,7 @@ void main() {
         'ink_text_queue',
         'recognised_text',
         'notebook_styles',
+        'freed_blobs',
       ]),
     );
     final indexes = (schema['indexes']! as List<String>).join('\n');
@@ -318,6 +319,7 @@ void main() {
     raw.db
       ..execute('CREATE TABLE legacy_only (x INTEGER)')
       ..execute('DROP TABLE IF EXISTS blobs')
+      ..execute('DROP TABLE freed_blobs')
       ..execute('PRAGMA user_version = 12');
     raw.close();
 
@@ -337,7 +339,7 @@ void main() {
   });
 }
 
-/// Back to before version 10 (the chunk indexes): undoes versions 10 to 12
+/// Back to before version 10 (the chunk indexes): undoes versions 10 to 13
 /// of a fresh database.
 void _dropChunkDigests(CommonDatabase db) {
   db.execute('ALTER TABLE stroke_chunks DROP COLUMN digest');
@@ -345,4 +347,5 @@ void _dropChunkDigests(CommonDatabase db) {
   db.execute('DROP INDEX strokes_tombstone_payloads');
   db.execute('DROP INDEX elements_tombstone_payloads');
   db.execute('DROP TABLE notebook_styles');
+  db.execute('DROP TABLE freed_blobs');
 }
