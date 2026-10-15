@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 
@@ -11,6 +10,7 @@ import '../surface_model.dart';
 import 'chunk_picture_cache.dart';
 import 'chunk_rasteriser.dart';
 import 'chunk_versions.dart';
+import 'raster_batch.dart';
 import 'stored_rasters.dart';
 
 part 'chunk_raster_storage.dart';
@@ -33,8 +33,10 @@ class ChunkRasterCache extends ChangeNotifier {
     this.pictures, {
     this.maxBytes = 64 << 20,
     Duration batchBudget = const Duration(milliseconds: 6),
-    int maxInFlight = 8,
+    int? maxInFlight,
+    RasterBatch? batch,
   }) {
+    batch ??= RasterBatch.shared;
     _maker = ChunkRasteriser(
       pictures,
       versionOf: _versions.of,
@@ -43,7 +45,9 @@ class ChunkRasterCache extends ChangeNotifier {
       storable: _storable,
       onImage: (key, version, image, digest) => _store(key, version, image, digest: digest),
       batchBudget: batchBudget,
-      maxInFlight: maxInFlight,
+      // Batched, as many as fit on an atlas: one read-back for them all.
+      maxInFlight: maxInFlight ?? (batch.batching ? 256 : 8),
+      batch: batch,
     );
     _subscription = pictures.model.changes.listen(_onChange);
     final store = pictures.model.rasterStore;
@@ -75,7 +79,7 @@ class ChunkRasterCache extends ChangeNotifier {
     return null;
   }
 
-  final LinkedHashMap<RasterKey, ui.Image> _images = LinkedHashMap();
+  final LinkedHashMap<RasterKey, RasterImage> _images = LinkedHashMap();
   late final ChunkRasteriser _maker;
   final ChunkVersions _versions = ChunkVersions();
   late final StreamSubscription<SurfaceChange> _subscription;
@@ -137,7 +141,7 @@ class ChunkRasterCache extends ChangeNotifier {
   /// Strokes added to [chunk] after [image] (as returned by [imageFor])
   /// was made, to draw with it: pen strokes over it, highlighter strokes
   /// beneath it (as the pen ink covers them).
-  List<Stroke> overlayOf(ChunkKey chunk, ui.Image image) {
+  List<Stroke> overlayOf(ChunkKey chunk, RasterImage image) {
     for (final level in levels) {
       final key = (chunk: chunk, level: level);
       if (identical(_images[key], image)) return _versions.overlay(chunk, _imageVersions[key] ?? 0);
@@ -150,7 +154,7 @@ class ChunkRasterCache extends ChangeNotifier {
   /// Queues the requested level if it is missing or stale (then strokes
   /// appended since must be drawn over it, see [overlayOf]). Safe to call
   /// while painting: it never notifies synchronously.
-  ui.Image? imageFor(ChunkKey chunk, int level) {
+  RasterImage? imageFor(ChunkKey chunk, int level) {
     final key = (chunk: chunk, level: level);
     final exact = _images.remove(key);
     if (exact != null) {
@@ -161,7 +165,7 @@ class ChunkRasterCache extends ChangeNotifier {
       return exact;
     }
     _request(key);
-    ui.Image? best;
+    RasterImage? best;
     var bestDistance = 1 << 30;
     for (final other in levels) {
       final image = _images[(chunk: chunk, level: other)];
@@ -175,10 +179,16 @@ class ChunkRasterCache extends ChangeNotifier {
 
   /// Caches [image] as [key]'s raster of content [version] (showing
   /// content [digest], if known); with [keep], a copy goes to storage.
-  void _store(RasterKey key, int version, ui.Image image, {ChunkDigest? digest, bool keep = true}) {
-    if (keep && digest != null && !_disposed) {
+  void _store(
+    RasterKey key,
+    int version,
+    RasterImage image, {
+    ChunkDigest? digest,
+    bool keep = true,
+  }) {
+    if (keep && digest != null && !_disposed && image.whole) {
       // Stored even if the chunk changed meanwhile: it shows [digest].
-      _stored!.io.write(_stored!.nameOf(key.chunk, key.level, digest), image.clone());
+      _stored!.io.write(_stored!.nameOf(key.chunk, key.level, digest), image.image.clone());
     }
     if (_disposed || version != _versions.of(key.chunk)) {
       image.dispose(); // The chunk changed while it was being rasterised.
@@ -186,28 +196,27 @@ class ChunkRasterCache extends ChangeNotifier {
     }
     final previous = _images.remove(key);
     if (previous != null) {
-      _bytes -= _sizeOf(key);
+      _bytes -= previous.bytes;
       previous.dispose();
     }
     _images[key] = image;
     _imageVersions[key] = version;
     _forgetDigest(key);
     if (digest != null) _imageDigests[key] = digest;
-    _bytes += _sizeOf(key);
+    _bytes += image.bytes;
     _versions.edited.remove(key.chunk);
     _trimOverlay(key.chunk);
     while (_bytes > maxBytes && _images.length > 1) {
       final oldest = _images.keys.first;
-      _bytes -= _sizeOf(oldest);
-      _images.remove(oldest)!.dispose();
+      final image = _images.remove(oldest)!;
+      _bytes -= image.bytes;
+      image.dispose();
       _imageVersions.remove(oldest);
       _forgetDigest(oldest);
       _trimOverlay(oldest.chunk);
     }
     _scheduleNotify();
   }
-
-  static int _sizeOf(RasterKey key) => key.level * key.level * 4;
 
   void _forgetDigest(RasterKey key) {
     _imageDigests.remove(key);
@@ -277,7 +286,7 @@ class ChunkRasterCache extends ChangeNotifier {
         _forgetDigest((chunk: chunk, level: level));
         final image = _images.remove((chunk: chunk, level: level));
         if (image == null) continue;
-        _bytes -= level * level * 4;
+        _bytes -= image.bytes;
         image.dispose();
       }
     }

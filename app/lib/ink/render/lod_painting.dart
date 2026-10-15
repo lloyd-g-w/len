@@ -54,7 +54,6 @@ void paintLod(
       missing.add(key);
       continue;
     }
-    final source = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
     final rect = ChunkGrid.rectOf(key);
     // Strokes committed since the raster was made, until it is redone:
     // highlights beneath it (the pen ink covers them), pen ink over it.
@@ -70,7 +69,7 @@ void paintLod(
     }
 
     if (added.any((s) => s.tool.isHighlighter)) draw(true);
-    canvas.drawImageRect(image, source, rect, _imagePaint);
+    canvas.drawImageRect(image.image, image.source, rect, _imagePaint);
     if (added.any((s) => !s.tool.isHighlighter)) draw(false);
   }
   canvas.restore();
