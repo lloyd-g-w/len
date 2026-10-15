@@ -242,7 +242,8 @@ Debug JIT in the harness on a shared machine; trust the counts.
   connection (see ARCHITECTURE *Sync*): pages go there as bytes, are decoded
   and applied by the same `PullApplier` in 8 ms slices with 1 ms between;
   the UI thread only fetches them. Safe as a second writer because every
-  transaction now begins `IMMEDIATE` with a 5 s busy timeout, and the app's
+  transaction now begins `IMMEDIATE` with a 5 s busy wait (a busy handler
+  that sleeps, `waitWhenBusy`), and the app's
   transactions raise a shared counter (`SharedWriteSignal`, `ffi`) that
   makes the worker commit after the current record and wait: the app's
   write waits for the lock's first 1 ms poll instead of a slice (without

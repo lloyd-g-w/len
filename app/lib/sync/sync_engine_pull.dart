@@ -86,15 +86,26 @@ extension _SyncPull on SyncEngine {
     CancelCheck cancelled,
     void Function(Future<Uint8List>) next,
   ) async {
-    final page = await worker.apply(
-      body,
-      since: since,
-      hadChanges: !changes.isEmpty,
-      onHeader: (header) {
-        if (!cancelled()) _fetchAhead(api, header, next);
-      },
-      cancelled: cancelled,
-    );
+    final WorkedPage? page;
+    try {
+      page = await worker.apply(
+        body,
+        since: since,
+        hadChanges: !changes.isEmpty,
+        onHeader: (header) {
+          if (!cancelled()) _fetchAhead(api, header, next);
+        },
+        cancelled: cancelled,
+      );
+    } on PullWorkerException catch (e) {
+      // Slices it committed before failing are announced with the next
+      // sync (pulled again, they change nothing then).
+      if (e.changes case final applied? when !applied.isEmpty) {
+        changes.addAll(applied);
+        database.announceCommit();
+      }
+      rethrow;
+    }
     if (page == null) throw SyncException.unexpected;
     changes.addAll(page.changes);
     // Its commits are not this connection's: tell those watching them.

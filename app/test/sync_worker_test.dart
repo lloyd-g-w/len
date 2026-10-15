@@ -6,6 +6,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/sync/sync_engine.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 import 'support/fake_server.dart';
 import 'support/test_database.dart';
@@ -86,6 +87,28 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(_count(b, 'strokes'), 100);
     expect(commits, greaterThan(own), reason: "the worker's as well as the app's own");
+  });
+
+  test('a pull in a worker waits out a write lock held longer than the busy timeout', () async {
+    final (a, b) = twoDevices();
+    _fill(a, notebooks: 4, strokesEach: 600);
+    await a.sync();
+    var done = false;
+    final pulling = b.sync().whenComplete(() => done = true);
+    while (b.s.database.writeSignal == null) {
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+    }
+    // Another writer (a long transaction) holds the lock between slices.
+    final other = sqlite3.open(b.s.database.path!)
+      ..execute('PRAGMA busy_timeout = ${AppDatabase.busyTimeoutMs}')
+      ..execute('BEGIN IMMEDIATE');
+    expect(done, isFalse, reason: 'the lock taken while the worker pulls');
+    await Future<void>.delayed(const Duration(milliseconds: AppDatabase.busyTimeoutMs + 1500));
+    other
+      ..execute('COMMIT')
+      ..close();
+    await pulling;
+    expect(_count(b, 'strokes'), 2400);
   });
 
   test('a pull in a worker stops when cancelled and picks up where it was', () async {

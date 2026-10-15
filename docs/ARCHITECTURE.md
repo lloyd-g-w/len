@@ -2786,14 +2786,19 @@ the next cycle resumes. Where that runs:
   triggers (search, the handwriting queue) fire as on the UI isolate. The UI
   thread only fetches pages. Two writers on one file: every transaction
   begins `IMMEDIATE` (one that read first could not upgrade once the other
-  had committed) and waits up to `busy_timeout` 5 s; the app's transactions
+  had committed) and waits up to 5 s for the lock (`waitWhenBusy`, a busy
+  handler that sleeps: the bundled SQLite's default one gives up within
+  ~70 ms whatever `busy_timeout` says); a worker slice still finding it
+  locked is tried again, and a page's first slice also waits for the app.
+  The app's transactions
   raise a count in memory the worker reads (`SharedWriteSignal`, the
   `ffi` package), which ends its slice after the current record and holds
   the next until the app is done, so the app's write waits about a
   millisecond (writes outside a transaction wait at most a slice). The
   worker's commits are announced on `AppDatabase.commits` (the handwriting
   indexer listens), and what the pull changed comes back per page as
-  `RemoteChanges`. Cancelling stops it after the current slice; it closes
+  `RemoteChanges` (also what committed before a database error).
+  Cancelling stops it after the current slice; it closes
   when the pull ends.
 - **Otherwise** (the web, an in-memory database, small pulls) the page is
   decoded in a worker natively (`platform/pull_decoder.dart`; the web
