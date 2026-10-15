@@ -32,6 +32,10 @@ class ZoomBoxGrip extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget tick() => Container(width: Gaps.lg, height: Hairline.width, color: color);
     return Semantics(
+      // A node of its own: merged into the editor's focused node, its steps
+      // made the whole editor an adjustable (on the web a range input,
+      // which took the keyboard focus away from the editor).
+      container: true,
       label: 'Zoom window height',
       hint: 'Drag the edge to resize',
       onIncrease: () => onStep(step),

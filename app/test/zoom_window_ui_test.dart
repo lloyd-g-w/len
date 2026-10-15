@@ -1,7 +1,9 @@
 import 'dart:math' as math;
+import 'dart:ui' show Tristate;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
@@ -12,6 +14,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/document/document_layout.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/zoom/zoom_box.dart';
+import 'package:len/features/editor/zoom/zoom_box_grip.dart';
 import 'package:len/features/editor/zoom/zoom_frame.dart';
 import 'package:len/features/editor/zoom/zoom_frame_overlay.dart';
 import 'package:len/features/editor/zoom/zoom_window.dart';
@@ -42,6 +45,42 @@ void main() {
     expect(zoom.isOpen, isFalse);
     expect(find.byType(ZoomBox), findsNothing);
     await closeEditor(tester);
+  });
+
+  testWidgets('the box\'s height grip is a node of its own: the editor keeps the keyboard', (
+    tester,
+  ) async {
+    // Merged into the editor's focused node, the grip's steps made the
+    // whole editor an adjustable: the web gave it a range input instead,
+    // dropping the keyboard focus (M no longer closed the window).
+    final semantics = tester.ensureSemantics();
+    await pumpEditor(tester);
+    await openZoom(tester);
+    final grip = tester.getSemantics(find.byType(ZoomBoxGrip)).getSemanticsData();
+    expect(grip.label, 'Zoom window height');
+    expect(grip.hasAction(SemanticsAction.increase), isTrue);
+    final focused = <SemanticsData>[];
+    void visit(SemanticsNode node) {
+      final data = node.getSemanticsData();
+      if (data.flagsCollection.isFocused == Tristate.isTrue) focused.add(data);
+      node.visitChildren((child) {
+        visit(child);
+        return true;
+      });
+    }
+
+    var root = tester.getSemantics(find.byType(ZoomBoxGrip));
+    while (root.parent != null) {
+      root = root.parent!;
+    }
+    visit(root);
+    expect(focused, isNotEmpty);
+    for (final data in focused) {
+      expect(data.hasAction(SemanticsAction.increase), isFalse, reason: data.label);
+      expect(data.label, isNot(contains('Zoom window height')));
+    }
+    await closeEditor(tester);
+    semantics.dispose();
   });
 
   testWidgets('the ⋯ menu toggles the window; ✕ closes it', (tester) async {
