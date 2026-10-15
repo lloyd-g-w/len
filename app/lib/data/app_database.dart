@@ -129,8 +129,8 @@ class AppDatabase {
   }
 
   /// How long a write waits for another connection's transaction before
-  /// it fails (`PRAGMA busy_timeout`). Only a worker's slices (a few ms)
-  /// and the app's own transactions contend.
+  /// it fails (`waitWhenBusy`). Only a worker's slices (a few ms) and the
+  /// app's own transactions contend.
   static const int busyTimeoutMs = 5000;
 
   /// Whether [close] was called.
@@ -156,7 +156,7 @@ class AppDatabase {
       // lingers at hundreds of MB (or fills Android's backup quota).
       db.execute('PRAGMA journal_size_limit = 4194304');
     }
-    db.execute('PRAGMA busy_timeout = $busyTimeoutMs');
+    waitWhenBusy(db, busyTimeoutMs);
     db.execute('PRAGMA foreign_keys = OFF');
     db.execute('PRAGMA synchronous = NORMAL');
     // 16 MB of page cache (default 2 MB): writing many rows at random ids
