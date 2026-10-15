@@ -36,6 +36,15 @@ class BackgroundStrokeReader implements StrokeReader {
   final _exit = Completer<void>();
   RawReceivePort? _exitPort;
 
+  /// Where the requests still waiting hear their answer: told [_gone] when
+  /// the worker exits or is closed. (Never wait on [_exit] per request: a
+  /// wait on a future that never completes keeps each answer alive.)
+  final _waiting = <SendPort>{};
+
+  /// Requests waiting for an answer (tests check none is left behind).
+  @visibleForTesting
+  int get waiting => _waiting.length;
+
   /// The worker isolate once started (tests watch it exit).
   @visibleForTesting
   Future<Isolate?> get isolate async {
@@ -68,13 +77,23 @@ class BackgroundStrokeReader implements StrokeReader {
     _exitPort?.close();
   }
 
+  /// The worker is gone (or closed): requests waiting fall back.
+  void _stopped() {
+    if (!_exit.isCompleted) _exit.complete();
+    for (final reply in _waiting) {
+      reply.send(_gone);
+    }
+    _waiting.clear();
+  }
+
   Future<T> _call<T>(_Request request, FutureOr<T> Function() orElse) async {
     final worker = _closed ? null : await (_worker ??= _spawn());
     if (worker == null || _exit.isCompleted) return orElse();
     final reply = ReceivePort();
+    _waiting.add(reply.sendPort);
     worker.send((request, reply.sendPort));
-    final answer = await Future.any<Object?>([reply.first, _exit.future.then((_) => _gone)]);
-    reply.close();
+    final answer = await reply.first;
+    _waiting.remove(reply.sendPort);
     if (answer is _Failure) return orElse();
     return answer as T;
   }
@@ -82,7 +101,7 @@ class BackgroundStrokeReader implements StrokeReader {
   Future<SendPort?> _spawn() async {
     final ready = ReceivePort();
     final exit = _exitPort = RawReceivePort((_) {
-      if (!_exit.isCompleted) _exit.complete();
+      _stopped();
       _exitPort?.close();
     });
     try {

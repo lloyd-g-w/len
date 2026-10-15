@@ -37,6 +37,21 @@ void main() {
     expect(load.strokes.map((s) => s.id), ['a']);
   });
 
+  test('answered reads leave nothing waiting on the reader (no answer kept alive)', () async {
+    final db = AppDatabase.open(path);
+    addTearDown(db.close);
+    final strokes = StrokeRepository(db, deviceId: 'd')..save([_stroke('a')]);
+    final reader = BackgroundStrokeReader(path, fallback: strokes);
+    addTearDown(reader.close);
+    final range = ChunkGrid.rangeFor(const Rect.fromLTWH(0, 0, 1000, 1000));
+    for (var i = 0; i < 5; i++) {
+      expect((await reader.read('s', range)).strokes, hasLength(1));
+    }
+    // Each wait for an answer once also waited on the worker's exit, which
+    // never comes: every answer stayed reachable for the app's lifetime.
+    expect(reader.waiting, 0);
+  });
+
   test("the reader exits with the app's isolate", () async {
     AppDatabase.open(path).close();
     final exited = ReceivePort();
