@@ -8,6 +8,7 @@ import '../../domain/notebook.dart';
 import '../../ink/surface_model.dart';
 import '../../ui/messages.dart';
 import 'editor_session.dart';
+import 'resume_view.dart';
 
 /// Ties one editor to the app and to sync: remembers where it looks (when
 /// the app is hidden and when the editor closes), closes the editor when
@@ -77,7 +78,7 @@ class EditorLifecycle {
   void saveView() {
     if (closing || secondPane || services.database.isClosed) return;
     final settings = services.settings;
-    final view = session.viewState.stamped(services.clock.nowMs());
+    final view = session.viewState.stamped(leftAt(services, _notebook.id));
     settings.setEditorView(_notebook.id, view.encode());
     session.saveZoomState();
   }

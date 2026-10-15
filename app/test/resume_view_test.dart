@@ -69,6 +69,17 @@ void main() {
     expect(resumeView(s, notebook)!.page, 2);
   });
 
+  test('ink from a device whose clock runs fast, seen here, does not keep moving it', () {
+    const hour = 3600 * 1000;
+    write(2, 1000 + hour); // The tablet's clock is an hour ahead.
+    clock.now = 3000; // This device looked, went to page 0, and left.
+    keep(0, leftAt(s, notebook.id));
+    expect(resumeView(s, notebook)!.page, 0);
+    // What it writes later still counts.
+    write(3, 1000 + 2 * hour);
+    expect(resumeView(s, notebook)!.page, 3);
+  });
+
   test('ink this device wrote, or erased ink, does not move it', () {
     keep(0, 2000);
     write(3, 3000, device: s.strokes.deviceId);

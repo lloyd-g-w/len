@@ -35,6 +35,23 @@ class SurfaceStats {
       row['notebook_id'] as String: row['c'] as int,
   };
 
+  /// The newest version (ms) of the live ink and elements on the live
+  /// pages of notebook [notebookId] written by another device than
+  /// [deviceId], or 0.
+  int newestElsewhere(String notebookId, {required String deviceId}) {
+    final row = _database.select(
+      'SELECT MAX(v) AS v FROM ('
+      '  SELECT MAX(s.updated_at) AS v FROM pages p JOIN strokes s ON s.surface_id = p.id '
+      '  WHERE p.notebook_id = ?1 AND p.deleted = 0 AND s.deleted = 0 AND s.device_id != ?2 '
+      '  UNION ALL '
+      '  SELECT MAX(e.updated_at) FROM pages p JOIN elements e ON e.surface_id = p.id '
+      '  WHERE p.notebook_id = ?1 AND p.deleted = 0 AND e.deleted = 0 AND e.device_id != ?2'
+      ')',
+      [notebookId, deviceId],
+    ).first;
+    return row['v'] as int? ?? 0;
+  }
+
   /// The live page of notebook [notebookId] holding the newest ink or
   /// element written by another device than [deviceId] after [after] (a
   /// version, ms), or null (UX_AUDIT R16-4: where the notebook was last
