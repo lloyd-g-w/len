@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../data/search/search_query.dart';
 import '../../../ui/app_theme.dart';
+import '../handwriting_note.dart';
 import '../highlighted_text.dart';
 import '../library_search_results.dart' show SearchHitIcon;
 import '../search_groups.dart';

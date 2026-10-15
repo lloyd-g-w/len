@@ -1,5 +1,136 @@
 # Len — UX/UI audit
 
+## Round 14 audit — first run and empty states (`review/round14`)
+
+Lens: a brand-new user on an Android phone (finger), an Android tablet
+with an S Pen, a Linux desktop with a mouse, and the web (a PWA on its
+first visit, offline later). Every first-run path was read in the code
+(`main.dart`, `web/index.html`, `web/sw.js`, the Android launch theme,
+`library/` and its notices, `new_notebook_sheet.dart`, the editor's
+tips, stylus detection and add-page footer, `search/`, `settings/`,
+`documents/overview/`, `editor/outline/`, `audio/ui/recordings_sheet.dart`,
+`documents/templates/`), and a new screenshot suite,
+`test/screenshots/first_run_screenshot_test.dart`, walks a fresh
+database on a phone, a tablet and a desktop: the empty library, the
+new-notebook form, the first page, the overview's empty Bookmarked and
+Outline, ⋯, a search with no matches, empty Favourites and Trash. The
+settings, sync-form, empty-search, empty-folder and empty-canvas shots of
+the other suites were rendered too; all viewed downscaled. Paths are
+under `app/lib/` unless noted. ⬜ open, ✅ fixed on this branch.
+
+Summary: day one is calm. The library opens on three covers, "No
+notebooks yet", one Ink button (New notebook) and two quiet links
+(Import PDF…, Set up sync…); a first notebook is one tap on Create
+(today's date as title, college ruled, A4, Ink blue), and the page opens
+with the pen up. The finger / stylus switch is automatic and said once.
+The gaps are small: the web greets a first visit with a warning about
+data it doesn't have yet, two empty states explain but offer nothing to
+do, a search that can't see handwriting says only "No matches", and a
+few strings are touch words under a mouse.
+
+### Day-one notices (count)
+
+| Platform | Before the first notebook | First strokes | Verdict |
+|---|---|---|---|
+| Android phone, finger | 0 (sidebar status "Only on this device", in the drawer) | 0; "Hold for a template" under Add page | Keep |
+| Android tablet, S Pen | 0 | 1 snack: "Stylus detected: fingers now pan and zoom" (Keep finger drawing); the side-button tip waits for a later opening, ≥ 10 min apart, ≥ 60 s after a snack | Keep |
+| Linux, mouse | 0 | 0; "Hold for a template" (a touch word, R14-6) | R14-6 |
+| Web, first visit | **1 notice strip**: "This browser may clear your notebooks" over the empty library | 0 | R14-1 |
+| Web, private window | 1: "Files you add won't be kept…" | 0 | Keep (true and costly) |
+
+### Walk-through
+
+| Step | What the user meets | Verdict |
+|---|---|---|
+| Splash | Android 12+ system splash (surface + icon) until the first frame; web: the logo pulsing on the surface colour | Keep; the web pulse ignores reduced motion (R14-8) |
+| Empty library | covers, title, one line, New notebook, Import PDF… · Set up sync… | Keep |
+| First notebook | the form starts on what it makes; "Styles" appears only after one is saved; "Save as style…" at the end | Keep |
+| First page / canvas | pen selected; canvas: "Draw anywhere" in words for the input | Keep |
+| Finger vs stylus | the finger draws until a stylus touches; then one snack with its way back; ⋯ → Draw with finger | Keep |
+| First PDF import | from the empty state; the imported notebook opens | Keep |
+| First search, nothing found | library: "No results" + Clear search; editor: "No matches", silent about handwriting it can't search here | R14-2 |
+| First sync setup | Server URL, Access token, Connect; URL errors on the field, token errors loose under the fields | R14-7; what a "Len server" is: R14-9 |
+| First export | Export… works on a blank page; an empty canvas says "Nothing to export yet" | Keep |
+| Settings at first glance | five sections, each Writing switch explained in one line, "Nothing to back up yet" | Keep |
+| Empty Trash, folder, search | glyph, title, one line; a folder offers New notebook, a search Clear search | Keep |
+| Empty Favourites | says what, not how | R14-4 |
+| Empty Bookmarked | explains, nothing to tap (the Outline beside it offers "Add page 1 to outline"); smaller type than the other empty views | R14-3 |
+| Empty Outline | two sentences; "Add pages" reads as making new pages | R14-5 |
+| Empty Recordings | reachable only by deleting the last one | Keep |
+| My templates, Styles | need no empty state: My templates ends in Import…, Styles hide until the first | Keep |
+
+### Prioritised items
+
+**R14-1 P2 · The web warns about losing notebooks before there are any.** ✅
+- *What:* on a first visit (sync off, storage not yet persistent, which
+  is most browsers until Len is installed or used a while)
+  `LibraryNotices` puts "This browser may clear your notebooks" with
+  Keep data above "No notebooks yet". It is the only notice on day one,
+  and it is about nothing: there is no data, `main.dart` already asks
+  the browser to keep it, and the empty state offers Set up sync….
+- *Fix:* the notice waits for the first notebook (as "Your notes are
+  only on this device" waits a day). Effort S.
+
+**R14-2 P2 · "No matches" when handwriting isn't searched here.** ✅
+- *What:* on Linux and the web nothing recognises handwriting (only
+  what Android synced is found); on Android, Search handwriting may be
+  off. A new user writes "hello", searches for it and gets "No matches"
+  (the editor) or "No results" (the library): a dead end that reads as
+  a bug.
+- *Fix:* with no matches only, one quiet line saying why: "Handwriting is
+  searched once read on Android" (no recogniser here) or "Handwriting
+  search is off in Settings" (`features/search/handwriting_note.dart`,
+  under the editor's "No matches" and the library's "No results"). Effort S.
+
+**R14-3 P2 · Empty Bookmarked offers nothing to do.** ✅
+- *What:* `NoBookmarks` says "Bookmark pages from their ··· menu"; the
+  Outline filter beside it offers "Add page 1 to outline". Its title is
+  `titleMedium` with tighter gaps, unlike every other empty view.
+- *Fix:* a quiet "Bookmark page N" (the page on screen), as the
+  Outline's; one shared `EmptyState` layout for the library's and the
+  overview's empty views. Effort S.
+
+**R14-4 P3 · Empty Favourites says what, not how.** ✅ "Add notebooks
+you use often to favourites, and find them here" → "Add notebooks to
+favourites from their ··· menu to find them here" (the bookmarks'
+phrasing). Effort S.
+
+**R14-5 P3 · Empty Outline's copy.** ✅ "Add pages to build a table of
+contents. Entries can be nested." reads as "make new pages", in two
+sentences over a button that says it all. → "Add the pages that start a
+topic to build a table of contents" (nesting is in each entry's menu).
+Effort S.
+
+**R14-6 P3 · "Hold for a template" under a mouse.** ✅ The add-page
+footer's caption is a touch word; with a pointer the gesture is a right
+click (the empty canvas already words its hint by input). Effort S.
+
+**R14-7 P3 · Token errors sit apart from the token field.** ✅ "Enter
+the access token" and "The server didn't accept the access token" are a
+red line under both fields, and stay while the user retypes. Token
+errors go on the token field, as URL errors go on the URL field; typing
+clears them. Connection errors stay under the fields. Effort S.
+
+**R14-8 P3 · The web splash pulses under reduced motion.** ✅
+`web/index.html` animates the logo always; `prefers-reduced-motion`
+stills it. Effort S.
+
+**R14-9 P3 · "Your own Len server", with no way to learn what that is.**
+⬜ A first-time user who taps Set up sync… meets two fields and no
+pointer to the server or how to run it. Needs a public page (a project
+site or README) to link to: an owner decision, listed in TODO "Next".
+Effort M.
+
+Checked and sound: the Android launch theme and system splash; the
+default notebook (today's date, college ruled, white, A4 portrait, Ink
+blue) and canvas; the stylus switch and its one snack; the tips budget
+(one per opening, ten minutes apart, never near a snack bar, never while
+writing); the "Draw anywhere" words by input; the phone's empty library
+without a floating button (the button is in the middle); the empty
+folder's New notebook; Clear search; "Nothing to back up yet"; the sync
+URL's validation; an imported PDF opening at once; the service worker's
+offline shell. No new settings on this branch.
+
 ## Round 13 audit — the daily loop (`review/round13`)
 
 Lens: a stylus note-taker who knows GoodNotes 6 and Notability, on an

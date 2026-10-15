@@ -5,6 +5,8 @@ import 'package:len/app.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/blob_backend.dart';
+import 'package:len/domain/notebook.dart';
+import 'package:len/domain/paper.dart';
 import 'package:len/features/library/library_notice.dart';
 import 'package:len/platform/browser_storage_api.dart';
 import 'package:len/ui/startup_error.dart';
@@ -27,15 +29,28 @@ class _Storage implements BrowserStorage {
 
 void main() {
   group('a browser that may clear the data (UX_AUDIT P2-30)', () {
-    Future<AppServices> pump(WidgetTester tester, BrowserStorage storage) async {
+    Future<AppServices> pump(
+      WidgetTester tester,
+      BrowserStorage storage, {
+      bool empty = false,
+      Listenable? notebooks,
+    }) async {
       final services = AppServices.create(AppDatabase.inMemory());
       addTearDown(services.dispose);
+      if (!empty) {
+        services.notebooks.create(
+          title: 'Notes',
+          kind: NotebookKind.paged,
+          paper: PaperStyle.blank,
+          coverColor: 0xFF3B5BDB,
+        );
+      }
       await tester.pumpWidget(
         AppScope(
           services: services,
           child: MaterialApp(
             home: Scaffold(
-              body: LibraryNotices(storage: storage, child: const SizedBox()),
+              body: LibraryNotices(storage: storage, notebooks: notebooks, child: const SizedBox()),
             ),
           ),
         ),
@@ -55,6 +70,22 @@ void main() {
       expect(storage.persisted, isTrue);
       expect(find.text(title), findsNothing);
       expect(services.settings.seenTips, contains(LibraryNotices.evictionTip));
+    });
+
+    testWidgets('not before the first notebook (R14-1)', (tester) async {
+      final library = ValueNotifier(0);
+      addTearDown(library.dispose);
+      final services = await pump(tester, _Storage(), empty: true, notebooks: library);
+      expect(find.text(title), findsNothing);
+      services.notebooks.create(
+        title: 'First',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0xFF3B5BDB,
+      );
+      library.value++;
+      await tester.pump();
+      expect(find.text(title), findsOneWidget);
     });
 
     testWidgets('not with sync on, nor once dismissed', (tester) async {

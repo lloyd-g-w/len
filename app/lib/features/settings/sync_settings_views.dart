@@ -107,11 +107,14 @@ extension _SyncSettingsViews on _SyncSettingsState {
         obscureText: _obscureToken,
         autocorrect: false,
         enableSuggestions: false,
+        onChanged: _onTokenChanged,
         onSubmitted: (_) {
           if (!_busy) unawaited(_testAndSave());
         },
         decoration: InputDecoration(
           labelText: 'Access token',
+          errorText: _tokenError,
+          errorMaxLines: 3,
           suffixIcon: IconButton(
             tooltip: _obscureToken ? 'Show' : 'Hide',
             onPressed: _toggleObscureToken,

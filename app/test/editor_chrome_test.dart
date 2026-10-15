@@ -235,6 +235,10 @@ void main() {
     expect(find.text('Add page'), findsOneWidget);
     expect(find.text('Hold for a template'), findsNothing, reason: 'learnt');
     expect(s.settings.seenTips, contains('add-page-hold'));
+    // With a pointer the gesture is a right click (R14-6).
+    Targets.debugTouchFirst = false;
+    expect(AddPageFooter.caption, 'Right-click for a template');
+    Targets.debugTouchFirst = null;
 
     // It follows the last page as the document scrolls, and leaves the
     // screen with it.

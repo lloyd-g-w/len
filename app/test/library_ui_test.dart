@@ -488,6 +488,8 @@ void main() {
     await tester.enterText(find.byType(TextField), 'zzz');
     await tester.pumpAndSettle();
     expect(find.text('No results'), findsOneWidget);
+    // Nothing reads handwriting here: the empty search says so (R14-2).
+    expect(find.text('Handwriting is searched once read on Android'), findsOneWidget);
     expect(find.byType(FloatingActionButton), findsNothing);
     await tester.enterText(find.byType(TextField), '');
     await tester.pumpAndSettle();

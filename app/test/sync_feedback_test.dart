@@ -273,6 +273,32 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
+    testWidgets('token errors sit on the token field until it is edited (R14-7)', (tester) async {
+      final server = FakeServer();
+      final s = AppServices.create(
+        AppDatabase.inMemory(),
+        syncApiFactory: (url, t) => SyncApi(baseUrl: url, token: t, client: server.client),
+      );
+      addTearDown(s.dispose);
+      await show(tester, s);
+      final token = find.widgetWithText(TextField, 'Access token');
+      Finder onToken(String text) => find.descendant(of: token, matching: find.text(text));
+      await tester.enterText(find.widgetWithText(TextField, 'Server URL'), 'len.example');
+      await tester.tap(find.text('Connect'));
+      await tester.pump();
+      expect(onToken('Enter the access token'), findsOneWidget);
+      await tester.enterText(token, 'wrong');
+      await tester.pump();
+      expect(find.text('Enter the access token'), findsNothing);
+      await tester.tap(find.text('Connect'));
+      await tester.pumpAndSettle();
+      expect(onToken(SyncException.rejectedToken.message), findsOneWidget);
+      await tester.enterText(token, FakeServer.token);
+      await tester.pump();
+      expect(find.text(SyncException.rejectedToken.message), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets('Cancel while the server answers keeps the old settings', (tester) async {
       final server = FakeServer();
       final gate = Completer<void>();

@@ -174,6 +174,8 @@ void main() {
 
     await typeSearch(tester, 'zebra');
     expect(find.text('No matches'), findsOneWidget);
+    // Why handwriting may be missing: nothing reads it here (R14-2).
+    expect(find.text('Handwriting is searched once read on Android'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();

@@ -21,13 +21,18 @@ export 'library_notice_strip.dart';
 /// storage); files that won't be kept (a browser that refused storage,
 /// UX_AUDIT P0-1); else, once, storage from another Len version that was
 /// started afresh (`AppDatabase.schemaReset`); else, once, a browser that
-/// may clear Len's data while sync is off (P2-30); else, once, that notes
+/// may clear Len's data while sync is off (P2-30), once there is a notebook
+/// to lose (R14-1); else, once, that notes
 /// kept a day or more are only on this device while sync is off and no
 /// backup was made (R7-12).
 class LibraryNotices extends StatefulWidget {
-  const LibraryNotices({super.key, required this.child, this.storage});
+  const LibraryNotices({super.key, required this.child, this.storage, this.notebooks});
 
   final Widget child;
+
+  /// Notifies when notebooks may have been added or removed (the library's
+  /// controller): the "may clear" notice waits for the first.
+  final Listenable? notebooks;
 
   /// The browser's storage (default: `browserStorage`; null natively).
   final BrowserStorage? storage;
@@ -55,6 +60,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     _services.sync,
     _services.writes,
     _services.lenFiles,
+    ?widget.notebooks,
   ]);
 
   /// Whether the browser may evict Len's data (null until known).
@@ -154,7 +160,8 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     }
     if (_services.database.schemaReset case final reset?) return _resetNotice(reset);
     if (_services.sync.isConfigured) return null;
-    if (_evictable != true) return _deviceOnlyNotice();
+    // Nothing to lose yet: no warning on a first visit (R14-1).
+    if (_evictable != true || _services.notebooks.list().isEmpty) return _deviceOnlyNotice();
     return LibraryNotice(
       icon: Symbols.storage_sharp,
       title: 'This browser may clear your notebooks',

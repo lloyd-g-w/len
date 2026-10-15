@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 import '../../../ui/context_menu_keys.dart';
+import '../../../ui/empty_state.dart';
 import '../../../ui/messages.dart';
 import '../../../ui/roving_focus.dart';
 
@@ -183,37 +184,29 @@ class AddPageTile extends StatelessWidget {
   }
 }
 
-/// Shown when the bookmarks filter finds nothing.
+/// Shown when the bookmarks filter finds nothing: how to bookmark, and
+/// "Bookmark page N" for the page on screen ([page], 0-based), as the
+/// Outline offers "Add page N to outline" (UX_AUDIT R14-3).
 class NoBookmarks extends StatelessWidget {
-  const NoBookmarks({super.key});
+  const NoBookmarks({super.key, this.page, this.onBookmark});
+
+  final int? page;
+  final VoidCallback? onBookmark;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(Gaps.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Symbols.bookmark_sharp,
-              size: Glyphs.empty,
-              color: theme.colorScheme.onSurfaceVariant,
+    final page = this.page;
+    return EmptyState(
+      art: const EmptyGlyph(Symbols.bookmark_sharp),
+      title: 'No bookmarked pages yet',
+      message: 'Bookmark pages from their ··· menu to find them here',
+      action: page == null || onBookmark == null
+          ? null
+          : TextButton.icon(
+              onPressed: onBookmark,
+              icon: const Icon(Symbols.bookmark_add_sharp),
+              label: Text('Bookmark page ${page + 1}'),
             ),
-            const SizedBox(height: Gaps.lg),
-            Text('No bookmarked pages yet', style: theme.textTheme.titleMedium),
-            const SizedBox(height: Gaps.xs),
-            Text(
-              'Bookmark pages from their ··· menu to find them here',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
