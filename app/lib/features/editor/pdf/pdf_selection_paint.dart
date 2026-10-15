@@ -7,11 +7,12 @@ import 'pdf_text_selection.dart';
 
 /// Places the selection's menu above the [selected] lines (screen box),
 /// below them if the top of the screen (above [roomAbove]) is too close,
-/// kept on screen whatever its size.
+/// kept on screen whatever its size; again whenever [relayout] notifies
+/// (the view moved).
 class PdfMenuPlacement extends SingleChildLayoutDelegate {
-  PdfMenuPlacement(this.selected, {required this.roomAbove});
+  PdfMenuPlacement(this.selected, {required this.roomAbove, super.relayout});
 
-  final Rect selected;
+  final Rect Function() selected;
   final double roomAbove;
 
   @override
@@ -19,6 +20,7 @@ class PdfMenuPlacement extends SingleChildLayoutDelegate {
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
+    final selected = this.selected();
     final maxLeft = size.width - childSize.width - Gaps.sm;
     final left = (selected.left - 24).clamp(Gaps.sm, maxLeft < Gaps.sm ? Gaps.sm : maxLeft);
     final above = selected.top - childSize.height - 24;
@@ -27,9 +29,9 @@ class PdfMenuPlacement extends SingleChildLayoutDelegate {
     return Offset(left, above >= roomAbove ? above : (below < maxTop ? below : maxTop));
   }
 
+  // Rebuilt when the selection changes: placed anew.
   @override
-  bool shouldRelayout(PdfMenuPlacement old) =>
-      old.selected != selected || old.roomAbove != roomAbove;
+  bool shouldRelayout(PdfMenuPlacement old) => true;
 }
 
 /// Paints the selected lines and their handles; repaints when [repaint]

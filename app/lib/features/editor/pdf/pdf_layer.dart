@@ -197,11 +197,12 @@ class _PdfLayerState extends State<PdfLayer> {
     );
   }
 
-  /// The selected lines (repainted alone as the view moves), their handles
-  /// and the menu.
+  /// The selected lines, their handles and the menu: they follow the view
+  /// by repainting and layout alone; they rebuild when the selection, the
+  /// pages' text, the document or its ink (highlights) change.
   Widget _selection(BuildContext context) {
     final doc = _pdf.doc;
-    final changes = Listenable.merge([_pdf.selection, doc.viewport, doc, _pdf.info]);
+    final view = Listenable.merge([_pdf.selection, doc.viewport, doc, _pdf.info]);
     return Stack(
       children: [
         Positioned.fill(
@@ -214,31 +215,34 @@ class _PdfLayerState extends State<PdfLayer> {
                   HSLColor.fromColor(Theme.of(context).colorScheme.primary)
                       .withLightness(0.45)
                       .toColor(),
-                  repaint: changes,
+                  repaint: view,
                 ),
               ),
             ),
           ),
         ),
         Positioned.fill(
-          child: ListenableBuilder(
-            listenable: changes,
-            builder: (context, _) {
-              final ends = _pdf.handleEnds;
-              if (ends == null) return const SizedBox.shrink();
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: Listener(
-                      behavior: HitTestBehavior.deferToChild,
-                      onPointerDown: (_) => _onSelection = true,
-                      child: PdfSelectionHandles(interaction: _pdf, ends: ends),
+          child: RepaintBoundary(
+            child: ListenableBuilder(
+              listenable: Listenable.merge([_pdf.selection, doc, doc.surfaces, _pdf.info]),
+              builder: (context, _) {
+                // Whether there are ends depends on the pages' layout, not
+                // on the view.
+                if (_pdf.handleEnds == null) return const SizedBox.shrink();
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Listener(
+                        behavior: HitTestBehavior.deferToChild,
+                        onPointerDown: (_) => _onSelection = true,
+                        child: PdfSelectionHandles(interaction: _pdf, relayout: view),
+                      ),
                     ),
-                  ),
-                  if (_pdf.selection.showsMenu) _menu(context, _selectionOnScreen()),
-                ],
-              );
-            },
+                    if (_pdf.selection.showsMenu) _menu(context, view),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -277,7 +281,7 @@ class _PdfLayerState extends State<PdfLayer> {
 
   /// The selection's menu, above the selected lines (below them if there
   /// is no room above).
-  Widget _menu(BuildContext context, Rect selected) {
+  Widget _menu(BuildContext context, Listenable view) {
     final roomAbove = MediaQuery.paddingOf(context).top + 64;
     // Phones: Copy without its label, so the colours and a link fit.
     final labelled = MediaQuery.sizeOf(context).width >= _labelledWidth;
@@ -297,58 +301,61 @@ class _PdfLayerState extends State<PdfLayer> {
     final highlighted = _pdf.selectionHighlighted;
     return Positioned.fill(
       child: CustomSingleChildLayout(
-        delegate: PdfMenuPlacement(selected, roomAbove: roomAbove),
-        child: Listener(
-          onPointerDown: (_) => _onSelection = true,
-          // A floating panel like the ink selection menu (the pill is the
-          // page indicator's only).
-          child: FloatingPanel(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                copy,
-                PdfHighlightSwatches(
-                  tools: _pdf.tools,
-                  onHighlight: _highlight,
-                  labelled: labelled,
-                  // Room for Remove highlight on a phone.
-                  count: highlighted && !labelled
-                      ? PdfHighlightSwatches.max - 1
-                      : PdfHighlightSwatches.max,
-                ),
-                if (highlighted)
-                  IconButton(
-                    key: const ValueKey('pdf-remove-highlight'),
-                    tooltip: 'Remove highlight',
-                    icon: const Icon(Symbols.format_color_reset_sharp, size: Glyphs.bar),
-                    onPressed: _pdf.removeSelectedHighlights,
+        delegate: PdfMenuPlacement(_selectionOnScreen, roomAbove: roomAbove, relayout: view),
+        // Moved, not repainted, as the view moves.
+        child: RepaintBoundary(
+          child: Listener(
+            onPointerDown: (_) => _onSelection = true,
+            // A floating panel like the ink selection menu (the pill is the
+            // page indicator's only).
+            child: FloatingPanel(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  copy,
+                  PdfHighlightSwatches(
+                    tools: _pdf.tools,
+                    onHighlight: _highlight,
+                    labelled: labelled,
+                    // Room for Remove highlight on a phone.
+                    count: highlighted && !labelled
+                        ? PdfHighlightSwatches.max - 1
+                        : PdfHighlightSwatches.max,
                   ),
-                if (_pdf.selectedLink != null)
-                  IconButton(
-                    key: const ValueKey('pdf-open-link'),
-                    tooltip: 'Open link',
-                    icon: const Icon(Symbols.open_in_new_sharp, size: Glyphs.bar),
-                    onPressed: _pdf.openSelectedLink,
-                  ),
-                if (_pdf.onLinkSelection case final link?)
-                  Builder(
-                    builder: (anchor) => IconButton(
-                      key: const ValueKey('pdf-link'),
-                      tooltip: 'Link…',
-                      icon: const Icon(Symbols.link_sharp, size: Glyphs.bar),
-                      onPressed: () async {
-                        final choice = await showLinkMenu(anchor);
-                        if (choice != null) link(url: choice == LinkChoice.url);
-                      },
+                  if (highlighted)
+                    IconButton(
+                      key: const ValueKey('pdf-remove-highlight'),
+                      tooltip: 'Remove highlight',
+                      icon: const Icon(Symbols.format_color_reset_sharp, size: Glyphs.bar),
+                      onPressed: _pdf.removeSelectedHighlights,
                     ),
+                  if (_pdf.selectedLink != null)
+                    IconButton(
+                      key: const ValueKey('pdf-open-link'),
+                      tooltip: 'Open link',
+                      icon: const Icon(Symbols.open_in_new_sharp, size: Glyphs.bar),
+                      onPressed: _pdf.openSelectedLink,
+                    ),
+                  if (_pdf.onLinkSelection case final link?)
+                    Builder(
+                      builder: (anchor) => IconButton(
+                        key: const ValueKey('pdf-link'),
+                        tooltip: 'Link…',
+                        icon: const Icon(Symbols.link_sharp, size: Glyphs.bar),
+                        onPressed: () async {
+                          final choice = await showLinkMenu(anchor);
+                          if (choice != null) link(url: choice == LinkChoice.url);
+                        },
+                      ),
+                    ),
+                  IconButton(
+                    key: const ValueKey('pdf-select-all'),
+                    tooltip: 'Select all on page',
+                    icon: const Icon(Symbols.select_all_sharp, size: Glyphs.bar),
+                    onPressed: _pdf.selectAll,
                   ),
-                IconButton(
-                  key: const ValueKey('pdf-select-all'),
-                  tooltip: 'Select all on page',
-                  icon: const Icon(Symbols.select_all_sharp, size: Glyphs.bar),
-                  onPressed: _pdf.selectAll,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

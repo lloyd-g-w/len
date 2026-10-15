@@ -65,12 +65,22 @@ void main() {
       dir.deleteSync(recursive: true);
     });
 
-    testWidgets('PDF pages: scroll', skip: pdfium == null, (tester) async {
-      final pdf = await openPdfEditor(tester, services, dir, size: const Size(1000, 1300));
-      final run = await _scroll(tester, pdf.doc);
-      report('PAGED pdf scroll: $run');
-      await _close(tester);
-    }, timeout: const Timeout(Duration(minutes: 3)));
+    for (final selected in [false, true]) {
+      testWidgets('PDF pages: scroll${selected ? ', text selected' : ''}', skip: pdfium == null, (
+        tester,
+      ) async {
+        final pdf = await openPdfEditor(tester, services, dir, size: const Size(1000, 1300));
+        if (selected) {
+          final page = pdf.doc.pages.first;
+          final glyphs = pdf.info.glyphs(page.background!.blob, 0)!;
+          pdf.selection.select(page, glyphs, 0, glyphs.text.length, menu: true);
+          await tester.pumpAndSettle();
+        }
+        final run = await _scroll(tester, pdf.doc);
+        report('PAGED pdf${selected ? ' selected' : ''} scroll: $run');
+        await _close(tester);
+      }, timeout: const Timeout(Duration(minutes: 3)));
+    }
   });
 }
 
