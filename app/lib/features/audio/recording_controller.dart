@@ -209,8 +209,22 @@ class RecordingController extends ChangeNotifier {
 
   /// Stops and stores the recording. Returns it, or null if nothing was
   /// kept (too short, or the recorder failed).
-  Future<Recording?> stop() async {
-    if (!_state.isActive) return null;
+  Future<Recording?> stop() {
+    if (!_state.isActive) return Future.value();
+    final stopping = _stopping = _stop();
+    unawaited(
+      stopping.whenComplete(() {
+        if (identical(_stopping, stopping)) _stopping = null;
+      }),
+    );
+    return stopping;
+  }
+
+  /// The stop under way, if any ([shutdown] lets it finish saving before
+  /// the recorder goes).
+  Future<Recording?>? _stopping;
+
+  Future<Recording?> _stop() async {
     _stopwatch.halt();
     _ticker?.cancel();
     unawaited(_levels?.cancel());
@@ -282,6 +296,7 @@ class RecordingController extends ChangeNotifier {
     // recording is stopped and saved here) before the recorder goes.
     await _starting;
     if (_state.isActive) await stop();
+    await _stopping; // Stopped just before (Stop, then Back): saved first.
     unawaited(_levels?.cancel());
     await _capture?.dispose();
     _capture = null;

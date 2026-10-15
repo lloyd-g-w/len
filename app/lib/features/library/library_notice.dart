@@ -8,7 +8,12 @@ import '../../data/schema_reset.dart';
 import '../../platform/browser_storage.dart';
 import '../../ui/messages.dart';
 import '../../ui/sync_status_button.dart';
+import '../audio/recording_controller.dart';
+import '../audio/ui/audio_bar_button.dart';
+import '../audio/ui/audio_format.dart';
 import '../backup/len_file_flows.dart';
+import '../editor/shared/shared_notebooks.dart';
+import '../editor/tabs/editor_workspace.dart';
 import '../settings/settings_screen.dart';
 import '../storage/storage_attention.dart';
 import 'library_format.dart';
@@ -60,6 +65,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     _services.sync,
     _services.writes,
     _services.lenFiles,
+    _services.sharedNotebooks.unattended,
     ?widget.notebooks,
   ]);
 
@@ -135,6 +141,9 @@ class _LibraryNoticesState extends State<LibraryNotices> {
   }
 
   Widget? _notice() {
+    if (_services.sharedNotebooks.unattended.value case final shared?) {
+      return _recordingNotice(shared);
+    }
     if (_services.writes.failure case final failure?) {
       return LibraryNotice(
         icon: Symbols.save_sharp,
@@ -199,6 +208,37 @@ class _LibraryNoticesState extends State<LibraryNotices> {
         TextButton(onPressed: _setUpSync, child: const Text('Set up sync…')),
       ],
       onDismiss: _dismissDeviceOnly,
+    );
+  }
+
+  /// A notebook left while recording (R17-1): it goes on until stopped.
+  Widget _recordingNotice(SharedNotebook shared) {
+    final audio = shared.audio;
+    final recorder = audio.recorder;
+    return ListenableBuilder(
+      listenable: recorder,
+      builder: (context, _) {
+        final time = formatClock(recorder.elapsedMs);
+        final paused = recorder.state == RecorderState.paused;
+        final what = paused ? 'Recording paused' : 'Recording';
+        return LibraryNotice(
+          key: const ValueKey('recording-elsewhere'),
+          icon: Symbols.mic_sharp,
+          title: '$what in “${shared.notebook.title}” · $time',
+          shortTitle: '$what · $time',
+          body: 'It goes on until you stop it',
+          actions: [
+            TextButton(
+              onPressed: () => unawaited(openNotebook(context, shared.notebook)),
+              child: const Text('Show'),
+            ),
+            TextButton(
+              onPressed: () => unawaited(stopRecording(context, audio)),
+              child: const Text('Stop'),
+            ),
+          ],
+        );
+      },
     );
   }
 

@@ -18,6 +18,7 @@ import 'editor_actions.dart';
 import 'editor_session.dart';
 import 'editor_toolbar.dart';
 import 'pen/ink_paper.dart';
+import 'shared/recording_elsewhere_notice.dart';
 import 'split/parked_pane_notice.dart';
 import 'split/split_controller.dart';
 import 'tabs/open_notebooks.dart';
@@ -126,16 +127,21 @@ class EditorChromeHost extends StatelessWidget {
   Widget? _notices() {
     final parked = split == null || secondPane ? null : ParkedPaneNotice(split: split!);
     final pdf = _missingPdfNotice();
-    if (parked == null) return pdf;
-    if (pdf == null) return parked;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        parked,
-        const SizedBox(height: Gaps.sm),
-        pdf,
-      ],
-    );
+    final others = parked == null || pdf == null
+        ? parked ?? pdf
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              parked,
+              const SizedBox(height: Gaps.sm),
+              pdf,
+            ],
+          );
+    // The first pane says it (the second pane's notices are its own); it
+    // brings its own gap, as it shows only now and then.
+    if (secondPane) return others;
+    final recording = RecordingElsewhereNotice(notebooks: session.services.sharedNotebooks);
+    return Column(mainAxisSize: MainAxisSize.min, children: [recording, ?others]);
   }
 
   Widget? _missingPdfNotice() {

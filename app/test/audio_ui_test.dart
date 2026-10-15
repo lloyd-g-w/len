@@ -433,12 +433,16 @@ void main() {
     });
   }
 
-  testWidgets('leaving the editor saves a running recording', (tester) async {
+  testWidgets('leaving the editor keeps a recording going until it is stopped', (tester) async {
     final e = await _pump(tester);
     await tester.tap(find.byTooltip('Record audio'));
     await _settleAsync(tester);
     e.clock.now += 4000;
     await _close(tester);
+    await _settleAsync(tester);
+    expect(e.services.recordings.listOf(e.notebook.id), isEmpty);
+    final left = e.services.sharedNotebooks.unattended.value!;
+    await left.audio.recorder.stop();
     await _settleAsync(tester);
     expect(e.services.recordings.listOf(e.notebook.id).single.durationMs, 4000);
     expect(e.audio.log, containsAllInOrder(['start', 'stop', 'dispose']));

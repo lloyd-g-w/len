@@ -135,14 +135,7 @@ class RecordingTile extends StatelessWidget {
   Future<void> _run(BuildContext context, String action) async {
     switch (action) {
       case 'rename':
-        final title = await showTextPrompt(
-          context,
-          title: 'Rename recording',
-          label: 'Name',
-          initialValue: recording.title,
-          confirmLabel: 'Rename',
-        );
-        if (title != null && title.isNotEmpty) audio.rename(recording.id, title);
+        await renameRecording(context, audio, recording);
       case 'trim':
         Navigator.of(context).pop();
         await trimRecording(context, audio, recording);
@@ -165,4 +158,16 @@ class RecordingTile extends StatelessWidget {
         if (confirmed) audio.delete(recording.id);
     }
   }
+}
+
+/// Asks for a new name for [recording] and renames it.
+Future<void> renameRecording(BuildContext context, NotebookAudio audio, Recording recording) async {
+  final title = await showTextPrompt(
+    context,
+    title: 'Rename recording',
+    label: 'Name',
+    initialValue: audio.services.recordings.get(recording.id)?.title ?? recording.title,
+    confirmLabel: 'Rename',
+  );
+  if (title != null && title.isNotEmpty) audio.rename(recording.id, title);
 }
