@@ -51,6 +51,8 @@ void main() {
       'Close notebook tab',
       'Next / previous match',
       'Turn pages in focus mode',
+      // Bound by what has focus (a11y_context_menu_keys_test).
+      'Context menu',
     };
     var bound = boundNow(tester);
     expect(unbound(bound, group('General'), except: later), isEmpty);

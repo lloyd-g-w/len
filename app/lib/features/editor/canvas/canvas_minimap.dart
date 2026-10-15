@@ -42,8 +42,6 @@ class CanvasMinimap extends StatefulWidget {
     required this.size,
     this.paperColor = PaperColor.white,
     this.visible = true,
-    this.pinned = false,
-    this.onPinned,
     this.onHide,
   });
 
@@ -59,10 +57,6 @@ class CanvasMinimap extends StatefulWidget {
 
   /// False hides the map (focus mode), keeping its content loaded.
   final bool visible;
-
-  /// Whether it stays in focus mode; [onPinned] changes that (its menu).
-  final bool pinned;
-  final ValueChanged<bool>? onPinned;
 
   /// Turns the minimap off (its menu).
   final VoidCallback? onHide;

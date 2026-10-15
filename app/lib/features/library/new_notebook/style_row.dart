@@ -9,8 +9,9 @@ import '../../documents/templates/even_choices.dart';
 
 /// The new-notebook sheet's saved notebook styles: one chip each (its
 /// cover colour and name; the default says so) that fills in the whole
-/// form, then "Save as style…". Tapping the chosen style again, a long
-/// press or a right click opens its menu (default, rename, delete).
+/// form. Tapping the chosen style again, a long press or a right click
+/// opens its menu (default, rename, delete). Saving the form as a style
+/// is [SaveStyleButton], under the form.
 class StyleRow extends StatelessWidget {
   const StyleRow({
     super.key,
@@ -18,7 +19,6 @@ class StyleRow extends StatelessWidget {
     required this.selected,
     required this.onApply,
     required this.onMenu,
-    this.onSave,
   });
 
   final List<NotebookStyle> styles;
@@ -30,13 +30,8 @@ class StyleRow extends StatelessWidget {
   /// Opens [NotebookStyle]'s menu at a global position.
   final void Function(NotebookStyle style, Offset at) onMenu;
 
-  /// Saves the form as a style; null hides "Save as style…" (the form
-  /// matches a style, or uses one of the user's image templates).
-  final VoidCallback? onSave;
-
   @override
   Widget build(BuildContext context) {
-    final save = onSave;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: RovingGroup(
@@ -44,7 +39,8 @@ class StyleRow extends StatelessWidget {
         single: true,
         child: Row(
           children: [
-            for (final style in styles) ...[
+            for (final (i, style) in styles.indexed) ...[
+              if (i > 0) const SizedBox(width: Gaps.sm),
               _StyleChip(
                 key: ValueKey('style-${style.id}'),
                 style: style,
@@ -52,9 +48,7 @@ class StyleRow extends StatelessWidget {
                 onTap: (at) => style.id == selected ? onMenu(style, at) : onApply(style),
                 onMenu: (at) => onMenu(style, at),
               ),
-              const SizedBox(width: Gaps.sm),
             ],
-            if (save != null) _SaveChip(onTap: save),
           ],
         ),
       ),
@@ -66,27 +60,25 @@ class StyleRow extends StatelessWidget {
 /// a Rule edge; selected, an Ink plate.
 class _ChipFrame extends StatelessWidget {
   const _ChipFrame({
-    super.key,
     required this.selected,
     required this.onTap,
-    this.onMenu,
+    required this.onMenu,
     required this.children,
   });
 
   final bool selected;
   final ValueChanged<Offset> onTap;
-  final ValueChanged<Offset>? onMenu;
+  final ValueChanged<Offset> onMenu;
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final radius = BorderRadius.circular(Radii.sm);
-    final menu = onMenu;
     return RovingItem(
       stop: selected,
       child: ContextMenuKeys(
-        onMenu: menu == null ? null : () => menu(_center(context)),
+        onMenu: () => onMenu(_center(context)),
         child: Material(
           color: selected ? Surfaces.pressed(scheme) : Colors.transparent,
           shape: RoundedRectangleBorder(
@@ -95,8 +87,8 @@ class _ChipFrame extends StatelessWidget {
           ),
           child: InkWell(
             onTap: () => onTap(_center(context)),
-            onLongPress: menu == null ? null : () => menu(_center(context)),
-            onSecondaryTapUp: menu == null ? null : (d) => menu(d.globalPosition),
+            onLongPress: () => onMenu(_center(context)),
+            onSecondaryTapUp: (d) => onMenu(d.globalPosition),
             borderRadius: radius,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: EvenChoices.height),
@@ -177,30 +169,26 @@ class _StyleChip extends StatelessWidget {
   }
 }
 
-/// "Save as style…": names what the form shows now.
-class _SaveChip extends StatelessWidget {
-  const _SaveChip({required this.onTap});
+/// "Save as style…" at the foot of the form: names what the form shows
+/// now. Quiet, as the sheet's import links: most notebooks don't need it.
+class SaveStyleButton extends StatelessWidget {
+  const SaveStyleButton({super.key, required this.onPressed});
 
-  final VoidCallback onTap;
+  final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = theme.colorScheme.onSurfaceVariant;
-    return Semantics(
-      button: true,
-      label: 'Save as style…',
-      excludeSemantics: true,
-      child: _ChipFrame(
-        key: const ValueKey('save-style'),
-        selected: false,
-        onTap: (_) => onTap(),
-        children: [
-          Icon(Symbols.add_sharp, size: Glyphs.menu, color: color),
-          const SizedBox(width: Gaps.xs),
-          Text('Save as style…', style: theme.textTheme.labelLarge?.copyWith(color: color)),
-        ],
+  Widget build(BuildContext context) => Align(
+    alignment: AlignmentDirectional.centerStart,
+    child: TextButton.icon(
+      key: const ValueKey('save-style'),
+      style: TextButton.styleFrom(
+        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        // The glyph near the form's edge, under the fields above it.
+        padding: const EdgeInsetsDirectional.only(start: Gaps.xs, end: Gaps.sm),
       ),
-    );
-  }
+      onPressed: onPressed,
+      icon: const Icon(Symbols.add_sharp, size: Glyphs.menu),
+      label: const Text('Save as style…'),
+    ),
+  );
 }

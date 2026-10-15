@@ -8,9 +8,10 @@ import '../../../ui/roving_focus.dart';
 import '../../documents/templates/even_choices.dart';
 import '../pen/option_controls.dart';
 
-/// The lasso's options: its shape (freehand loop or rectangle), how much
-/// of an item it must cover (touching, mostly, whole) and which kinds of
-/// item it selects (at least one stays on).
+/// The lasso's options: its shape (freehand loop or rectangle; unlabelled,
+/// as the laser's Dot / Trail), how much of an item it must cover
+/// (touching, mostly, whole) and which kinds of item it selects (at least
+/// one stays on).
 class LassoOptionsPanel extends StatelessWidget {
   const LassoOptionsPanel({super.key, required this.tools});
 
@@ -36,8 +37,8 @@ class LassoOptionsPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: Gaps.sm),
-            const GroupHeader('Shape'),
-            const SizedBox(height: Gaps.xs),
+            // No heading, as the laser's Dot / Trail: the glyphs say it,
+            // and "Shape" would read as the Shapes tool (R12-4).
             RovingSegments(
               SegmentedButton<LassoShape>(
                 showSelectedIcon: false,

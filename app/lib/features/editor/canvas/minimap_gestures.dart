@@ -96,8 +96,6 @@ class _MinimapGesturesState extends State<_MinimapGestures> {
         : SystemMouseCursors.click;
     return MinimapMenu(
       controller: _menu,
-      pinned: _map.widget.pinned,
-      onPinned: _map.widget.onPinned,
       onHide: _map.widget.onHide,
       child: Semantics(
         label: 'Minimap',

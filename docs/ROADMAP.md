@@ -184,7 +184,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Animated zoom: keyboard `+` `-` `0`, Shift+1 fit; zoom indicator with 50/100/200 %/fit
 - ✅ Fit content, back to start
 - ✅ Minimap (⋯ → View, Shift+M): content as soft blocks, the view's frame; tap to glide, drag to
-  pan live, pinch / scroll to zoom; hides while writing and in focus mode unless kept there
+  pan live, pinch / scroll to zoom; hides while writing and in focus mode
 - ✅ Canvas background: template + paper colour
 - ✅ Double-tap zoom (finger, when fingers navigate): page fit / 100 % ⇄ 2× or the last zoom, about
   the tap; palm-safe, never confused with two-finger undo

@@ -54,7 +54,13 @@ void main() {
   testWidgets('save a style, apply it, make it the default, rename and delete it', (tester) async {
     final services = await pumpLibrary(tester);
     await _openSheet(tester);
-    expect(find.text('Styles'), findsOneWidget);
+    // Before the first style: no Styles row, "Save as style…" under the
+    // form (R12-5).
+    expect(find.text('Styles'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Save as style…')).dy,
+      greaterThan(tester.getTopLeft(find.text('Cover')).dy),
+    );
     await _tap(tester, find.text('Dotted'));
     await _tap(tester, find.byKey(const ValueKey('format-a5')));
     await _tap(tester, find.byKey(const ValueKey('cover-1')));
@@ -66,6 +72,7 @@ void main() {
     expect(lecture.choice.paper, PaperStyle.dotted);
     expect(lecture.choice.format, PageFormat.a5);
     expect(lecture.choice.coverColor, Palette.covers[1]);
+    expect(find.text('Styles'), findsOneWidget);
     // The form is that style now: nothing new to save.
     expect(find.text('Save as style…'), findsNothing);
 
@@ -103,6 +110,7 @@ void main() {
     await _tap(tester, find.text('Delete'));
     expect(services.notebookStyles.list(), isEmpty);
     expect(find.text('Lectures'), findsNothing);
+    expect(find.text('Styles'), findsNothing);
     expect(find.text('Save as style…'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

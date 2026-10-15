@@ -300,10 +300,10 @@ it or it grows 1.8× larger than needed. Input (touch, pen, mouse): a tap glides
 (`CanvasNavigation.centreOn`); a drag moves the view live, the map frozen under the finger
 (grabbing the frame keeps the grabbed point under it, elsewhere centres the view there);
 two fingers pan and pinch (`zoomBy`); a mouse wheel zooms in steps (`zoomStep`, claimed
-through the pointer-signal resolver); long-press / right-click opens its menu (*Keep in
-focus mode*, *Hide minimap*). It fades out (`ChromeFade`) while the pen draws (back
-1.2 s after it lifts, not between strokes), on an empty canvas and in focus mode unless kept
-there. Paged documents have none (the page overview and navigator serve them).
+through the pointer-signal resolver); long-press / right-click opens its menu (*Hide minimap*). It fades out
+(`ChromeFade`) while the pen draws (back 1.2 s after it lifts, not between strokes), on an
+empty canvas and in focus mode. Paged documents have none (the page overview and navigator
+serve them).
 
 World coordinates are stored as `float32`, which stays sub-unit precise to
 roughly ±8 million units from the origin — thousands of screens in every
