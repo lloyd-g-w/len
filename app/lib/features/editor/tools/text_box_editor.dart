@@ -62,6 +62,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
     _session
       ..boxHistory = _text
       ..addListener(_onSession);
+    _text.addListener(_onSelection);
     _onSession();
   }
 
@@ -105,6 +106,44 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
     });
   }
 
+  /// The caret moved (arrows, a tap): keep it in view.
+  void _onSelection() {
+    final element = _session.current;
+    if (element == null || !mounted || _text.selection == _revealedSelection) return;
+    _scheduleReveal(element, _screenBounds(element));
+  }
+
+  TextSelection? _revealedSelection;
+
+  /// Keeps the caret clear of the keyboard and the docked bar (after this
+  /// frame).
+  void _scheduleReveal(SurfaceElement element, Rect bounds) {
+    final docked = MediaQuery.sizeOf(context).width < TextFormatBar.dockBelowWidth;
+    final padding = MediaQuery.paddingOf(context);
+    final selection = _revealedSelection = _text.selection;
+    _reveal.schedule(
+      host: context,
+      viewport: widget.viewport,
+      state: (element.id, element.rect, element.rotation, selection),
+      box: bounds,
+      caret: _caretRect,
+      bar: docked ? _dockedBar : null,
+      top: padding.top + TextBoxReveal.gap,
+      bottom: padding.bottom,
+    );
+  }
+
+  /// The caret's rect in global coordinates, if the field is laid out.
+  Rect? _caretRect() {
+    final field = _focus.context?.findAncestorStateOfType<EditableTextState>();
+    final editable = field?.renderEditable;
+    if (editable == null || !editable.attached || !editable.hasSize) return null;
+    final selection = _text.selection;
+    if (!selection.isValid) return null;
+    final local = editable.getLocalRectForCaret(selection.extent);
+    return MatrixUtils.transformRect(editable.getTransformTo(null), local);
+  }
+
   /// Converts a global pointer position to world coordinates.
   Offset _world(Offset global) {
     final box = context.findRenderObject()! as RenderBox;
@@ -129,15 +168,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
         final element = _session.current;
         if (element == null) return const SizedBox.shrink();
         final bounds = _screenBounds(element);
-        final docked = MediaQuery.sizeOf(context).width < TextFormatBar.dockBelowWidth;
-        _reveal.schedule(
-          host: context,
-          viewport: widget.viewport,
-          id: element.id,
-          box: bounds,
-          bar: docked ? _dockedBar : null,
-          top: MediaQuery.paddingOf(context).top + TextBoxReveal.gap,
-        );
+        _scheduleReveal(element, bounds);
         final scale = widget.viewport.scale;
         // The box sits on the paper, not the chrome: ink blue in both themes
         // (like the selection handles).

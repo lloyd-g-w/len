@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:len/ui/floating_panel.dart';
+
 import 'content_tools_ui_test.dart';
 
 /// Typing around a text box: undo while typing, the soft keyboard, the
@@ -43,5 +45,51 @@ void main() {
     expect(field, findsNothing);
     expect(liveElements(services, nb.id), isEmpty);
     expect(liveStrokes(services, nb.id), isEmpty);
+  });
+
+  /// The caret's rect on screen.
+  Rect caret(WidgetTester tester) {
+    final editable = tester.state<EditableTextState>(find.byType(EditableText)).renderEditable;
+    final local = editable.getLocalRectForCaret(editable.selection!.extent);
+    return MatrixUtils.transformRect(editable.getTransformTo(null), local);
+  }
+
+  testWidgets('tablets: the soft keyboard opening over a box pans it into view', (tester) async {
+    await openCanvas(tester);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(300, 650)]);
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 380);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    await tester.enterText(field, 'hello');
+    await tester.pumpAndSettle();
+    expect(tester.getRect(field).bottom, lessThanOrEqualTo(800 - 380));
+    expect(tester.getRect(field).top, greaterThan(0));
+  });
+
+  testWidgets('phones: typing on in a tall box keeps the caret above the bar', (tester) async {
+    await openCanvas(tester, size: const Size(390, 844));
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(60, 300)]);
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    final bar = find.ancestor(
+      of: find.byTooltip('Done (Esc)'),
+      matching: find.byType(FloatingPanel),
+    );
+    await tester.enterText(field, List.generate(30, (i) => 'line $i').join('\n'));
+    await tester.pumpAndSettle();
+    expect(caret(tester).bottom, lessThanOrEqualTo(tester.getRect(bar).top));
+    expect(caret(tester).top, greaterThan(0));
+
+    // The caret moved back to the start (Ctrl+Home, a tap): it comes back down.
+    final controller = tester.widget<TextField>(field).controller!;
+    controller.selection = const TextSelection.collapsed(offset: 0);
+    await tester.pumpAndSettle();
+    expect(caret(tester).top, greaterThan(0));
+    expect(caret(tester).bottom, lessThanOrEqualTo(tester.getRect(bar).top));
   });
 }

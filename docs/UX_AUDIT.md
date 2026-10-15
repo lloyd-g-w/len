@@ -58,7 +58,7 @@ the eraser.
 
 ### Prioritised items
 
-**R19-1 P1 · The soft keyboard covers the box being typed in.**
+**R19-1 P1 · The soft keyboard covers the box being typed in.** ✅
 - *What:* the editor's `Scaffold` shrinks above the keyboard, but the
   canvas stays where it was: on a tablet (`TextBoxReveal` only runs while
   the format bar is docked, i.e. on phones) a box tapped in the lower half
@@ -71,6 +71,10 @@ the eraser.
   just enough that the caret's line sits above the docked bar (phones) or
   the bottom of the view (the keyboard's edge), keeping the box's top in
   view while it fits. Effort M.
+- *Done:* `TextBoxReveal` (one check per frame, keyed on the box, its
+  text and the caret in world units plus the space left, so a pan alone
+  never triggers it) on every screen size: the caret clears the docked
+  bar, the view's bottom (shrunk by the keyboard) and the top chrome.
 
 **R19-2 P1 · Undo while typing undoes the canvas, not the typing.** ✅
 - *What:* the box keeps its own history (Ctrl+Z inside it), but the top
