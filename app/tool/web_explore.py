@@ -935,7 +935,12 @@ class Walk:
             await page.wait_for_timeout(500)
             if await region(page, x, y) == blank:
                 break
-        w.expect(await region(page, x, y) == blank, 'the laser trail faded')
+        last = await region(page, x, y)
+        if last != blank:  # To see why.
+            for name, data in (('before', blank), ('after', last)):
+                with open(os.path.join(OUT, f'{self.name}-{self.n:02}-laser-{name}.png'), 'wb') as f:
+                    f.write(data)
+        w.expect(last == blank, 'the laser trail faded')
         await wait_query(page, self.FEATURES + 'AND s.deleted = 0', lambda r: len(r) == 1,
                          'the laser stored nothing')
         await page.keyboard.press('p')
