@@ -62,7 +62,12 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
       final sel = _normalize(next.selection, old.selection);
       if (sel != old.selection) _pending = null;
       super.value = next.copyWith(selection: sel);
-      if (sel.isValid) _history.select(_modelSelection(sel));
+      if (sel.isValid) {
+        _history.select(
+          _modelSelection(sel),
+          composing: next.composing.isValid && !next.composing.isCollapsed,
+        );
+      }
       return;
     }
     _applyEdit(old, next);

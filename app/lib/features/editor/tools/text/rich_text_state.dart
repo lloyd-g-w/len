@@ -103,7 +103,7 @@ abstract class _RichTextState extends TextEditingController {
       ),
     );
     if (!changed) return;
-    _history.changed(_snapshot);
+    _history.changed(_snapshot, command: true);
     onDataChanged?.call();
   }
 
