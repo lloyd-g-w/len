@@ -6,6 +6,7 @@ import '../../domain/surface_element.dart';
 import '../../domain/text/text_data.dart';
 import '../elements/text_layout.dart';
 import '../geometry/affine.dart';
+import '../shapes/shape_builder.dart';
 
 /// Applies selection transforms to immutable strokes and elements.
 abstract final class TransformItems {
@@ -133,6 +134,15 @@ abstract final class TransformItems {
     );
   }
 
+  /// [style] for [stroke]: the new tool's look with the stroke's fill; on
+  /// a shape, the even line of shapes, its outline spaced as before.
+  static StrokeStyle _restyled(Stroke stroke, StrokeStyle? style) {
+    if (style == null) return stroke.style;
+    final fill = stroke.style.fill;
+    if (stroke.shape == null) return style.withFill(fill);
+    return ShapeBuilder.styleFor(style.copyWith(unit: stroke.style.unit)).withFill(fill);
+  }
+
   /// [stroke] with another line [width] and/or [tool] (new id): a new
   /// [style] goes with a new tool, since pens and highlighters differ in
   /// opacity and ends.
@@ -150,8 +160,7 @@ abstract final class TransformItems {
     width: (width ?? stroke.width).clamp(_minWidth, _maxWidth),
     points: stroke.points,
     createdAt: stroke.createdAt,
-    // A new tool's style keeps the shape's fill.
-    style: style?.withFill(stroke.style.fill) ?? stroke.style,
+    style: _restyled(stroke, style),
     shape: stroke.shape,
   );
 }
