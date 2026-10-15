@@ -61,5 +61,28 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   outline lacks): as smooth at 10 % as at 100 %; at 100 % mouse ink is unchanged, no lag.
 
 ## Done earlier this round
-- ✅ Shape fill, zoom window, document scan, keyboard accessibility, round 10 audit,
-  bug hunts (17 + 8 bugs).
+- ✅ Shape fill, zoom window (and round 2), document scan (and round 2), keyboard
+  accessibility, camera photos recovered after a kill, round 10–12 audits, design polish
+  round 11, performance rounds (pan, paged scroll, web long tasks), bug hunts 1–5.
+
+## Next (open follow-ups, not yet asked for)
+From the reports; the owner picks. Status as above.
+
+- ⬜ **Tablet recordings** (INK_LAB *Gestures on real ink*, Ink Lab, clear before each):
+  words with double ascenders at note size ("all", "little", "hello", "Hill", "tt") in
+  cursive and print; scribble-outs of words at note size, quick and slow; held shapes
+  (line, arrow, rectangle, triangle, ellipse, ring around a word) held until the snap.
+- ⬜ **Tablet checks** (INK_LAB): the low-latency overlay's front buffer and pen-up
+  handover by eye; perf-probe numbers for the later tile / LOD rounds and the background
+  recogniser; writing while a 15 000-stroke canvas loads (pen-up p90 47 ms, GC pauses).
+- ⬜ **Scan corner drag** redraws the photo with the outline per move; a layer of its own
+  for the photo would leave only the outline and loupe (PERFORMANCE).
+- ⬜ **First pull** bound by SQLite inserts on the UI isolate; apply in a worker with its
+  own connection (PERFORMANCE).
+- ⬜ **Overview thumbnails** record during a fast drag; defer them while the grid flings
+  (PERFORMANCE).
+- ⬜ **Web (JavaScript)**: tiles, thumbnails and LOD rasters read back on the main thread;
+  batch renders by size or keep tiles as pictures (PERFORMANCE).
+- ⬜ **Keyboard**: reorder overview pages (drag only today; UX_AUDIT).
+- ⬜ **⋯ → View is at 9 rows**: merge before adding the next toggle, e.g. the two toolbar
+  radios into one "Floating toolbar" switch (UX_AUDIT R12-7).
