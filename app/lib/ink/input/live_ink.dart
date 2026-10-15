@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -27,6 +28,12 @@ class LiveInk extends ChangeNotifier {
   /// World position and radius of the eraser cursor, if visible.
   Offset? eraserCenter;
   double eraserRadius = 0;
+
+  /// The hovering pen's preview, if visible: where its nib would land
+  /// (world), its radius at medium pressure and its colour as previewed.
+  Offset? penCenter;
+  double penRadius = 0;
+  Color penColor = const Color(0x00000000);
 
   List<StrokePoint> get points => _points;
   bool get isDrawing => _points.isNotEmpty;
@@ -100,6 +107,42 @@ class LiveInk extends ChangeNotifier {
     if (center == eraserCenter && (center == null || radius == eraserRadius)) return;
     eraserCenter = center;
     eraserRadius = radius;
+    notifyListeners();
+  }
+
+  /// How long a stylus's hover cursors outlast its last event: Android
+  /// reports no hover exit when the pen leaves range, while a pen in range
+  /// streams hover events.
+  static const Duration stylusHoverTimeout = Duration(milliseconds: 500);
+  Timer? _hoverExpiry;
+
+  /// Hides the eraser cursor and the pen's preview unless this is called
+  /// again within [stylusHoverTimeout] (a stylus was seen again).
+  void expireCursorsSoon() {
+    _hoverExpiry?.cancel();
+    _hoverExpiry = null;
+    if (eraserCenter == null && penCenter == null) return;
+    _hoverExpiry = Timer(stylusHoverTimeout, () {
+      _hoverExpiry = null;
+      showEraser(null, 0);
+      showPen(null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _hoverExpiry?.cancel();
+    super.dispose();
+  }
+
+  /// Moves (or hides, with a null [center]) the hovering pen's preview.
+  void showPen(Offset? center, {double radius = 0, Color color = const Color(0x00000000)}) {
+    if (center == penCenter && (center == null || (radius == penRadius && color == penColor))) {
+      return;
+    }
+    penCenter = center;
+    penRadius = radius;
+    penColor = color;
     notifyListeners();
   }
 }

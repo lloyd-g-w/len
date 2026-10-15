@@ -1285,12 +1285,31 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   made that way stays live — pressing on it moves it, pressing elsewhere drops it and
   draws again; it follows the lasso options, a rectangle included) or nothing.
   A stylus touching down cancels a stroke a resting palm may have started.
+  A pen contact the platform cancels (the window losing focus, rotation, a
+  system gesture) keeps its ink as written but erases nothing (a scribble
+  already dimming ink is dropped); erasing, tools and fingers cancel.
 - **Touch**: with *stylus only* (palm rejection) on, fingers pan/zoom; off,
   one finger draws and a second finger turns it into a pinch.
   Stylus-only switches on automatically the first time a stylus is used.
   **Palm**: a touch landing while the pen touches, hovers, or lifted < 300 ms ago
   (`InkInputController.palmQuiet`, `StylusProximity`) neither navigates nor draws —
   between strokes the pen only lifts briefly.
+  **Across the app** (`input/palm_guard.dart`, `PalmGuard`, a global pointer
+  route attached by `LenApp`): touches already down when a stylus touches,
+  and touches landing while it touches, are cancelled wherever they are
+  (`GestureBinding.cancelPointer`), so a palm resting on a toolbar button,
+  the page indicator or the Add page footer taps nothing when it lifts; a
+  finger on chrome while the pen only hovers still works. Canvases also ask
+  it whether the pen is near *any* canvas (the other split pane).
+- **Hover**: a hovering stylus previews what it would do (`handleHover` →
+  `LiveInk`, painted by `LiveInkPainter`): with the pen or highlighter, a dot
+  of the ink's colour and medium-pressure width at the current zoom (at most
+  half opaque, so it never reads as ink; at least 2 screen px); with the
+  eraser tool, the eraser end or the side button set to erase, the eraser's
+  ring (two-tone, a dark line inside a light one, so it shows on dark paper
+  too; also under a mouse). Both go at pen-down, on exit and when a finger
+  touches; a stylus's also 500 ms after its last event (`LiveInk.expireCursorsSoon`:
+  Android reports no hover exit when the pen leaves range).
 - **Mouse**: left draws, middle/right drag pans (a right click without dragging opens the
   context menu), wheel scrolls (stops a glide), Ctrl+wheel zooms about the cursor
   (`exp(-dy/400)` per event, at most 2× per event).

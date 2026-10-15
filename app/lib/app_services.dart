@@ -37,6 +37,7 @@ import 'features/editor/shared/shared_notebooks.dart';
 import 'features/editor/tabs/open_notebooks.dart';
 import 'features/editor/tabs/workspace_memory.dart';
 import 'ink/images/element_images.dart';
+import 'ink/input/palm_guard.dart';
 import 'ink/recognition/handwriting_recognizer.dart';
 import 'ink/recognition/recognition_service.dart';
 import 'ink/render/outline_preparer.dart';
@@ -226,6 +227,10 @@ class AppServices {
   /// pointers once the app widget attaches it.
   final PointerActivity pointerActivity;
 
+  /// Palm rejection across the app (chrome, split panes); watches pointers
+  /// once the app widget attaches it.
+  final PalmGuard palmGuard = PalmGuard();
+
   /// Audio recordings of notebooks (their audio is in [blobs]).
   final RecordingRepository recordings;
 
@@ -323,6 +328,7 @@ class AppServices {
     clipboard.dispose();
     recognition.dispose();
     pointerActivity.detach();
+    palmGuard.detach();
     search.dispose();
     sync.dispose();
     sync.tokens.dispose();

@@ -1,5 +1,123 @@
 # Len — UX/UI audit
 
+## Round 15 audit — stylus craft (`review/round15`)
+
+Lens: a demanding S Pen user on a Galaxy Tab writing for hours, who
+knows GoodNotes 6 (Apple Pencil hover), Notability and Samsung Notes.
+Read in the code and tests: input routing and palm rejection
+(`ink/input/ink_input_controller.dart`, `ink_drawing.dart`,
+`stylus_proximity.dart`, `canvas_gestures.dart`), the side button
+(`stylus_buttons.dart`), hover (`handleHover`, `LiveInk`,
+`render/ink_painters.dart`), the low-latency path (`WetInk*`, ARCHITECTURE
+*Low-latency ink*), pen defaults (`ink/pen/pen_defaults.dart`), the paged
+document's page picking (`editor/document/paged_document_view.dart`), the
+zoom window, split view and hold to snap. Nothing was run on a device.
+Paths are under `app/lib/` unless noted. ⬜ open, ✅ fixed on this branch.
+
+Summary: the writing itself is at Samsung Notes' level and ahead of
+GoodNotes on Android: ink is under the nib in ~5.5 ms (front-buffer
+overlay armed while the pen hovers), every 240 Hz sample is kept, a pen
+landing catches a glide, palms are ignored while the pen touches, hovers
+or lifted < 300 ms ago, and hold to snap and scribble to erase are held
+to zero false positives on real recordings. The gaps are around the
+writing, where the hand and the pen meet the rest of the app: a hovering
+pen says nothing about the stroke it is about to make, cursors stay on
+the page after the pen leaves, a cancelled contact throws the stroke
+away, and a palm is only a palm on the canvas it rests on.
+
+| Moment | Len | GoodNotes 6 · Notability · Samsung Notes | Verdict |
+|---|---|---|---|
+| Pen hovering, pen tool | nothing (wet ink armed, invisible) | GoodNotes (Pencil hover): a preview of the nib, its colour and size; Samsung Notes: a hover pointer | R15-1 |
+| Pen hovering, eraser | a grey ring of the eraser's size | GoodNotes: the eraser's footprint | Keep; invisible on dark paper (R15-2) |
+| Pen leaves range | the eraser ring stays (Android sends no hover exit) | gone | R15-3 |
+| Pen-down latency | ~5.5 ms overlay, 30 ms Flutter (INK_LAB) | similar (Samsung Notes front buffer) | Keep |
+| Ink feel defaults | pen: thinning 0.25, stabiliser 0, round ends; 3 colours, 3 widths | GoodNotes ballpoint: light pressure, no stabiliser | Keep |
+| Side button | held: erase (default), lasso or nothing, with every tool | Samsung Notes: same idea | Keep |
+| Tool switching | one tap; quick slots; two-finger tap undo (≥ 600 ms after the pen) | same | Keep |
+| Palm before the pen | the pen hovering 1–2 cm above counts; a stylus down stops a palm's pan or stroke | same | Keep |
+| Palm on chrome / another pane | a palm resting on a toolbar button, the Add page footer or the other split pane taps or pans it | system palm rejection (iPadOS); Samsung Notes ignores touches while writing | R15-4 |
+| Contact cancelled mid-stroke (rotation, notification shade, a system gesture, a dialog) | the stroke is thrown away | the ink written stays | R15-5 |
+| Stylus edge swipe (gesture navigation) | a stroke from the screen's edge may become Back | apps exclude the writing area | R15-6 |
+| Near page edges / between pages | a pen in the gap writes on the nearest page; ink is clipped to the page it began on | GoodNotes: same | Keep |
+| Writing at the bottom of the screen | no auto-scroll; a finger pans | none of the three auto-scroll in continuous view | Keep (moving paper under the nib is worse) |
+| Page gliding when the pen lands | the glide stops, the stroke goes to the page under the nib | same | Keep |
+| Straight lines | hold 600 ms to snap; no false snaps in real writing | GoodNotes / Samsung Notes: hold | Keep |
+| Small writing | zoom window (box, frame, auto-advance) | GoodNotes zoom window | Keep |
+| Split view | each pane its own overlay and palm logic | n/a | R15-4 |
+
+### Prioritised items
+
+**R15-1 P1 · A hovering pen shows nothing.** ✅
+- *What:* hovering the S Pen with the pen or highlighter gives no sign
+  of what will land: which of three colours and widths is on, how big
+  the nib is at this zoom. The eraser already shows its ring
+  (`LiveInk.eraserCenter`). GoodNotes on a hover-capable iPad previews
+  the nib; Samsung's hover pointer is a fixed dot.
+- *Fix:* while a stylus hovers with an ink tool (the side button not
+  routing elsewhere), a dot of the ink's colour and its medium-pressure
+  width at the current zoom, at half opacity so it never reads as ink
+  (the highlighter at its own lower opacity); gone at pen-down, on a
+  finger, on exit. No setting. Effort S.
+
+**R15-2 P2 · The eraser ring vanishes on dark paper.** ✅
+- *What:* the ring is a 1-px `0x99000000` line on a `0x22000000` fill
+  (`LiveInkPainter`); on the Dark paper preset (`0xFF202226`) neither
+  shows.
+- *Fix:* a two-tone ring (a dark line inside a light one) that shows on
+  any paper and ink. Effort S.
+
+**R15-3 P2 · Hover cursors stay on the page after the pen leaves.** ✅
+- *What:* Android reports no hover exit when the S Pen leaves range
+  (noted in `_touchDown`), so the eraser ring stays where the pen was
+  until a finger touches; a pen preview (R15-1) would sit there like a
+  blot of ink.
+- *Fix:* a stylus's hover cursors expire 400 ms after its last event (a
+  hovering S Pen streams events, so they never blink while it is near);
+  500 ms in the end (`LiveInk.stylusHoverTimeout`).
+  Effort S.
+
+**R15-4 P2 · A palm is a palm only on the canvas it rests on.** ✅
+- *What:* the palm rules live in each `InkInputController`. A palm
+  resting on a toolbar button, the page indicator or the Add page footer
+  while the pen writes taps it when it lifts (taps have no time limit);
+  in split view a palm on the other pane pans it (that pane never saw
+  the pen).
+- *Fix:* an app-wide `PalmGuard` (a global pointer route, as
+  `PointerActivity`): touches already down when a stylus touches, and
+  touches landing while it touches, are cancelled wherever they are
+  (`GestureBinding.cancelPointer`); and every canvas treats a touch as
+  a palm while the pen is near *any* canvas. A finger tapping chrome
+  while the pen only hovers still works (the other hand on Undo).
+  Effort M.
+
+**R15-5 P2 · A cancelled pen stroke is lost.** ✅
+- *What:* `handleCancel` drops the drawing contact (`InkDrawing.cancel`).
+  Android cancels the stream when the window loses focus mid-stroke (a
+  notification, a dialog, rotation, a system gesture): the line just
+  written disappears.
+- *Fix:* a stylus's ink contact that is cancelled is committed as
+  written (no bounce check: there was no lift) but erases nothing: a
+  scribble cancelled while dimming ink is dropped, nothing goes without
+  a lift. Erasing and tools still cancel, fingers still drop their
+  stroke (a pinch or palm). Effort S.
+
+**R15-6 P3 · A stroke from the screen's edge can become Back.** ⬜
+- *What:* with gesture navigation, Android may take a stylus swipe from
+  the left or right edge as Back (and cancel the stroke, now kept by
+  R15-5). Writing zoomed in to the page's edge starts there.
+- *Fix:* system gesture exclusion rects for the canvas while a stylus
+  is near (Android caps them at 200 dp per edge); needs the tablet to
+  see whether One UI routes stylus edge swipes at all. Effort M with
+  device checks: TODO "Next".
+
+Checked and sound: the side button with every tool (erase or lasso win
+over the tool; "nothing" writes); the eraser end; the overlay armed on
+hover, skipped for any non-ink down; palms while hovering (300 ms) and
+for gestures (600 ms); a stylus down cancelling a palm's stroke and pan;
+the glide stopping under the nib; the gap between pages; hold to snap and
+scribble's zero-false-positive corpora; the zoom window's palm handover
+(`stylusElsewhere`). No new settings on this branch.
+
 ## Round 14 audit — first run and empty states (`review/round14`)
 
 Lens: a brand-new user on an Android phone (finger), an Android tablet

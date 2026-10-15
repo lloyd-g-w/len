@@ -77,6 +77,16 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
+- ⬜ **Stylus edge swipes** (UX_AUDIT R15-6): with gesture navigation, a pen stroke starting
+  at the screen's left or right edge may become Back (the stroke is now kept when cancelled,
+  R15-5). Check on the tablet whether One UI routes stylus edge swipes at all; if it does,
+  set system gesture exclusion rects over the canvas while a stylus is near (Android caps
+  them at 200 dp per edge).
+- ⬜ **Tablet checks for round 15**: the hover preview beside Samsung's own hover pointer (does
+  the system draw one over Len? Flutter asks for a crosshair, `SystemMouseCursors.precise`);
+  whether the S Pen streams hover events while held still (the cursors expire after 500 ms
+  without one); a palm on the toolbar while writing.
+
 - ⬜ **Tablet recordings** (INK_LAB *Gestures on real ink*, Ink Lab, clear before each):
   words with double ascenders at note size ("all", "little", "hello", "Hill", "tt") in
   cursive and print; scribble-outs of words at note size, quick and slow; held shapes

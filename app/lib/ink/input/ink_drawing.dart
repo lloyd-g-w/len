@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 
@@ -153,6 +154,7 @@ class InkDrawing {
     _erasing = erase;
     _eraseStarted = false;
     _lastScreen = e.localPosition;
+    live.showPen(null); // The nib is down: its ink, not a preview.
     final selection = content?.selection;
     final hadSelection = selection != null && !selection.isEmpty;
     final tool = erase ? null : content?.toolAt(tools.tool, e.localPosition, lasso: lasso);
@@ -216,12 +218,12 @@ class InkDrawing {
 
   /// Ends the contact at [e] (the pen lifted).
   void up(PointerUpEvent e) {
-    if (_inking) _addSamplesBefore(e);
+    if (inking) _addSamplesBefore(e);
     finish(liftTime: e.timeStamp);
   }
 
   /// Whether the drawing pointer is making ink (not erasing or a tool).
-  bool get _inking => _drawPointer != null && _tool == null && !_erasing;
+  bool get inking => _drawPointer != null && _tool == null && !_erasing;
 
   /// Adds the samples the platform saw since the previous event of [e]'s
   /// contact (dense stylus input), in order, before [e] itself.
@@ -256,8 +258,17 @@ class InkDrawing {
   bool get inked => _inked;
   bool _inked = false;
 
-  /// Ends the current contact. [liftTime] is the pen-up timestamp, when known.
-  void finish({Duration? liftTime}) {
+  /// Ends a pen's ink contact the platform cancelled: the ink is kept as
+  /// written, but never erases (a scribble already dimming what it would
+  /// erase is dropped instead, as before: nothing goes without a lift).
+  void keep() {
+    if (!inking || _scribble.previewing) return cancel();
+    finish(mayErase: false);
+  }
+
+  /// Ends the current contact. [liftTime] is the pen-up timestamp, when
+  /// known; a scribble erases only if [mayErase].
+  void finish({Duration? liftTime, bool mayErase = true}) {
     _inked = false;
     final tool = _tool;
     if (tool != null) {
@@ -266,6 +277,7 @@ class InkDrawing {
     } else if (_erasing) {
       _releaseErase();
       showEraser(_drawKind == PointerDeviceKind.touch ? null : _lastScreen);
+      if (byStylus) live.expireCursorsSoon(); // The pen may leave unannounced.
     } else {
       if (_byMouse) _mouse.finish(); // The ink catches up with the mouse.
       // A snapped shape's end follows no speed (the pen rested to snap it),
@@ -282,7 +294,7 @@ class InkDrawing {
       if (points.isNotEmpty &&
           !dismissTap &&
           !_isBounce(liftTime) &&
-          !_scribble.erase(model, snapped: snapped)) {
+          !(mayErase && _scribble.erase(model, snapped: snapped))) {
         _commit(points, liftTime, snapped: snapped, shape: shape);
         _inked = true;
       }
@@ -325,6 +337,24 @@ class InkDrawing {
       tools.eraserRadius / viewport.scale,
     );
   }
+
+  /// Shows the hovering pen's preview at [screen] (the active ink's colour
+  /// and medium-pressure width, at most half opaque so it never reads as
+  /// ink), or hides it.
+  void showPen(Offset? screen) {
+    if (screen == null) return live.showPen(null);
+    final ink = tools.activeInk;
+    final config = tools.configOf(ink);
+    final color = StrokeRenderer.paintFor(config.color, tools.styleFor(ink)).color;
+    live.showPen(
+      viewport.toWorld(screen),
+      radius: config.width / 2,
+      color: color.withValues(alpha: math.min(color.a, previewOpacity)),
+    );
+  }
+
+  /// The pen preview's opacity at most.
+  static const double previewOpacity = 0.5;
 
   ToolPointer _toolPointer(PointerEvent e) => ToolPointer(
     screen: e.localPosition,

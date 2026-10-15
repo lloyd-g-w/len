@@ -54,5 +54,6 @@ extension _EditorSessionParts on EditorSession {
       wetInkView: () => WetInkView.of(viewport, covered: _chromeInsets),
     ),
     penButtonAction: () => services.preferences.penButtonAction,
+    palms: services.palmGuard,
   );
 }
