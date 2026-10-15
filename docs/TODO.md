@@ -65,6 +65,13 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   accessibility, camera photos recovered after a kill, round 10–12 audits, design polish
   round 11, performance rounds (pan, paged scroll, web long tasks), bug hunts 1–5.
 
+## Owner reports (after the first list)
+- 🚧 (fix/android-pen-flicker) **The pen still flickers sometimes** on the Android tablet (S Pen),
+  no clear pattern: find every handover / prediction / tile cause, test, fix, and add an
+  on-device flicker log to catch the rest.
+- 🚧 (fix/paper-dots-scale) **Dotted paper's dots change size on zoom** (they kept a constant
+  on-screen size): dots get a fixed world size and scale with the page everywhere.
+
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
