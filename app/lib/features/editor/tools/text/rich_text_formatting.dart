@@ -24,6 +24,9 @@ mixin _RichTextFormatting on _RichTextState {
   /// The paragraph format of the caret's line.
   ParaStyle get currentPara => _buffer.para(caretLine);
 
+  /// The direction of the caret's paragraph.
+  TextDirection get caretDirection => ParagraphDirection.of(_buffer.text)[caretLine];
+
   /// Font size at the caret, in world units.
   double get currentSize => TextLayout.sizeOf(_box, currentStyle, currentPara);
 

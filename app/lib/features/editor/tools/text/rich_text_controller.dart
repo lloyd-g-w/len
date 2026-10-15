@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../../domain/text/html_text.dart';
+import '../../../../domain/text/paragraph_direction.dart';
 import '../../../../domain/text/rich_text_buffer.dart';
 import '../../../../domain/text/text_data.dart';
 import '../../../../ink/elements/text_edit_session.dart' show BoxHistory;

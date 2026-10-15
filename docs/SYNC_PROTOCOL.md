@@ -355,8 +355,13 @@ Enumerated values: `kind` as above (notebooks); `paper` and `paperColor` see [Pa
 
 **Text boxes.** `text` is the plain text (lines separated by `\n`; what search indexes);
 `font` ∈ `inter`, `lora`, `mono`, `caveat` (the bundled fonts), `size` the body font size in world
-units (6–400), `color` an ARGB int, `align` ∈ `left`, `center`, `right`, and `autoWidth` whether the
-box grows with its text (`true`) or wraps at its width. Formatting is compact:
+units (6–400), `color` an ARGB int (0..0xFFFFFFFF), `align` ∈ `start`, `center`, `end`, and `autoWidth`
+whether the box grows with its text (`true`) or wraps at its width. `align` is relative to each
+paragraph's direction, which is not stored: a paragraph runs right-to-left when its first strong
+character (Unicode bidi rules P2 / P3) is right-to-left (Hebrew, Arabic, …); one without a strong
+character takes the direction of the paragraph before it (leading ones the first found, else
+left-to-right). So `start` is the left edge of an English paragraph and the right edge of a Hebrew
+one; list markers and hanging indents sit on the start side too. Formatting is compact:
 
 - `spans` = `[[start, end, style], …]` — character formatting of the UTF-16 range `[start, end)` of
   `text`, sorted, non-overlapping, never empty or unformatted. `style` holds only what is set:
@@ -368,9 +373,12 @@ box grows with its text (`true`) or wraps at its width. Formatting is compact:
   indent level (1–4); `{}` is body text. Numbers are not stored (they count consecutive items).
 
 Example: `{"text": "Todo\nmilk", "spans": [[0, 4, {"b": true}]], "paras": [{"h": 1}, {"l": "check",
-"x": true}], "font": "inter", "size": 24, "color": 4280229663, "align": "left", "autoWidth": true}`.
-Readers ignore spans and paragraph entries they cannot use and unknown keys (the contents of
-`data` are open).
+"x": true}], "font": "inter", "size": 24, "color": 4280229663, "align": "start", "autoWidth": true}`.
+Text `data` is parsed strictly (`TextRecord`): every key above is required and every value must be
+well-formed (spans in range, sorted and set; `paras` empty or one per line; known fonts, list kinds
+and alignments); otherwise the whole element record is malformed and skipped. Unknown keys are
+ignored and survive local edits. (Before schema version 14 `align` was `left` / `center` / `right`;
+the migration rewrote local boxes as `start` / `end` and sent them again.)
 
 **Image elements.** `data.blob` is the `<sha256>` of the encoded image ([blob](#blobs); PNG, JPEG or
 WebP as written by current clients — readers decode whatever the platform supports and show a

@@ -8,6 +8,7 @@ import '../domain/chunk_grid.dart';
 import '../domain/link_target.dart';
 import '../domain/stroke_chunks.dart';
 import '../domain/surface_element.dart';
+import '../domain/text/text_record.dart';
 import 'record_fields.dart';
 import 'stroke_queries.dart';
 import 'syncable.dart';
@@ -183,6 +184,7 @@ class ElementRepository extends SyncableTable {
       data: f.object('data'),
     );
     if (!WorldLimits.accepts(element.bounds)) f.invalid('bounds');
+    if (element.knownType == ElementType.text) TextRecord.parse(element.data);
     return element;
   }
 

@@ -80,9 +80,9 @@ abstract final class TextLayout {
   static TextStyle baseStyle(TextData box) => styleFor(box, SpanStyle.plain, ParaStyle.body);
 
   static TextAlign alignOf(TextData data) => switch (data.align) {
-    TextAlignment.left => TextAlign.left,
+    TextAlignment.start => TextAlign.start,
     TextAlignment.center => TextAlign.center,
-    TextAlignment.right => TextAlign.right,
+    TextAlignment.end => TextAlign.end,
   };
 
   /// The list markers of [data], in line order.

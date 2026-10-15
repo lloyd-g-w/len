@@ -267,7 +267,7 @@ void main() {
         'rotation': 0,
         'z': 1,
         'createdAt': 1,
-        'data': {'text': 'Synchronised photosynthesis'},
+        'data': const TextData(text: 'Synchronised photosynthesis').toJson(),
       },
     );
     expect(s.elements.applyRemote(record), isTrue);

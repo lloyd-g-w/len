@@ -9,6 +9,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/recording.dart';
 import 'package:len/domain/surface_element.dart';
+import 'package:len/domain/text/text_data.dart';
 
 import 'package:len/sync/remote_changes.dart';
 import 'package:len/sync/revival_notice.dart';
@@ -409,7 +410,7 @@ SurfaceElement _text(String id, String surface) => SurfaceElement(
   rect: const Rect.fromLTWH(0, 0, 50, 20),
   z: 1,
   createdAt: 1,
-  data: const {'text': 'words'},
+  data: const TextData(text: 'words').toJson(),
 );
 
 SurfaceElement _image(String id, String surface, String sha) => SurfaceElement(
