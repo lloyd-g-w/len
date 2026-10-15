@@ -7,7 +7,10 @@ import 'text_layout.dart';
 /// and the hanging indents of wrapped list items ([wraps]).
 class TextBoxLayout {
   TextBoxLayout(this.data, double width)
-    : markers = TextLayout.markersOf(data),
+    : markers = [
+        for (final m in TextLayout.markersOf(data))
+          if (!m.continued) m,
+      ],
       wraps = TextWraps.of(data, width) {
     offsets = MarkerOffsets(data, wraps);
     // Only the placeholders' sizes matter here; markers are painted
@@ -45,6 +48,8 @@ class TextBoxLayout {
 
   final TextData data;
   late final TextPainter painter;
+
+  /// The markers drawn (not [ListMarker.continued] ones).
   final List<ListMarker> markers;
 
   /// Model offsets where wrapped list items continue (see [TextWraps]).

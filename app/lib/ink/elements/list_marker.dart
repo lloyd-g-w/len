@@ -14,6 +14,7 @@ class ListMarker {
     required this.fontSize,
     required this.color,
     required this.font,
+    this.continued = false,
   });
 
   /// The paragraph (line) it belongs to.
@@ -31,6 +32,11 @@ class ListMarker {
 
   /// Font of the line's text (for numbers).
   final TextFont font;
+
+  /// Whether the item began in the box before (a box continuing on the
+  /// next page, `TextFlow.joined`): its line keeps the marker's room (it
+  /// hangs under the item's text) but shows no marker.
+  final bool continued;
 
   /// Width of one indent level (and of the marker column), in ems.
   static const double indentEms = 1.6;

@@ -85,9 +85,12 @@ abstract final class TextLayout {
     TextAlignment.right => TextAlign.right,
   };
 
-  /// The list markers of [data], in line order.
+  /// The list markers of [data], in line order. A box continuing a list
+  /// item from the page before ([TextFlow.joined]) starts with a
+  /// [ListMarker.continued] one; numbers run on ([TextFlow.numbers]).
   static List<ListMarker> markersOf(TextData data) {
     final paras = data.paras;
+    final flow = data.flow;
     final chars = data.charStyles();
     final markers = <ListMarker>[];
     var start = 0;
@@ -101,10 +104,11 @@ abstract final class TextLayout {
           ListMarker(
             line: line,
             para: para,
-            number: RichTextBuffer.listNumberOf(paras, line),
+            number: RichTextBuffer.listNumberOf(paras, line, flow?.numbers ?? const []),
             fontSize: sizeOf(data, first, para),
             color: first.color ?? data.color,
             font: first.font ?? data.font,
+            continued: line == 0 && (flow?.joined ?? false),
           ),
         );
       }
@@ -115,10 +119,11 @@ abstract final class TextLayout {
   }
 
   /// The styled content of [data]: per line its marker (built by
-  /// [marker]) and its runs. At each of [wraps] (model offsets, see
-  /// [TextWraps]) a list item continues on a new line behind a gap as wide
-  /// as its marker (built by [gap]): a hanging indent. [underlined] (model
-  /// offsets) is underlined, e.g. the IME composing range.
+  /// [marker]; a [ListMarker.continued] one is a [gap]) and its runs. At
+  /// each of [wraps] (model offsets, see [TextWraps]) a list item
+  /// continues on a new line behind a gap as wide as its marker (built by
+  /// [gap]): a hanging indent. [underlined] (model offsets) is underlined,
+  /// e.g. the IME composing range.
   static TextSpan spanOf(
     TextData data, {
     required InlineSpan Function(ListMarker marker) marker,
@@ -136,7 +141,7 @@ abstract final class TextLayout {
     for (var line = 0; line < paras.length; line++) {
       final para = paras[line];
       final m = markers[line];
-      if (m != null) children.add(marker(m));
+      if (m != null) children.add(m.continued ? gap(m.size) : marker(m));
       final nl = text.indexOf('\n', start);
       final end = nl < 0 ? text.length : nl;
       var from = start;
@@ -221,9 +226,14 @@ abstract final class TextLayout {
   /// The width [data] needs without wrapping (auto-width boxes).
   static double naturalWidth(TextData data) {
     final layout = TextBoxLayout(data, double.infinity);
-    final width = layout.painter.maxIntrinsicWidth;
+    final width = naturalWidthOf(layout);
     layout.dispose();
-    final w = (width + autoWidthSlack).ceilToDouble();
+    return width;
+  }
+
+  /// [naturalWidth] of text laid out without a width limit.
+  static double naturalWidthOf(TextBoxLayout unbounded) {
+    final w = (unbounded.painter.maxIntrinsicWidth + autoWidthSlack).ceilToDouble();
     return w < minWidth ? minWidth : w;
   }
 }

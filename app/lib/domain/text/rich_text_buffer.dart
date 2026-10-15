@@ -29,6 +29,7 @@ class RichTextBuffer {
     color: box.color,
     align: box.align,
     autoWidth: box.autoWidth,
+    flow: box.flow,
   );
 
   SpanStyle charStyle(int offset) => _chars[offset];
@@ -166,17 +167,19 @@ class RichTextBuffer {
   /// among the consecutive numbered items at the same indent.
   int listNumber(int line) => listNumberOf(_paras, line);
 
-  /// [listNumber] over any paragraph list.
-  static int listNumberOf(List<ParaStyle> paras, int line) {
+  /// [listNumber] over any paragraph list. [before] continues the count of
+  /// a list running on from a box before (see `TextFlow.numbers`): items at
+  /// indent level i that are not cut off from the start add `before[i]`.
+  static int listNumberOf(List<ParaStyle> paras, int line, [List<int> before = const []]) {
     final p = paras[line];
     var n = 1;
     for (var l = line - 1; l >= 0; l--) {
       final q = paras[l];
-      if (!q.isList || q.indent < p.indent) break;
+      if (!q.isList || q.indent < p.indent) return n;
       if (q.indent > p.indent) continue;
-      if (q.list != ListKind.number) break;
+      if (q.list != ListKind.number) return n;
       n++;
     }
-    return n;
+    return n + (p.indent < before.length ? before[p.indent] : 0);
   }
 }
