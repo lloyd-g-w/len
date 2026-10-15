@@ -91,7 +91,7 @@ class BlobStore {
     required String mime,
   }) async {
     _checked(sha);
-    if (await has(sha)) return false;
+    if (await _exclusive(() => _keepIfPresent(sha))) return false;
     var size = 0;
     final actual = await hashStream(
       open().map((chunk) {
@@ -101,11 +101,19 @@ class BlobStore {
     );
     if (actual != sha) throw FormatException('Blob $sha is damaged');
     return _exclusive(() async {
-      if (await has(sha)) return false;
+      if (await _keepIfPresent(sha)) return false;
       if (!await backend.contains(sha)) await backend.write(sha, open());
       _record(sha, size, mime, uploaded: false);
       return true;
     });
+  }
+
+  /// Whether blob [sha] is here; if so it counts as stored again (its
+  /// grace period restarts, as with the other `put`s).
+  Future<bool> _keepIfPresent(String sha) async {
+    if (!await has(sha)) return false;
+    _setUnreferencedSince(sha, null);
+    return true;
   }
 
   /// Stores a blob fetched from the sync server after checking its hash.

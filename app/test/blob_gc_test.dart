@@ -340,6 +340,16 @@ void main() {
       expect(refs.keeps(mine, later), isTrue);
     });
 
+    test('a blob a Len file imports again restarts its grace period', () async {
+      final sha = await blob('imported');
+      await s.blobGc.run(); // Marked.
+      clock.advance(const Duration(days: 8));
+      // The import stores it before writing the rows that reference it.
+      final bytes = utf8.encode('imported');
+      expect(await s.blobs.putVerified(sha, () => Stream.value(bytes), mime: 'x/y'), isFalse);
+      expect(await s.blobGc.run(), isEmpty);
+    });
+
     test('runIfDue runs at most once a day', () async {
       final sha = await blob('orphan');
       await s.blobGc.runIfDue(); // Marks.
