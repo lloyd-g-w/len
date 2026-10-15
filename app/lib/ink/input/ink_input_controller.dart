@@ -276,6 +276,7 @@ class InkInputController {
   /// strokes.
   void stylusElsewhere(PointerEvent e) {
     _stylus.note(e);
+    if (_draw.holdsErase) _draw.cancel(); // A palm, as when the pen hovers here.
     if (e is! PointerDownEvent) return;
     _noteStylus();
     if (_draw.pointer != null && !_draw.byStylus) _draw.cancel();

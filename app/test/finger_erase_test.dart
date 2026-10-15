@@ -98,6 +98,14 @@ void main() {
     expect(model.loadedStrokeCount, 1);
   });
 
+  test('nor when the pen hovers over the zoom window\'s box', () {
+    input
+      ..handleDown(_down(2, _touch, const Offset(100, 100), 10))
+      ..stylusElsewhere(const PointerHoverEvent(kind: _stylus, timeStamp: Duration(seconds: 10)))
+      ..handleUp(_up(2, _touch, const Offset(100, 100), 11));
+    expect(model.loadedStrokeCount, 1);
+  });
+
   test('a finger on ink that becomes a pinch erases nothing', () {
     input
       ..handleDown(_down(2, _touch, const Offset(100, 100), 10))
