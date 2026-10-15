@@ -1,26 +1,30 @@
 import 'package:flutter/widgets.dart';
 
+import '../../domain/text/paragraph_direction.dart';
 import '../../domain/text/rich_text_buffer.dart';
 import '../../domain/text/text_data.dart';
 import 'list_marker.dart';
-
 import 'text_box_layout.dart';
-import 'text_wraps.dart';
+import 'text_insert.dart';
+import 'text_plan.dart';
 
 export 'list_marker.dart';
 export 'marker_offsets.dart';
 export 'text_box_layout.dart';
+export 'text_insert.dart';
+export 'text_plan.dart';
 export 'text_wraps.dart';
 
 /// Builds and lays out text-box content. The renderer, the PDF export and
-/// the on-canvas text editor all use the same [spanOf] / [styleFor] /
-/// [alignOf], so text wraps identically while it is edited and once
-/// committed — and, since text boxes only use the bundled fonts, on every
-/// device.
+/// the on-canvas text editor all use the same [TextPlan] and [spanOf] /
+/// [styleFor] / [alignOf], so text wraps identically while it is edited
+/// and once committed — and, since text boxes only use the bundled fonts,
+/// on every device.
 ///
 /// List markers are inline placeholders at the start of their line (one
 /// U+FFFC in the laid-out text, see [MarkerOffsets]); wrapped list items
-/// get hanging indents ([TextWraps]).
+/// get hanging indents and paragraphs running against the box's direction
+/// their own alignment ([TextPlan]).
 abstract final class TextLayout {
   /// Minimum width of a text box, in world units.
   static const double minWidth = 24;
@@ -32,8 +36,10 @@ abstract final class TextLayout {
   /// never wraps their last word.
   static const double autoWidthSlack = 2;
 
-  /// For characters the bundled fonts lack (e.g. CJK, emoji).
-  static const List<String> fallback = [
+  /// For characters the text-box fonts lack: the bundled Arabic and
+  /// Hebrew fonts, then system fonts (e.g. CJK, emoji).
+  static final List<String> fallback = [
+    for (final f in FallbackFont.values) f.family,
     'Noto Sans',
     'Segoe UI',
     'Cantarell',
@@ -76,17 +82,28 @@ abstract final class TextLayout {
     );
   }
 
+  /// The strut of a box: none to speak of (headings keep their height),
+  /// but its fonts' metrics still settle lines mixing fonts (e.g. Arabic
+  /// from the fallback font). The editing field's strut is the same
+  /// (`EditableText` gives it the field's style).
+  static StrutStyle strutOf(TextData box) =>
+      StrutStyle.disabled.inheritFromTextStyle(baseStyle(box));
+
   /// The style of unformatted body text of [box].
   static TextStyle baseStyle(TextData box) => styleFor(box, SpanStyle.plain, ParaStyle.body);
 
+  /// The paragraph alignment of [data] (relative to the box's direction,
+  /// [TextPlan.base]).
   static TextAlign alignOf(TextData data) => switch (data.align) {
-    TextAlignment.left => TextAlign.left,
+    TextAlignment.start => TextAlign.start,
     TextAlignment.center => TextAlign.center,
-    TextAlignment.right => TextAlign.right,
+    TextAlignment.end => TextAlign.end,
   };
 
-  /// The list markers of [data], in line order.
-  static List<ListMarker> markersOf(TextData data) {
+  /// The list markers of [data], in line order; [directions] are its
+  /// paragraphs' ([ParagraphDirection.of]).
+  static List<ListMarker> markersOf(TextData data, [List<TextDirection>? directions]) {
+    final dirs = directions ?? ParagraphDirection.of(data.text);
     final paras = data.paras;
     final chars = data.charStyles();
     final markers = <ListMarker>[];
@@ -105,6 +122,7 @@ abstract final class TextLayout {
             fontSize: sizeOf(data, first, para),
             color: first.color ?? data.color,
             font: first.font ?? data.font,
+            direction: dirs[line],
           ),
         );
       }
@@ -114,50 +132,47 @@ abstract final class TextLayout {
     return markers;
   }
 
-  /// The styled content of [data]: per line its marker (built by
-  /// [marker]) and its runs. At each of [wraps] (model offsets, see
-  /// [TextWraps]) a list item continues on a new line behind a gap as wide
-  /// as its marker (built by [gap]): a hanging indent. [underlined] (model
-  /// offsets) is underlined, e.g. the IME composing range.
+  /// The styled content of [data] laid out by [plan]: per line its runs
+  /// and the plan's inserts: markers (built by [marker]), gaps and padding
+  /// (built by [gap]), breaks and isolates. [underlined] (model offsets)
+  /// is underlined, e.g. the IME composing range.
   static TextSpan spanOf(
-    TextData data, {
+    TextData data,
+    TextPlan plan, {
     required InlineSpan Function(ListMarker marker) marker,
     InlineSpan Function(Size size) gap = gapSpan,
-    List<int> wraps = const [],
     TextRange underlined = TextRange.empty,
   }) {
     final text = data.text;
     final chars = data.charStyles();
     final paras = data.paras;
-    final markers = {for (final m in markersOf(data)) m.line: m};
+    final inserts = plan.inserts;
     final children = <InlineSpan>[];
-    var w = 0;
+    var next = 0;
     var start = 0;
     for (var line = 0; line < paras.length; line++) {
       final para = paras[line];
-      final m = markers[line];
-      if (m != null) children.add(marker(m));
       final nl = text.indexOf('\n', start);
       final end = nl < 0 ? text.length : nl;
       var from = start;
-      while (w < wraps.length && wraps[w] < end) {
-        final at = wraps[w++];
-        if (at <= from || m == null) continue;
-        lineRuns(data, chars, para, from, at, children, underlined: underlined);
-        // The break hides the line's last style (no highlight or lines).
-        final style = styleFor(data, chars[at - 1], para);
-        children
-          ..add(
-            TextSpan(
-              text: '\n',
-              style: style.copyWith(
-                decoration: TextDecoration.none,
-                background: Paint()..color = const Color(0x00000000),
-              ),
-            ),
-          )
-          ..add(gap(m.size));
-        from = at;
+      while (next < inserts.length && inserts[next].at <= end) {
+        final insert = inserts[next++];
+        lineRuns(data, chars, para, from, insert.at, children, underlined: underlined);
+        from = insert.at;
+        // Breaks and isolates take the style around them (so the line
+        // keeps its height) without decorations or highlight.
+        final around = styleFor(
+          data,
+          from > start ? chars[from - 1] : (from < end ? chars[from] : SpanStyle.plain),
+          para,
+        ).copyWith(decoration: TextDecoration.none, background: _clear);
+        for (final piece in insert.pieces) {
+          children.add(switch (piece.kind) {
+            InsertKind.marker => marker(piece.marker!),
+            InsertKind.space => gap(piece.size),
+            _ => TextSpan(text: piece.char, style: around),
+          });
+        }
       }
       lineRuns(data, chars, para, from, end, children, underlined: underlined);
       if (nl >= 0) {
@@ -171,7 +186,9 @@ abstract final class TextLayout {
     return TextSpan(style: baseStyle(data), children: children);
   }
 
-  /// The placeholder of a hanging indent ([size] is the marker's).
+  static final Paint _clear = Paint()..color = const Color(0x00000000);
+
+  /// The placeholder of a gap or padding ([size]).
   static InlineSpan gapSpan(Size size) => WidgetSpan(
     alignment: PlaceholderAlignment.middle,
     child: SizedBox.fromSize(size: size),
@@ -206,8 +223,8 @@ abstract final class TextLayout {
     }
   }
 
-  /// A laid-out [TextBoxLayout] of [data] wrapped at [width]. The caller
-  /// disposes it.
+  /// A laid-out [TextBoxLayout] of [data] in a box [width] wide. The
+  /// caller disposes it.
   static TextBoxLayout layout(TextData data, double width) => TextBoxLayout(data, width);
 
   /// Height of [data] wrapped at [width].

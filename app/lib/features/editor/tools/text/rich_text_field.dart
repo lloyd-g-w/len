@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -14,7 +14,9 @@ import 'rich_text_controller.dart';
 /// Ctrl+V pastes HTML from other apps formatted, Ctrl+Shift+V as plain text;
 /// Ctrl+Shift+7 / 8 / 9 numbered list, bullets, checklist; Ctrl+Alt+1 / 2
 /// headings, Ctrl+Alt+0 body text; Tab / Shift+Tab indent list items;
-/// Ctrl+Enter ticks a checklist item; Esc finishes.
+/// Ctrl+Enter ticks a checklist item; Esc finishes. Left and right arrows
+/// move the caret visually in right-to-left paragraphs too (left is
+/// forwards there).
 class RichTextField extends StatelessWidget {
   const RichTextField({
     super.key,
@@ -42,6 +44,8 @@ class RichTextField extends StatelessWidget {
       const SingleActivator(LogicalKeyboardKey.tab): () => c.indent(1),
       const SingleActivator(LogicalKeyboardKey.tab, shift: true): () => c.indent(-1),
     };
+    // (Browsers move the caret in their own text input.)
+    if (!kIsWeb) map.addAll(_arrows);
     for (final control in [true, false]) {
       SingleActivator key(LogicalKeyboardKey k, {bool shift = false, bool alt = false}) =>
           SingleActivator(k, control: control, meta: !control, shift: shift, alt: alt);
@@ -70,6 +74,35 @@ class RichTextField extends StatelessWidget {
     return map;
   }
 
+  /// Left / right arrows (with Shift extending, with the word modifier by
+  /// words), mirrored where the selection's extent is in a right-to-left
+  /// paragraph: the field itself moves by logical order.
+  Map<ShortcutActivator, VoidCallback> get _arrows {
+    final apple = const {TargetPlatform.macOS, TargetPlatform.iOS}.contains(defaultTargetPlatform);
+    void move({required bool right, required bool shift, required bool word}) {
+      final context = primaryFocus?.context;
+      if (context == null) return;
+      final forward = right == (controller.extentDirection == TextDirection.ltr);
+      final Intent intent = word
+          ? ExtendSelectionToNextWordBoundaryIntent(forward: forward, collapseSelection: !shift)
+          : ExtendSelectionByCharacterIntent(forward: forward, collapseSelection: !shift);
+      Actions.maybeInvoke(context, intent);
+    }
+
+    return {
+      for (final right in [false, true])
+        for (final shift in [false, true])
+          for (final word in [false, true])
+            SingleActivator(
+              right ? LogicalKeyboardKey.arrowRight : LogicalKeyboardKey.arrowLeft,
+              shift: shift,
+              control: word && !apple,
+              alt: word && apple,
+            ): () =>
+                move(right: right, shift: shift, word: word),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = controller.data;
@@ -93,9 +126,10 @@ class RichTextField extends StatelessWidget {
             controller: controller,
             focusNode: focusNode,
             maxLines: null,
-            strutStyle: StrutStyle.disabled,
+            strutStyle: TextLayout.strutOf(data),
             style: TextLayout.baseStyle(data),
             textAlign: TextLayout.alignOf(data),
+            textDirection: controller.plan.base,
             cursorColor: cursorColor,
             cursorWidth: cursorWidth,
             contextMenuBuilder: (context, state) => AdaptiveTextSelectionToolbar.buttonItems(

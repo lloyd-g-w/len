@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/clock.dart';
 import '../../domain/surface_element.dart';
+import '../../domain/text/paragraph_direction.dart';
 import '../../domain/text/text_data.dart';
 import '../render/content_painter.dart';
 import '../surface_model.dart';
@@ -159,7 +160,10 @@ class TextEditSession extends ChangeNotifier {
       }
     }
     final height = TextLayout.heightOf(data, width);
-    _current = element.copyWith(rect: Rect.fromLTWH(r.left, r.top, width, height));
+    // A right-to-left box grows to the left: its start edge stays put.
+    final rtl = ParagraphDirection.baseOf(data.text) == TextDirection.rtl;
+    final left = rtl && width != r.width ? r.right - width : r.left;
+    _current = element.copyWith(rect: Rect.fromLTWH(left, r.top, width, height));
     notifyListeners();
   }
 

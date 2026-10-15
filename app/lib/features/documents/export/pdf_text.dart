@@ -9,7 +9,9 @@ import 'package:pdf/pdf.dart';
 import '../../../domain/surface_element.dart';
 import '../../../domain/text/text_data.dart';
 import '../../../ink/elements/text_layout.dart';
+import 'arabic_forms.dart';
 
+part 'pdf_glyph_placer.dart';
 part 'pdf_text_drawing.dart';
 
 /// Loads a bundled font file (an asset path, see [TextFont.asset]).
@@ -21,11 +23,16 @@ typedef FontAssetLoader = Future<ByteData> Function(String asset);
 /// Glyph positions come from the app's own layout ([TextLayout]): every
 /// word is placed where the canvas draws it, so wrapping, alignment, mixed
 /// sizes and list markers match the screen; only the spacing *inside* a
-/// word comes from the font's advances (no kerning). Highlights,
-/// underlines, strikethroughs, bullets and checkboxes are vectors. A box
-/// with characters the bundled fonts lack (e.g. CJK, emoji, drawn on screen
-/// with system fallback fonts) is left to the caller ([draw] returns
-/// false), which embeds it as an image instead.
+/// left-to-right word comes from the font's advances (no kerning).
+/// Right-to-left words (Hebrew, Arabic) and words with characters from the
+/// fallback fonts are placed glyph by glyph where the layout put each one,
+/// mirrored brackets included; Arabic is written in its contextual
+/// presentation forms ([ArabicForms]), its marks centred over their letter
+/// (the PDF has no OpenType shaping, so mark positions are approximate).
+/// Highlights, underlines, strikethroughs, bullets and checkboxes are
+/// vectors. A box with characters the bundled fonts lack (e.g. CJK, emoji,
+/// drawn on screen with system fallback fonts) is left to the caller
+/// ([draw] returns false), which embeds it as an image instead.
 class PdfTextWriter {
   PdfTextWriter(this.doc, {FontAssetLoader? load}) : _load = load ?? rootBundle.load;
 
@@ -89,10 +96,9 @@ class PdfTextWriter {
   }
 
   /// The words of [data] with their fonts and laid-out positions; null if
-  /// a character is missing from its font.
+  /// a character is missing from the bundled fonts.
   Future<List<_Run>?> _runs(TextData data, TextBoxLayout layout) async {
-    final painter = layout.painter;
-    final lines = painter.computeLineMetrics();
+    final lines = layout.painter.computeLineMetrics();
     final chars = data.charStyles();
     final paras = data.paras;
     final text = data.text;
@@ -109,23 +115,18 @@ class PdfTextWriter {
           j++;
         }
         final span = chars[i];
-        final style = TextLayout.styleFor(data, span, para);
-        final font = span.font ?? data.font;
         final bold = span.bold || para.heading > 0;
-        final pdfFont = await this.font(font, bold: bold, italic: span.italic);
-        final glyphs = pdfFont.font.charToGlyphIndexMap;
-        if (text.substring(i, j).runes.any((r) => !glyphs.containsKey(r) && r > 0x20)) {
-          return null;
-        }
-        final run = _Run(
-          style: style,
-          font: pdfFont,
-          slant: span.italic && !font.hasItalic,
-          boxes: _boxes(layout, i, j),
+        final run = _Run(style: TextLayout.styleFor(data, span, para), boxes: _boxes(layout, i, j));
+        final fonts = _Fonts(
+          await font(span.font ?? data.font, bold: bold, italic: span.italic),
+          [for (final f in FallbackFont.values) await fallback(f, bold: bold)],
+          italic: span.italic,
+          hasItalic: (span.font ?? data.font).hasItalic,
         );
         // Each word separately, at its laid-out position.
         for (final m in RegExp(r'\S+').allMatches(text.substring(i, j))) {
-          _place(run, layout, lines, text, i + m.start, i + m.end);
+          final placed = _GlyphPlacer(layout, lines, text, run, fonts).word(i + m.start, i + m.end);
+          if (!placed) return null;
         }
         runs.add(run);
         i = j;
@@ -135,55 +136,21 @@ class PdfTextWriter {
     return runs;
   }
 
+  /// The embedded face of a bundled [FallbackFont] (Arabic, Hebrew),
+  /// loaded once per document.
+  Future<PdfTtfFont> fallback(FallbackFont font, {required bool bold}) {
+    final asset = font.asset(bold: bold);
+    return _fonts[asset] ??= _load(asset).then((bytes) => PdfTtfFont(doc, bytes));
+  }
+
   /// Laid-out boxes of the text [start, end) (model offsets, one line of
-  /// the box's text), without the breaks and gaps of hanging indents.
-  static List<Rect> _boxes(TextBoxLayout layout, int start, int end) {
-    final cuts = [start, ...layout.wraps.where((w) => w > start && w < end), end];
-    return [
-      for (var k = 0; k + 1 < cuts.length; k++)
-        for (final b in layout.painter.getBoxesForSelection(
-          TextSelection(
-            baseOffset: layout.offsets.toDisplay(cuts[k]),
-            extentOffset: layout.offsets.toDisplay(cuts[k]) + cuts[k + 1] - cuts[k],
-          ),
-          boxHeightStyle: ui.BoxHeightStyle.includeLineSpacingMiddle,
-        ))
-          b.toRect(),
-    ];
-  }
+  /// the box's text), without what the layout inserts (breaks, gaps).
+  static List<Rect> _boxes(TextBoxLayout layout, int start, int end) => [
+    for (final b in _textBoxes(layout, start, end)) b.toRect(),
+  ];
 
-  /// Adds the word [start, end) to [run]: whole, or character by character
-  /// when the layout broke it across lines.
-  static void _place(
-    _Run run,
-    TextBoxLayout layout,
-    List<ui.LineMetrics> lines,
-    String text,
-    int start,
-    int end,
-  ) {
-    final boxes = _boxes(layout, start, end);
-    if (boxes.isEmpty) return;
-    if (boxes.length == 1) {
-      run.words.add((
-        text.substring(start, end),
-        boxes.single.left,
-        _baseline(lines, boxes.single),
-      ));
-      return;
-    }
-    var i = start;
-    while (i < end) {
-      final n = i + 1 < end && _isLead(text.codeUnitAt(i)) ? 2 : 1;
-      final b = _boxes(layout, i, i + n);
-      if (b.isNotEmpty) {
-        run.words.add((text.substring(i, i + n), b.first.left, _baseline(lines, b.first)));
-      }
-      i += n;
-    }
-  }
-
-  static bool _isLead(int unit) => unit >= 0xD800 && unit <= 0xDBFF;
+  static List<TextBox> _textBoxes(TextBoxLayout layout, int start, int end) =>
+      layout.boxesOf(start, end, boxHeightStyle: ui.BoxHeightStyle.includeLineSpacingMiddle);
 
   /// The baseline (from the top) of the line [box] is on.
   static double _baseline(List<ui.LineMetrics> lines, Rect box) {
@@ -199,17 +166,14 @@ class PdfTextWriter {
 
 /// One stretch of equally formatted text on one line.
 class _Run {
-  _Run({required this.style, required this.font, required this.slant, required this.boxes});
+  _Run({required this.style, required this.boxes});
 
   final TextStyle style;
-  final PdfTtfFont font;
-
-  /// Synthetic italic.
-  final bool slant;
 
   /// Laid-out boxes of the whole run (highlight, decorations).
   final List<Rect> boxes;
 
-  /// Words with their left edge and baseline (box coordinates).
-  final List<(String, double, double)> words = [];
+  /// Words (or single glyphs) with their face, left edge and baseline (box
+  /// coordinates), and whether they are slanted (synthetic italic).
+  final List<({String text, PdfTtfFont font, double x, double baseline, bool slant})> words = [];
 }

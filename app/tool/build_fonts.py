@@ -8,7 +8,10 @@ glyphs), so the app stays small and every platform renders - and wraps -
 text with the same glyphs:
 - the UI face, Sofia Sans (Regular, Medium, SemiBold, Bold; docs/DESIGN.md);
 - the text-box fonts, Inter, Lora, JetBrains Mono and Caveat (Regular /
-  Bold / Italic), also embedded in PDF export.
+  Bold / Italic), also embedded in PDF export;
+- their fallbacks for right-to-left scripts, Noto Sans Arabic and Noto Sans
+  Hebrew (Regular / Bold; the Arabic and Hebrew blocks with their
+  presentation forms, which the PDF export draws shaped Arabic with).
 
 Usage (from the repo root; optionally only the named families, e.g. Caveat):
   nix shell --impure --expr 'with import (builtins.getFlake "nixpkgs") {};
@@ -30,8 +33,15 @@ OUT = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts")
 TEXT_WEIGHTS = {"Regular": 400, "Bold": 700}
 UI_WEIGHTS = {"Regular": 400, "Medium": 500, "SemiBold": 600, "Bold": 700}
 
+ARABIC = (
+    "U+0600-06FF,U+0750-077F,U+0870-08FF,U+FB50-FDFF,U+FE70-FEFF,U+200C-200F,U+2066-2069,"
+    "U+0020,U+00A0,U+25CC"
+)
+HEBREW = "U+0590-05FF,U+FB1D-FB4F,U+200C-200F,U+2066-2069,U+20AA,U+0020,U+00A0,U+25CC"
+
 # family dir in google/fonts, output family file prefix, sources, extra axes
-# (and the weights to cut, if not TEXT_WEIGHTS)
+# (and the weights to cut, if not TEXT_WEIGHTS; the characters to keep, if
+# not UNICODES)
 FAMILIES = [
     ("sofiasans", "SofiaSans", {"": "SofiaSans[wght].ttf"}, {}, UI_WEIGHTS),
     ("inter", "Inter", {"": "Inter[opsz,wght].ttf", "Italic": "Inter-Italic[opsz,wght].ttf"},
@@ -40,6 +50,10 @@ FAMILIES = [
     ("jetbrainsmono", "JetBrainsMono",
      {"": "JetBrainsMono[wght].ttf", "Italic": "JetBrainsMono-Italic[wght].ttf"}, {}),
     ("caveat", "Caveat", {"": "Caveat[wght].ttf"}, {}),
+    ("notosansarabic", "NotoSansArabic", {"": "NotoSansArabic[wdth,wght].ttf"}, {"wdth": 100},
+     TEXT_WEIGHTS, ARABIC),
+    ("notosanshebrew", "NotoSansHebrew", {"": "NotoSansHebrew[wdth,wght].ttf"}, {"wdth": 100},
+     TEXT_WEIGHTS, HEBREW),
 ]
 
 UNICODES = (
@@ -57,8 +71,9 @@ def fetch(path):
 def main():
     os.makedirs(OUT, exist_ok=True)
     only = set(sys.argv[1:])
-    for folder, prefix, sources, axes, *weights in FAMILIES:
-        weights = weights[0] if weights else TEXT_WEIGHTS
+    for folder, prefix, sources, axes, *rest in FAMILIES:
+        weights = rest[0] if rest else TEXT_WEIGHTS
+        unicodes = rest[1] if len(rest) > 1 else UNICODES
         if only and prefix not in only:
             continue
         with open(os.path.join(OUT, f"{prefix}-OFL.txt"), "wb") as f:
@@ -80,7 +95,7 @@ def main():
                 # case-sensitive forms, which the default set drops.
                 options.layout_features += ["tnum", "case"]
                 sub = subset.Subsetter(options)
-                sub.populate(unicodes=subset.parse_unicodes(UNICODES))
+                sub.populate(unicodes=subset.parse_unicodes(unicodes))
                 sub.subset(static)
                 name = weight_name if not style else (
                     style if weight_name == "Regular" else weight_name + style)

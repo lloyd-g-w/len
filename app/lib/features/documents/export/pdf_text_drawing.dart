@@ -22,15 +22,15 @@ extension _PdfTextDrawing on PdfTextWriter {
     if (r.words.isEmpty) return;
     _fill(g, r.style.color!);
     final size = r.style.fontSize!;
-    for (final (word, x, baseline) in r.words) {
+    for (final w in r.words) {
       final glyph = Matrix4.identity()
-        ..translateByDouble(x, baseline, 0, 1)
+        ..translateByDouble(w.x, w.baseline, 0, 1)
         ..scaleByDouble(1, -1, 1, 1);
-      if (r.slant) glyph.setEntry(0, 1, PdfTextWriter._slant);
+      if (w.slant) glyph.setEntry(0, 1, PdfTextWriter._slant);
       g
         ..saveContext()
         ..setTransform(glyph)
-        ..drawString(r.font, size, word, 0, 0)
+        ..drawString(w.font, size, w.text, 0, 0)
         ..restoreContext();
     }
   }
@@ -41,7 +41,7 @@ extension _PdfTextDrawing on PdfTextWriter {
     final size = r.style.fontSize!;
     final thickness = math.max(size * 0.05, 0.5);
     _fill(g, r.style.decorationColor ?? r.style.color!);
-    final baselines = {for (final w in r.words) w.$3};
+    final baselines = {for (final w in r.words) w.baseline};
     for (final b in r.boxes) {
       final baseline = baselines.firstWhere(
         (y) => y > b.top && y <= b.bottom,
@@ -84,9 +84,14 @@ extension _PdfTextDrawing on PdfTextWriter {
           ..translateByDouble(origin.dx, origin.dy + baseline, 0, 1)
           ..scaleByDouble(1, -1, 1, 1),
       )
-      ..drawString(font, m.fontSize, label, 0, 0)
+      ..drawString(font, m.fontSize, _visual(m, label), 0, 0)
       ..restoreContext();
   }
+
+  /// [label] ("12.") in visual order: its full stop goes left of the
+  /// number in a right-to-left paragraph (".12"), as the canvas shows it.
+  static String _visual(ListMarker m, String label) =>
+      m.direction == TextDirection.rtl ? '.${label.substring(0, label.length - 1)}' : label;
 
   void _shapes(PdfGraphics g, ListMarker m, List<MarkerShape> shapes) {
     final ink = PdfColor.fromInt(m.color | 0xFF000000);

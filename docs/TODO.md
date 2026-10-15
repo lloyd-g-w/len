@@ -81,7 +81,7 @@ From the reports; the owner picks. Status as above.
   Go to page's strip show a PDF page's own number quietly where it differs ("26 · Slide 23",
   "PDF p. 23" for portrait PDFs), and Go to page takes "s23" / "slide 23" (several PDFs: the
   current page's wins, else it asks which).
-- ⬜ **Typed notes that flow across pages** (UX_AUDIT round 19): a text box on a page grows
+- 🚧 (feat/text-flow) **Typed notes that flow across pages** (UX_AUDIT round 19): a text box on a page grows
   past the page's bottom and runs off it (GoodNotes stops boxes at the page; Notability's
   typed notes flow onto the next page). Proposal: a box reaching the bottom margin continues
   in a linked box at the top of the next page (added if needed), laid out as one text
@@ -89,13 +89,6 @@ From the reports; the owner picks. Status as above.
   session, undo, sync of linked boxes, PDF export. Typing cost meanwhile: a 26 000-character
   box lays out in ≈ 5 ms, three layouts per keystroke (session width, height, field) on
   the test machine — fine, but one cached layout would cut it.
-- 🚧 (feat/rtl-text) **Right-to-left text boxes** (UX_AUDIT round 19): boxes are laid out LTR everywhere
-  (`TextBoxLayout`, `TextWraps`, the field, PDF), so Arabic / Hebrew runs reorder but sit
-  left-aligned with punctuation and list markers on the wrong side. Proposal: a box's
-  direction from its first strong character, alignment stored as start / centre / end
-  (mirrored icons), markers and hanging indents follow (placeholders are logical already),
-  PDF glyph placement checked with an RTL font (the bundled fonts lack Arabic / Hebrew:
-  bundling Noto Sans Arabic / Hebrew subsets is part of it).
 - 🚧 (feat/rich-copy) **Rich copy to other apps** (UX_AUDIT round 19): Copy in a box puts plain text on the
   clipboard (formatting is kept only for pasting back into Len). Write HTML too (the
   inverse of `textFromHtml`: b / i / u / s, colours, h1 / h2, ul / ol / checkboxes) via the
@@ -103,6 +96,15 @@ From the reports; the owner picks. Status as above.
   `text/html`, web `ClipboardItem`), so a pasted note keeps its headings and lists in Docs,
   mail or Notion.
 
+- ✅ **Right-to-left text boxes** (UX_AUDIT round 19): each paragraph runs in the direction of
+  its first strong character (bidi P2 / P3) and aligns to its own start / centre / end (`align`
+  is `start` / `center` / `end` now, migration 14, strict `TextRecord` parsing); the box lays out
+  in its first paragraph's direction and paragraphs against it are isolated and padded into place
+  (`TextPlan`), so canvas, editing field and PDF agree. Markers, number labels (".1") and hanging
+  indents sit on the start side, the alignment icon mirrors, arrows move visually, right-to-left
+  auto-width boxes grow to the left. Noto Sans Arabic / Hebrew subsets bundled as fallbacks of the
+  box fonts (web and PDF included); PDF export places RTL glyphs where the layout puts them and
+  writes Arabic in contextual presentation forms (marks approximately placed: no GPOS).
 - ✅ **Storage overview** (UX_AUDIT R16-7): Settings → Storage on every platform: the space
   Len uses here by kind (handwriting and text, PDFs, images, recordings, cached previews),
   the largest notebooks (tap to open, or Recordings to open at its recordings), "Free up

@@ -8,3 +8,11 @@
 `pasteboard` also has `write` (a PNG and / or text as one clipboard entry, for the lasso's copy to other apps: GTK targets in `linux/pasteboard_plugin.cc`, PNG + DIB + text in `windows/pasteboard_plugin.cpp`, a `ClipData` with a `PasteboardFileProvider` URI on Android — declared in the plugin's manifest with `res/xml/pasteboard_paths.xml` —, a `ClipboardItem` on the web), and reads HTML on Linux (`html` in `linux/pasteboard_plugin.cc`, decoded in `lib/src/pasteboard_platform_io.dart`; upstream only supports Windows, Android and the web) for rich paste into text boxes, and `peek` (the kinds of content on the clipboard — `image`, `text`, `html`, `files` — without reading it, so Android 12+ shows no "pasted" notice: `hasPrimaryClip` + `primaryClipDescription` on Android, `gtk_clipboard_request_targets` on Linux, `IsClipboardFormatAvailable` on Windows, on the web a read of the item types only when `permissions.query('clipboard-read')` is granted; null elsewhere) for the canvas menu's Paste here.
 
 Otherwise only `android/build.gradle` differs from upstream (and `example/`, `test/` were removed). Upstream's Android `writeImage` still expects an app-declared `${packageName}.provider`, which Len has not: use `write`.
+
+## Bundled fonts
+
+`assets/fonts/` holds subsets of open fonts, each with its licence file (`*-OFL.txt`, SIL Open Font
+License 1.1) and registered in the app's licence page (`core/font_licenses.dart`); all are built by
+`tool/build_fonts.py` from the google/fonts repository: Sofia Sans (UI), Inter, Lora, JetBrains Mono
+and Caveat (text boxes), and Noto Sans Arabic and Noto Sans Hebrew (the text-box fonts' fallbacks
+for right-to-left scripts, also embedded in exported PDFs).
