@@ -51,6 +51,9 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
   @override
   Rect? contentBounds(String surfaceId) => _queries.contentBounds(surfaceId);
 
+  /// Whether [surfaceId] has any live stroke or element (a quick query).
+  bool hasContent(String surfaceId) => _queries.hasContent(surfaceId);
+
   /// Inserts new strokes, or revives previously deleted ones (redo).
   void save(Iterable<Stroke> strokes) {
     final now = clock.nowMs();

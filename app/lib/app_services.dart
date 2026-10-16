@@ -93,7 +93,8 @@ class AppServices {
   /// recorder and player (tests use fakes). [incomingFiles] are files
   /// handed to the app from outside, [incomingLinks] links it was opened
   /// with (`platform/incoming_files`). [camera] replaces the system camera
-  /// (tests). The sync
+  /// (tests), [strokeReader] the one lazy loading reads with (tests: one
+  /// answering later, as the background one does). The sync
   /// token goes to [secureStore] (`platformSecureStore`); without one (a
   /// browser, tests) it is kept in the database.
   factory AppServices.create(
@@ -110,6 +111,7 @@ class AppServices {
     RasterStore? rasterStore,
     SecureStore? secureStore,
     CameraCapture camera = const SystemCameraCapture(),
+    StrokeReader? strokeReader,
   }) {
     final settings = SettingsRepository(database);
     final tokens = SyncTokenStore(settings, secureStore, clock: clock);
@@ -159,7 +161,7 @@ class AppServices {
       folders: folders,
       pages: pages,
       strokes: strokes,
-      strokeReader: openStrokeReader(database.path, fallback: strokes),
+      strokeReader: strokeReader ?? openStrokeReader(database.path, fallback: strokes),
       blobs: blobs,
       elements: elements,
       sync: syncApiFactory == null

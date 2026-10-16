@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -93,9 +91,9 @@ void main() {
     var touch = true;
     late int reads;
 
-    FingerReading reading({FutureOr<bool> Function()? hasContent}) => FingerReading(
+    FingerReading reading() => FingerReading(
       tools: tools,
-      hasContent: hasContent ?? () => content,
+      hasContent: () => content,
       busy: () => busy,
       touchFirst: () => touch,
     )..onRead = () => reads++;
@@ -122,27 +120,6 @@ void main() {
       expect(tools.reading, isFalse);
       expect(reads, 1);
       empty.dispose();
-    });
-
-    test('content found later: reading, unless a contact drew meanwhile', () {
-      fakeAsync((async) {
-        final answer = Completer<bool>();
-        final r = reading(hasContent: () => answer.future)..open();
-        expect(tools.reading, isFalse);
-        answer.complete(true);
-        async.flushMicrotasks();
-        expect(tools.reading, isTrue);
-        r.dispose();
-
-        tools.reading = false;
-        final late = Completer<bool>();
-        final drew = reading(hasContent: () => late.future)..open();
-        drew.wrote(); // A finger started writing before the answer.
-        late.complete(true);
-        async.flushMicrotasks();
-        expect(tools.reading, isFalse);
-        drew.dispose();
-      });
     });
 
     test('back to reading after two minutes without writing; writing starts it over', () {

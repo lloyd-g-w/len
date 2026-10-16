@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/stroke_reader.dart';
+import 'package:len/data/stroke_repository.dart';
 import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
@@ -28,12 +30,18 @@ Future<(AppServices, Notebook, Notebook)> pumpWorkspace(
   Size size = const Size(1440, 900),
   NotebookKind kind = NotebookKind.paged,
   AudioBackends? audio,
+  StrokeReader Function(StrokeRepository strokes)? reader,
 }) async {
   tester.view
     ..physicalSize = size
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  final s = AppServices.create(AppDatabase.inMemory(), audio: audio);
+  final db = AppDatabase.inMemory();
+  final s = AppServices.create(
+    db,
+    audio: audio,
+    strokeReader: reader?.call(StrokeRepository(db, deviceId: 'reader')),
+  );
   addTearDown(s.dispose);
   Notebook make(String title) =>
       s.notebooks.create(title: title, kind: kind, paper: PaperStyle.collegeRuled, coverColor: 0);

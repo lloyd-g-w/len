@@ -163,6 +163,15 @@ class StrokeQueries implements StrokeReader {
     return density;
   }
 
+  /// Whether [surfaceId] has any live stroke or element.
+  bool hasContent(String surfaceId) =>
+      _db.select(
+        'SELECT EXISTS (SELECT 1 FROM strokes WHERE surface_id = ?1 AND deleted = 0) '
+        'OR EXISTS (SELECT 1 FROM elements WHERE surface_id = ?1 AND deleted = 0) AS found',
+        [surfaceId],
+      ).first['found'] ==
+      1;
+
   /// Bounds of all live strokes and elements.
   @override
   Rect? contentBounds(String surfaceId) {

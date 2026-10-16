@@ -63,24 +63,21 @@ extension _EditorSessionReading on EditorSession {
   /// Whether the page in view (or the canvas) has anything to read: a PDF
   /// or scanned background, or ink, text boxes or images (loaded, or
   /// stored).
-  FutureOr<bool> _hasContent() {
+  bool _hasContent() {
     final doc = this.doc;
-    final SurfaceModel model;
+    final String surfaceId;
     if (doc != null) {
       final page = doc.pages[doc.currentPage];
       if (page.background != null) return true;
-      model = doc.activeModel;
-      if (model.surfaceId != page.id) return _stored(page.id);
+      surfaceId = page.id;
     } else {
-      model = canvas!;
+      surfaceId = canvas!.surfaceId;
     }
-    if (model.loadedStrokeCount > 0 || model.loadedElementCount > 0) return true;
-    return _stored(model.surfaceId);
-  }
-
-  FutureOr<bool> _stored(String surfaceId) {
-    final bounds = services.strokeReader.contentBounds(surfaceId);
-    return bounds is Future<Rect?> ? bounds.then((b) => b != null) : bounds != null;
+    final model = doc?.activeModel ?? canvas!;
+    final loaded =
+        model.surfaceId == surfaceId &&
+        (model.loadedStrokeCount > 0 || model.loadedElementCount > 0);
+    return loaded || services.strokes.hasContent(surfaceId);
   }
 
   /// Whether something is under way that reading would interrupt: a stroke,
