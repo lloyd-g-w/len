@@ -53,6 +53,9 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
   final writes = StorageWrites();
   tabs?.onHandOver = () => _handOver(writes);
   watchPageLifecycle(writes);
+  // Asked for alongside the database (Android answers through the
+  // platform thread, busy while the app starts).
+  final rasterStore = openRasterStore(format: StoredRasters.format);
   try {
     // Natively: files in the app-support directory. Web: IndexedDB.
     dir = await appDataDirectory();
@@ -71,7 +74,7 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
       outlines: createOutlinePreparer(),
       writes: writes,
       // Canvases far zoomed out reopen from stored rasters.
-      rasterStore: await openRasterStore(format: StoredRasters.format),
+      rasterStore: await rasterStore,
       // The sync token: Android Keystore, Secret Service, DPAPI.
       secureStore: platformSecureStore(),
     );
