@@ -82,6 +82,12 @@ From the reports; the owner picks. Status as above.
   resizing or reshaping the shape moves the end (one undo step with it). None of GoodNotes,
   Notability or Samsung Notes has connectors; whiteboard apps do. Large: geometry format,
   `TransformItems`, selection plans across pages, sync, undo.
+- ⬜ **Print** (UX_AUDIT R22-8): Print… beside Export… (⋯, Ctrl+P) hands the export's PDF
+  (same sheet: pages, templates) to the system's print dialog — Android's print framework,
+  the desktop's dialog, the browser's. GoodNotes and Notability print directly; today it is
+  export, then print from a reader. Large: a package with native parts on every platform
+  (`printing` ships its own PDFium on desktops beside `pdfium_dart`'s), or a small
+  `PrintManager` plugin on Android plus `xdg-open` / the browser's print of a blob.
 - ⬜ **Eyedropper** (UX_AUDIT R21-7): "Pick from page" in the custom colour picker samples
   the canvas under the next tap (Samsung Notes has one). Medium–large: a modal canvas mode
   across the picker's popover and sheet; recent colours cover most re-use meanwhile.
