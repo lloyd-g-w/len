@@ -3,6 +3,45 @@ part of 'editor_screen.dart';
 /// The editor's shortcuts, keys and layout: the surface, its layers and
 /// the chrome.
 extension _EditorLayout on _EditorScreenState {
+  /// The editor: shortcuts and keys around the surface, its layers and
+  /// the chrome.
+  Widget _buildScreen(BuildContext context) {
+    final open = _services.openNotebooks;
+    final tabs = open.contains(_notebook.id) && !widget.secondPane ? open : null;
+    // The second pane's bar lines up with the first's tab strip.
+    final primaryWidth = widget.secondPane ? SplitView.primaryWidthOf(context) : null;
+    final band =
+        primaryWidth != null &&
+        EditorTopBar.showsStrip(Size(primaryWidth, MediaQuery.sizeOf(context).height), open);
+    // Back (e.g. Android's) leaves focus mode before leaving the editor;
+    // a box being typed in finishes first (its own handler, after this one).
+    return PopScope(
+      canPop: !_focus,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_session.content.text.isEditing) _setFocus(false);
+      },
+      child: Scaffold(
+        body: CallbackShortcuts(
+          bindings: _shortcuts(tabs),
+          child: Focus(
+            focusNode: _focusNode,
+            autofocus: true,
+            onKeyEvent: _onKey,
+            // Where the toolbar docks depends on its width (the slot counts);
+            // other tool changes never rebuild the editor (the toolbar's
+            // parts listen to the tools themselves).
+            child: ListenableBuilder(
+              listenable: _toolbar,
+              builder: (context, _) => LayoutBuilder(
+                builder: (context, constraints) => _buildArea(context, constraints, tabs, band),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// The editor's keyboard shortcuts (with [tabs], the tab strip's).
   Map<ShortcutActivator, VoidCallback> _shortcuts(OpenNotebooks? tabs) => editorScreenShortcuts(
     _session,
