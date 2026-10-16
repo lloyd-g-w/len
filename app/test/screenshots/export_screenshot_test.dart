@@ -49,6 +49,24 @@ void main() {
     }
   }
 
+  // Print… (R22-8): the same sheet, PDF only, with a Print button; on
+  // Linux a line says the PDF opens in the viewer.
+  for (final (name, size, dpr) in [
+    ('tablet', const Size(1280, 800), 1.0),
+    ('phone', const Size(390, 844), 2.0),
+  ]) {
+    testWidgets('print sheet $name', (tester) async {
+      await pumpEditor(tester, size: size, dpr: dpr, mode: ThemeMode.light, phoneInsets: dpr > 1);
+      await tester.tap(find.byTooltip('More options'));
+      await settle(tester);
+      await tester.tap(find.text('Print…'));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('print-button')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await shoot(tester, 'print_$name');
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+  }
+
   testWidgets('export sheet with PDF backgrounds, narrow phone, large text', (tester) async {
     setWindow(tester, const Size(320, 640), dpr: 2);
     final services = seededServices();
