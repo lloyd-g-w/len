@@ -835,7 +835,9 @@ pages than the notes use is refused. Both re-read the page after the file
 picker (a sync may have swapped or deleted its PDF meanwhile). A new PDF
 page of another shape reshapes its page (`NotebookPage.sizeFor`: width
 kept, height from the PDF page's aspect ratio, so ink stays put, anchored
-top left), in the same step; the confirmation says "Pages change shape to
+top left), in the same step, and the text boxes on pages changing shape flow again
+(`TextFlowChains.reflowOn`: a part past a shorter page's new bottom goes on to the next
+page); the confirmation says "Pages change shape to
 match" and, when a page getting shorter has notes past its new bottom edge, that they will be hidden (`pdfReshapeNote`). The overview's cells take the shape of
 most of the notebook's pages (`commonPageAspect`), so slide decks get
 landscape cells.

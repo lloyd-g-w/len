@@ -287,6 +287,30 @@ class TextFlowChains {
     return {for (final e in edits.entries) e.key: InkEdit(removedElements: e.value)};
   }
 
+  /// Flows again every chain with a box on [pageIds] (pages that changed
+  /// shape: a part may now stick out past a page's bottom, or room opened
+  /// up), committing the edits. Call within [TextFlowPages.batch].
+  void reflowOn(Iterable<String> pageIds) {
+    final heads = <String, String>{}; // Head id → its page.
+    for (final pageId in pageIds) {
+      for (final e in pages.elementsOn(pageId)) {
+        if (e.knownType != ElementType.text) continue;
+        final head = flowOf(e) == null ? (pageId: pageId, box: e) : headOf(pageId, e);
+        if (head != null) heads[head.box.id] ??= head.pageId;
+      }
+    }
+    for (final MapEntry(key: id, value: pageId) in heads.entries) {
+      final head = pages.elementsOn(pageId).where((e) => e.id == id).firstOrNull;
+      if (head == null || !canFlow(pageId, head)) continue;
+      final rest = continuationsOf(pageId, id);
+      final r = reflow(pageId, head, wholeOf(head, rest), rest);
+      if (!_same(head, r.head)) {
+        pages.modelOf(pageId).commit(InkEdit(removedElements: [head], addedElements: [r.head]));
+      }
+      commit(r.edits);
+    }
+  }
+
   /// Commits each page's edit of [edits] to its model.
   void commit(Map<String, InkEdit> edits) {
     for (final e in edits.entries) {
