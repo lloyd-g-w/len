@@ -59,7 +59,10 @@ void main() {
     expect(unbound(bound, group('Tools')), isEmpty);
     expect(unbound(bound, group('Selection')), isEmpty);
     // The overview binds its own (page_overview_test).
-    expect(unbound(bound, group('Pages'), except: {'Move page in the overview'}), isEmpty);
+    expect(
+      unbound(bound, group('Pages'), except: {'Move page in the overview or beside the page'}),
+      isEmpty,
+    );
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyF);

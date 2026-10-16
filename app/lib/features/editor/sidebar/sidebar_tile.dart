@@ -71,10 +71,14 @@ class _SidebarTileState extends State<SidebarTile> {
   @override
   Widget build(BuildContext context) {
     final w = widget;
+    // Its own layer: the number beside it changing (the page on screen)
+    // repaints no thumbnail.
     final thumb = SizedBox(
       height: w.thumbHeight,
-      child: Center(
-        child: _Thumb(tile: w, hovered: _hovered),
+      child: RepaintBoundary(
+        child: Center(
+          child: _Thumb(tile: w, hovered: _hovered),
+        ),
       ),
     );
     return _IsCurrent(
