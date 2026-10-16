@@ -1,7 +1,7 @@
 part of 'document_commands.dart';
 
 /// Pages in and out of a paged notebook: PDFs (inserting, relinking),
-/// scans and exports.
+/// scans, exports and prints.
 mixin _DocumentFiles {
   Notebook Function() get notebook;
   DocumentController get doc;
@@ -121,4 +121,9 @@ mixin _DocumentFiles {
     currentPage: doc.currentPage,
     initialRange: range,
   );
+
+  /// Opens the print sheet (the export sheet with a Print button), then
+  /// prints (UX_AUDIT R22-8).
+  Future<void> print(BuildContext context) =>
+      printFlow(context, notebook: notebook(), pages: doc.pages, currentPage: doc.currentPage);
 }

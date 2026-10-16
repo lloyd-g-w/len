@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../sync/sync_controller.dart';
+import 'announce.dart';
 import 'app_theme.dart';
 
 /// The one phrase for notes that aren't synced (R8-9): the sidebar's
@@ -80,6 +81,18 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
   SyncController get sync => widget.sync;
   VoidCallback get onOpenSettings => widget.onOpenSettings;
 
+  /// Syncs, then tells screen readers how it went (the icon only turns).
+  Future<void> _syncNow(BuildContext context) async {
+    announce(context, 'Syncing');
+    await sync.syncNow();
+    if (!context.mounted) return;
+    announce(context, switch (sync.state) {
+      SyncState.error => 'Sync failed: ${sync.lastError}',
+      SyncState.syncing => 'Syncing',
+      _ => 'Synced',
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -107,7 +120,7 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
         final onPressed = switch (sync.state) {
           SyncState.disabled || SyncState.error => onOpenSettings,
           SyncState.syncing => null,
-          SyncState.idle => () => unawaited(sync.syncNow()),
+          SyncState.idle => () => unawaited(_syncNow(context)),
         };
         final tooltip = tooLarge == null ? status : '$status\n$tooLarge';
         if (!widget.caption) {

@@ -69,20 +69,22 @@ class SelectionPainter extends CustomPainter {
     if (lasso.points.length < 2) return;
     final pts = [for (final p in lasso.points) viewport.toScreen(p)];
     canvas.drawPath(Path()..addPolygon(pts, true), Paint()..color = accent.withValues(alpha: 0.07));
-    drawDashed(
-      canvas,
-      pts,
-      Paint()
-        ..color = accent
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
+    drawDashed(canvas, pts, _halo);
+    drawDashed(canvas, pts, _outline);
   }
 
   Paint get _outline => Paint()
     ..color = accent
     ..style = PaintingStyle.stroke
     ..strokeWidth = 1.5;
+
+  /// Under every accent line: a band of [handleFill] (paper), so the line
+  /// keeps its contrast on dark paper, images and ink (UX_AUDIT R23-6: the
+  /// accent alone is 2.9:1 on Dark paper).
+  Paint get _halo => Paint()
+    ..color = handleFill
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 3.5;
 
   static final Paint _shadow = Paint()
     ..color = const Color(0x33000000)
@@ -98,14 +100,16 @@ class SelectionPainter extends CustomPainter {
     final outline = _outline;
     final shape = selection.shape;
     final handles = SelectionChrome.handles(frame, viewport, shape: shape);
-    if (shape == null || shape.kind.isClosed) {
-      final corners = [for (final c in frame.corners) viewport.toScreen(c)];
-      drawDashed(canvas, corners, outline, close: true);
-    }
+    final corners = shape == null || shape.kind.isClosed
+        ? [for (final c in frame.corners) viewport.toScreen(c)]
+        : null;
     final rotate = handles.remove(SelectionHandle.rotate);
-    if (rotate != null) {
-      final topMid = viewport.toScreen(frame.at(const Offset(0.5, 0)));
-      canvas.drawLine(topMid, rotate, outline);
+    final topMid = rotate == null ? null : viewport.toScreen(frame.at(const Offset(0.5, 0)));
+    // Every band before any line: a band over a line it meets (the rotate
+    // stem over the frame's top) would notch it.
+    for (final paint in [_halo, outline]) {
+      if (corners != null) drawDashed(canvas, corners, paint, close: true);
+      if (rotate != null) canvas.drawLine(topMid!, rotate, paint);
     }
     for (final entry in handles.entries) {
       _knob(canvas, entry.value, entry.key.isCorner ? 6.5 : 5.0);

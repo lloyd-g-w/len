@@ -181,6 +181,64 @@ void main() {
     },
   );
 
+  testWidgets(
+    'a page getting shorter says so when notes would fall past its new end',
+    skip: pdfium == null,
+    (tester) async {
+      tester.view
+        ..physicalSize = const ui.Size(900, 1200)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      addTearDown(() => tester.pumpWidget(const SizedBox()));
+      final old = await otherPdf(pages: 2);
+      const wide = pw.PdfPageFormat(800, 450);
+      final updated = await otherPdf(pages: 2, format: wide);
+      final newFile = File('${dir.path}/Lecture 5 v2.pdf')..writeAsBytesSync(updated);
+      final nb = (await tester.runAsync(() async {
+        final file = File('${dir.path}/Lecture 5.pdf')..writeAsBytesSync(old);
+        final importer = PdfImporter(services);
+        final notebook = await importer.createNotebook(
+          await importer.store(XFile(file.path)),
+          title: 'Lecture 5',
+          cover: 0,
+        );
+        await importer.dispose();
+        return notebook;
+      }))!;
+      final pages = services.pages.pagesOf(nb.id);
+      // Near the bottom of the first page only.
+      final first = pages.first;
+      services.strokes.save([
+        stroke('low', Offset(40, first.height - 40), surface: first.id),
+        stroke('high', const Offset(40, 40), surface: pages[1].id),
+      ]);
+      await tester.pumpWidget(
+        AppScope(
+          services: services,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: EditorScreen(notebook: nb),
+          ),
+        ),
+      );
+      await pumpUntilPdfRendered(tester);
+      final session = tester.widget<EditorCanvas>(find.byType(EditorCanvas)).session;
+      var finished = false;
+      final done = session.commands!
+          .replacePdf(tester.element(find.byType(EditorCanvas)), first, file: XFile(newFile.path))
+          .whenComplete(() => finished = true);
+      await pumpUntil(tester, () => find.text('Replace the PDF?').evaluate().isNotEmpty);
+      expect(
+        find.textContaining('on 1 page, notes past its new bottom edge will be hidden'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Cancel'));
+      await pumpUntil(tester, () => finished);
+      await done;
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets('the same file again changes nothing', skip: pdfium == null, (tester) async {
     tester.view
       ..physicalSize = const ui.Size(900, 1200)

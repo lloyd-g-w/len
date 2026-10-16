@@ -15,7 +15,9 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/features/documents/export/export_flow.dart';
 import 'package:len/features/documents/export/notebook_exporter.dart';
 import 'package:len/features/documents/export/pdf_export.dart';
+import 'package:len/features/documents/export/print_flow.dart';
 import 'package:len/platform/file_export.dart';
+import 'package:len/platform/print_document.dart';
 
 import 'content_tools_ui_test.dart' show openCanvas;
 import 'support/real_async.dart';
@@ -199,6 +201,40 @@ void main() {
     expect(saved.single.$1, ['Board.pdf']);
     expect(saved.single.$2, 'application/pdf');
     expect(find.text('Downloaded “Board.pdf”'), findsOneWidget);
+  });
+
+  testWidgets('⋯ → Print… on a canvas prints its whole drawing (R22-8)', (tester) async {
+    final printed = <(String, int)>[];
+    final (_, nb) = await openCanvas(
+      tester,
+      seed: (s, nb) =>
+          s.strokes.save([line('a', nb.id, const Offset(100, 100), const Offset(400, 300))]),
+    );
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    expect(find.text('Print…'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(Scaffold).first);
+    final done = printCanvasFlow(
+      context,
+      notebook: nb,
+      printer: (bytes, {required name, required pages}) async {
+        expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
+        printed.add((name, pages));
+        return PrintHandoff.viewer;
+      },
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Whole canvas'), findsOneWidget);
+    expect(find.text('Background'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('print-button')));
+    await pumpUntil(tester, () => printed.isNotEmpty, reason: 'the print');
+    await tester.pumpAndSettle();
+    await done;
+    expect(printed.single, ('Board.pdf', 1));
+    expect(find.text('Opened “Board.pdf” in your PDF viewer to print'), findsOneWidget);
   });
 
   testWidgets('an empty canvas says there is nothing to export', (tester) async {

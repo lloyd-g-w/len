@@ -29,10 +29,16 @@ extension _SelectionCommits on _SelectionCore {
       plan.addStroke(s, to: _target(s.bounds.center, null, transfer: true));
     }
     for (final e in newElements) {
-      plan.addElement(e, to: _target(e.rect.center, null, transfer: true));
+      plan.addElement(e, to: _target(_anchorOf(e), null, transfer: true));
     }
     _apply(plan);
   }
+
+  /// The point deciding the page a pasted element goes to: its centre; a
+  /// text box's top, where its text begins (a box flowing across pages
+  /// comes with its whole text, maybe pages tall, and flows on from there).
+  static Offset _anchorOf(SurfaceElement e) =>
+      e.knownType == ElementType.text && e.rotation == 0 ? e.rect.topCenter : e.rect.center;
 
   Stroke _onSurface(Stroke s, int createdAt) => Stroke(
     id: s.id,

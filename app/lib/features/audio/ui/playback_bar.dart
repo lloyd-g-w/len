@@ -79,7 +79,10 @@ class PlaybackBar extends StatelessWidget {
                   tooltip: 'Trim…',
                   iconSize: Glyphs.menu,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                  constraints: BoxConstraints.tightFor(
+                    width: Targets.barHit(context),
+                    height: Targets.barHit(context),
+                  ),
                   color: scheme.onSurfaceVariant,
                   onPressed: playback.loading ? null : playback.beginTrim,
                   icon: const Icon(Symbols.content_cut_sharp),
@@ -188,7 +191,7 @@ class SpeedButton extends StatelessWidget {
       ],
       child: Container(
         key: const ValueKey('playback-speed'),
-        constraints: const BoxConstraints(minWidth: 48, minHeight: 40),
+        constraints: BoxConstraints(minWidth: 48, minHeight: Targets.barHit(context)),
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
         child: Text(

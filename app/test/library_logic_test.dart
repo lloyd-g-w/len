@@ -45,6 +45,17 @@ void main() {
     // Large text: covers stop narrowing at 96 dp.
     final big = CoverGridDelegate.columnsFor(804, 150, 16, height: 390, captionHeight: 124);
     expect((804 - 16 * (big - 1)) / big, greaterThanOrEqualTo(96));
+    // At 2× text the narrowest cover is as wide as a normal one (UX_AUDIT
+    // R23-5), so titles keep room: four across, not seven.
+    final huge = CoverGridDelegate.columnsFor(
+      804,
+      150,
+      16,
+      height: 390,
+      captionHeight: 180,
+      minWidth: 150,
+    );
+    expect(huge, 4);
     // Tall windows are unaffected.
     expect(CoverGridDelegate.columnsFor(1100, 150, 24, height: 800, captionHeight: 68), 6);
   });

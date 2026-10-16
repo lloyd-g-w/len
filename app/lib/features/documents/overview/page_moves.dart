@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../../ui/announce.dart';
+
 /// Moving pages in the overview from the keyboard: Ctrl+← / → a place,
 /// Ctrl+↑ / ↓ a row (as the scan strip moves its pages with Ctrl+arrows).
 
@@ -59,8 +61,5 @@ Map<CustomSemanticsAction, VoidCallback> pageMoveActions(
 }
 
 /// Tells screen readers that the page at [from] went to [to] (indices).
-void announcePageMove(BuildContext context, int from, int to) => SemanticsService.sendAnnouncement(
-  View.of(context),
-  'Page ${from + 1} moved to ${to + 1}',
-  Directionality.of(context),
-);
+void announcePageMove(BuildContext context, int from, int to) =>
+    announce(context, 'Page ${from + 1} moved to ${to + 1}');

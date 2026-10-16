@@ -266,10 +266,15 @@ class ContentTools {
       selection.select(const [], [element]);
       return;
     }
-    // On a page, a long text runs on over the next pages.
+    // On a page, a long text runs on over the next pages: from no higher
+    // than where text begins on the page.
+    final top = chains.pages.pagesFrom(model.surfaceId)!.first.top;
+    final placed = element.rect.top >= top
+        ? element
+        : element.copyWith(rect: element.rect.shift(Offset(0, top - element.rect.top)));
     late SurfaceElement head;
     chains.pages.batch(() {
-      final r = chains.reflow(model.surfaceId, element, text, const []);
+      final r = chains.reflow(model.surfaceId, placed, text, const []);
       head = r.head;
       model.commit(InkEdit(addedElements: [head]));
       chains.commit(r.edits);

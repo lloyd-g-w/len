@@ -181,6 +181,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   first page of a monthly planner; month pages link back up from their year label, weeks and
   days to their month); exported PDF labels in the embedded Inter
 - ✅ Cancel long imports / exports (partial imports clean up after themselves)
+- ✅ Print (⋯ → Print…, Ctrl+P, the library's notebook menu): the export sheet as a PDF (pages,
+  templates, backgrounds) handed to Android's print dialog, the Windows PDF reader's print, the
+  Linux default viewer or the browser's print dialog; no printing package
 - ✅ Tiled PDF rendering for deep zoom (visible tiles, LRU, smooth while zooming)
 - ✅ PDF text selection (long press / right click, then drag the handles): copy, highlight the selection
   with highlighter strokes snapped to the lines; links (jump to page, web links after a prompt);

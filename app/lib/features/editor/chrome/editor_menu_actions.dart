@@ -25,6 +25,7 @@ class EditorMenuActions {
     this.onOverview,
     this.onPageCommand,
     this.onExport,
+    this.onPrint,
     this.flow,
     this.onFlow,
     this.fit,
@@ -71,6 +72,9 @@ class EditorMenuActions {
 
   /// Opens the export sheet (Ctrl+E).
   final VoidCallback? onExport;
+
+  /// Opens the print sheet (Ctrl+P).
+  final VoidCallback? onPrint;
   final PageFlow? flow;
   final ValueChanged<PageFlow>? onFlow;
 

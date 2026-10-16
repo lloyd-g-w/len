@@ -48,7 +48,7 @@ class TextTool implements PointerTool {
     if (hit != null) {
       final line = TextHitTest.checkboxAt(hit, down.world);
       if (line != null) {
-        TextHitTest.toggleChecked(session.model, hit, line);
+        TextHitTest.toggleChecked(session.model, hit, line, flows: session.flows);
         return;
       }
       _limitAt(hit.rect.left);

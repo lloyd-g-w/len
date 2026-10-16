@@ -280,7 +280,15 @@ class _ScanScreenState extends State<ScanScreen> {
         ],
       ),
       actions: [
-        FilledButton(onPressed: count == 0 || busy ? null : _done, child: Text(widget.doneLabel)),
+        // At most half the bar, so large text keeps the title in view: the
+        // label shrinks to fit rather than pushing "Scan" out.
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width / 2),
+          child: FilledButton(
+            onPressed: count == 0 || busy ? null : _done,
+            child: FittedBox(fit: BoxFit.scaleDown, child: Text(widget.doneLabel, maxLines: 1)),
+          ),
+        ),
         const SizedBox(width: Gaps.lg),
       ],
     );

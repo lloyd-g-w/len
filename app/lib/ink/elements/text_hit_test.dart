@@ -5,6 +5,7 @@ import '../../domain/surface_element.dart';
 import '../../domain/text/text_data.dart';
 import '../surface_model.dart';
 import '../undo_history.dart';
+import 'text_flow_chains.dart';
 import 'text_layout.dart';
 
 /// Hit tests inside committed text boxes (checklist ticks).
@@ -32,13 +33,49 @@ abstract final class TextHitTest {
   }
 
   /// Ticks or unticks the checklist item on [line] of [element], as one
-  /// undoable edit.
-  static void toggleChecked(SurfaceModel model, SurfaceElement element, int line) {
+  /// undoable edit. An item a page break splits ([flows]: its last line
+  /// goes on in the box on the next page) is ticked there too.
+  static void toggleChecked(
+    SurfaceModel model,
+    SurfaceElement element,
+    int line, {
+    TextFlowChains? flows,
+  }) {
     final data = TextData.fromJson(element.data);
     final paras = [...data.paras];
     if (line >= paras.length) return;
-    paras[line] = paras[line].copyWith(checked: !paras[line].checked);
+    final checked = !paras[line].checked;
+    paras[line] = paras[line].copyWith(checked: checked);
     final next = element.copyWith(data: data.withFormatting(paras: paras).toJson(element.data));
-    model.commit(InkEdit(removedElements: [element], addedElements: [next]));
+    final edit = InkEdit(removedElements: [element], addedElements: [next]);
+    final parts = line == paras.length - 1 && flows != null
+        ? _itemGoesOn(flows, model.surfaceId, element, checked)
+        : const <String, InkEdit>{};
+    if (parts.isEmpty) return model.commit(edit);
+    flows!.pages.batch(() {
+      model.commit(edit);
+      flows.commit(parts);
+    });
+  }
+
+  /// The edits ticking ([checked]) the parts on the next pages of the
+  /// last paragraph of [element] (on [pageId]).
+  static Map<String, InkEdit> _itemGoesOn(
+    TextFlowChains flows,
+    String pageId,
+    SurfaceElement element,
+    bool checked,
+  ) {
+    final edits = <String, InkEdit>{};
+    for (final r in flows.continuationsOf(pageId, element.id)) {
+      final data = TextData.fromJson(r.box.data);
+      if (!(data.flow?.joined ?? false) || data.paras.isEmpty) break;
+      final paras = [...data.paras];
+      paras[0] = paras[0].copyWith(checked: checked);
+      final next = r.box.copyWith(data: data.withFormatting(paras: paras).toJson(r.box.data));
+      edits[r.pageId] = InkEdit(removedElements: [r.box], addedElements: [next]);
+      if (paras.length > 1) break;
+    }
+    return edits;
   }
 }

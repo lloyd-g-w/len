@@ -9,6 +9,7 @@ import '../progress_dialog.dart';
 import 'pdf_import.dart';
 import 'pdf_open_failure.dart';
 import 'pdf_renderer.dart';
+import 'pdf_reshape_note.dart';
 
 const _pdfTypes = [
   XTypeGroup(label: 'PDF', extensions: ['pdf'], mimeTypes: ['application/pdf']),
@@ -78,14 +79,13 @@ Future<RelinkResult> relinkPdfFlow(
       );
       return await _discard(importer, renderer, sha);
     }
-    final reshaped = used.any((u) => u.page.sizeFor(sizes[u.index]) != u.page.size);
     final agreed = await confirmAction(
       context,
       title: 'Use a different PDF?',
       message:
           '“${picked.name}” isn’t the file these pages were made from. Its pages will show '
           'under the notes on ${_pages(used.length)}, page for page; the notes stay where '
-          'they are.${reshaped ? ' Pages change shape to match.' : ''}',
+          'they are.${pdfReshapeNote(services, used, sizes)}',
       confirmLabel: 'Use this PDF',
     );
     if (!agreed) return await _discard(importer, renderer, sha);

@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/animation.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../../ink/navigation/viewport_animator.dart';
 import '../../../ink/viewport.dart';
 import '../../../ui/design_tokens.dart';
 
@@ -34,6 +35,12 @@ class DocumentScroller {
   /// Animates to [scale] and [offset], then calls [onDone].
   void animateTo(double scale, Offset offset, {VoidCallback? onDone}) {
     stop();
+    if (ViewportAnimator.reducedMotion) {
+      // Reduced motion (DESIGN §5): straight there.
+      apply(scale, offset);
+      onDone?.call();
+      return;
+    }
     final size = viewport.size;
     final half = size.center(Offset.zero);
     _fromScale = viewport.scale;

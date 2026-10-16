@@ -84,6 +84,12 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
     );
   }
 
+  /// Above and below the drawing on touch, so the scrubber is a full
+  /// [Targets.touch] tall.
+  static double get _touchPad => Targets.touchFirst
+      ? math.max(0, (Targets.touch - WaveformScrubber.waveHeight - WaveformScrubber.inkHeight) / 2)
+      : 0;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -116,20 +122,24 @@ class _WaveformScrubberState extends State<WaveformScrubber> {
               if (target != null) widget.onSeek(target);
             },
             onHorizontalDragCancel: () => setState(() => _dragging = null),
-            child: CustomPaint(
-              size: Size(width, WaveformScrubber.waveHeight + WaveformScrubber.inkHeight),
-              painter: WaveformPainter(
-                overview: widget.overview,
-                fromMs: widget.fromMs,
-                toMs: widget.toMs,
-                kept: widget.kept,
-                positionMs: position,
-                played: scheme.primary,
-                unplayed: scheme.onSurfaceVariant.withValues(alpha: 0.32),
-                ink: scheme.primary,
-                head: scheme.onSurface,
-                // The docked audio strip's Board.
-                halo: Surfaces.chrome(scheme),
+            // On touch the hit area pads the 44-dp drawing to a full target.
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: _touchPad),
+              child: CustomPaint(
+                size: Size(width, WaveformScrubber.waveHeight + WaveformScrubber.inkHeight),
+                painter: WaveformPainter(
+                  overview: widget.overview,
+                  fromMs: widget.fromMs,
+                  toMs: widget.toMs,
+                  kept: widget.kept,
+                  positionMs: position,
+                  played: scheme.primary,
+                  unplayed: scheme.onSurfaceVariant.withValues(alpha: 0.32),
+                  ink: scheme.primary,
+                  head: scheme.onSurface,
+                  // The docked audio strip's Board.
+                  halo: Surfaces.chrome(scheme),
+                ),
               ),
             ),
           );

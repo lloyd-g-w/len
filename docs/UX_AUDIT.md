@@ -1,5 +1,151 @@
 # Len — UX/UI audit
 
+## Round 23 audit — accessibility (`review/round23`)
+
+Lens: Len with a screen reader (TalkBack, NVDA / Orca, VoiceOver: what
+Flutter's semantics tree gives them), very large text (system scale 1.5×
+and 2×; earlier rounds checked 1.3×), contrast in light and dark (WCAG AA:
+4.5:1 for text, 3:1 for the parts of controls and states that must be
+seen), reduced motion, signals carried by colour alone, touch targets,
+focus after dialogs and sheets close, announcements (live regions) and a
+name for every icon-only control. Keyboard access had its own round
+(`a11y/keyboard` below). Checked with Flutter's guidelines
+(`androidTapTargetGuideline` / `iOSTapTargetGuideline`,
+`labeledTapTargetGuideline`, `textContrastGuideline`) over the library,
+settings, the editor chrome on phone, sideways phone and tablet with every
+tool popover and sheet, the new-notebook and export sheets, ⋯, the page
+overview (and selecting), recordings, scan, storage and the library's
+menus and search — light and dark, and again at 1.5× and 2× text
+(`accessibility_test.dart`, `accessibility_screens_test.dart`); rendered
+the same screens at 1.5× and 2× (`large_text_screenshot_test.dart`);
+computed the tokens' contrast; read the motion, announcement and
+semantics code. Nothing was run on a device. ⬜ open, ✅ fixed on this
+branch.
+
+Summary: the foundations are good — every tappable control on the
+screens checked has a name, chrome text meets AA in both themes
+(Graphite 6.3:1 on Board, 5.5:1 on Desk; dark 7.2:1), touch targets are
+48 dp on touch (quick slots 44 by design), selection is exposed as
+`selected`, progress dialogs are live regions, and large text reflows
+rather than overflows (segmented controls stack, sheets scroll). What a
+screen-reader user misses is feedback that sighted users get from things
+appearing: starting or pausing a recording and "Sync now" say nothing. What
+reduced motion misses is most of the editor's travel: going to a page,
+double-tap zoom, sheets, route slides and disclosure chevrons still move.
+Large text breaks in two places: the scan screen's title disappears at
+2×, and a sideways phone's library cuts titles to three letters. The
+page overview's filter and its ⋯, and the audio player's scrubber, speed
+and Trim were under 48 dp on touch; selection lines lose contrast on dark
+paper. Pages themselves are silent to a screen reader (R23-10, Next).
+
+| Area | Len | Verdict |
+|---|---|---|
+| Names for icon-only controls | every tappable node labelled on all screens checked (guideline) | Keep |
+| Roles and states | buttons, headers, `selected` on tools, segments, tiles, covers, templates | Keep |
+| Touch targets | 48 dp on touch; quick slots 44 (CONVENTIONS); overview filter and ⋯ 40; the player's scrubber 44, speed 40, Trim 36 | R23-1 ✅, R23-8 ✅ |
+| Text contrast | Graphite ≥ 5.5:1 on every chrome surface, ruling blue ≥ 5.0 on Sheet / Board, error ≥ 4.8 | Keep |
+| Component contrast | Pencil outlines 3.1–3.5:1 on Board / Sheet; selection chrome on dark paper 2.9:1 | R23-6 ✅ |
+| Disabled states | 38 % ink (≈ 2.5:1), as Material; WCAG exempts inactive controls | Keep |
+| Selected segment | a faint plate (1.2:1) and an Ink label (Graphite otherwise, 6:1 vs 19:1) | Keep (label carries it) |
+| Colour-only signals | sync error: red icon + its own text; recording: red dot + timer + controls; current page: margin rule + bold number | Keep |
+| Large text 1.5× / 2× | reflows; scan title lost at 2×; sideways library titles cut; a hint and a date ellipsized | R23-2 ✅, R23-5 ✅, R23-7 ✅ |
+| Reduced motion | Flutter cuts its own animations to 5 %; Len's page travel, zooms and scrolls to a control still glided | R23-4 ✅ |
+| Announcements | progress dialogs, notices, page moves, snack bars; nothing on record / pause / resume or Sync now | R23-3 ✅ |
+| Pages to a screen reader | no node: the page, its typed text and recognised handwriting are silent | R23-10 ⬜ (Next) |
+| Focus after dialogs and sheets | the route below gets its focused control back (Flutter's scope); popovers return focus to their opener | Keep |
+
+### Prioritised items
+
+**R23-1 P1 · The page overview's filter and page ⋯ were 40 dp on touch.** ✅
+- *What:* the All / Bookmarked / Outline filter used a compact
+  segmented button (40 dp) and each tile's ⋯ sat in a 40-dp number row,
+  under Android's 48 dp — the overview's only two kinds of control.
+- *Fix:* the filter keeps the standard density on touch (compact with a
+  pointer), and the number row is `Targets.barHit` tall (48 on touch).
+
+**R23-2 P1 · The scan screen's title disappeared at 2× text.** ✅
+- *What:* "Create notebook" grew with the text and took the whole app bar;
+  "Scan" and the page count were squeezed to nothing on a phone.
+- *Fix:* the action takes at most half the bar and its label shrinks to fit.
+
+**R23-3 P1 · Recording and Sync now said nothing to a screen reader.** ✅
+- *What:* Record swaps the button for the recording controls (focus is
+  lost, nothing is read); pause and resume change an icon; Sync now turns
+  an icon — a sighted user sees all of it, a TalkBack user hears nothing
+  until "Saved …" when recording stops.
+- *Fix:* announce "Recording", "Recording paused", "Recording resumed",
+  and after Sync now "Synced" or the error.
+
+**R23-4 P1 · Reduced motion: page travel and zooms still glided.** ✅
+- *What:* DESIGN §5 promises fades only. Flutter itself runs every
+  `AnimationController` at 5 % of its duration when the platform asks for
+  reduced motion, so routes, sheets, popovers, chevrons and growing panels
+  are effectively instant; but what Len drives with its own tickers and
+  scroll animations kept moving at full length: going to a page (overview,
+  search, outline, links, Go to page — 400 ms of travel), double-tap,
+  keyboard and minimap zooms (280 ms), and scrolling to a revealed control
+  (Settings → Sync, the template chooser, the overview after a move, roving
+  focus, the Go to page strip).
+- *Fix:* the viewport animator and the document scroller jump to their
+  view (flings still glide: they continue the finger's own movement);
+  scrolls to a control take `Motion.moving(context, d)`, zero when reduced.
+
+**R23-5 P2 · A sideways phone's library cut titles to three letters at 2×.** ✅
+- *What:* in a short window covers narrow (more columns) until a row and
+  its titles fit the height, down to 96 dp; at 2× the caption is so tall
+  that a sideways phone showed seven 96-dp covers titled "Trav…", "Spa…".
+- *Fix:* the narrowest cover grows with the text scale, up to the normal
+  cover width: at 2× a sideways phone keeps four covers with whole titles
+  (the row runs under the fold, as it already did at 1.3×).
+
+**R23-6 P2 · Selection chrome on dark paper was 2.9:1.** ✅
+- *What:* the lasso, selection frame and handles are ruling blue
+  (`AppTheme.seed`) on the paper; on Dark paper that is 2.9:1, under the
+  3:1 a state needs.
+- *Fix:* the frame, lasso and rotate line get a 1-px paper-coloured band
+  each side of the blue line, readable on any paper, image or ink (handles
+  were already paper discs ringed in blue).
+
+**R23-8 P2 · The audio player's scrubber, speed and Trim were under 48 dp on touch.** ✅
+- *What:* found by running the guidelines over the floating recording
+  controls and the player on a phone: the waveform scrubber (a slider to
+  screen readers) was 44 dp tall, the speed button 40, Trim… 36.
+  While playing, "tap ink to play" laid an unnamed, screen-sized button
+  over the page for screen readers.
+- *Fix:* on touch the scrubber pads its hit area to 48, the speed button
+  and Trim… are `Targets.barHit` (the player grows by a few dp); the
+  tap-the-ink layer is left out of the semantics tree (a screen reader
+  seeks with the scrubber); the audio test checks both guidelines while
+  recording and playing.
+
+**R23-9 P3 · "Pick from page" measured 40 dp to screen readers.** ✅
+- *What:* the eyedropper button's touch area hangs over the heading's gaps
+  (48 dp), but the button itself, which is what TalkBack outlines and the
+  guidelines measure, was 40 dp tall (seen at 1.5× text on a sideways
+  phone, where it isn't on a scroll edge).
+- *Fix:* padded to a touch target on touch, as `EndTextButton` is; the
+  heading keeps its height.
+
+**R23-7 P3 · Smaller large-text cuts.** ✅
+- *What:* the canvas's "Hold for a template" hint ellipsized at 2× on a
+  phone ("Hold for a templa…"); a recording's date lost its time ("1 Jan
+  1970, 0…").
+- *Fix:* the hint shrinks to fit its one line (the footer is placed by its
+  height); the date wraps to a second line.
+
+**R23-10 P2 · Pages say nothing to a screen reader.** ⬜ (docs/TODO.md Next)
+- *What:* the editor's chrome is fully named, but a page is a painted
+  surface with no semantics node: TalkBack swipes from the top bar to the
+  toolbar, never hearing "Page 3 of 12", the typed text in its boxes or
+  what the handwriting index already recognised. Typed notes, the one
+  thing a screen-reader user could read back, are invisible to it.
+- *Proposal:* one semantics node per laid-out page ("Page 3 of 12,
+  bookmarked") whose value is its text boxes' text and the recognised
+  handwriting (`HandwritingIndex`), with scroll-forward / backward actions
+  that go to the next or previous page and announce it. Medium–large:
+  paged and continuous views, PDFs' own text, keeping the tree cheap while
+  scrolling.
+
 ## Round 22 audit — exporting and sharing (`review/round22`)
 
 Lens: a student who hands in assignments and shares notes — a notebook
@@ -52,7 +198,7 @@ temporary copies pile up in Android's cache. There is no print path.
 | A page as an image to a chat | PNG at 288 dpi, current page, Share | GoodNotes: PNG / JPG | Keep |
 | Emailing a PDF | share sheet: file only, no subject | GoodNotes: the title as subject | R22-4 ✅ |
 | A `.len` file to a classmate | Len file: ink, text, PDFs, images, audio; opens with Open with / share / drop | .goodnotes / .note | Keep |
-| Printing | none: export, then print from a reader | GoodNotes, Notability: Print | R22-8 ⬜ (Next) |
+| Printing | none: export, then print from a reader | GoodNotes, Notability: Print | R22-8 ✅ |
 | Audio | ⋯ → Share… / Save to device: `.aac` | Notability: m4a | Keep |
 | Several notebooks | library selection or a folder → one PDF each (or PNGs, or one Len file) | GoodNotes: the same | Keep |
 | File names | "Title.pdf", "Title p1-3,5.pdf", "Title p3.png"; same names kept apart | GoodNotes: title | Keep; R22-5 ✅ |
@@ -118,7 +264,7 @@ temporary copies pile up in Android's cache. There is no print path.
 - *Fix:* several files download as one ZIP named after what was
   exported ("Physics p1-3.zip", "3 notebooks.zip"). Effort S.
 
-**R22-8 P3 · No print path.** ⬜ (docs/TODO.md Next)
+**R22-8 P3 · No print path.** ✅
 - *What:* printing a worksheet means exporting a PDF and printing it
   from another app. GoodNotes and Notability print directly.
 - *Proposal:* Print… beside Export… handing the same PDF to the
@@ -126,6 +272,11 @@ temporary copies pile up in Android's cache. There is no print path.
   dialog, the browser's). Large: a package with native parts on every
   platform (`printing` brings its own PDFium on desktops, beside
   `pdfium_dart`'s).
+- *Fix:* Print… (⋯, Ctrl+P, the library's notebook menu) opens the export
+  sheet as a print sheet (PDF only, Print button) and hands the PDF to
+  Android's print dialog, the Windows PDF reader's print command, the
+  browser's print dialog, or on Linux the default viewer (said in the
+  sheet). Small platform code, no package.
 
 
 ## Round 21 audit — diagrams and drawing (`review/round21`)

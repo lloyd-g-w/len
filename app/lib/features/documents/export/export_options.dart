@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:flutter/widgets.dart' show StringCharacters;
+
 import '../../../data/archive/len_format.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
@@ -66,11 +70,13 @@ class ExportOptions {
       if (i >= 0 && i < all.length) exportedPage(all[i], includeTemplate: includeTemplates),
   ];
 
+  /// "3 pages", "1 page", "Whole canvas": how much is exported (or printed).
+  String get extent =>
+      canvas ? 'Whole canvas' : '${pages.length} ${pages.length == 1 ? 'page' : 'pages'}';
+
   /// "3 pages, PDF", "1 page, PNG at 288 dpi", "Whole canvas, PDF".
   String get summary {
-    final count = canvas
-        ? 'Whole canvas'
-        : '${pages.length} ${pages.length == 1 ? 'page' : 'pages'}';
+    final count = extent;
     return switch (format) {
       ExportFormat.pdf => '$count, PDF',
       ExportFormat.png => '$count, PNG at $pngDpi dpi',
@@ -131,31 +137,54 @@ String formatPageRange(List<int> pages, {String separator = ','}) {
 
 /// File names for exporting [pages] of a notebook titled [title] with
 /// [total] pages: one PDF ("Title.pdf" for the whole notebook, else
-/// "Title p1-3,5.pdf") or one PNG per page ("Title p3.png").
+/// "Title p1-3,5.pdf"; a selection too long to list, "Title 500 pages.pdf")
+/// or one PNG per page ("Title p3.png").
 List<String> exportFileNames(String title, ExportFormat format, List<int> pages, int total) {
   final base = safeFileName(title);
   final ext = format.extension;
   if (format == ExportFormat.png) return [for (final i in pages) '$base p${i + 1}.$ext'];
-  final whole = pages.length == total;
-  return [whole ? '$base.$ext' : '$base p${formatPageRange(pages)}.$ext'];
+  if (pages.length == total) return ['$base.$ext'];
+  final range = formatPageRange(pages);
+  return [
+    range.length <= _maxRangeName ? '$base p$range.$ext' : '$base ${pages.length} pages.$ext',
+  ];
 }
+
+/// Longest page range listed in a file name.
+const int _maxRangeName = 40;
 
 /// A file name from a notebook title: characters file systems refuse
 /// become spaces, runs of spaces one ("Physics: week 3/4" → "Physics week
 /// 3 4", R22-5), no trailing dots (Windows drops them), at most
-/// [maxFileNameBase] characters.
+/// [maxFileNameBase] characters and [_maxBaseBytes] bytes of UTF-8 (whole
+/// characters), and never a Windows device name ("CON", "NUL.txt"…: such a
+/// file is the device), which gets a "_".
 String safeFileName(String title) {
   var cleaned = title
       .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F\x7F]'), ' ')
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
-  if (cleaned.runes.length > maxFileNameBase) {
-    cleaned = String.fromCharCodes(cleaned.runes.take(maxFileNameBase)).trimRight();
+  final kept = StringBuffer();
+  var count = 0, bytes = 0;
+  for (final c in cleaned.characters) {
+    bytes += utf8.encode(c).length;
+    if (++count > maxFileNameBase || bytes > _maxBaseBytes) break;
+    kept.write(c);
   }
-  cleaned = cleaned.replaceFirst(RegExp(r'[. ]+$'), '');
-  return cleaned.isEmpty ? 'Notebook' : cleaned;
+  cleaned = kept.toString().replaceFirst(RegExp(r'[. ]+$'), '');
+  if (cleaned.isEmpty) return 'Notebook';
+  final device = cleaned.split('.').first.trimRight();
+  return _windowsDevice.hasMatch(device)
+      ? '${device}_${cleaned.substring(device.length)}'
+      : cleaned;
 }
+
+/// Names Windows keeps for devices, whatever the extension.
+final _windowsDevice = RegExp(r'^(CON|PRN|AUX|NUL|COM[0-9¹²³]|LPT[0-9¹²³])$', caseSensitive: false);
 
 /// Longest notebook title kept in a file name, leaving room for a page
 /// range and the extension within file systems' 255 bytes.
 const int maxFileNameBase = 100;
+
+/// At most this many bytes of UTF-8 of a title go into a file name.
+const int _maxBaseBytes = 180;

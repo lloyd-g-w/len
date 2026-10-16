@@ -184,7 +184,11 @@ class ExportSheetFooter extends StatelessWidget {
     this.onSaveToDevice,
     this.offersSaveToDevice = false,
     this.bottomInset = 0,
+    this.print = false,
   });
+
+  /// Print instead of Export.
+  final bool print;
 
   /// "Save to device" (Android, beside Share); null while the choice is
   /// invalid.
@@ -216,10 +220,16 @@ class ExportSheetFooter extends StatelessWidget {
       child: const Text('Cancel'),
     );
     final export = FilledButton.icon(
-      key: const ValueKey('export-button'),
+      key: ValueKey(print ? 'print-button' : 'export-button'),
       onPressed: onExport,
-      icon: const Icon(Symbols.ios_share_sharp, size: Glyphs.bar),
-      label: Text(offersSaveToDevice ? 'Share' : 'Export'),
+      icon: Icon(print ? Symbols.print_sharp : Symbols.ios_share_sharp, size: Glyphs.bar),
+      label: Text(
+        print
+            ? 'Print'
+            : offersSaveToDevice
+            ? 'Share'
+            : 'Export',
+      ),
     );
     // Android: both ways out, side by side under the summary (the header's
     // ✕ cancels); stacked, Share on top, when narrow or with large text.
