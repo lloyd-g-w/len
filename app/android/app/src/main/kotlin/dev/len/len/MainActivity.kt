@@ -41,8 +41,22 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
         if (savedInstanceState == null && !fromHistory) incoming?.handle(intent)
     }
 
+    /** Whether Flutter has drawn its first frame (the splash screen is gone). */
+    private var uiDisplayed = false
+
     override fun onStart() {
         super.onStart()
+        if (uiDisplayed) wetInk?.attach()
+    }
+
+    /**
+     * The low-latency layer (a surface of its own) is set up once Flutter's
+     * first frame is up, not while the app starts: the splash screen stays
+     * until that frame, and the layer is only needed for writing.
+     */
+    override fun onFlutterUiDisplayed() {
+        super.onFlutterUiDisplayed()
+        uiDisplayed = true
         wetInk?.attach()
     }
 
