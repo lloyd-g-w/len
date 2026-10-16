@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
@@ -182,6 +183,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(doc.pages.length, 3);
     expect(doc.currentPage, 2, reason: 'the new page is shown');
+
+    // Screen readers: the menu as an action on the page.
+    final semantics = tester.ensureSemantics();
+    final node = tester.getSemantics(_tile(1));
+    final options = CustomSemanticsAction.getIdentifier(
+      const CustomSemanticsAction(label: 'Page options'),
+    );
+    expect(node.getSemanticsData().customSemanticsActionIds, contains(options));
+    node.owner!.performAction(node.id, SemanticsAction.customAction, options);
+    await tester.pumpAndSettle();
+    expect(find.text('Remove bookmark'), findsNothing);
+    expect(find.text('Bookmark page'), findsOneWidget);
+    await tester.tapAt(Offset.zero);
+    await tester.pumpAndSettle();
+    semantics.dispose();
     await _close(tester, s);
   });
 
@@ -202,6 +218,21 @@ void main() {
     expect(find.text('Bookmark page'), findsNothing, reason: 'a drag is no hold');
     await _undo(tester);
     expect([for (final p in doc.pages) p.id], ids);
+
+    // A mouse drags straight away (no hold): the last page to the top.
+    final mouse = await tester.startGesture(
+      tester.getCenter(_tile(4)),
+      kind: PointerDeviceKind.mouse,
+    );
+    final top = tester.getTopLeft(_tile(1)) + const Offset(40, 10);
+    for (var i = 1; i <= 10; i++) {
+      await mouse.moveTo(Offset.lerp(tester.getCenter(_tile(4)), top, i / 10)!);
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await mouse.up();
+    await tester.pumpAndSettle();
+    expect([for (final p in doc.pages) p.id], [ids[3], ids[0], ids[1], ids[2]]);
+    await _undo(tester);
 
     // From the keyboard: Ctrl+↓ moves the focused page a place on.
     Focus.of(tester.element(find.text('2'))).requestFocus();

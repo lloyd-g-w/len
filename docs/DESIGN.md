@@ -307,6 +307,28 @@ tools stay (they are ink). While the editor reads (fingers draw, no stylus:
 one finger scrolls) no tool is in hand: the active tool sits in a Pencil
 outline instead, and no quick slot is selected. Page indicator: Sheet pill with tabular figures.
 
+**Page sidebar** (paged notebooks, panes ≥ 840 dp wide and not short): docked chrome, so flat
+Board with one hairline on the edge facing the page, under the top bar, 136 dp. A caption
+("8 pages") and a quiet ✕ head it; pages are paper at rest (square, contact shadow, lifted while
+dragged) 112 dp wide, the number under each; the page on screen is marked as in the overview,
+by the margin rule beside a bold number (no ring: rings mean selection); bookmarks are the
+ribbon. Add page closes the column as a Pencil-edged outline. No ⋯ per page (hold or
+right-click), no hover lift, no animation when it opens or closes (the page beside it would
+reflow every frame).
+
+```
+├────────────┬───────────────────────────────┤ hairline under the bar
+│ 8 pages  ⊟ │ Desk      ┌─────────────┐     │
+│ ┌────────┐ │           │ page        │     │
+│ │ ~~~~~~ │ │           │             │     │
+│ └────────┘ │           │             │     │
+│ ▌2         │ ← margin rule, bold number    │
+│ ┌────────┐ │           │             │     │
+```
+It opens from the overview's header ("Show beside the page", beside Select) or F4, not from a
+new bar button or ⋯ row: ▦ keeps its one meaning, and the overview is where someone looking
+for thumbnails already is.
+
 ### 6.3 Dialogs, sheets
 
 ```

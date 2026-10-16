@@ -89,8 +89,8 @@ class _SidebarTileState extends State<SidebarTile> {
         label: _label(current),
         button: true,
         excludeSemantics: true,
+        // (Moving is offered by the reorderable list: Move up, Move down…)
         customSemanticsActions: {
-          ...pageMoveActions(context, w.onMove),
           const CustomSemanticsAction(label: 'Page options'): () => w.onMenu(null),
         },
         child: CallbackShortcuts(
