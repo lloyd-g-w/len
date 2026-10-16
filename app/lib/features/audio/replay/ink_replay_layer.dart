@@ -156,6 +156,9 @@ class _InkReplayLayerState extends State<InkReplayLayer> {
                 child: GestureDetector(
                   key: const ValueKey('ink-replay-seek'),
                   behavior: HitTestBehavior.opaque,
+                  // A tap here means "the ink under the finger": nothing a
+                  // screen reader can aim; it seeks with the scrubber.
+                  excludeFromSemantics: true,
                   onTapUp: (d) => unawaited(_tap(d)),
                   onScaleStart: _scaleStart,
                   onScaleUpdate: _scaleUpdate,

@@ -108,9 +108,13 @@ handles lose contrast on dark paper.
 - *What:* found by running the guidelines over the floating recording
   controls and the player on a phone: the waveform scrubber (a slider to
   screen readers) was 44 dp tall, the speed button 40, Trim… 36.
+  While playing, "tap ink to play" laid an unnamed, screen-sized button
+  over the page for screen readers.
 - *Fix:* on touch the scrubber pads its hit area to 48, the speed button
-  and Trim… are `Targets.barHit` (the player grows by a few dp); the audio
-  test checks both guidelines while recording and playing.
+  and Trim… are `Targets.barHit` (the player grows by a few dp); the
+  tap-the-ink layer is left out of the semantics tree (a screen reader
+  seeks with the scrubber); the audio test checks both guidelines while
+  recording and playing.
 
 **R23-7 P3 · Smaller large-text cuts.** ✅
 - *What:* the canvas's "Hold for a template" hint ellipsized at 2× on a
