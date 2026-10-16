@@ -10,12 +10,30 @@ import 'package:len/ink/render/stroke_shaper.dart';
 import 'support/handwriting.dart';
 
 /// Points where [a] and [b] disagree on a grid over their bounds.
-List<Offset> differences(Path a, Path b, {double spacing = 0.11}) {
+///
+/// With [nearXor], only the grid points near where they can disagree are
+/// tested: around their XOR, a margin wide (path operations approximate
+/// curves), so the usual case (no or a few differences) tests a sliver of the
+/// grid instead of a million points; if the XOR fails, the whole grid. Paths
+/// of many overlapping pieces (wide flat ends) make the XOR itself slower
+/// than the grid: pass false.
+List<Offset> differences(Path a, Path b, {double spacing = 0.11, bool nearXor = true}) {
   final bounds = a.getBounds().expandToInclude(b.getBounds()).inflate(0.5);
+  var region = bounds;
+  if (nearXor) {
+    try {
+      region = Path.combine(PathOperation.xor, a, b).getBounds().inflate(1).intersect(bounds);
+    } on StateError {
+      // Path operations failed: test everywhere.
+    }
+  }
   final out = <Offset>[];
-  for (var y = bounds.top; y <= bounds.bottom; y += spacing) {
-    for (var x = bounds.left; x <= bounds.right; x += spacing) {
-      final p = Offset(x, y);
+  if (region.isEmpty) return out;
+  final rows = ((region.bottom - bounds.top) / spacing).floor();
+  final cols = ((region.right - bounds.left) / spacing).floor();
+  for (var i = math.max(0, ((region.top - bounds.top) / spacing).ceil()); i <= rows; i++) {
+    for (var j = math.max(0, ((region.left - bounds.left) / spacing).ceil()); j <= cols; j++) {
+      final p = Offset(bounds.left + j * spacing, bounds.top + i * spacing);
       if (a.contains(p) != b.contains(p)) out.add(p);
     }
   }

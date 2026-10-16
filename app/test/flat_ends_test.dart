@@ -124,10 +124,15 @@ void main() {
             builder.update(prefix).combined,
             StrokeOutline.build(prefix, spec, complete: false),
             spacing: 0.23,
+            nearXor: width < 10,
           );
           expect(diff.length, lessThanOrEqualTo(2), reason: 'at $n points: ${diff.take(5)}');
         }
-        final diff = differences(builder.finish(points), StrokeOutline.build(points, spec));
+        final diff = differences(
+          builder.finish(points),
+          StrokeOutline.build(points, spec),
+          nearXor: width < 10,
+        );
         expect(diff.length, lessThanOrEqualTo(2), reason: '${diff.take(5)}');
       });
     }
