@@ -42,7 +42,8 @@ void Function() _dieAfter(int afterUs) =>
 Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) async {
   final r = math.Random(seed);
   final server = RealServer()..maxPage = r.nextInt(3) == 0 ? null : 2 + r.nextInt(15);
-  final network = FaultyNetwork(server, r)..rate = const [0.15, 0.3, 0.5][seed % 3];
+  final network = FaultyNetwork(server, r);
+  final faultRate = const [0.15, 0.3, 0.5][seed % 3];
   final time = SharedTime();
   final devices = [
     for (var i = 0; i < deviceCount; i++)
@@ -61,6 +62,8 @@ Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) asyn
         await RandomEdits(s, r).any();
         ledger.record(before, s);
       } else if (roll < 88) {
+        // Some syncs see a good network, so more get through to the end.
+        network.rate = r.nextInt(3) == 0 ? 0 : faultRate;
         SyncEngine.workerFromBytes = r.nextBool() ? 0 : 64 * 1024;
         BackgroundPullWorker.debugOnServe = r.nextInt(6) == 0 ? _dieAfter(r.nextInt(20000)) : null;
         await d.sync(killAfter: roll >= 84 ? Duration(microseconds: r.nextInt(30000)) : null);
@@ -121,7 +124,7 @@ String _stats(FaultyNetwork network, List<FaultDevice> devices, FaultDevice ref)
   int live(String table) =>
       ref.s.database.db.select('SELECT COUNT(*) AS n FROM $table WHERE deleted = 0').single['n']
           as int;
-  return '${network.requests} requests, faults ${network.counts}, '
+  return '${network.requests} requests ${network.kinds}, faults ${network.counts}, '
       'server restarts ${network.server.restarts}, app runs ${[for (final d in devices) d.runs]}, '
       'live rows ${{for (final t in syncedTables) t: live(t)}}';
 }

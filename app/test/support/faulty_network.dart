@@ -69,6 +69,9 @@ class FaultyNetwork {
   /// Requests sent through the network.
   int requests = 0;
 
+  /// Requests by kind (`GET pull`, `PUT blobs`, …).
+  final Map<String, int> kinds = {};
+
   /// A client for one app run. [onKill] kills the app (closing its
   /// database); once [killed] says so, every request of this client fails,
   /// as no app is left to send it.
@@ -112,6 +115,8 @@ class _FaultyClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     network.requests++;
+    final kind = '${request.method} ${request.url.pathSegments.skip(1).firstOrNull}';
+    network.kinds.update(kind, (n) => n + 1, ifAbsent: () => 1);
     await network._latency();
     if (killed()) throw http.ClientException('the app was killed', request.url);
     final response = await _send(request);
