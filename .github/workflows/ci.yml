@@ -37,7 +37,7 @@ jobs:
       - run: flutter test --exclude-tags slow
 
   app-test-slow:
-    # The slow tier (dart_test.yaml, docs/CONVENTIONS.md "Tests"): the
+    # The slow tier (dart_test.yaml, docs/CONVENTIONS.md "Rules"): the
     # benchmarks in test/perf/ and the screenshot scenarios in
     # test/screenshots/ (layout smoke tests without SCREENSHOTS=true).
     name: App · slow tests (perf, screenshots)
