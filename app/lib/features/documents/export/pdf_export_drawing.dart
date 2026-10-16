@@ -184,19 +184,25 @@ class _Writer {
 class _Pen {
   _Pen(this.g, this.pageHeight);
 
-  final PdfGraphics g;
+  /// Where it writes: the page's current content stream.
+  PdfGraphics g;
   final double pageHeight;
+
+  /// Path segments written since this was last reset.
+  int segments = 0;
 
   Offset map(Offset p) =>
       Offset(p.dx * PdfExporter.pointsPerUnit, (pageHeight - p.dy) * PdfExporter.pointsPerUnit);
 
   void moveTo(Offset p) {
     final m = map(p);
+    segments++;
     g.moveTo(m.dx, m.dy);
   }
 
   void lineTo(Offset p) {
     final m = map(p);
+    segments++;
     g.lineTo(m.dx, m.dy);
   }
 }
@@ -225,6 +231,7 @@ class _PdfOutlineSink implements OutlineSink {
   @override
   void moveTo(double x, double y) {
     final p = _at = _map(x, y);
+    pen.segments++;
     pen.g.moveTo(p.dx, p.dy);
   }
 
@@ -235,12 +242,14 @@ class _PdfOutlineSink implements OutlineSink {
     final p = _map(x, y);
     if (p == _at) return;
     _at = p;
+    pen.segments++;
     pen.g.lineTo(p.dx, p.dy);
   }
 
   @override
   void cubicTo(double x1, double y1, double x2, double y2, double x3, double y3) {
     final a = _map(x1, y1), b = _map(x2, y2), c = _at = _map(x3, y3);
+    pen.segments++;
     pen.g.curveTo(a.dx, a.dy, b.dx, b.dy, c.dx, c.dy);
   }
 
