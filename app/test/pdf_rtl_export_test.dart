@@ -61,6 +61,16 @@ void main() {
     expect(part2('سلام', 0, 2) + part2('سلام', 2, 4), '\uFEB3\uFEE0\uFE8E\uFEE1');
     // A zero-width joiner joins: heh before it takes its initial form.
     expect(shaped('ه\u200D'), '\uFEEB\u200D');
+    // Alef maksura and noon ghunna join both sides (Unicode: dual joining);
+    // their initial and medial forms are the dotless tooth (FBE8 / FBE9).
+    expect(shaped('بىب'), '\uFE91\uFBE9\uFE90');
+    expect(shaped('ىب'), '\uFBE8\uFE90');
+    expect(shaped('بى'), '\uFE91\uFEF0');
+    expect(shaped('ى'), '\uFEEF');
+    expect(shaped('بںب'), '\uFE91\uFBE9\uFE90');
+    expect(shaped('ںب'), '\uFBE8\uFE90');
+    expect(shaped('بں'), '\uFE91\uFB9F');
+    expect(shaped('ں'), '\uFB9E');
     // Persian; other characters pass through.
     expect(shaped('پ'), '\uFB56');
     expect(shaped('a1'), 'a1');

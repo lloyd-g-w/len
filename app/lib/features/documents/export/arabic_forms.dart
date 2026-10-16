@@ -30,8 +30,18 @@ abstract final class ArabicForms {
   static const Map<int, int> _right = {
     0x0622: 0xFE81, 0x0623: 0xFE83, 0x0624: 0xFE85, 0x0625: 0xFE87, 0x0627: 0xFE8D, //
     0x0629: 0xFE93, 0x062F: 0xFEA9, 0x0630: 0xFEAB, 0x0631: 0xFEAD, 0x0632: 0xFEAF,
-    0x0648: 0xFEED, 0x0649: 0xFEEF,
-    0x0688: 0xFB88, 0x0691: 0xFB8C, 0x0698: 0xFB8A, 0x06BA: 0xFB9E, 0x06D2: 0xFBAE,
+    0x0648: 0xFEED,
+    0x0688: 0xFB88, 0x0691: 0xFB8C, 0x0698: 0xFB8A, 0x06D2: 0xFBAE,
+  };
+
+  /// Dual-joining letters whose forms are not in a row → their isolated,
+  /// final, initial and medial forms. Alef maksura and noon ghunna have
+  /// only isolated and final forms of their own; joined on both sides
+  /// they are the dotless tooth, which Unicode encodes as the Uighur alef
+  /// maksura's initial and medial forms.
+  static const Map<int, List<int>> _split = {
+    0x0649: [0xFEEF, 0xFEF0, 0xFBE8, 0xFBE9],
+    0x06BA: [0xFB9E, 0xFB9F, 0xFBE8, 0xFBE9],
   };
 
   /// Lam followed by these alefs → the isolated ligature (final follows).
@@ -52,9 +62,10 @@ abstract final class ArabicForms {
   /// Zero-width joiner: makes its neighbours join, like tatweel.
   static const int _zwj = 0x200D;
 
-  static bool _joinsAfter(int c) => _dual.containsKey(c) || c == _tatweel || c == _zwj;
+  static bool _isDual(int c) => _dual.containsKey(c) || _split.containsKey(c);
+  static bool _joinsAfter(int c) => _isDual(c) || c == _tatweel || c == _zwj;
   static bool _joinsBefore(int c) =>
-      _dual.containsKey(c) || _right.containsKey(c) || c == _tatweel || c == _zwj;
+      _isDual(c) || _right.containsKey(c) || c == _tatweel || c == _zwj;
 
   /// [text] (logical order, UTF-16 code units of the Basic Multilingual
   /// Plane) from [from] to [to] (all of it by default) shaped: the glyphs
@@ -90,20 +101,21 @@ abstract final class ArabicForms {
         i = next + 1;
         continue;
       }
-      final dual = _dual[c], right = _right[c];
-      if (dual == null && right == null) {
+      final dual = _dual[c], right = _right[c], split = _split[c];
+      if (dual == null && right == null && split == null) {
         out.add((glyph: String.fromCharCode(c), start: i, end: i + 1));
         i++;
         continue;
       }
-      final joinsNext = dual != null && next != null && _joinsBefore(units[next]);
+      final joinsNext = right == null && next != null && _joinsBefore(units[next]);
       final form = switch ((joinsPrev, joinsNext)) {
         (true, true) => 3,
         (false, true) => 2,
         (true, false) => 1,
         (false, false) => 0,
       };
-      out.add((glyph: String.fromCharCode((dual ?? right)! + form), start: i, end: i + 1));
+      final glyph = split?[form] ?? (dual ?? right)! + form;
+      out.add((glyph: String.fromCharCode(glyph), start: i, end: i + 1));
       i++;
     }
     return out;
