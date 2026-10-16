@@ -127,15 +127,16 @@ void _drawStroke(_Pen pen, Stroke stroke) {
     ..saveContext()
     ..setGraphicState(PdfGraphicState(fillOpacity: color.a))
     ..setFillColor(PdfColor.fromInt(color.toARGB32() | 0xFF000000));
-  for (final metric in StrokeRenderer.pathOf(stroke).computeMetrics()) {
-    final n = math.max(3, (metric.length / PdfExporter.flattenStep).ceil());
-    for (var i = 0; i < n; i++) {
-      final t = metric.getTangentForOffset(metric.length * i / n);
-      if (t == null) continue;
-      i == 0 ? pen.moveTo(t.position) : pen.lineTo(t.position);
-    }
-    g.closePath();
-  }
+  // The outline's own segments, as the screen fills them (UX_AUDIT R22-1:
+  // sampled polygons made a written page megabytes).
+  StrokeRenderer.emitOutline(
+    _PdfOutlineSink(pen),
+    stroke.points,
+    width: stroke.width,
+    style: stroke.style,
+    complete: true,
+    tolerance: PdfExporter.inkTolerance,
+  );
   g
     ..fillPath()
     ..restoreContext();
@@ -198,4 +199,61 @@ class _Pen {
     final m = map(p);
     g.lineTo(m.dx, m.dy);
   }
+}
+
+/// Writes a stroke outline's segments as PDF path operators through [pen]:
+/// lines and cubic Béziers as they are, arcs as Béziers of at most a
+/// quarter turn (off by under 0.03 % of the radius). Coordinates are
+/// rounded to 1/[step] point (1/100 pt, 3.5 µm): a third of the digits.
+class _PdfOutlineSink implements OutlineSink {
+  _PdfOutlineSink(this.pen);
+
+  final _Pen pen;
+
+  static const double step = 100;
+
+  static double _r(double v) => (v * step).roundToDouble() / step;
+
+  Offset _map(double x, double y) {
+    final p = pen.map(Offset(x, y));
+    return Offset(_r(p.dx), _r(p.dy));
+  }
+
+  @override
+  void moveTo(double x, double y) {
+    final p = _map(x, y);
+    pen.g.moveTo(p.dx, p.dy);
+  }
+
+  @override
+  void lineTo(double x, double y) {
+    final p = _map(x, y);
+    pen.g.lineTo(p.dx, p.dy);
+  }
+
+  @override
+  void cubicTo(double x1, double y1, double x2, double y2, double x3, double y3) {
+    final a = _map(x1, y1), b = _map(x2, y2), c = _map(x3, y3);
+    pen.g.curveTo(a.dx, a.dy, b.dx, b.dy, c.dx, c.dy);
+  }
+
+  @override
+  void arc(double cx, double cy, double radius, double start, double sweep) {
+    Offset at(double angle) => Offset(cx + radius * math.cos(angle), cy + radius * math.sin(angle));
+    lineTo(at(start).dx, at(start).dy);
+    if (sweep == 0 || radius == 0) return;
+    final n = (sweep.abs() / (math.pi / 2)).ceil();
+    final turn = sweep / n;
+    final k = 4 / 3 * math.tan(turn / 4) * radius;
+    for (var i = 0; i < n; i++) {
+      final a0 = start + turn * i, a1 = a0 + turn;
+      final p0 = at(a0), p3 = at(a1);
+      final p1 = p0 + Offset(-math.sin(a0), math.cos(a0)) * k;
+      final p2 = p3 - Offset(-math.sin(a1), math.cos(a1)) * k;
+      cubicTo(p1.dx, p1.dy, p2.dx, p2.dy, p3.dx, p3.dy);
+    }
+  }
+
+  @override
+  void close() => pen.g.closePath();
 }

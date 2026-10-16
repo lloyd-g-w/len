@@ -866,8 +866,10 @@ references (`BlobStore.discardIfUnreferenced`); an export saves nothing and
 disposes what it rendered.
 
 Export (`features/documents/export/`): `PdfExporter` (package `pdf`) writes
-ink as filled polygons flattened from the exact outline paths the app
-renders, templates as vector lines, and **imported PDF pages as vectors**:
+ink as the filled outlines the app renders, segment by segment (lines and
+cubic Béziers through an `OutlineSink`, arcs as Béziers; the sides fitted
+within `PdfExporter.inkTolerance`, 0.04 units, rather than the screen's
+0.004, and coordinates rounded to 1/100 pt: a dense page under 1 MB, R22-1), templates as vector lines, and **imported PDF pages as vectors**:
 `PdfPageSources` parses each source PDF once with Len's own pure-Dart
 reader (`export/vector/`: lexer, classic and stream cross-references,
 object streams, `/Prev` chains, a recovery scan for broken files) and
@@ -901,9 +903,16 @@ PDFium (`PdfRenderer.links`) for pages embedded as images. Their areas are
 normalised to the page as shown, so `/Rotate` and crop boxes are already
 applied; page links go to the exported page showing the target (the next
 one after the link's page) and are dropped if it is not exported.
+**Bookmarks** (`pdf_bookmarks.dart`): the notebook's outline entries of
+exported pages become the PDF's outline, nested as in Len (an entry whose
+page is left out gives way to its children), and the document opens with
+it showing (`/PageMode /UseOutlines`).
 The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
 indices from a range like "1-3, 5", templates and PDF backgrounds on or off;
 PNGs are always 288 dpi, `pngScale`); without templates pages are exported as blank white paper.
+The sheet starts with the last export's format, switches and Current page /
+All pages (`ExportMemory`, for the app's run; the library's sheet always
+starts at all pages, an overview selection at its range).
 **Canvases** export their whole drawing as one page (`exportCanvasFlow`, the
 same sheet with `canvas: true`: no page choice, "Background" instead of
 templates): `NotebookExporter.canvasPage` takes the content bounds plus a
@@ -914,7 +923,10 @@ Canvas PNGs shrink to at most 8192 px on the long side.
 Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
-on mobile and written into a folder the user picks on desktop. On Android the
+on mobile, written into a folder the user picks on desktop and downloaded as
+one ZIP named after the export in browsers (`zipOf`). Shares carry the
+notebook's title as their subject; Android's temporary copies (cache
+`export/`) are deleted by the next share once over an hour old. On Android the
 export sheet also offers Save to device: the system's save dialog (one file)
 or folder picker (several), `SaveDocumentPlugin.kt` on `len/save_document`
 (recordings offer Share and Save to device the same way).
@@ -1492,8 +1504,8 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   `ink_input_controller.dart` is unchanged.
 
 Stroke outlines come from the in-house engine in `ink/render/` (see *Ink
-rendering* below); paths are memoised per stroke. PDF export flattens the same
-paths.
+rendering* below); paths are memoised per stroke. PDF export writes the same
+outlines' segments (fitted for print, see *Export*).
 
 ### Dense stylus input on Android (`input/sample_source.dart`, `platform/stylus_samples*`)
 

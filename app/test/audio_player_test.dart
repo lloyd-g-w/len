@@ -282,7 +282,7 @@ void main() {
     final list = tester.widget<RecordingsList>(find.byType(RecordingsList));
     List<ExportFile>? exported;
     String? exportedMime;
-    list.audio.saveFiles = (files, {required mime, toDevice = false}) async {
+    list.audio.saveFiles = (files, {required mime, toDevice = false, subject}) async {
       exported = files;
       exportedMime = mime;
       return ExportedFiles(ExportedTo.folder, count: files.length, path: '/home/me/Music');
@@ -337,7 +337,7 @@ void main() {
     final calls = <(int, bool)>[];
     audio
       ..canSaveToDevice = true
-      ..saveFiles = (files, {required mime, toDevice = false}) async {
+      ..saveFiles = (files, {required mime, toDevice = false, subject}) async {
         calls.add((files.length, toDevice));
         return ExportedFiles(ExportedTo.device, count: files.length, name: files.first.name);
       };

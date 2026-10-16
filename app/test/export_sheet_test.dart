@@ -72,6 +72,7 @@ void main() {
   late _FakeExporter exporter;
   late List<(List<String>, String)> saved;
   late List<bool> toDevices;
+  late List<String?> subjects;
 
   setUp(() {
     services = AppServices.create(AppDatabase.inMemory());
@@ -92,6 +93,7 @@ void main() {
     exporter = _FakeExporter(services);
     saved = [];
     toDevices = [];
+    subjects = [];
   });
   tearDown(() => services.dispose());
 
@@ -118,9 +120,10 @@ void main() {
                   currentPage: 1,
                   initialPages: initialPages,
                   exporter: exporter,
-                  save: (files, {required mime, toDevice = false}) async {
+                  save: (files, {required mime, toDevice = false, subject}) async {
                     saved.add(([for (final f in files) f.name], mime));
                     toDevices.add(toDevice);
+                    subjects.add(subject);
                     return ExportedFiles(
                       ExportedTo.file,
                       count: 1,
@@ -220,6 +223,38 @@ void main() {
     expect(page.paperColor, PaperColor.white);
     expect(scale, 3);
     expect(saved.single.$1, ['Lab p2.png']);
+    // A mail gets the notebook's title as its subject (R22-4).
+    expect(subjects.single, 'Lab');
+  });
+
+  testWidgets('the next export starts with the last one\'s choices (UX_AUDIT R22-2)', (
+    tester,
+  ) async {
+    await open(tester);
+    await tester.tap(find.text('PNG'));
+    await tester.tap(find.text('Current page'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Templates'));
+    await tester.pumpAndSettle();
+    await tester.tap(_exportButton);
+    await tester.pumpAndSettle();
+
+    // Again: PNG, the current page, no templates.
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 page, PNG at 288 dpi'), findsOneWidget);
+    expect(find.text('Plain white paper'), findsOneWidget);
+    // A typed range is not kept: the next sheet starts where the caller asks.
+    await tester.tap(find.text('Page range'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('export-range')), '3');
+    await tester.pumpAndSettle();
+    await tester.tap(_exportButton);
+    await tester.pumpAndSettle();
+    expect(saved.last.$1, ['Lab p3.png']);
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('${pages.length} pages, PNG at 288 dpi'), findsOneWidget);
   });
 
   testWidgets('cancel exports nothing', (tester) async {

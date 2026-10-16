@@ -13,12 +13,13 @@ bool get canSaveToDevice => false;
 bool get canShowInFolder => false;
 
 /// Downloads [bytes] as [name] (the browser decides where it goes).
-/// [toDevice] is ignored.
+/// [toDevice] and [subject] are ignored.
 Future<ExportedFiles?> saveOrShare(
   Uint8List bytes, {
   required String name,
   required String mime,
   bool toDevice = false,
+  String? subject,
 }) async {
   final blob = web.Blob([bytes.toJS].toJS, web.BlobPropertyBag(type: mime));
   return downloadBlob(blob, name: name);
@@ -39,22 +40,20 @@ ExportedFiles downloadBlob(web.Blob blob, {required String name}) {
   return ExportedFiles(ExportedTo.downloaded, count: 1, name: name);
 }
 
-/// Downloads each of [files].
+/// Downloads [files]: one as it is, several as one ZIP named after
+/// [subject] (browsers block a site's run of downloads, R22-7).
 Future<ExportedFiles?> saveOrShareAll(
   List<({Uint8List bytes, String name})> files, {
   required String mime,
   bool toDevice = false,
+  String? subject,
 }) async {
-  for (final (i, f) in files.indexed) {
-    // Browsers drop rapid successive downloads; space them out a little.
-    if (i > 0) await Future<void>.delayed(const Duration(milliseconds: 250));
-    await saveOrShare(f.bytes, name: f.name, mime: mime);
+  if (files.length == 1) {
+    return saveOrShare(files.single.bytes, name: files.single.name, mime: mime);
   }
-  return ExportedFiles(
-    ExportedTo.downloaded,
-    count: files.length,
-    name: files.length == 1 ? files.single.name : null,
-  );
+  final zip = zipOf(files, subject: subject);
+  await saveOrShare(zip.bytes, name: zip.name, mime: 'application/zip');
+  return ExportedFiles(ExportedTo.downloaded, count: files.length, name: zip.name);
 }
 
 /// Browsers can't open folders.

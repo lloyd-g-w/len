@@ -7,6 +7,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/features/documents/export/export_options.dart';
 import 'package:len/features/documents/export/export_report.dart';
 import 'package:len/features/documents/export/export_sheet.dart';
 import 'package:len/features/documents/export/notebook_exporter.dart';
@@ -73,7 +74,7 @@ void main() {
                   context,
                   [a, b, c],
                   exporter: exporter,
-                  save: (files, {required mime, toDevice = false}) async {
+                  save: (files, {required mime, toDevice = false, subject}) async {
                     saved.addAll([for (final f in files) f.name]);
                     return ExportedFiles(ExportedTo.shared, count: files.length);
                   },
@@ -132,6 +133,7 @@ void main() {
   });
 
   testWidgets('the notebook menu and the selection bar export (R7-8)', (tester) async {
+    ExportMemory.range = ExportRange.current;
     await pumpSeeded(tester, (s) {
       addPages(s, addNotebook(s, 'Algebra'), 3);
       addPages(s, addNotebook(s, 'Biology'), 1);
@@ -139,7 +141,8 @@ void main() {
     await openMenuOf(tester, 'Algebra');
     await tester.tap(find.text('Export…'));
     await tester.pumpAndSettle();
-    // The editor's sheet, with all pages and their range.
+    // The editor's sheet, with all pages and their range — even when the
+    // last export in the editor was its current page (R22-2).
     expect(find.text('Export'), findsWidgets);
     expect(find.text('Pages'), findsOneWidget);
     expect(find.text('4 pages, PDF'), findsOneWidget);

@@ -67,11 +67,16 @@ typedef RibbonCursor = ({int at, bool cut});
 /// into pieces at fixed sample indices (multiples of [block]), so the live
 /// stroke can [freeze] final pieces once and only rebuild its tail.
 class RibbonEmitter {
-  RibbonEmitter(this.line, {required this.flatCaps, required this.width, required double step})
-    : tolerance = toleranceFor(width),
-      block = math.max(16, (24 / step).ceil()),
-      _endReach = endReachFor(width, step),
-      _step = step;
+  RibbonEmitter(
+    this.line, {
+    required this.flatCaps,
+    required this.width,
+    required double step,
+    double? tolerance,
+  }) : tolerance = tolerance ?? toleranceFor(width),
+       block = math.max(16, (24 / step).ceil()),
+       _endReach = endReachFor(width, step),
+       _step = step;
 
   final RibbonLine line;
   final bool flatCaps;
@@ -81,7 +86,8 @@ class RibbonEmitter {
   /// units). The cubic that reaches into a live stroke's not-yet-final tip
   /// is refitted every frame and may move by up to twice this along its
   /// whole span (up to [_maxSpan] samples), so it is kept well below a
-  /// physical pixel even when zoomed in 8×.
+  /// physical pixel even when zoomed in 8×. A committed stroke written
+  /// elsewhere (PDF export) may pass a coarser one.
   final double tolerance;
 
   /// The [tolerance] for a pen [width] wide.

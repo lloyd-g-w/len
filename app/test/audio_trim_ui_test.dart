@@ -211,7 +211,7 @@ void main() {
     expect(find.text('0:20'), findsWidgets);
     final list = tester.widget<RecordingsList>(find.byType(RecordingsList));
     List<ExportFile>? exported;
-    list.audio.saveFiles = (files, {required mime, toDevice = false}) async {
+    list.audio.saveFiles = (files, {required mime, toDevice = false, subject}) async {
       exported = files;
       return ExportedFiles(ExportedTo.folder, count: files.length, path: '/home/me/Music');
     };

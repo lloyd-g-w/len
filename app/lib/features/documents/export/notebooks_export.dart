@@ -47,6 +47,8 @@ Future<void> exportNotebooks(
       notebook: notebook,
       pages: pages,
       currentPage: 0,
+      // No page is being read here: all pages, whatever the editor's last.
+      resumeRange: false,
       exporter: exporter,
       save: save,
     );
@@ -119,7 +121,12 @@ Future<void> _exportSeveral(
       return out;
     });
     if (files.isEmpty || !context.mounted) return;
-    final saved = await save(files, mime: options.format.mime, toDevice: options.toDevice);
+    final saved = await save(
+      files,
+      mime: options.format.mime,
+      toDevice: options.toDevice,
+      subject: len.title,
+    );
     if (saved == null || !context.mounted) return;
     showExported(context, saved, plural: 'files', note: report.summary);
   } on Cancelled {

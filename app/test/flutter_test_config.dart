@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/text_font.dart';
+import 'package:len/features/documents/export/export_sheet.dart';
 import 'package:len/features/editor/finger_reading.dart';
 import 'package:len/ui/app_theme.dart';
 import 'package:len/ui/messages.dart';
@@ -11,7 +12,7 @@ import 'package:len/ui/messages.dart';
 /// and the platform channel answer like an empty system clipboard, and the bundled fonts
 /// (Inter, the text-box fonts, Material Symbols) are loaded (tests otherwise only have the
 /// Ahem-like test font), so the UI and text boxes measure and render as in the app. Each
-/// test starts with no snack bar left from the one before.
+/// test starts with no snack bar left from the one before and no export choices remembered.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -25,6 +26,8 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   // Most tests draw with a finger on pages with content: no reading (R20-6)
   // unless a test turns it on.
   setUp(() => FingerReading.debugEnabled = false);
+  // Each export sheet starts as on first use (R22-2 remembers the last).
+  setUp(ExportMemory.reset);
   await loadTextFonts();
   await testMain();
 }

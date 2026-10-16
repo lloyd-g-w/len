@@ -1,5 +1,133 @@
 # Len — UX/UI audit
 
+## Round 22 audit — exporting and sharing (`review/round22`)
+
+Lens: a student who hands in assignments and shares notes — a notebook
+or a few pages to PDF for submission (size, quality, page range,
+templates on or off, text boxes as real text, links, annotated slides,
+right-to-left text), a page as an image to a chat, a PDF by email, a
+`.len` file to a classmate, printing, a recording's audio, several
+notebooks from the library; file names, where files land on each
+platform and whether a repeat export remembers. GoodNotes 6 and
+Notability are the references. Read in the code: the export sheet
+(`export_sheet*.dart`, `ExportOptions`, `parsePageRange`,
+`exportFileNames`), `exportFlow` / `runExport` / `exportCanvasFlow`,
+`exportNotebooks` (library and folders), `NotebookExporter`,
+`PdfExporter` and its writers (ink, templates, `PdfTextWriter`,
+`PdfLinkWriter`, the vector page copier), `platform/file_export*`
+(save dialog, share sheet, Save to device, downloads), `showExported`,
+recordings' export, Len files (`exportLenFlow`). Rendered the export
+suite (`export_screenshot_test.dart`) and exported a realistic
+three-page notebook (ruled, 400 handwritten strokes a page, a text box
+with Arabic, a link) to PDF and PNG in a test, checked with poppler
+(`pdfinfo`, `pdffonts`, `pdftotext`, `pdfinfo -url`). Nothing was run on
+a device. ⬜ open, ✅ fixed on this branch.
+
+Summary: the export itself is faithful — ink and templates are vectors,
+text boxes are real, extractable text in embedded (subset) fonts, Arabic
+extracts as letters, links work, slides are copied as vectors with their
+own text and links, page ranges are typed like a print dialog, and the
+files land where each platform expects (save dialog with Show in folder
+on desktops, share sheet plus Save to device on Android, a download on
+the web). What a student hits is **size**: ink is written as polygons
+flattened every 0.75 units, so a densely written page is about 3 MB and
+a 20-page assignment 60 MB — over Gmail's 25 MB and most course
+portals' upload limits. Smaller: the notebook's outline doesn't reach
+the PDF (no bookmarks in the reader), every export starts over at PDF /
+all pages / templates on, an emailed PDF has no subject, titles with
+`/` or `:` give names with doubled spaces, and the share sheet's
+temporary copies pile up in Android's cache. There is no print path.
+
+| Moment | Len | GoodNotes 6 · Notability | Verdict |
+|---|---|---|---|
+| Notebook → PDF for submission | ⋯ → Export… (Ctrl+E) → PDF → Share / Save to device / save dialog | GoodNotes: Share → Export → PDF; Notability: Share → PDF | Keep |
+| File size | ~3 MB a dense page (flattened polygons) | GoodNotes: a few hundred KB a page | R22-1 ✅ |
+| Quality | vector ink, templates, slides; text boxes as text; images at stored resolution | the same (GoodNotes flattens annotations on PDFs) | Keep (better) |
+| Page range | Current page / All pages / "1-3, 5"; the overview's selection preselected | GoodNotes: this page / all; Notability: all | Keep (better) |
+| Templates on / off | Templates switch; PDF backgrounds and scans their own switch | GoodNotes: "Include page template"; Notability: paper | Keep |
+| Flattened vs editable | PDF (flattened ink, real text) or Len file (editable) | GoodNotes: "editable" .goodnotes; Notability: .note | Keep |
+| Links | link elements, planner links and slides' links as PDF links | GoodNotes: links kept | Keep |
+| Outline / bookmarks | the notebook's outline is not written | GoodNotes: outline → PDF bookmarks | R22-3 ✅ |
+| RTL text | Arabic and Hebrew as text, extracted as letters | — | Keep |
+| A page as an image to a chat | PNG at 288 dpi, current page, Share | GoodNotes: PNG / JPG | Keep |
+| Emailing a PDF | share sheet: file only, no subject | GoodNotes: the title as subject | R22-4 ✅ |
+| A `.len` file to a classmate | Len file: ink, text, PDFs, images, audio; opens with Open with / share / drop | .goodnotes / .note | Keep |
+| Printing | none: export, then print from a reader | GoodNotes, Notability: Print | R22-8 ⬜ (Next) |
+| Audio | ⋯ → Share… / Save to device: `.aac` | Notability: m4a | Keep |
+| Several notebooks | library selection or a folder → one PDF each (or PNGs, or one Len file) | GoodNotes: the same | Keep |
+| File names | "Title.pdf", "Title p1-3,5.pdf", "Title p3.png"; same names kept apart | GoodNotes: title | Keep; R22-5 ✅ |
+| Where files land | desktop save dialog + Show in folder; Android share sheet / Save to device; web download | the same | Keep |
+| Repeat exports | always PDF, the editor's range, templates on | GoodNotes remembers format and options | R22-2 ✅ |
+| Temporary copies (Android) | every shared file stays in the cache's `export/` | — | R22-6 ✅ |
+| Several files on the web | one download each, 250 ms apart (browsers ask to allow) | — | R22-7 ✅ |
+
+### Prioritised items
+
+**R22-1 P1 · A handwritten page is 3 MB of PDF.** ✅
+- *What:* `_drawStroke` flattens each stroke's outline into a polygon
+  with a point every 0.75 units, however straight the outline runs. The
+  probe's ruled page with 400 strokes of 30 points was 7.4 MB of
+  content, 3 MB compressed; three pages 9 MB. A term's notes or a long
+  assignment won't go by email or into a course portal.
+- *Fix:* write the outline's own segments (`OutlineSink`: lines, cubic
+  Béziers, arcs as Béziers) into the PDF, the same geometry the screen
+  fills, instead of sampling it. Effort S.
+
+**R22-2 P2 · Every export starts over.** ✅
+- *What:* the sheet opens at PDF, the caller's range and templates on
+  every time; a student who sends a PNG of the current page after each
+  class, or always exports without the ruling, sets it up again each
+  time. GoodNotes remembers.
+- *Fix:* the sheet starts with the last exported format, Templates and
+  Backgrounds switches, and Current page / All pages (in the editor) —
+  for the app's run, no setting. An overview selection still starts at
+  its range; a Len file is remembered only where it is offered. Effort S.
+
+**R22-3 P2 · The outline doesn't reach the PDF.** ✅
+- *What:* a notebook's outline (its table of contents) shows only in
+  Len; the exported PDF has no bookmarks, so a 40-page set of notes is
+  one long scroll in the reader. GoodNotes writes its outline as PDF
+  bookmarks.
+- *Fix:* entries whose page is exported become PDF bookmarks, nested as
+  in the outline, each opening its (first exported) page. Effort S–M.
+
+**R22-4 P2 · An emailed PDF has no subject.** ✅
+- *What:* the share sheet gets only the file; mail apps open with an
+  empty subject the student must type.
+- *Fix:* share with the notebook's title as the subject and title
+  (`ShareParams.subject` / `title`). Effort S.
+
+**R22-5 P3 · Titles with `/` or `:` give names with doubled spaces.** ✅
+- *What:* "Physics: week 3/4" exports as "Physics  week 3 4.pdf".
+- *Fix:* runs of replaced characters and spaces fold into one space
+  ("Physics week 3 4.pdf"). Effort S.
+
+**R22-6 P3 · Shared files pile up in Android's cache.** ✅
+- *What:* each share writes its files into the cache's `export/` folder
+  and nothing removes them; every assignment and page ever shared stays
+  there until Android clears the cache.
+- *Fix:* each share first deletes what earlier shares left there over
+  an hour ago (newer files stay: the app shared to may still be reading
+  them). Effort S.
+
+**R22-7 P3 · Several files on the web are several downloads.** ✅
+- *What:* PNGs of a range or several notebooks download one by one, a
+  quarter second apart; browsers stop after the first and ask whether
+  the site may download several files, and the downloads folder fills
+  with loose pages.
+- *Fix:* several files download as one ZIP named after what was
+  exported ("Physics p1-3.zip", "3 notebooks.zip"). Effort S.
+
+**R22-8 P3 · No print path.** ⬜ (docs/TODO.md Next)
+- *What:* printing a worksheet means exporting a PDF and printing it
+  from another app. GoodNotes and Notability print directly.
+- *Proposal:* Print… beside Export… handing the same PDF to the
+  system's print dialog (Android print framework, the desktop's print
+  dialog, the browser's). Large: a package with native parts on every
+  platform (`printing` brings its own PDFium on desktops, beside
+  `pdfium_dart`'s).
+
+
 ## Round 21 audit — diagrams and drawing (`review/round21`)
 
 Lens: an engineering or science student drawing by hand with the S Pen —

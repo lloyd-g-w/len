@@ -64,7 +64,7 @@ void main() {
                     context,
                     notebooks,
                     folder: folder ? dir : null,
-                    save: (files, {required mime, toDevice = false}) async =>
+                    save: (files, {required mime, toDevice = false, subject}) async =>
                         ExportedFiles(ExportedTo.shared, count: files.length),
                     lenExport: (_, scope, {required name, toDevice = false}) async {
                       exported.add((scope, name));

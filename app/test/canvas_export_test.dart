@@ -183,7 +183,7 @@ void main() {
     final done = exportCanvasFlow(
       context,
       notebook: nb,
-      save: (files, {required mime, toDevice = false}) async {
+      save: (files, {required mime, toDevice = false, subject}) async {
         saved.add(([for (final f in files) f.name], mime));
         return ExportedFiles(ExportedTo.downloaded, count: 1, name: files.single.name);
       },
@@ -207,7 +207,7 @@ void main() {
     await exportCanvasFlow(
       context,
       notebook: nb,
-      save: (_, {required mime, toDevice = false}) async => fail('saved'),
+      save: (_, {required mime, toDevice = false, subject}) async => fail('saved'),
     );
     await tester.pump();
     expect(find.text('Nothing to export yet: the canvas is empty'), findsOneWidget);

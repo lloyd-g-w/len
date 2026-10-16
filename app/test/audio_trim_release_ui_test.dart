@@ -107,7 +107,7 @@ void main() {
     await tester.pumpAndSettle();
     final list = tester.widget<RecordingsList>(find.byType(RecordingsList));
     List<ExportFile>? exported;
-    list.audio.saveFiles = (files, {required mime, toDevice = false}) async {
+    list.audio.saveFiles = (files, {required mime, toDevice = false, subject}) async {
       exported = files;
       return ExportedFiles(ExportedTo.downloaded, count: files.length);
     };
