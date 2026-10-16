@@ -93,6 +93,18 @@ class ThumbnailCache extends ChangeNotifier {
     if (_ink.containsKey(pageId)) _enqueue(pageId);
   }
 
+  /// The page changed while thumbnails stay open (a page sidebar beside
+  /// the page being written on): recorded again if a thumbnail shows it
+  /// (the old picture stands in meanwhile), else forgotten, to be recorded
+  /// when it shows again.
+  void changed(String pageId) {
+    if (_showing.containsKey(pageId)) return invalidate(pageId);
+    _queue.remove(pageId);
+    _blobs.remove(pageId);
+    _ink.remove(pageId)?.dispose();
+    _dropRaster(pageId);
+  }
+
   /// How many thumbnails show each page ([shown] / [hidden]).
   final Map<String, int> _showing = {};
 

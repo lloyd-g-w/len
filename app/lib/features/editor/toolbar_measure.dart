@@ -60,6 +60,7 @@ class ToolbarMeasure extends ChangeNotifier {
     bool band = false,
     bool split = false,
     bool keyboard = false,
+    EdgeInsets aside = EdgeInsets.zero,
   }) {
     final dock = dockFor(size);
     final layout = ChromeLayout(
@@ -71,6 +72,7 @@ class ToolbarMeasure extends ChangeNotifier {
       focus: focus,
       short: ChromeMetrics.short(size.height),
       keyboard: keyboard,
+      aside: aside,
     );
     if (!session.zoomWindow.isOpen) return layout;
     final zoom = session.zoomWindow;

@@ -19,6 +19,7 @@ class ChromeLayout {
     this.keyboard = false,
     this.zoomBox = 0,
     this.zoomBoxAtTop = false,
+    this.aside = EdgeInsets.zero,
   });
 
   /// The same layout with the zoom window's box, [height] tall, docked
@@ -34,6 +35,7 @@ class ChromeLayout {
     keyboard: keyboard,
     zoomBox: height,
     zoomBoxAtTop: atTop,
+    aside: aside,
   );
 
   /// Where the toolbar is.
@@ -54,6 +56,11 @@ class ChromeLayout {
   /// The soft keyboard is up: the phone's bottom tool row gives way (the
   /// text box's format bar has what typing needs, and Done).
   final bool keyboard;
+
+  /// The page sidebar's room along the start edge, under the top chrome
+  /// (zero without one): the surface and what lies over it are laid out
+  /// beside it ([covered] is the surface's, within the rest).
+  final EdgeInsets aside;
 
   /// Height of the zoom window's box (0 when it is closed).
   final double zoomBox;

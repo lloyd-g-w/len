@@ -22,6 +22,7 @@ EditorMenuActions editorMenuActions(
   required ValueChanged<PageFlow> onFlow,
   required VoidCallback onBackground,
   required VoidCallback onSearch,
+  VoidCallback? besidePage,
 }) {
   final prefs = session.services.preferences;
   final doc = session.doc;
@@ -43,7 +44,7 @@ EditorMenuActions editorMenuActions(
     onZoomWindow: session.toggleZoomWindow,
     bookmarked: page?.bookmarked ?? false,
     pdfPage: page?.pdf != null,
-    onOverview: paged ? () => openPageOverview(context, session) : null,
+    onOverview: paged ? () => openPageOverview(context, session, besidePage: besidePage) : null,
     onPageCommand: paged ? (c) => commands.run(context, c, page) : null,
     onExport: paged
         ? () => commands.export(context)
@@ -66,7 +67,12 @@ EditorMenuActions editorMenuActions(
 }
 
 /// The peeking page indicator for a paged [session] (null for canvases).
-Widget? editorPageNavigator(BuildContext context, EditorSession session) {
+/// [besidePage] shows the pages beside the page (offered by the overview).
+Widget? editorPageNavigator(
+  BuildContext context,
+  EditorSession session, {
+  VoidCallback? besidePage,
+}) {
   final doc = session.doc;
   final commands = session.commands;
   // A single page has nowhere to go: no "1 / 1" pill.
@@ -75,16 +81,21 @@ Widget? editorPageNavigator(BuildContext context, EditorSession session) {
     index: doc.currentPage,
     count: doc.pages.length,
     bookmarked: doc.pages[doc.currentPage].bookmarked,
-    onOverview: () => openPageOverview(context, session),
+    onOverview: () => openPageOverview(context, session, besidePage: besidePage),
     onGoTo: () => commands.goToPagePrompt(context, backgrounds: session.backgrounds),
   );
 }
 
 /// Opens the page overview of paged [session], with its Outline filter
-/// (the notebook's and its PDFs' outlines).
-Future<void> openPageOverview(BuildContext context, EditorSession session) =>
-    session.commands!.openOverview(
-      context,
-      backgrounds: session.backgrounds,
-      outline: (context, goTo) => NotebookOutlineView(session: session, onPage: goTo),
-    );
+/// (the notebook's and its PDFs' outlines) and, with [besidePage], "Show
+/// beside the page" (the page sidebar, where there is room for it).
+Future<void> openPageOverview(
+  BuildContext context,
+  EditorSession session, {
+  VoidCallback? besidePage,
+}) => session.commands!.openOverview(
+  context,
+  besidePage: besidePage,
+  backgrounds: session.backgrounds,
+  outline: (context, goTo) => NotebookOutlineView(session: session, onPage: goTo),
+);

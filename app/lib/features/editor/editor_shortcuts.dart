@@ -169,6 +169,7 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
   VoidCallback? export,
   VoidCallback? print,
   VoidCallback? goToPage,
+  VoidCallback? pageSidebar,
   VoidCallback? shortcutsHelp,
   VoidCallback? pdfCopied,
 }) => _alongside({
@@ -195,6 +196,7 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
     const SingleActivator(LogicalKeyboardKey.keyG, control: true): goToPage,
     const SingleActivator(LogicalKeyboardKey.keyG, meta: true): goToPage,
   },
+  const SingleActivator(LogicalKeyboardKey.f4): ?pageSidebar,
   if (turnPage != null) ...{
     const SingleActivator(LogicalKeyboardKey.space): unlessTyping(() => turnPage(1)),
     const SingleActivator(LogicalKeyboardKey.space, shift: true): unlessTyping(() => turnPage(-1)),

@@ -34,7 +34,11 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onSelect,
     this.outline = true,
     this.textScale = 1,
+    this.onBesidePage,
   });
+
+  /// "Show beside the page" (the editor's page sidebar); null hides it.
+  final VoidCallback? onBesidePage;
 
   final int pageCount;
   final OverviewFilter filter;
@@ -76,6 +80,17 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
       actions: [
+        if (onBesidePage case final onBesidePage?)
+          TextButton.icon(
+            onPressed: onBesidePage,
+            icon: Icon(
+              Directionality.of(context) == TextDirection.rtl
+                  ? Symbols.right_panel_open_sharp
+                  : Symbols.left_panel_open_sharp,
+              size: Glyphs.menu,
+            ),
+            label: const Text('Show beside the page'),
+          ),
         if (onSelect case final onSelect?)
           TextButton(onPressed: onSelect, child: const Text('Select')),
         SizedBox(width: compact ? Gaps.xs : Gaps.md),
