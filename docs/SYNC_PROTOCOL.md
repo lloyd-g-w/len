@@ -97,6 +97,42 @@ up to 8 MiB (always returning at least one), so responses stay bounded when reco
 server's newest seq when it read the page (never less than `nextSince`), so a client can show how
 far a long pull is (a new device's first sync).
 
+### `GET /v1/events`
+A [Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html) stream
+telling clients that the change feed moved on, so they can pull within seconds instead of
+polling. Servers must support it; clients may use it (they must still sync on their own now and
+then: an event can be missed while a connection is down). Needs the bearer token like every other
+endpoint (`401` otherwise), so browsers read it with `fetch` streaming rather than `EventSource`,
+which cannot send the header (and the token never goes into a URL).
+
+`200` with `Content-Type: text/event-stream; charset=utf-8`, `Cache-Control: no-cache, no-store,
+no-transform` and `X-Accel-Buffering: no` (nginx passes events on unbuffered); the response never
+ends by itself. It carries:
+
+- an event right away, and another whenever a push stores at least one record (not for a push
+  that stores nothing), or a push or pull is answered `409` (the server took a new `serverId`):
+  ```
+  data: {"seq":4711,"serverId":"9f…"}
+
+  ```
+  `seq` is the server's newest seq then, `serverId` its id. Events of one stream may be coalesced
+  or skipped: only the newest matters. Clients ignore other fields (`event:`, `id:`, `retry:`) and
+  data they cannot read.
+- a heartbeat comment (`: ping`) every 20 s, so proxies and NATs keep the connection and clients
+  notice one that died (Len takes 50 s of silence for a dead connection).
+
+A server with too many open streams (default 1000) answers `503` with `Retry-After`. Streams end
+when the server shuts down; clients reconnect with backoff.
+
+**Client use (Len).** A client keeps one stream open while the app is in the foreground (closed in
+the background, and on Android while the screen is off), reconnecting after 1, 2, 4 … s up to a
+minute (a fifth more at random, so clients of a restarted server spread out). On an event whose
+`serverId` differs from the one it synced with, or whose `seq` is newer than what it knows, it
+syncs about a second later (events in a burst make one run) — unless the change is its own: it
+knows the seqs its own pushes stored right after what it pulled (a push answered `applied` *n* and
+`serverSeq` *s* stored seqs *s − n + 1 … s*). A connection's first event also tells a client that
+returns to the foreground whether it missed anything.
+
 ### Errors
 `401` missing/bad token, `400` malformed request (body `{"error": "…"}`, plus `index` for an
 invalid pushed record), `409` the client is
@@ -256,6 +292,15 @@ again lazily if a record referencing it arrives later.
    deletion conflicts brought back).
 
 Records echoed back from the client's own push are harmless (LWW makes them no-ops).
+
+**When to sync (Len).** A cycle runs when the app starts; about 3 s after local writes pause (at
+the latest 10 s after the first of them while writing goes on; only writes that mark rows for
+upload count); about a second after a server event with news ([`/v1/events`](#get-v1events));
+when the app goes to the background or returns; and on a fallback timer every 45 s (every
+2 minutes while the event stream is healthy). Never more than one at a time (a run asked for
+while one runs follows it once). After a failed cycle, cycles the app started on its own wait 5 s,
+then 10, 20 … up to 2 minutes (the fallback timer goes on); an event stream connecting again
+retries at once.
 
 ### Deletion conflicts
 

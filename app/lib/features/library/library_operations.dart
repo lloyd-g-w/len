@@ -210,6 +210,5 @@ mixin _LibraryOperations {
     // stops and saves its recording (into the trash with it).
     services.sharedNotebooks.notebooksChanged();
     reload();
-    unawaited(services.sync.syncInBackground());
   }
 }

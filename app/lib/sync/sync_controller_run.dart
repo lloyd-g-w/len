@@ -12,6 +12,7 @@ extension _SyncRun on SyncController {
     bool cancelled() => _disposed || generation != _configGeneration;
 
     _setState(SyncState.syncing);
+    _runStarts();
     SyncApi? api;
     try {
       api = _api = apiFactory(settings.syncUrl, tokens.token);

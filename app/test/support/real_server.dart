@@ -21,8 +21,14 @@ class RealServer {
   late server.BlobStore blobs;
   late shelf.Handler _handler;
 
+  /// The server's event streams (`/v1/events`), ended by [restart].
+  late server.ChangeEvents events;
+
   /// Times the server was restarted.
   int restarts = 0;
+
+  /// Whether the server is down: connections are refused.
+  bool down = false;
 
   /// The most records a pull page holds, if fewer than clients ask for (a
   /// server may cut pages short: long pulls in tests).
@@ -31,12 +37,14 @@ class RealServer {
   void _open() {
     store = server.RecordStore.open('${dir.path}/len.db');
     blobs = server.BlobStore.open('${dir.path}/blobs');
-    _handler = server.buildHandler(store: store, blobs: blobs, token: token);
+    events = server.ChangeEvents();
+    _handler = server.buildHandler(store: store, blobs: blobs, token: token, events: events);
   }
 
   /// Closes the database and opens it again. Requests in flight keep the
   /// old (closed) store and fail with 500, as on a crash.
   void restart() {
+    unawaited(events.close());
     store.close();
     restarts++;
     _open();
@@ -45,6 +53,7 @@ class RealServer {
   /// Serves [request] (its URL's path from `/v1/…`), with [body] instead
   /// of the request's own if given.
   Future<http.StreamedResponse> handle(http.BaseRequest request, {Stream<List<int>>? body}) async {
+    if (down) throw http.ClientException('Connection refused', request.url);
     var url = request.url.replace(scheme: 'http', host: 'sync.test');
     final limit = int.tryParse(url.queryParameters['limit'] ?? '');
     if (url.path == '/v1/pull' && maxPage != null && limit != null && limit > maxPage!) {
@@ -86,6 +95,7 @@ class RealServer {
   }
 
   void dispose() {
+    unawaited(events.close());
     store.close();
     dir.deleteSync(recursive: true);
   }
