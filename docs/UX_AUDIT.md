@@ -514,6 +514,11 @@ open notebook is ignored.
   as one step; "PDF replaced" with Undo). New pages come only when the
   notebook showed the old PDF's last page (pages 1–10 of a handout don't
   grow the slides 61–63).
+  Bug hunt 10: a new version of another shape (4:3 slides re-exported at
+  16:9) no longer stretches: each page keeps its width and takes its new
+  PDF page's aspect ratio (`NotebookPage.sizeFor`; ink stays put, anchored
+  top left), in the same undo step; the sheet says "Pages change shape to
+  match". Relink of a missing PDF goes through the same undoable edit.
 
 **R18-2 P2 · A page added after a slide has nothing to write on.** ✅
 - *What:* "Add page after" copies the page's paper and size; a PDF page's

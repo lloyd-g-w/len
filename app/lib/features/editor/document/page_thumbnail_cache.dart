@@ -182,11 +182,14 @@ class ThumbnailCache extends ChangeNotifier {
   /// The page's content as an image [width] × [height] pixels, once
   /// rasterised from its picture ([inkOf]), which stands in meanwhile (an
   /// older image stands in after the page changed). Safe while painting:
-  /// listeners hear when the raster is ready.
+  /// listeners hear when the raster is ready. A raster of another page
+  /// shape (a new PDF under the page) would stretch the content: none
+  /// stands in then.
   RasterImage? rasterOf(String pageId, Size page, int width, int height) {
     final picture = _ink[pageId];
-    final raster = _rasters.remove(pageId);
+    var raster = _rasters.remove(pageId);
     if (raster != null) _rasters[pageId] = raster; // Most recently used.
+    if (raster != null && raster.page != page) raster = null;
     if (picture == null || width <= 0 || height <= 0) return raster?.image;
     final current =
         raster != null &&
@@ -222,7 +225,7 @@ class ThumbnailCache extends ChangeNotifier {
               return;
             }
             _dropRaster(pageId);
-            _rasters[pageId] = _Raster(picture, image);
+            _rasters[pageId] = _Raster(picture, page, image);
             _rasterBytes += image.bytes;
             while (_rasterBytes > maxRasterBytes && _rasters.length > 1) {
               _dropRaster(_rasters.keys.first);
@@ -286,8 +289,11 @@ class ThumbnailCache extends ChangeNotifier {
 
 /// A page's raster and the picture it was made from.
 class _Raster {
-  _Raster(this.picture, this.image);
+  _Raster(this.picture, this.page, this.image);
 
   final ui.Picture picture;
+
+  /// The page size it was made for.
+  final Size page;
   final RasterImage image;
 }

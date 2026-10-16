@@ -25,11 +25,12 @@ import 'package:pdfrx/pdfrx.dart';
 import 'pdf_test.dart' show pdfium, samplePdf;
 import 'support/real_async.dart';
 
-/// A one-page PDF, different from [samplePdf].
-Future<Uint8List> otherPdf({int pages = 2}) {
+/// A PDF of [pages] pages of [format] (A5 portrait), different from
+/// [samplePdf].
+Future<Uint8List> otherPdf({int pages = 2, pw.PdfPageFormat format = pw.PdfPageFormat.a5}) {
   final doc = pw.PdfDocument();
   for (var i = 0; i < pages; i++) {
-    pw.PdfPage(doc, pageFormat: pw.PdfPageFormat.a5);
+    pw.PdfPage(doc, pageFormat: format);
   }
   return doc.save();
 }
@@ -102,6 +103,25 @@ void main() {
     expect(services.pages.get(other.id)!.background!.blob, c);
     // Synced like any other edit.
     expect(services.pages.referencedBlobs(), {b, c});
+  });
+
+  test('relinked pages take their new PDF page\'s shape, synced; their sizes come back', () {
+    final a = 'a' * 64, b = 'b' * 64;
+    final nb = notebookOnMissingPdf(services, a);
+    final before = services.pages.relinkBackground(
+      nb.id,
+      from: a,
+      to: b,
+      shapes: const [ui.Size(1600, 900), ui.Size(794, 1123)],
+    );
+    expect([for (final p in before) p.size], [const ui.Size(794, 1123), const ui.Size(794, 1123)]);
+    final pages = services.pages.pagesOf(nb.id);
+    expect(pages.first.size, const ui.Size(794, 794 * 900 / 1600));
+    expect(pages.last.size, const ui.Size(794, 1123)); // The same shape: as it was.
+    final record = services.pages.dirtyRecords(100).singleWhere((r) => r.id == pages.first.id);
+    expect((record.data!['width'], record.data!['height']), (794, 794 * 900 / 1600));
+    services.pages.setSizes(before);
+    expect(services.pages.pagesOf(nb.id).first.size, const ui.Size(794, 1123));
   });
 
   test('a PDF that cannot be fetched is reported missing until retried', () async {
@@ -240,6 +260,7 @@ void main() {
 
       await settle(() => find.text('Use a different PDF?').evaluate().isNotEmpty);
       expect(find.text('Use a different PDF?'), findsOneWidget);
+      expect(find.textContaining('Pages change shape to match'), findsOneWidget);
       await tester.tap(find.text('Use this PDF'));
       await settle(() => finished);
       await done;
@@ -247,6 +268,22 @@ void main() {
       final sha = shaOf(replacement);
       expect(services.pages.pagesOf(nb.id).map((p) => p.background?.blob), [sha, sha]);
       expect(find.text('PDF relinked'), findsOneWidget);
+      // The pages take the new PDF's shape (A5 is a little taller than
+      // the A4 they had), their width and notes kept.
+      const a5 = pw.PdfPageFormat.a5;
+      final height = 794 * a5.height / a5.width;
+      for (final p in services.pages.pagesOf(nb.id)) {
+        expect(p.width, 794);
+        expect(p.height, moreOrLessEquals(height, epsilon: 0.5));
+      }
+
+      // One step for the notebook's undo.
+      await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
+      await tester.pump();
+      expect(services.pages.pagesOf(nb.id).map((p) => (p.background?.blob, p.height)), [
+        (missing, 1123),
+        (missing, 1123),
+      ]);
       await tester.pumpWidget(const SizedBox());
     },
   );

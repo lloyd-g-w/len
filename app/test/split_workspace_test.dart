@@ -4,6 +4,9 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
+import 'package:len/data/stroke_reader.dart';
+import 'package:len/domain/chunk_digest.dart';
+import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
@@ -328,6 +331,30 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('a second pane opens in reading on a page with content, decided at once', (
+    tester,
+  ) async {
+    FingerReading.debugEnabled = true;
+    // Surfaces read in the background answer later (on a device: another
+    // isolate, busy loading the first pane's pages).
+    final later = <Completer<void>>[];
+    final (s, _, chemistry) = await pumpWorkspace(
+      tester,
+      reader: (strokes) => _LaterReader(strokes, later),
+    );
+    s.strokes.save([inkStroke(s.pages.pagesOf(chemistry.id).first.id)]);
+    s.openNotebooks.openSplit(chemistry.id);
+    await tester.pump();
+    final right = sessionsOf(tester)[1];
+    expect(right.tools.reading, isTrue, reason: 'decided on open, from what the page holds');
+    for (final c in [...later]) {
+      c.complete();
+    }
+    await tester.pumpAndSettle();
+    expect(right.tools.reading, isTrue);
+    await closeEditor(tester);
+  });
+
   testWidgets('a parked pane going back to reading offers no tip nobody sees', (tester) async {
     FingerReading.debugEnabled = true;
     final (s, _, chemistry) = await pumpWorkspace(tester);
@@ -405,4 +432,34 @@ void main() {
     expect(tester.takeException(), isNull);
     await closeEditor(tester);
   });
+}
+
+/// A reader answering only once the test completes the completers it adds
+/// to [later] (as a background isolate answers later).
+class _LaterReader implements StrokeReader {
+  _LaterReader(this.inner, this.later);
+
+  final StrokeReader inner;
+  final List<Completer<void>> later;
+
+  Future<T> _later<T>(FutureOr<T> Function() answer) {
+    final c = Completer<void>();
+    later.add(c);
+    return c.future.then((_) => answer());
+  }
+
+  @override
+  Future<ChunkLoad> read(String surfaceId, ChunkRange range, {Set<ChunkKey> skip = const {}}) =>
+      _later(() => inner.read(surfaceId, range, skip: skip));
+
+  @override
+  Future<Map<ChunkKey, ChunkDigest>> chunkDigests(String surfaceId, ChunkRange range) =>
+      _later(() => inner.chunkDigests(surfaceId, range));
+
+  @override
+  Future<Map<ChunkKey, int>> chunkDensity(String surfaceId) =>
+      _later(() => inner.chunkDensity(surfaceId));
+
+  @override
+  Future<Rect?> contentBounds(String surfaceId) => _later(() => inner.contentBounds(surfaceId));
 }

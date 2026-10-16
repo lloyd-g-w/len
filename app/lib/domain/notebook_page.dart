@@ -103,6 +103,16 @@ class NotebookPage {
 
   Size get size => Size(width, height);
 
+  /// This page's size with a new background of [shape] under it (another
+  /// PDF page): its width kept, its height from [shape]'s aspect ratio, so
+  /// its content stays where it is (anchored top left, nothing scaled).
+  /// [size] when the shapes match (to a thousandth) or [shape] is empty.
+  Size sizeFor(Size shape) {
+    if (shape.isEmpty || width <= 0) return size;
+    final height = width * shape.height / shape.width;
+    return (height / this.height - 1).abs() < 1e-3 ? size : Size(width, height);
+  }
+
   /// A template describing this page, for creating similar pages.
   PageTemplate get template {
     final match = PageFormat.match(size);

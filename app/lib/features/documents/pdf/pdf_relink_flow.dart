@@ -29,11 +29,14 @@ enum RelinkResult {
 /// Lets the user pick a file for PDF [missing] that the pages of
 /// [notebookId] are drawn on (UX_AUDIT #24). The same file restores it; a
 /// different one (e.g. the same handout downloaded again) is used for
-/// those pages once the user agrees, page for page, keeping their notes.
+/// those pages once the user agrees, page for page, keeping their notes:
+/// [use] makes that change (undoably) with the new PDF's blob and the
+/// sizes of its pages, whose shape the pages take.
 Future<RelinkResult> relinkPdfFlow(
   BuildContext context, {
   required String notebookId,
   required String missing,
+  required void Function(String blob, List<Size> shapes) use,
   XFile? file,
 }) async {
   final services = AppScope.read(context);
@@ -43,7 +46,7 @@ Future<RelinkResult> relinkPdfFlow(
   final renderer = PdfRenderer(services.blobs);
   String? sha;
   try {
-    final pageCount = await runWithSteps(
+    final sizes = await runWithSteps(
       context,
       'Relinking PDF',
       subject: picked.name,
@@ -53,19 +56,20 @@ Future<RelinkResult> relinkPdfFlow(
         sha = await importer.store(picked, cancel: progress.token);
         if (sha == missing) return null;
         progress.stageStarted('Reading pages…');
-        return (await renderer.pageSizes(sha!)).length;
+        return renderer.pageSizes(sha!);
       },
     );
     if (sha == missing) return RelinkResult.restored;
-    if (!context.mounted || pageCount == null) return await _discard(importer, renderer, sha);
+    if (!context.mounted || sizes == null) return await _discard(importer, renderer, sha);
 
     // The pages that used the missing PDF, and the furthest page they use.
     final used = [
       for (final page in services.pages.pagesOf(notebookId))
-        if (page.pdf case final bg? when bg.blob == missing) bg.pageIndex,
+        if (page.pdf case final bg? when bg.blob == missing) (page: page, index: bg.pageIndex),
     ];
     if (used.isEmpty) return await _discard(importer, renderer, sha);
-    final needed = used.reduce((a, b) => a > b ? a : b) + 1;
+    final needed = used.map((u) => u.index).reduce((a, b) => a > b ? a : b) + 1;
+    final pageCount = sizes.length;
     if (pageCount < needed) {
       showMessage(
         context,
@@ -74,17 +78,18 @@ Future<RelinkResult> relinkPdfFlow(
       );
       return await _discard(importer, renderer, sha);
     }
+    final reshaped = used.any((u) => u.page.sizeFor(sizes[u.index]) != u.page.size);
     final agreed = await confirmAction(
       context,
       title: 'Use a different PDF?',
       message:
           '“${picked.name}” isn’t the file these pages were made from. Its pages will show '
           'under the notes on ${_pages(used.length)}, page for page; the notes stay where '
-          'they are.',
+          'they are.${reshaped ? ' Pages change shape to match.' : ''}',
       confirmLabel: 'Use this PDF',
     );
     if (!agreed) return await _discard(importer, renderer, sha);
-    services.pages.relinkBackground(notebookId, from: missing, to: sha!);
+    use(sha!, sizes);
     unawaited(services.search.indexPdfs()); // Its text, for search.
     return RelinkResult.replaced;
   } on Cancelled {

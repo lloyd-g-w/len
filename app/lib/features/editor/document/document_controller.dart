@@ -202,6 +202,14 @@ class DocumentController extends _DocumentState with _DocumentViewport {
     return null;
   }
 
+  /// Whether page [index] is a planner page with links on it (a day on a
+  /// month, …): something to follow by finger even with nothing written.
+  bool hasPlannerLinks(int index) {
+    final page = _pages[index];
+    if (!page.paper.style.isPlanner) return false;
+    return PaperPattern.of(page.paper, page.bounds, page: page.bounds).links.isNotEmpty;
+  }
+
   /// The index of the first page with template [paper], or -1.
   int indexOfPaper(Paper paper) => _pages.indexWhere((p) => p.paper.sameSheet(paper));
 

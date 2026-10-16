@@ -221,10 +221,7 @@ void main() {
         _box('a', 'First line\nand more  ', const Rect.fromLTWH(50, 0, 100, 30)),
       ]);
       expect(sent, 'First line\nand more\n\nSecond');
-      expect(
-        sentHtml,
-        '<div>First line</div><div>and more &nbsp;</div><div><br></div><div>Second</div>',
-      );
+      expect(sentHtml, '<div>First line</div><div>and more</div><div><br></div><div>Second</div>');
       expect(mirror.holdsInkText('First line\r\nand more\r\n\r\nSecond'), isTrue);
       expect(mirror.holdsInkText('Second'), isFalse);
       // With ink among them: the picture only.

@@ -49,6 +49,15 @@ void main() {
       expect(cache.rasterOf('p', page, 300, 424), same(first));
       await settle(() => !identical(cache.rasterOf('p', page, 300, 424), first));
       expect(cache.rasterOf('p', page, 300, 424), isNotNull);
+
+      // The page changed shape (a new PDF under it, R10): the old raster
+      // would stretch the ink, so the picture stands in until a raster of
+      // the new shape is ready.
+      const wide = Size(794, 447);
+      expect(cache.rasterOf('p', wide, 300, 169), isNull);
+      await settle(() => cache.rasterOf('p', wide, 300, 169) != null);
+      final reshaped = cache.rasterOf('p', wide, 300, 169)!;
+      expect((reshaped.width, reshaped.height), (300, 169));
       cache.dispose();
       db.close();
     });

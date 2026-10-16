@@ -823,14 +823,20 @@ thumbnails paint a hatched "PDF page unavailable" placeholder
 `MissingPdfNotice` with Retry (`retryMissing`, also run after each sync) and
 Relink… (`relinkPdfFlow`): the same file restores the blob; a different one,
 once confirmed and only if it has enough pages, replaces it page for page
-(`PageRepository.relinkBackground`, synced like any page edit).
+(`PageEdits.replacePdf` over `PageRepository.relinkBackground`, synced like
+any page edit, one undo step).
 **Replace PDF…** (the page menu of a PDF page, `replacePdfFlow`, UX_AUDIT
 R18-1) does the same for a PDF that is present — the lecturer's new version
 of the slides — as one undoable `PageEdits.replacePdf` step: the pages drawn
 on the old PDF show the same pages of the new one under their notes, and the
 new one's pages beyond the old one's end are added after the last of them
 (only when the notebook showed the old one's last page); a file with fewer
-pages than the notes use is refused. The overview's cells take the shape of
+pages than the notes use is refused. Both re-read the page after the file
+picker (a sync may have swapped or deleted its PDF meanwhile). A new PDF
+page of another shape reshapes its page (`NotebookPage.sizeFor`: width
+kept, height from the PDF page's aspect ratio, so ink stays put, anchored
+top left), in the same step; the confirmation says "Pages change shape to
+match". The overview's cells take the shape of
 most of the notebook's pages (`commonPageAspect`), so slide decks get
 landscape cells.
 **Slide numbers** (UX_AUDIT R18-5): page numbers are always the notebook's
@@ -2298,8 +2304,10 @@ with a template is "Add page after" held down in the page menu).
   finger always writes, so reading back took two fingers and a resting thumb
   marked the page. `FingerReading` puts the editor in `ToolSettings.reading`
   where there is something to read: opening on a page (or canvas) with ink,
-  text boxes, images or a PDF / scan background (loaded, else
-  `StrokeReader.contentBounds`) starts in reading, an empty one in writing;
+  text boxes, images, a PDF / scan background or planner links (loaded, else
+  `StrokeRepository.hasContent`, a quick query on the UI isolate, so the
+  answer is there at once and never depends on a background read's timing)
+  starts in reading, an empty one in writing;
   after `FingerReading.idle` (2 min) without a drawing contact
   (`InkEvents.contact`) it reads again, if the page has content and nothing is
   under way (a stroke, a text box typed, a selection, the zoom window).
