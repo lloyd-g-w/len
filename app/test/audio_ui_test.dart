@@ -376,6 +376,9 @@ void main() {
     await tester.tap(find.text('Record audio'));
     await _settleAsync(tester);
     expect(find.byKey(const ValueKey('recording-pill')), findsOneWidget);
+    // Floating controls: named, full-size targets (UX_AUDIT round 23).
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
     e.clock.now += 3000;
     await tester.tap(find.byTooltip('Stop recording'));
     await _settleAsync(tester);
@@ -397,6 +400,8 @@ void main() {
       find.byType(EditorScreen),
       matchesGoldenFile('goldens/audio_playback_phone.png'),
     );
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
 
     // Tap the second word of the page (written at 3 s).
     final doc = tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;

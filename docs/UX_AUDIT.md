@@ -41,7 +41,7 @@ handles lose contrast on dark paper.
 |---|---|---|
 | Names for icon-only controls | every tappable node labelled on all screens checked (guideline) | Keep |
 | Roles and states | buttons, headers, `selected` on tools, segments, tiles, covers, templates | Keep |
-| Touch targets | 48 dp on touch; quick slots 44 (CONVENTIONS); overview filter and ⋯ 40 | R23-1 ✅ |
+| Touch targets | 48 dp on touch; quick slots 44 (CONVENTIONS); overview filter and ⋯ 40; the player's scrubber 44, speed 40, Trim 36 | R23-1 ✅, R23-8 ✅ |
 | Text contrast | Graphite ≥ 5.5:1 on every chrome surface, ruling blue ≥ 5.0 on Sheet / Board, error ≥ 4.8 | Keep |
 | Component contrast | Pencil outlines 3.1–3.5:1 on Board / Sheet; selection chrome on dark paper 2.9:1 | R23-6 ✅ |
 | Disabled states | 38 % ink (≈ 2.5:1), as Material; WCAG exempts inactive controls | Keep |
@@ -103,6 +103,14 @@ handles lose contrast on dark paper.
 - *Fix:* the frame, lasso and rotate line get a 1-px paper-coloured band
   each side of the blue line, readable on any paper, image or ink (handles
   were already paper discs ringed in blue).
+
+**R23-8 P2 · The audio player's scrubber, speed and Trim were under 48 dp on touch.** ✅
+- *What:* found by running the guidelines over the floating recording
+  controls and the player on a phone: the waveform scrubber (a slider to
+  screen readers) was 44 dp tall, the speed button 40, Trim… 36.
+- *Fix:* on touch the scrubber pads its hit area to 48, the speed button
+  and Trim… are `Targets.barHit` (the player grows by a few dp); the audio
+  test checks both guidelines while recording and playing.
 
 **R23-7 P3 · Smaller large-text cuts.** ✅
 - *What:* the canvas's "Hold for a template" hint ellipsized at 2× on a
