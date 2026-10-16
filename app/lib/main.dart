@@ -93,18 +93,18 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
     );
     return;
   }
-  // Sync starts once the token is read from the secure store (which may
-  // ask to unlock a keyring, so the app doesn't wait for it).
   StartupTrace.mark('services');
-  unawaited(services.sync.tokens.load().whenComplete(services.sync.start));
   if (PerfProbe.requested) PerfProbe.start();
   runApp(LenApp(services: services));
   StartupTrace.mark('runApp');
   StartupTrace.watchTurns();
+  final firstFrame = WidgetsBinding.instance.waitUntilFirstFrameRasterized;
+  unawaited(firstFrame.then((_) => StartupTrace.mark('first frame')));
+  // Sync starts once the token is read from the secure store (which may
+  // ask to unlock a keyring, so the app doesn't wait for it) and the first
+  // frame is up (what a sync brings in is no part of it).
   unawaited(
-    WidgetsBinding.instance.waitUntilFirstFrameRasterized.then(
-      (_) => StartupTrace.mark('first frame'),
-    ),
+    Future.wait([services.sync.tokens.load(), firstFrame]).whenComplete(services.sync.start),
   );
   // Throttled to once a day; deletes blobs unreferenced for a week. Its
   // scans run on this thread: later, not while the first frames build.
