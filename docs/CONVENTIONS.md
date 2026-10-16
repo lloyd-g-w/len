@@ -109,7 +109,8 @@ migrations needs no manual cleanup — but don't rely on it once we ship.
 
 ## Rules
 
-- `flutter analyze` must report **no issues**; `flutter test` must pass.
+- `flutter analyze` must report **no issues**; both test tiers must pass
+  (`flutter test -x slow`, `flutter test -t slow`; see Tooling).
 - Small files (aim < 300 lines), small functions, doc comments on public APIs.
   To split a large class, prefer its own files for cohesive pieces (widgets,
   value types, codecs); otherwise `part` files: private members in a private
@@ -142,6 +143,12 @@ migrations needs no manual cleanup — but don't rely on it once we ship.
   `test/support/real_async.dart`, `settle` in `canvas_fixtures.dart`), use fake
   time (`tester.pump(duration)`, `fake_async`), and keep timing checks relative
   (best of interleaved batches, generous limits); benchmarks go in `test/perf/`.
+- Two test tiers (`app/dart_test.yaml`): the **default** tier is everything
+  not tagged `slow`; the **slow** tier is the benchmarks (`test/perf/`,
+  `@Tags(['perf'])`) and the screenshot scenarios (`test/screenshots/`,
+  `@Tags(['screenshots'])`), both of which add `slow`. A new file in either
+  directory carries its tag (`@Tags([...])` + `library;` on top). CI runs both
+  tiers on every push (`App · analyze + test`, `App · slow tests`).
 - Run the full suite on a tree nothing changes meanwhile (no merge, checkout or
   golden update in that checkout until it ends): files are compiled and goldens
   read at different times, so a merge mid-run fails tests that pass alone.
@@ -150,7 +157,9 @@ migrations needs no manual cleanup — but don't rely on it once we ship.
 ## Tooling (NixOS)
 
 ```sh
-nix develop -c bash -c 'cd app && flutter analyze && flutter test'
+nix develop -c bash -c 'cd app && flutter analyze && flutter test -x slow'  # default tier
+nix develop -c bash -c 'cd app && flutter test -t slow'   # slow tier: perf + screenshots
+nix develop -c bash -c 'cd app && flutter test'           # both tiers in one run
 nix develop -c bash -c 'cd app && flutter build web --release'   # web must keep compiling
 nix develop .#android -c bash -c 'cd app && flutter build apk --debug'
 app/tool/generate_icons.sh   # after changing the icon design (commit the output)

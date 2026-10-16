@@ -99,7 +99,7 @@ real recording (`excerpt`: a few lines, none of the multi-second ones; the
 whole recordings take minutes with flat ends too). Every entry with both
 end styles: the table below with `INKLAB_ENDS=both`.
 
-CI (`.github/workflows/ci.yml`) runs `flutter test` (the suite without
+CI (`.github/workflows/ci.yml`) runs `flutter test -x slow` (the suite without
 the real recordings, flat entries included) and, in *wet-ink Kotlin
 parity*, `unit_test.sh` and `check.sh` below with `LEN_NO_NIX=1` (a JDK
 and the Kotlin compiler from PATH instead of nix; the compiler zip is

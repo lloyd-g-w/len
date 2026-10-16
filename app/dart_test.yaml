@@ -1,3 +1,15 @@
+# Two tiers (docs/CONVENTIONS.md, "Tests"): the default run leaves out the
+# slow tier (`flutter test -x slow`); CI runs it as its own step
+# (`flutter test -t slow`).
 tags:
   inklab:
     # The Ink Lab suite (test/inklab/); see docs/INK_LAB.md.
+  perf:
+    # Benchmarks at scale (test/perf/): big libraries, notebooks and canvases.
+    add_tags: [slow]
+  screenshots:
+    # The screenshot scenarios (test/screenshots/); without
+    # --dart-define=SCREENSHOTS=true they render as layout smoke tests.
+    add_tags: [slow]
+  slow:
+    # The slow tier: run with `flutter test -t slow` (CI runs it on every push).
