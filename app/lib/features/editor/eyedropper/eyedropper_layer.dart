@@ -15,7 +15,8 @@ import 'page_snapshot.dart';
 /// the hint "Tap a colour on the page" and, while a pointer presses or
 /// hovers on the page, the [EyedropperLoupe]. Lifting a pointer pressed on
 /// the page picks the colour there; a press anywhere else (chrome, menus,
-/// the desk between pages) or Escape cancels. Reports once through
+/// the desk between pages) or Escape cancels; a palm near the pen is
+/// ignored. Reports once through
 /// [onDone]: the colour, or null when cancelled.
 class EyedropperLayer extends StatefulWidget {
   const EyedropperLayer({super.key, required this.colours, required this.onDone});
@@ -87,7 +88,8 @@ class _EyedropperLayerState extends State<EyedropperLayer> {
   }
 
   void _down(PointerDownEvent event) {
-    if (_pointer != null || _done) return;
+    // A palm landing near the pen neither picks nor cancels.
+    if (_pointer != null || _done || _colours.isPalm(event)) return;
     final primary = event.kind != PointerDeviceKind.mouse || event.buttons == kPrimaryButton;
     if (!primary || !_colours.onPage(event.position)) return _finish(null);
     _pointer = event.pointer;

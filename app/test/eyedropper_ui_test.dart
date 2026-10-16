@@ -7,13 +7,11 @@ import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
-import 'package:len/domain/stroke_style.dart';
 import 'package:len/features/editor/canvas/canvas_view.dart';
 import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/eyedropper/eyedropper_layer.dart';
 import 'package:len/features/editor/pen/ink_slots.dart';
-import 'package:len/ink/shapes/shape_fill.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ui/app_theme.dart';
 import 'package:len/ui/color_picker/color_choices.dart';
@@ -150,6 +148,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(slot(tools), PaperColor.dark.paper.toARGB32());
     expect(tools.recentColors.take(2), [PaperColor.dark.paper.toARGB32(), _ink]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a palm landing while the pen is near neither picks nor cancels', (tester) async {
+    final (tools, toScreen) = await _open(tester);
+    final palms = AppScope.read(tester.element(find.byType(EditorScreen))).palmGuard..attach();
+    addTearDown(palms.detach);
+    final before = slot(tools);
+    await _pickFromSlot(tester);
+    final pen = await tester.createGesture(kind: PointerDeviceKind.stylus);
+    await pen.addPointer(location: toScreen(const Offset(250, 200)));
+    await pen.moveTo(toScreen(const Offset(250, 201)));
+    await tester.pump();
+    await tester.tapAt(toScreen(const Offset(150, 150)));
+    await tester.pumpAndSettle();
+    expect(_hint, findsOneWidget);
+    expect(slot(tools), before);
+    await pen.down(toScreen(const Offset(250, 200)));
+    await pen.up();
+    await tester.pumpAndSettle();
+    expect(slot(tools), _ink);
+    await pen.removePointer();
     expect(tester.takeException(), isNull);
   });
 

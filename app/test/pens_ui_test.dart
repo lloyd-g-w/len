@@ -76,7 +76,7 @@ void main() {
       final stroke = edit.added.single;
       expect(stroke.points.first.offset, const Offset(10, 10));
       // 1.7° off level: snapped level (R21-1).
-    expect(stroke.points.every((p) => (p.y - 10).abs() < 1e-3), isTrue);
+      expect(stroke.points.every((p) => (p.y - 10).abs() < 1e-3), isTrue);
     });
 
     testWidgets('the setting can turn it off', (tester) async {

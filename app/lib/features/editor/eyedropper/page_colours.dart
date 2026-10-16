@@ -1,7 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../ink/images/image_pixel.dart';
+import '../../../ink/input/ink_input_controller.dart';
 import '../../../ink/surface_model.dart';
 import '../../../ink/tools/content_colour.dart';
 import '../editor_session.dart';
@@ -64,6 +66,12 @@ class PageColours {
     }
     return null;
   }
+
+  /// Whether touch [down] is the writing hand's palm: a stylus was down or
+  /// near just now (as the canvas takes it, `InkInputController.palmQuiet`).
+  bool isPalm(PointerDownEvent down) =>
+      down.kind == PointerDeviceKind.touch &&
+      session.services.palmGuard.stylusNear(down.timeStamp, within: InkInputController.palmQuiet);
 
   /// The surface point under [global], if a surface is there.
   SurfacePoint? surfaceAt(Offset global) {
