@@ -2081,8 +2081,9 @@ GoodNotes-style rich text inside a box.
   (it follows its head); moving, resizing, restyling or rotating a head flows its chain again
   from where it is (`SelectionPlan.flowText`, same undo step; a rotated head takes the whole
   text and stops flowing), deleting it deletes the chain, copy / cut / duplicate take the whole
-  text (pasted on a page it flows; on a canvas it is one tall box). Ctrl+V of plain text on a
-  page flows too. **Broken chains**: a continuation whose box before is gone or not on the page
+  text, so does dragging it into the other split pane (placed as the selection was shown, on the
+  page its first line lands on; pasted on a page it flows; on a canvas it is one tall box). Ctrl+V
+  of plain text on a page flows too (from no higher than the top margin). **Broken chains**: a continuation whose box before is gone or not on the page
   before (pages deleted, moved or copied alone) stands alone, drawn as it was; edited, it
   becomes a box of its own (its flow dropped); the chain before it simply ends. Duplicating a
   notebook relinks its chains to the copies. Infinite canvases have no pages: boxes grow there.
