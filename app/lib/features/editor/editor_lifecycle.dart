@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
@@ -149,13 +148,9 @@ class EditorLifecycle {
   }
 
   /// After the session is gone: if anything was [edited], bumps the
-  /// notebook's "last edited" and syncs.
+  /// notebook's "last edited" (sync pushes it soon after, as every write).
   void finish({required bool edited}) {
     if (!edited) return;
     services.notebooks.touch(_notebook.id);
-    // Deferred: syncing notifies listeners (e.g. the library's sync button),
-    // which must not happen while the tree is locked during dispose.
-    final sync = services.sync;
-    scheduleMicrotask(() => unawaited(sync.syncInBackground()));
   }
 }

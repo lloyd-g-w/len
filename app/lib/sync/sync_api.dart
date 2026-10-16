@@ -8,10 +8,12 @@ import 'package:http/http.dart' as http;
 import '../data/syncable.dart';
 import '../platform/pull_decoder.dart';
 import 'pull_page.dart';
+import 'server_events.dart';
 import 'server_info.dart';
 import 'sync_errors.dart';
 
 export 'pull_page.dart' show PullPage;
+export 'server_events.dart' show ServerEvent;
 export 'server_info.dart';
 export 'sync_errors.dart';
 
@@ -101,7 +103,13 @@ class SyncApi {
   /// [maxRecordBytes] or cannot be encoded as JSON, or that the server
   /// rejected as invalid (`400` naming its `index`; the rest of its request
   /// is sent again without it); everything else was accepted by the server.
-  Future<List<SyncRecord>> push(List<SyncRecord> records, {required int since}) async {
+  /// [onStored] hears what each request stored: how many records, and the
+  /// server's newest seq after it (theirs are the [applied] seqs up to it).
+  Future<List<SyncRecord>> push(
+    List<SyncRecord> records, {
+    required int since,
+    void Function(int applied, int serverSeq)? onStored,
+  }) async {
     final unsent = <SyncRecord>[];
     var batch = <({SyncRecord record, String json})>[];
     var batchBytes = 0;
@@ -131,8 +139,10 @@ class SyncApi {
         final rejected = _rejectedIndex(response, sending.length);
         if (rejected == null) {
           _expectOk(response);
-          if (decodeObject(response.body) == null) {
-            throw SyncException.unreadable(response.bodyBytes);
+          final json = decodeObject(response.body);
+          if (json == null) throw SyncException.unreadable(response.bodyBytes);
+          if (json case {'applied': final int applied, 'serverSeq': final int serverSeq}) {
+            onStored?.call(applied, serverSeq);
           }
           return;
         }
@@ -198,6 +208,31 @@ class SyncApi {
     );
     _expectOk(response);
     return response.bodyBytes;
+  }
+
+  /// Opens the server's event stream (`/v1/events`): an event whenever
+  /// its change feed moves on, `null` for each heartbeat. Throws
+  /// [SyncException] if it cannot be opened; the stream ends or fails when
+  /// the connection does (or [close] is called).
+  Future<Stream<ServerEvent?>> events() async {
+    // No other headers: in a browser each would need the server's CORS
+    // permission (Accept is always allowed).
+    final request = http.Request('GET', _uri('v1/events'))
+      ..headers.addAll({'Authorization': 'Bearer $token', 'Accept': 'text/event-stream'});
+    final http.StreamedResponse response;
+    try {
+      response = await _client.send(request).timeout(timeout);
+    } on Exception catch (e) {
+      throw SyncException.unreachable(e);
+    }
+    if (response.statusCode != 200) {
+      final body = await response.stream
+          .bytesToString()
+          .timeout(timeout, onTimeout: () => '')
+          .catchError((Object _) => '');
+      throw SyncException.status(response.statusCode, body);
+    }
+    return parseServerEvents(response.stream);
   }
 
   // ---------------------------------------------------------------------------

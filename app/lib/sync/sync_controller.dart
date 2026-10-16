@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
@@ -7,22 +8,35 @@ import '../data/settings_repository.dart';
 import '../data/sync_token_store.dart';
 import 'blob_sync.dart';
 import 'freed_files.dart';
+import 'live_events.dart';
 import 'revival_notice.dart';
 import 'sync_api.dart';
 import 'sync_engine.dart';
 
+part 'sync_controller_live.dart';
 part 'sync_controller_requests.dart';
 part 'sync_controller_run.dart';
 
 enum SyncState { disabled, idle, syncing, error }
 
 /// Schedules sync cycles and exposes their status to the UI.
+///
+/// Once [start]ed, a run follows local writes ([writeDelay] after writing
+/// pauses), the server's events (another device pushed: [remoteDelay]
+/// later; heard over [LiveEvents] while the app is in the [foreground]),
+/// leaving and returning to the app, and a fallback timer ([interval], or
+/// [liveInterval] while the event stream is healthy). Failed runs are
+/// tried again after a backoff ([firstRetry] doubling up to [lastRetry]).
 class SyncController extends ChangeNotifier with _SyncRequests {
   SyncController({
     required this.engine,
     required this.settings,
     required this.tokens,
     this.interval = const Duration(seconds: 45),
+    this.liveInterval = const Duration(minutes: 2),
+    this.writeDelay = const Duration(seconds: 3),
+    this.writeMaxDelay = const Duration(seconds: 10),
+    this.remoteDelay = const Duration(seconds: 1),
     this.apiFactory = _defaultApi,
     this.clock = const Clock(),
   }) {
@@ -43,7 +57,28 @@ class SyncController extends ChangeNotifier with _SyncRequests {
   /// The access token (in the secure store, see [SyncTokenStore]).
   @override
   final SyncTokenStore tokens;
+
+  /// How often the fallback timer syncs.
   final Duration interval;
+
+  /// How often the fallback timer syncs while the event stream is healthy
+  /// (rounded up to whole [interval]s).
+  final Duration liveInterval;
+
+  /// How long writing must pause before local writes are pushed.
+  final Duration writeDelay;
+
+  /// The longest local writes wait to be pushed while writing goes on.
+  final Duration writeMaxDelay;
+
+  /// How long after the server's event a pull starts (events coming in a
+  /// burst make one).
+  final Duration remoteDelay;
+
+  /// The first delay before a failed run is tried again; it doubles with
+  /// every failure in a row, up to [lastRetry].
+  static const firstRetry = Duration(seconds: 5);
+  static const lastRetry = Duration(minutes: 2);
 
   /// The app's clock: when syncs worked or began failing, and how long ago
   /// that is (the captions and alerts read it too).
@@ -64,6 +99,65 @@ class SyncController extends ChangeNotifier with _SyncRequests {
   Future<void>? _queued;
   @override
   bool _disposed = false;
+
+  /// Whether [start] was called.
+  bool _started = false;
+
+  /// The server's event stream (open while [_LiveSync._updateLive] says).
+  late final LiveEvents _live = LiveEvents(
+    connect: () => apiFactory(settings.syncUrl, tokens.token),
+    onEvent: _onServerEvent,
+    onConnected: _onLive,
+    onRejected: () => unawaited(syncInBackground()),
+  );
+
+  /// Whether the app is in the foreground (the event stream is open only
+  /// then); the app sets it from its lifecycle.
+  bool get foreground => _foreground;
+  set foreground(bool value) {
+    if (value == _foreground) return;
+    _foreground = value;
+    _updateLive();
+  }
+
+  bool _foreground = true;
+
+  /// Whether the event stream is open and alive.
+  bool get live => _live.healthy;
+
+  /// Connections the event stream opened (tests).
+  @visibleForTesting
+  int get liveConnections => _live.connections;
+
+  StreamSubscription<void>? _commits;
+
+  /// [SyncEngine.dirtyWrites] when last looked at, when the run under way
+  /// (or the last one) began, and before that (restored if it failed).
+  int _seenWrites = 0;
+  int _writesAtRunStart = 0;
+  int _restartWrites = 0;
+
+  /// Pushing local writes: after a pause, at the latest after a while;
+  /// then due ([_pushDue]) until a run begins (again after it failed).
+  Timer? _writeTimer;
+  Timer? _writeDeadline;
+  bool _pushDue = false;
+  bool _restartPush = false;
+
+  /// The newest server event this device may not have caught up with.
+  ServerEvent? _heard;
+  Timer? _remoteTimer;
+
+  /// A run became due while one was under way, or during [_cooldown].
+  bool _dueAfterRun = false;
+  bool _dueAfterCooldown = false;
+
+  /// Failed runs in a row, and the backoff after the last.
+  int _failures = 0;
+  Timer? _cooldown;
+
+  /// Fallback timer ticks skipped since the last run.
+  int _quietTicks = 0;
 
   /// The client of the run under way: closed when the configuration
   /// changes, so a request stuck on the old server (a long upload, a dead
@@ -212,11 +306,16 @@ class SyncController extends ChangeNotifier with _SyncRequests {
   @visibleForTesting
   void debugAnnounce(RemoteChanges changes) => _remoteChanges.add(changes);
 
-  /// Starts periodic syncing (and syncs once right away).
+  /// Starts syncing on its own (see [SyncController]) and syncs once right
+  /// away.
   void start() {
     if (_disposed) return;
+    _started = true;
+    _seenWrites = _writesAtRunStart = engine.dirtyWrites.count;
+    _commits ??= engine.database.commits.listen((_) => _onCommit());
     _timer?.cancel();
-    _timer = Timer.periodic(interval, (_) => unawaited(syncInBackground()));
+    _timer = Timer.periodic(interval, (_) => _tick());
+    _updateLive();
     unawaited(syncNow());
   }
 
@@ -235,6 +334,10 @@ class SyncController extends ChangeNotifier with _SyncRequests {
     unawaited(tokens.save(token.trim()));
     _configGeneration++;
     _api?.close();
+    _live.run = false;
+    _failures = 0;
+    _cooldown?.cancel();
+    _cooldown = null;
     _lastError = _lastErrorDetails = _lastFailure = null;
     _failingSince = null;
     _setState(isConfigured ? SyncState.idle : SyncState.disabled);
@@ -247,7 +350,10 @@ class SyncController extends ChangeNotifier with _SyncRequests {
     if (_disposed) return Future.value();
     final running = _running;
     if (running == null) {
-      return _running = _run().whenComplete(() => _running = null);
+      return _running = _run().whenComplete(() {
+        _running = null;
+        _runEnded(failed: _state == SyncState.error);
+      });
     }
     // After the run however it ended: a follow-up is never lost.
     return _queued ??= running.catchError((Object _) {}).then((_) {
@@ -278,6 +384,7 @@ class SyncController extends ChangeNotifier with _SyncRequests {
       _announcedWrites = 0;
     }
     _state = state;
+    _updateLive();
     notifyListeners();
   }
 
@@ -294,6 +401,12 @@ class SyncController extends ChangeNotifier with _SyncRequests {
     _disposed = true;
     tokens.removeListener(_tokenChanged);
     _timer?.cancel();
+    _writeTimer?.cancel();
+    _writeDeadline?.cancel();
+    _remoteTimer?.cancel();
+    _cooldown?.cancel();
+    unawaited(_commits?.cancel());
+    _live.dispose();
     _api?.close();
     unawaited(_remoteChanges.close());
     unawaited(_notices.close());

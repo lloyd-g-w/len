@@ -45,7 +45,6 @@ class LibraryController extends _LibraryState with _LibraryOperations, _LibraryV
       services.notebooks.purgeIfExpired(id);
     }
     reload();
-    unawaited(services.sync.syncNow());
   }
 
   bool _disposed = false;

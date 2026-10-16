@@ -1,8 +1,11 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 
 import '../data/app_database.dart';
 import '../data/blob_references.dart';
 import '../data/blob_store.dart';
+import '../data/dirty_writes.dart';
 import '../data/repositories.dart';
 import '../data/settings_repository.dart';
 import '../data/syncable.dart';
@@ -140,9 +143,31 @@ class SyncEngine {
   /// All syncable stores, in push order (parents before children).
   Iterable<SyncableStore> get stores => _stores.values;
 
+  /// Counts rows local writes mark for upload (created on first use).
+  late final DirtyWrites dirtyWrites = DirtyWrites(database, [
+    for (final store in stores)
+      if (store is SyncableTable) store.table,
+  ]);
+
+  /// Whether any row waits for upload.
+  bool hasDirtyRows() => stores.any((store) => store.dirtyRecords(1).isNotEmpty);
+
+  /// The newest seq of the server's feed this device knows all changes up
+  /// to: those it pulled, and those its own pushes stored right after them
+  /// (no other device's change in between). A server event up to it brings
+  /// nothing new.
+  int get knownSeq => max(settings.syncLastSeq, _ownSeq);
+  int _ownSeq = 0;
+
+  /// A push request stored [applied] records, the newest at [serverSeq].
+  void _stored(int applied, int serverSeq) {
+    if (applied > 0 && serverSeq - applied <= knownSeq) _ownSeq = serverSeq;
+  }
+
   /// Forgets the change-feed position and flags every row for upload, so a
   /// new server (or one that lost changes) receives a complete copy.
   void resetForNewServer({String serverId = ''}) {
+    _ownSeq = 0;
     database.transaction(() {
       settings.syncLastSeq = 0;
       for (final store in stores) {
@@ -296,7 +321,7 @@ class SyncEngine {
       // Records the API could not send (too large, not encodable) stay dirty.
       final unsent = ready.isEmpty
           ? const <SyncRecord>[]
-          : await api.push(ready, since: settings.syncLastSeq);
+          : await api.push(ready, since: settings.syncLastSeq, onStored: _stored);
       if (cancelled()) return;
       final skipped = {for (final r in unsent) r.id};
       store.markClean([

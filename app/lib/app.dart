@@ -35,6 +35,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.services.sync.foreground = _inForeground(WidgetsBinding.instance.lifecycleState);
     widget.services.pointerActivity.attach();
     widget.services.palmGuard.attach();
     _syncAttention;
@@ -87,11 +88,19 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final sync = widget.services.sync;
+    // The server's event stream stays open only while the app is in the
+    // foreground (hidden, paused — on Android also when the screen goes
+    // off — it is closed).
+    sync.foreground = _inForeground(state);
     // Sync when leaving the app (to upload) and when returning (to fetch).
     if (state == AppLifecycleState.resumed || state == AppLifecycleState.paused) {
-      unawaited(widget.services.sync.syncInBackground());
+      unawaited(sync.syncInBackground());
     }
   }
+
+  static bool _inForeground(AppLifecycleState? state) =>
+      state == null || state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
 
   @override
   Widget build(BuildContext context) {
