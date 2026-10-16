@@ -6,10 +6,12 @@ import '../app_theme.dart';
 import '../color_dot.dart';
 import '../even_grid.dart';
 import '../group_header.dart';
+import '../hit_overhang.dart';
 import '../roving_focus.dart';
 import '../section_label.dart';
 import 'color_picker.dart';
 import 'color_swatches.dart';
+import 'eyedropper_scope.dart';
 
 /// The width of a popover holding [ColorChoices] on touch: seven 48-dp
 /// swatch cells and its 16-dp padding on each side.
@@ -22,6 +24,8 @@ double colorChoicesPopoverWidth() => Targets.touchFirst ? colorChoicesTouchWidth
 /// Custom (opens the full picker in place), a [palette] (seven per row:
 /// 2 × 7 pen colours, 2 × 5 highlighter ones), then the [recent] colours,
 /// lined up with the palette's columns. Every pick applies at once through [onChanged] (opaque ARGB).
+/// Under an [EyedropperScope] (the editor) the heading also offers "Pick
+/// from page", which closes the popover to pick a colour on the page.
 class ColorChoices extends StatefulWidget {
   const ColorChoices({
     super.key,
@@ -100,10 +104,17 @@ class _ColorChoicesState extends State<ColorChoices> {
           children: [
             GroupHeader(
               widget.title,
-              trailing: EndTextButton(
-                onPressed: () => setState(() => _customOpen = !_customOpen),
-                icon: _customOpen ? Symbols.expand_less_sharp : Symbols.palette_sharp,
-                label: 'Custom',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (EyedropperScope.maybeOf(context) case final pick?)
+                    EyedropperButton(onPressed: () => pick(context, _pick)),
+                  EndTextButton(
+                    onPressed: () => setState(() => _customOpen = !_customOpen),
+                    icon: _customOpen ? Symbols.expand_less_sharp : Symbols.palette_sharp,
+                    label: 'Custom',
+                  ),
+                ],
               ),
             ),
             grid(widget.palette, maxSpacing: touch ? double.infinity : _gap),
@@ -127,6 +138,37 @@ class _ColorChoicesState extends State<ColorChoices> {
           ],
         );
       },
+    );
+  }
+}
+
+/// "Pick from page": the eyedropper's button in a colour heading, as tall
+/// as the [EndTextButton] beside it (padded to a touch target on touch).
+class EyedropperButton extends StatelessWidget {
+  const EyedropperButton({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final height = EndTextButton.height;
+    final hit = Targets.of(context, height);
+    // The row keeps its height; on touch the hit area is as wide as a
+    // target and hangs over the gaps above and below, as Custom's does.
+    return HitOverhang(
+      overhang: EdgeInsets.symmetric(vertical: (hit - height) / 2),
+      child: IconButton(
+        key: const ValueKey('pick-from-page'),
+        tooltip: 'Pick from page',
+        onPressed: onPressed,
+        icon: const Icon(Symbols.colorize_sharp, size: Glyphs.menu),
+        style: IconButton.styleFrom(
+          minimumSize: Size(hit, height),
+          maximumSize: Size(hit, height),
+          padding: EdgeInsets.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+      ),
     );
   }
 }

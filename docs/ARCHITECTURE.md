@@ -2184,6 +2184,42 @@ Parsing is strict (`PenConfigJson`,
 `EraserConfig.fromJson`): a part with a missing or invalid field keeps its
 defaults as a whole.
 
+**Eyedropper** (`features/editor/eyedropper/`). The editor puts an
+`EyedropperScope` (`ui/color_picker/eyedropper_scope.dart`, an
+`InheritedTheme`, so popovers and sheets carry it) around its layers; every
+`ColorChoices` under it — quick colour slots, the tool options' colour and
+shape fill blocks, the selection's Style, the text colour — shows a "Pick
+from page" button next to Custom (pickers elsewhere, e.g. paper colours,
+don't). `Eyedropper.pick` sets the picker's popover or sheet `offstage`
+(kept mounted, so its owner still takes the colour) and inserts the
+`EyedropperLayer` over the navigator: it takes every pointer, shows "Tap a
+colour on the page" and, while a pointer presses or hovers on the page, a
+loupe (like the scan corner editor's) enlarging a capture of the surface's
+`RepaintBoundary` (`PageSnapshot`, device pixels, sharp) with a band in the
+colour a pick there takes. Lifting a pointer pressed on the page picks;
+a press elsewhere, Escape, or the picker closing otherwise cancels; a
+touch while the pen is near (`PalmGuard`) is a palm and ignored.
+`PageColours.onPage` hit-tests the editor's layers: the layer that takes
+the hit (those above it that only listen along come first in the path) must
+be the surface, and a page must lie there. The colour then goes to the
+picker's `onChanged`, the picker closes as if dismissed (its owner commits
+as usual) and the colour becomes the most recent one.
+
+What a pick takes is the content's own colour, not its pixels
+(`ink/tools/content_colour.dart`, `ContentColour.at`), visiting items top
+down as `ContentPainter` paints them: a stroke's line gives the stroke's
+colour, opaque (a pen's opacity and a highlighter's translucency belong to
+the tool: a highlighter's colour picked again draws the same highlight; ink
+beats highlights made after it, which lie beneath it); a solid fill its
+colour; a tint blends over the fills, images and paper beneath it, but a
+line beneath it still gives its own colour (as a tap selects it); a text
+box the colour of the character under the point (none between lines); an
+image the pixel of its decoded bitmap (`ImagePixels`: copied into a 1 × 1
+image and read back; crop and rotation mapped), transparent pixels letting
+what is beneath show. With no opaque content there, the capture's pixel
+gives the page as shown (paper, template lines, a PDF), else the page's
+paper colour.
+
 The ink panels (`features/editor/pen/`) are self-contained:
 `PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, ends)
 and `HighlighterOptionsPanel` (preview, opacity, pressure sensitivity — off
@@ -2289,7 +2325,8 @@ with a template is "Add page after" held down in the page menu).
   Undo until something else changes; none where there is nothing to reset)
   and picks colours with one block,
   `ColorChoices` (`ui/color_picker/color_choices.dart`: "Colour" with Custom,
-  which opens the HSV picker in place, a palette, recent colours). Sections:
+  which opens the HSV picker in place, a palette, recent colours; in the
+  editor also the eyedropper, see below). Sections:
   inks (`InkOptions`: live preview, the selected slot's colour — the pen
   palette, or `ColorSwatches.highlighter`'s light hues — and Size, a
   logarithmic slider in mm, then *Feel* collapsed (the header's Reset resets the feel only and

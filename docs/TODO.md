@@ -82,9 +82,11 @@ From the reports; the owner picks. Status as above.
   resizing or reshaping the shape moves the end (one undo step with it). None of GoodNotes,
   Notability or Samsung Notes has connectors; whiteboard apps do. Large: geometry format,
   `TransformItems`, selection plans across pages, sync, undo.
-- ⬜ **Eyedropper** (UX_AUDIT R21-7): "Pick from page" in the custom colour picker samples
-  the canvas under the next tap (Samsung Notes has one). Medium–large: a modal canvas mode
-  across the picker's popover and sheet; recent colours cover most re-use meanwhile.
+- ✅ **Eyedropper** (UX_AUDIT R21-7): "Pick from page" next to Custom in every editor colour
+  block (quick slots, tool options, shape fill, Style, text colour): the picker steps aside,
+  "Tap a colour on the page" shows, and the next press on the page (a loupe while it rests
+  or hovers) takes the content's own colour there — stroke, fill, text, image pixel — else
+  the page as shown; it becomes a recent colour. Escape or chrome cancels; palms are ignored.
 - ✅ **Slide numbers** (UX_AUDIT R18-5): page numbers stay the notebook's; overview tiles and
   Go to page's strip show a PDF page's own number quietly where it differs ("26 · Slide 23",
   "PDF p. 23" for portrait PDFs), and Go to page takes "s23" / "slide 23" (several PDFs: the

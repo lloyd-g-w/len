@@ -10,6 +10,7 @@ import '../../domain/preferences.dart';
 import '../../ink/tool_settings.dart';
 import '../../platform/fullscreen.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/color_picker/eyedropper_scope.dart';
 import '../../ui/context_menu_keys.dart';
 import '../../ui/messages.dart';
 import '../audio/notebook_audio.dart';
@@ -35,6 +36,8 @@ import 'editor_layers.dart';
 import 'editor_lifecycle.dart';
 import 'editor_session.dart';
 import 'editor_shortcuts.dart';
+import 'eyedropper/eyedropper.dart';
+import 'eyedropper/page_colours.dart';
 import 'links/link_actions.dart';
 import 'resume_view.dart';
 import 'shared/shared_notebooks.dart';
@@ -92,6 +95,15 @@ class _EditorScreenState extends State<_EditorView> {
   /// This editor as the split view sees it.
   late final SplitPane? _pane = widget.split == null ? null : _newPane();
   final GlobalKey _areaKey = GlobalKey(debugLabel: 'editor area');
+
+  /// The surface's repaint boundary (the eyedropper's loupe shows it).
+  final GlobalKey _canvasKey = GlobalKey(debugLabel: 'editor canvas');
+
+  /// "Pick from page" for the colour pickers opened from this editor.
+  late final Eyedropper _eyedropper = Eyedropper(
+    colours: PageColours(session: _session, canvas: _canvasKey, area: _areaKey),
+    addRecent: _session.tools.addRecentColor,
+  );
 
   final HudController _hud = HudController();
 
@@ -222,6 +234,7 @@ class _EditorScreenState extends State<_EditorView> {
     _tips.dispose();
     _toolbar.dispose();
     _guard.dispose();
+    _eyedropper.dispose();
     _focusNode.dispose();
     super.dispose();
   }
