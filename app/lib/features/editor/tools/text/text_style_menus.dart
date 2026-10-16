@@ -145,7 +145,9 @@ class HighlightMenuButton extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: scheme.outline),
       ),
-      child: c == null ? Icon(Symbols.block_sharp, size: 16, color: scheme.outline) : null,
+      child: c == null
+          ? Icon(Symbols.block_sharp, size: Glyphs.badge, color: scheme.outline)
+          : null,
     );
     return MenuIconButton<int>(
       tooltip: 'Highlight',

@@ -192,7 +192,12 @@ class _FavoriteBadge extends StatelessWidget {
         border: Border.all(color: Palette.paperEdge),
       ),
       // Paper stays light in both themes, so its ink is the light Ink.
-      child: Icon(Symbols.star_sharp, fill: 1, size: 16, color: Tones.of(Brightness.light).ink),
+      child: Icon(
+        Symbols.star_sharp,
+        fill: 1,
+        size: Glyphs.badge,
+        color: Tones.of(Brightness.light).ink,
+      ),
     );
   }
 }

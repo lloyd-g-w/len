@@ -82,7 +82,7 @@ class StripPage extends StatelessWidget {
                           child: Icon(
                             Symbols.bookmark_sharp,
                             fill: 1,
-                            size: 16,
+                            size: Glyphs.badge,
                             color: Palette.bookmark,
                           ),
                         ),

@@ -129,6 +129,10 @@ abstract final class Glyphs {
   /// Menu rows and list rows.
   static const double menu = 18;
 
+  /// Small marks beside text or on a thumbnail: a bookmark ribbon in a
+  /// strip, a menu caret, a cover's badge.
+  static const double badge = 16;
+
   /// A quick slot's colour dot.
   static const double slotDot = 22;
 

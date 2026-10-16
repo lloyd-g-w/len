@@ -222,7 +222,7 @@ class _TabState extends State<_Tab> {
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelLarge?.copyWith(
                             color: fg,
-                            fontWeight: shown ? FontWeight.w600 : FontWeight.w500,
+                            fontWeight: shown ? AppTheme.currentWeight : null,
                           ),
                         ),
                       ),
