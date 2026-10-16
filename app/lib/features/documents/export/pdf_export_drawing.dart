@@ -214,6 +214,9 @@ class _PdfOutlineSink implements OutlineSink {
 
   static double _r(double v) => (v * step).roundToDouble() / step;
 
+  /// Where the path is (as written, rounded); null after a close.
+  Offset? _at;
+
   Offset _map(double x, double y) {
     final p = pen.map(Offset(x, y));
     return Offset(_r(p.dx), _r(p.dy));
@@ -221,19 +224,23 @@ class _PdfOutlineSink implements OutlineSink {
 
   @override
   void moveTo(double x, double y) {
-    final p = _map(x, y);
+    final p = _at = _map(x, y);
     pen.g.moveTo(p.dx, p.dy);
   }
 
+  /// A line, unless it goes nowhere: an arc starts with a line to its
+  /// start, mostly where the segment before it ended.
   @override
   void lineTo(double x, double y) {
     final p = _map(x, y);
+    if (p == _at) return;
+    _at = p;
     pen.g.lineTo(p.dx, p.dy);
   }
 
   @override
   void cubicTo(double x1, double y1, double x2, double y2, double x3, double y3) {
-    final a = _map(x1, y1), b = _map(x2, y2), c = _map(x3, y3);
+    final a = _map(x1, y1), b = _map(x2, y2), c = _at = _map(x3, y3);
     pen.g.curveTo(a.dx, a.dy, b.dx, b.dy, c.dx, c.dy);
   }
 
@@ -255,5 +262,8 @@ class _PdfOutlineSink implements OutlineSink {
   }
 
   @override
-  void close() => pen.g.closePath();
+  void close() {
+    _at = null;
+    pen.g.closePath();
+  }
 }
