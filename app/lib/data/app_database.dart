@@ -152,13 +152,16 @@ class AppDatabase {
   }
 
   void _configure() {
+    // First: another connection (a pull worker's, one closing and
+    // checkpointing its log) may hold a lock that even the journal mode
+    // waits for.
+    waitWhenBusy(db, busyTimeoutMs);
     if (sqliteSupportsWal) {
       db.execute('PRAGMA journal_mode = WAL');
       // Shrinks the log back after large writes (an import), so it never
       // lingers at hundreds of MB (or fills Android's backup quota).
       db.execute('PRAGMA journal_size_limit = 4194304');
     }
-    waitWhenBusy(db, busyTimeoutMs);
     db.execute('PRAGMA foreign_keys = OFF');
     db.execute('PRAGMA synchronous = NORMAL');
     // 16 MB of page cache (default 2 MB): writing many rows at random ids
