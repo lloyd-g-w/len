@@ -12,6 +12,7 @@ import '../../../../ink/elements/text_layout.dart';
 import '../../../../platform/clipboard_html.dart';
 import '../../clipboard/rich_clipboard.dart';
 
+part 'rich_text_clipboard.dart';
 part 'rich_text_formatting.dart';
 part 'rich_text_history.dart';
 part 'rich_text_state.dart';
@@ -27,7 +28,9 @@ part 'rich_text_state.dart';
 /// Edits the field makes are mapped back onto the buffer; formatting
 /// commands act on the selection (or, with a collapsed caret, on what is
 /// typed next, see [_RichTextFormatting]).
-class RichTextController extends _RichTextState with _RichTextFormatting implements BoxHistory {
+class RichTextController extends _RichTextState
+    with _RichTextFormatting, _RichTextClipboard, _RichTextUndo
+    implements BoxHistory {
   RichTextController(super.data);
 
   /// Text copied from a box here, with its formatting (Len's own clipboard
@@ -243,32 +246,6 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
     _changedKeeping(TextRange.collapsed(from));
   }
 
-  @override
-  bool get canUndo => _history.canUndo;
-
-  @override
-  bool get canRedo => _history.canRedo;
-
-  /// Undoes the last change in the box, formatting included; false when
-  /// there is none.
-  @override
-  bool undo() => _restore(_history.undo(_snapshot));
-
-  /// Redoes the change undone last; false when there is none.
-  @override
-  bool redo() => _restore(_history.redo(_snapshot));
-
-  bool _restore(_Snapshot? state) {
-    if (state == null) return false;
-    // Auto width is the session's (it ends when the box is resized).
-    _box = state.data.copyWith(autoWidth: _box.autoWidth);
-    _buffer = RichTextBuffer(state.data);
-    _pending = null;
-    _sync(state.selection);
-    onDataChanged?.call();
-    return true;
-  }
-
   /// Whether [n] is [o] with its [selection] replaced by the text up to
   /// [caret].
   static bool _replaces(String o, String n, TextSelection selection, int caret) {
@@ -308,63 +285,9 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
     );
   }
 
-  // ---------------------------------------------------------------------
-  // Clipboard.
-
-  /// Copies the selected text — plain, and as HTML for other apps — and
-  /// remembers its formatting; [cut] also deletes it.
-  Future<void> copySelection({bool cut = false}) async {
-    final r = modelSelection;
-    if (r.isCollapsed) return;
-    final clip = _clip = _buffer.slice(r.start, r.end, _box);
-    await writeRichClipboard(clip.text, htmlFromText(clip));
-    if (cut) _cut(r);
-  }
-
-  /// The selected text, plain and as HTML, for a browser's copy or cut
-  /// event (which the field's own text, with its layout inserts, must not
-  /// answer); remembers its formatting, and [cut] deletes it. Null when
-  /// nothing is selected.
-  ({String plain, String html})? copyNow({bool cut = false}) {
-    final r = modelSelection;
-    if (r.isCollapsed) return null;
-    final clip = _clip = _buffer.slice(r.start, r.end, _box);
-    if (cut) _cut(r);
-    return (plain: clip.text, html: htmlFromText(clip));
-  }
-
-  void _cut(TextRange r) {
-    _buffer.replace(r.start, r.end, '', SpanStyle.plain);
-    _pending = null;
-    _changedKeeping(TextRange.collapsed(r.start));
-  }
-
   @override
   void dispose() {
     releaseFieldCopies(this);
     super.dispose();
-  }
-
-  TextData? _pastedHtml(String inserted) {
-    final html = htmlPastedAs(inserted);
-    return html == null ? null : textFromHtml(html, _box);
-  }
-
-  /// Pastes formatted text from another app over the selection.
-  void pasteRich(TextData fragment) {
-    final r = modelSelection;
-    _buffer.insertRich(r.start, r.end, fragment, _buffer.styleAt(r.start));
-    _pending = null;
-    _changedKeeping(TextRange.collapsed(r.start + fragment.text.length));
-  }
-
-  /// Pastes [text] without formatting over the selection (it takes the
-  /// caret's style).
-  void pastePlain(String text) {
-    final r = modelSelection;
-    final clean = _clean(text);
-    _buffer.replace(r.start, r.end, clean, currentStyle);
-    _pending = null;
-    _changedKeeping(TextRange.collapsed(r.start + clean.length));
   }
 }

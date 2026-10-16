@@ -87,3 +87,32 @@ class _TextHistory {
     return _last = from.removeLast();
   }
 }
+
+/// Undo and redo of a [RichTextController] through its [_TextHistory].
+mixin _RichTextUndo on _RichTextState implements BoxHistory {
+  @override
+  bool get canUndo => _history.canUndo;
+
+  @override
+  bool get canRedo => _history.canRedo;
+
+  /// Undoes the last change in the box, formatting included; false when
+  /// there is none.
+  @override
+  bool undo() => _restore(_history.undo(_snapshot));
+
+  /// Redoes the change undone last; false when there is none.
+  @override
+  bool redo() => _restore(_history.redo(_snapshot));
+
+  bool _restore(_Snapshot? state) {
+    if (state == null) return false;
+    // Auto width is the session's (it ends when the box is resized).
+    _box = state.data.copyWith(autoWidth: _box.autoWidth);
+    _buffer = RichTextBuffer(state.data);
+    _pending = null;
+    _sync(state.selection);
+    onDataChanged?.call();
+    return true;
+  }
+}
