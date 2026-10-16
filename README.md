@@ -139,7 +139,9 @@ web zip and winget manifests for the installer, attaches them to a GitHub
 release, and
 pushes the sync server image to `ghcr.io/<owner>/len-sync` (`X.Y.Z`, `X.Y`,
 `latest`; amd64 + arm64). CI ([ci.yml](.github/workflows/ci.yml)) runs on
-every push / PR: analyze + tests (app and server) and all builds. Both pin
+every push / PR: analyze + the fast test tier (app) and the server tests
+only; builds, the slow tier, end-to-end and the web walk-through run
+locally (see *Develop*). Both pin
 the Flutter version used by `flake.nix` (`FLUTTER_VERSION`); bump them
 together.
 

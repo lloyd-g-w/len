@@ -147,8 +147,8 @@ migrations needs no manual cleanup — but don't rely on it once we ship.
   not tagged `slow`; the **slow** tier is the benchmarks (`test/perf/`,
   `@Tags(['perf'])`) and the screenshot scenarios (`test/screenshots/`,
   `@Tags(['screenshots'])`), both of which add `slow`. A new file in either
-  directory carries its tag (`@Tags([...])` + `library;` on top). CI runs both
-  tiers on every push (`App · analyze + test`, `App · slow tests`).
+  directory carries its tag (`@Tags([...])` + `library;` on top). CI runs the fast
+  tier on every push (`App · analyze + test`); run the slow tier locally.
 - Run the full suite on a tree nothing changes meanwhile (no merge, checkout or
   golden update in that checkout until it ends): files are compiled and goldens
   read at different times, so a merge mid-run fails tests that pass alone.

@@ -2856,8 +2856,8 @@ below 31 bits, and use `float32`/`int32` in binary formats.
   window plugin (`window_manager`): its Linux plugin rewires the GTK window's
   delete-event and installs a global button-press emission hook, more than
   these three features need.
-- **CI / releases:** `.github/workflows/ci.yml` (analyze, tests, all builds,
-  server image, the overlay's Kotlin model against the Dart one) and `release.yml` (on `v*` tags; see README *Release*).
+- **CI / releases:** `.github/workflows/ci.yml` (analyze, the fast test
+  tier, server tests; the rest runs locally) and `release.yml` (on `v*` tags; see README *Release*).
 
 ### Android review (2026-10)
 

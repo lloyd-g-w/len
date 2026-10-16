@@ -102,13 +102,9 @@ whole recordings take minutes with flat ends too). Every entry with both
 end styles: the table below with `INKLAB_ENDS=both`.
 
 CI (`.github/workflows/ci.yml`) runs `flutter test -x slow` (the suite without
-the real recordings, flat entries included) and, in *wet-ink Kotlin
-parity*, `unit_test.sh` and `check.sh` below with `LEN_NO_NIX=1` (a JDK
-and the Kotlin compiler from PATH instead of nix; the compiler zip is
-cached). The *Ink Lab* workflow (`.github/workflows/inklab.yml`, weekly
-and on demand) runs the full table below with the real recordings and
-`INKLAB_ENDS=both`; the table test fails when FAILS isn't 0, and the run
-keeps the table as an artifact. Metrics listed in `known_failures.dart` are
+the real recordings, flat entries included). `unit_test.sh`, `check.sh` and
+the full table below (real recordings, `INKLAB_ENDS=both`; it fails when
+FAILS isn't 0) run locally. Metrics listed in `known_failures.dart` are
 **skipped with their finding as the reason**. The list is **empty**: the
 engine passes every metric on every entry, real recordings included, so any
 failure is a regression (or needs a new finding, with evidence, before an
