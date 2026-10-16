@@ -166,7 +166,12 @@ class EyedropperButton extends StatelessWidget {
           minimumSize: Size(hit, height),
           maximumSize: Size(hit, height),
           padding: EdgeInsets.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          // Padded to a touch target on touch, as EndTextButton is: screen
+          // readers (and the guidelines) measure the button, not the
+          // overhang.
+          tapTargetSize: hit > height
+              ? MaterialTapTargetSize.padded
+              : MaterialTapTargetSize.shrinkWrap,
         ),
       ),
     );

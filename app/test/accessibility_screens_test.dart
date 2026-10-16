@@ -169,6 +169,16 @@ void main() {
       services: null,
       open: (t) => tapAll(t, [find.byTooltip('More options'), find.text('Export…')]),
     ),
+    'pen options': (
+      home: (s) => EditorScreen(notebook: physics(s)),
+      services: null,
+      // Wide windows: the toolbar's pen; phones: the switcher's.
+      open: (t) async {
+        final pen = find.byTooltip('Pen (P)');
+        if (pen.evaluate().isNotEmpty) return tapAll(t, [pen]);
+        await tapAll(t, [find.byTooltip('Pen: tap to switch tools'), find.text('Pen')]);
+      },
+    ),
     'more menu': (
       home: (s) => EditorScreen(notebook: physics(s)),
       services: null,
@@ -181,6 +191,12 @@ void main() {
     // Passes with the app's font; with the test font's boxes at 2× the
     // check reads the outlined button's label as a light grey.
     'scan': {'label: "Choose photos…"': 'the test font at 2×; passes with Sofia Sans'},
+    // The options sheet scrolls on a short window: its next group fades
+    // out at the bottom edge, by design.
+    'pen options': {
+      'label: "Size"': 'the pen sheet\'s Size group, inside its scroll fade',
+      'label: "0.65 mm"': 'the pen sheet\'s size readout, inside its scroll fade',
+    },
   };
   for (final scale in [1.5, 2.0]) {
     for (final (name, size) in [

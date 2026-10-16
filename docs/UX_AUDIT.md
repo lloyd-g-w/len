@@ -116,6 +116,14 @@ handles lose contrast on dark paper.
   seeks with the scrubber); the audio test checks both guidelines while
   recording and playing.
 
+**R23-9 P3 · "Pick from page" measured 40 dp to screen readers.** ✅
+- *What:* the eyedropper button's touch area hangs over the heading's gaps
+  (48 dp), but the button itself, which is what TalkBack outlines and the
+  guidelines measure, was 40 dp tall (seen at 1.5× text on a sideways
+  phone, where it isn't on a scroll edge).
+- *Fix:* padded to a touch target on touch, as `EndTextButton` is; the
+  heading keeps its height.
+
 **R23-7 P3 · Smaller large-text cuts.** ✅
 - *What:* the canvas's "Hold for a template" hint ellipsized at 2× on a
   phone ("Hold for a templa…"); a recording's date lost its time ("1 Jan
