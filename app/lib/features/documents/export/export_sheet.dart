@@ -21,6 +21,7 @@ Future<ExportOptions?> showExportSheet(
   List<int>? initialPages,
   bool canvas = false,
   bool choosePages = true,
+  bool resumeRange = true,
   String? whole,
 }) {
   ExportSheet sheet({required bool wide}) => ExportSheet(
@@ -32,6 +33,7 @@ Future<ExportOptions?> showExportSheet(
     wide: wide,
     canvas: canvas,
     choosePages: choosePages,
+    resumeRange: resumeRange,
     whole: whole,
     offerSaveToDevice: platform.canSaveToDevice,
   );
@@ -55,6 +57,7 @@ class ExportSheet extends StatefulWidget {
     this.wide = false,
     this.canvas = false,
     this.choosePages = true,
+    this.resumeRange = true,
     this.whole,
     this.offerSaveToDevice = false,
   });
@@ -66,6 +69,10 @@ class ExportSheet extends StatefulWidget {
   /// Offers a page range; off when whole notebooks are exported (several
   /// from the library's selection: [pages] are all of theirs).
   final bool choosePages;
+
+  /// Starts at the last export's Current page / All pages rather than
+  /// [initialRange]; off where there is no page being read (the library).
+  final bool resumeRange;
 
   /// Offers "Save to device" beside "Share" (Android).
   final bool offerSaveToDevice;
@@ -93,13 +100,43 @@ class ExportSheet extends StatefulWidget {
   State<ExportSheet> createState() => _ExportSheetState();
 }
 
+/// What the last export chose, for the app's run (UX_AUDIT R22-2): the
+/// next sheet starts there. A typed range is not kept (the pages differ).
+class ExportMemory {
+  ExportMemory._();
+
+  static ExportFormat format = ExportFormat.pdf;
+
+  /// Current page or all pages; null after a typed range or none yet.
+  static ExportRange? range;
+  static bool templates = true;
+  static bool backgrounds = true;
+
+  /// Forgets the choices (tests).
+  @visibleForTesting
+  static void reset() {
+    format = ExportFormat.pdf;
+    range = null;
+    templates = backgrounds = true;
+  }
+
+  static void _keep(ExportOptions options, ExportRange? range, {required bool choosePages}) {
+    format = options.format;
+    templates = options.includeTemplates;
+    backgrounds = options.includeBackgrounds;
+    if (choosePages && options.format != ExportFormat.len) {
+      ExportMemory.range = range == ExportRange.custom ? null : range;
+    }
+  }
+}
+
 class _ExportSheetState extends State<ExportSheet> {
-  ExportFormat _format = ExportFormat.pdf;
+  ExportFormat _format = ExportMemory.format;
   late ExportRange _range = widget.pages.length == 1 || !widget.choosePages
       ? ExportRange.all
       : widget.initialPages != null
       ? ExportRange.custom
-      : widget.initialRange;
+      : (widget.resumeRange ? ExportMemory.range : null) ?? widget.initialRange;
   late final _rangeText = TextEditingController(
     text: switch (widget.initialPages) {
       final pages? => formatPageRange(pages, separator: ', '),
@@ -107,8 +144,8 @@ class _ExportSheetState extends State<ExportSheet> {
     },
   );
   final _rangeFocus = FocusNode();
-  bool _templates = true;
-  bool _backgrounds = true;
+  bool _templates = ExportMemory.templates;
+  bool _backgrounds = ExportMemory.backgrounds;
 
   /// The options are scrolled under the header: a hairline divides them.
   bool _scrolled = false;
@@ -230,10 +267,10 @@ class _ExportSheetState extends State<ExportSheet> {
         ExportSheetFooter(
           // A bad range says so in its field only.
           summary: options?.summary ?? '',
-          onExport: options == null ? null : () => Navigator.of(context).pop(options),
+          onExport: options == null ? null : () => _done(options),
           onSaveToDevice: !widget.offerSaveToDevice || options == null
               ? null
-              : () => Navigator.of(context).pop(_options(toDevice: true)),
+              : () => _done(_options(toDevice: true)!),
           offersSaveToDevice: widget.offerSaveToDevice,
           bottomInset: widget.wide ? 0 : media.padding.bottom,
         ),
@@ -248,6 +285,12 @@ class _ExportSheetState extends State<ExportSheet> {
         child: content,
       ),
     );
+  }
+
+  /// Closes with [options], remembering them for the next export.
+  void _done(ExportOptions options) {
+    ExportMemory._keep(options, _range, choosePages: widget.choosePages && _count > 1);
+    Navigator.of(context).pop(options);
   }
 
   List<Widget> _includes(Set<PageBackgroundKind> kinds) => [

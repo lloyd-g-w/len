@@ -47,6 +47,8 @@ Future<void> exportNotebooks(
       notebook: notebook,
       pages: pages,
       currentPage: 0,
+      // No page is being read here: all pages, whatever the editor's last.
+      resumeRange: false,
       exporter: exporter,
       save: save,
     );

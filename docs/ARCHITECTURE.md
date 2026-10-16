@@ -900,6 +900,9 @@ one after the link's page) and are dropped if it is not exported.
 The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
 indices from a range like "1-3, 5", templates and PDF backgrounds on or off;
 PNGs are always 288 dpi, `pngScale`); without templates pages are exported as blank white paper.
+The sheet starts with the last export's format, switches and Current page /
+All pages (`ExportMemory`, for the app's run; the library's sheet always
+starts at all pages, an overview selection at its range).
 **Canvases** export their whole drawing as one page (`exportCanvasFlow`, the
 same sheet with `canvas: true`: no page choice, "Background" instead of
 templates): `NotebookExporter.canvasPage` takes the content bounds plus a
