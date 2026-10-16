@@ -240,33 +240,6 @@ class RecordingController extends ChangeNotifier {
   /// the recorder goes).
   Future<Recording?>? _stopping;
 
-  Future<Recording?> _stop() async {
-    _stopwatch.halt();
-    _ticker?.cancel();
-    unawaited(_levels?.cancel());
-    _levels = null;
-    _level = 0;
-    _set(RecorderState.saving);
-    final segments = _stopwatch.closed;
-    _stopwatch.clear();
-    final parts = _parts;
-    var failed = false;
-    try {
-      return await _storeLast(parts, segments);
-    } on Object catch (e) {
-      debugPrint('Recording failed to save: $e');
-      lastError = 'The recording could not be saved';
-      failed = true;
-      return null;
-    } finally {
-      // A recording that failed to save stays in the spool, to recover.
-      await _closeParts(keepFiles: failed);
-      // Saved (or failed): the app may be suspended again from here on.
-      await _keepAlive.hide();
-      _set(RecorderState.idle);
-    }
-  }
-
   void _tick() {
     unawaited(nextPartIfDue());
     notifyListeners();
@@ -330,9 +303,4 @@ class RecordingController extends ChangeNotifier {
     _ticker?.cancel();
     super.dispose();
   }
-}
-
-/// [RecordingController.start] gave up because the controller shut down.
-class _ShutDown implements Exception {
-  const _ShutDown();
 }

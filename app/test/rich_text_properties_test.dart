@@ -60,7 +60,7 @@ TextData _data(math.Random r, {int maxLength = 30}) {
   final lines = '\n'.allMatches(text).length + 1;
   return TextData.rich(
     text: text,
-    spans: TextData.compact(chars),
+    spans: StyledRange.compact(chars),
     paras: [for (var i = 0; i < lines; i++) _para(r)],
     font: _box.font,
     fontSize: _box.fontSize,
@@ -300,7 +300,7 @@ TextData _htmlable(math.Random r) {
   }
   return TextData.rich(
     text: text,
-    spans: TextData.compact(chars),
+    spans: StyledRange.compact(chars),
     paras: [for (final _ in lines) _para(r)],
     font: _box.font,
     fontSize: _box.fontSize,
@@ -326,7 +326,7 @@ void main() {
       },
       (c) {
         final (length, spans) = c;
-        final normal = TextData.normalizeSpans(spans, length);
+        final normal = StyledRange.normalize(spans, length);
         _expectNormalised(normal, length);
         // Later spans win.
         final styles = List.filled(length, SpanStyle.plain);
@@ -336,7 +336,7 @@ void main() {
         }
         final data = TextData.rich(text: 'x' * length, spans: normal);
         expect(data.charStyles(), styles);
-        expect(TextData.normalizeSpans(normal, length), normal, reason: 'idempotent');
+        expect(StyledRange.normalize(normal, length), normal, reason: 'idempotent');
       },
       runs: 500,
       seed: 5,

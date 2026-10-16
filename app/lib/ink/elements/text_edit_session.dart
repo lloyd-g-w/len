@@ -9,38 +9,15 @@ import '../../domain/text/text_data.dart';
 import '../render/content_painter.dart';
 import '../surface_model.dart';
 import '../undo_history.dart';
+import 'box_history.dart';
 import 'text_flow_chains.dart';
 import 'text_layout.dart';
 import 'text_layout_cache.dart';
 
+export 'box_history.dart';
+
+part 'text_edit_session_commit.dart';
 part 'text_edit_session_flow.dart';
-
-/// The edited box's own history (its editor keeps it): what the editor's
-/// undo and redo act on while a box is edited.
-abstract interface class BoxHistory implements Listenable {
-  bool get canUndo;
-  bool get canRedo;
-
-  /// Steps back; false when there is nothing to undo.
-  bool undo();
-
-  /// Steps forward; false when there is nothing to redo.
-  bool redo();
-}
-
-/// How the edited box flows across pages.
-enum _Flow {
-  /// It doesn't (an infinite canvas, a rotated box).
-  none,
-
-  /// The whole chain is edited in one field over the pages shown together
-  /// (continuous flow): [TextEditSession.current] holds all of its text.
-  whole,
-
-  /// One box of a chain is edited on its own (pages shown one at a time);
-  /// the chain flows again when it ends.
-  alone,
-}
 
 /// The text box being edited on a surface, if any.
 ///
@@ -258,20 +235,7 @@ class TextEditSession extends ChangeNotifier {
     lastBox = empty || _parts.length > 1
         ? null
         : (surfaceId: current.surfaceId, rect: current.rect);
-    switch (_flow) {
-      case _Flow.none:
-        if (original == null) {
-          if (!empty) _model.commit(InkEdit(addedElements: [current]));
-        } else if (empty) {
-          _model.commit(InkEdit(removedElements: [original]));
-        } else if (!_same(original, current)) {
-          _model.commit(InkEdit(removedElements: [original], addedElements: [current]));
-        }
-      case _Flow.whole:
-        _commitWhole(original, current, data);
-      case _Flow.alone:
-        _commitAlone(original, current, data);
-    }
+    _commit(original, current, data, empty: empty);
     _unhide();
     _reset();
     if (notify) notifyListeners();
@@ -286,21 +250,6 @@ class TextEditSession extends ChangeNotifier {
     _reset();
     notifyListeners();
   }
-
-  void _reset() {
-    _flow = _Flow.none;
-    _rest = const [];
-    _aloneHead = null;
-    _aloneIndex = 0;
-    _parts = const [];
-    _frames = null;
-    startCaret = null;
-  }
-
-  static bool _same(SurfaceElement a, SurfaceElement b) =>
-      a.rect == b.rect &&
-      a.rotation == b.rotation &&
-      TextData.fromJson(a.data) == TextData.fromJson(b.data);
 
   /// The surface changed underneath. If the edited box was removed (undo,
   /// sync), stop editing; if it was reloaded or changed by sync, keep
@@ -322,7 +271,6 @@ class TextEditSession extends ChangeNotifier {
     }
   }
 
-  @override
   /// Also tells the surfaces what to draw in place of the boxes being
   /// edited, for other views of them (split view): the text as typed.
   @override

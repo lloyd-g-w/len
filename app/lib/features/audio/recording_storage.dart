@@ -2,8 +2,36 @@ part of 'recording_controller.dart';
 
 /// Storing a recording in progress (see [RecordingParts]): finished capture
 /// files become parts, the timeline is journalled for recovery, and the
-/// spool files are let go once the recording is stored.
+/// spool files are let go once the recording is stopped and stored.
 extension _RecordingStorage on RecordingController {
+  /// Stops the capture and stores the recording (see [RecordingController.stop]).
+  Future<Recording?> _stop() async {
+    _stopwatch.halt();
+    _ticker?.cancel();
+    unawaited(_levels?.cancel());
+    _levels = null;
+    _level = 0;
+    _set(RecorderState.saving);
+    final segments = _stopwatch.closed;
+    _stopwatch.clear();
+    final parts = _parts;
+    var failed = false;
+    try {
+      return await _storeLast(parts, segments);
+    } on Object catch (e) {
+      debugPrint('Recording failed to save: $e');
+      lastError = 'The recording could not be saved';
+      failed = true;
+      return null;
+    } finally {
+      // A recording that failed to save stays in the spool, to recover.
+      await _closeParts(keepFiles: failed);
+      // Saved (or failed): the app may be suspended again from here on.
+      await _keepAlive.hide();
+      _set(RecorderState.idle);
+    }
+  }
+
   /// Forgets the recording's spool files (stored, or not worth keeping).
   Future<void> _closeParts({bool keepFiles = false}) async {
     final parts = _parts;

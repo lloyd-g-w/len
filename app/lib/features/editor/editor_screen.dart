@@ -53,6 +53,7 @@ part 'editor_screen_actions.dart';
 part 'editor_screen_host.dart';
 part 'editor_screen_layout.dart';
 part 'editor_screen_parts.dart';
+part 'editor_screen_wiring.dart';
 
 /// Full-screen editor for a paged notebook or an infinite canvas: the
 /// surface, the content tools' layer and the chrome around them.
@@ -163,80 +164,12 @@ class _EditorScreenState extends State<_EditorView> {
   @override
   void initState() {
     super.initState();
-    _session.gestures
-      ..onMultiFingerTap = _onMultiFingerTap
-      ..onContextMenu = _openMenu
-      ..onTwoFingerHold = _togglePresenting;
-    _lifecycle.start();
-    // Created now: it takes a result the library asked to show.
-    _search = EditorSearchController.forSession(_services, _session, notebookId: _notebook.id);
-    _services.openNotebooks.addListener(_onTabs);
-    _services.preferences.addListener(_onPreferences);
-    _audio.onNotice = _onAudioNotice;
-    _session.input.events
-      ..scribbleMissed = _onScribbleMissed
-      ..shapeDrawn = _tips.wantsShapes ? _onShapeDrawn : null
-      ..fingerStroke = _tips.seen(EditorTip.fingers.name) ? null : _onFingerStroke;
-    // Reading where there is something to read, while fingers draw (R20-6).
-    _session.reading
-      ..onRead = _onReading
-      ..open();
-    _services.incomingFiles.targets.add(_importTarget);
-    // Of two editors (split view), files go to the one used last.
-    _focusNode.addListener(_onFocus);
-    attachPdfLinks(context, _session);
-    if (_pane case final pane?) widget.split!.attach(pane);
-    // Take the keyboard even when another editor (the previous tab) still
-    // held it while this one was built; autofocus would not.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusNode.requestFocus();
-    });
-    _showRecordingsIfAsked();
+    _start();
   }
-
-  /// Shows the recordings list once shown, if it was asked for (Settings →
-  /// Storage opens a notebook at its recordings).
-  void _showRecordingsIfAsked() => WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!mounted || _parked || _closing) return;
-    if (_services.openNotebooks.takeRecordingsRequest(widget.notebook.id)) {
-      // Where the bar's audio button is: the top right corner.
-      final box = context.findRenderObject()! as RenderBox;
-      final corner = box.localToGlobal(box.size.topRight(Offset.zero));
-      final anchor = Rect.fromLTWH(corner.dx - Targets.bar, corner.dy, Targets.bar, Targets.bar);
-      unawaited(showRecordingsSheet(context, _audio, anchor: anchor));
-    }
-  });
 
   @override
   void dispose() {
-    // A text box still being typed is committed while the split view
-    // still mirrors this editor's edits into the other pane, and focus
-    // mode puts back the tool (shared, with linked tools) before the view
-    // is saved.
-    if (!_closing) _session.content.text.end(); // Counts as an edit below.
-    if (_focus) _setFocus(false, disposing: true); // (`detach` shows the other pane.)
-    if (_pane case final pane?) widget.split!.detach(pane);
-    _focusNode.removeListener(_onFocus);
-    _services.incomingFiles.targets.remove(_importTarget);
-    _services.routeOwners.forget(this);
-    _services.openNotebooks.removeListener(_onTabs);
-    _lifecycle.dispose();
-    _services.preferences.removeListener(_onPreferences);
-    final edited = _session.edited;
-    _search.dispose();
-    if (_audio.onNotice == _onAudioNotice) _audio.onNotice = null;
-    _session.dispose(); // Commits a text box still being edited.
-    _shared.removeListener(_onShared);
-    // The last editor of the notebook disposes what they shared (and
-    // saves a running recording).
-    _services.sharedNotebooks.release(_shared);
-    _lifecycle.finish(edited: edited);
-    _hud.dispose();
-    _tips.dispose();
-    _toolbar.dispose();
-    _guard.dispose();
-    _eyedropper.dispose();
-    _focusNode.dispose();
+    _stop();
     super.dispose();
   }
 
@@ -291,14 +224,6 @@ class _EditorScreenState extends State<_EditorView> {
 
   void _onFocus() {
     if (_focusNode.hasFocus) _use();
-  }
-
-  /// This editor is the one in use (focused, files dropped on it): the
-  /// split view's, and where files and dialogs go.
-  void _use() {
-    if (_pane case final pane?) widget.split!.use(pane);
-    _services.incomingFiles.targets.add(_importTarget);
-    _services.routeOwners.current = this; // Dialogs opened by keyboard.
   }
 
   /// Toolbar placement, stylus-only, the side button and the writing
@@ -367,40 +292,5 @@ class _EditorScreenState extends State<_EditorView> {
   // Layout
 
   @override
-  Widget build(BuildContext context) {
-    final open = _services.openNotebooks;
-    final tabs = open.contains(_notebook.id) && !widget.secondPane ? open : null;
-    // The second pane's bar lines up with the first's tab strip.
-    final primaryWidth = widget.secondPane ? SplitView.primaryWidthOf(context) : null;
-    final band =
-        primaryWidth != null &&
-        EditorTopBar.showsStrip(Size(primaryWidth, MediaQuery.sizeOf(context).height), open);
-    // Back (e.g. Android's) leaves focus mode before leaving the editor;
-    // a box being typed in finishes first (its own handler, after this one).
-    return PopScope(
-      canPop: !_focus,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !_session.content.text.isEditing) _setFocus(false);
-      },
-      child: Scaffold(
-        body: CallbackShortcuts(
-          bindings: _shortcuts(tabs),
-          child: Focus(
-            focusNode: _focusNode,
-            autofocus: true,
-            onKeyEvent: _onKey,
-            // Where the toolbar docks depends on its width (the slot counts);
-            // other tool changes never rebuild the editor (the toolbar's
-            // parts listen to the tools themselves).
-            child: ListenableBuilder(
-              listenable: _toolbar,
-              builder: (context, _) => LayoutBuilder(
-                builder: (context, constraints) => _buildArea(context, constraints, tabs, band),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => _buildScreen(context);
 }

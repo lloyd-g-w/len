@@ -6,7 +6,6 @@ import '../../domain/surface_element.dart';
 import '../../domain/text/text_data.dart';
 import '../elements/text_edit_session.dart';
 import '../elements/text_flow_chains.dart';
-import '../elements/text_layout.dart';
 import '../input/live_ink.dart';
 import '../selection/ink_clipboard.dart';
 import '../selection/lasso_path.dart';
@@ -14,11 +13,11 @@ import '../selection/selection_chrome.dart';
 import '../selection/selection_controller.dart';
 import '../surface_model.dart';
 import '../tool_settings.dart';
-import '../undo_history.dart';
 import '../viewport.dart';
 import 'laser.dart';
 import 'laser_tool.dart';
 import 'lasso_tool.dart';
+import 'pasted_text.dart';
 import 'pointer_tool.dart';
 import 'shape_tool.dart';
 import 'text_tool.dart';
@@ -243,42 +242,14 @@ class ContentTools {
     if (data.text.trim().isEmpty) return;
     if (at == null) beforePasteAtCentre?.call();
     final area = viewport.visibleWorld;
-    var text = data.copyWith(autoWidth: true);
-    var width = TextLayout.naturalWidth(text);
-    final limit = area.width * pasteWidthFraction;
-    if (width > limit) {
-      width = limit;
-      text = text.copyWith(autoWidth: false);
-    }
-    final height = TextLayout.heightOf(text, width);
-    final element = SurfaceElement(
-      id: clock.newId(),
-      surfaceId: model.surfaceId,
-      type: ElementType.text.name,
-      rect: Rect.fromCenter(center: at ?? area.center, width: width, height: height),
-      z: model.topZ + 1,
-      createdAt: clock.nowMs(),
-      data: text.toJson(),
+    final head = PastedText.add(
+      data,
+      model: model,
+      flows: flows,
+      at: at ?? area.center,
+      maxWidth: area.width * pasteWidthFraction,
+      clock: clock,
     );
-    final chains = flows;
-    if (chains == null || !chains.canFlow(model.surfaceId, element)) {
-      model.commit(InkEdit(addedElements: [element]));
-      selection.select(const [], [element]);
-      return;
-    }
-    // On a page, a long text runs on over the next pages: from no higher
-    // than where text begins on the page.
-    final top = chains.pages.pagesFrom(model.surfaceId)!.first.top;
-    final placed = element.rect.top >= top
-        ? element
-        : element.copyWith(rect: element.rect.shift(Offset(0, top - element.rect.top)));
-    late SurfaceElement head;
-    chains.pages.batch(() {
-      final r = chains.reflow(model.surfaceId, placed, text, const []);
-      head = r.head;
-      model.commit(InkEdit(addedElements: [head]));
-      chains.commit(r.edits);
-    });
     selection.select(const [], [head]);
   }
 

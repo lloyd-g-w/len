@@ -13,6 +13,7 @@ import 'chunk_versions.dart';
 import 'raster_batch.dart';
 import 'stored_rasters.dart';
 
+part 'chunk_raster_invalidation.dart';
 part 'chunk_raster_storage.dart';
 
 /// Level-of-detail rasters of chunks, for zoomed-out views.
@@ -240,68 +241,6 @@ class ChunkRasterCache extends ChangeNotifier {
       if (made != null && made < oldest) oldest = made;
     }
     _versions.trim(chunk, oldest);
-  }
-
-  void _onChange(SurfaceChange change) {
-    // New pen strokes go over the images, new highlights beneath them.
-    final appended = change.appended ?? change.underlaid;
-    final chunks = change.chunks;
-    if (!change.loaded) _stored?.forget(chunks);
-    if (change.loaded && chunks != null) {
-      // Stored content arrived: the images (and their overlays) stand in,
-      // stale, until new ones are made — no vector frames while a canvas
-      // loads.
-      for (final chunk in chunks) {
-        _versions.bump(chunk, keepOverlay: true);
-      }
-      return;
-    }
-    if (appended == null || chunks == null) return _invalidate(chunks);
-    for (final chunk in chunks) {
-      final version = _versions.bump(chunk, keepOverlay: true);
-      if (levels.any((l) => _images.containsKey((chunk: chunk, level: l)))) {
-        final rect = ChunkGrid.rectOf(chunk);
-        _versions.append(chunk, version, appended.where((s) => s.bounds.overlaps(rect)));
-      } else {
-        _versions.edited.add(chunk);
-      }
-    }
-  }
-
-  void _invalidate(Set<ChunkKey>? chunks) {
-    if (chunks == null) {
-      _versions
-        ..bumpAll()
-        // What was on screen may have changed anywhere.
-        ..edited.addAll([for (final key in _images.keys) key.chunk]);
-      _clear();
-      return;
-    }
-    for (final chunk in chunks) {
-      _versions
-        ..bump(chunk)
-        ..edited.add(chunk);
-      for (final level in levels) {
-        _imageVersions.remove((chunk: chunk, level: level));
-        _forgetDigest((chunk: chunk, level: level));
-        final image = _images.remove((chunk: chunk, level: level));
-        if (image == null) continue;
-        _bytes -= image.bytes;
-        image.dispose();
-      }
-    }
-  }
-
-  void _clear() {
-    _imageVersions.clear();
-    _imageDigests.clear();
-    _digestChecked.clear();
-    for (final image in _images.values) {
-      image.dispose();
-    }
-    _images.clear();
-    _maker.clear();
-    _bytes = 0;
   }
 
   @override

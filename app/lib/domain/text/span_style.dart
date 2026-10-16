@@ -128,6 +128,45 @@ class StyledRange {
   /// Stored as `[start, end, {style}]`.
   List<Object?> toJson() => [start, end, style.toJson()];
 
+  /// A range stored by [toJson]; null if [json] isn't one (ranges this app
+  /// wrote are read tolerantly, see `TextData.fromJson`).
+  static StyledRange? tryParse(Object? json) => switch (json) {
+    [final int start, final int end, final Map<Object?, Object?> style] => StyledRange(
+      start,
+      end,
+      SpanStyle.fromJson(style),
+    ),
+    _ => null,
+  };
+
+  /// Sorted, clipped to [length], overlaps resolved (later spans win),
+  /// plain and empty ones dropped, adjacent equal ones merged.
+  static List<StyledRange> normalize(List<StyledRange> spans, int length) {
+    if (spans.isEmpty) return const [];
+    final styles = List<SpanStyle>.filled(length, SpanStyle.plain);
+    for (final s in spans) {
+      final start = s.start.clamp(0, length), end = s.end.clamp(0, length);
+      if (end > start) styles.fillRange(start, end, s.style);
+    }
+    return compact(styles);
+  }
+
+  /// Per-character [styles] as normalised ranges.
+  static List<StyledRange> compact(List<SpanStyle> styles) {
+    final out = <StyledRange>[];
+    var i = 0;
+    while (i < styles.length) {
+      final style = styles[i];
+      var j = i + 1;
+      while (j < styles.length && styles[j] == style) {
+        j++;
+      }
+      if (!style.isPlain) out.add(StyledRange(i, j, style));
+      i = j;
+    }
+    return List.unmodifiable(out);
+  }
+
   @override
   bool operator ==(Object other) =>
       other is StyledRange && other.start == start && other.end == end && other.style == style;

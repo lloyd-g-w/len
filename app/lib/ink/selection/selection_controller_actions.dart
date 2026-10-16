@@ -12,7 +12,7 @@ part of 'selection_controller.dart';
 /// items of other pages too, as copies moved into this surface's
 /// coordinates: a lasso drawn across pages selects on each, and items moved
 /// so their centre lands on another page move to that page (one undo step).
-class SelectionController extends _SelectionCore {
+class SelectionController extends _SelectionCore with _SelectionGestures {
   SelectionController({
     required super.model,
     required super.clipboard,

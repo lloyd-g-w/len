@@ -260,7 +260,7 @@ class _HtmlReader {
     }
     return TextData.rich(
       text: lines.map((l) => l.text).join('\n'),
-      spans: TextData.compact(chars),
+      spans: StyledRange.compact(chars),
       paras: [for (final l in lines) l.para],
       font: box.font,
       fontSize: box.fontSize,

@@ -10,6 +10,7 @@ import 'part_downloads.dart';
 import 'trim_range.dart';
 
 part 'playback_parts.dart';
+part 'playback_trim.dart';
 
 /// Plays one recording at a time and relates the playback position to the
 /// ink: [wallTime] is the moment being heard, so strokes written after it
@@ -21,7 +22,7 @@ part 'playback_parts.dart';
 ///
 /// A recording whose parts are not all on this device yet plays part by
 /// part as they download (see `playback_parts.dart`).
-class PlaybackController extends ChangeNotifier {
+class PlaybackController extends ChangeNotifier with _PlaybackTrim {
   PlaybackController({required this.backends, required this.blobs, required this.fetch});
 
   final AudioBackends backends;
@@ -41,10 +42,13 @@ class PlaybackController extends ChangeNotifier {
   Recording? _recording;
 
   /// The open recording (the playback bar is shown while there is one).
+  @override
   Recording? get recording => _recording;
+  @override
   RecordingTimeline? _timeline;
 
   int _positionMs = 0;
+  @override
   int get positionMs => _positionMs;
 
   bool _playing = false;
@@ -120,49 +124,6 @@ class PlaybackController extends ChangeNotifier {
 
   /// The wall time (epoch ms) being heard, or null without a recording.
   int? get wallTime => _timeline?.wallTimeAt(_positionMs);
-
-  /// The trim being edited (start and end in the whole audio), or null.
-  TrimRange? get trimDraft => _trimDraft;
-  TrimRange? _trimDraft;
-
-  /// Where the kept audio begins (0 without a recording).
-  int get startMs => _trimDraft?.start ?? _recording?.trimStartMs ?? 0;
-
-  /// Where the kept audio ends (0 without a recording).
-  int get endMs => _trimDraft?.end ?? _recording?.trimEndMs ?? 0;
-
-  /// The wall time after which ink was made after the kept audio (it is
-  /// not veiled), or null when the audio is kept to its end.
-  int? get veilUntil {
-    final recording = _recording;
-    if (recording == null || endMs >= recording.durationMs) return null;
-    return _timeline?.wallTimeAt(endMs);
-  }
-
-  /// Starts editing the trim of the open recording (from its current one).
-  void beginTrim() {
-    final recording = _recording;
-    if (recording == null) return;
-    _trimDraft = (start: recording.trimStartMs, end: recording.trimEndMs);
-    notifyListeners();
-  }
-
-  /// Moves the edited trim to [range] (see [TrimEditing]); the position
-  /// follows into it.
-  void setTrimDraft(TrimRange range) {
-    if (_trimDraft == null || _trimDraft == range) return;
-    _trimDraft = range;
-    notifyListeners();
-    if (_positionMs < range.start || _positionMs > range.end) unawaited(seek(_positionMs));
-  }
-
-  /// Leaves trim editing (after saving it or not).
-  void endTrim() {
-    if (_trimDraft == null) return;
-    _trimDraft = null;
-    notifyListeners();
-    if (_positionMs < startMs || _positionMs > endMs) unawaited(seek(_positionMs));
-  }
 
   /// Takes over a newer version of the open recording (renamed, trimmed).
   /// Other audio (parts outside the trim dropped, or put back) is opened
@@ -297,6 +258,7 @@ class PlaybackController extends ChangeNotifier {
   Future<void> toggle() => _playing ? pause() : play();
 
   /// Jumps to [positionMs] of the open recording.
+  @override
   Future<void> seek(int positionMs) async {
     final recording = _recording;
     if (recording == null) return;

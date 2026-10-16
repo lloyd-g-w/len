@@ -7,8 +7,14 @@ import '../../../ui/app_switch.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/dialog_or_sheet.dart';
 import '../../../ui/sheet_parts.dart';
+import 'export_memory.dart';
 import 'export_options.dart';
+import 'export_sheet_footer.dart';
 import 'export_sheet_sections.dart';
+
+export 'export_memory.dart' show ExportMemory;
+
+part 'export_sheet_choice.dart';
 
 /// Asks what to export from [pages] (format, pages, templates, PDF
 /// backgrounds): a dialog on wide screens, a bottom sheet
@@ -114,42 +120,6 @@ class ExportSheet extends StatefulWidget {
   State<ExportSheet> createState() => _ExportSheetState();
 }
 
-/// What the last export chose, for the app's run (UX_AUDIT R22-2): the
-/// next sheet starts there. A typed range is not kept (the pages differ).
-class ExportMemory {
-  ExportMemory._();
-
-  static ExportFormat format = ExportFormat.pdf;
-
-  /// Current page or all pages; null after a typed range or none yet.
-  static ExportRange? range;
-  static bool templates = true;
-  static bool backgrounds = true;
-
-  /// Forgets the choices (tests).
-  @visibleForTesting
-  static void reset() {
-    format = ExportFormat.pdf;
-    range = null;
-    templates = backgrounds = true;
-  }
-
-  /// Keeps [options]; a print ([print]) leaves the export's format alone.
-  static void _keep(
-    ExportOptions options,
-    ExportRange? range, {
-    required bool choosePages,
-    bool print = false,
-  }) {
-    if (!print) format = options.format;
-    templates = options.includeTemplates;
-    backgrounds = options.includeBackgrounds;
-    if (choosePages && options.format != ExportFormat.len) {
-      ExportMemory.range = range == ExportRange.custom ? null : range;
-    }
-  }
-}
-
 class _ExportSheetState extends State<ExportSheet> {
   late ExportFormat _format = widget.print ? ExportFormat.pdf : ExportMemory.format;
   late ExportRange _range = widget.pages.length == 1 || !widget.choosePages
@@ -182,31 +152,6 @@ class _ExportSheetState extends State<ExportSheet> {
     _rangeText.dispose();
     _rangeFocus.dispose();
     super.dispose();
-  }
-
-  int get _count => widget.pages.length;
-
-  /// The chosen pages (zero-based), or an error for a bad range.
-  ({List<int>? pages, String? error}) get _selection => _format == ExportFormat.len
-      ? (pages: [for (var i = 0; i < _count; i++) i], error: null)
-      : switch (_range) {
-          ExportRange.current => (pages: [widget.currentPage], error: null),
-          ExportRange.all => (pages: [for (var i = 0; i < _count; i++) i], error: null),
-          ExportRange.custom => parsePageRange(_rangeText.text, _count),
-        };
-
-  ExportOptions? _options({bool toDevice = false}) {
-    final pages = _selection.pages;
-    if (pages == null || pages.isEmpty) return null;
-    return ExportOptions(
-      format: _format,
-      pages: pages,
-      includeTemplates: _templates,
-      includeBackgrounds: _backgrounds,
-      canvas: widget.canvas,
-      whole: widget.whole,
-      toDevice: toDevice,
-    );
   }
 
   void _setRange(ExportRange range) {
@@ -310,17 +255,6 @@ class _ExportSheetState extends State<ExportSheet> {
         child: content,
       ),
     );
-  }
-
-  /// Closes with [options], remembering them for the next export.
-  void _done(ExportOptions options) {
-    ExportMemory._keep(
-      options,
-      _range,
-      choosePages: widget.choosePages && _count > 1,
-      print: widget.print,
-    );
-    Navigator.of(context).pop(options);
   }
 
   List<Widget> _includes(Set<PageBackgroundKind> kinds) => [

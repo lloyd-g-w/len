@@ -22,6 +22,8 @@ import '../tools/text/rich_text_controller.dart';
 import 'image_import.dart';
 import 'image_placement.dart';
 
+part 'editor_images_clipboard.dart';
+
 /// Reads an image from the system clipboard (null if it holds none).
 typedef ClipboardImageReader = Future<Uint8List?> Function();
 
@@ -275,39 +277,6 @@ class EditorImages {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Clipboard
-
-  Future<Uint8List?> _clipboardImage() async {
-    try {
-      final bytes = await _readClipboard();
-      return bytes == null || bytes.isEmpty ? null : bytes;
-    } on Object catch (e) {
-      debugPrint('Clipboard image unavailable: $e');
-      return null;
-    }
-  }
-
-  static Future<String?> _clipboardText() async {
-    try {
-      final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
-      return text == null || text.trim().isEmpty ? null : text;
-    } on Object catch (e) {
-      debugPrint('Clipboard text unavailable: $e');
-      return null;
-    }
-  }
-
-  /// Whether the system clipboard's image [bytes] is no newer than the ink
-  /// copied in the app: there before the copy, or its picture.
-  Future<bool> _isInk(Uint8List bytes) async =>
-      !services.clipboard.isEmpty &&
-      (_hash(bytes) == _imageBeforeInkCopy || await services.clipboardMirror.holdsInk(bytes));
-
-  /// As [_isInk], for the system clipboard's [text].
-  bool _isInkText(String text) =>
-      text == _textBeforeInkCopy || services.clipboardMirror.holdsInkText(text);
-
   /// Copy replaced the system clipboard (`ClipboardMirror`): nothing
   /// there is older than the ink then. Only if that write failed is the
   /// clipboard read, to know what it held before (a read Android 12+
@@ -317,35 +286,5 @@ class EditorImages {
     _textBeforeInkCopy = null;
     _imageBeforeInkCopy = null;
     _inkCopySettled = _rememberOlder(services.clipboardMirror.written);
-  }
-
-  Future<void> _rememberOlder(Future<bool>? written) async {
-    if (written != null && await written) return;
-    // A later copy decides for itself.
-    if (!identical(written, services.clipboardMirror.written)) return;
-    final text = await _clipboardText();
-    final bytes = await _clipboardImage();
-    if (!identical(written, services.clipboardMirror.written)) return;
-    _textBeforeInkCopy = text;
-    _imageBeforeInkCopy = bytes == null ? null : _hash(bytes);
-  }
-
-  static String _hash(Uint8List bytes) => sha256.convert(bytes).toString();
-
-  /// The clipboard's image, or the first image file copied (desktop).
-  static Future<Uint8List?> _systemClipboardImage() async {
-    final image = await Pasteboard.image;
-    if (image != null && image.isNotEmpty) return image;
-    final desktop = const {
-      TargetPlatform.linux,
-      TargetPlatform.windows,
-      TargetPlatform.macOS,
-    }.contains(defaultTargetPlatform);
-    if (kIsWeb || !desktop) return null; // Android lists content URIs.
-    for (final path in await Pasteboard.files()) {
-      final ext = path.split('.').last.toLowerCase();
-      if (ImageImport.extensions.contains(ext)) return XFile(path).readAsBytes();
-    }
-    return null;
   }
 }

@@ -2,6 +2,11 @@ part of 'ink_tile_cache.dart';
 
 /// Rendering tiles off the frame, most urgent first.
 extension _Rendering on InkTileCache {
+  /// Whether [tile] is to be rendered ahead: strokes written over its
+  /// image wait for the pen to rest where renders are spared.
+  bool _wantsRender(InkTile tile) =>
+      tile.needsRender && !(_spare && tile.image != null && !tile.stale);
+
   void _request(TileIndex index, int priority) {
     if (_disposed) return;
     final current = _requests[index];

@@ -22,7 +22,7 @@ class RichTextBuffer {
   /// The formatted text with [box]'s defaults.
   TextData toData(TextData box) => TextData.rich(
     text: _text,
-    spans: TextData.compact(_chars),
+    spans: StyledRange.compact(_chars),
     paras: _paras,
     font: box.font,
     fontSize: box.fontSize,
@@ -43,7 +43,7 @@ class RichTextBuffer {
     final touched = last > first && end == lineStart(last);
     return TextData.rich(
       text: _text.substring(start, end),
-      spans: TextData.compact(_chars.sublist(start, end)),
+      spans: StyledRange.compact(_chars.sublist(start, end)),
       paras: part
           ? const []
           : [..._paras.sublist(first, touched ? last : last + 1), if (touched) ParaStyle.body],
