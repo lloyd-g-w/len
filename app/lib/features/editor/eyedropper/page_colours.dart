@@ -45,17 +45,24 @@ class PageColours {
     final layers = area.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || layers == null || !layers.attached || !box.attached) return false;
     final result = BoxHitTestResult();
-    if (!layers.hitTest(result, position: layers.globalToLocal(global))) return false;
-    final top = result.path.firstOrNull?.target;
-    if (top is! RenderObject || !_within(top, box)) return false;
-    return surfaceAt(global) != null;
+    layers.hitTest(result, position: layers.globalToLocal(global));
+    // The layers are hit top down until one takes the hit; those above it
+    // that only listen along (translucent: the PDF text layer…) come
+    // first in the path. So the layer of the last entry took it.
+    RenderObject? taker;
+    for (final entry in result.path) {
+      if (entry.target case final RenderObject target) taker = _layerOf(target, layers) ?? taker;
+    }
+    return taker == box && surfaceAt(global) != null;
   }
 
-  static bool _within(RenderObject node, RenderObject ancestor) {
+  /// The child of [layers] holding [node]; null for [layers] itself and
+  /// what lies outside it.
+  static RenderObject? _layerOf(RenderObject node, RenderObject layers) {
     for (RenderObject? n = node; n != null; n = n.parent) {
-      if (n == ancestor) return true;
+      if (n.parent == layers) return n;
     }
-    return false;
+    return null;
   }
 
   /// The surface point under [global], if a surface is there.
