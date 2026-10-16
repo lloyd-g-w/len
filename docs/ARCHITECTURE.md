@@ -917,7 +917,10 @@ Canvas PNGs shrink to at most 8192 px on the long side.
 Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
-on mobile and written into a folder the user picks on desktop. On Android the
+on mobile, written into a folder the user picks on desktop and downloaded as
+one ZIP named after the export in browsers (`zipOf`). Shares carry the
+notebook's title as their subject; Android's temporary copies (cache
+`export/`) are deleted by the next share once over an hour old. On Android the
 export sheet also offers Save to device: the system's save dialog (one file)
 or folder picker (several), `SaveDocumentPlugin.kt` on `len/save_document`
 (recordings offer Share and Save to device the same way).
