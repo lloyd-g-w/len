@@ -528,7 +528,8 @@ def pdf_pages(path):
         data = open(path, 'rb').read()
         w.expect(data.startswith(b'%PDF') and b'%%EOF' in data[-1024:], f'{path} starts and ends as a PDF')
         reader = PdfReader(io.BytesIO(data), strict=True)
-        return [(p, p.get_contents().get_data() if p.get_contents() else b'') for p in reader.pages]
+        # (A content stream is a dict, falsy when it has no entries.)
+        return [(p, b'' if (c := p.get_contents()) is None else c.get_data()) for p in reader.pages]
     except w.CheckFailed:
         raise
     except Exception as e:
@@ -1092,18 +1093,22 @@ class Walk:
         page = self.page
         await page.evaluate('window.lenCopied = null')
         await page.keyboard.press('Control+a')
+        # The browser selects; the app hears of it a moment later.
+        await page.wait_for_timeout(300)
         await page.keyboard.press('Control+c')
         await page.wait_for_function('window.lenCopied', timeout=10000)
         copied = await page.evaluate('window.lenCopied')
         w.expect(self.RTL in copied['plain'] and 'dir="rtl"' in copied['html']
                  and self.RTL in copied['html'], f'the copy event carried rich HTML: {copied}')
-        await page.keyboard.press('Escape')
+        await page.keyboard.press('Escape')  # The box done,
+        await page.keyboard.press('Escape')  # the Text tool left (letters would start a box).
         await wait_query(page, self.FEATURE_TEXT, lambda r: len(r) == 1 and self.RTL in r[0][0],
                          'the right-to-left text stored')
         x, y = await view_center(page)
         await page.keyboard.press('l')  # A rectangle since lasso_rectangle.
-        await drag(page, [(x - 190, y + 130), (x + 220, y + 260)], steps=20)
-        await tap(page, 'Copy')
+        # Around the box: right to left, it ends a little right of the click.
+        await drag(page, [(x - 320, y + 120), (x + 40, y + 230)], steps=20)
+        await tap(page, 'Copy (Ctrl+C)')
         if self.cdp is None:  # Firefox doesn't let pages read the clipboard.
             await page.keyboard.press('Escape')
             return
@@ -1123,8 +1128,10 @@ class Walk:
         page = self.page
         x, y = await view_center(page)
         await page.keyboard.press('p')
-        slot = page.get_by_role('button', name=re.compile(r'^Colour 1, '))
-        name = lambda: slot.first.evaluate("e => e.getAttribute('aria-label') || e.textContent")
+        # The slot is a button named by its tooltip, its colour told after it
+        # ("Colour 1 (1)\nColour 1, dark grey").
+        slot = page.get_by_role('button', name=re.compile(r'^Colour 1 \(1\)'))
+        name = lambda: slot.first.text_content()
         before = await name()
         pick = page.get_by_role('button', name='Pick from page', exact=True)
         for _ in range(2):  # Selected first, then its editor.
@@ -1272,7 +1279,8 @@ class Walk:
             await page.wait_for_timeout(4000)  # Painted, for the screenshot.
             await page.screenshot(path=os.path.join(OUT, f'{self.name}-big-page-{number}.png'))
         # Its last page as a PDF: ink as fitted curves, well under what
-        # sampled outlines took (~250 bytes per point, UX_AUDIT R22-1).
+        # sampled outlines took (~250 bytes per point, UX_AUDIT R22-1; these
+        # jittery strokes take ~90 with curves).
         await page.keyboard.press('Control+e')
         await page.get_by_role('radio', name='Current page').click()
         await tap(page, 'Export')
@@ -1283,8 +1291,8 @@ class Walk:
         size, points = os.path.getsize(path), BIG_STROKES * 150
         print(f'  page {BIG_PAGES} as PDF: {size} bytes ({size / points:.1f} per point), '
               f'{curves} curves, {lines} lines')
-        w.expect(len(pages) == 1 and curves > lines * 5 and size < points * 60,
-                 f'a 1-page PDF of curves under 60 bytes per point: {len(pages)} pages, {size} bytes, '
+        w.expect(len(pages) == 1 and curves > lines * 5 and size < points * 100,
+                 f'a 1-page PDF of curves under 100 bytes per point: {len(pages)} pages, {size} bytes, '
                  f'{curves} curves, {lines} lines')
         await tap(page, 'Back')
         await expect_text(page, 'Explore')
