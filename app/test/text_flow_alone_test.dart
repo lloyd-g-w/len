@@ -7,11 +7,15 @@ import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
 import 'package:len/ink/elements/text_edit_session.dart';
 import 'package:len/ink/elements/text_flow_chains.dart';
+import 'package:len/ink/input/live_ink.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
 import 'package:len/ink/selection/selection_controller.dart';
 import 'package:len/ink/selection/selection_surfaces.dart';
 import 'package:len/ink/surface_model.dart';
+import 'package:len/ink/tool_settings.dart';
+import 'package:len/ink/tools/content_tools.dart';
 import 'package:len/ink/undo_history.dart';
+import 'package:len/ink/viewport.dart';
 
 import 'data_test.dart' show FakeClock;
 import 'text_flow_session_test.dart' show FakePages;
@@ -43,6 +47,7 @@ void main() {
 
   group('rivals', rivalTests);
   group('paste', pasteTests);
+  group('paste text', pasteTextTests);
 
   SurfaceElement box(String id, String page, String text, {TextFlow? flow}) => SurfaceElement(
     id: id,
@@ -212,5 +217,47 @@ void pasteTests() {
     expect(copy.rect.top, closeTo(head.rect.top + 24, 0.01));
     final rest = chains.continuationsOf('p0', copy.id);
     expect(TextFlowChains.wholeOf(copy, rest).text, text);
+  });
+}
+
+void pasteTextTests() {
+  late AppDatabase db;
+  late ElementRepository elements;
+  late FakePages pages;
+  late ContentTools content;
+
+  setUp(() {
+    db = AppDatabase.inMemory();
+    final clock = FakeClock();
+    elements = ElementRepository(db, deviceId: 'dev', clock: clock);
+    final strokes = StrokeRepository(db, deviceId: 'dev', clock: clock);
+    pages = FakePages(elements, strokes, ['p0', 'p1']);
+    content = ContentTools(
+      model: pages.modelOf('p0'),
+      viewport: ViewportController()..setSize(const Size(600, 800)),
+      tools: ToolSettings(stylusOnly: true),
+      live: LiveInk(),
+      clipboard: InkClipboard(),
+      clock: clock,
+    )..flows = TextFlowChains(pages, clock: clock);
+  });
+
+  tearDown(() {
+    content.dispose();
+    pages.models.dispose();
+    db.close();
+  });
+
+  test('a long pasted text begins on the page, not above it', () {
+    final text = [for (var i = 0; i < 80; i++) 'Line $i'].join('\n');
+    content.pasteText(TextData.rich(text: text));
+    final head = elements.allOn('p0').single;
+    expect(head.rect.top, greaterThanOrEqualTo(FlowPage.of('p0', FakePages.size).top));
+    expect(elements.allOn('p1'), hasLength(1));
+  });
+
+  test('a short one is centred where it is pasted', () {
+    content.pasteText(TextData.rich(text: 'Hello'));
+    expect(elements.allOn('p0').single.rect.center.dy, closeTo(400, 0.01));
   });
 }
