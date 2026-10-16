@@ -897,6 +897,10 @@ PDFium (`PdfRenderer.links`) for pages embedded as images. Their areas are
 normalised to the page as shown, so `/Rotate` and crop boxes are already
 applied; page links go to the exported page showing the target (the next
 one after the link's page) and are dropped if it is not exported.
+**Bookmarks** (`pdf_bookmarks.dart`): the notebook's outline entries of
+exported pages become the PDF's outline, nested as in Len (an entry whose
+page is left out gives way to its children), and the document opens with
+it showing (`/PageMode /UseOutlines`).
 The export sheet (`export_sheet.dart`) yields `ExportOptions` (format, page
 indices from a range like "1-3, 5", templates and PDF backgrounds on or off;
 PNGs are always 288 dpi, `pngScale`); without templates pages are exported as blank white paper.

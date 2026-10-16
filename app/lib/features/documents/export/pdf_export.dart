@@ -17,6 +17,7 @@ import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import 'export_page.dart';
 import 'export_report.dart';
+import 'pdf_bookmarks.dart';
 import 'pdf_images.dart';
 import 'pdf_links.dart';
 import 'pdf_template.dart';
@@ -24,6 +25,7 @@ import 'pdf_text.dart';
 import 'vector/pdf_page_importer.dart';
 
 export 'export_page.dart';
+export 'pdf_bookmarks.dart' show ExportBookmark;
 
 part 'pdf_export_drawing.dart';
 
@@ -60,18 +62,20 @@ abstract final class PdfExporter {
   /// may throw to abandon the export). Image elements are read through
   /// [readBlob]. [onRasterized] hears the index of each page whose PDF
   /// background had to be embedded as an image. [report] collects what was
-  /// left out or simplified.
+  /// left out or simplified. [bookmarks] become the document's outline,
+  /// shown by readers when it opens.
   static Future<Uint8List> build(
     List<ExportPage> pages, {
     String? title,
+    List<ExportBookmark> bookmarks = const [],
     void Function(int done)? onPage,
     Future<Uint8List?> Function(String sha)? readBlob,
     void Function(int index)? onRasterized,
     FontAssetLoader? loadFont,
     ExportReport? report,
   }) async {
-    final doc = PdfDocument();
-    PdfInfo(doc, title: title, creator: 'Len'); // Registers itself.
+    final doc = PdfDocument(pageMode: bookmarks.isEmpty ? PdfPageMode.none : PdfPageMode.outlines);
+    PdfInfo(doc, title: title, creator: 'Len', producer: 'Len'); // Registers itself.
     final text = PdfTextWriter(doc, load: loadFont);
     final writer = _Writer(
       doc,
@@ -89,6 +93,7 @@ abstract final class PdfExporter {
     }
     report?.missingImages += writer.images.missing;
     PdfLinkWriter.write(doc, pages, writer.written, writer.links);
+    writeBookmarks(doc, bookmarks, writer.written);
     return doc.save();
   }
 

@@ -7,6 +7,7 @@ import '../../../data/surface_copier.dart';
 import '../../../domain/image_data.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../domain/outline/outline_tree.dart';
 import '../../../domain/paper.dart';
 import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
@@ -14,6 +15,7 @@ import '../../../ink/surface_model.dart';
 import '../../editor/document/page_painting.dart';
 import '../pdf/pdf_renderer.dart';
 import 'export_report.dart';
+import 'pdf_bookmarks.dart';
 import 'pdf_export.dart';
 import 'pdf_page_sources.dart';
 
@@ -42,7 +44,8 @@ class NotebookExporter {
   /// written, and may throw to abandon the export. Without [backgrounds],
   /// imported PDF pages are left out. [onRasterized] hears the index (in
   /// [pages]) of each PDF page that had to be embedded as an image;
-  /// [report] collects what was left out or simplified.
+  /// [report] collects what was left out or simplified. The notebook's
+  /// outline entries of exported pages become the PDF's bookmarks.
   Future<Uint8List> pdf(
     List<NotebookPage> pages, {
     String? title,
@@ -69,11 +72,24 @@ class NotebookExporter {
     return PdfExporter.build(
       export,
       title: title,
+      bookmarks: _bookmarks(pages),
       onPage: (done) => onProgress?.call(ExportStage.writing, done, export.length),
       readBlob: _readBlob,
       onRasterized: onRasterized,
       report: report,
     );
+  }
+
+  /// The outline of [pages]' notebook, for those pages.
+  List<ExportBookmark> _bookmarks(List<NotebookPage> pages) {
+    if (pages.isEmpty) return const [];
+    final notebookId = pages.first.notebookId;
+    final entries = services.outline.entriesOf(notebookId);
+    if (entries.isEmpty) return const [];
+    final order = {for (final (i, p) in services.pages.pagesOf(notebookId).indexed) p.id: i};
+    return exportBookmarks(OutlineTree(entries, order), {
+      for (final (i, p) in pages.indexed) p.id: i,
+    });
   }
 
   Future<ExportBackground?> _exportBackground(
