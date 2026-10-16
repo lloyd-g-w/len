@@ -65,6 +65,7 @@ class _HtmlReader {
   bool _space = false;
   SpanStyle _spaceStyle = SpanStyle.plain;
   int _pre = 0;
+  int _hidden = 0;
   StringBuffer? _marker;
 
   _Line get _line => _lines.last;
@@ -96,7 +97,12 @@ class _HtmlReader {
 
   void _start(String name, Map<String, String> attrs, bool selfClosing) {
     if (_marker != null) return;
-    if (name == 'br') return _newLine();
+    if (name == 'br') {
+      if (_hidden > 0) return;
+      // (An empty list item or heading keeps its style.)
+      if (_line.isEmpty) _line.para ??= _para();
+      return _newLine();
+    }
     if (name == 'input' && attrs['type']?.toLowerCase() == 'checkbox') {
       _line.check = attrs.containsKey('checked');
       return;
@@ -110,6 +116,7 @@ class _HtmlReader {
     final format = ElementFormat.of(name, attrs);
     _stack.add(format);
     if (format.pre) _pre++;
+    if (format.hidden) _hidden++;
   }
 
   /// An unclosed `<li>` (or `<p>`) ends where the next one starts.
@@ -134,7 +141,9 @@ class _HtmlReader {
 
   void _popTo(int i) {
     while (_stack.length > i) {
-      if (_stack.removeLast().pre) _pre--;
+      final format = _stack.removeLast();
+      if (format.pre) _pre--;
+      if (format.hidden) _hidden--;
     }
   }
 
@@ -149,6 +158,7 @@ class _HtmlReader {
   }
 
   void _text(String text) {
+    if (_hidden > 0) return;
     final style = _style();
     for (final rune in text.runes) {
       final c = String.fromCharCode(rune);

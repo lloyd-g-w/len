@@ -3,9 +3,10 @@ import 'dart:ui';
 import '../../domain/text/text_data.dart';
 
 /// The bullet, number or checkbox in front of a list paragraph of a text
-/// box. It occupies an inline placeholder at the start of the line, so the
-/// text field used for editing and every renderer lay it out identically;
-/// [shapes] describes what to draw in that box (for the canvas and PDF).
+/// box. It occupies an inline placeholder at the start of the line (the
+/// right edge of a right-to-left paragraph), so the text field used for
+/// editing and every renderer lay it out identically; [shapes] describes
+/// what to draw in that box (for the canvas and PDF).
 class ListMarker {
   const ListMarker({
     required this.line,
@@ -15,6 +16,7 @@ class ListMarker {
     required this.color,
     required this.font,
     this.continued = false,
+    this.direction = TextDirection.ltr,
   });
 
   /// The paragraph (line) it belongs to.
@@ -37,6 +39,11 @@ class ListMarker {
   /// next page, `TextFlow.joined`): its line keeps the marker's room (it
   /// hangs under the item's text) but shows no marker.
   final bool continued;
+
+  /// The paragraph's direction: the marker column is on its text side.
+  final TextDirection direction;
+
+  bool get _rtl => direction == TextDirection.rtl;
 
   /// Width of one indent level (and of the marker column), in ems.
   static const double indentEms = 1.6;
@@ -76,25 +83,28 @@ class ListMarker {
     return out.toString();
   }
 
-  /// The marker column: the last [indentEms] of [box] (the placeholder).
-  Rect column(Rect box) =>
-      Rect.fromLTRB(box.right - fontSize * indentEms, box.top, box.right, box.bottom);
+  /// The marker column: the [indentEms] of [box] (the placeholder) next
+  /// to the text, its end in the paragraph's direction.
+  Rect column(Rect box) => _rtl
+      ? Rect.fromLTRB(box.left, box.top, box.left + fontSize * indentEms, box.bottom)
+      : Rect.fromLTRB(box.right - fontSize * indentEms, box.top, box.right, box.bottom);
+
+  /// The centre of a bullet or checkbox in [box]: away from the text.
+  Offset _centre(Rect box) {
+    final c = column(box);
+    final inset = fontSize * 0.55;
+    return Offset(_rtl ? c.right - inset : c.left + inset, box.center.dy);
+  }
 
   /// The tick box of a checklist item placed in [box].
   Rect checkbox(Rect box) {
     final side = fontSize * 0.72;
-    final c = column(box);
-    return Rect.fromCenter(
-      center: Offset(c.left + fontSize * 0.55, box.center.dy),
-      width: side,
-      height: side,
-    );
+    return Rect.fromCenter(center: _centre(box), width: side, height: side);
   }
 
   /// What to draw for a bullet or checkbox in [box] (numbers are text).
   List<MarkerShape> shapes(Rect box) {
-    final c = column(box);
-    final centre = Offset(c.left + fontSize * 0.55, box.center.dy);
+    final centre = _centre(box);
     switch (para.list) {
       case ListKind.bullet:
         final r = fontSize * 0.14;
@@ -153,6 +163,21 @@ class ListMarker {
       }
     }
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is ListMarker &&
+      other.line == line &&
+      other.para == para &&
+      other.number == number &&
+      other.fontSize == fontSize &&
+      other.color == color &&
+      other.font == font &&
+      other.direction == direction &&
+      other.continued == continued;
+
+  @override
+  int get hashCode => Object.hash(line, para, number, fontSize, color, font, direction, continued);
 
   static Paint _stroke(Paint base, double width) => Paint()
     ..color = base.color

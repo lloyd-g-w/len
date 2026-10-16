@@ -73,8 +73,8 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 13);
-    expect(AppDatabase.latestVersion, 13);
+    expect(schema['version'], 14);
+    expect(AppDatabase.latestVersion, 14);
     // Version 7: a notebook's paper look.
     expect(schema['notebooks'], contains("paper_data TEXT 1 '{}' 0"));
     // Version 3: recording waveforms, stroke times per surface.
@@ -340,7 +340,7 @@ void main() {
 }
 
 /// Back to before version 10 (the chunk indexes): undoes versions 10 to 13
-/// of a fresh database.
+/// of a fresh database (14 only rewrites data).
 void _dropChunkDigests(CommonDatabase db) {
   db.execute('ALTER TABLE stroke_chunks DROP COLUMN digest');
   db.execute('ALTER TABLE element_chunks DROP COLUMN digest');

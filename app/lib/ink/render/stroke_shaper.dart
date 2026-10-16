@@ -11,6 +11,7 @@ import 'taper.dart';
 part 'stroke_shaper_checkpoints.dart';
 part 'stroke_shaper_radii.dart';
 part 'stroke_shaper_resampling.dart';
+part 'stroke_shaper_samples.dart';
 part 'stroke_shaper_smoothing.dart';
 
 /// Turns the input points of a stroke into its smoothed centre line with
@@ -45,7 +46,7 @@ part 'stroke_shaper_smoothing.dart';
 ///
 /// [line] writes the whole line (final values plus the not-yet-final tail)
 /// into the output buffers; only the tail is recomputed per call.
-class StrokeShaper implements RibbonLine {
+class StrokeShaper with _SampleIndex implements RibbonLine {
   /// A shaper for [p]. For a piece of a longer line (the low-latency
   /// overlay smooths only the newest part), [start] makes input sample
   /// `start − 1` a lead-in (only the spline's neighbour of the first
@@ -78,10 +79,6 @@ class StrokeShaper implements RibbonLine {
   int _resFinal = 0;
   int _seg = 0;
   double _next = 0;
-  // Per segment: the arc length of its first resampled point from its
-  // start ([phaseAt]) and that point's index ([firstSampleOf]); entries
-  // before the start are unused.
-  final DoubleBuffer _segNext = DoubleBuffer(), _segFirst = DoubleBuffer();
 
   // 6a. Causal radii: two exponential passes and the slope limit.
   final DoubleBuffer _r1 = DoubleBuffer(), _r2 = DoubleBuffer(), _rs = DoubleBuffer();
@@ -147,6 +144,7 @@ class StrokeShaper implements RibbonLine {
 
   /// The first input sample kept (after the pen-down hook); 0 until
   /// [started].
+  @override
   int get startSample => _start ?? 0;
 
   @override
@@ -178,10 +176,8 @@ class StrokeShaper implements RibbonLine {
   }
 
   /// Number of input points [add]ed so far.
+  @override
   int pointCount = 0;
-
-  // The first input point of each sample (merged points follow it).
-  final List<int> _samplePoint = [];
 
   /// Adds an input point at ([x], [y]) with outline radius [radius].
   void add(double x, double y, double radius) {
@@ -198,20 +194,6 @@ class StrokeShaper implements RibbonLine {
     _sx.add(x);
     _sy.add(y);
     _sr.add(radius);
-  }
-
-  /// The input sample point [point] went into.
-  int sampleOfPoint(int point) {
-    var lo = 0, hi = _samplePoint.length - 1;
-    while (lo < hi) {
-      final mid = (lo + hi + 1) ~/ 2;
-      if (_samplePoint[mid] <= point) {
-        lo = mid;
-      } else {
-        hi = mid - 1;
-      }
-    }
-    return lo;
   }
 
   // ---------------------------------------------------------------------------
@@ -288,31 +270,6 @@ class StrokeShaper implements RibbonLine {
 
   /// The number of input samples to keep once the stroke has ended.
   int endKeep() => _hooks.endKeep(_sx, _sy, _sx.length);
-
-  /// The arc length from input sample [sample] to the first resampled
-  /// point after it (0 < phase ≤ step), as of the last [update]; null
-  /// where the line has no samples (before its start, after its end).
-  /// A piece cut out of the line (the pixel eraser) is resampled with
-  /// this phase, so its points fall where the line's did.
-  double? phaseAt(int sample) {
-    if (sample < startSample || sample >= _segNext.length) return null;
-    return _segNext[sample];
-  }
-
-  /// The index of the first resampled point after input sample [sample],
-  /// as of the last [update]; null as for [phaseAt].
-  int? firstSampleOf(int sample) {
-    if (sample < startSample || sample >= _segFirst.length) return null;
-    return _segFirst[sample].toInt();
-  }
-
-  /// The input sample that input point [point] starts, or null when it was
-  /// merged into the one before (closer than [ShapeParams.dedupe]).
-  int? sampleStartingAt(int point) {
-    if (point >= pointCount) return null;
-    final s = sampleOfPoint(point);
-    return _samplePoint[s] == point ? s : null;
-  }
 
   /// The length of the resampling spline's segment from (x1, y1) to
   /// (x2, y2) with neighbours (x0, y0) and (x3, y3), flattened as the

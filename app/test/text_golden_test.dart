@@ -76,7 +76,7 @@ void main() {
     );
     // Nothing is cut off, so nothing scrolls.
     expect(find.byKey(const ValueKey('scroll-fade')), findsNothing);
-    for (final tip in ['Font', 'Larger', 'Bold (Ctrl+B)', 'Colour', 'Align center', 'More']) {
+    for (final tip in ['Font', 'Larger', 'Bold (Ctrl+B)', 'Colour', 'Align centre', 'More']) {
       expect(find.byTooltip(tip).hitTestable(), findsOneWidget, reason: tip);
     }
   });

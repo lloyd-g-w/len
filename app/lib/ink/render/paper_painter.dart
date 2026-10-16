@@ -8,6 +8,8 @@ import '../../domain/paper_pattern.dart';
 import '../viewport.dart';
 import 'pattern_text.dart';
 
+part 'paper_pattern_ink.dart';
+
 /// Colours around the paper. The paper itself and its pattern come from
 /// [PaperColor]; paper keeps its colour in dark mode, like real paper.
 class PaperColors {
@@ -134,8 +136,8 @@ abstract final class PaperRenderer {
     final pattern = PaperPattern.of(paper, area, page: page, minPitch: minPitch);
     if (pattern.isEmpty) return;
     final look = paper.look;
-    final faint = thumbnail ? _faintness(scale) : 0.0;
-    final ink = _strengthen(look.patternOn(color.pattern), color, faint);
+    final faint = thumbnail ? _PatternInk.faintness(scale) : 0.0;
+    final ink = _PatternInk.strengthen(look.patternOn(color.pattern), color, faint);
     for (final f in pattern.fills) {
       canvas.drawRect(f.rect, Paint()..color = ink.withValues(alpha: ink.a * f.opacity));
     }
@@ -146,7 +148,7 @@ abstract final class PaperRenderer {
       ];
       if (points.isEmpty) continue;
       final c = lineColor(weight, ink, color, margin: colors.margin, faint: faint);
-      final (width, fade) = _lineWidth(weight, look, scale, mini: mini, faint: faint);
+      final (width, fade) = _PatternInk.lineWidth(weight, look, scale, mini: mini, faint: faint);
       final paint = Paint()
         ..color = c.withValues(alpha: c.a * fade)
         ..strokeWidth = width / scale;
@@ -154,7 +156,7 @@ abstract final class PaperRenderer {
     }
     if (pattern.dots.isNotEmpty) {
       // Template miniatures show the pattern, not the page at a zoom.
-      _paintDots(canvas, pattern.dots, ink, look, scale, always ? 1 : faint);
+      _PatternInk.paintDots(canvas, pattern.dots, ink, look, scale, always ? 1 : faint);
     }
     for (final label in pattern.labels) {
       // Text smaller than ~3 device pixels is unreadable: skip it (keep it
@@ -166,73 +168,6 @@ abstract final class PaperRenderer {
         label.muted ? color.text.withValues(alpha: PatternLabel.mutedOpacity) : color.text,
       );
     }
-  }
-
-  /// Paints [dots] [dotRadius] × the look's dot size in world units, so
-  /// they scale with the page and the ink. Smaller on screen than
-  /// [minDotRadius] (far out), they stay that size and fade by the square
-  /// root of the area they lost, as lines do by their width (the ink kept
-  /// fades slower than the dot shrinks, so far-out paper keeps contrast);
-  /// a strengthened page
-  /// thumbnail ([faint]; 1 for template miniatures) keeps them at least
-  /// [minMiniatureDot], unfaded.
-  static void _paintDots(
-    Canvas canvas,
-    List<Offset> dots,
-    Color ink,
-    PaperLook look,
-    double scale,
-    double faint,
-  ) {
-    final shown = dotRadius * look.dotSize * scale;
-    final floor = math.max(minDotRadius, minMiniatureDot * faint);
-    final fade = shown >= floor ? 1.0 : ui.lerpDouble(shown / floor, 1, faint)!;
-    canvas.drawPoints(
-      ui.PointMode.points,
-      dots,
-      Paint()
-        ..color = ink.withValues(alpha: ink.a * fade)
-        ..strokeWidth = 2 * math.max(shown, floor) / scale
-        ..strokeCap = StrokeCap.round,
-    );
-  }
-
-  /// The target-pixel width and the opacity of a [weight] line at [scale].
-  /// On the page it is [lineWidth] × the look's weight, so it scales with
-  /// the page and the ink; thinner than [minLineWidth] (far out) it stays
-  /// that wide and fades by the square root of the width it lost, so
-  /// far-out paper (and a phone's) reads lighter but keeps contrast. Miniatures
-  /// ([mini]) keep their lines about a pixel wide (in the weights'
-  /// proportions), unfaded; a strengthened page thumbnail ([faint]) at
-  /// least [minMiniatureLine].
-  static (double, double) _lineWidth(
-    PatternWeight weight,
-    PaperLook look,
-    double scale, {
-    required bool mini,
-    required double faint,
-  }) {
-    final shown = lineWidth(weight) * look.lineWeight * scale;
-    if (mini) {
-      final relative = lineWidth(weight) / lineWidth(PatternWeight.normal) * look.lineWeight;
-      final floor = math.min(1.0, 0.5 + scale) * relative;
-      return (math.max(shown, math.max(floor, minMiniatureLine * faint)), 1);
-    }
-    if (shown >= minLineWidth) return (shown, 1);
-    return (minLineWidth, math.sqrt(shown / minLineWidth));
-  }
-
-  /// How much a page thumbnail at [scale] strengthens its pattern: 0 from
-  /// [faintScale] up, 1 from [faintScaleFull] down.
-  static double _faintness(double scale) =>
-      ((faintScale - scale) / (faintScale - faintScaleFull)).clamp(0.0, 1.0);
-
-  /// The pattern colour [ink] moved towards the paper's text colour (and
-  /// made more opaque) by [faint], for contrast at small sizes.
-  static Color _strengthen(Color ink, PaperColor color, double faint) {
-    if (faint == 0) return ink;
-    final darker = Color.lerp(ink.withValues(alpha: 1), color.text, 0.2 * faint)!;
-    return darker.withValues(alpha: ink.a + (1 - ink.a) * 0.3 * faint);
   }
 
   /// Structural lines: the pattern colour [ink] a little towards the

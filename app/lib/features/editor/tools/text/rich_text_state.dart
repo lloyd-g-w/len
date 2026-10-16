@@ -22,10 +22,11 @@ abstract class _RichTextState extends TextEditingController {
 
   TextData _box;
   RichTextBuffer _buffer;
-  late MarkerOffsets _offsets;
-  List<int> _wraps = const [];
+  late TextPlan _plan;
   List<FlowBreak> _breaks = const [];
   double _wrapWidth = double.infinity;
+
+  MarkerOffsets get _offsets => _plan.offsets;
   TextData? _data;
 
   /// Style for the next typed text at [_pendingAt] (a toggled format with a
@@ -57,7 +58,7 @@ abstract class _RichTextState extends TextEditingController {
   set roomExtra(double value) {
     if (value == _roomExtra) return;
     _roomExtra = value;
-    notifyListeners(); // Same text, other placeholders: build the spans again.
+    refreshLayout(); // Same text, other placeholders.
   }
 
   /// Display offset of the room placeholder of page break [b].
@@ -68,18 +69,28 @@ abstract class _RichTextState extends TextEditingController {
 
   bool get isEmpty => _buffer.length == 0;
 
-  /// The width the box wraps at (its world width), for hanging indents.
+  /// The width of the box (its world width): list items wrap with
+  /// hanging indents and paragraphs against the box's direction align at it.
   double get wrapWidth => _wrapWidth;
   set wrapWidth(double width) {
+    if (width == _wrapWidth) return;
     _wrapWidth = width;
     refreshLayout();
   }
 
-  /// Lays the text out again if its wraps or page breaks changed, keeping
-  /// the selection and an IME composition.
+  /// Lays the text out again if its plan (wraps, padding, page breaks)
+  /// changed, keeping the selection and an IME composition.
   void refreshLayout() {
-    final breaks = breaksOf?.call(data) ?? const <FlowBreak>[];
-    if (listEquals(_wrapsOf(data), _wraps) && listEquals(breaks, _breaks)) return;
+    final breaks = _breaksOf(data);
+    final plan = _planOf(data, breaks);
+    _breaks = breaks;
+    if (listEquals(plan.inserts, _plan.inserts)) return;
+    if (plan.offsets.display(_buffer.text) == text) {
+      // Only sizes changed (padding, a room): the same text, laid out anew.
+      _plan = plan;
+      notifyListeners();
+      return;
+    }
     final c = value.composing;
     final composing = c.isValid && !c.isCollapsed
         ? TextRange(start: _offsets.toModel(c.start), end: _offsets.toModel(c.end))
@@ -97,20 +108,27 @@ abstract class _RichTextState extends TextEditingController {
     }
   }
 
+  /// How the field lays out (see [TextPlan]).
+  TextPlan get plan => _plan;
+
   TextSelection _modelSelection(TextSelection s) => s.copyWith(
     baseOffset: _offsets.toModel(s.baseOffset),
     extentOffset: _offsets.toModel(s.extentOffset),
   );
 
-  /// The display offsets of [data] at [wrapWidth].
-  MarkerOffsets _offsetsOf(TextData data) {
-    _wraps = _wrapsOf(data);
-    _breaks = breaksOf?.call(data) ?? const [];
-    return MarkerOffsets(data, _wraps, _breaks);
-  }
+  /// The page breaks of [data] (see [breaksOf]).
+  List<FlowBreak> _breaksOf(TextData data) => breaksOf?.call(data) ?? const [];
 
-  /// Auto-width boxes grow instead of wrapping.
-  List<int> _wrapsOf(TextData data) => data.autoWidth ? const [] : TextWraps.of(data, _wrapWidth);
+  /// The plan of [data] at [wrapWidth] with [breaks] (by default its own),
+  /// their rooms made [roomExtra] shorter.
+  TextPlan _planOf(TextData data, [List<FlowBreak>? breaks]) => TextPlan.of(
+    data,
+    _wrapWidth,
+    breaks: [
+      for (final b in breaks ?? _breaksOf(data))
+        (at: b.at, gap: math.max(0.0, b.gap - _roomExtra), soft: b.soft),
+    ],
+  );
 
   /// Replaces everything (a new box started), the caret at [caret] (model
   /// offset; the end by default).
@@ -132,7 +150,8 @@ abstract class _RichTextState extends TextEditingController {
   /// Rebuilds the display text and selects [model] (box-text offsets).
   void _sync(TextSelection model, {bool changed = false}) {
     _data = null;
-    _offsets = _offsetsOf(data);
+    _breaks = _breaksOf(data);
+    _plan = _planOf(data, _breaks);
     super.value = TextEditingValue(
       text: _offsets.display(_buffer.text),
       selection: model.copyWith(

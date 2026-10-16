@@ -136,13 +136,16 @@ extension _SessionFlow on TextEditSession {
     } else {
       layout = _layouts.of(data, width);
     }
-    final box = Rect.fromLTWH(r.left, r.top, width, layout.height);
+    // A right-to-left box grows to the left: its start edge stays put.
+    final rtl = data.directions.first == TextDirection.rtl;
+    final left = rtl && width != r.width ? r.right - width : r.left;
+    final box = Rect.fromLTWH(left, r.top, width, layout.height);
     if (_flow != _Flow.whole) {
       return (element: element.copyWith(rect: box), parts: const [], frames: null);
     }
     final chains = flows!;
     final parts = chains.split(_model.surfaceId, box, layout);
-    final head = Rect.fromLTWH(r.left, r.top, width, parts.first.height);
+    final head = Rect.fromLTWH(left, r.top, width, parts.first.height);
     return (
       element: element.copyWith(rect: head),
       parts: parts,

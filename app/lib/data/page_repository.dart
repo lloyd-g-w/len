@@ -91,7 +91,7 @@ class PageRepository extends SyncableTable {
           paperColor: s.color,
           background: s.background,
         );
-        _insert(page, updatedAt: now, deviceId: deviceId, dirty: true);
+        PageRows.insert(database, page, updatedAt: now, deviceId: deviceId, dirty: true);
         created.add(page);
       }
       return created;
@@ -279,42 +279,12 @@ class PageRepository extends SyncableTable {
       );
       return;
     }
-    _insert(
+    PageRows.insert(
+      database,
       PageRows.fromRecord(record),
       updatedAt: record.updatedAt,
       deviceId: record.deviceId,
       dirty: false,
-    );
-  }
-
-  void _insert(
-    NotebookPage page, {
-    required int updatedAt,
-    required String deviceId,
-    required bool dirty,
-  }) {
-    final background = page.background;
-    database.execute(
-      '''
-      INSERT OR REPLACE INTO pages (id, notebook_id, sort_key, width, height, paper,
-                                    paper_data, paper_color, bookmarked, background,
-                                    updated_at, device_id, deleted, dirty)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
-      [
-        page.id,
-        page.notebookId,
-        page.sortKey,
-        page.width,
-        page.height,
-        page.paper.style.name,
-        jsonEncode(page.paper.toData()),
-        page.paperColor.name,
-        page.bookmarked ? 1 : 0,
-        background == null ? null : jsonEncode(background.toJson()),
-        updatedAt,
-        deviceId,
-        dirty ? 1 : 0,
-      ],
     );
   }
 }

@@ -11,12 +11,13 @@ import 'revival_notice.dart';
 import 'sync_api.dart';
 import 'sync_engine.dart';
 
+part 'sync_controller_requests.dart';
 part 'sync_controller_run.dart';
 
 enum SyncState { disabled, idle, syncing, error }
 
 /// Schedules sync cycles and exposes their status to the UI.
-class SyncController extends ChangeNotifier {
+class SyncController extends ChangeNotifier with _SyncRequests {
   SyncController({
     required this.engine,
     required this.settings,
@@ -34,10 +35,13 @@ class SyncController extends ChangeNotifier {
     engine.onPullProgress = _onPullProgress;
   }
 
+  @override
   final SyncEngine engine;
+  @override
   final SettingsRepository settings;
 
   /// The access token (in the secure store, see [SyncTokenStore]).
+  @override
   final SyncTokenStore tokens;
   final Duration interval;
 
@@ -47,15 +51,18 @@ class SyncController extends ChangeNotifier {
 
   /// Creates the API client for one sync run; may throw [SyncException]
   /// for an invalid URL.
+  @override
   final SyncApi Function(String url, String token) apiFactory;
 
   static SyncApi _defaultApi(String url, String token) => SyncApi(baseUrl: url, token: token);
 
   final _remoteChanges = StreamController<RemoteChanges>.broadcast();
+  @override
   final _notices = StreamController<String>.broadcast();
   Timer? _timer;
   Future<void>? _running;
   Future<void>? _queued;
+  @override
   bool _disposed = false;
 
   /// The client of the run under way: closed when the configuration
@@ -65,6 +72,7 @@ class SyncController extends ChangeNotifier {
 
   /// Bumped whenever the configuration changes; a run started under an
   /// older configuration stops at its next checkpoint.
+  @override
   int _configGeneration = 0;
 
   late SyncState _state;
@@ -190,6 +198,7 @@ class SyncController extends ChangeNotifier {
 
   void _refreshTooLarge() => _tooLarge = engine.blobs?.tooLarge() ?? const [];
 
+  @override
   bool get isConfigured => settings.syncUrl.isNotEmpty && tokens.token.isNotEmpty;
 
   /// Fires after a sync that changed local data.
@@ -231,17 +240,6 @@ class SyncController extends ChangeNotifier {
     _setState(isConfigured ? SyncState.idle : SyncState.disabled);
   }
 
-  /// Verifies a configuration without saving it and returns what the
-  /// server says of itself. Throws [SyncException].
-  Future<ServerInfo> test({required String url, required String token}) async {
-    final api = apiFactory(_normalizeUrl(url), token.trim());
-    try {
-      return await api.check();
-    } finally {
-      api.close();
-    }
-  }
-
   /// Runs a sync now. If one is already running, a single follow-up run is
   /// queued (so changes made meanwhile are included) and the returned
   /// future completes after it.
@@ -257,75 +255,6 @@ class SyncController extends ChangeNotifier {
       return syncNow();
     });
   }
-
-  /// Downloads blob [sha] from the server if it is not stored locally.
-  /// Returns whether it is available now; never throws (a missing blob is
-  /// retried the next time it is needed). A file Free up removed here that
-  /// the server no longer has is named to the user, once per run of the app
-  /// ([notices]).
-  Future<bool> fetchBlob(String sha) async {
-    final blobs = engine.blobs;
-    if (blobs == null) return false;
-    if (await blobs.has(sha)) return true;
-    if (!isConfigured || _disposed) return false;
-    // Switching servers (or one losing its history) resets the uploaded
-    // marks; a download still under way must not mark it on the new one.
-    final generation = _configGeneration;
-    final serverId = settings.syncServerId;
-    SyncApi? api;
-    try {
-      api = apiFactory(settings.syncUrl, tokens.token);
-      final fetched = await BlobSync(blobs).download(
-        api,
-        sha,
-        fromCurrentServer: () =>
-            generation == _configGeneration && serverId == settings.syncServerId,
-      );
-      if (!fetched && !_disposed && !_toldMissing.contains(sha)) {
-        if (FreedFiles(blobs, engine.blobReferences).missingNotice(sha) case final notice?) {
-          _toldMissing.add(sha);
-          _notices.add(notice);
-        }
-      }
-      return fetched;
-    } on SyncException catch (e) {
-      debugPrint('Cannot fetch blob $sha: ${e.message}');
-      return false;
-    } finally {
-      api?.close();
-    }
-  }
-
-  /// Which of [shas] the sync server stores now, asked blob by blob, and
-  /// a check whether that still holds for the server this device syncs
-  /// with (no other server or server history since). Null when sync is
-  /// off or the server can't be asked: then nothing counts as held.
-  Future<({Set<String> held, bool Function() current})?> blobsOnServer(
-    Iterable<String> shas,
-  ) async {
-    if (!isConfigured || _disposed) return null;
-    final generation = _configGeneration;
-    final serverId = settings.syncServerId;
-    bool current() => generation == _configGeneration && serverId == settings.syncServerId;
-    SyncApi? api;
-    try {
-      api = apiFactory(settings.syncUrl, tokens.token);
-      final held = <String>{};
-      for (final sha in shas) {
-        if (!current()) return null;
-        if (await api.hasBlob(sha)) held.add(sha);
-      }
-      return current() ? (held: held, current: current) : null;
-    } on SyncException catch (e) {
-      debugPrint('Cannot ask the server for blobs: ${e.message}');
-      return null;
-    } finally {
-      api?.close();
-    }
-  }
-
-  /// Freed files found missing on the server that the user was told of.
-  final Set<String> _toldMissing = {};
 
   static String _files(int n) => n == 1 ? '1 file' : '$n files';
 

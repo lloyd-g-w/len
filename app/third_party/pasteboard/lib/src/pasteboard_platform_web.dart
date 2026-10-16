@@ -114,7 +114,7 @@ class PasteboardPlatformWeb implements PasteboardPlatform {
   }
 
   @override
-  Future<bool> write({Future<Uint8List?>? png, String? text}) async {
+  Future<bool> write({Future<Uint8List?>? png, String? text, String? html}) async {
     if (png == null && text == null) return false;
     try {
       // Called within the user's gesture: the image goes in as a promise
@@ -131,6 +131,12 @@ class PasteboardPlatformWeb implements PasteboardPlatform {
         items.setProperty(
           'text/plain'.toJS,
           Blob([text.toJS].toJS, BlobPropertyBag(type: 'text/plain')),
+        );
+      }
+      if (html != null) {
+        items.setProperty(
+          'text/html'.toJS,
+          Blob([html.toJS].toJS, BlobPropertyBag(type: 'text/html')),
         );
       }
       await _clipboard.write([ClipboardItem(items)].toJS).toDart;

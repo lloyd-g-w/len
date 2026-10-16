@@ -93,20 +93,23 @@ From the reports; the owner picks. Status as above.
   the rest standing alone; canvases keep growing boxes. A keystroke lays the box out once
   (plus the field's own layout). See ARCHITECTURE "Text boxes", SYNC_PROTOCOL "Text flowing
   across pages".
-- 🚧 (feat/rtl-text) **Right-to-left text boxes** (UX_AUDIT round 19): boxes are laid out LTR everywhere
-  (`TextBoxLayout`, `TextWraps`, the field, PDF), so Arabic / Hebrew runs reorder but sit
-  left-aligned with punctuation and list markers on the wrong side. Proposal: a box's
-  direction from its first strong character, alignment stored as start / centre / end
-  (mirrored icons), markers and hanging indents follow (placeholders are logical already),
-  PDF glyph placement checked with an RTL font (the bundled fonts lack Arabic / Hebrew:
-  bundling Noto Sans Arabic / Hebrew subsets is part of it).
-- 🚧 (feat/rich-copy) **Rich copy to other apps** (UX_AUDIT round 19): Copy in a box puts plain text on the
-  clipboard (formatting is kept only for pasting back into Len). Write HTML too (the
-  inverse of `textFromHtml`: b / i / u / s, colours, h1 / h2, ul / ol / checkboxes) via the
-  vendored `pasteboard` (Windows CF_HTML, Android `ClipData.newHtmlText`, Linux
-  `text/html`, web `ClipboardItem`), so a pasted note keeps its headings and lists in Docs,
-  mail or Notion.
+- ✅ **Rich copy to other apps** (UX_AUDIT round 19): Copy / Cut in a box and lasso Copy of
+  text boxes put HTML on the clipboard besides the plain text (`htmlFromTexts`, the inverse
+  of `textFromHtml`, round-trip property-tested: b / i / u / s, colours, highlights, fonts,
+  h1 / h2, nested ul / ol, checklists with a ☐ / ☑), through the vendored `pasteboard`'s
+  `write` (Linux `text/html`, Windows CF_HTML, Android `ClipData` HTML text, web
+  `ClipboardItem`). Pasting back into Len still uses Len's own copy, now with its
+  paragraph styles too (lists and headings were lost before).
 
+- ✅ **Right-to-left text boxes** (UX_AUDIT round 19): each paragraph runs in the direction of
+  its first strong character (bidi P2 / P3) and aligns to its own start / centre / end (`align`
+  is `start` / `center` / `end` now, migration 14, strict `TextRecord` parsing); the box lays out
+  in its first paragraph's direction and paragraphs against it are isolated and padded into place
+  (`TextPlan`), so canvas, editing field and PDF agree. Markers, number labels (".1") and hanging
+  indents sit on the start side, the alignment icon mirrors, arrows move visually, right-to-left
+  auto-width boxes grow to the left. Noto Sans Arabic / Hebrew subsets bundled as fallbacks of the
+  box fonts (web and PDF included); PDF export places RTL glyphs where the layout puts them and
+  writes Arabic in contextual presentation forms (marks approximately placed: no GPOS).
 - ✅ **Storage overview** (UX_AUDIT R16-7): Settings → Storage on every platform: the space
   Len uses here by kind (handwriting and text, PDFs, images, recordings, cached previews),
   the largest notebooks (tap to open, or Recordings to open at its recordings), "Free up

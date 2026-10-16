@@ -355,8 +355,13 @@ Enumerated values: `kind` as above (notebooks); `paper` and `paperColor` see [Pa
 
 **Text boxes.** `text` is the plain text (lines separated by `\n`; what search indexes);
 `font` ∈ `inter`, `lora`, `mono`, `caveat` (the bundled fonts), `size` the body font size in world
-units (6–400), `color` an ARGB int, `align` ∈ `left`, `center`, `right`, and `autoWidth` whether the
-box grows with its text (`true`) or wraps at its width. Formatting is compact:
+units (6–400), `color` an ARGB int (0..0xFFFFFFFF), `align` ∈ `start`, `center`, `end`, and `autoWidth`
+whether the box grows with its text (`true`) or wraps at its width. `align` is relative to each
+paragraph's direction, which is not stored: a paragraph runs right-to-left when its first strong
+character (Unicode bidi rules P2 / P3) is right-to-left (Hebrew, Arabic, …); one without a strong
+character takes the direction of the paragraph before it (leading ones the first found, else
+left-to-right). So `start` is the left edge of an English paragraph and the right edge of a Hebrew
+one; list markers and hanging indents sit on the start side too. Formatting is compact:
 
 - `spans` = `[[start, end, style], …]` — character formatting of the UTF-16 range `[start, end)` of
   `text`, sorted, non-overlapping, never empty or unformatted. `style` holds only what is set:
@@ -368,13 +373,16 @@ box grows with its text (`true`) or wraps at its width. Formatting is compact:
   indent level (1–4); `{}` is body text. Numbers are not stored (they count consecutive items; a list running on from the page before counts on, see `flow.numbers` below).
 
 Example: `{"text": "Todo\nmilk", "spans": [[0, 4, {"b": true}]], "paras": [{"h": 1}, {"l": "check",
-"x": true}], "font": "inter", "size": 24, "color": 4280229663, "align": "left", "autoWidth": true}`.
-Readers ignore spans and paragraph entries they cannot use and unknown keys (the contents of
-`data` are open).
+"x": true}], "font": "inter", "size": 24, "color": 4280229663, "align": "start", "autoWidth": true}`.
+Text `data` is parsed strictly (`TextRecord`): every key above is required and every value must be
+well-formed (spans in range, sorted and set; `paras` empty or one per line; known fonts, list kinds
+and alignments); otherwise the whole element record is malformed and skipped. Unknown keys are
+ignored and survive local edits. (Before schema version 14 `align` was `left` / `center` / `right`;
+the migration rewrote local boxes as `start` / `end` and sent them again.)
 
 **Text flowing across pages.** On a paged notebook a text box reaching the bottom of its page
 continues in a text box at the top of the next page, and so on: a *chain*. Its first box has no
-`flow`; every other box of the chain has `data.flow` = `{from, joined, numbers}` and holds its own
+`flow`; every other box of the chain has `data.flow` = `{from, joined, numbers, dir}` and holds its own
 part of the text (so each page is complete on its own: search, thumbnails and exports read only
 its elements):
 
@@ -387,9 +395,14 @@ its elements):
 - `numbers` (list of ints ≥ 0, at most 5): for each list indent level, how many numbered items of
   a list running on into this box came before it (its numbers count on from there); trailing
   zeros are left out, `[]` for none.
+- `dir` (`ltr` or `rtl`): the direction its first paragraph has in the whole text (a paragraph's
+  is its first strong character's, see `align` above); it overrides the
+  direction this box's own first paragraph would get, so a right-to-left paragraph split between
+  pages stays right-to-left (and its marker on the right) whatever word the next part begins with.
 
-Every field is required and typed as above: an `elements` record whose text `data` has a `flow`
-that is not well-formed is malformed and skipped. Clients find a chain by following `from` page by
+Every field is required and typed as above: `flow` is the one optional key of text `data`
+(`TextRecord`), and an `elements` record whose text `data` has a `flow` that is not well-formed is
+malformed and skipped. Clients find a chain by following `from` page by
 page; a box whose `from` is missing, deleted or not on the page before (pages deleted, reordered or
 copied) stands alone and is drawn as it is. Clients rewrite the whole chain as one edit when it is
 changed (continuations keep their ids while they stay on the same page); duplicating a notebook

@@ -1,3 +1,6 @@
+import 'dart:ui' show TextDirection;
+
+import 'paragraph_direction.dart';
 import 'paragraph_style.dart';
 import 'span_style.dart';
 import 'text_alignment.dart';
@@ -18,8 +21,9 @@ export 'text_font.dart';
 /// Keeping the plain text whole makes it directly searchable (the search
 /// index reads `data.text`). Spans are kept normalised: sorted,
 /// non-overlapping, non-empty, never plain, and adjacent equal spans
-/// merged; [paras] has exactly one entry per line. Parsing tolerates
-/// malformed values (element data is open, see SYNC_PROTOCOL.md).
+/// merged; [paras] has exactly one entry per line. [TextData.fromJson]
+/// tolerates malformed values (it reads rows this app wrote); records from
+/// elsewhere are checked by [TextData.strict] first (see SYNC_PROTOCOL.md).
 class TextData {
   /// A box of plain [text]. Use [TextData.rich] for formatted text.
   const TextData({
@@ -27,7 +31,7 @@ class TextData {
     this.font = TextFont.inter,
     this.fontSize = 24,
     this.color = defaultColor,
-    this.align = TextAlignment.left,
+    this.align = TextAlignment.start,
     this.autoWidth = false,
   }) : spans = const [],
        _paras = const [],
@@ -53,7 +57,7 @@ class TextData {
     TextFont font = TextFont.inter,
     double fontSize = 24,
     int color = defaultColor,
-    TextAlignment align = TextAlignment.left,
+    TextAlignment align = TextAlignment.start,
     bool autoWidth = false,
     TextFlow? flow,
   }) => TextData._(
@@ -109,6 +113,11 @@ class TextData {
     flow: flow,
   );
 
+  /// The direction of each paragraph (see [ParagraphDirection]); a box
+  /// continuing another keeps its first paragraph's from the whole text
+  /// ([TextFlow.direction]).
+  List<TextDirection> get directions => ParagraphDirection.of(text, first: flow?.direction);
+
   /// One style per line of [text].
   List<ParaStyle> get paras {
     final lines = lineCount;
@@ -143,7 +152,7 @@ class TextData {
       font: TextFont.parse(json['font']),
       fontSize: size is num && size.isFinite ? size.toDouble() : 24,
       color: color is int ? color : defaultColor,
-      align: TextAlignment.parse(json['align']),
+      align: TextAlignment.tryParse(json['align']) ?? TextAlignment.start,
       autoWidth: json['autoWidth'] == true,
       flow: TextFlow.fromJson(json['flow']),
     );

@@ -876,7 +876,15 @@ true)`) and parsed again; a page that still cannot be copied (e.g. an
 unsupported filter in a split content stream) is embedded as a 150 dpi
 image, so export never fails because of one page. Text boxes are written as
 selectable text in the embedded bundled fonts (`pdf_text.dart`, see *Text
-boxes*). PNG export rasterises a page with the same painters as the editor.
+boxes*): left-to-right words whole at their laid-out position, right-to-left
+words and fallback-font characters glyph by glyph where the app's layout put
+each one (`pdf_glyph_placer.dart`; brackets mirrored). The `pdf` package has
+no OpenType shaping, so Arabic is written in its contextual presentation
+forms (`ArabicForms`: isolated / final / initial / medial, lam-alef
+ligatures), which Noto Sans Arabic maps to its shaped glyphs and PDF readers
+extract as the letters; marks are centred over their letter (no GPOS anchors,
+so stacked or kashida-sensitive marks are approximate). Number labels of
+right-to-left items are written in visual order (".1"). PNG export rasterises a page with the same painters as the editor.
 **Links** (`PdfLinkWriter`) become link annotations after all pages are
 written: link elements and planner links (to the first exported page with
 the target template) as URI or GoTo actions to named destinations
@@ -1794,17 +1802,20 @@ surface.
   (`SelectionImage`, `ink/selection/`: `ContentPainter` over the drawn
   bounds plus a 2-unit margin, 3 px per unit ≈ 290 dpi, the longest side
   ≤ 4096 px; images decoded first; links not drawn) and, when only text
-  boxes were copied, their plain text (top to bottom, a blank line
-  between; no HTML: box copies have none). One entry through the vendored
-  `pasteboard`'s `write` (added for Len): **Linux** GTK targets — the PNG
-  byte for byte as `image/png`, every other GdkPixbuf format converted on
-  request, the text targets — stored by a clipboard manager on quit;
-  **Windows** `PNG` (transparency for browsers and Office), a CF_DIB
-  flattened onto white (DIB readers ignore alpha) and CF_UNICODETEXT;
-  **Android** one `ClipData` item with the text and a content URI of the
-  PNG in the cache (`PasteboardFileProvider`, only the latest image kept);
-  **web** `navigator.clipboard.write` with a `ClipboardItem` whose image
-  is a promise, so the write starts within the gesture (Safari and Firefox
+  boxes were copied, their text (top to bottom, a blank line between),
+  plain and as HTML (`htmlFromTexts`, see *Rich copy to other apps* under
+  Text boxes). One entry through the vendored `pasteboard`'s `write`
+  (added for Len): **Linux** GTK targets — the PNG byte for byte as
+  `image/png`, every other GdkPixbuf format converted on request, the text
+  targets, `text/html` (UTF-8, a `<meta charset>` first) — stored by a
+  clipboard manager on quit; **Windows** `PNG` (transparency for browsers
+  and Office), a CF_DIB flattened onto white (DIB readers ignore alpha),
+  CF_UNICODETEXT and `HTML Format` (CF_HTML: the header with the UTF-8
+  byte offsets is written in Dart, `encodeCfHtml`); **Android** one
+  `ClipData` item with the text, its HTML and a content URI of the PNG in
+  the cache (`PasteboardFileProvider`, only the latest image kept);
+  **web** `navigator.clipboard.write` with a `ClipboardItem` (`text/plain`,
+  `text/html`) whose image is a promise, so the write starts within the gesture (Safari and Firefox
   require user activation) while the picture renders. Where that fails, a
   text-only copy falls back to plain text. Nothing new in the UI.
   Len's own paste keeps the in-app clipboard (ink stays ink): `EditorImages
@@ -1927,9 +1938,12 @@ GoodNotes-style rich text inside a box.
   Google Fonts and subset to Latin/Greek/Cyrillic + symbols): Inter (sans),
   Lora (serif), JetBrains Mono and Caveat (handwriting; no italic, it is
   slanted), all SIL OFL 1.1 with their licence files, registered in the licence page
-  (`core/font_licenses.dart`). Boxes use only bundled fonts, so they measure and
-  wrap the same everywhere and in exported PDFs; characters they lack fall back
-  to system fonts.
+  (`core/font_licenses.dart`). Their fallbacks for right-to-left scripts are
+  bundled too (`FallbackFont`: Noto Sans Arabic and Noto Sans Hebrew, Regular /
+  Bold, subset to their blocks and presentation forms; first in
+  `TextLayout.fallback`). Boxes use only bundled fonts, so they measure and
+  wrap the same everywhere (the web included) and in exported PDFs; other
+  characters they lack (CJK, emoji) fall back to system fonts.
 - **Layout** (`ink/elements/text_layout.dart`): `TextLayout.spanOf` builds one
   `TextSpan` tree; list markers are **inline placeholders** at the start of their
   line (one U+FFFC each), sized by indent level, so bullets, numbers (1. / a. /
@@ -1945,8 +1959,37 @@ GoodNotes-style rich text inside a box.
   to the box width; auto-width boxes never wrap) share that layout. The caret
   steps over the gap; backspace at a continuation line deletes the character
   before. `MarkerOffsets` maps text offsets to laid-out offsets
-  (`marker_offsets.dart`). The editing field disables the strut, so headings
-  keep their line height while editing.
+  (`marker_offsets.dart`). The strut is disabled (headings keep their line
+  height) but, as `EditableText` does for the field, inherits the box's base
+  style (`TextLayout.strutOf`): lines mixing fonts (Arabic in the fallback
+  font, a mono word in Lora) then settle to the same height on the canvas
+  and in the field.
+- **Right-to-left text** (`domain/text/paragraph_direction.dart`,
+  `ink/elements/text_plan.dart`): each paragraph runs in the direction of its
+  first strong character (bidi P2 / P3; one without takes the paragraph
+  before's), and `align` is `start` / `center` / `end` relative to it. A box
+  is still one paragraph laid out in one direction (its first paragraph's,
+  `TextPlan.base`): paragraphs in that direction lay out natively (the
+  painter's and the field's `textDirection`, `TextAlign.start` / `end`), so a
+  Hebrew box has its lines, list markers (`ListMarker.direction`: the column
+  on the text side, numbers reading ".1") and hanging indents on the right. A
+  paragraph against the base (Hebrew in an English box, or the reverse) is
+  wrapped on its own (`TextWraps.linesOf`) and the plan inserts, per line, a
+  directional isolate (U+2066 / U+2067 … U+2069, so its words, punctuation
+  and marker order themselves as in a paragraph of that direction) and empty
+  placeholders before and after that put the line at its own start, centre or
+  end (`TextInsert`; trailing spaces of a wrapped line stay outside the
+  isolate, so they hang over the edge instead of pushing the text in). The
+  caret never rests among those inserts (`TextInsert.allowed`,
+  `MarkerOffsets.allowedNear`: arrows step over them, taps go to the nearest
+  spot); deleting only inserted characters deletes the text character before
+  or after. The field's left / right arrows move visually in right-to-left
+  paragraphs (Flutter moves by logical order; not on the web, where the
+  browser moves the caret), the format bar's alignment icon is mirrored for
+  the caret's paragraph, and an auto-width right-to-left box grows to the left.
+  Mixed-direction text inside a paragraph is ordered by Flutter's bidi.
+  Limits: a paragraph's direction cannot be set by hand (type an RLM / LRM
+  mark first), and selecting across a padded line highlights its padding.
 - **Editing** (`features/editor/tools/text/`): `RichTextController` (a
   `TextEditingController`) renders the spans and maps the field's edits back
   onto the buffer (common prefix/suffix diff, the caret disambiguating repeated
@@ -1956,8 +1999,12 @@ GoodNotes-style rich text inside a box.
   makes it a list (`listPrefixes`; undo right after gives them back). Formatting acts on the selection, or with a collapsed caret
   on what is typed next; in an empty box font, size and colour set the box
   defaults (remembered as the default text style, also in the Text tool's
-  settings). Copy / cut put the plain text on the clipboard and remember its
-  formatting, so pasting the same text into a box (or onto the canvas) keeps it.
+  settings). Copy / cut put the plain text and its HTML on the clipboard
+  (`writeRichClipboard`, see *Rich copy to other apps*) and remember the
+  selection as formatted text (`RichTextBuffer.slice`: spans and the
+  paragraph styles of the lines it touches, none for part of one line), so
+  pasting the same text into a box (`insertRich`) or onto the canvas keeps
+  it — Len's own format, which wins over the clipboard's HTML.
   `TextFormatBar`: font, size, B / I / U / S, colour, highlight, paragraph style,
   bullet / numbered / checklist, alignment (scrolls on phones; delete and done
   stay). Shortcuts: Ctrl/⌘+B / I / U, Ctrl+Shift+X strikethrough, Ctrl+Shift+7 /
@@ -1974,8 +2021,10 @@ GoodNotes-style rich text inside a box.
   chain's position, width and box style; each continuation is an element of its own page
   holding its part of the text, with `TextData.flow` (`TextFlow`: the box it continues,
   whether its first line goes on with that box's last paragraph — `joined`, its list
-  marker then not drawn but its indent kept — and how many numbered items run on into it per
-  indent level). So every page draws, thumbnails, searches and exports (PNG, PDF) on its own,
+  marker then not drawn but its indent kept —, how many numbered items run on into it per
+  indent level, and the direction its first paragraph has in the whole text, so a
+  right-to-left paragraph split between pages stays right-to-left whatever word the next
+  page begins with). So every page draws, thumbnails, searches and exports (PNG, PDF) on its own,
   and the chain's text is `TextFlow.join` of the parts. `TextFlowLayout.split` cuts one
   `TextBoxLayout` of the whole text at line boundaries (a paragraph may split, at least one
   line per part); `TextFlowChains` finds a chain (continuations on the very next pages,
@@ -1986,9 +2035,10 @@ GoodNotes-style rich text inside a box.
   **Editing**: with the pages shown together (continuous flow) the session edits the whole
   chain as one text in one field (opening a continuation makes the head's page active and
   puts the caret at the end of that part): the field's text gets, at each page break, a line
-  holding a placeholder as tall as the room to the next page (`FlowBreak`, a third kind of
-  insert in `MarkerOffsets`, which the caret steps over; ↑ out of it goes to the page
-  before), so typing, deleting, selecting, formatting and the IME work across pages
+  holding a placeholder as tall as the room to the next page (`FlowBreak`: `TextPlan.of`
+  adds `InsertKind.room` inserts, and lays a paragraph the page ends in out in two pieces as
+  its two boxes do — right-to-left and mixed paragraphs too; the caret steps over the room,
+  ↑ out of it goes to the page before), so typing, deleting, selecting, formatting and the IME work across pages
   natively and each part shows where it will be stored (the editor measures the field's room
   line once and corrects the placeholders by what the field adds,
   `RichTextController.roomExtra`). The other pages' boxes are hidden meanwhile and drawn as
@@ -2006,6 +2056,8 @@ GoodNotes-style rich text inside a box.
   before (pages deleted, moved or copied alone) stands alone, drawn as it was; edited, it
   becomes a box of its own (its flow dropped); the chain before it simply ends. Duplicating a
   notebook relinks its chains to the copies. Infinite canvases have no pages: boxes grow there.
+  The data of text elements from sync and Len files is parsed strictly
+  (`TextRecord`; a malformed box is skipped).
 - **Size**: new boxes are **auto-width** (as wide as their text, growing up to
   the screen edge, then wrapping there); dragging a side handle sets a width and
   wraps from then on. Lasso corner scaling scales every size in the box.
@@ -2048,7 +2100,28 @@ GoodNotes-style rich text inside a box.
   is matched by its plain text in `RichTextController._applyEdit`; Ctrl+Shift+V
   there is the browser's plain paste) or else the async Clipboard API (may ask
   for permission). macOS / iOS are not targets (`pasteboard` returns no HTML
-  there). RTF-only clipboards (WordPad) paste as plain text.
+  there). RTF-only clipboards (WordPad) paste as plain text. Content marked
+  `aria-hidden="true"` is skipped (icon glyphs; the ☐ / ☑ Len writes); an
+  empty list item or heading (`<li><br></li>`) keeps its style.
+- **Rich copy to other apps**: `htmlFromTexts` (`domain/text/html_writer.dart`)
+  is the inverse of `textFromHtml`: one block per line (`<div>`, `<h1>` /
+  `<h2>`, `<br>` when empty), list items as nested `<ul>` / `<ol>` (a
+  deeper item inside the open `<li>`, so numbering runs as Len counts it;
+  a new list where the kind changes or a body line comes between),
+  checklist items as `<li role="checkbox" aria-checked>` in a bullet-less
+  list with a ☐ / ☑ marked `aria-hidden` (visible in apps without
+  checklists, skipped when read back), b / i / u / s tags, and in a span's
+  style colours that are not grey (`htmlTextColor`; the box colour too, so
+  red boxes stay red, Len's default ink stays the app's text colour),
+  highlights blended onto white (`htmlHighlight`; Len's are translucent),
+  fonts other than Inter as CSS stacks, alignment as `text-align`; sizes
+  are left to the receiving app. Spaces HTML would collapse (at a line's
+  ends, after another) become `&nbsp;`, tabs a `white-space:pre` span. A
+  property test writes random boxes and reads them back: the same text,
+  spans and paragraphs, up to what the reader keeps (no sizes, fonts other
+  than mono, greys; blank lines at the ends). `pasteboard`'s `write` wraps
+  the fragment per platform (above); where it fails (macOS / iOS, old
+  browsers) the plain text goes alone.
 - **Export**: `PdfTextWriter` writes boxes as real text in the embedded
   (subsetted) fonts, each word at the position the app's layout gives it, with
   vector highlights, decorations and markers; boxes with characters the bundled

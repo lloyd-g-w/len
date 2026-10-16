@@ -12,6 +12,7 @@ class FlowPart {
     required this.height,
     this.joined = false,
     this.numbers = const [],
+    this.direction = TextDirection.ltr,
   });
 
   /// Where the part begins in the whole text. After a paragraph break the
@@ -28,13 +29,19 @@ class FlowPart {
   /// See [TextFlow.numbers].
   final List<int> numbers;
 
+  /// The direction its first paragraph has in the whole text (see
+  /// [TextFlow.direction]).
+  final TextDirection direction;
+
   /// The part's text out of [whole]; continuing the box [from] (null for
   /// the first part).
   TextData dataOf(TextData whole, {String? from}) {
     final data = TextFlow.slice(whole, start, end);
     return from == null
         ? data
-        : data.withFlow(TextFlow(from: from, joined: joined, numbers: numbers));
+        : data.withFlow(
+            TextFlow(from: from, joined: joined, numbers: numbers, direction: direction),
+          );
   }
 
   @override
@@ -74,6 +81,7 @@ abstract final class TextFlowLayout {
       return [FlowPart(start: 0, end: whole.text.length, height: painter.height)];
     }
     final paras = whole.paras;
+    final directions = layout.plan.directions;
     final text = whole.text;
     final parts = <FlowPart>[];
     for (var k = 0; k < starts.length; k++) {
@@ -89,15 +97,21 @@ abstract final class TextFlowLayout {
           height: heights[k],
           joined: k > 0 && !hard,
           numbers: k == 0 ? const [] : TextFlow.numbersAfter(paras.sublist(0, line)),
+          direction: directions[line],
         ),
       );
     }
     return parts;
   }
 
-  /// The model offset where the line at [top] (of [height]) begins.
+  /// The model offset where the line at [top] (of [height]) begins: at
+  /// its start side in the box's direction (the right of a right-to-left
+  /// box, where also the lines of left-to-right paragraphs begin with their
+  /// padding, see [TextPlan]).
   static int _lineStart(TextBoxLayout layout, double top, double height) {
-    final position = layout.painter.getPositionForOffset(Offset(-1, top + height / 2));
+    final painter = layout.painter;
+    final x = layout.plan.base == TextDirection.rtl ? painter.width + 1 : -1.0;
+    final position = painter.getPositionForOffset(Offset(x, top + height / 2));
     return layout.offsets.toModel(position.offset);
   }
 }

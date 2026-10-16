@@ -41,7 +41,12 @@ void main() {
     pages = [for (final p in services.pages.pagesOf(nb.id)) p.id];
     services.elements.save([
       box('head', pages[0], 'one two'),
-      box('next', pages[1], 'three', flow: const TextFlow(from: 'head', joined: true)),
+      box(
+        'next',
+        pages[1],
+        'three',
+        flow: const TextFlow(from: 'head', joined: true, direction: TextDirection.rtl),
+      ),
     ]);
   });
 
@@ -51,7 +56,12 @@ void main() {
     final records = services.elements.dirtyRecords(10);
     final next = records.firstWhere((r) => r.id == 'next');
     final wire = jsonDecode(jsonEncode(next.data)) as Map<String, Object?>;
-    expect((wire['data']! as Map)['flow'], {'from': 'head', 'joined': true, 'numbers': <int>[]});
+    expect((wire['data']! as Map)['flow'], {
+      'from': 'head',
+      'joined': true,
+      'numbers': <int>[],
+      'dir': 'rtl',
+    });
 
     final other = AppServices.create(AppDatabase.inMemory());
     addTearDown(other.dispose);
@@ -67,7 +77,10 @@ void main() {
       ),
     );
     final stored = repo.allOn(pages[1]).single;
-    expect(TextFlowChains.flowOf(stored), const TextFlow(from: 'head', joined: true));
+    expect(
+      TextFlowChains.flowOf(stored),
+      const TextFlow(from: 'head', joined: true, direction: TextDirection.rtl),
+    );
 
     final bad = <String, Object?>{
       ...wire,

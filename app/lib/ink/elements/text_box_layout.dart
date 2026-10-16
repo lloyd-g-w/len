@@ -1,24 +1,20 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/widgets.dart';
 
 import '../../domain/text/text_data.dart';
 import 'text_layout.dart';
 
 /// [TextLayout] of one text box: a laid-out painter plus its list markers
-/// and the hanging indents of wrapped list items ([wraps]).
+/// and its [plan] (hanging indents, paragraphs of the other direction).
 class TextBoxLayout {
-  TextBoxLayout(this.data, double width)
-    : markers = [
-        for (final m in TextLayout.markersOf(data))
-          if (!m.continued) m,
-      ],
-      wraps = TextWraps.of(data, width) {
-    offsets = MarkerOffsets(data, wraps);
+  TextBoxLayout(this.data, double width) : plan = TextPlan.of(data, width) {
     // Only the placeholders' sizes matter here; markers are painted
-    // separately, gaps stay empty.
+    // separately, gaps and padding stay empty.
     final sizes = <Size>[];
     final span = TextLayout.spanOf(
       data,
-      wraps: wraps,
+      plan,
       marker: (m) {
         _markerSlots.add(sizes.length);
         sizes.add(m.size);
@@ -33,7 +29,8 @@ class TextBoxLayout {
       // An empty box still has one line's height.
       text: span.children!.isEmpty ? TextSpan(text: ' ', style: span.style) : span,
       textAlign: TextLayout.alignOf(data),
-      textDirection: TextDirection.ltr,
+      textDirection: plan.base,
+      strutStyle: TextLayout.strutOf(data),
     );
     painter.setPlaceholderDimensions([
       for (final s in sizes) PlaceholderDimensions(size: s, alignment: PlaceholderAlignment.middle),
@@ -47,19 +44,35 @@ class TextBoxLayout {
   }
 
   final TextData data;
+  final TextPlan plan;
   late final TextPainter painter;
 
-  /// The markers drawn (not [ListMarker.continued] ones).
-  final List<ListMarker> markers;
+  /// The list markers drawn, in line order (see [TextPlan.markers]).
+  List<ListMarker> get markers => plan.markers;
 
-  /// Model offsets where wrapped list items continue (see [TextWraps]).
-  final List<int> wraps;
+  /// Model offsets where the plan continues a line on the next (see
+  /// [TextPlan.wraps]).
+  List<int> get wraps => plan.wraps;
 
   /// Model ↔ laid-out offsets of [painter]'s text.
-  late final MarkerOffsets offsets;
+  MarkerOffsets get offsets => plan.offsets;
 
   /// Indexes of the markers among the painter's placeholders.
   final List<int> _markerSlots = [];
+
+  /// The laid-out boxes of the model text [start, end) (without what the
+  /// plan inserts into it).
+  List<TextBox> boxesOf(
+    int start,
+    int end, {
+    ui.BoxHeightStyle boxHeightStyle = ui.BoxHeightStyle.tight,
+  }) => [
+    for (final (from, to) in offsets.displayRanges(start, end))
+      ...painter.getBoxesForSelection(
+        TextSelection(baseOffset: from, extentOffset: to),
+        boxHeightStyle: boxHeightStyle,
+      ),
+  ];
 
   double get height => painter.height;
 
@@ -96,7 +109,7 @@ class TextBoxLayout {
     return null;
   }
 
-  /// Paints a numbered item's [label] right-aligned in [column].
+  /// Paints a numbered item's [label] in [column], next to the text.
   static void paintNumber(Canvas canvas, ListMarker marker, String label, Rect column) {
     final p = numberPainter(marker, label);
     p.paint(canvas, numberOrigin(marker, p, column));
@@ -116,14 +129,21 @@ class TextBoxLayout {
         color: Color(marker.color),
       ),
     ),
-    textDirection: TextDirection.ltr,
+    // ("1." reads ".1" in a right-to-left paragraph.)
+    textDirection: marker.direction,
   )..layout();
 
-  /// Top left of a number label: right-aligned, vertically centred.
-  static Offset numberOrigin(ListMarker marker, TextPainter label, Rect column) => Offset(
-    column.right - marker.fontSize * 0.35 - label.width,
-    column.center.dy - label.height / 2,
-  );
+  /// Top left of a number label: at the column's text side (its right in a
+  /// left-to-right paragraph), vertically centred.
+  static Offset numberOrigin(ListMarker marker, TextPainter label, Rect column) {
+    final inset = marker.fontSize * 0.35;
+    return Offset(
+      marker.direction == TextDirection.rtl
+          ? column.left + inset
+          : column.right - inset - label.width,
+      column.center.dy - label.height / 2,
+    );
+  }
 
   void dispose() => painter.dispose();
 }

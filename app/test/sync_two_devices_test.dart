@@ -860,7 +860,7 @@ void main() {
       time.tick();
       final onB = b.content.loadAllElements(nb.id).single;
       b.s.elements.save([
-        onB.copyWith(data: {...onB.data, 'text': 'B wins'}),
+        onB.copyWith(data: TextData.fromJson(onB.data).copyWith(text: 'B wins').toJson(onB.data)),
       ]);
       await converge();
       for (final d in [a, b]) {

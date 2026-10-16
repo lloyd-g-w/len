@@ -131,13 +131,16 @@ class PasteboardPlugin : FlutterPlugin, MethodCallHandler {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     /**
-     * "write" (added in Len's copy): {png?: ByteArray, text?: String} as one clip whose
-     * item holds the text and a content URI of the PNG (served by [PasteboardFileProvider]
-     * from the cache; only the latest image is kept). Answers whether the clip was set.
+     * "write" (added in Len's copy): {png?: ByteArray, text?: String, html?: String} as one
+     * clip whose item holds the text, its HTML and a content URI of the PNG (served by
+     * [PasteboardFileProvider] from the cache; only the latest image is kept). Answers
+     * whether the clip was set.
      */
     private fun write(manager: ClipboardManager, call: MethodCall, result: Result) {
         val png = call.argument<ByteArray>("png")
         val text = call.argument<String>("text")
+        // (An item's HTML needs its plain text.)
+        val html = if (text != null) call.argument<String>("html") else null
         if (png == null && text == null) return result.success(false)
         executor.execute {
             try {
@@ -145,10 +148,11 @@ class PasteboardPlugin : FlutterPlugin, MethodCallHandler {
                 val types = listOfNotNull(
                     uri?.let { "image/png" },
                     text?.let { ClipDescription.MIMETYPE_TEXT_PLAIN },
+                    html?.let { ClipDescription.MIMETYPE_TEXT_HTML },
                 )
                 val clip = ClipData(
                     ClipDescription(if (uri != null) "image.png" else "text", types.toTypedArray()),
-                    ClipData.Item(text, null, null, uri),
+                    ClipData.Item(text, html, null, uri),
                 )
                 mainHandler.post {
                     try {

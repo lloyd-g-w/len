@@ -205,7 +205,7 @@ the eraser.
 | Select text vs the box | in the box: the field's selection; the lasso selects whole boxes (double tap edits) | same | Keep |
 | Handwriting → text | lasso → Convert to text (a box, or copy) | all three | Keep |
 | Search in a box | the whole box is one match, highlighted as a block (a box of pages: "1 of 1") | each occurrence highlighted | R19-5 ✅ |
-| Copy to other apps | plain text (formatting kept for pasting back into Len) | GoodNotes: plain; Notability: rich | TODO "Next" |
+| Copy to other apps | plain text and HTML (formatting, headings, lists; Len's own copy when pasted back) | GoodNotes: plain; Notability: rich | ✅ (feat/rich-copy) |
 | Paste from other apps | HTML formatted (Docs, Word, browsers), Ctrl+Shift+V plain | GoodNotes: plain | Keep (better) |
 | IME (Chinese, Japanese) | composing underlined, kept across re-wraps; undo steps through the romaji / pinyin | one step per committed composition | R19-7 ✅ |
 | Long text | one box of 26 000 characters: ≈ 5 ms per layout, three per keystroke (test machine); no page breaks, a box runs off the page | Notability flows onto the next page; GoodNotes boxes stop at the page | TODO "Next" |

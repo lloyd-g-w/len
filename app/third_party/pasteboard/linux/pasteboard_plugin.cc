@@ -156,20 +156,22 @@ static void clipboard_request_targets_callback(GtkClipboard *clipboard,
   fl_method_call_respond_success(method_call, kinds, nullptr);
 }
 
-// What "write" put on the clipboard (added in Len's copy): a PNG and / or
-// plain text, offered in every format GTK can convert them to.
+// What "write" put on the clipboard (added in Len's copy): a PNG, plain
+// text and / or HTML, offered in every format GTK can convert them to.
 struct ClipContent {
   GBytes *png;        // Or null.
   GdkPixbuf *pixbuf;  // [png] decoded onto white, for other image formats; lazily.
   gchar *text;        // Or null.
+  gchar *html;        // UTF-8 "text/html", or null.
 };
 
-enum ClipTarget : guint { kClipPng = 1, kClipImage = 2, kClipText = 3 };
+enum ClipTarget : guint { kClipPng = 1, kClipImage = 2, kClipText = 3, kClipHtml = 4 };
 
 static void clip_content_free(ClipContent *content) {
   if (content->png) g_bytes_unref(content->png);
   if (content->pixbuf) g_object_unref(content->pixbuf);
   g_free(content->text);
+  g_free(content->html);
   delete content;
 }
 
@@ -211,6 +213,10 @@ static void clip_content_get(GtkClipboard *clipboard,
     if (pixbuf) gtk_selection_data_set_pixbuf(selection_data, pixbuf);
   } else if (info == kClipText && content->text) {
     gtk_selection_data_set_text(selection_data, content->text, -1);
+  } else if (info == kClipHtml && content->html) {
+    gtk_selection_data_set(selection_data, gtk_selection_data_get_target(selection_data), 8,
+                           reinterpret_cast<const guchar *>(content->html),
+                           static_cast<gint>(strlen(content->html)));
   }
 }
 
@@ -218,24 +224,28 @@ static void clip_content_clear(GtkClipboard *clipboard, gpointer user_data) {
   clip_content_free(static_cast<ClipContent *>(user_data));
 }
 
-// "write": {png?: Uint8List, text?: String} as one clipboard entry.
+// "write": {png?: Uint8List, text?: String, html?: String} as one clipboard
+// entry.
 static void write_clipboard(FlMethodCall *method_call) {
   FlValue *args = fl_method_call_get_args(method_call);
   FlValue *png = nullptr;
   FlValue *text = nullptr;
+  FlValue *html = nullptr;
   if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
     png = fl_value_lookup_string(args, "png");
     text = fl_value_lookup_string(args, "text");
+    html = fl_value_lookup_string(args, "html");
   }
   if (png != nullptr && fl_value_get_type(png) != FL_VALUE_TYPE_UINT8_LIST) png = nullptr;
   if (text != nullptr && fl_value_get_type(text) != FL_VALUE_TYPE_STRING) text = nullptr;
+  if (html != nullptr && fl_value_get_type(html) != FL_VALUE_TYPE_STRING) html = nullptr;
   if (png == nullptr && text == nullptr) {
     g_autoptr(FlValue) result = fl_value_new_bool(FALSE);
     fl_method_call_respond_success(method_call, result, nullptr);
     return;
   }
 
-  auto *content = new ClipContent{nullptr, nullptr, nullptr};
+  auto *content = new ClipContent{nullptr, nullptr, nullptr, nullptr};
   GtkTargetList *targets = gtk_target_list_new(nullptr, 0);
   if (png != nullptr) {
     content->png = g_bytes_new(fl_value_get_uint8_list(png), fl_value_get_length(png));
@@ -249,6 +259,10 @@ static void write_clipboard(FlMethodCall *method_call) {
     content->text = g_strdup(fl_value_get_string(text));
     gtk_target_list_add_text_targets(targets, kClipText);
   }
+  if (html != nullptr) {
+    content->html = g_strdup(fl_value_get_string(html));
+    gtk_target_list_add(targets, gdk_atom_intern_static_string("text/html"), 0, kClipHtml);
+  }
 
   gint n_targets = 0;
   GtkTargetEntry *table = gtk_target_table_new_from_list(targets, &n_targets);
@@ -256,14 +270,15 @@ static void write_clipboard(FlMethodCall *method_call) {
   gboolean done = gtk_clipboard_set_with_data(clipboard, table, static_cast<guint>(n_targets),
                                               clip_content_get, clip_content_clear, content);
   if (done) {
-    // A clipboard manager may keep it once Len quits: the PNG and the
-    // text, not every image format (each a full encode while quitting).
-    static const GtkTargetEntry stored[] = {
-        {const_cast<gchar *>("image/png"), 0, kClipPng},
-        {const_cast<gchar *>("UTF8_STRING"), 0, kClipText},
-    };
-    gtk_clipboard_set_can_store(clipboard, png != nullptr ? stored : stored + 1,
-                                png != nullptr && text != nullptr ? 2 : 1);
+    // A clipboard manager may keep it once Len quits: the PNG, the text
+    // and the HTML, not every image format (each a full encode while
+    // quitting).
+    GtkTargetEntry stored[3];
+    guint n_stored = 0;
+    if (png != nullptr) stored[n_stored++] = {const_cast<gchar *>("image/png"), 0, kClipPng};
+    if (text != nullptr) stored[n_stored++] = {const_cast<gchar *>("UTF8_STRING"), 0, kClipText};
+    if (html != nullptr) stored[n_stored++] = {const_cast<gchar *>("text/html"), 0, kClipHtml};
+    gtk_clipboard_set_can_store(clipboard, stored, n_stored);
   } else {
     clip_content_free(content);
   }

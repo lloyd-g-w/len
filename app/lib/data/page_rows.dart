@@ -4,6 +4,7 @@ import 'package:sqlite3/common.dart';
 
 import '../domain/notebook_page.dart';
 import '../domain/paper.dart';
+import 'app_database.dart';
 import 'record_fields.dart';
 import 'syncable.dart';
 
@@ -86,4 +87,38 @@ abstract final class PageRows {
     bookmarked: row['bookmarked'] == 1,
     background: decodeBackground(row['background'] as String?),
   );
+
+  /// Writes [page]'s row (replacing one with its id) as of [updatedAt] by
+  /// [deviceId], [dirty] when it is a local edit still to push.
+  static void insert(
+    AppDatabase database,
+    NotebookPage page, {
+    required int updatedAt,
+    required String deviceId,
+    required bool dirty,
+  }) {
+    final background = page.background;
+    database.execute(
+      '''
+      INSERT OR REPLACE INTO pages (id, notebook_id, sort_key, width, height, paper,
+                                    paper_data, paper_color, bookmarked, background,
+                                    updated_at, device_id, deleted, dirty)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)''',
+      [
+        page.id,
+        page.notebookId,
+        page.sortKey,
+        page.width,
+        page.height,
+        page.paper.style.name,
+        jsonEncode(page.paper.toData()),
+        page.paperColor.name,
+        page.bookmarked ? 1 : 0,
+        background == null ? null : jsonEncode(background.toJson()),
+        updatedAt,
+        deviceId,
+        dirty ? 1 : 0,
+      ],
+    );
+  }
 }

@@ -24,7 +24,23 @@ abstract final class SchemaMigrations {
     _tombstonePayloadIndexes,
     _notebookStyles,
     _freedBlobs,
+    _textAlignStartEnd,
   ];
+
+  /// Version 14: text boxes align to their paragraphs' start or end
+  /// (`left` → `start`, `right` → `end`; right-to-left text). The record
+  /// version is bumped so synced boxes are sent again in the new format.
+  static void _textAlignStartEnd(CommonDatabase db) {
+    db.execute('''
+      UPDATE elements
+      SET data = json_set(data, '\$.align',
+            CASE json_extract(data, '\$.align') WHEN 'right' THEN 'end' ELSE 'start' END),
+          updated_at = updated_at + 1,
+          dirty = 1
+      WHERE type = 'text' AND deleted = 0 AND json_valid(data) AND json_type(data) = 'object'
+        AND json_extract(data, '\$.align') IN ('left', 'right')
+    ''');
+  }
 
   /// Version 13: files whose copies here Free up removed (`FreedBlobs`;
   /// local only).

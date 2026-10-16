@@ -212,7 +212,7 @@ class NotebookDuplicator {
         final from = elements[flow.from];
         final next = {...data}..remove('flow');
         if (from != null) {
-          next['flow'] = TextFlow(from: from, joined: flow.joined, numbers: flow.numbers).toJson();
+          next['flow'] = flow.withFrom(from).toJson();
         }
         db.execute('UPDATE elements SET data = ? WHERE id = ?', [jsonEncode(next), row['id']]);
         final element = StrokeQueries.rowToElement(

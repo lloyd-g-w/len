@@ -32,6 +32,24 @@ class RichTextBuffer {
     flow: box.flow,
   );
 
+  /// [start, end) as formatted text with [box]'s defaults (a copy): with
+  /// the paragraph styles of the lines it touches, unless it is part of a
+  /// single line (a word copied out of a heading is no heading).
+  TextData slice(int start, int end, TextData box) {
+    final first = lineOf(start), last = lineOf(end);
+    final part = first == last && (start > lineStart(first) || end < lineEnd(first));
+    return TextData.rich(
+      text: _text.substring(start, end),
+      spans: TextData.compact(_chars.sublist(start, end)),
+      paras: part ? const [] : _paras.sublist(first, last + 1),
+      font: box.font,
+      fontSize: box.fontSize,
+      color: box.color,
+      align: box.align,
+      autoWidth: box.autoWidth,
+    );
+  }
+
   SpanStyle charStyle(int offset) => _chars[offset];
   ParaStyle para(int line) => _paras[line];
 

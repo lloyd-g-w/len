@@ -126,7 +126,7 @@ void main() {
     });
 
     test('malformed or partial payloads are rejected before writing', () {
-      const complete = {
+      final complete = {
         'surfaceId': 's',
         'type': 'text',
         'x': 0,
@@ -136,7 +136,7 @@ void main() {
         'rotation': 0,
         'z': 1,
         'createdAt': 1,
-        'data': {'text': 'hi'},
+        'data': const TextData(text: 'hi').toJson(),
       };
       SyncRecord record(Map<String, Object?> data) => SyncRecord(
         collection: 'elements',

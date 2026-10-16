@@ -12,7 +12,6 @@ import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/tools/text/rich_text_controller.dart';
 import 'package:len/ink/elements/text_edit_session.dart';
 import 'package:len/ink/elements/text_flow_chains.dart';
-import 'package:len/ink/elements/text_layout.dart';
 
 import 'search_ui_test.dart' show pumpEditorFor;
 
@@ -181,6 +180,5 @@ void main() {
   });
 }
 
-/// The field's display offset of model offset [model] (no lists here).
-int _display(RichTextController c, int model) =>
-    MarkerOffsets(c.data, const [], c.breaks).toDisplay(model);
+/// The field's display offset of model offset [model].
+int _display(RichTextController c, int model) => c.plan.offsets.toDisplay(model);

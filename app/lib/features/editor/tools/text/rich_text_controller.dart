@@ -1,15 +1,16 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../../domain/text/html_text.dart';
+import '../../../../domain/text/html_writer.dart';
 import '../../../../domain/text/rich_text_buffer.dart';
 import '../../../../domain/text/text_data.dart';
 import '../../../../ink/elements/text_edit_session.dart' show BoxHistory;
 import '../../../../ink/elements/text_layout.dart';
 import '../../../../platform/clipboard_html.dart';
+import '../../clipboard/rich_clipboard.dart';
 
 part 'rich_text_formatting.dart';
 part 'rich_text_history.dart';
@@ -29,13 +30,13 @@ part 'rich_text_state.dart';
 class RichTextController extends _RichTextState with _RichTextFormatting implements BoxHistory {
   RichTextController(super.data);
 
-  /// Text copied from a box here, with its formatting: pasting the same
-  /// plain text keeps the formatting.
-  static ({String text, List<SpanStyle> styles})? _richClip;
+  /// Text copied from a box here, with its formatting (Len's own clipboard
+  /// format): pasting the same plain text keeps the formatting.
+  static TextData? _clip;
 
   /// Whether [text] was last copied from a box here (pasting it keeps
   /// that formatting, so it wins over the clipboard's HTML).
-  static bool isOwnClip(String text) => _richClip?.text == _clean(text);
+  static bool isOwnClip(String text) => _clip?.text == _clean(text);
 
   /// [text] without marker placeholders, its line breaks all \n.
   static String _clean(String text) =>
@@ -45,10 +46,10 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
   /// last copied from a box here keeps its formatting.
   static TextData pasted(String text, TextData box) {
     final clean = _clean(text);
-    final clip = _richClip;
+    final clip = _clip;
     final base = box.copyWith(text: clean);
     if (clip == null || clip.text != clean) return base;
-    return base.withFormatting(spans: TextData.compact(clip.styles));
+    return base.withFormatting(spans: clip.spans, paras: clip.paras);
   }
 
   @override
@@ -65,24 +66,17 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
   }
 
   /// Keeps the caret off the spot before a list marker (and inside a wrap's
-  /// or page break's insert): it steps over it in the direction it was
-  /// moving (up out of a page break's room: to the page before).
+  /// or an isolate's or a page break's insert): it steps over it in the
+  /// direction it was moving, or to the nearest spot after a jump (up out
+  /// of a page break's room: to the page before, down: to the next).
   TextSelection _normalize(TextSelection s, TextSelection old) {
     if (!s.isValid || _offsets.isEmpty) return s;
     int fix(int d, int was) {
       if (!_offsets.isHidden(d)) return d;
-      final back = _offsets.isPageBreak(d) ? was > d : was == d + 1;
-      var step = back && d > 0 ? -1 : 1;
-      var x = d;
-      for (var tries = 0; tries < 2; tries++) {
-        while (x > 0 && _offsets.isHidden(x)) {
-          x += step;
-        }
-        if (!_offsets.isHidden(x)) return x;
-        step = -step;
-        x = d;
-      }
-      return d;
+      final step = _offsets.isPageBreak(d)
+          ? (was > d ? -1 : 1)
+          : (was == d + 1 ? -1 : (was == d - 1 ? 1 : 0));
+      return _offsets.allowedNear(d, text.length, step: step);
     }
 
     return s.copyWith(
@@ -126,11 +120,14 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
       for (var d = p; d < removedEnd; d++)
         if (_offsets.isMarker(d) && _offsets.toModel(d) == start) line,
     };
-    if (inserted.isEmpty && start == end && removedEnd > p && _offsets.isWrap(p)) {
-      // Only a wrap's break or gap deleted: delete the character before
-      // (backspace at a continuation line's start) or after it.
-      final backspace = was.isCollapsed && was.extentOffset == removedEnd;
-      if (o.codeUnitAt(removedEnd - 1) == PlaceholderSpan.placeholderCodeUnit || backspace) {
+    if (inserted.isEmpty && start == end && removedEnd > p && unlisted.isEmpty) {
+      // Only inserted characters deleted (a wrap's break or gap, an
+      // isolate, padding): delete the character before (backspace at a
+      // line's start) or after (delete at its end) instead.
+      final back = was.isValid && was.isCollapsed
+          ? was.extentOffset >= removedEnd
+          : o.codeUnitAt(removedEnd - 1) == PlaceholderSpan.placeholderCodeUnit;
+      if (back) {
         if (start > 0) start--;
       } else if (end < _buffer.length) {
         end++;
@@ -150,33 +147,36 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
       _changedKeeping(TextRange.collapsed(start));
       return;
     }
-    final clip = _richClip;
+    final clip = _clip;
     final style = _pending != null && _pendingAt == start
         ? _pending!
         : end > start && _buffer.text.codeUnitAt(start) != 0x0A
         ? _buffer.charStyle(start)
         : _buffer.styleAt(start);
-    // A browser paste (web) of HTML from another app: formatted.
-    final rich = inserted.isEmpty || clip?.text == inserted ? null : _pastedHtml(inserted);
+    // Text copied from a box here keeps its formatting; a browser paste
+    // (web) of HTML from another app is formatted.
+    final rich = inserted.isEmpty
+        ? null
+        : clip?.text == inserted
+        ? clip
+        : _pastedHtml(inserted);
     if (rich != null) {
       _buffer.insertRich(start, end, rich, style);
       inserted = rich.text;
     } else {
       _buffer.replace(start, end, inserted, style);
     }
-    if (clip != null && clip.text == inserted && inserted.isNotEmpty) {
-      for (var i = 0; i < inserted.length; i++) {
-        _buffer.updateChars(start + i, start + i + 1, (_) => clip.styles[i]);
-      }
-    }
     for (final l in unlisted) {
       _buffer.updateParas(l, l, (p) => p.copyWith(list: ListKind.none));
     }
     _pending = null;
     _data = null;
-    final offsets = _offsetsOf(data);
+    final breaks = _breaksOf(data);
+    final plan = _planOf(data, breaks);
+    final offsets = plan.offsets;
     final display = offsets.display(_buffer.text);
-    _offsets = offsets;
+    _plan = plan;
+    _breaks = breaks;
     if (display == n) {
       super.value = next.copyWith(selection: _normalize(next.selection, old.selection));
     } else {
@@ -288,11 +288,8 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
     final build = markerBuilder;
     return TextLayout.spanOf(
       data,
+      _plan,
       underlined: composing,
-      wraps: _wraps,
-      breaks: [
-        for (final b in _breaks) (at: b.at, gap: math.max(0, b.gap - roomExtra), soft: b.soft),
-      ],
       marker: (m) => WidgetSpan(
         alignment: PlaceholderAlignment.middle,
         child: build == null ? SizedBox.fromSize(size: m.size) : build(m),
@@ -303,14 +300,13 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
   // ---------------------------------------------------------------------
   // Clipboard.
 
-  /// Copies the selected text (and remembers its formatting); [cut] also
-  /// deletes it.
+  /// Copies the selected text — plain, and as HTML for other apps — and
+  /// remembers its formatting; [cut] also deletes it.
   Future<void> copySelection({bool cut = false}) async {
     final r = modelSelection;
     if (r.isCollapsed) return;
-    final text = _buffer.text.substring(r.start, r.end);
-    _richClip = (text: text, styles: [for (var i = r.start; i < r.end; i++) _buffer.charStyle(i)]);
-    await Clipboard.setData(ClipboardData(text: text));
+    final clip = _clip = _buffer.slice(r.start, r.end, _box);
+    await writeRichClipboard(clip.text, htmlFromText(clip));
     if (cut) {
       _buffer.replace(r.start, r.end, '', SpanStyle.plain);
       _pending = null;

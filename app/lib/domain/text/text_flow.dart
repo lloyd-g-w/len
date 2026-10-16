@@ -1,3 +1,5 @@
+import 'dart:ui' show TextDirection;
+
 import 'rich_text_buffer.dart';
 import 'text_data.dart';
 
@@ -8,10 +10,16 @@ import 'text_data.dart';
 /// The first box of a chain (its head) has no flow; each continuation
 /// names the box it continues ([from], on the page before). Every box holds
 /// its own part of the text, so a page draws, searches and exports on its
-/// own; [joined] and [numbers] make that part look as it does in the whole
-/// text (a paragraph split between pages, a numbered list running on).
+/// own; [joined], [numbers] and [direction] make that part look as it does
+/// in the whole text (a paragraph split between pages, a numbered list
+/// running on, a right-to-left paragraph going on with a Latin word).
 class TextFlow {
-  const TextFlow({required this.from, this.joined = false, this.numbers = const []});
+  const TextFlow({
+    required this.from,
+    this.joined = false,
+    this.numbers = const [],
+    this.direction = TextDirection.ltr,
+  });
 
   /// Id of the box this one continues.
   final String from;
@@ -25,22 +33,42 @@ class TextFlow {
   /// on into this box came before it (trailing zeros left out).
   final List<int> numbers;
 
+  /// The direction of the box's first paragraph in the whole text: a part
+  /// of a paragraph (or a paragraph without strong characters) keeps the
+  /// direction it has there, whatever its own first strong character.
+  final TextDirection direction;
+
+  /// A copy continuing the box [from].
+  TextFlow withFrom(String from) =>
+      TextFlow(from: from, joined: joined, numbers: numbers, direction: direction);
+
   /// Parses a stored flow strictly: every field present and well-typed,
   /// else null (the box then stands on its own).
   static TextFlow? fromJson(Object? json) {
     if (json is! Map) return null;
     final from = json['from'], joined = json['joined'], numbers = json['numbers'];
     if (from is! String || from.isEmpty || joined is! bool || numbers is! List) return null;
+    final direction = switch (json['dir']) {
+      'ltr' => TextDirection.ltr,
+      'rtl' => TextDirection.rtl,
+      _ => null,
+    };
+    if (direction == null) return null;
     if (numbers.length > ParaStyle.maxIndent + 1) return null;
     final counts = <int>[];
     for (final n in numbers) {
       if (n is! int || n < 0) return null;
       counts.add(n);
     }
-    return TextFlow(from: from, joined: joined, numbers: _trim(counts));
+    return TextFlow(from: from, joined: joined, numbers: _trim(counts), direction: direction);
   }
 
-  Map<String, Object?> toJson() => {'from': from, 'joined': joined, 'numbers': numbers};
+  Map<String, Object?> toJson() => {
+    'from': from,
+    'joined': joined,
+    'numbers': numbers,
+    'dir': direction.name,
+  };
 
   static List<int> _trim(List<int> counts) {
     var n = counts.length;
@@ -123,11 +151,12 @@ class TextFlow {
       other is TextFlow &&
       other.from == from &&
       other.joined == joined &&
+      other.direction == direction &&
       other.numbers.length == numbers.length &&
       Iterable<int>.generate(numbers.length).every((i) => other.numbers[i] == numbers[i]);
 
   @override
-  int get hashCode => Object.hash(from, joined, Object.hashAll(numbers));
+  int get hashCode => Object.hash(from, joined, direction, Object.hashAll(numbers));
 
   @override
   String toString() => 'TextFlow(${toJson()})';

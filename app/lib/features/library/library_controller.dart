@@ -13,6 +13,7 @@ import '../../sync/sync_controller.dart';
 import 'library_query.dart';
 
 part 'library_operations.dart';
+part 'library_view.dart';
 
 /// Folders removed by [LibraryController.deleteFolder] and the notebooks it
 /// moved to the trash.
@@ -25,8 +26,8 @@ enum LibrarySection { library, favorites, trash }
 /// operations on notebooks and folders. Reads everything from the
 /// repositories on [reload]; libraries are small, so filtering and sorting
 /// happen in memory.
-class LibraryController extends ChangeNotifier with _LibraryOperations {
-  LibraryController(this.services) {
+class LibraryController extends _LibraryState with _LibraryOperations, _LibraryView {
+  LibraryController(super.services) {
     reload();
     unawaited(_purgeTrash());
   }
@@ -54,33 +55,6 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
     _disposed = true;
     super.dispose();
   }
-
-  @override
-  final AppServices services;
-
-  @override
-  LibrarySection _section = LibrarySection.library;
-  @override
-  String? _folderId;
-  String _query = '';
-
-  List<Folder> _folders = const [];
-  Map<String, Folder> _folderById = const {};
-  List<Notebook> _notebooks = const [];
-  List<Notebook> _trash = const [];
-
-  // Derived from the lists above on [reload], so building the sidebar tree
-  // and folder tiles does not re-walk ancestor chains per folder.
-  Map<String, String?> _parentById = const {};
-  Map<String?, List<Folder>> _childrenByParent = const {};
-  Map<String?, int> _notebookCountByFolder = const {};
-  Map<String, int> _pageCounts = const {};
-  List<String> _recentIds = const [];
-  Map<String, List<String>> _recordingTitles = const {};
-
-  /// [visibleNotebooks] for the current state and sort; several widgets
-  /// read it per build. Cleared whenever listeners are notified.
-  ({LibrarySort sort, List<Notebook> notebooks})? _visible;
 
   /// The notebook with keyboard focus (target of the Delete shortcut).
   String? get focusedNotebookId => _focusedNotebookId;
@@ -123,6 +97,7 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
     notifyListeners();
   }
 
+  @override
   LibrarySort get sort => services.preferences.librarySort;
   set sort(LibrarySort value) {
     services.preferences.librarySort = value;
@@ -216,138 +191,36 @@ class LibraryController extends ChangeNotifier with _LibraryOperations {
     _query = value;
     notifyListeners();
   }
+}
 
-  // ---------------------------------------------------------------------------
-  // What is shown
+/// What [LibraryController] reads from the repositories on
+/// [LibraryController.reload], and where the user is.
+abstract class _LibraryState extends ChangeNotifier {
+  _LibraryState(this.services);
 
-  /// Folders from the root down to the open folder.
-  List<Folder> get breadcrumbs {
-    final path = <Folder>[];
-    var current = _folderById[_folderId];
-    while (current != null && path.length <= _folders.length) {
-      path.insert(0, current);
-      current = _folderById[parentOf(current)];
-    }
-    return path;
-  }
+  final AppServices services;
 
-  /// The effective parent of [folder] (cycle- and orphan-safe).
-  String? parentOf(Folder folder) => _parentById.containsKey(folder.id)
-      ? _parentById[folder.id]
-      : FolderRepository.effectiveParentOf(folder, _folderById);
+  LibrarySection _section = LibrarySection.library;
+  String? _folderId;
+  String _query = '';
 
-  /// Subfolders of [parentId] (null = top level), by name.
-  List<Folder> childrenOf(String? parentId) => _childrenByParent[parentId] ?? const [];
+  List<Folder> _folders = const [];
+  Map<String, Folder> _folderById = const {};
+  List<Notebook> _notebooks = const [];
+  List<Notebook> _trash = const [];
 
-  /// Folders shown in the content area.
-  List<Folder> get visibleFolders {
-    if (_section != LibrarySection.library) return const [];
-    if (isSearching) {
-      final matches = LibraryQuery.matcher(_query);
-      return [
-        for (final f in _folders)
-          if (matches(f.name)) f,
-      ];
-    }
-    return childrenOf(_folderId);
-  }
+  // Derived from the lists above on [LibraryController.reload], so building
+  // the sidebar tree and folder tiles does not re-walk ancestor chains per
+  // folder.
+  Map<String, String?> _parentById = const {};
+  Map<String?, List<Folder>> _childrenByParent = const {};
+  Map<String?, int> _notebookCountByFolder = const {};
+  Map<String, int> _pageCounts = const {};
+  List<String> _recentIds = const [];
+  Map<String, List<String>> _recordingTitles = const {};
 
-  /// Notebooks shown in the content area, filtered and sorted. A search in
-  /// the library spans every folder.
-  List<Notebook> get visibleNotebooks {
-    final sort = this.sort;
-    final cached = _visible;
-    if (cached != null && cached.sort == sort) return cached.notebooks;
-    final notebooks = _computeVisibleNotebooks(sort);
-    _visible = (sort: sort, notebooks: notebooks);
-    return notebooks;
-  }
-
-  List<Notebook> _computeVisibleNotebooks(LibrarySort sort) {
-    final Iterable<Notebook> scope = switch (_section) {
-      LibrarySection.library when isSearching => _notebooks,
-      LibrarySection.library => _notebooks.where(
-        (n) => LibraryQuery.folderOf(n, _folderById) == _folderId,
-      ),
-      LibrarySection.favorites => _notebooks.where((n) => n.favorite),
-      LibrarySection.trash => _trash,
-    };
-    final matches = LibraryQuery.matcher(_query);
-    // A search finds notebooks by their recordings' titles too.
-    final matching = scope.where(
-      (n) => matches(n.title) || (isSearching && (_recordingTitles[n.id]?.any(matches) ?? false)),
-    );
-    // The trash lists the most recently deleted first, whatever the sort.
-    if (_section == LibrarySection.trash) return matching.toList();
-    final sorted = LibraryQuery.sorted(matching, sort);
-    final folder = _folderId;
-    if (!isSearching || folder == null) return sorted;
-    // A search started in a folder spans the library, but lists what is in
-    // that folder (or below it) first (UX_AUDIT R16-8).
-    final inside = [
-      for (final n in sorted)
-        if (_isWithin(n, folder)) n,
-    ];
-    return [
-      ...inside,
-      for (final n in sorted)
-        if (!_isWithin(n, folder)) n,
-    ];
-  }
-
-  /// Whether [notebook] is in folder [folderId] or one of its subfolders.
-  bool _isWithin(Notebook notebook, String folderId) {
-    String? current = LibraryQuery.folderOf(notebook, _folderById);
-    for (var depth = 0; current != null && depth <= _folders.length; depth++) {
-      if (current == folderId) return true;
-      current = _parentById[current];
-    }
-    return false;
-  }
-
-  /// The library root's Recent row (UX_AUDIT R7-6): the notebooks opened
-  /// lately, most recent first. Only at the root and not while searching,
-  /// and only while one of them lives in a folder (else they are all in
-  /// the grid below anyway).
-  /// Trashed and deleted notebooks are skipped, and the next ones fill
-  /// their places (R8-10).
-  List<Notebook> get recentNotebooks {
-    if (_section != LibrarySection.library || _folderId != null || isSearching) return const [];
-    final byId = {for (final n in _notebooks) n.id: n};
-    final recent = [for (final id in _recentIds) ?byId[id]].take(recentShown).toList();
-    return recent.any((n) => LibraryQuery.folderOf(n, _folderById) != null) ? recent : const [];
-  }
-
-  /// How many notebooks the Recent row shows (of the more the workspace
-  /// remembers, so trashed ones leave no gaps).
-  static const int recentShown = 8;
-
-  /// While searching, the title of [notebook]'s recording that matched,
-  /// when its own title didn't (the result says why it is there, R8-11).
-  String? recordingMatchOf(Notebook notebook) {
-    if (!isSearching) return null;
-    final matches = LibraryQuery.matcher(_query);
-    if (matches(notebook.title)) return null;
-    for (final title in _recordingTitles[notebook.id] ?? const <String>[]) {
-      if (matches(title)) return title;
-    }
-    return null;
-  }
-
-  /// Number of notebooks and subfolders directly in [folderId].
-  int itemCountIn(String folderId) =>
-      childrenOf(folderId).length + (_notebookCountByFolder[folderId] ?? 0);
-
-  /// "School › Maths" location of a notebook (for search results);
-  /// "Library" at the top level.
-  String locationOf(Notebook notebook) => folderPathOf(notebook) ?? 'Library';
-
-  /// "School › Maths", the folders a notebook is filed in; null at the top
-  /// level (the Recent row says nothing there).
-  String? folderPathOf(Notebook notebook) => LibraryQuery.pathOf(notebook, _folderById);
-
-  /// The folder [notebook] is shown in; null at the top level.
-  Folder? folderOf(Notebook notebook) => _folderById[LibraryQuery.folderOf(notebook, _folderById)];
-
-  Folder? folderById(String? id) => _folderById[id];
+  /// [_LibraryView.visibleNotebooks] for the current state and sort;
+  /// several widgets read it per build. Cleared whenever listeners are
+  /// notified.
+  ({LibrarySort sort, List<Notebook> notebooks})? _visible;
 }

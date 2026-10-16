@@ -19,13 +19,14 @@ List<TextData> partsOf(TextData whole, double width, double room) {
 void main() {
   group('TextFlow codec', () {
     test('round trip, trailing zero counts dropped', () {
-      const flow = TextFlow(from: 'a', joined: true, numbers: [3, 1]);
+      const flow = TextFlow(from: 'a', joined: true, numbers: [3, 1], direction: TextDirection.rtl);
       expect(TextFlow.fromJson(flow.toJson()), flow);
       expect(
         TextFlow.fromJson({
           'from': 'a',
           'joined': false,
           'numbers': [2, 0, 0],
+          'dir': 'ltr',
         })!.numbers,
         [2],
       );
@@ -35,13 +36,16 @@ void main() {
         'from': 'a',
         'joined': true,
         'numbers': [3, 1],
+        'dir': 'rtl',
       });
     });
 
     test('malformed flows are dropped (the box stands alone)', () {
       for (final bad in <Object?>[
         'a',
-        <String, Object?>{'from': 'a', 'joined': true},
+        <String, Object?>{'from': 'a', 'joined': true, 'dir': 'ltr'},
+        {'from': 'a', 'joined': true, 'numbers': <int>[]},
+        {'from': 'a', 'joined': true, 'numbers': <int>[], 'dir': 'up'},
         {'from': '', 'joined': true, 'numbers': <int>[]},
         {'from': 3, 'joined': true, 'numbers': <int>[]},
         {'from': 'a', 'joined': 'yes', 'numbers': <int>[]},

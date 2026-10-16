@@ -7,18 +7,24 @@ import 'package:pasteboard/pasteboard.dart';
 
 import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
+import '../../../domain/text/html_writer.dart';
 import '../../../domain/text/text_data.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/selection/selection_image.dart';
 import 'image_signature.dart';
 
-/// Writes the system clipboard: a PNG (maybe still rendering) and / or
-/// plain text as one entry; completes with whether it is there.
-typedef SystemClipboardWriter = Future<bool> Function({Future<Uint8List?>? png, String? text});
+/// Writes the system clipboard: a PNG (maybe still rendering), plain text
+/// and / or its HTML as one entry; completes with whether it is there.
+typedef SystemClipboardWriter = Future<bool> Function({
+  Future<Uint8List?>? png,
+  String? text,
+  String? html,
+});
 
 /// Puts what the lasso copies on the system clipboard as well, for other
 /// apps: a picture of it (PNG, transparent, [SelectionImage]) and — when
-/// only text boxes were copied — their plain text. Len's own paste keeps
+/// only text boxes were copied — their text, plain and formatted (HTML,
+/// [htmlFromTexts]). Len's own paste keeps
 /// using the in-app clipboard (`InkClipboard`, ink stays ink): it asks
 /// [holdsInk] / [holdsInkText] whether what the system clipboard holds is
 /// that picture or text, even converted by the platform.
@@ -52,20 +58,21 @@ class ClipboardMirror {
   /// the write starts at once, the picture follows when rendered.
   Future<bool> copy(List<Stroke> strokes, List<SurfaceElement> elements) {
     final copy = ++_copies;
-    final text = strokes.isEmpty ? plainText(elements) : null;
+    final boxes = strokes.isEmpty ? textBoxes(elements) : null;
+    final text = boxes == null ? null : _plain(boxes);
     _text = text;
     _image = null;
     final png = _render(strokes, elements);
     unawaited(_remember(copy, png));
-    return _written = _writeOrText(png, text);
+    return _written = _writeOrText(png, text, boxes == null ? null : htmlFromTexts(boxes));
   }
 
-  /// Writes [png] and [text]; failing that, [text] alone, the usual way
-  /// (no image support). Whether either worked; never an error.
-  Future<bool> _writeOrText(Future<Uint8List?> png, String? text) async {
+  /// Writes [png], [text] and [html]; failing that, [text] alone, the usual
+  /// way (no image support). Whether either worked; never an error.
+  Future<bool> _writeOrText(Future<Uint8List?> png, String? text, String? html) async {
     var written = false;
     try {
-      written = await _write(png: png, text: text);
+      written = await _write(png: png, text: text, html: html);
     } on Object catch (e) {
       debugPrint('Copying to the system clipboard failed: $e');
     }
@@ -115,14 +122,26 @@ class ClipboardMirror {
   /// to right), a blank line between boxes; null if there is none, or if
   /// [elements] are not all text boxes.
   static String? plainText(List<SurfaceElement> elements) {
+    final boxes = textBoxes(elements);
+    return boxes == null ? null : _plain(boxes);
+  }
+
+  static String _plain(List<TextData> boxes) =>
+      [for (final b in boxes) b.text.trimRight()].join('\n\n');
+
+  /// The text boxes among [elements] that hold text, top to bottom (then
+  /// left to right); null if there is none, or if [elements] are not all
+  /// text boxes.
+  static List<TextData>? textBoxes(List<SurfaceElement> elements) {
     if (elements.isEmpty || elements.any((e) => e.knownType != ElementType.text)) return null;
-    final boxes = [...elements]
+    final sorted = [...elements]
       ..sort((a, b) {
         final byTop = a.bounds.top.compareTo(b.bounds.top);
         return byTop != 0 ? byTop : a.bounds.left.compareTo(b.bounds.left);
       });
-    final texts = [for (final e in boxes) TextData.fromJson(e.data).text.trimRight()]
-        .where((t) => t.trim().isNotEmpty);
-    return texts.isEmpty ? null : texts.join('\n\n');
+    final boxes = [for (final e in sorted) TextData.fromJson(e.data)]
+        .where((t) => t.text.trim().isNotEmpty)
+        .toList();
+    return boxes.isEmpty ? null : boxes;
   }
 }

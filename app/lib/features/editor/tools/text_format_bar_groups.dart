@@ -124,16 +124,28 @@ extension _TextFormatGroups on TextFormatBar {
           },
         ),
         IconButton(
-          tooltip: 'Align ${nextAlign.name}',
+          tooltip: switch (nextAlign) {
+            TextAlignment.start => 'Align start',
+            TextAlignment.center => 'Align centre',
+            TextAlignment.end => 'Align end',
+          },
           onPressed: () => _box(box.copyWith(align: nextAlign)),
-          icon: Icon(switch (box.align) {
-            TextAlignment.left => Symbols.format_align_left_sharp,
-            TextAlignment.center => Symbols.format_align_center_sharp,
-            TextAlignment.right => Symbols.format_align_right_sharp,
-          }, size: Glyphs.bar),
+          icon: Icon(_alignIcon(box.align, c.caretDirection), size: Glyphs.bar),
         ),
       ],
     ];
+  }
+
+  /// The icon of [align] in a paragraph running in [direction]: start is
+  /// the right edge of right-to-left text.
+  static IconData _alignIcon(TextAlignment align, TextDirection direction) {
+    final rtl = direction == TextDirection.rtl;
+    return switch (align) {
+      TextAlignment.center => Symbols.format_align_center_sharp,
+      TextAlignment.start when rtl => Symbols.format_align_right_sharp,
+      TextAlignment.end when !rtl => Symbols.format_align_right_sharp,
+      _ => Symbols.format_align_left_sharp,
+    };
   }
 
   /// The button at [context] widened to the bar's height, so a popover

@@ -40,8 +40,8 @@ void backspace(RichTextController c) {
 }
 
 void select(RichTextController c, int start, int end) => c.selection = TextSelection(
-  baseOffset: MarkerOffsets(c.data).toDisplay(start),
-  extentOffset: MarkerOffsets(c.data).toDisplay(end),
+  baseOffset: MarkerOffsets.of(c.data).toDisplay(start),
+  extentOffset: MarkerOffsets.of(c.data).toDisplay(end),
 );
 
 void main() {
@@ -57,9 +57,18 @@ void main() {
       }
       expect(await rootBundle.loadString(font.licenseAsset), contains('SIL OPEN FONT LICENSE'));
     }
+    for (final font in FallbackFont.values) {
+      for (final bold in [false, true]) {
+        expect((await rootBundle.load(font.asset(bold: bold))).lengthInBytes, greaterThan(10000));
+      }
+      expect(await rootBundle.loadString(font.licenseAsset), contains('SIL OPEN FONT LICENSE'));
+    }
     registerFontLicenses();
     final entries = await LicenseRegistry.licenses.toList();
-    expect(entries.expand((e) => e.packages), containsAll(['Inter font', 'Caveat font']));
+    expect(
+      entries.expand((e) => e.packages),
+      containsAll(['Inter font', 'Caveat font', 'Noto Sans Arabic font', 'Noto Sans Hebrew font']),
+    );
   });
 
   group('TextData', () {
@@ -201,6 +210,31 @@ void main() {
         [1, 1, 2, 2, 1],
       );
     });
+
+    test('a slice keeps the styles of whole lines, not of part of one', () {
+      final b = RichTextBuffer(
+        TextData.rich(
+          text: 'Title\nitem',
+          spans: const [StyledRange(0, 5, SpanStyle(bold: true))],
+          paras: const [
+            ParaStyle(heading: 1),
+            ParaStyle(list: ListKind.bullet),
+          ],
+        ),
+      );
+      const box = TextData(font: TextFont.lora, color: 0xFFE53935);
+      final all = b.slice(0, 10, box);
+      expect(all.paras, const [ParaStyle(heading: 1), ParaStyle(list: ListKind.bullet)]);
+      expect((all.font, all.color), (TextFont.lora, 0xFFE53935));
+      final across = b.slice(2, 8, box);
+      expect(across.text, 'tle\nit');
+      expect(across.spans, const [StyledRange(0, 3, SpanStyle(bold: true))]);
+      expect(across.paras, const [ParaStyle(heading: 1), ParaStyle(list: ListKind.bullet)]);
+      final word = b.slice(1, 4, box);
+      expect(word.text, 'itl');
+      expect(word.paras, const [ParaStyle.body]);
+      expect(b.slice(6, 10, box).paras, const [ParaStyle(list: ListKind.bullet)]);
+    });
   });
 
   group('MarkerOffsets', () {
@@ -213,7 +247,7 @@ void main() {
           ParaStyle.body,
         ],
       );
-      final m = MarkerOffsets(d);
+      final m = MarkerOffsets.of(d);
       expect(m.display(d.text), 'ab\n\uFFFCcd\nef');
       expect(m.toDisplay(3), 4); // the caret at the line start sits after the marker
       expect(m.toDisplay(2), 2);
@@ -278,7 +312,7 @@ void main() {
       expect(c.data.paras.last.list, ListKind.none);
 
       // Backspace right after a marker removes the marker, not text.
-      c.selection = TextSelection.collapsed(offset: MarkerOffsets(c.data).toDisplay(4));
+      c.selection = TextSelection.collapsed(offset: MarkerOffsets.of(c.data).toDisplay(4));
       backspace(c);
       expect(c.data.text, 'one\ntwo\n');
       expect(c.data.paras.map((p) => p.list), [ListKind.bullet, ListKind.none, ListKind.none]);
