@@ -49,7 +49,7 @@ selects the tint's shape instead.
 | Duplicate | ⋯ → Duplicate, Ctrl+D: a copy 24 pt down-right, selected | GoodNotes: the same | Keep |
 | Align / distribute | none | none of the three (Samsung: align for text) | Not proposed |
 | Selecting small, overlapping items | tap: the topmost within 8 px; lasso Touching / Mostly / Whole, kinds | GoodNotes: lasso options; tap selects | Keep; R21-5 ✅ |
-| Colours | 14 swatches, Custom (HSV, hex), one row of recent | GoodNotes: presets + custom; Samsung: + eyedropper | Keep; eyedropper R21-7 ⬜ (Next) |
+| Colours | 14 swatches, Custom (HSV, hex), one row of recent | GoodNotes: presets + custom; Samsung: + eyedropper | Keep; eyedropper R21-7 ✅ |
 | Graph paper | grid and dotted templates, lines a fixed page width | the same | Keep |
 | Undo | one step per shape, reshape, transform, recolour, nudge burst | the same | Keep |
 | Many shapes | shapes are strokes: tiles, chunks and LOD as for ink | — | Keep |
@@ -108,13 +108,19 @@ selects the tint's shape instead.
   the shape (a synced reference in the geometry); moving or reshaping the
   shape moves the end. Large: geometry format, transforms, sync, undo.
 
-**R21-7 P3 · No eyedropper.** ⬜ (docs/TODO.md Next)
+**R21-7 P3 · No eyedropper.** ✅
 - *What:* matching a colour already on the page means finding it in the
   palette or typing its hex; Samsung Notes' picker has an eyedropper.
 - *Proposal:* a "Pick from page" control in the custom picker that samples
   the canvas under the next tap. Medium–large: a modal canvas mode across
   the picker's popover and sheet. Not urgent: recent colours cover most
   re-use.
+- *Done:* "Pick from page" (an eyedropper button) next to Custom in every
+  editor colour block, the shape fill's too. The popover or sheet steps
+  aside, a hint asks for a tap, and the next press on the page picks — a
+  loupe shows the spot while the pointer rests or hovers — the content's own
+  colour (stroke, fill, text, image pixel), else the page as shown; Escape or
+  a tap on the chrome cancels.
 
 
 ## Round 20 audit — a phone only (`review/round20`)
