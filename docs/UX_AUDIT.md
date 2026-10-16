@@ -1,5 +1,122 @@
 # Len — UX/UI audit
 
+## Round 21 audit — diagrams and drawing (`review/round21`)
+
+Lens: an engineering or science student drawing by hand with the S Pen —
+flowcharts (boxes, arrows, labels), graphs (axes, a curve, grid paper),
+mind maps (circles, lines, colours) — and editing them: shape handles,
+the lasso's move / resize / rotate, duplicate, recolour, fills, arranging,
+ink over images; GoodNotes 6, Notability and Samsung Notes are the
+references, a minimal sketching app the expectation. Read in the code:
+the Shape tool (`ShapeTool`, `ShapeBuilder`, the Shapes popover), hold to
+snap (`HoldToStraighten`, `ShapeRecognizer`) and the straight pen, shape
+handles (`ShapeHandles`, `SelectionChrome`, `LassoTool` reshape), the
+lasso (`LassoTool`, `LassoConfig`, `SelectionFrame`: rotation snapping,
+corner resizes), `SelectionController` (duplicate, recolour, refill,
+restyle, arrange), `SelectionMenuBar`, the Style panel and `FillChoices`,
+colours (`ColorChoices`, the custom picker, recent colours), the tap hit
+test (`ContentHitTest`, `StrokeHitTest`) and paint order
+(`Stroke.paintOrder`). Rendered the shape, lasso, toolbar and colour shots
+(`editor_surfaces*`, `toolbar_screenshot_test.dart`). Nothing was run on a
+device. ⬜ open, ✅ fixed on this branch.
+
+Summary: shapes are in good shape — every kind drags out predictably with
+a live preview, hold to snap turns a held stroke into a clean shape where
+the hand drew it, a selected shape shows its own points as handles, fills
+come in three tints and solid, and every edit is one undo step that
+syncs. What a diagram runs into is that the precision aids are all
+behind **Shift**, and a pen has no Shift: on a tablet there is no way to
+draw a horizontal axis, a square box or a circle with the Shape tool, and
+a held line snaps to exactly the angle the hand drew (0.8° off level reads
+as crooked on grid paper). Arranging works only for images and text: a
+box given a solid fill after its label was written hides the label for
+good. Arrowheads grow with the arrow, so a graph's long axis ends in a
+head as big as a word. Smaller: a tap on ink under a translucent tint
+selects the tint's shape instead.
+
+| Moment | Len | GoodNotes 6 · Notability · Samsung Notes | Verdict |
+|---|---|---|---|
+| Boxes for a flowchart | Shape tool: drag a box; or hold to snap a hand-drawn box | GoodNotes: shape tool + hold to snap; Samsung: shape mode | Keep |
+| A square / circle with the pen | Shift only (no Shift on a tablet) | GoodNotes: near-regular snaps; Samsung: the same | R21-2 ✅ |
+| Level axes and lines | Shift only; held lines keep the hand's angle | GoodNotes: lines snap level and upright | R21-1 ✅ |
+| Arrows | arrowhead 18 % of the length (≥ 12): a 400-pt axis gets a 72-pt head | heads of a constant size | R21-4 ✅ |
+| Arrows that stay attached to boxes | none: moving a box leaves its arrows | GoodNotes, Notability, Samsung: none either (whiteboards have connectors) | R21-6 ⬜ (Next) |
+| Labels in boxes | text boxes or ink; a box drawn later sits over them | the same | Keep |
+| Fills | none, three tints of the ink, solid (any colour); a tint follows a recolour | GoodNotes: fill colour; Notability: fill | Keep |
+| Arranging | Bring to front / Send to back for images and text only | GoodNotes: arrange for elements; ink stacks by time | R21-3 ✅ |
+| Shape handles | ends, corners, vertices, star points; Shift keeps 15° / proportions | GoodNotes: corner handles | Keep (better); snaps R21-1/2 ✅ |
+| Lasso move / resize / rotate | corners keep proportions, edges stretch, rotation snaps to 45° | the same | Keep |
+| Duplicate | ⋯ → Duplicate, Ctrl+D: a copy 24 pt down-right, selected | GoodNotes: the same | Keep |
+| Align / distribute | none | none of the three (Samsung: align for text) | Not proposed |
+| Selecting small, overlapping items | tap: the topmost within 8 px; lasso Touching / Mostly / Whole, kinds | GoodNotes: lasso options; tap selects | Keep; R21-5 ✅ |
+| Colours | 14 swatches, Custom (HSV, hex), one row of recent | GoodNotes: presets + custom; Samsung: + eyedropper | Keep; eyedropper R21-7 ⬜ (Next) |
+| Graph paper | grid and dotted templates, lines a fixed page width | the same | Keep |
+| Undo | one step per shape, reshape, transform, recolour, nudge burst | the same | Keep |
+| Many shapes | shapes are strokes: tiles, chunks and LOD as for ink | — | Keep |
+
+### Prioritised items
+
+**R21-1 P1 · Lines snap level only with Shift; a pen has none.** ✅
+- *What:* the Shape tool's lines and arrows, a line's end handles and the
+  straight pen snap to 15° steps only while Shift is held; a held line
+  (hold to snap) keeps the angle the hand drew. On a tablet a graph's axes,
+  a timeline or a flowchart's connectors come out a degree or two off —
+  visible against grid paper. GoodNotes snaps lines level and upright.
+- *Fix:* without Shift, a line or arrow within 4° of level, upright or a
+  diagonal snaps to it — the Shape tool's preview, a held line once
+  snapped (and its end while the pen moves on), the straight pen, a dragged
+  end handle; Shift still steps 15°. Effort S.
+
+**R21-2 P1 · Squares and circles need Shift.** ✅
+- *What:* the Shape tool makes a shape regular only with Shift, and its
+  popover says so only with a keyboard; with the pen, a circle is an
+  ellipse a few percent off, and two boxes "the same" differ. Hold to snap
+  rounds near-circles, but the tool doesn't.
+- *Fix:* a drag within 6 % of a regular shape's proportions (square,
+  circle, equilateral triangle, regular star) snaps to it; so does a
+  rectangle's or ellipse's corner handle. Effort S.
+
+**R21-3 P1 · Ink can't be arranged: a filled box hides what it was drawn around.** ✅
+- *What:* strokes paint in the order they were drawn, and Bring to front /
+  Send to back only move images and text boxes. Writing a label, then
+  drawing a box around it and giving the box a solid fill (or drawing it
+  with one) hides the label; the only way out is redrawing the label.
+  Highlighting a mind map's bubbles the same way dims their words.
+- *Fix:* Bring to front / Send to back also restack selected strokes
+  among the ink they overlap (offered whenever the selection overlaps
+  something). One undo step. Effort M.
+
+**R21-4 P2 · Arrowheads grow with the arrow.** ✅
+- *What:* an arrowhead is 18 % of the arrow (at least 12 pt): a 400-pt
+  axis ends in a 72-pt head, a flowchart's long and short arrows have
+  different heads.
+- *Fix:* heads 18 % of the arrow within 12–20 pt (never more than 40 %
+  of it): every arrow longer than about 110 pt gets the same head. Effort S.
+
+**R21-5 P2 · A tap on ink under a tint selects the tinted shape.** ✅
+- *What:* a tap selects the topmost stroke it hits, a filled shape by its
+  fill; a box drawn around words with a translucent tint wins every tap on
+  those words, though they show through it.
+- *Fix:* ink hit by its line wins over a translucent fill that only
+  contains the tap. Effort S.
+
+**R21-6 P3 · Arrows don't stay attached to boxes.** ⬜ (docs/TODO.md Next)
+- *What:* moving a flowchart's box leaves its arrows behind; each arrow
+  end must be dragged after it. None of the three references has
+  connectors either; whiteboard apps do.
+- *Proposal:* an arrow or line end dropped on a shape's outline remembers
+  the shape (a synced reference in the geometry); moving or reshaping the
+  shape moves the end. Large: geometry format, transforms, sync, undo.
+
+**R21-7 P3 · No eyedropper.** ⬜ (docs/TODO.md Next)
+- *What:* matching a colour already on the page means finding it in the
+  palette or typing its hex; Samsung Notes' picker has an eyedropper.
+- *Proposal:* a "Pick from page" control in the custom picker that samples
+  the canvas under the next tap. Medium–large: a modal canvas mode across
+  the picker's popover and sheet. Not urgent: recent colours cover most
+  re-use.
+
+
 ## Round 20 audit — a phone only (`review/round20`)
 
 Lens: someone who has Len only on an Android phone (6.1–6.7", 390-ish dp

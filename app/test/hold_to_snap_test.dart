@@ -175,6 +175,21 @@ void main() {
     expect(committed().shape!.points, [pts.first, const Offset(560, 340)]);
   });
 
+  testWidgets('a held line nearly level commits level, and stays level as the pen moves on', (
+    tester,
+  ) async {
+    // 2° off level: a graph's axis drawn by hand.
+    final pts = HandShapes(2).line(const Offset(100, 300), const Offset(400, 310));
+    await drawAndHold(tester, pts);
+    final line = committed().shape!.points;
+    expect(line.first, pts.first);
+    expect(line.last.dy, pts.first.dy);
+    // A clearly sloped line stays as drawn.
+    final sloped = HandShapes(3).line(const Offset(100, 300), const Offset(400, 360));
+    await drawAndHold(tester, sloped);
+    expect(committed().shape!.points.last.dy, isNot(300));
+  });
+
   /// Draws [pts] 4 ms apart, then rests the pen at their end the way a
   /// real S Pen rests: it slows down, then drifts a pixel or so either
   /// way while the samples keep coming; lifts it after [restMs].

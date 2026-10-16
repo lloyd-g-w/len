@@ -36,19 +36,26 @@ class SelectionMenuBar extends StatelessWidget {
   final VoidCallback? onConvertToText;
   final String? convertUnavailable;
 
-  /// Whether a selected element overlaps anything not selected (ink or
-  /// another element), which is when Bring to front / Send to back do
+  /// Whether a selected element or stroke overlaps anything not selected
+  /// (ink or an element), which is when Bring to front / Send to back do
   /// something visible.
   bool _overlapsOthers() {
-    final elements = selection.elements;
-    if (elements.isEmpty) return false;
     final model = selection.model;
-    final ids = {for (final e in elements) e.id};
-    final strokeIds = {for (final s in selection.strokes) s.id};
-    for (final e in elements) {
-      final box = e.bounds;
-      if (model.elementsNear(box).any((o) => !ids.contains(o.id))) return true;
-      if (model.strokesNear(box).any((s) => !strokeIds.contains(s.id) && s.bounds.overlaps(box))) {
+    final ids = {for (final e in selection.elements) e.id, for (final s in selection.strokes) s.id};
+    final boxes = [for (final e in selection.elements) e.bounds];
+    // Many strokes: their bounds together (a test per stroke would cost a
+    // query each on every rebuild).
+    final strokes = selection.strokes;
+    if (strokes.length > 20) {
+      boxes.add(strokes.map((s) => s.bounds).reduce((a, b) => a.expandToInclude(b)));
+    } else {
+      boxes.addAll(strokes.map((s) => s.bounds));
+    }
+    for (final box in boxes) {
+      if (model.elementsNear(box).any((o) => !ids.contains(o.id) && o.bounds.overlaps(box))) {
+        return true;
+      }
+      if (model.strokesNear(box).any((s) => !ids.contains(s.id) && s.bounds.overlaps(box))) {
         return true;
       }
     }

@@ -1754,10 +1754,16 @@ surface.
   (`TransformItems.stroke`); the pixel eraser's pieces are free-hand ink.
   A shape's look is the pen's colour, width and opacity as an even line
   with round ends (`ShapeBuilder.styleFor`: no pressure, taper, flat ends
-  or stabiliser). The Shape tool (`tools/shape_tool.dart`) previews the
+  or stabiliser). An arrowhead is 18 % of the arrow within 12–20 units
+  (`ShapeBuilder.minHead` / `maxHead`; at most 40 % of it), so long arrows share one head. The Shape tool (`tools/shape_tool.dart`) previews the
   shape from the press to the pointer on every move (Shift, pressed or
   released at any time: regular shapes — squares, circles, equilateral
-  triangles, regular stars (`ShapeBuilder.regularAspect`) — and 15° lines) and commits exactly the shape
+  triangles, regular stars (`ShapeBuilder.regularAspect`) — and 15° lines;
+  without Shift, since a pen has none, `ShapeSnap` makes a shape within 6 %
+  of regular proportions regular and a line within 4° of level, upright
+  or diagonal exactly so — as do a held line or arrow once snapped (its end
+  while the pen moves on), the straight pen, a line's end handle and a
+  rectangle's or ellipse's corner handle) and commits exactly the shape
   last shown; a tap on a shape selects it. The live outline is rebuilt
   whenever the live points are replaced rather than extended
   (`LiveInk.generation`; the incremental builder would otherwise keep the
@@ -1770,7 +1776,8 @@ surface.
   of the ink, solid; `FillChoices`), the selection's Style sets it
   (`SelectionController.refill`; a tint follows a recolour). A filled
   stroke is indexed in every chunk its bounds cover; taps select it by its
-  fill, erasers only take the outline (cut pieces are open, so unfilled).
+  fill (but ink whose line the tap hits wins over a translucent fill above
+  it, `ContentHitTest.strokeAt`; an opaque one hides it), erasers only take the outline (cut pieces are open, so unfilled).
 - **Lasso** (`selection/`): its options (`LassoConfig` in `ToolSettings.lasso`,
   the Lasso popover, read at each press) set the shape (a freehand loop, or a
   rectangle dragged corner to corner: `LassoPath.rectangle`), how much of an
@@ -1793,7 +1800,12 @@ surface.
   copies (new ids, same `createdAt`, width scaled), elements keep their id.
   Every gesture or menu action (delete, duplicate, cut, copy, paste,
   recolour) is one `InkEdit`. The selection frame keeps its rotation across
-  gestures. The clipboard (`InkClipboard`) lives in `AppServices`, so paste
+  gestures. **Arranging** (⋯ → Bring to front / Send to back, offered when
+  the selection overlaps anything else): elements move to the top or bottom
+  `z` (above or beneath the ink); strokes, which paint by `createdAt`, are
+  replaced by copies timed just after or before the unselected ink they
+  overlap (`StrokeOrder.restacked`, keeping their own order; a recording's
+  replay shows them at that time). The clipboard (`InkClipboard`) lives in `AppServices`, so paste
   works across pages and notebooks; paste goes to the screen centre
   (Ctrl+V, menu) or a long-press position.
 - **Copy to other apps** (`ClipboardMirror`, `features/editor/clipboard/`):

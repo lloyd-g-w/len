@@ -8,13 +8,15 @@ import '../geometry/straighten.dart';
 import '../shapes/polyline.dart';
 import '../shapes/shape_builder.dart';
 import '../shapes/shape_recognizer.dart';
+import '../shapes/shape_snap.dart';
 import 'live_ink.dart';
 
 /// "Hold to snap": when the pen rests for [holdDuration] at the end of a
 /// live stroke, the stroke is recognised ([ShapeRecognizer]) and replaced,
 /// in place, by a clean shape with editable geometry ([LiveInk.shape]):
 ///  * a nearly straight open stroke becomes a line — moving on then moves
-///    the line's end — and one ending in a head an arrow;
+///    the line's end — and one ending in a head an arrow; both snap level,
+///    upright or diagonal when nearly so ([ShapeSnap.lineEnd]);
 ///  * a closed stroke at least [minShape] across becomes a clean
 ///    rectangle, ellipse, triangle, diamond or polygon (which then stays
 ///    put until the pen lifts);
@@ -133,10 +135,11 @@ class HoldToStraighten {
     if (_shaped) return true;
     final from = _from;
     if (from != null) {
+      final end = ShapeSnap.lineEnd(from.offset, point.offset);
       live
-        ..shape = ShapeGeometry(ShapeKind.line, [from.offset, point.offset])
+        ..shape = ShapeGeometry(ShapeKind.line, [from.offset, end])
         ..replaceAll(
-          Straighten.line([from, StrokePoint(point.x, point.y, _pressure)], spacing: 2 / _scale),
+          Straighten.line([from, StrokePoint(end.dx, end.dy, _pressure)], spacing: 2 / _scale),
         );
       return true;
     }
@@ -186,8 +189,12 @@ class HoldToStraighten {
     final drawn = points.sublist(0, math.min(points.length, rest + 1));
     var shape = snapOf(drawn, _scale);
     if (shape == null) return;
+    final first = points.first.offset;
     if (shape.kind == ShapeKind.line) {
-      shape = ShapeGeometry(ShapeKind.line, [points.first.offset, points.last.offset]);
+      shape = ShapeGeometry(ShapeKind.line, [first, ShapeSnap.lineEnd(first, points.last.offset)]);
+    } else if (shape.kind == ShapeKind.arrow) {
+      final [tail, tip] = shape.points;
+      shape = ShapeGeometry(ShapeKind.arrow, [tail, ShapeSnap.lineEnd(tail, tip)]);
     }
     _pressure = Straighten.medianPressure(points);
     live
@@ -196,7 +203,10 @@ class HoldToStraighten {
       ..shape = shape;
     if (shape.kind == ShapeKind.line) {
       _from = points.first;
-      live.replaceAll(Straighten.line(points, spacing: 2 / _scale));
+      final end = shape.points[1];
+      live.replaceAll(
+        Straighten.line([...points, StrokePoint(end.dx, end.dy, _pressure)], spacing: 2 / _scale),
+      );
     } else {
       _shaped = true;
       live.replaceAll(ShapeBuilder.pointsOf(shape, spacing: 2 / _scale, pressure: _pressure));

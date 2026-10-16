@@ -77,6 +77,14 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
+- ⬜ **Arrows that stay attached** (UX_AUDIT R21-6): an arrow or line end dropped on a
+  shape's outline remembers the shape (a synced reference in `ShapeGeometry`); moving,
+  resizing or reshaping the shape moves the end (one undo step with it). None of GoodNotes,
+  Notability or Samsung Notes has connectors; whiteboard apps do. Large: geometry format,
+  `TransformItems`, selection plans across pages, sync, undo.
+- ⬜ **Eyedropper** (UX_AUDIT R21-7): "Pick from page" in the custom colour picker samples
+  the canvas under the next tap (Samsung Notes has one). Medium–large: a modal canvas mode
+  across the picker's popover and sheet; recent colours cover most re-use meanwhile.
 - ✅ **Slide numbers** (UX_AUDIT R18-5): page numbers stay the notebook's; overview tiles and
   Go to page's strip show a PDF page's own number quietly where it differs ("26 · Slide 23",
   "PDF p. 23" for portrait PDFs), and Go to page takes "s23" / "slide 23" (several PDFs: the

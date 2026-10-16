@@ -99,15 +99,53 @@ class SelectionController extends _SelectionCore {
   }
 
   /// Moves the selected elements above everything else on the surface
-  /// (and above the ink).
-  void bringToFront() => _restack(ElementOrder.toFront(_elements, _model.topZ));
+  /// (and above the ink), and the selected strokes above the ink they
+  /// overlap; one undoable edit.
+  void bringToFront() => _arrange(front: true);
 
-  /// Moves the selected elements beneath everything else (and the ink).
-  void sendToBack() => _restack(ElementOrder.toBack(_elements, _model.bottomZ));
+  /// Moves the selected elements beneath everything else (and the ink),
+  /// and the selected strokes beneath the ink they overlap.
+  void sendToBack() => _arrange(front: false);
 
-  void _restack(List<SurfaceElement> elements) {
-    if (_elements.isEmpty) return;
-    _replace(_strokes, elements, frame: _frame);
+  void _arrange({required bool front}) {
+    if (isEmpty) return;
+    final elements = _elements.isEmpty
+        ? _elements
+        : front
+        ? ElementOrder.toFront(_elements, _model.topZ)
+        : ElementOrder.toBack(_elements, _model.bottomZ);
+    final times = _strokes.isEmpty
+        ? null
+        : StrokeOrder.restacked(_strokes, _overlappedInkTimes(), front: front);
+    if (times == null && _elements.isEmpty) return;
+    final strokes = times == null
+        ? _strokes
+        : [
+            for (final s in _strokes)
+              Stroke(
+                id: clock.newId(),
+                surfaceId: s.surfaceId,
+                tool: s.tool,
+                color: s.color,
+                width: s.width,
+                points: s.points,
+                createdAt: times[s.id]!,
+                style: s.style,
+                shape: s.shape,
+              ),
+          ];
+    _replace(strokes, elements, frame: _frame);
+  }
+
+  /// When the unselected ink overlapping the selected strokes was drawn.
+  List<int> _overlappedInkTimes() {
+    final ids = {for (final s in _strokes) s.id};
+    final boxes = [for (final s in _strokes) s.bounds];
+    final area = boxes.reduce((a, b) => a.expandToInclude(b));
+    return [
+      for (final s in _model.strokesNear(area))
+        if (!ids.contains(s.id) && boxes.any(s.bounds.overlaps)) s.createdAt,
+    ];
   }
 
   /// Recolours every selected stroke and text box.

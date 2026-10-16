@@ -21,6 +21,7 @@ import 'selection_frame.dart';
 import 'selection_plan.dart';
 import 'selection_reach.dart';
 import 'selection_surfaces.dart';
+import 'stroke_order.dart';
 import 'transform_items.dart';
 
 part 'selection_controller_commits.dart';

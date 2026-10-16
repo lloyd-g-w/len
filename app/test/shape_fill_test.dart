@@ -163,6 +163,86 @@ void main() {
       expect(ContentHitTest.strokeAt(model, inside, 4)?.id, 'f');
     });
 
+    test('a tap on ink under a tint selects the ink; under a solid fill, the shape', () {
+      final word = Stroke(
+        id: 'w',
+        surfaceId: 's',
+        tool: InkTool.ballpoint,
+        color: 0xFF000000,
+        width: 2,
+        points: const [StrokePoint(280, 200, 0.5), StrokePoint(320, 200, 0.5)],
+        createdAt: 1,
+      );
+      // The box drawn around the word afterwards.
+      model.commit(InkEdit(added: [word, shape('t', box, createdAt: 2)]));
+      expect(ContentHitTest.strokeAt(model, const Offset(300, 200), 4)?.id, 'w');
+      // Beside the word, the tint is the box.
+      expect(ContentHitTest.strokeAt(model, const Offset(300, 120), 4)?.id, 't');
+      model.commit(InkEdit(removed: [model.strokeById('t')!]));
+      model.commit(InkEdit(added: [shape('o', box, fill: 0xFFD32F2F, createdAt: 2)]));
+      expect(ContentHitTest.strokeAt(model, const Offset(300, 200), 4)?.id, 'o');
+    });
+
+    test('send to back puts a filled box beneath the label it hid; one undo step', () {
+      Stroke word(String id, int at) => Stroke(
+        id: id,
+        surfaceId: 's',
+        tool: InkTool.ballpoint,
+        color: 0xFF000000,
+        width: 2,
+        points: const [StrokePoint(280, 200, 0.5), StrokePoint(320, 200, 0.5)],
+        createdAt: at,
+      );
+      final far = Stroke(
+        id: 'far',
+        surfaceId: 's',
+        tool: InkTool.ballpoint,
+        color: 0xFF000000,
+        width: 2,
+        points: const [StrokePoint(2000, 2000, 0.5), StrokePoint(2040, 2000, 0.5)],
+        createdAt: 1,
+      );
+      // The label, then the box drawn (solid) around it: the box hides it.
+      model.commit(
+        InkEdit(
+          added: [
+            far,
+            word('w1', 10),
+            word('w2', 11),
+            shape('box', box, fill: 0xFFFFEB3B, createdAt: 12),
+          ],
+        ),
+      );
+      final selection = SelectionController(model: model, clipboard: InkClipboard(), clock: clock);
+      addTearDown(selection.dispose);
+      selection.select([model.strokeById('box')!], const []);
+      selection.sendToBack();
+      final sent = selection.strokes.single;
+      expect(model.strokeById('box'), isNull);
+      // Beneath the label, not beneath ink it doesn't touch.
+      expect(sent.createdAt, lessThan(10));
+      expect(sent.createdAt, greaterThan(1));
+      expect(sent.fill, 0xFFFFEB3B);
+      expect(ContentHitTest.strokeAt(model, const Offset(300, 200), 4)?.id, 'w2');
+      // Already at the back: nothing to do, no undo step.
+      final steps = model.history.recorded;
+      selection.sendToBack();
+      expect(model.history.recorded, steps);
+      // And to the front again, above both words, which keep their order.
+      selection.bringToFront();
+      expect(selection.strokes.single.createdAt, greaterThan(11));
+      model.undo();
+      model.undo();
+      expect(model.strokeById('box')?.createdAt, 12);
+      // Several strokes keep their own order.
+      selection.select([model.strokeById('w1')!, model.strokeById('w2')!], const []);
+      selection.bringToFront();
+      final [a, b] = [...selection.strokes]..sort(Stroke.paintOrder);
+      expect(a.points, word('', 0).points);
+      expect(a.createdAt, 13);
+      expect(b.createdAt, 14);
+    });
+
     test('erasers leave a fill alone, so writing on a filled box goes without it', () {
       final word = Stroke(
         id: 'w',

@@ -60,13 +60,20 @@ abstract final class ShapeBuilder {
     double pressure = 0.5,
   }) => points(outline(shape), spacing: spacing, pressure: pressure);
 
+  /// The bounds of an arrowhead's wing length (world units): 18 % of the
+  /// arrow within them, and never more than 40 % of it.
+  static const double minHead = 12, maxHead = 20;
+
   /// A shaft from [tail] to [tip] and a two-winged head, as one path that
   /// returns to the tip between the wings.
+
   static List<Offset> arrow(Offset tail, Offset tip) {
     final v = tip - tail;
     final length = v.distance;
     if (length == 0) return [tail, tip];
-    final head = math.min(length * 0.4, math.max(12.0, length * 0.18));
+    // One size for every arrow (a long axis gets no bigger head than a
+    // short link), less on very short ones.
+    final head = math.min(length * 0.4, (length * 0.18).clamp(minHead, maxHead));
     final back = -v / length * head;
     const spread = 0.48; // ≈ 27.5°
     return [tail, tip, tip + _turn(back, spread), tip, tip + _turn(back, -spread)];
