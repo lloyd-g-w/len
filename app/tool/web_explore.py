@@ -1101,11 +1101,15 @@ class Walk:
         w.expect(self.RTL in copied['plain'] and 'dir="rtl"' in copied['html']
                  and self.RTL in copied['html'], f'the copy event carried rich HTML: {copied}')
         await page.keyboard.press('Escape')  # The box done,
+        # (Chromium: its input goes a frame later; a second Escape before
+        # then is the box's, and the Text tool stays)
+        await page.get_by_role('button', name='Done (Esc)').first.wait_for(
+            state='hidden', timeout=10000)
         await page.keyboard.press('Escape')  # the Text tool left (letters would start a box).
         await wait_query(page, self.FEATURE_TEXT, lambda r: len(r) == 1 and self.RTL in r[0][0],
                          'the right-to-left text stored')
         x, y = await view_center(page)
-        await page.keyboard.press('l')  # A rectangle since lasso_rectangle.
+        await tap(page, 'Lasso (L)')  # A rectangle since lasso_rectangle.
         # Around the box: right to left, it ends a little right of the click.
         await drag(page, [(x - 320, y + 120), (x + 40, y + 230)], steps=20)
         await tap(page, 'Copy (Ctrl+C)')
