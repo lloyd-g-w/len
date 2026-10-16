@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/surface_copier.dart';
@@ -9,6 +10,7 @@ import 'package:len/features/documents/scan/scan_session.dart';
 import 'package:len/features/documents/scan/scan_sources.dart';
 import 'package:len/features/editor/document/page_overview.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/features/editor/tools/selection_menu_bar.dart';
 import 'package:len/features/library/library_screen.dart';
 import 'package:len/features/settings/settings_screen.dart';
 import 'package:len/ui/app_theme.dart';
@@ -108,6 +110,23 @@ final Map<String, Screen> screens = {
     open: (t) async {
       final button = find.byTooltip('Search');
       await tapAll(t, [if (button.evaluate().isNotEmpty) button, find.byType(TextField)]);
+    },
+  ),
+  'search in notebook': (
+    home: (s) => EditorScreen(notebook: physics(s)),
+    services: null,
+    open: (t) => tapAll(t, [find.byTooltip('More options'), find.text('Search in notebook')]),
+  ),
+  'selection': (
+    home: (s) => EditorScreen(notebook: physics(s)),
+    services: null,
+    // Ctrl+A: the selection menu over the page.
+    open: (t) async {
+      await t.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await t.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await t.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await settle(t);
+      expect(find.byType(SelectionMenuBar), findsOneWidget);
     },
   ),
   'notebook menu': (
