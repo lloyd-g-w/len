@@ -860,8 +860,10 @@ references (`BlobStore.discardIfUnreferenced`); an export saves nothing and
 disposes what it rendered.
 
 Export (`features/documents/export/`): `PdfExporter` (package `pdf`) writes
-ink as filled polygons flattened from the exact outline paths the app
-renders, templates as vector lines, and **imported PDF pages as vectors**:
+ink as the filled outlines the app renders, segment by segment (lines and
+cubic Béziers through an `OutlineSink`, arcs as Béziers; the sides fitted
+within `PdfExporter.inkTolerance`, 0.04 units, rather than the screen's
+0.004, and coordinates rounded to 1/100 pt: a dense page under 1 MB, R22-1), templates as vector lines, and **imported PDF pages as vectors**:
 `PdfPageSources` parses each source PDF once with Len's own pure-Dart
 reader (`export/vector/`: lexer, classic and stream cross-references,
 object streams, `/Prev` chains, a recovery scan for broken files) and
@@ -1486,8 +1488,8 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   `ink_input_controller.dart` is unchanged.
 
 Stroke outlines come from the in-house engine in `ink/render/` (see *Ink
-rendering* below); paths are memoised per stroke. PDF export flattens the same
-paths.
+rendering* below); paths are memoised per stroke. PDF export writes the same
+outlines' segments (fitted for print, see *Export*).
 
 ### Dense stylus input on Android (`input/sample_source.dart`, `platform/stylus_samples*`)
 
