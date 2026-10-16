@@ -226,7 +226,30 @@ class TextFlowChains {
     for (final o in old) {
       if (!kept.contains(o.box.id)) on(o.pageId).removed.add(o.box);
     }
+    for (final r in _rivals(pageId, head.id, old)) {
+      on(r.pageId).removed.add(r.box);
+    }
     return (head: first, edits: {for (final e in edits.entries) e.key: e.value.build()});
+  }
+
+  /// Boxes continuing a box of the chain of [headId] (on [pageId]; its
+  /// continuations [old]) on the very next page that the chain did not
+  /// take (see [_continuing]): two devices made it run on at once. They
+  /// hold a copy of its text, so they go when it flows again.
+  List<FlowBox> _rivals(String pageId, String headId, List<FlowBox> old) {
+    final taken = {for (final o in old) o.box.id};
+    final out = <FlowBox>[];
+    for (final (:page, id: from) in [
+      (page: pageId, id: headId),
+      for (final o in old) (page: o.pageId, id: o.box.id),
+    ]) {
+      final next = pages.pagesFrom(page)?.skip(1).firstOrNull?.id;
+      if (next == null) continue;
+      for (final e in pages.elementsOn(next)) {
+        if (flowOf(e)?.from == from && !taken.contains(e.id)) out.add((pageId: next, box: e));
+      }
+    }
+    return out;
   }
 
   /// The old continuation to keep for part [index] on page [pageId]: the

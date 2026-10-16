@@ -13,14 +13,31 @@ void main() {
     addTearDown(() => tmp.deleteSync(recursive: true));
     final dir = await freshExportDir(tmp);
     final old = File('${dir.path}/Assignment 1.pdf')..writeAsStringSync('old');
-    final recent = File('${dir.path}/Page 3.png')..writeAsStringSync('new');
     final now = DateTime.now();
-    old.setLastModifiedSync(now.subtract(const Duration(hours: 2)));
-    final again = await freshExportDir(tmp, now: now);
-    expect(again.path, dir.path);
+    final stray = File('${dir.parent.path}/Page 3.png')..writeAsStringSync('stray');
+    for (final path in [dir.path, stray.path]) {
+      final s = now.subtract(const Duration(hours: 2)).millisecondsSinceEpoch ~/ 1000;
+      expect(Process.runSync('touch', ['-d', '@$s', path]).exitCode, 0);
+    }
+    final recent = await freshExportDir(tmp, now: now);
+    final shared = File('${recent.path}/Page 3.png')..writeAsStringSync('new');
+    await freshExportDir(tmp, now: now);
     expect(old.existsSync(), isFalse);
+    expect(stray.existsSync(), isFalse);
     // Maybe still being read by the app it was shared to.
-    expect(recent.existsSync(), isTrue);
+    expect(shared.existsSync(), isTrue);
+  });
+
+  test('each share has a folder of its own: sharing a file of the same name again never '
+      'rewrites one an app may still be reading', () async {
+    final tmp = Directory.systemTemp.createTempSync('len_share_');
+    addTearDown(() => tmp.deleteSync(recursive: true));
+    final first = await freshExportDir(tmp);
+    final file = File('${first.path}/Notes.pdf')..writeAsStringSync('pages 1-3');
+    final second = await freshExportDir(tmp);
+    expect(second.path, isNot(first.path));
+    File('${second.path}/Notes.pdf').writeAsStringSync('page 5');
+    expect(file.readAsStringSync(), 'pages 1-3');
   });
 
   test('several files download on the web as one ZIP named after the export (R22-7)', () {

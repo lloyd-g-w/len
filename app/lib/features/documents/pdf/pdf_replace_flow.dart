@@ -10,6 +10,7 @@ import '../progress_dialog.dart';
 import 'pdf_import.dart';
 import 'pdf_open_failure.dart';
 import 'pdf_renderer.dart';
+import 'pdf_reshape_note.dart';
 
 const _pdfTypes = [
   XTypeGroup(label: 'PDF', extensions: ['pdf'], mimeTypes: ['application/pdf']),
@@ -129,7 +130,6 @@ Future<PdfReplacement?> replacePdfFlow(
               ),
           ];
     final after = using.last.page;
-    final reshaped = using.any((u) => u.page.sizeFor(read.sizes[u.index]) != u.page.size);
     final agreed = await confirmAction(
       context,
       title: 'Replace the PDF?',
@@ -137,7 +137,7 @@ Future<PdfReplacement?> replacePdfFlow(
           '“${picked.name}” will show under the notes on ${_pages(using.length)}, page for '
           'page; the notes stay where they are.'
           '${extra.isEmpty ? '' : ' Its ${_newPages(extra.length)} added at the end.'}'
-          '${reshaped ? ' Pages change shape to match.' : ''}',
+          '${pdfReshapeNote(services, using, read.sizes)}',
       confirmLabel: 'Replace',
     );
     if (!agreed) return await discard();

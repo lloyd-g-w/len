@@ -108,22 +108,29 @@ Future<ExportedFiles?> _mobileExport(
   );
 }
 
-/// The `export` folder in [tmp] for the files of one share. Files earlier
-/// shares left there over an hour ago are deleted, so shared assignments
-/// don't pile up in the cache (R22-6); newer ones stay, as an app shared
-/// to may still be reading them (an upload in the background).
+/// A new folder in [tmp]'s `export` folder for the files of one share, so
+/// a file shared again under the same name never rewrites one an app may
+/// still be reading. What earlier shares left there over an hour ago is
+/// deleted, so shared assignments don't pile up in the cache (R22-6);
+/// newer shares stay, as an app shared to may still be reading them (an
+/// upload in the background).
 @visibleForTesting
 Future<Directory> freshExportDir(Directory tmp, {DateTime? now}) async {
-  final dir = await Directory(p.join(tmp.path, 'export')).create(recursive: true);
-  final before = (now ?? DateTime.now()).subtract(const Duration(hours: 1));
-  try {
-    for (final entry in dir.listSync()) {
+  final root = await Directory(p.join(tmp.path, 'export')).create(recursive: true);
+  final at = now ?? DateTime.now();
+  final before = at.subtract(const Duration(hours: 1));
+  for (final entry in root.listSync()) {
+    try {
       if (entry.statSync().modified.isBefore(before)) await entry.delete(recursive: true);
+    } on FileSystemException catch (e) {
+      debugPrint('Cannot clear $entry: $e');
     }
-  } on FileSystemException catch (e) {
-    debugPrint('Cannot clear $dir: $e');
   }
-  return dir;
+  for (var n = 0; ; n++) {
+    final dir = Directory(p.join(root.path, '${at.microsecondsSinceEpoch}-$n'));
+    if (dir.existsSync()) continue;
+    return dir.create();
+  }
 }
 
 /// Opens the share sheet for the files at [paths] (named [names]), titled

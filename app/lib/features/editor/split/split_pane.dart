@@ -51,7 +51,8 @@ class SplitPane {
     final s = session;
     s.doc?.activateAt(local);
     s.tools.tool = EditorTool.lasso;
-    final bounds = SelectionController.boundsOf(from.strokes, from.elements);
-    s.content.selection.pasteItems(from.strokes, from.elements, bounds, s.viewport.toWorld(local));
+    // A text box flowing across pages comes with its whole text.
+    final c = from.carried;
+    s.content.selection.pasteItems(c.strokes, c.elements, c.bounds, s.viewport.toWorld(local));
   }
 }

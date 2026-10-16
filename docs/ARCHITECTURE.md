@@ -836,7 +836,7 @@ picker (a sync may have swapped or deleted its PDF meanwhile). A new PDF
 page of another shape reshapes its page (`NotebookPage.sizeFor`: width
 kept, height from the PDF page's aspect ratio, so ink stays put, anchored
 top left), in the same step; the confirmation says "Pages change shape to
-match". The overview's cells take the shape of
+match" and, when a page getting shorter has notes past its new bottom edge, that they will be hidden (`pdfReshapeNote`). The overview's cells take the shape of
 most of the notebook's pages (`commonPageAspect`), so slide decks get
 landscape cells.
 **Slide numbers** (UX_AUDIT R18-5): page numbers are always the notebook's
@@ -925,8 +925,8 @@ sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
 on mobile, written into a folder the user picks on desktop and downloaded as
 one ZIP named after the export in browsers (`zipOf`). Shares carry the
-notebook's title as their subject; Android's temporary copies (cache
-`export/`) are deleted by the next share once over an hour old. On Android the
+notebook's title as their subject; Android's temporary copies (a folder per share in cache
+`export/`, so a name shared again never rewrites a file still being read) are deleted by the next share once over an hour old. On Android the
 export sheet also offers Save to device: the system's save dialog (one file)
 or folder picker (several), `SaveDocumentPlugin.kt` on `len/save_document`
 (recordings offer Share and Save to device the same way).
@@ -2081,8 +2081,9 @@ GoodNotes-style rich text inside a box.
   (it follows its head); moving, resizing, restyling or rotating a head flows its chain again
   from where it is (`SelectionPlan.flowText`, same undo step; a rotated head takes the whole
   text and stops flowing), deleting it deletes the chain, copy / cut / duplicate take the whole
-  text (pasted on a page it flows; on a canvas it is one tall box). Ctrl+V of plain text on a
-  page flows too. **Broken chains**: a continuation whose box before is gone or not on the page
+  text, so does dragging it into the other split pane (placed as the selection was shown, on the
+  page its first line lands on; pasted on a page it flows; on a canvas it is one tall box). Ctrl+V
+  of plain text on a page flows too (from no higher than the top margin). **Broken chains**: a continuation whose box before is gone or not on the page
   before (pages deleted, moved or copied alone) stands alone, drawn as it was; edited, it
   becomes a box of its own (its flow dropped); the chain before it simply ends. Duplicating a
   notebook relinks its chains to the copies. Infinite canvases have no pages: boxes grow there.

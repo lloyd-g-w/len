@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show mergeSort;
 import 'package:pdf/pdf.dart';
 
 import '../../../domain/outline/outline_tree.dart';
@@ -15,15 +16,26 @@ class ExportBookmark {
 /// The bookmarks of a notebook's outline [tree] for an export of the pages
 /// whose ids map to their index in [exported] (UX_AUDIT R22-3). Entries
 /// of pages left out are dropped and their children move up to take
-/// their place, so every exported entry stays reachable.
+/// their place (in page order among the entries there), so every exported
+/// entry stays reachable.
 List<ExportBookmark> exportBookmarks(OutlineTree tree, Map<String, int> exported) {
-  List<ExportBookmark> under(String? parent) => [
-    for (final e in tree.childrenOf(parent))
-      ...switch (exported[e.pageId]) {
-        final page? => [ExportBookmark(e.title, page, under(e.id))],
-        null => under(e.id),
-      },
-  ];
+  List<ExportBookmark> under(String? parent) {
+    var moved = false;
+    final out = <ExportBookmark>[];
+    for (final e in tree.childrenOf(parent)) {
+      final page = exported[e.pageId];
+      if (page != null) {
+        out.add(ExportBookmark(e.title, page, under(e.id)));
+      } else {
+        moved = true;
+        out.addAll(under(e.id));
+      }
+    }
+    // Stable: entries of one page keep the outline's order.
+    if (moved) mergeSort(out, compare: (a, b) => a.page.compareTo(b.page));
+    return out;
+  }
+
   return under(null);
 }
 

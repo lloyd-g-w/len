@@ -404,7 +404,9 @@ Every field is required and typed as above: `flow` is the one optional key of te
 (`TextRecord`), and an `elements` record whose text `data` has a `flow` that is not well-formed is
 malformed and skipped. Clients find a chain by following `from` page by
 page; a box whose `from` is missing, deleted or not on the page before (pages deleted, reordered or
-copied) stands alone and is drawn as it is. Clients rewrite the whole chain as one edit when it is
+copied) stands alone and is drawn as it is. Should two boxes on a page continue the same box (two devices made the
+chain run on at once), the chain takes the older (`createdAt`, then `id`); the other is deleted
+the next time the chain is rewritten. Clients rewrite the whole chain as one edit when it is
 changed (continuations keep their ids while they stay on the same page); duplicating a notebook
 points `from` at the copies.
 
