@@ -112,8 +112,9 @@ extension _LiveSync on SyncController {
   }
 
   /// A run ended (and nothing runs now): backs off after a failure (rows
-  /// still dirty or an event still unanswered are tried again then), and
-  /// starts what became due meanwhile.
+  /// still dirty or an event still unanswered are tried again then); a run
+  /// that worked (the fallback timer's, say) ends the backoff: the server
+  /// is back. Starts what became due meanwhile.
   void _runEnded({required bool failed}) {
     if (_disposed) return;
     if (failed) {
@@ -134,6 +135,12 @@ extension _LiveSync on SyncController {
       _t.dueAfterCooldown = true;
     } else {
       _t.failures = 0;
+      _t.cooldown?.cancel();
+      _t.cooldown = null;
+      if (_t.dueAfterCooldown) {
+        _t.dueAfterCooldown = false;
+        _t.dueAfterRun = true;
+      }
     }
     if (_t.dueAfterRun) {
       _t.dueAfterRun = false;
