@@ -1,5 +1,153 @@
 # Len — UX/UI audit
 
+## Round 24 audit — calm and consistent (`review/round24`)
+
+Lens: round 9's and round 12's question once more, after two days that
+added the zoom window, minimap, scan, notebook styles, lasso options, laser
+hold, highlighter feel, shape handles and snapping, fills, the eyedropper,
+text flow, RTL, rich copy, print, storage, reading on phones, slide
+numbers, Replace PDF, the recording panel and two tips. Every setting, menu
+row (⋯ and its submenus, the page menu, the canvas long press, the card and
+folder menus, the selection pill and its ⋯, ⊕▾, ⇅, Insert ⊕), tip, notice
+and shortcut was listed from the code and counted against rounds 9 and 12;
+copy, icons and tokens were scanned (`copy_rules_test`, which now guards
+them); all screenshot suites were rendered (958 PNGs, every scenario
+passed) and viewed as contact sheets, menus and popovers at full size.
+Paths are under `app/lib/`. ⬜ open, ✅ fixed on this branch.
+
+Summary: still minimal. Settings are the same 8 preferences as round 9;
+the toolbar gained nothing; every feature of the two days lives in the
+popover, menu or sheet of the thing it changes, and most added no row at
+all (text flow, RTL, rich copy, slide numbers, reading, snapping, handles).
+Growth is three rows — Print… in ⋯ and the card menu, Scan document… in
+⊕▾ and Insert ⊕ — and two tips, all inside the budgets earlier rounds set.
+The drift was below the surface: 11 colour literals in `features/`, two
+hand-built selection checkboxes, four single sentences with a full stop,
+two percent styles, ad-hoc 16-dp glyphs and one off-token font weight.
+All fixed, and the guards that would have caught them now exist.
+
+### Inventory against rounds 9 and 12
+
+Counts for a tablet, paged notebook, sync off, unless noted.
+
+| Area | Round 9 → 12 | Now | Change | Verdict |
+|---|---|---|---|---|
+| Settings: preferences | 8 | 8 (theme, draw with finger, side button, tap to undo, hold to snap, scribble to erase, search handwriting, language) | – | Keep |
+| Settings: sections | General, Writing, Handwriting, Sync, Backup, Storage (web), About | the same; Storage on every platform (space used, largest notebooks, downloaded files, cached previews; + 2 web rows) | Storage everywhere (R16) | Keep: it reports, it doesn't configure |
+| ⋯ top level | 7 | 8: Search in notebook, Export…, Print…, Page ▸ (Background… on a canvas), View ▸, Open in split view ▸, Draw with finger, Settings | + Print… (R22-8) | R24-1 Keep, at the cap |
+| ⋯ on a phone | – | up to 11: Record audio, Recordings, Open notebooks (n), then the above with Zoom window on top (R20-2) and no split | + Print…, Zoom window | R24-1 Keep, at the cap |
+| ⋯ → Page | 6 → 7 (R9-3) | 7, + Replace PDF… on a PDF page | + Replace PDF… (PDF pages only) | Keep |
+| ⋯ → View | 8 → 9 → 7 (R12-7) | 7 paged (3 fits, One page at a time, Floating toolbar, Zoom window, Focus mode); canvas: Floating toolbar, Zoom window, Minimap, Focus mode | – | Keep |
+| Canvas long press | up to 7 → 4 (R9-3) | up to 4: Go to *period* (planner link), Paste here, Select all on page / in view, Add text here | – | Keep |
+| Selection pill + ⋯ | 4 + 7 | Edit text (one text box), Style, Cut, Copy, Delete + ⋯ Duplicate, Paste, Convert to text, Link…, Crop, Bring to front, Send to back | – | Keep |
+| Insert ⊕ | 4 → 3 (R9-3) | 4: Image…, Take photo, Scan document…, Pages from PDF… | + Scan document… (R12) | Keep |
+| Library ⊕▾ | 5 → 4 (R9-5) | 5: New notebook, Scan document…, Import PDF…, Import Len file…, New folder… | + Scan document… | Keep |
+| Card ⋯ | 9 → 8 (R9-7) | 9: Rename…, Add to favourites, Change cover…, Duplicate, Move to folder…, Export…, Print…, Select, Move to trash | + Print… | R24-2 Keep |
+| Folder ⋯ | 5 | 4: Rename…, Move to folder…, Export…, Delete folder | – | Keep |
+| ⇅ View | 6 | 6: Sort by (3), Show as (2), Select | – | Keep |
+| One-time tips (kinds) | 5 → 4 (R9-1) | 6: reading, fingers, side button, hold to snap, lasso, scribble | + reading, fingers (R20) | R24-3 Keep: the budget holds |
+| One-time captions | 1 (Hold for a template) | 1 | – | R24-4 Keep |
+| Library notices | 5 | 7, one at a time by priority: a recording stopped in the background, a recording running elsewhere, unsaved changes, files not kept, browser may clear, only on this device, Len started fresh | + 2 recording notices (R17) | Keep |
+| Shortcut sheet rows | ? → 59 | 63 | + Print, Present, Turn pages, Paste without formatting | Keep |
+
+### Tips budget
+
+Six tips exist, but no one is eligible for all of them: a stylus user can
+get the side button, hold to snap, the lasso and scribble (4, as after
+round 9); a finger writer on a phone gets reading, fingers, hold to snap,
+the lasso and scribble (5). Each is gated on its setting (no side-button
+tip when the button does nothing, no scribble tip with Scribble to erase
+off, no fingers tip once Draw with finger is chosen), and `TipsController`
+still enforces round 9's budget: one tip per opening, ten minutes apart,
+none near a snack bar, only when the pen rests, seen after 3 s on screen.
+At most one teaching message per notebook opening. Keep; the next tip
+should replace one, not add a seventh.
+
+### Prioritised items
+
+**R24-1 P3 · ⋯ is at its cap: 8 rows on a tablet, up to 11 on a phone.**
+Keep. Print… (R22-8) is the only top-level row added since round 9, and
+it sits where every desktop app has it (Ctrl+P). The phone's extra rows
+are the top bar's (Record audio, Recordings, Open notebooks) and Zoom
+window, which phones need on top (R20-2). The next command for ⋯ merges
+before it adds (e.g. Export… and Print… as one sheet with two actions).
+
+**R24-2 P3 · Card ⋯ is back to 9 rows with Print….** Keep: Export… and
+Print… stay a pair in both homes (⋯ and the card), so a user who learned
+one finds the other beside it.
+
+**R24-3 P3 · Six one-time tips.** Keep (see "Tips budget").
+
+**R24-4 P3 · "Hold for a template" stays under Add page until held.**
+Keep (R9-3 follow-up, `editor_chrome_test`): a caption, not a tip, in
+Graphite under a button on the page's end, and it goes the first time it
+is used.
+
+**R24-5 P2 · Colour literals in `features/`.** ✅
+- *What:* 11 places picked colours by hand: search marks
+  (`SearchColors`, a token class living in `features/search`), the crop
+  guides (`0x88FFFFFF`), the split drop ghost (`0x99000000`), the canvas
+  hint (`Colors.black` / `white` with alphas), the cover's edge (`Colors.black`
+  at 8 %, three times), its spine shade, the text-box handle glyph, the
+  eraser glyph's fallback, the progress dialog's barrier (`Colors.black54`
+  where `Surfaces.scrim` exists) and both selection checkboxes.
+- *Fix:* `Palette.searchMatch`, `cropGuide`, `paperEdge`, `printOn`;
+  `Surfaces.scrim`; `Tones.light` for paper-side ink and sheet.
+  `copy_rules_test` fails on `Color(0x…)` or `Colors.*` (but `transparent`)
+  in `features/`, and on `Icons.*` anywhere.
+
+**R24-6 P2 · Two selection checkboxes.** ✅ The library's
+`SelectionMark` and the page overview's `_Check` drew the same 2-dp
+checkbox with different whites (92 % / 90 %) and different selected edges
+(white / accent). *Merge:* one `SelectCheck` (`ui/select_check.dart`),
+small for list rows; the overview takes the library's white edge.
+
+**R24-7 P2 · Single sentences with a full stop.** ✅
+- *What:* the Delete… confirmations of a recording ("… will be deleted
+  on all your devices.") and a template ("Pages already using it keep
+  their background.") ended in a full stop where the style and scan
+  confirmations didn't; Storage's "Keep data on this device" lines ("On:
+  … until you clear it.") too.
+- *Fix:* no stop. `copy_rules_test` read only `Text(…)` and
+  `showMessage`; it now also reads the copy arguments (`label`, `title`,
+  `subtitle`, `message`, `tooltip`, `caption`, `hintText`, `helperText`,
+  `labelText`, `semanticLabel`).
+
+**R24-8 P3 · Sentence case had no guard.** ✅ None found, but nothing
+would have caught "Move To Trash". `copy_rules_test` now fails on a
+capital after a sentence's first word unless it is a name, a key, an
+acronym or one of Len's section names (`properWords`).
+
+**R24-9 P3 · Ad-hoc 16-dp glyphs.** ✅ The Go to page strip's bookmark,
+the tool switcher's caret, the highlight menu's "none" and the cover's
+favourite badge each wrote `size: 16`. *Fix:* `Glyphs.badge`.
+
+**R24-10 P3 · The shown tab's title was w600 (others w500).** ✅ Every
+other "current" item (tab switcher, overview, outline, Go to page, move
+dialog, links) is `AppTheme.currentWeight`; the tab strip now is too.
+
+**R24-11 P3 · Two percent styles and a stray "the".** ✅ The shortcut
+sheet said "100 %" and the progress dialog read "40 %" to screen readers,
+where the zoom pill, sliders and sync say "100%". The sheet's "Select all
+on the page (or in view)" now reads as the canvas menu's "Select all on
+page".
+
+**R24-12 · Visual drift.** None found. Menus, popovers and sheets share
+one overlay surface, hairline and radius in every suite; headers carry
+Reset in every tool popover; the new features (scan, styles, storage,
+recordings, Replace PDF's note, slide numbers) use the shared rows,
+`SectionLabel`s and sheet parts. Remaining type literals in `features/`
+are content, not UI (the missing-PDF placeholder painted on the page, text
+box fonts and sizes) or the search snippets' w600 marks — kept.
+
+Checked and sound: vocabulary (round 9's glossary, `copy_rules_test`);
+"…" on every command that asks first (Print…, Replace PDF…, Scan
+document…, Free up…); one home per command (Print… and Export… are a pair
+in ⋯ and the card; Scan document… is one name in three homes; Replace
+PDF… only in the page menu, its missing-file twin "Locate file…" only in
+the notice); Material Symbols Sharp everywhere; no new settings, toolbar
+buttons or modes.
+
 ## Round 23 audit — accessibility (`review/round23`)
 
 Lens: Len with a screen reader (TalkBack, NVDA / Orca, VoiceOver: what
