@@ -61,7 +61,7 @@ extension _OverviewTiles on _PageOverviewState {
       if (node.context case final context?) {
         Scrollable.ensureVisible(
           context,
-          duration: Motion.fast,
+          duration: Motion.moving(context, Motion.fast),
           alignmentPolicy: to > from
               ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
               : ScrollPositionAlignmentPolicy.keepVisibleAtStart,

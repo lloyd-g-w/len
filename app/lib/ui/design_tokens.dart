@@ -44,6 +44,12 @@ abstract final class Motion {
 
   /// Whether the platform asks for reduced motion: animate with fades only.
   static bool reduced(BuildContext context) => MediaQuery.disableAnimationsOf(context);
+
+  /// [duration] for something that moves (slides, travels, grows, turns),
+  /// or zero when the platform asks for reduced motion (DESIGN §5: fades
+  /// only). Fades and colour changes keep their durations.
+  static Duration moving(BuildContext context, Duration duration) =>
+      reduced(context) ? Duration.zero : duration;
 }
 
 /// Responsive breakpoints (logical pixels of window width).

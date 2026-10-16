@@ -103,7 +103,13 @@ class _SyncSettingsState extends State<SyncSettings> {
     if (!widget.reveal) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(Scrollable.ensureVisible(context, duration: Motion.travel, curve: Motion.move));
+      unawaited(
+        Scrollable.ensureVisible(
+          context,
+          duration: Motion.moving(context, Motion.travel),
+          curve: Motion.move,
+        ),
+      );
     });
   }
 

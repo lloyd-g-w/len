@@ -48,7 +48,7 @@ handles lose contrast on dark paper.
 | Selected segment | a faint plate (1.2:1) and an Ink label (Graphite otherwise, 6:1 vs 19:1) | Keep (label carries it) |
 | Colour-only signals | sync error: red icon + its own text; recording: red dot + timer + controls; current page: margin rule + bold number | Keep |
 | Large text 1.5× / 2× | reflows; scan title lost at 2×; sideways library titles cut | R23-2 ✅, R23-5 ✅ |
-| Reduced motion | chrome fades, popovers, tool clusters, the zoom window honour it; page travel, zoom, sheets, routes, chevrons, sizes don't | R23-4 ✅ |
+| Reduced motion | Flutter cuts its own animations to 5 %; Len's page travel, zooms and scrolls to a control still glided | R23-4 ✅ |
 | Announcements | progress dialogs, notices, page moves, snack bars; nothing on record / pause / resume or Sync now | R23-3 ✅ |
 | Focus after dialogs and sheets | the route below gets its focused control back (Flutter's scope); popovers return focus to their opener | Keep |
 
@@ -74,15 +74,19 @@ handles lose contrast on dark paper.
 - *Fix:* announce "Recording", "Recording paused", "Recording resumed",
   and after Sync now "Synced" or the error.
 
-**R23-4 P1 · Reduced motion: page travel, zoom, sheets and routes still move.** ⬜
-- *What:* DESIGN §5 promises fades only, and chrome, popovers and the
-  zoom window honour it; but going to a page (overview, search, outline,
-  links), double-tap and keyboard zoom glide; sheets slide up; routes slide
-  in; disclosure chevrons turn; expanding panels grow; the tip banner
-  slides; scrolling to a revealed control animates.
-- *Fix:* `Motion.moving(context, d)` (zero when reduced) for everything
-  that moves; the viewport animator and the document scroller jump; sheets
-  and routes fade.
+**R23-4 P1 · Reduced motion: page travel and zooms still glided.** ✅
+- *What:* DESIGN §5 promises fades only. Flutter itself runs every
+  `AnimationController` at 5 % of its duration when the platform asks for
+  reduced motion, so routes, sheets, popovers, chevrons and growing panels
+  are effectively instant; but what Len drives with its own tickers and
+  scroll animations kept moving at full length: going to a page (overview,
+  search, outline, links, Go to page — 400 ms of travel), double-tap,
+  keyboard and minimap zooms (280 ms), and scrolling to a revealed control
+  (Settings → Sync, the template chooser, the overview after a move, roving
+  focus, the Go to page strip).
+- *Fix:* the viewport animator and the document scroller jump to their
+  view (flings still glide: they continue the finger's own movement);
+  scrolls to a control take `Motion.moving(context, d)`, zero when reduced.
 
 **R23-5 P2 · A sideways phone's library cut titles to three letters at 2×.** ⬜
 - *What:* covers keep their width as text grows, so at 2× a sideways

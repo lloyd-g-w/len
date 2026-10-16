@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'design_tokens.dart';
+
 /// Roving focus (the WAI-ARIA toolbar / radio group pattern): the arrow keys
 /// move between the controls inside, in the order they are shown, Home and
 /// End to the first and the last, and Tab leaves the group rather than
@@ -92,7 +94,7 @@ class _RovingGroupState extends State<RovingGroup> {
       final node = controls[next]..requestFocus();
       final context = node.context;
       if (context != null && context.mounted) {
-        Scrollable.ensureVisible(context, duration: const Duration(milliseconds: 100));
+        Scrollable.ensureVisible(context, duration: Motion.moving(context, Motion.fast));
       }
     }
     return KeyEventResult.handled;
