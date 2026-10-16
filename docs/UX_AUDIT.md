@@ -88,10 +88,13 @@ handles lose contrast on dark paper.
   view (flings still glide: they continue the finger's own movement);
   scrolls to a control take `Motion.moving(context, d)`, zero when reduced.
 
-**R23-5 P2 · A sideways phone's library cut titles to three letters at 2×.** ⬜
-- *What:* covers keep their width as text grows, so at 2× a sideways
-  phone shows seven covers whose titles read "Trav…", "Spa…".
-- *Fix:* cover cells grow with the text scale (fewer, wider columns).
+**R23-5 P2 · A sideways phone's library cut titles to three letters at 2×.** ✅
+- *What:* in a short window covers narrow (more columns) until a row and
+  its titles fit the height, down to 96 dp; at 2× the caption is so tall
+  that a sideways phone showed seven 96-dp covers titled "Trav…", "Spa…".
+- *Fix:* the narrowest cover grows with the text scale, up to the normal
+  cover width: at 2× a sideways phone keeps four covers with whole titles
+  (the row runs under the fold, as it already did at 1.3×).
 
 **R23-6 P2 · Selection chrome on dark paper was 2.9:1.** ⬜
 - *What:* the lasso, selection frame and handles are ruling blue
