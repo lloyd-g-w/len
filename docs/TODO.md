@@ -77,6 +77,10 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
+- ⬜ **Pages to screen readers** (UX_AUDIT R23-10): one semantics node per laid-out page
+  ("Page 3 of 12, bookmarked") whose value is its text boxes' text and the recognised
+  handwriting (`HandwritingIndex`), with scroll actions that go to the next / previous page and
+  announce it. Paged and continuous views, PDFs' own text; keep the tree cheap while scrolling.
 - ⬜ **Arrows that stay attached** (UX_AUDIT R21-6): an arrow or line end dropped on a
   shape's outline remembers the shape (a synced reference in `ShapeGeometry`); moving,
   resizing or reshaping the shape moves the end (one undo step with it). None of GoodNotes,

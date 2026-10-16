@@ -50,6 +50,7 @@ handles lose contrast on dark paper.
 | Large text 1.5× / 2× | reflows; scan title lost at 2×; sideways library titles cut | R23-2 ✅, R23-5 ✅ |
 | Reduced motion | Flutter cuts its own animations to 5 %; Len's page travel, zooms and scrolls to a control still glided | R23-4 ✅ |
 | Announcements | progress dialogs, notices, page moves, snack bars; nothing on record / pause / resume or Sync now | R23-3 ✅ |
+| Pages to a screen reader | no node: the page, its typed text and recognised handwriting are silent | R23-10 ⬜ (Next) |
 | Focus after dialogs and sheets | the route below gets its focused control back (Flutter's scope); popovers return focus to their opener | Keep |
 
 ### Prioritised items
@@ -130,6 +131,19 @@ handles lose contrast on dark paper.
   1970, 0…").
 - *Fix:* the hint shrinks to fit its one line (the footer is placed by its
   height); the date wraps to a second line.
+
+**R23-10 P2 · Pages say nothing to a screen reader.** ⬜ (docs/TODO.md Next)
+- *What:* the editor's chrome is fully named, but a page is a painted
+  surface with no semantics node: TalkBack swipes from the top bar to the
+  toolbar, never hearing "Page 3 of 12", the typed text in its boxes or
+  what the handwriting index already recognised. Typed notes, the one
+  thing a screen-reader user could read back, are invisible to it.
+- *Proposal:* one semantics node per laid-out page ("Page 3 of 12,
+  bookmarked") whose value is its text boxes' text and the recognised
+  handwriting (`HandwritingIndex`), with scroll-forward / backward actions
+  that go to the next or previous page and announce it. Medium–large:
+  paged and continuous views, PDFs' own text, keeping the tree cheap while
+  scrolling.
 
 ## Round 21 audit — diagrams and drawing (`review/round21`)
 
