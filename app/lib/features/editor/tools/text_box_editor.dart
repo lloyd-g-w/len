@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show OrdinalSortKey;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/surface_element.dart';
@@ -273,68 +274,88 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
             ],
           ),
         );
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned(
-              left: 0,
-              top: 0,
-              child: Transform(
-                transform: _matrix(element),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    box,
-                    // The grips sit on the first page's part.
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      width: width,
-                      height: frames.length < 2 ? null : element.rect.height,
-                      bottom: frames.length < 2 ? 0 : null,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          _grip(
-                            scale,
-                            accent,
-                            pad: pad,
-                            alignment: Alignment.topLeft,
-                            icon: Symbols.open_with_sharp,
-                            tooltip: 'Move',
-                            onDrag: (d) => _session.setRect(_session.current!.rect.shift(d)),
+        // For screen readers, the box and its bar stay where they are in the
+        // reading order, however the box grows or scrolls: on the web the
+        // field's text input lives in its semantics node's element, and a
+        // node moved among its siblings (the box grown past the top of the
+        // view sorting before the toolbar) loses the keyboard focus, and
+        // the keys typed after it.
+        return Semantics(
+          container: true,
+          explicitChildNodes: true,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                // Inside the transform: around it, the semantics box would
+                // only take taps where the box is untransformed.
+                child: Transform(
+                  transform: _matrix(element),
+                  child: Semantics(
+                    container: true,
+                    sortKey: const OrdinalSortKey(0),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        box,
+                        // The grips sit on the first page's part.
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          width: width,
+                          height: frames.length < 2 ? null : element.rect.height,
+                          bottom: frames.length < 2 ? 0 : null,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              _grip(
+                                scale,
+                                accent,
+                                pad: pad,
+                                alignment: Alignment.topLeft,
+                                icon: Symbols.open_with_sharp,
+                                tooltip: 'Move',
+                                onDrag: (d) => _session.setRect(_session.current!.rect.shift(d)),
+                              ),
+                              for (final side in [Alignment.centerLeft, Alignment.centerRight])
+                                _grip(
+                                  scale,
+                                  accent,
+                                  pad: pad,
+                                  alignment: side,
+                                  icon: Symbols.drag_indicator_sharp,
+                                  tooltip: 'Width',
+                                  onDrag: (d) => _resize(side.x, d),
+                                ),
+                            ],
                           ),
-                          for (final side in [Alignment.centerLeft, Alignment.centerRight])
-                            _grip(
-                              scale,
-                              accent,
-                              pad: pad,
-                              alignment: side,
-                              icon: Symbols.drag_indicator_sharp,
-                              tooltip: 'Width',
-                              onDrag: (d) => _resize(side.x, d),
-                            ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-            TextFormatBar(
-              anchor: bounds,
-              dockedKey: _dockedBar,
-              controller: _text,
-              tools: widget.tools,
-              onBoxChanged: (box) => widget.tools.textStyle = box.withFlow(null),
-              onDelete: () {
-                _session.setData(const TextData());
-                _session.end();
-              },
-              onDone: _session.end,
-              refocus: _focus.requestFocus,
-            ),
-          ],
+              Semantics(
+                container: true,
+                sortKey: const OrdinalSortKey(1),
+                child: TextFormatBar(
+                  anchor: bounds,
+                  dockedKey: _dockedBar,
+                  controller: _text,
+                  tools: widget.tools,
+                  onBoxChanged: (box) => widget.tools.textStyle = box.withFlow(null),
+                  onDelete: () {
+                    _session.setData(const TextData());
+                    _session.end();
+                  },
+                  onDone: _session.end,
+                  refocus: _focus.requestFocus,
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
