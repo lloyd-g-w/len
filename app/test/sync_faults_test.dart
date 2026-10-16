@@ -216,8 +216,8 @@ void main() {
     SyncEngine.workerFromBytes = 64 * 1024;
   });
 
+  final runs = int.tryParse(Platform.environment['LEN_FAULT_RUNS'] ?? '') ?? 8;
   test('devices converge under faults and lose nothing', () async {
-    final runs = int.tryParse(Platform.environment['LEN_FAULT_RUNS'] ?? '') ?? 8;
     final seed = int.tryParse(Platform.environment['LEN_FAULT_SEED'] ?? '') ?? 1;
     for (var run = 0; run < runs; run++) {
       final problems = await _run(seed + run, deviceCount: 2 + (seed + run) % 3);
@@ -225,5 +225,5 @@ void main() {
         fail('Seed ${seed + run}: ${problems.length} problems:\n${problems.take(40).join('\n')}');
       }
     }
-  }, timeout: const Timeout(Duration(minutes: 5)));
+  }, timeout: Timeout(Duration(minutes: 5 + runs ~/ 4)));
 }

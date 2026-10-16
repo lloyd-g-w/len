@@ -8,6 +8,7 @@ class SyncRecord {
     required this.deviceId,
     required this.deleted,
     required this.data,
+    this.base,
     this.prepared,
   });
 
@@ -19,6 +20,13 @@ class SyncRecord {
 
   /// Collection-specific payload; null for tombstones.
   final Map<String, Object?>? data;
+
+  /// For rows edited in place (docs/SYNC_PROTOCOL.md, "Deletion
+  /// conflicts"): on a live record, the version of the edit whose content
+  /// it holds when that is not its own (an edit kept over a deletion, a
+  /// copy brought back); on a tombstone, that of what the deletion replaced.
+  /// Null otherwise.
+  final RecordVersion? base;
 
   /// The record already parsed into what its store writes (a `StrokeRow`),
   /// done while decoding a pulled page; null when not. [data] then holds
@@ -32,6 +40,18 @@ class SyncRecord {
     return this.deviceId.compareTo(deviceId) > 0;
   }
 
+  /// This record with [base] instead.
+  SyncRecord withBase(RecordVersion? base) => SyncRecord(
+    collection: collection,
+    id: id,
+    updatedAt: updatedAt,
+    deviceId: deviceId,
+    deleted: deleted,
+    data: data,
+    base: base,
+    prepared: prepared,
+  );
+
   Map<String, Object?> toJson() => {
     'collection': collection,
     'id': id,
@@ -39,6 +59,7 @@ class SyncRecord {
     'deviceId': deviceId,
     'deleted': deleted,
     'data': deleted ? null : data,
+    if (base case final base?) 'base': {'updatedAt': base.updatedAt, 'deviceId': base.deviceId},
   };
 
   /// Parses a server record; throws [FormatException] when malformed.
@@ -54,7 +75,16 @@ class SyncRecord {
     final deviceId = json['deviceId'];
     final deleted = json['deleted'];
     final data = json['data'];
+    final base = switch (json['base']) {
+      null => null,
+      {'updatedAt': final int at, 'deviceId': final String device} when device.isNotEmpty => (
+        updatedAt: at,
+        deviceId: device,
+      ),
+      _ => false,
+    };
     if (collection is! String ||
+        base == false ||
         id is! String ||
         updatedAt is! int ||
         deviceId is! String ||
@@ -74,9 +104,17 @@ class SyncRecord {
       deviceId: deviceId,
       deleted: deleted,
       data: deleted ? null : data as Map<String, Object?>,
+      base: base as RecordVersion?,
     );
   }
 }
+
+/// A row version: last-write-wins compares `updatedAt`, then `deviceId`.
+typedef RecordVersion = ({int updatedAt, String deviceId});
+
+/// Whether version [a] is later than [b] under last-write-wins.
+bool isLaterVersion(RecordVersion a, RecordVersion b) =>
+    a.updatedAt != b.updatedAt ? a.updatedAt > b.updatedAt : a.deviceId.compareTo(b.deviceId) > 0;
 
 /// Identifies the exact local version of a row that was pushed, so it is
 /// only marked clean if it has not been modified again in the meantime.

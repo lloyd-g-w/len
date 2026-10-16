@@ -3,6 +3,7 @@ import 'package:sqlite3/common.dart' show SqliteException;
 
 import '../data/app_database.dart';
 import '../data/deletion_conflicts.dart';
+import '../data/edit_origins.dart';
 import '../data/element_repository.dart';
 import '../data/folder_repository.dart';
 import '../data/notebook_repository.dart';
@@ -158,43 +159,88 @@ class PullApplier {
     }
   }
 
-  /// Collections whose rows are edited in place (strokes are replaced
-  /// instead, and the library's rows are organisation, not content).
-  static const editedInPlace = {'elements', 'recordings', 'outline'};
-
-  /// An edit and a deletion of the same row that did not know each other
-  /// keep the edit, whichever is later (docs/SYNC_PROTOCOL.md, "Deletion
-  /// conflicts"): a deletion arriving for a row with an edit here that was
-  /// never pushed, or an edit arriving for a row deleted here, unpushed,
-  /// when the deletion would win. The edit then becomes a local edit later
-  /// than both, to push; a page or notebook deleted with the row comes back
-  /// once the pull ends ([DeletionConflicts.resolve]). Returns whether the
-  /// row changed, or null when [record] is no such race.
+  /// Races of rows edited in place (docs/SYNC_PROTOCOL.md, "Deletion
+  /// conflicts"), judged by which edit a version's content comes from (its
+  /// origin, [EditOrigins]) rather than by the version alone, where they
+  /// differ: an edit kept over a deletion and a copy brought back hold an
+  /// older edit at a newer version.
   ///
-  /// Such rows are pushed after the pull (`SyncEngine`), so they are still
-  /// dirty here. (Not on a first sync or after switching servers: every
-  /// row is pushed before the pull then.)
+  /// - Two live versions: the later edit wins, whichever version holds it.
+  /// - A deletion and an edit that did not know each other keep the edit,
+  ///   whichever is later: a pulled deletion keeps a version here whose
+  ///   edit is later than the deletion knew (its base); a deletion here
+  ///   takes a pulled edit later than it knew.
+  /// - A deletion here that knew the content a pulled version holds stays,
+  ///   unless that version brings back the very deletion's rows (a deletion
+  ///   conflict elsewhere: the version right after the deletion's); then
+  ///   the content this tombstone kept comes back instead if it is later.
+  ///
+  /// The winner becomes a local edit later than both versions, to push; a
+  /// page or notebook deleted with the row comes back once the pull ends
+  /// ([DeletionConflicts.resolve]). Without a base (a tombstone whose
+  /// knowledge is unknown) only an edit or deletion here that is not pushed
+  /// yet counts as unknown to the other side. Returns whether the row
+  /// changed, or null when last-write-wins decides as usual.
+  ///
+  /// Edits and deletions of such rows are pushed after the pull
+  /// (`SyncEngine`), so a race is found here rather than decided by
+  /// last-write-wins on the server.
   bool? _keepEdit(SyncableStore store, SyncRecord record) {
-    if (store is! SyncableTable || !editedInPlace.contains(record.collection)) return null;
-    final rows = database.select(
-      'SELECT updated_at, device_id, deleted FROM ${store.table} WHERE id = ? AND dirty = 1',
-      [record.id],
-    );
-    if (rows.isEmpty || (rows.first['deleted'] == 1) == record.deleted) return null;
-    final local = rows.first['updated_at'] as int;
-    final wins = record.supersedes(updatedAt: local, deviceId: rows.first['device_id'] as String);
-    if (record.deleted) {
-      // An edit here the deleting device cannot have seen.
-      if (!wins) return null;
+    final origins = store is SyncableTable ? store.origins : null;
+    if (origins == null || store is! SyncableTable) return null;
+    final local = origins.of(record.id);
+    if (local == null) return null;
+    final incoming = (updatedAt: record.updatedAt, deviceId: record.deviceId);
+    final holds = record.base ?? incoming; // The edit the pulled content comes from.
+    final wins = isLaterVersion(incoming, local.version);
+    final kept = local.origin;
+    bool keep() {
       store.keepAsEdit(record.id, over: record.updatedAt);
-    } else {
-      // An edit elsewhere this unpushed deletion did not know.
-      if (wins) return null;
-      store.writeRemote(record);
-      store.keepAsEdit(record.id, over: local);
+      return true;
     }
-    return true;
+
+    bool take() {
+      store.takeRemote(record);
+      store.keepAsEdit(record.id, over: local.version.updatedAt);
+      return true;
+    }
+
+    switch ((local.deleted, record.deleted)) {
+      case (false, false):
+        // The later edit, whichever version holds it.
+        if (wins && isLaterVersion(kept!, holds)) return keep();
+        if (!wins && isLaterVersion(holds, kept!)) return take();
+      case (false, true) when wins:
+        // An edit here the pulled deletion did not know.
+        if (_unknown(kept!, to: record.base, unpushed: local.dirty)) return keep();
+      case (true, false) when wins:
+        if (record.updatedAt == local.version.updatedAt + 1) {
+          // This very deletion brought back elsewhere: with the later
+          // content, this tombstone's if it kept a later one.
+          if (kept != null && isLaterVersion(kept, holds)) {
+            store.revive([record.id], version: record.updatedAt + 1);
+            // Unless its content was dropped meanwhile.
+            if (origins.of(record.id)?.deleted == false) return true;
+          }
+        } else if (local.base case final knew? when !isLaterVersion(holds, knew)) {
+          // Content this deletion knew.
+          return keep();
+        }
+      case (true, false):
+        // A pulled edit this deletion did not know.
+        if (_unknown(holds, to: local.base, unpushed: local.dirty)) return take();
+      case (false, true) || (true, true):
+    }
+    return null;
   }
+
+  /// Whether a deletion that knew version [to] did not know [version]: it
+  /// is later. With [to] unknown, whether the change here is [unpushed].
+  static bool _unknown(
+    RecordVersion version, {
+    required RecordVersion? to,
+    required bool unpushed,
+  }) => to == null ? unpushed : isLaterVersion(version, to);
 
   /// Adds [id] unless it is unknown (null, or empty for placeholder
   /// tombstones of rows never seen locally).

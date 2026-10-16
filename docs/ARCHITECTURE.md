@@ -3347,9 +3347,18 @@ elements keep their payload, and tombstones their blobs, for 30 days
 deleted pages / notebooks that hold live content and notebooks / pages whose
 tombstone a live record replaced, at the version right after the deletion's
 (a stale copy never beats an edit not seen yet), then pushes the revived rows. A
-text box, recording or outline entry edited here and not pushed yet keeps its
-edit over a pulled deletion, and one deleted here and not pushed yet takes an
-edit pulled from elsewhere (`PullApplier._keepEdit`). Tombstones are
+text box, recording or outline entry is judged by the edit its content comes
+from (`EditOrigins`, `PullApplier._keepEdit`): an edit kept over a deletion and
+a copy brought back hold an older edit at a newer version (`origin_at` /
+`origin_device`, valid while `origin_for` is the row's `updated_at`, so any local
+write makes the row an edit of its own), and tombstones note the origin of what
+they replaced (`base_at` / `base_device`, set by triggers however the row is
+deleted); both travel as the record's `base`. Two live versions keep the later
+edit, a deletion keeps nothing it did not know and loses nothing it knew, so
+pushes whose answer was lost, pages pulled again and copies brought back but
+never pushed change nothing, and a copy brought back never replaces a newer
+edit (one made before the deletion and not pushed yet, or newer content another
+device's tombstone kept). Tombstones are
 pushed children first, so a half-finished push never looks like a conflict. The
 device whose deletion was undone says so once after that sync (`revivalNotices`, through
 `SyncController.notices`: "“Lab book” is back in the trash: another device wrote in it

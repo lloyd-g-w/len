@@ -73,8 +73,8 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 14);
-    expect(AppDatabase.latestVersion, 14);
+    expect(schema['version'], 15);
+    expect(AppDatabase.latestVersion, 15);
     // Version 7: a notebook's paper look.
     expect(schema['notebooks'], contains("paper_data TEXT 1 '{}' 0"));
     // Version 3: recording waveforms, stroke times per surface.
@@ -339,9 +339,16 @@ void main() {
   });
 }
 
-/// Back to before version 10 (the chunk indexes): undoes versions 10 to 13
+/// Back to before version 10 (the chunk indexes): undoes versions 10 to 15
 /// of a fresh database (14 only rewrites data).
 void _dropChunkDigests(CommonDatabase db) {
+  for (final table in ['elements', 'recordings', 'outline']) {
+    db.execute('DROP TRIGGER ${table}_deleted');
+    db.execute('DROP TRIGGER ${table}_tombstone_versions');
+    for (final column in ['base_at', 'base_device', 'origin_at', 'origin_device', 'origin_for']) {
+      db.execute('ALTER TABLE $table DROP COLUMN $column');
+    }
+  }
   db.execute('ALTER TABLE stroke_chunks DROP COLUMN digest');
   db.execute('ALTER TABLE element_chunks DROP COLUMN digest');
   db.execute('DROP INDEX strokes_tombstone_payloads');

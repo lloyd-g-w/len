@@ -2,6 +2,7 @@ import 'package:sqlite3/common.dart';
 
 import '../core/clock.dart';
 import 'app_database.dart';
+import 'edit_origins.dart';
 import 'syncable.dart';
 
 /// Shared sync bookkeeping for tables with the standard
@@ -19,6 +20,19 @@ abstract class SyncableTable implements SyncableStore {
 
   /// The SQL table name (trusted constant, never user input).
   String get table;
+
+  /// Collections whose rows are edited in place (strokes are replaced
+  /// instead, and the library's rows are organisation, not content): an
+  /// edit of one can race a deletion of it, so their rows note which edit
+  /// their content comes from and their tombstones what the deletion knew
+  /// ([EditOrigins]; docs/SYNC_PROTOCOL.md, "Deletion conflicts").
+  static const editedInPlaceCollections = {'elements', 'recordings', 'outline'};
+
+  /// Whether this table is one of [editedInPlaceCollections].
+  bool get editedInPlace => editedInPlaceCollections.contains(collection);
+
+  /// The origins of this table's rows if it is [editedInPlace].
+  late final EditOrigins? origins = editedInPlace ? EditOrigins(db, table) : null;
 
   CommonDatabase get db => database.db;
 
@@ -78,24 +92,31 @@ abstract class SyncableTable implements SyncableStore {
   /// deletion that raced an edit, see `DeletionConflicts`: the version right
   /// after the deletion's, so a copy brought back never beats an edit made
   /// elsewhere). Tables whose tombstones keep every column revive them as
-  /// they were.
+  /// they were. Rows edited in place keep the origin of their content
+  /// ([EditOrigins]): a copy brought back is no edit.
   void revive(Iterable<String> ids, {required int version}) {
+    final kept = origins == null
+        ? ''
+        : ', origin_for = CASE WHEN origin_for = updated_at AND origin_at IS NOT NULL '
+              'THEN ?1 ELSE 0 END';
     for (final id in ids) {
       db.execute(
-        'UPDATE $table SET deleted = 0, dirty = 1, updated_at = ?, device_id = ? '
-        'WHERE id = ? AND deleted = 1 AND updated_at < ?',
-        [version, deviceId, id, version],
+        'UPDATE $table SET deleted = 0, dirty = 1, updated_at = ?1, device_id = ?2$kept '
+        'WHERE id = ?3 AND deleted = 1 AND updated_at < ?1',
+        [version, deviceId, id],
       );
     }
   }
 
   /// Makes the local version of row [id] a new local edit, later than
-  /// version [over] (another device's, or a deletion's here): an edit and
-  /// a deletion that did not know each other keep the edit (see
+  /// version [over] (another device's, or a deletion's here), holding the
+  /// same content from the same edit ([EditOrigins]): an edit and a
+  /// deletion that did not know each other keep the edit (see
   /// `PullApplier`).
   void keepAsEdit(String id, {required int over}) {
     final now = clock.nowMs();
-    db.execute('UPDATE $table SET updated_at = ?, device_id = ?, dirty = 1 WHERE id = ?', [
+    final kept = origins == null ? '' : ', ${EditOrigins.keepOrigin}';
+    db.execute('UPDATE $table SET updated_at = ?1, device_id = ?2, dirty = 1$kept WHERE id = ?3', [
       now > over ? now : over + 1,
       deviceId,
       id,
@@ -110,7 +131,10 @@ abstract class SyncableTable implements SyncableStore {
         'ORDER BY id LIMIT ?',
         [after ?? '', limit],
       )
-      .map(rowToRecord)
+      .map((row) {
+        final record = rowToRecord(row);
+        return origins?.withBase(row, record) ?? record;
+      })
       .toList();
 
   @override
@@ -146,7 +170,14 @@ abstract class SyncableTable implements SyncableStore {
         )) {
       return false;
     }
-    writeRemote(record);
+    takeRemote(record);
     return true;
+  }
+
+  /// Writes remote [record] (see [writeRemote]) with what it says of the
+  /// origin of its content or what its deletion knew ([EditOrigins]).
+  void takeRemote(SyncRecord record) {
+    writeRemote(record);
+    origins?.tookRemote(record);
   }
 }

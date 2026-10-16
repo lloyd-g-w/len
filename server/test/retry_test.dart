@@ -134,7 +134,7 @@ void main() {
         ..addError(const SocketException('Connection reset by peer'));
       unawaited(broken.close());
       final answer = await send('POST', '/v1/push', body: broken.stream);
-      expect(answer.statusCode, 500);
+      expect(answer.statusCode, 400);
       expect(store.currentSeq(), 0);
     });
 
@@ -212,7 +212,7 @@ void main() {
         ..addError(const SocketException('Connection reset by peer'));
       unawaited(broken.close());
       final answer = await send('PUT', '/v1/blobs/$sha', body: broken.stream);
-      expect(answer.statusCode, 500);
+      expect(answer.statusCode, 400);
       expect(blobs.has(sha), isFalse);
       expect(temp(), isEmpty);
       expect((await send('PUT', '/v1/blobs/$sha', body: data)).statusCode, 200);
@@ -235,7 +235,7 @@ void main() {
       // The first connection breaks: it must not take the stored blob along.
       first.addError(const SocketException('Connection reset by peer'));
       unawaited(first.close());
-      expect((await firstAnswer).statusCode, 500);
+      expect((await firstAnswer).statusCode, 400);
       expect(File(blobs.pathFor(sha)).readAsBytesSync(), data);
       expect(temp(), isEmpty);
     });

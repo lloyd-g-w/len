@@ -9,6 +9,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/blob_backend.dart';
 import 'package:len/sync/sync_api.dart';
 import 'package:len/sync/sync_controller.dart';
+import 'package:sqlite3/common.dart' show Row;
 
 import 'faulty_network.dart';
 
@@ -153,18 +154,20 @@ const syncedTables = [
 ];
 
 /// Every synced row (and the chunk indexes), comparable across devices:
-/// without the `dirty` flag, and tombstones only by version (a device keeps
+/// without local bookkeeping, and tombstones only by version and base (a device keeps
 /// the payload of rows it saw live, by design).
 Map<String, Object?> syncedState(AppServices s) => {
   for (final table in syncedTables)
     table: {
       for (final row in s.database.db.select('SELECT * FROM $table ORDER BY id'))
         row['id'] as String: row['deleted'] == 1
-            ? '${row['updated_at']}/${row['device_id']}/deleted'
+            ? '${row['updated_at']}/${row['device_id']}/deleted${_baseOf(row)}'
             : {
                 for (final e in row.entries)
-                  if (e.key != 'dirty')
+                  if (!_bookkeeping.contains(e.key))
                     e.key: e.value is List<int> ? base64Encode(e.value as List<int>) : e.value,
+                if (row['origin_for'] == row['updated_at'])
+                  'origin': '${row['origin_at']}/${row['origin_device']}',
               },
     },
   for (final (table, column) in [('stroke_chunks', 'stroke_id'), ('element_chunks', 'element_id')])
@@ -175,3 +178,19 @@ Map<String, Object?> syncedState(AppServices s) => {
         '${r['surface_id']}:${r['cx']},${r['cy']}:${r[column]}',
     ],
 };
+
+/// Local columns that are no synced state as such: unpushed changes, and
+/// the origin and base of rows edited in place (`EditOrigins`; synced as a
+/// record's `base`, compared as such).
+const _bookkeeping = {
+  'dirty',
+  'base_at',
+  'base_device',
+  'origin_at',
+  'origin_device',
+  'origin_for',
+};
+
+/// The `base` a tombstone carries, as text ('' for none).
+String _baseOf(Row row) =>
+    row['base_at'] == null ? '' : ' base ${row['base_at']}/${row['base_device']}';
