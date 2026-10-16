@@ -48,7 +48,7 @@ Counts for a tablet, paged notebook, sync off, unless noted.
 | One-time tips (kinds) | 5 → 4 (R9-1) | 6: reading, fingers, side button, hold to snap, lasso, scribble | + reading, fingers (R20) | R24-3 Keep: the budget holds |
 | One-time captions | 1 (Hold for a template) | 1 | – | R24-4 Keep |
 | Library notices | 5 | 7, one at a time by priority: a recording stopped in the background, a recording running elsewhere, unsaved changes, files not kept, browser may clear, only on this device, Len started fresh | + 2 recording notices (R17) | Keep |
-| Shortcut sheet rows | ? → 59 | 63 | + Print, Present, Turn pages, Paste without formatting | Keep |
+| Shortcut sheet rows | 59 (R12) | 63 | + Print, Move page in the overview, New text box and Back to the tool before (Text tool) | Keep |
 
 ### Tips budget
 
