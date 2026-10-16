@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 import 'dart:ui' show FramePhase;
 
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 
 /// Launch milestones, for measuring startup (docs/PERFORMANCE.md,
 /// "Startup"). Each is a Timeline instant event `len.startup.<label>`
@@ -66,12 +67,16 @@ abstract final class StartupTrace {
         for (final (label, marked) in [for (final e in _awaitingRaster.entries) (e.key, e.value)]) {
           if (at(FramePhase.buildFinish) < marked) continue;
           _awaitingRaster.remove(label);
-          final shown = at(FramePhase.rasterFinish);
-          final epoch = DateTime.now().microsecondsSinceEpoch - (developer.Timeline.now - shown);
-          _print('len-startup $label shown $epoch +${((shown - _mainMicros) / 1000).round()}ms');
+          _printShown(label, at(FramePhase.rasterFinish));
         }
       }
     });
+  }
+
+  /// Prints that [label]'s frame was on screen at [shown] (Timeline µs).
+  static void _printShown(String label, int shown) {
+    final epoch = DateTime.now().microsecondsSinceEpoch - (developer.Timeline.now - shown);
+    _print('len-startup $label shown $epoch +${((shown - _mainMicros) / 1000).round()}ms');
   }
 
   /// Milliseconds since [begin].
@@ -90,7 +95,20 @@ abstract final class StartupTrace {
   static void markAfterFrame(String label) {
     if (_seen.contains(label)) return;
     SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (enabled && !_seen.contains(label)) _awaitingRaster[label] = developer.Timeline.now;
+      if (enabled && !_seen.contains(label)) {
+        // The first frame reports no timings: it is on screen when the
+        // binding says so.
+        final binding = WidgetsBinding.instance;
+        if (binding.firstFrameRasterized) {
+          _awaitingRaster[label] = developer.Timeline.now;
+        } else {
+          unawaited(
+            binding.waitUntilFirstFrameRasterized.then(
+              (_) => _printShown(label, developer.Timeline.now),
+            ),
+          );
+        }
+      }
       mark(label);
     });
   }
