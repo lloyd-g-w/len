@@ -23,6 +23,9 @@ class LenImportCommit {
   final List<(String, SyncRecord)> _folders = [], _notebooks = [];
   final List<SyncRecord> _templates = [], _styles = [];
 
+  /// The folder [finish] made to hold the import, if any.
+  String? _holder;
+
   CommonDatabase get _db => stores.any.db;
 
   /// Writes (or keeps for [finish]) [record], given new ids; false if it is
@@ -69,7 +72,7 @@ class LenImportCommit {
       var root = parent;
       if (folderName != null && (_folders.isNotEmpty || _notebooks.isNotEmpty)) {
         folders.add(remap.clock.newId());
-        root = top = folders.last;
+        root = top = _holder = folders.last;
         _write(
           SyncRecord(
             collection: 'folders',
@@ -254,6 +257,7 @@ class LenImportCommit {
         insert.execute(['o', id]);
       }
       for (final id in [
+        ?_holder,
         for (final (_, f) in _folders) f.id,
         for (final t in _templates) t.id,
         for (final s in _styles) s.id,

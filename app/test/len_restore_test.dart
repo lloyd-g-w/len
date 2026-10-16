@@ -208,6 +208,15 @@ void main() {
     expect(version('strokes', 'ink-Diary'), greaterThan(ahead));
   });
 
+  test('the folder a restore goes into syncs like what it holds', () async {
+    final bytes = await backup();
+    await restore(target, bytes);
+    final copies = await restore(target, bytes, folderName: 'Backup 13 Oct 2026');
+    final dirty = {for (final r in target.folders.dirtyRecords(100)) r.id};
+    expect(dirty, containsAll(copies.folders));
+    expect(dirty, contains(copies.folder));
+  });
+
   test('undo puts a restore in the Trash, its folders away', () async {
     final bytes = await backup();
     notebook(target, 'Mine');
