@@ -68,7 +68,8 @@ class ElementRepository extends SyncableTable {
   void deleteSurfaces(Iterable<String> surfaceIds, {int? version}) =>
       tombstoneSurfaces(surfaceIds, chunkTable: 'element_chunks', version: version);
 
-  /// Brings back tombstoned elements whose data is still kept.
+  /// Brings back tombstoned elements whose data is still kept, marked as
+  /// revived (see [SyncableTable.revive]).
   @override
   void revive(Iterable<String> ids, {required int version}) {
     for (final id in ids) {
@@ -80,6 +81,7 @@ class ElementRepository extends SyncableTable {
       if (element == null) continue; // Its data was purged.
       if (version > (rows.first['updated_at'] as int)) {
         _upsert(element, updatedAt: version, deviceId: deviceId, dirty: true);
+        db.execute('UPDATE elements SET revived_at = ? WHERE id = ?', [version, id]);
       }
     }
   }

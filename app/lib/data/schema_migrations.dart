@@ -25,7 +25,30 @@ abstract final class SchemaMigrations {
     _notebookStyles,
     _freedBlobs,
     _textAlignStartEnd,
+    _deletionBases,
   ];
+
+  /// Version 15: what deletions of rows edited in place knew, and which of
+  /// those rows are copies a deletion conflict brought back (see
+  /// `SyncableTable.editedInPlace`; docs/SYNC_PROTOCOL.md, "Deletion
+  /// conflicts"). `base_at` / `base_device`: on a tombstone, the version it
+  /// replaced (a trigger notes it whichever way the row is deleted); on a
+  /// revived row, the base of the deletion it undid. `revived_at`: the
+  /// version a row was revived at, so it stops counting as revived with
+  /// the next write.
+  static void _deletionBases(CommonDatabase db) {
+    for (final table in const ['elements', 'recordings', 'outline']) {
+      db.execute('ALTER TABLE $table ADD COLUMN base_at INTEGER');
+      db.execute('ALTER TABLE $table ADD COLUMN base_device TEXT');
+      db.execute('ALTER TABLE $table ADD COLUMN revived_at INTEGER NOT NULL DEFAULT 0');
+      db.execute('''
+        CREATE TRIGGER ${table}_deletion_base AFTER UPDATE OF deleted ON $table
+        WHEN OLD.deleted = 0 AND NEW.deleted = 1 BEGIN
+          UPDATE $table SET base_at = OLD.updated_at, base_device = OLD.device_id
+          WHERE rowid = NEW.rowid;
+        END''');
+    }
+  }
 
   /// Version 14: text boxes align to their paragraphs' start or end
   /// (`left` → `start`, `right` → `end`; right-to-left text). The record

@@ -64,6 +64,10 @@ class FakeServer {
   /// Blob uploads that fail with 500.
   final Set<String> failingPuts = {};
 
+  /// Pushes still to apply whose answer is then lost (the connection
+  /// breaks, or the app is killed, before the client hears it).
+  int losePushAnswers = 0;
+
   /// Every blob upload attempted, in order.
   final List<String> putAttempts = [];
 
@@ -136,6 +140,10 @@ class FakeServer {
               (r['updatedAt'] == existing['updatedAt'] &&
                   (r['deviceId']! as String).compareTo(existing['deviceId']! as String) > 0);
           if (newer) _records[key] = {...r, 'seq': ++_seq};
+        }
+        if (losePushAnswers > 0) {
+          losePushAnswers--;
+          throw http.ClientException('Connection reset (answer lost)', request.url);
         }
         return http.Response(jsonEncode({'applied': 0, 'ignored': 0, 'serverSeq': _seq}), 200);
       case '/v1/pull':

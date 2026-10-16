@@ -20,6 +20,17 @@ abstract class SyncableTable implements SyncableStore {
   /// The SQL table name (trusted constant, never user input).
   String get table;
 
+  /// Collections whose rows are edited in place (strokes are replaced
+  /// instead, and the library's rows are organisation, not content): an
+  /// edit of one can race a deletion of it, so their tombstones note what
+  /// the deletion knew and their revived rows are marked as such (columns
+  /// `base_at`, `base_device`, `revived_at`; docs/SYNC_PROTOCOL.md,
+  /// "Deletion conflicts").
+  static const editedInPlaceCollections = {'elements', 'recordings', 'outline'};
+
+  /// Whether this table is one of [editedInPlaceCollections].
+  bool get editedInPlace => editedInPlaceCollections.contains(collection);
+
   CommonDatabase get db => database.db;
 
   /// Converts a row into its wire record.
@@ -78,16 +89,44 @@ abstract class SyncableTable implements SyncableStore {
   /// deletion that raced an edit, see `DeletionConflicts`: the version right
   /// after the deletion's, so a copy brought back never beats an edit made
   /// elsewhere). Tables whose tombstones keep every column revive them as
-  /// they were.
+  /// they were. Rows edited in place are marked as revived at [version] (see
+  /// [editedInPlace]), keeping the base of the deletion they undo.
   void revive(Iterable<String> ids, {required int version}) {
+    final marked = editedInPlace ? ', revived_at = ?1' : '';
     for (final id in ids) {
       db.execute(
-        'UPDATE $table SET deleted = 0, dirty = 1, updated_at = ?, device_id = ? '
-        'WHERE id = ? AND deleted = 1 AND updated_at < ?',
-        [version, deviceId, id, version],
+        'UPDATE $table SET deleted = 0, dirty = 1, updated_at = ?1, device_id = ?2$marked '
+        'WHERE id = ?3 AND deleted = 1 AND updated_at < ?1',
+        [version, deviceId, id],
       );
     }
   }
+
+  /// What a pull needs to know of local row [id] of a table edited in place
+  /// ([editedInPlace]) to tell an edit and a deletion that did not know
+  /// each other; null if there is no such row.
+  LocalVersion? localVersion(String id) {
+    final rows = database.select(
+      'SELECT updated_at, device_id, deleted, dirty, base_at, base_device, revived_at '
+      'FROM $table WHERE id = ?',
+      [id],
+    );
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    final at = row['updated_at'] as int;
+    return (
+      version: (updatedAt: at, deviceId: row['device_id'] as String),
+      deleted: row['deleted'] == 1,
+      dirty: row['dirty'] == 1,
+      base: _baseOf(row),
+      revived: row['deleted'] == 0 && row['revived_at'] == at,
+    );
+  }
+
+  static RecordVersion? _baseOf(Row row) => switch ((row['base_at'], row['base_device'])) {
+    (final int at, final String device) => (updatedAt: at, deviceId: device),
+    _ => null,
+  };
 
   /// Makes the local version of row [id] a new local edit, later than
   /// version [over] (another device's, or a deletion's here): an edit and
@@ -110,8 +149,15 @@ abstract class SyncableTable implements SyncableStore {
         'ORDER BY id LIMIT ?',
         [after ?? '', limit],
       )
-      .map(rowToRecord)
+      .map(editedInPlace ? _recordWithBase : rowToRecord)
       .toList();
+
+  /// [rowToRecord] with the base a tombstone or a revived row carries.
+  SyncRecord _recordWithBase(Row row) {
+    final record = rowToRecord(row);
+    final carries = row['deleted'] == 1 || row['revived_at'] == row['updated_at'];
+    return carries ? record.withBase(_baseOf(row)) : record;
+  }
 
   @override
   void markClean(List<RowVersion> versions) {
@@ -147,6 +193,27 @@ abstract class SyncableTable implements SyncableStore {
       return false;
     }
     writeRemote(record);
+    if (editedInPlace) {
+      // What the deletion knew, or what the one a revived copy undoes knew.
+      db.execute('UPDATE $table SET base_at = ?, base_device = ?, revived_at = ? WHERE id = ?', [
+        record.base?.updatedAt,
+        record.base?.deviceId,
+        record.base != null && !record.deleted ? record.updatedAt : 0,
+        record.id,
+      ]);
+    }
     return true;
   }
 }
+
+/// A local row's version and what [SyncableTable.localVersion] says of it:
+/// whether it has unpushed changes, the [base] its tombstone or revived
+/// copy carries, and whether it is a copy a deletion conflict brought back
+/// ([revived]) and not edited since.
+typedef LocalVersion = ({
+  RecordVersion version,
+  bool deleted,
+  bool dirty,
+  RecordVersion? base,
+  bool revived,
+});

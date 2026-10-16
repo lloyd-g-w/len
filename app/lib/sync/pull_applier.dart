@@ -158,43 +158,60 @@ class PullApplier {
     }
   }
 
-  /// Collections whose rows are edited in place (strokes are replaced
-  /// instead, and the library's rows are organisation, not content).
-  static const editedInPlace = {'elements', 'recordings', 'outline'};
-
-  /// An edit and a deletion of the same row that did not know each other
-  /// keep the edit, whichever is later (docs/SYNC_PROTOCOL.md, "Deletion
-  /// conflicts"): a deletion arriving for a row with an edit here that was
-  /// never pushed, or an edit arriving for a row deleted here, unpushed,
-  /// when the deletion would win. The edit then becomes a local edit later
-  /// than both, to push; a page or notebook deleted with the row comes back
-  /// once the pull ends ([DeletionConflicts.resolve]). Returns whether the
-  /// row changed, or null when [record] is no such race.
+  /// An edit and a deletion of the same row edited in place that did not
+  /// know each other keep the edit, whichever is later (docs/SYNC_PROTOCOL.md,
+  /// "Deletion conflicts"); so does an edit and a copy a deletion conflict
+  /// brought back that did not know it. What a deletion knew is the version
+  /// its tombstone replaced ([SyncRecord.base]); an edit is a live version
+  /// that is no such copy ([LocalVersion.revived]). Kept over:
   ///
-  /// Such rows are pushed after the pull (`SyncEngine`), so they are still
-  /// dirty here. (Not on a first sync or after switching servers: every
-  /// row is pushed before the pull then.)
+  /// - a pulled deletion: a version here later than the deletion knew;
+  /// - a pulled copy brought back: a version here later than the deletion
+  ///   it undoes knew;
+  /// - a deletion here (which would win): a pulled edit later than the
+  ///   deletion knew.
+  ///
+  /// The edit then becomes a local edit later than both, to push; a page or
+  /// notebook deleted with the row comes back once the pull ends
+  /// ([DeletionConflicts.resolve]). Without a base (a tombstone whose
+  /// knowledge is unknown) only an edit or deletion here that is not pushed
+  /// yet counts as unknown to the other side. Returns whether the row changed, or null when [record]
+  /// is no such race.
+  ///
+  /// Edits and deletions of such rows are pushed after the pull
+  /// (`SyncEngine`), so a race is found here rather than decided by
+  /// last-write-wins on the server.
   bool? _keepEdit(SyncableStore store, SyncRecord record) {
-    if (store is! SyncableTable || !editedInPlace.contains(record.collection)) return null;
-    final rows = database.select(
-      'SELECT updated_at, device_id, deleted FROM ${store.table} WHERE id = ? AND dirty = 1',
-      [record.id],
-    );
-    if (rows.isEmpty || (rows.first['deleted'] == 1) == record.deleted) return null;
-    final local = rows.first['updated_at'] as int;
-    final wins = record.supersedes(updatedAt: local, deviceId: rows.first['device_id'] as String);
-    if (record.deleted) {
-      // An edit here the deleting device cannot have seen.
-      if (!wins) return null;
+    if (store is! SyncableTable || !store.editedInPlace) return null;
+    final local = store.localVersion(record.id);
+    if (local == null) return null;
+    final incoming = (updatedAt: record.updatedAt, deviceId: record.deviceId);
+    final wins = isLaterVersion(incoming, local.version);
+    final revival = !record.deleted && record.base != null;
+    if (!local.deleted) {
+      // A deletion or a copy brought back, replacing an edit here it did
+      // not know.
+      if (!wins || local.revived || !(record.deleted || revival)) return null;
+      if (!_unknown(local.version, to: record.base, unpushed: local.dirty)) return null;
       store.keepAsEdit(record.id, over: record.updatedAt);
-    } else {
-      // An edit elsewhere this unpushed deletion did not know.
-      if (wins) return null;
-      store.writeRemote(record);
-      store.keepAsEdit(record.id, over: local);
+      return true;
     }
+    // An edit elsewhere this deletion did not know (not a copy brought
+    // back: that holds what some deletion removed).
+    if (record.deleted || revival || wins) return null;
+    if (!_unknown(incoming, to: local.base, unpushed: local.dirty)) return null;
+    store.writeRemote(record);
+    store.keepAsEdit(record.id, over: local.version.updatedAt);
     return true;
   }
+
+  /// Whether a deletion that knew version [to] did not know [version]: it
+  /// is later. With [to] unknown, whether the change here is [unpushed].
+  static bool _unknown(
+    RecordVersion version, {
+    required RecordVersion? to,
+    required bool unpushed,
+  }) => to == null ? unpushed : isLaterVersion(version, to);
 
   /// Adds [id] unless it is unknown (null, or empty for placeholder
   /// tombstones of rows never seen locally).

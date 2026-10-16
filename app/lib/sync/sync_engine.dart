@@ -6,6 +6,7 @@ import '../data/blob_store.dart';
 import '../data/repositories.dart';
 import '../data/settings_repository.dart';
 import '../data/syncable.dart';
+import '../data/syncable_table.dart';
 import '../platform/pull_decoder.dart';
 import 'blob_sync.dart';
 import 'freed_files.dart';
@@ -262,10 +263,10 @@ class SyncEngine {
   /// it lacks, nor a deleted page or notebook whose content is still live
   /// (which other devices would take for a deletion conflict). [beforePull]
   /// pushes only live rows that are not edited in place
-  /// ([PullApplier.editedInPlace]).
+  /// ([SyncableTable.editedInPlaceCollections]).
   Future<void> _push(SyncApi api, CancelCheck cancelled, {bool beforePull = false}) async {
     for (final store in stores) {
-      if (beforePull && PullApplier.editedInPlace.contains(store.collection)) continue;
+      if (beforePull && SyncableTable.editedInPlaceCollections.contains(store.collection)) continue;
       await _pushStore(api, cancelled, store, deleted: false);
     }
     if (beforePull) return;
