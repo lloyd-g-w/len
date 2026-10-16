@@ -71,8 +71,16 @@ class SelectionController extends _SelectionCore {
   /// its whole text.
   void copy() {
     if (isEmpty) return;
+    final c = carried;
+    clipboard.put(c.strokes, c.elements, c.bounds);
+  }
+
+  /// What a copy of the selection holds (a text box flowing across pages
+  /// with its whole text) and the bounds around it: what is copied, or
+  /// dropped into another editor.
+  ({List<Stroke> strokes, List<SurfaceElement> elements, Rect bounds}) get carried {
     final elements = _whole(_elements);
-    clipboard.put(_strokes, elements, boundsOf(_strokes, elements));
+    return (strokes: _strokes, elements: elements, bounds: boundsOf(_strokes, elements));
   }
 
   void cut() {

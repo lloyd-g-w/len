@@ -298,6 +298,14 @@ void main() {
       expect(TextData.fromJson(selection.clipboard.elements.single.data).text, lines(12));
     });
 
+    test('dragging the first box into another editor carries the whole text', () {
+      typeBox(lines(12));
+      selection.select(const [], [live('p0')]);
+      final carried = selection.carried;
+      expect(TextData.fromJson(carried.elements.single.data).text, lines(12));
+      expect(carried.bounds.height, closeTo(carried.elements.single.rect.height, 1));
+    });
+
     test('rotating the first box gathers the whole text into it', () {
       typeBox(lines(12));
       final head = live('p0');
