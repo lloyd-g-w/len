@@ -129,35 +129,8 @@ class SyncController extends ChangeNotifier with _SyncRequests {
   @visibleForTesting
   int get liveConnections => _live.connections;
 
-  StreamSubscription<void>? _commits;
-
-  /// [SyncEngine.dirtyWrites] when last looked at, when the run under way
-  /// (or the last one) began, and before that (restored if it failed).
-  int _seenWrites = 0;
-  int _writesAtRunStart = 0;
-  int _restartWrites = 0;
-
-  /// Pushing local writes: after a pause, at the latest after a while;
-  /// then due ([_pushDue]) until a run begins (again after it failed).
-  Timer? _writeTimer;
-  Timer? _writeDeadline;
-  bool _pushDue = false;
-  bool _restartPush = false;
-
-  /// The newest server event this device may not have caught up with.
-  ServerEvent? _heard;
-  Timer? _remoteTimer;
-
-  /// A run became due while one was under way, or during [_cooldown].
-  bool _dueAfterRun = false;
-  bool _dueAfterCooldown = false;
-
-  /// Failed runs in a row, and the backoff after the last.
-  int _failures = 0;
-  Timer? _cooldown;
-
-  /// Fallback timer ticks skipped since the last run.
-  int _quietTicks = 0;
+  /// What makes runs due on their own (see [_LiveSync]).
+  final _t = _Triggers();
 
   /// The client of the run under way: closed when the configuration
   /// changes, so a request stuck on the old server (a long upload, a dead
@@ -311,8 +284,8 @@ class SyncController extends ChangeNotifier with _SyncRequests {
   void start() {
     if (_disposed) return;
     _started = true;
-    _seenWrites = _writesAtRunStart = engine.dirtyWrites.count;
-    _commits ??= engine.database.commits.listen((_) => _onCommit());
+    _t.seenWrites = _t.writesAtRunStart = engine.dirtyWrites.count;
+    _t.commits ??= engine.database.commits.listen((_) => _onCommit());
     _timer?.cancel();
     _timer = Timer.periodic(interval, (_) => _tick());
     _updateLive();
@@ -335,9 +308,7 @@ class SyncController extends ChangeNotifier with _SyncRequests {
     _configGeneration++;
     _api?.close();
     _live.run = false;
-    _failures = 0;
-    _cooldown?.cancel();
-    _cooldown = null;
+    _t.reset();
     _lastError = _lastErrorDetails = _lastFailure = null;
     _failingSince = null;
     _setState(isConfigured ? SyncState.idle : SyncState.disabled);
@@ -401,11 +372,7 @@ class SyncController extends ChangeNotifier with _SyncRequests {
     _disposed = true;
     tokens.removeListener(_tokenChanged);
     _timer?.cancel();
-    _writeTimer?.cancel();
-    _writeDeadline?.cancel();
-    _remoteTimer?.cancel();
-    _cooldown?.cancel();
-    unawaited(_commits?.cancel());
+    _t.dispose();
     _live.dispose();
     _api?.close();
     unawaited(_remoteChanges.close());

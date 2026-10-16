@@ -173,7 +173,8 @@ class LiveEvents {
     _watchdog = null;
     _retry?.cancel();
     _retry = null;
-    unawaited(_subscription?.cancel());
+    // (A browser may fail cancelling a stream that already broke.)
+    unawaited(_subscription?.cancel().catchError((Object _) {}));
     _subscription = null;
     _api?.close();
     _api = null;

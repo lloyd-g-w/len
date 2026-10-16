@@ -3367,10 +3367,53 @@ the others say nothing, as nothing changed for them.
 
 Presentation and retries (`SyncController`, `ui/sync_status_button.dart`,
 `features/settings/sync_*`): `lastError` is always plain words, with any raw
-text in `lastErrorDetails` (Settings → Sync shows it under Details). The
-timer, app lifecycle, editor and library call `syncInBackground`, which skips
-while `waitsForSettings` (the server rejected the token: retrying can't help);
-saving settings or Sync now tries again. A failed status opens Settings at
+text in `lastErrorDetails` (Settings → Sync shows it under Details). Runs the
+app starts on its own (below) skip while `waitsForSettings` (the server
+rejected the token: retrying can't help); saving settings or Sync now tries
+again.
+
+Scheduling (`SyncController`, `sync_controller_live.dart`, `LiveEvents`):
+sync is near-live without polling hard. Never more than one run at a time
+(`syncNow` queues one follow-up).
+- **Local writes.** `DirtyWrites` (`data/`) installs temporary triggers on the
+  UI connection's syncable tables that count rows written with `dirty = 1`
+  (local edits, imports, revivals; not pulled records, search indexing or
+  settings; a pull worker's own connection has no triggers). The controller
+  looks at the count on every `AppDatabase.commits` event and, when it moved,
+  schedules a run 3 s after writing pauses (at the latest 10 s after the
+  first unpushed write), and only if rows are still dirty then and were
+  dirtied since the last run began (rows that stay dirty, such as one held
+  back for its file, don't make runs of their own). No UI code asks for
+  syncs after edits.
+- **Other devices' changes.** `LiveEvents` keeps one connection to the
+  server's `/v1/events` (Server-Sent Events, `SyncApi.events`,
+  `parseServerEvents`) while the app is in the foreground (`App` sets
+  `SyncController.foreground` from the lifecycle: open when resumed or
+  inactive, closed when hidden or paused, which on Android includes the
+  screen going off), sync is configured and the token not refused; it
+  reconnects after 1, 2, 4 … s up to a minute (+ up to 20 % jitter), takes
+  50 s without a byte (heartbeats come every 20 s) for a dead connection, and
+  waits 10 minutes before asking a server that isn't one again. An event with
+  another server id or a seq beyond `SyncEngine.knownSeq` (the pulled
+  position, or what this device's own pushes stored right after it, so its
+  own pushes wake nobody here) makes a run a second later. The same code
+  runs on the web: `package:http`'s `BrowserClient` streams `fetch` bodies, and
+  unlike `EventSource` it sends the `Authorization` header.
+- **Failures.** After a failed run, runs the controller starts on its own
+  wait 5 s, doubling up to 2 min (what that run was to push is still due); the
+  event stream connecting again retries at once.
+- **Fallback.** A timer every 45 s, stretched to every 2 minutes (three
+  ticks) while the event stream is healthy and the last run worked, and a
+  run when the app goes to the background (to upload) or returns.
+
+Why SSE rather than long-polling `/v1/pull?wait=…`: one request per change
+instead of one per change and per timeout, an event costs a few bytes on an
+open connection, the shelf server streams it with a `StreamController` (no
+waiting handlers holding database state), and a connection's first event
+also answers "did I miss anything" after a reconnect. Proxies are handled
+with headers (`X-Accel-Buffering: no`, `Cache-Control: no-transform`) and
+heartbeats; a proxy that buffers anyway only makes sync as slow as the
+fallback timer. A failed status opens Settings at
 Sync; `SyncAttention` says once, app-wide, that a rejected token stopped sync.
 
 Sync token (`data/sync_token_store.dart`, `platform/secure_store.dart`): the

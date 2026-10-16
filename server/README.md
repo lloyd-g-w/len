@@ -69,6 +69,27 @@ content-addressed files in a blob directory next to it.
    Then in the Len app, enter `https://sync.example.com` and the token from
    `.env`.
 
+   **Live updates through the proxy.** Devices keep a Server-Sent Events
+   stream open (`GET /v1/events`) to hear of other devices' changes within
+   seconds. A proxy must pass it on unbuffered and keep it open:
+
+   - **Caddy**: nothing to do (it flushes `text/event-stream` responses at
+     once).
+   - **nginx**: the server sends `X-Accel-Buffering: no`, which turns
+     response buffering off for the stream; `proxy_buffering off;` in its
+     `location` does the same if your setup ignores that header. Keep
+     `proxy_read_timeout` above the 20 s heartbeat (the default 60 s is
+     fine) and don't `gzip` `text/event-stream`. With HTTP/1.1 upstreams
+     set `proxy_http_version 1.1;`.
+   - **Apache** (`mod_proxy`): `ProxyPass / http://127.0.0.1:8080/
+     flushpackets=on`, and no `mod_deflate` for `text/event-stream`.
+   - **Cloudflare** and similar CDNs pass `text/event-stream` through; their
+     idle timeout (100 s) is well above the heartbeat.
+
+   A proxy that buffers anyway costs nothing but speed: devices still sync
+   every couple of minutes and whenever they write, leave or return to the
+   app.
+
 ## Configuration
 
 | Variable         | Default        | Notes                                    |
@@ -129,8 +150,9 @@ server: devices recognise it by its id and upload everything.
 push the server has answered survives a crash or power loss.
 
 **Stopping:** on SIGTERM or SIGINT (`docker stop`) the server stops accepting
-connections, lets requests in flight finish for up to 8 s (within Docker's
-default 10 s stop timeout), then closes the database.
+connections, ends the open event streams (devices reconnect once it is back),
+lets requests in flight finish for up to 8 s (within Docker's default 10 s
+stop timeout), then closes the database.
 
 ## Blob garbage collection
 
@@ -181,6 +203,7 @@ Layout: `bin/server.dart` (wiring), `lib/src/config.dart` (env config),
 `lib/src/record.dart` (model, validation), `lib/src/record_store.dart`
 (SQLite/LWW), `lib/src/api.dart` (routes, auth), `lib/src/cors.dart`
 (CORS middleware), `lib/src/blob_store.dart` (content-addressed files),
-`lib/src/blob_api.dart` (blob routes), `lib/src/blob_gc.dart` (blob garbage
+`lib/src/blob_api.dart` (blob routes), `lib/src/change_events.dart`
+(`/v1/events`), `lib/src/blob_gc.dart` (blob garbage
 collection), `lib/src/gc_command.dart` with `bin/gc.dart` (its admin
 command) and `lib/src/new_id_command.dart` (`server new-id`).

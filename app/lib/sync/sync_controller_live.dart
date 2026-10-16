@@ -16,18 +16,20 @@ extension _LiveSync on SyncController {
   void _onCommit() {
     if (_disposed || !_started || !isConfigured) return;
     final count = engine.dirtyWrites.count;
-    if (count == _seenWrites) return;
-    _seenWrites = count;
-    _writeTimer?.cancel();
-    _writeTimer = Timer(writeDelay, _writesDue);
-    _writeDeadline ??= Timer(writeMaxDelay, _writesDue);
+    if (count == _t.seenWrites) return;
+    _t.seenWrites = count;
+    _t.writeTimer?.cancel();
+    _t.writeTimer = Timer(writeDelay, _writesDue);
+    _t.writeDeadline ??= Timer(writeMaxDelay, _writesDue);
   }
 
   void _writesDue() {
-    _writeTimer?.cancel();
-    _writeDeadline?.cancel();
-    _writeTimer = _writeDeadline = null;
-    _pushDue = true;
+    _t.writeTimer?.cancel();
+    _t.writeDeadline?.cancel();
+    _t
+      ..writeTimer = null
+      ..writeDeadline = null;
+    _t.pushDue = true;
     _due();
   }
 
@@ -35,9 +37,9 @@ extension _LiveSync on SyncController {
   /// back, so try again now rather than after the backoff.
   void _onLive() {
     if (_disposed || _state != SyncState.error || waitsForSettings) return;
-    _cooldown?.cancel();
-    _cooldown = null;
-    _dueAfterCooldown = false;
+    _t.cooldown?.cancel();
+    _t.cooldown = null;
+    _t.dueAfterCooldown = false;
     unawaited(syncInBackground());
   }
 
@@ -46,10 +48,10 @@ extension _LiveSync on SyncController {
   /// change already (it pushed it).
   void _onServerEvent(ServerEvent event) {
     if (_disposed || !_isNews(event)) return;
-    _heard = event;
-    _remoteTimer?.cancel();
-    _remoteTimer = Timer(remoteDelay, () {
-      _remoteTimer = null;
+    _t.heard = event;
+    _t.remoteTimer?.cancel();
+    _t.remoteTimer = Timer(remoteDelay, () {
+      _t.remoteTimer = null;
       _due();
     });
   }
@@ -65,11 +67,11 @@ extension _LiveSync on SyncController {
   void _due() {
     if (_disposed || !_started || !isConfigured || waitsForSettings) return;
     if (_running != null || _queued != null) {
-      _dueAfterRun = true;
+      _t.dueAfterRun = true;
       return;
     }
-    if (_cooldown != null) {
-      _dueAfterCooldown = true;
+    if (_t.cooldown != null) {
+      _t.dueAfterCooldown = true;
       return;
     }
     if (_wanted()) {
@@ -78,24 +80,35 @@ extension _LiveSync on SyncController {
   }
 
   /// Whether a run has something to do: a server event not caught up with,
-  /// or local writes due for upload ([_pushDue]: writing paused) that dirtied
+  /// or local writes due for upload ([_t.pushDue]: writing paused) that dirtied
   /// rows since the last run began, which are still dirty.
   bool _wanted() {
-    if (_heard case final event? when _isNews(event)) return true;
-    _heard = null;
-    if (!_pushDue) return false;
-    if (engine.dirtyWrites.count != _writesAtRunStart && engine.hasDirtyRows()) return true;
-    _pushDue = false;
+    if (_t.heard case final event? when _isNews(event)) return true;
+    _t.heard = null;
+    if (!_t.pushDue) return false;
+    if (engine.dirtyWrites.count != _t.writesAtRunStart && _hasDirtyRows()) return true;
+    _t.pushDue = false;
     return false;
+  }
+
+  /// Whether rows wait for upload; false if the database can't say (sync
+  /// reports database errors itself).
+  bool _hasDirtyRows() {
+    try {
+      return !engine.database.isClosed && engine.hasDirtyRows();
+    } catch (e) {
+      debugPrint('Sync: cannot look for rows to upload: $e');
+      return false;
+    }
   }
 
   /// A run begins: it pushes everything dirty now.
   void _runStarts() {
-    _quietTicks = 0;
-    _restartWrites = _writesAtRunStart;
-    _restartPush = _pushDue;
-    _pushDue = false;
-    _writesAtRunStart = _started ? engine.dirtyWrites.count : 0;
+    _t.quietTicks = 0;
+    _t.restartWrites = _t.writesAtRunStart;
+    _t.restartPush = _t.pushDue;
+    _t.pushDue = false;
+    _t.writesAtRunStart = _started ? engine.dirtyWrites.count : 0;
   }
 
   /// A run ended (and nothing runs now): backs off after a failure (rows
@@ -105,24 +118,25 @@ extension _LiveSync on SyncController {
     if (_disposed) return;
     if (failed) {
       // What the run was to push is still to do.
-      _writesAtRunStart = _restartWrites;
-      _pushDue = _pushDue || _restartPush || engine.hasDirtyRows();
-      final step = SyncController.firstRetry * (1 << min(_failures, 8));
-      _failures++;
-      _cooldown?.cancel();
-      _cooldown = Timer(step > SyncController.lastRetry ? SyncController.lastRetry : step, () {
-        _cooldown = null;
-        if (_dueAfterCooldown) {
-          _dueAfterCooldown = false;
+      _t
+        ..writesAtRunStart = _t.restartWrites
+        ..pushDue = _t.pushDue || _t.restartPush || _hasDirtyRows();
+      final step = SyncController.firstRetry * (1 << min(_t.failures, 8));
+      _t.failures++;
+      _t.cooldown?.cancel();
+      _t.cooldown = Timer(step > SyncController.lastRetry ? SyncController.lastRetry : step, () {
+        _t.cooldown = null;
+        if (_t.dueAfterCooldown) {
+          _t.dueAfterCooldown = false;
           _due();
         }
       });
-      _dueAfterCooldown = true;
+      _t.dueAfterCooldown = true;
     } else {
-      _failures = 0;
+      _t.failures = 0;
     }
-    if (_dueAfterRun) {
-      _dueAfterRun = false;
+    if (_t.dueAfterRun) {
+      _t.dueAfterRun = false;
       _due();
     }
   }
@@ -132,9 +146,61 @@ extension _LiveSync on SyncController {
   void _tick() {
     if (_live.healthy &&
         _state != SyncState.error &&
-        ++_quietTicks * interval.inMilliseconds < liveInterval.inMilliseconds) {
+        ++_t.quietTicks * interval.inMilliseconds < liveInterval.inMilliseconds) {
       return;
     }
     unawaited(syncInBackground());
+  }
+}
+
+/// The state of [_LiveSync].
+class _Triggers {
+  StreamSubscription<void>? commits;
+
+  /// [SyncEngine.dirtyWrites] when last looked at, when the run under way
+  /// (or the last one) began, and before that (restored if it failed).
+  int seenWrites = 0;
+  int writesAtRunStart = 0;
+  int restartWrites = 0;
+
+  /// Pushing local writes: after a pause, at the latest after a while;
+  /// then due ([pushDue]) until a run begins (again after it failed).
+  Timer? writeTimer;
+  Timer? writeDeadline;
+  bool pushDue = false;
+  bool restartPush = false;
+
+  /// The newest server event this device may not have caught up with.
+  ServerEvent? heard;
+  Timer? remoteTimer;
+
+  /// A run became due while one was under way, or during [cooldown].
+  bool dueAfterRun = false;
+  bool dueAfterCooldown = false;
+
+  /// Failed runs in a row, and the backoff after the last.
+  int failures = 0;
+  Timer? cooldown;
+
+  /// Fallback timer ticks skipped since the last run.
+  int quietTicks = 0;
+
+  /// Another configuration: no backoff, no event of the old server.
+  void reset() {
+    failures = 0;
+    cooldown?.cancel();
+    cooldown = null;
+    dueAfterCooldown = false;
+    heard = null;
+    remoteTimer?.cancel();
+    remoteTimer = null;
+  }
+
+  void dispose() {
+    writeTimer?.cancel();
+    writeDeadline?.cancel();
+    remoteTimer?.cancel();
+    cooldown?.cancel();
+    unawaited(commits?.cancel());
   }
 }
