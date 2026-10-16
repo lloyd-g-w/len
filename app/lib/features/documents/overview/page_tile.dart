@@ -11,6 +11,7 @@ import '../../../ui/menus.dart';
 import '../../../ui/sidebar_item.dart' show MarginRulePainter;
 import '../../editor/document/page_backgrounds.dart';
 import '../../editor/document/page_thumbnail.dart';
+import 'overview_grid.dart';
 import 'page_commands.dart';
 import 'page_moves.dart';
 import 'page_tile_thumb.dart';
@@ -156,7 +157,7 @@ class _Footer extends StatelessWidget {
     final scheme = theme.colorScheme;
     final current = tile.current && !tile.selecting;
     return SizedBox(
-      height: 40,
+      height: OverviewGrid.footerRow(context),
       child: Row(
         children: [
           CustomPaint(

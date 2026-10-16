@@ -39,7 +39,10 @@ class OverviewGrid extends StatelessWidget {
   final double pageAspect;
 
   /// Below a tile's page: the gap and the number row.
-  static const double footer = Gaps.xs + 40;
+  static double footer(BuildContext context) => Gaps.xs + footerRow(context);
+
+  /// The number row: tall enough for its ⋯ to be a full touch target.
+  static double footerRow(BuildContext context) => Targets.barHit(context);
 
   /// Around a tile's page: its selection ring.
   static const double ring = 2 * (Hairline.rule + Gaps.xxs);
@@ -73,7 +76,7 @@ class OverviewGrid extends StatelessWidget {
           mainAxisSpacing: Gaps.lg,
           crossAxisSpacing: spacing,
           // The page's shape at the cell's width, its ring and its number.
-          mainAxisExtent: math.max(0.0, cell - ring) / pageAspect + ring + footer,
+          mainAxisExtent: math.max(0.0, cell - ring) / pageAspect + ring + footer(context),
         );
         return GridView.builder(
           controller: controller,
