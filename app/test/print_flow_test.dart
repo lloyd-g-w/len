@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -53,9 +52,7 @@ class _FakeExporter extends NotebookExporter {
 
 /// A printer that records what it was given.
 class _FakePrinter {
-  _FakePrinter([this.handoff = PrintHandoff.dialog]);
-
-  PrintHandoff handoff;
+  PrintHandoff handoff = PrintHandoff.dialog;
   Object? error;
   final printed = <(Uint8List, String, int)>[];
 
