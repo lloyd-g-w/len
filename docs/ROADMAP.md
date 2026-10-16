@@ -284,7 +284,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   segmented controls, templates, settings), context menus from the keyboard (Menu key /
   Shift+F10) on cards, folders, tabs, overview pages, styles and the page, a sane library Tab
   order, menus and popovers give focus back to their opener
-- ⬜ Keyboard: reorder overview pages (drag only; the page menu's Move or copy page… covers it)
+- ✅ Keyboard: reorder pages with Ctrl+arrows in the overview and the page sidebar
 - ✅ Settings: theme previews, a Writing section (stylus, gestures, toolbar position) with
   descriptions; everything checked at 1.3× text (see `docs/UX_AUDIT.md`)
 - ✅ Redesigned editor chrome (GoodNotes-style top bar: back, pages, bookmark, title, undo/redo,
