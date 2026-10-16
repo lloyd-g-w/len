@@ -24,7 +24,8 @@ typedef ImagePixel = Future<int?> Function(ImageData image, Offset uv, double pi
 ///   a highlighter's translucency belong to the tool, not the colour (a
 ///   highlighter's colour picked again draws the same highlight);
 /// - a closed shape's solid fill gives the fill colour; a tint is
-///   translucent and blends over what lies beneath it;
+///   translucent and blends over the fills, images and paper beneath it
+///   (a line beneath it still gives its own colour);
 /// - a text box gives the colour of the character under the point (none
 ///   between the lines);
 /// - an image gives its pixel ([ImagePixel]); transparent pixels let what
@@ -71,7 +72,7 @@ abstract final class ContentColour {
 
     final opaque =
         await visitElements(false) ||
-        strokes.reversed.any((s) => _add(layers, strokeColourAt(s, world, tolerance))) ||
+        strokes.reversed.any((s) => _addStroke(layers, s, world, tolerance)) ||
         await visitElements(true);
     if (layers.isEmpty) return null;
     // Blend bottom up; without an opaque base the result stays translucent.
@@ -88,6 +89,19 @@ abstract final class ContentColour {
     if (colour == null || colour >>> 24 == 0) return false;
     layers.add(colour);
     return colour >>> 24 == 0xFF;
+  }
+
+  /// Adds what [stroke] shows at [world]; true once opaque. A line under
+  /// tints wins over them: its own colour is what a pick there means (as a
+  /// tap there selects the line, `ContentHitTest.strokeAt`).
+  static bool _addStroke(List<int> layers, Stroke stroke, Offset world, double tolerance) {
+    if (StrokeHitTest.sweepHits(stroke, world, world, tolerance, fill: false)) {
+      layers
+        ..clear()
+        ..add(stroke.color | 0xFF000000);
+      return true;
+    }
+    return _add(layers, strokeColourAt(stroke, world, tolerance));
   }
 
   /// The colour [stroke] shows at [world]: its line's (opaque), else its
