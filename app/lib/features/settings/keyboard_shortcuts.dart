@@ -45,6 +45,7 @@ final List<ShortcutGroup> shortcutGroups = [
     ], shown: 'F3 / Shift+F3'),
     ShortcutHelp('Go to page', [_ctrl(LogicalKeyboardKey.keyG)]),
     ShortcutHelp('Export', [_ctrl(LogicalKeyboardKey.keyE)]),
+    ShortcutHelp('Print', [_ctrl(LogicalKeyboardKey.keyP)]),
     ShortcutHelp('Focus mode', [
       const SingleActivator(LogicalKeyboardKey.f11),
       _ctrl(LogicalKeyboardKey.period),

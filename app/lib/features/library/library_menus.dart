@@ -17,6 +17,7 @@ enum NotebookAction {
   move,
   cover,
   export,
+  print,
   select,
   trash,
   restore,
@@ -60,6 +61,7 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
       label: 'Move to folder…',
     ),
     const MenuRow(value: NotebookAction.export, icon: Symbols.ios_share_sharp, label: 'Export…'),
+    const MenuRow(value: NotebookAction.print, icon: Symbols.print_sharp, label: 'Print…'),
     const MenuRow(value: NotebookAction.select, icon: Symbols.check_circle_sharp, label: 'Select'),
     const PopupMenuDivider(),
     const MenuRow(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../documents/export/export_flow.dart';
+import '../documents/export/print_flow.dart';
 import 'chrome/editor_menu_actions.dart';
 import 'document/document_layout.dart';
 import 'editor_session.dart';
@@ -48,6 +49,11 @@ EditorMenuActions editorMenuActions(
         ? () => commands.export(context)
         : nav != null
         ? () => exportCanvasFlow(context, notebook: session.notebook)
+        : null,
+    onPrint: paged
+        ? () => commands.print(context)
+        : nav != null
+        ? () => printCanvasFlow(context, notebook: session.notebook)
         : null,
     flow: doc?.flow,
     onFlow: paged ? onFlow : null,

@@ -936,6 +936,39 @@ collects what was left out (missing PDF pages or images, PDF pages included
 as pictures) for the same message, and failures show their raw text only
 under Details.
 
+**Printing** (`print_flow.dart`, UX_AUDIT R22-8): Print… (editor ⋯, Ctrl+P,
+the library's notebook menu; canvases print their whole drawing) opens the
+export sheet with `print: true` — PDF only (no format picker; it leaves
+`ExportMemory.format` alone), pages, templates, backgrounds, a Print button —
+renders the PDF behind the same cancellable progress (`renderPdf`, shared
+with export) and hands it to `printPdf` (`platform/print_document*`), which
+answers a `PrintHandoff`. No printing package (`printing` would bring a second
+PDFium on desktops beside pdfrx's); each platform's own path instead, the
+file written to its own folder under the temporary `export/`:
+- **Android**: `PrintPlugin.kt` on `len/print` gives `PrintManager` a
+  `PrintDocumentAdapter` streaming the file: page count from the PDF
+  (`PdfRenderer`; Dart's count if unreadable), every write copies the whole
+  file off the main thread in chunks, stopping on cancellation, and reports
+  all pages written — the print spooler keeps only the pages the user chose
+  (`PrintPages.kt`, JVM-tested in `tool/wet_ink_check/unit_test.sh`). The
+  folder is deleted when the dialog finishes.
+- **Windows**: `ShellExecuteW` with the "print" verb (FFI, no runner code):
+  the default PDF reader prints; a reader without that verb gets the file
+  opened ("open in your PDF viewer to print").
+- **Linux**: the PDF opens in the default viewer (`url_launcher`: GIO, the
+  portal in a Flatpak) and the sheet says so up front (`printNote`). GTK's
+  print dialog could only send PDFs to printers that take PDF and has no
+  preview; `lp` prints to the default printer with no choice at all; a
+  viewer previews and prints anything with the desktop's own dialog.
+- **Web**: where the browser shows PDFs (`navigator.pdfViewerEnabled`) the
+  blob loads in a hidden frame whose `print()` opens the browser's dialog
+  over Len (the frame stays until the next print); else a new tab, else
+  (a blocked tab) a download.
+
+A print dialog speaks for itself (no message unless something was left
+out); the other handoffs say where the PDF went ("Opened “Lab.pdf” in your
+PDF viewer to print"), failures "Couldn't print …" with Details.
+
 **Why a Dart copier** (not PDFium page import): PDFium's
 `FPDF_ImportPages` / `FPDF_NewXObjectFromPage` are reachable only through
 FFI (`pdfium_dart`), i.e. not on the web, and would mean writing the ink
@@ -2636,6 +2669,7 @@ the web:
 | Applying large pulls (`pull_worker`) | background isolate, own connection, yielding to the app's writes | UI thread, time-budgeted slices |
 | LOD raster cache (`raster_store`) | PNG files in the cache directory (`lod-<format>/`, 96 MB LRU) | none: rasterised again each time |
 | Export (`file_export`) | save dialog + Show in folder / share sheet or Save to device | browser download                                 |
+| Print (`print_document`) | Android: print framework (`PrintPlugin.kt`); Windows: the PDF reader's print verb; Linux: the default viewer | hidden frame's `print()`, else a tab, else a download |
 | Single instance (`single_instance`) | one process (desktop runners forward later launches) | Web Lock + BroadcastChannel: a second tab waits ("open in another tab") or takes over (*Use here*, `TabHandover`) |
 | Page lifecycle (`page_lifecycle`) | nothing (writes are synchronous) | flush on hide / `pagehide`, `beforeunload` guard while a write is pending |
 | Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux / Windows: command line + forwarding from a second instance | PWA `launchQueue` (File Handling API) |

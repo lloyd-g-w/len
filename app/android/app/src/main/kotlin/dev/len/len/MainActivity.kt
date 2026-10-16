@@ -28,6 +28,8 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
         flutterEngine.plugins.add(HandwritingRecognitionPlugin())
         // "Save to device" for exports (system save dialogs).
         flutterEngine.plugins.add(SaveDocumentPlugin())
+        // Print… (the system's print dialog for an exported PDF).
+        flutterEngine.plugins.add(PrintPlugin())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

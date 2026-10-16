@@ -91,12 +91,13 @@ From the reports; the owner picks. Status as above.
   "Tap a colour on the page" shows, and the next press on the page (a loupe while it rests
   or hovers) takes the content's own colour there — stroke, fill, text, image pixel — else
   the page as shown; it becomes a recent colour. Escape or chrome cancels; palms are ignored.
-- ⬜ **Print** (UX_AUDIT R22-8): Print… beside Export… (⋯, Ctrl+P) hands the export's PDF
-  (same sheet: pages, templates) to the system's print dialog — Android's print framework,
-  the desktop's dialog, the browser's. GoodNotes and Notability print directly; today it is
-  export, then print from a reader. Large: a package with native parts on every platform
-  (`printing` ships its own PDFium on desktops beside `pdfium_dart`'s), or a small
-  `PrintManager` plugin on Android plus `xdg-open` / the browser's print of a blob.
+- ✅ **Print** (UX_AUDIT R22-8, feat/print): Print… beside Export… (⋯, Ctrl+P, and the
+  library's notebook menu) opens the export sheet as a print sheet (PDF only: pages,
+  templates, backgrounds; Print button) and hands the PDF over without a printing package:
+  Android's print framework (`PrintPlugin.kt` streaming the file, page count from the PDF,
+  cancellable writes), the Windows PDF reader's "print" verb (else opened in it), the Linux
+  default viewer (the sheet says so; `lp` would print with no choices, GTK's dialog needs
+  printers that take PDF) and the browser's print of a hidden frame (else a tab or a download).
 - ✅ **Slide numbers** (UX_AUDIT R18-5): page numbers stay the notebook's; overview tiles and
   Go to page's strip show a PDF page's own number quietly where it differs ("26 · Slide 23",
   "PDF p. 23" for portrait PDFs), and Go to page takes "s23" / "slide 23" (several PDFs: the

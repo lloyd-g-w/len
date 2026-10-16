@@ -70,11 +70,13 @@ class ExportOptions {
       if (i >= 0 && i < all.length) exportedPage(all[i], includeTemplate: includeTemplates),
   ];
 
+  /// "3 pages", "1 page", "Whole canvas": how much is exported (or printed).
+  String get extent =>
+      canvas ? 'Whole canvas' : '${pages.length} ${pages.length == 1 ? 'page' : 'pages'}';
+
   /// "3 pages, PDF", "1 page, PNG at 288 dpi", "Whole canvas, PDF".
   String get summary {
-    final count = canvas
-        ? 'Whole canvas'
-        : '${pages.length} ${pages.length == 1 ? 'page' : 'pages'}';
+    final count = extent;
     return switch (format) {
       ExportFormat.pdf => '$count, PDF',
       ExportFormat.png => '$count, PNG at $pngDpi dpi',

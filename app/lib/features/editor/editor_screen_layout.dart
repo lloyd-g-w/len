@@ -22,6 +22,11 @@ extension _EditorLayout on _EditorScreenState {
         : _session.canvasNav != null
         ? () => unawaited(exportCanvasFlow(context, notebook: _session.notebook))
         : null,
+    print: _session.commands != null
+        ? () => unawaited(_session.commands!.print(context))
+        : _session.canvasNav != null
+        ? () => unawaited(printCanvasFlow(context, notebook: _session.notebook))
+        : null,
     goToPage: _session.commands == null
         ? null
         : () => unawaited(

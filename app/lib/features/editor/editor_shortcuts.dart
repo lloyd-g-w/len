@@ -154,7 +154,7 @@ Map<ShortcutActivator, VoidCallback> editorShortcuts(
 /// Everything the editor screen binds: [editorShortcuts] (with tab
 /// switching when it shows [tabs]), F5 [present] (focus mode with the
 /// laser), [turnPage] (Space and Shift+Space, in focus mode), Ctrl/⌘+E
-/// [export], Ctrl/⌘+G [goToPage], search and PDF text (Ctrl/⌘+C then
+/// [export], Ctrl/⌘+P [print], Ctrl/⌘+G [goToPage], search and PDF text (Ctrl/⌘+C then
 /// calls [pdfCopied], to say so as the menu's Copy does).
 Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
   EditorSession session, {
@@ -167,6 +167,7 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
   OpenNotebooks? tabs,
   VoidCallback? closeTab,
   VoidCallback? export,
+  VoidCallback? print,
   VoidCallback? goToPage,
   VoidCallback? shortcutsHelp,
   VoidCallback? pdfCopied,
@@ -185,6 +186,10 @@ Map<ShortcutActivator, VoidCallback> editorScreenShortcuts(
   if (export != null) ...{
     const SingleActivator(LogicalKeyboardKey.keyE, control: true): export,
     const SingleActivator(LogicalKeyboardKey.keyE, meta: true): export,
+  },
+  if (print != null) ...{
+    const SingleActivator(LogicalKeyboardKey.keyP, control: true): print,
+    const SingleActivator(LogicalKeyboardKey.keyP, meta: true): print,
   },
   if (goToPage != null) ...{
     const SingleActivator(LogicalKeyboardKey.keyG, control: true): goToPage,

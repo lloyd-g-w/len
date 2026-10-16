@@ -114,7 +114,7 @@ Future<ExportedFiles?> _mobileExport(
 /// deleted, so shared assignments don't pile up in the cache (R22-6);
 /// newer shares stay, as an app shared to may still be reading them (an
 /// upload in the background).
-@visibleForTesting
+/// Prints write there too (`print_document_native.dart`).
 Future<Directory> freshExportDir(Directory tmp, {DateTime? now}) async {
   final root = await Directory(p.join(tmp.path, 'export')).create(recursive: true);
   final at = now ?? DateTime.now();

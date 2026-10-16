@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/notebook_page.dart';
 import '../../../platform/file_export.dart' as platform;
+import '../../../platform/print_document.dart' as printing;
 import '../../../ui/app_switch.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/dialog_or_sheet.dart';
@@ -11,7 +12,8 @@ import 'export_sheet_sections.dart';
 
 /// Asks what to export from [pages] (format, pages, templates, PDF
 /// backgrounds): a dialog on wide screens, a bottom sheet
-/// on phones. Null if cancelled.
+/// on phones. Null if cancelled. With [print], what to print: the same
+/// sheet as a PDF export (no format to choose) with a Print button.
 Future<ExportOptions?> showExportSheet(
   BuildContext context, {
   required String title,
@@ -23,6 +25,7 @@ Future<ExportOptions?> showExportSheet(
   bool choosePages = true,
   bool resumeRange = true,
   String? whole,
+  bool print = false,
 }) {
   ExportSheet sheet({required bool wide}) => ExportSheet(
     title: title,
@@ -35,7 +38,9 @@ Future<ExportOptions?> showExportSheet(
     choosePages: choosePages,
     resumeRange: resumeRange,
     whole: whole,
-    offerSaveToDevice: platform.canSaveToDevice,
+    print: print,
+    printNote: print ? printing.printNote : null,
+    offerSaveToDevice: !print && platform.canSaveToDevice,
   );
   return showDialogOrSheet<ExportOptions>(
     context: context,
@@ -60,7 +65,16 @@ class ExportSheet extends StatefulWidget {
     this.resumeRange = true,
     this.whole,
     this.offerSaveToDevice = false,
+    this.print = false,
+    this.printNote,
   });
+
+  /// Asks what to print: a PDF (no format to choose), Print to finish.
+  final bool print;
+
+  /// A line on where Print goes when it can't open a print dialog itself
+  /// (`printNote` from `platform/print_document`).
+  final String? printNote;
 
   /// What is exported whole when it isn't one notebook ("3 notebooks",
   /// "Whole folder"), for the summary.
@@ -120,8 +134,14 @@ class ExportMemory {
     templates = backgrounds = true;
   }
 
-  static void _keep(ExportOptions options, ExportRange? range, {required bool choosePages}) {
-    format = options.format;
+  /// Keeps [options]; a print ([print]) leaves the export's format alone.
+  static void _keep(
+    ExportOptions options,
+    ExportRange? range, {
+    required bool choosePages,
+    bool print = false,
+  }) {
+    if (!print) format = options.format;
     templates = options.includeTemplates;
     backgrounds = options.includeBackgrounds;
     if (choosePages && options.format != ExportFormat.len) {
@@ -131,7 +151,7 @@ class ExportMemory {
 }
 
 class _ExportSheetState extends State<ExportSheet> {
-  ExportFormat _format = ExportMemory.format;
+  late ExportFormat _format = widget.print ? ExportFormat.pdf : ExportMemory.format;
   late ExportRange _range = widget.pages.length == 1 || !widget.choosePages
       ? ExportRange.all
       : widget.initialPages != null
@@ -211,10 +231,13 @@ class _ExportSheetState extends State<ExportSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ExportFormatPicker(format: _format, onChanged: (f) => setState(() => _format = f)),
+          if (!widget.print)
+            ExportFormatPicker(format: _format, onChanged: (f) => setState(() => _format = f))
+          else if (widget.printNote case final note?)
+            Text(note, style: Theme.of(context).textTheme.bodySmall),
           // A Len file is the whole notebook, as it is.
           if (_count > 1 && widget.choosePages && _format != ExportFormat.len) ...[
-            const SizedBox(height: Gaps.xl),
+            if (!widget.print || widget.printNote != null) const SizedBox(height: Gaps.xl),
             ExportSection(
               title: 'Pages',
               children: [
@@ -232,7 +255,8 @@ class _ExportSheetState extends State<ExportSheet> {
             ),
           ],
           if (_format != ExportFormat.len) ...[
-            const SizedBox(height: Gaps.xl),
+            if (!widget.print || widget.printNote != null || _count > 1 && widget.choosePages)
+              const SizedBox(height: Gaps.xl),
             ExportSection(title: 'Include', children: _includes(kinds)),
           ],
         ],
@@ -251,7 +275,7 @@ class _ExportSheetState extends State<ExportSheet> {
           child: Padding(
             padding: EdgeInsets.fromLTRB(Gaps.xl, widget.wide ? Gaps.xl : 0, Gaps.xl, Gaps.md),
             child: SheetHeader(
-              title: 'Export',
+              title: widget.print ? 'Print' : 'Export',
               subtitle: widget.title,
               // Dialogs close with Cancel (none beside Save to device);
               // sheets with the ✕ (DESIGN §6.3).
@@ -266,7 +290,8 @@ class _ExportSheetState extends State<ExportSheet> {
         ),
         ExportSheetFooter(
           // A bad range says so in its field only.
-          summary: options?.summary ?? '',
+          summary: (widget.print ? options?.extent : options?.summary) ?? '',
+          print: widget.print,
           onExport: options == null ? null : () => _done(options),
           onSaveToDevice: !widget.offerSaveToDevice || options == null
               ? null
@@ -289,7 +314,12 @@ class _ExportSheetState extends State<ExportSheet> {
 
   /// Closes with [options], remembering them for the next export.
   void _done(ExportOptions options) {
-    ExportMemory._keep(options, _range, choosePages: widget.choosePages && _count > 1);
+    ExportMemory._keep(
+      options,
+      _range,
+      choosePages: widget.choosePages && _count > 1,
+      print: widget.print,
+    );
     Navigator.of(context).pop(options);
   }
 
