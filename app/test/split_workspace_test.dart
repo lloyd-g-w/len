@@ -27,6 +27,7 @@ import 'document_editor_test.dart' show closeEditor;
 import 'split_view_test.dart';
 import 'support/fake_audio.dart';
 import 'support/real_async.dart';
+import 'support/tester_clock.dart';
 
 /// The sessions of the shown editors, left to right.
 List<EditorSession> sessionsOf(WidgetTester tester) =>
@@ -169,7 +170,12 @@ void main() {
 
   testWidgets('one notebook, one audio; one recording at a time across panes', (tester) async {
     final audio = FakeAudio();
-    final (s, physics, chemistry) = await pumpWorkspace(tester, audio: audio.backends);
+    final clock = FixedClock(DateTime.utc(2026)); // Moved by hand.
+    final (s, physics, chemistry) = await pumpWorkspace(
+      tester,
+      audio: audio.backends,
+      clock: clock,
+    );
     s.openNotebooks.openSplit(physics.id);
     await tester.pumpAndSettle();
     final buttons = tester.widgetList<AudioBarButton>(find.byType(AudioBarButton)).toList();
@@ -196,7 +202,7 @@ void main() {
     expect(chemistryAudio.recorder.lastError, contains('Already recording in “Physics”'));
     expect(chemistryAudio.recorder.state, RecorderState.idle);
     await tester.runAsync(() async {
-      await Future<void>.delayed(const Duration(milliseconds: 600));
+      clock.at = clock.at.add(const Duration(milliseconds: 600)); // Long enough to keep.
       await physicsAudio.recorder.stop();
     });
     await tester.pump();
@@ -214,7 +220,12 @@ void main() {
     tester,
   ) async {
     final audio = FakeAudio();
-    final (s, physics, chemistry) = await pumpWorkspace(tester, audio: audio.backends);
+    final clock = FixedClock(DateTime.utc(2026)); // Moved by hand.
+    final (s, physics, chemistry) = await pumpWorkspace(
+      tester,
+      audio: audio.backends,
+      clock: clock,
+    );
     s.openNotebooks.openSplit(chemistry.id);
     await tester.pumpAndSettle();
     final secondEditor = tester.state(find.byType(EditorScreen).last);
@@ -249,7 +260,7 @@ void main() {
     expect(right.undo.canUndo, isTrue);
     expect(recording.recorder.state, RecorderState.recording);
     await tester.runAsync(() async {
-      await Future<void>.delayed(const Duration(milliseconds: 600));
+      clock.at = clock.at.add(const Duration(milliseconds: 600)); // Long enough to keep.
       await recording.recorder.stop();
     });
     expect(recording.recordings, hasLength(1));
@@ -378,7 +389,12 @@ void main() {
 
   testWidgets('a parked pane that records: Show swaps it in, Stop stops it', (tester) async {
     final audio = FakeAudio();
-    final (s, physics, chemistry) = await pumpWorkspace(tester, audio: audio.backends);
+    final clock = FixedClock(DateTime.utc(2026)); // Moved by hand.
+    final (s, physics, chemistry) = await pumpWorkspace(
+      tester,
+      audio: audio.backends,
+      clock: clock,
+    );
     s.openNotebooks.openSplit(chemistry.id);
     await tester.pumpAndSettle();
     final recording = tester.widgetList<AudioBarButton>(find.byType(AudioBarButton)).last.audio;
@@ -401,7 +417,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Recording in “Chemistry”'), findsOneWidget);
     await tester.runAsync(() async {
-      await Future<void>.delayed(const Duration(milliseconds: 600));
+      clock.at = clock.at.add(const Duration(milliseconds: 600)); // Long enough to keep.
     });
     await tester.tap(find.text('Stop'));
     await pumpUntil(tester, () => recording.recorder.state == RecorderState.idle);
