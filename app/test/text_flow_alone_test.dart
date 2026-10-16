@@ -7,6 +7,10 @@ import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
 import 'package:len/ink/elements/text_edit_session.dart';
 import 'package:len/ink/elements/text_flow_chains.dart';
+import 'package:len/ink/selection/ink_clipboard.dart';
+import 'package:len/ink/selection/selection_controller.dart';
+import 'package:len/ink/selection/selection_surfaces.dart';
+import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/undo_history.dart';
 
 import 'data_test.dart' show FakeClock;
@@ -38,6 +42,7 @@ void main() {
   });
 
   group('rivals', rivalTests);
+  group('paste', pasteTests);
 
   SurfaceElement box(String id, String page, String text, {TextFlow? flow}) => SurfaceElement(
     id: id,
@@ -136,5 +141,76 @@ void rivalTests() {
     // All fits on p0 now: neither stays on p1.
     expect(elements.allOn('p1'), isEmpty);
     expect(TextData.fromJson(elements.allOn('p0').single.data).text, 'Alpha\nBeta');
+  });
+}
+
+/// The pages of [pages] one under another, for a selection reaching them.
+class FakeSurfaces implements SelectionSurfaces {
+  FakeSurfaces(this.pages);
+
+  final FakePages pages;
+
+  static const double pitch = 800 + FakePages.gap;
+
+  @override
+  ShiftedSurface? at(SurfaceModel from, Offset point) {
+    final i = pages.ids.indexOf(from.surfaceId);
+    final y = i * pitch + point.dy;
+    final k = (y / pitch).floor();
+    if (k < 0 || k >= pages.ids.length || y - k * pitch > FakePages.size.height) return null;
+    return (model: pages.modelOf(pages.ids[k]), shift: Offset(0, (k - i) * pitch));
+  }
+
+  @override
+  Iterable<ShiftedSurface> near(SurfaceModel from, Rect area) => const [];
+
+  @override
+  void batch(void Function() edits) => pages.batch(edits);
+}
+
+void pasteTests() {
+  late AppDatabase db;
+  late FakeClock clock;
+  late ElementRepository elements;
+  late FakePages pages;
+  late TextFlowChains chains;
+  late TextEditSession session;
+  late SelectionController selection;
+
+  setUp(() {
+    db = AppDatabase.inMemory();
+    clock = FakeClock();
+    elements = ElementRepository(db, deviceId: 'dev', clock: clock);
+    final strokes = StrokeRepository(db, deviceId: 'dev', clock: clock);
+    pages = FakePages(elements, strokes, ['p0', 'p1', 'p2', 'p3']);
+    chains = TextFlowChains(pages, clock: clock);
+    session = TextEditSession(model: pages.modelOf('p0'), clock: clock)..flows = chains;
+    selection =
+        SelectionController(model: pages.modelOf('p0'), clipboard: InkClipboard(), clock: clock)
+          ..flows = chains
+          ..surfaces = FakeSurfaces(pages);
+  });
+
+  tearDown(() {
+    selection.dispose();
+    session.dispose();
+    pages.models.dispose();
+    db.close();
+  });
+
+  test('a duplicated chain starts where its first box was, however long the text', () {
+    final text = [for (var i = 0; i < 60; i++) 'Line $i'].join('\n');
+    session.create(const Offset(40, 600), style: const TextData(), width: 300);
+    session.setData(TextData.rich(text: text));
+    session.end();
+    final head = elements.allOn('p0').single;
+    selection.select(const [], [pages.modelOf('p0').elementById(head.id)!]);
+    selection.duplicate();
+    final heads = elements.allOn('p0');
+    expect(heads, hasLength(2), reason: 'the copy begins on the same page');
+    final copy = heads.firstWhere((e) => e.id != head.id);
+    expect(copy.rect.top, closeTo(head.rect.top + 24, 0.01));
+    final rest = chains.continuationsOf('p0', copy.id);
+    expect(TextFlowChains.wholeOf(copy, rest).text, text);
   });
 }
