@@ -137,6 +137,8 @@ void main() {
     await tester.tap(find.byTooltip('Record audio'));
     await _settleAsync(tester);
     expect(e.audio.log, ['permission', 'start']);
+    // The button gave way to the controls: screen readers hear it (R23-3).
+    expect(tester.takeAnnouncements().map((a) => a.message), ['Recording']);
     expect(find.byKey(const ValueKey('recording-pill')), findsOneWidget);
 
     e.audio.capture.emitLevel(0.8);
@@ -166,9 +168,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Couldn’t pause the recording'), findsNothing);
 
+    tester.takeAnnouncements();
     await tester.tap(find.byTooltip('Pause recording'));
     await _settleAsync(tester);
     expect(find.text('Paused'), findsOneWidget);
+    expect(tester.takeAnnouncements().map((a) => a.message), ['Recording paused']);
     await expectLater(
       find.byKey(const ValueKey('recording-pill')),
       matchesGoldenFile('goldens/audio_recording_paused.png'),
@@ -176,6 +180,7 @@ void main() {
     e.clock.now += 20000; // Paused: does not count.
     await tester.tap(find.byTooltip('Resume recording'));
     await _settleAsync(tester);
+    expect(tester.takeAnnouncements().map((a) => a.message), ['Recording resumed']);
     e.clock.now += 5000;
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('1:10'), findsOneWidget);

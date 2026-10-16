@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../platform/system_settings.dart';
+import '../../../ui/announce.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/messages.dart';
 import '../../editor/chrome/bar_button.dart';
@@ -94,7 +95,11 @@ Future<void> startRecording(BuildContext context, NotebookAudio audio) async {
   // Already recording (Record in another pane, a shortcut): nothing to say,
   // and [RecordingController.lastError] is about something earlier.
   if (audio.recorder.state != RecorderState.idle) return;
-  if (await audio.recorder.start()) return;
+  if (await audio.recorder.start()) {
+    // The Record button gives way to the controls: say what happened.
+    if (context.mounted) announce(context, 'Recording');
+    return;
+  }
   final error = audio.recorder.lastError;
   if (error == null || !context.mounted) return;
   // A refused microphone: straight to where it is allowed, where possible.
@@ -140,6 +145,7 @@ Future<void> stopRecording(BuildContext context, NotebookAudio audio) async {
 Future<void> togglePause(BuildContext context, RecordingController recorder) async {
   final paused = recorder.state == RecorderState.paused;
   final done = await (paused ? recorder.resume() : recorder.pause());
+  if (done && context.mounted) announce(context, paused ? 'Recording resumed' : 'Recording paused');
   final error = recorder.lastError;
   if (!done && error != null && context.mounted) showMessage(context, error);
 }

@@ -66,7 +66,7 @@ handles lose contrast on dark paper.
   "Scan" and the page count were squeezed to nothing on a phone.
 - *Fix:* the action takes at most half the bar and its label shrinks to fit.
 
-**R23-3 P1 · Recording and Sync now said nothing to a screen reader.** ⬜
+**R23-3 P1 · Recording and Sync now said nothing to a screen reader.** ✅
 - *What:* Record swaps the button for the recording controls (focus is
   lost, nothing is read); pause and resume change an icon; Sync now turns
   an icon — a sighted user sees all of it, a TalkBack user hears nothing
