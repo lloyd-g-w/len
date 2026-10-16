@@ -245,7 +245,10 @@ class _PageOverviewState extends State<PageOverview> {
           onSelect: _filter == OverviewFilter.outline || _selecting
               ? null
               : () => setState(() => _selection = {}),
-          onBesidePage: _selecting || widget.besidePage == null ? null : _showBeside,
+          // Like Select, with the thumbnails (not the outline).
+          onBesidePage: _selecting || _filter == OverviewFilter.outline || widget.besidePage == null
+              ? null
+              : _showBeside,
         ),
         bottomNavigationBar: _selecting
             ? PageSelectionBar(
