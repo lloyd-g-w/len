@@ -73,8 +73,12 @@ import asyncio, base64, io, json, os, re, shutil, sqlite3, struct, subprocess, s
 
 if not os.environ.get('DISPLAY') and shutil.which('xvfb-run') and not os.environ.get('LEN_EXPLORE_XVFB'):
     # Headed Chromium needs a display: start one.
+    # -d: Xvfb picks a free display itself. -a (Debian's, Ubuntu's only way)
+    # races other jobs for a number and may share, then lose, theirs.
     os.environ['LEN_EXPLORE_XVFB'] = '1'
-    sys.exit(subprocess.call(['xvfb-run', '-a', '-s', '-screen 0 1600x1000x24', sys.executable] + sys.argv))
+    usage = subprocess.run(['xvfb-run', '--help'], capture_output=True, text=True)
+    auto = '-d' if '--auto-display' in usage.stdout + usage.stderr else '-a'
+    sys.exit(subprocess.call(['xvfb-run', auto, '-s', '-screen 0 1600x1000x24', sys.executable] + sys.argv))
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import web_offline_check as w  # noqa: E402  (serves BUILD = argv[1]; the shared helpers)

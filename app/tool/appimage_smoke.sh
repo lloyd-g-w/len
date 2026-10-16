@@ -34,11 +34,16 @@ data=$(mktemp -d /tmp/len-smoke-data.XXXXXX)
 trap 'rm -rf "$data"' EXIT
 mkdir -p "$out"
 
+# A display Xvfb picks itself where xvfb-run can (-d; -a races other jobs
+# for a number and may share, then lose, another job's display).
+xvfb_display=-a
+[[ $(xvfb-run --help 2>&1) == *--auto-display* ]] && xvfb_display=-d
+
 # One shell inside the virtual display: Len in the background, then the
 # screenshot while it runs.
 XDG_DATA_HOME="$data" XDG_CONFIG_HOME="$data/config" XDG_CACHE_HOME="$data/cache" \
 APPIMAGE_EXTRACT_AND_RUN=1 TMPDIR="$data" \
-  xvfb-run -a -s '-screen 0 1600x1000x24' bash -c '
+  xvfb-run "$xvfb_display" -s '-screen 0 1600x1000x24' bash -c '
     "$0" "${@:3}" >"$1/len.log" 2>&1 &
     pid=$!
     sleep "$2"
