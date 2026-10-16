@@ -378,6 +378,31 @@ history in `PageModels`: Ctrl+Z takes back a template, a move, bookmarks, added
 or deleted pages in order with ink. Snack bars' Undo calls
 `PageModels.undoEdit`, which also takes back an older step on its own.
 
+**Page sidebar** (`features/editor/sidebar/`): a 136-dp column of live thumbnails on the start
+side of a paged notebook, where the pane has room (`SidebarMetrics.fits`: ≥ 840 dp wide and not
+short — tablets held sideways, desktops, a wide split pane; never phones). Opened from the
+overview's "Show beside the page" (offered only where it fits and isn't shown) or F4, closed by
+its ✕ or F4; remembered per notebook (`SettingsRepository.pageSidebar`), hidden in focus mode
+(and so presenting). The editor screen passes its room as `ChromeLayout.aside`: `EditorLayers`
+lays the surface and what lies over it (PDF text, zoom frame, drops, audio, search, the canvas
+menu) beside it — positioned, not nested, so the eyedropper still tells the layers apart — and
+the chrome keeps floating palettes, tips and the indicator clear of it; the top bar spans both.
+The surface simply gets a narrower viewport (fits, centring and the low-latency overlay's origin
+follow from that, as for the split view's second pane). `PageSidebar` is a
+`ReorderableListView` with known extents (`SidebarMetrics.extent`, so following the page and
+keyboard moves scroll without building the pages between): a mouse drags at once, touch and
+pens after a hold (`startItemDragReorder` with an immediate or delayed recogniser), and a hold
+let go in place opens the page menu (`pageMenuItems`, `DocumentCommands.run`); a drop or
+Ctrl+arrows is `PageEdits.move` (one undo step, announced). It listens to the
+`DocumentController` only for its page list and page on screen: the latter goes into a
+`ValueNotifier` that each tile's number listens to, rebuilding only the two tiles whose state
+flips (`test/perf/page_sidebar_perf_test.dart`: a scroll frame within a page costs it 0
+rebuilds and 0 paints). Thumbnails are the overview's (`ThumbnailCache` + `FastScroll`
+deferral, on their own layer); `ThumbnailRefresh` keeps them live: `PageModels.contentChanges`
+names each page edited, undone or redone, and 600 ms after the last edit those pages are
+flushed to storage and re-recorded (`ThumbnailCache.changed`: only if shown, else forgotten);
+remote stroke changes refresh at once.
+
 ## Editor screen (`features/editor/`)
 
 - **`EditorSession`** owns the engine side of one open notebook: `ToolSettings`, live ink,

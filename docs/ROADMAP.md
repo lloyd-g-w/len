@@ -132,6 +132,11 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Page overview: live thumbnails, drag to reorder (drop indicator), duplicate, delete (undo),
   insert before/after, go to page, "Add page" tile, selection mode (bookmark / duplicate / delete
   several pages, one Undo)
+- ✅ Page sidebar (tablets held sideways, desktops; per split pane with room): a slim column of
+  live thumbnails beside the page — the page on screen marked and kept in view, tap to go, drag
+  to reorder (one undo step), hold or right-click for the page menu, bookmarks and slide
+  numbers, Add page at the end; from the overview's "Show beside the page" or F4, remembered
+  per notebook, hidden in focus mode; keyboard: one Tab stop, ↑ ↓ Home End, Ctrl+arrows
 - ✅ Move or copy pages to another notebook (overview selection and page menu): ink, elements,
   links among them, outline entries and the recordings they were written during go along; links
   to moved pages follow them; or into a new notebook with the source's paper and cover; one Undo

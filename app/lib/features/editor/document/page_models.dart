@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../ink/surface_model.dart';
@@ -54,6 +56,17 @@ class PageModels extends ChangeNotifier implements UndoTarget {
   /// [UndoHistory.recorded] of each page when last seen, to tell new undo
   /// steps from edits merged into the previous one.
   final Map<String, int> _recorded = {};
+
+  final StreamController<String> _contentChanges = StreamController<String>.broadcast();
+
+  /// The ids of pages whose content (ink, text, images) just changed here:
+  /// an edit committed, undone or redone, in any view (page thumbnails
+  /// follow it). Not page-level changes ([PageEdit]s: the page list says).
+  Stream<String> get contentChanges => _contentChanges.stream;
+
+  void _changed(String pageId) {
+    if (!_disposed) _contentChanges.add(pageId);
+  }
 
   /// The model of page [pageId] (made by [create] if no view holds it),
   /// held until [release]d.
@@ -112,6 +125,7 @@ class PageModels extends ChangeNotifier implements UndoTarget {
   /// Records that [pageId] just committed an edit (a new undo step, or
   /// one merged into its previous step).
   void noteEdited(String pageId) {
+    _changed(pageId);
     final model = _models[pageId];
     if (model == null || !model.history.canUndo) return;
     final recorded = model.history.recorded;
@@ -224,6 +238,7 @@ class PageModels extends ChangeNotifier implements UndoTarget {
         final model = _models[id];
         if (model == null || !(undo ? _canUndo(id) : _canRedo(id))) continue;
         undo ? model.undo() : model.redo();
+        _changed(id as String);
         stepped = true;
       }
       if (!stepped) continue;
@@ -245,6 +260,7 @@ class PageModels extends ChangeNotifier implements UndoTarget {
   @override
   void dispose() {
     _disposed = true;
+    unawaited(_contentChanges.close());
     for (final id in [..._models.keys]) {
       _dispose(id);
     }

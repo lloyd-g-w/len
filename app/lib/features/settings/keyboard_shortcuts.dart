@@ -135,8 +135,9 @@ final List<ShortcutGroup> shortcutGroups = [
     ]),
     ShortcutHelp('Fit page', [SingleActivator(LogicalKeyboardKey.digit1, shift: true)]),
     ShortcutHelp('Fit width', [SingleActivator(LogicalKeyboardKey.digit2, shift: true)]),
-    // Bound on a focused page tile (PageTile).
-    ShortcutHelp('Move page in the overview', const [
+    const ShortcutHelp('Pages beside the page', [SingleActivator(LogicalKeyboardKey.f4)]),
+    // Bound on a focused page tile (PageTile, SidebarTile).
+    ShortcutHelp('Move page in the overview or beside the page', const [
       SingleActivator(LogicalKeyboardKey.arrowLeft, control: true),
       SingleActivator(LogicalKeyboardKey.arrowRight, control: true),
       SingleActivator(LogicalKeyboardKey.arrowUp, control: true),

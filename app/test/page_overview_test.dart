@@ -253,7 +253,7 @@ void main() {
     expect(
       keys.unbound(
         keys.boundNow(tester),
-        keys.group('Pages').where((h) => h.label == 'Move page in the overview'),
+        keys.group('Pages').where((h) => h.label == 'Move page in the overview or beside the page'),
       ),
       isEmpty,
     );

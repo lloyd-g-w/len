@@ -66,6 +66,7 @@ extension _EditorLayout on _EditorScreenState {
         : _session.canvasNav != null
         ? () => unawaited(printCanvasFlow(context, notebook: _session.notebook))
         : null,
+    pageSidebar: _session.doc == null ? null : _toggleSidebar,
     goToPage: _session.commands == null
         ? null
         : () => unawaited(
@@ -123,9 +124,13 @@ extension _EditorLayout on _EditorScreenState {
     OpenNotebooks? tabs,
     bool band,
   ) {
+    final size = constraints.biggest;
+    _paneSize = size;
+    final safe = MediaQuery.paddingOf(context);
     final layout = _toolbar.layout(
-      size: constraints.biggest,
-      safe: MediaQuery.paddingOf(context),
+      size: size,
+      safe: safe,
+      aside: _sidebar && !_focus && _sidebarFits ? _sidebarAside(safe) : EdgeInsets.zero,
       tabs: tabs,
       focus: _focus,
       band: band,
@@ -167,6 +172,27 @@ extension _EditorLayout on _EditorScreenState {
       split: _pane == null ? null : (controller: widget.split!, pane: _pane),
       menu: _menu,
       onCloseMenu: _closeMenu,
+      sidebar: layout.aside == EdgeInsets.zero ? null : _pageSidebar(layout),
+    ),
+  );
+
+  /// The page sidebar's room along the start edge (and the system inset
+  /// beside it).
+  EdgeInsets _sidebarAside(EdgeInsets safe) => Directionality.of(context) == TextDirection.rtl
+      ? EdgeInsets.only(right: SidebarMetrics.width + safe.right)
+      : EdgeInsets.only(left: SidebarMetrics.width + safe.left);
+
+  Widget _pageSidebar(ChromeLayout layout) => PageSidebar(
+    key: const ValueKey('page-sidebar'),
+    doc: _session.doc!,
+    commands: _session.commands!,
+    services: _services,
+    backgrounds: _session.backgrounds,
+    onClose: () => _setSidebar(false),
+    padding: EdgeInsets.only(
+      left: layout.aside.left > 0 ? layout.safe.left : 0,
+      right: layout.aside.right > 0 ? layout.safe.right : 0,
+      bottom: layout.safe.bottom,
     ),
   );
 
@@ -201,5 +227,6 @@ extension _EditorLayout on _EditorScreenState {
             ? SplitViewMenu(tabs: _services.openNotebooks, notebookId: _notebook.id)
             : null,
         navigatorActivity: _session.doc?.viewport,
+        besidePage: _sidebarFits && !(_sidebar && !_focus) ? () => _setSidebar(true) : null,
       );
 }

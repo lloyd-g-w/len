@@ -234,6 +234,12 @@ class SettingsRepository {
   void setZoomWindow(String notebookId, String? value) =>
       value == null ? _remove('zoom_window.$notebookId') : _set('zoom_window.$notebookId', value);
 
+  /// Whether notebook [notebookId] shows its pages beside the page (the
+  /// editor's page sidebar, where there is room for it).
+  bool pageSidebar(String notebookId) => _get('page_sidebar.$notebookId') == '1';
+  void setPageSidebar(String notebookId, bool open) =>
+      open ? _set('page_sidebar.$notebookId', '1') : _remove('page_sidebar.$notebookId');
+
   /// Notebooks opened lately (ids), most recent first.
   List<String> get recentNotebooks => [
     for (final part in (_get('recent_notebooks') ?? '').split(','))

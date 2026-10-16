@@ -42,6 +42,7 @@ import 'eyedropper/page_colours.dart';
 import 'links/link_actions.dart';
 import 'resume_view.dart';
 import 'shared/shared_notebooks.dart';
+import 'sidebar/page_sidebar.dart';
 import 'split/split_controller.dart';
 import 'split/split_view.dart';
 import 'split/split_view_menu.dart';
@@ -134,6 +135,24 @@ class _EditorScreenState extends State<_EditorView> {
   void _togglePresenting() {
     if (!_focus || !mounted) return;
     setState(() => _presenting = !_presenting);
+  }
+
+  /// Whether this notebook keeps its pages beside the page (remembered per
+  /// notebook; shown where the pane has room, not in focus mode).
+  late bool _sidebar = _session.doc != null && _services.settings.pageSidebar(widget.notebook.id);
+
+  /// The pane's size, as last laid out.
+  Size _paneSize = Size.zero;
+
+  /// Shows or hides the pages beside the page, and remembers it.
+  void _setSidebar(bool open) {
+    if (!mounted || _session.doc == null) return;
+    if (open && !_sidebarFits) {
+      showMessage(context, 'No room for pages beside the page here');
+      return;
+    }
+    _services.settings.setPageSidebar(_notebook.id, open);
+    setState(() => _sidebar = open);
   }
 
   /// The tool to put back on leaving focus mode entered with the laser (F5).

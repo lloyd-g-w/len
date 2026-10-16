@@ -75,7 +75,12 @@ class EditorChromeHost extends StatelessWidget {
     this.dimmed = false,
     this.presenting = false,
     this.split,
+    this.besidePage,
   });
+
+  /// Shows the page sidebar (offered in the page overview); null where it
+  /// shows already or has no room.
+  final VoidCallback? besidePage;
 
   /// The workspace's split view (to say when its parked pane records).
   final SplitController? split;
@@ -200,6 +205,7 @@ class EditorChromeHost extends StatelessWidget {
               onFlow: commands.setFlow,
               onBackground: commands.pickBackground,
               onSearch: commands.openSearch,
+              besidePage: besidePage,
             ),
             undo: session.undo,
             tabs: tabs,
@@ -221,7 +227,7 @@ class EditorChromeHost extends StatelessWidget {
             split: split?.isSplit ?? false,
             band: band,
           ),
-          navigator: editorPageNavigator(context, session),
+          navigator: editorPageNavigator(context, session, besidePage: besidePage),
           navigatorActivity: navigatorActivity,
         ),
       ),

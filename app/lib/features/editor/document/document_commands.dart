@@ -223,16 +223,19 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
   }
 
   /// Opens the page overview (on [filter]); shows the page picked there.
-  /// [outline] builds its Outline filter.
+  /// [outline] builds its Outline filter; [besidePage] (offered as "Show
+  /// beside the page") closes it and shows the page sidebar.
   Future<void> openOverview(
     BuildContext context, {
     PageBackgrounds? backgrounds,
     Widget Function(BuildContext context, ValueChanged<int> goTo)? outline,
     OverviewFilter filter = OverviewFilter.all,
+    VoidCallback? besidePage,
   }) async {
     final index = await Navigator.of(context).push<int>(
       MaterialPageRoute(
         builder: (_) => PageOverview(
+          besidePage: besidePage,
           currentPage: doc.currentPage,
           copier: SurfaceCopier(services.strokes, elements: services.elements),
           backgrounds: backgrounds,

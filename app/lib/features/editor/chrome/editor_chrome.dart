@@ -101,6 +101,8 @@ class EditorChrome extends StatelessWidget {
   Widget build(BuildContext context) {
     final focus = layout.focus;
     final safe = layout.safe;
+    // The page sidebar's side: what floats over the page keeps to the rest.
+    final aside = layout.aside;
     final scheme = Theme.of(context).colorScheme;
     return RecedeScope(
       dimmed: dimmed,
@@ -113,8 +115,8 @@ class EditorChrome extends StatelessWidget {
                 insets: EdgeInsets.only(
                   top: layout.barBottom + layout.boxAbove,
                   bottom: safe.bottom + layout.boxBelow,
-                  left: safe.left,
-                  right: safe.right,
+                  left: safe.left + aside.left,
+                  right: safe.right + aside.right,
                 ),
                 floatAt: floatAt,
                 onFloatMoved: onFloatMoved,
@@ -150,8 +152,8 @@ class EditorChrome extends StatelessWidget {
               (strip) => AnimatedPositioned(
                 duration: Motion.slow,
                 curve: Motion.emphasized,
-                left: 0,
-                right: 0,
+                left: aside.left,
+                right: aside.right,
                 bottom: layout.navigatorBottom + strip,
                 child: Align(
                   // Phones centre the indicator under the page; wider screens
@@ -183,8 +185,8 @@ class EditorChrome extends StatelessWidget {
           ),
           Positioned(
             top: layout.covered.top + Gaps.xl,
-            left: 0,
-            right: 0,
+            left: aside.left,
+            right: aside.right,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -204,8 +206,8 @@ class EditorChrome extends StatelessWidget {
             _lifted(
               (strip) => Positioned(
                 bottom: layout.floatingInsets.bottom + strip + Gaps.lg,
-                left: Gaps.md,
-                right: Gaps.md,
+                left: Gaps.md + aside.left,
+                right: Gaps.md + aside.right,
                 child: Center(
                   child: MessageQueue.stepAside(child: TipBanner(controller: tips)),
                 ),

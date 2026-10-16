@@ -36,7 +36,13 @@ class PageOverview extends StatefulWidget {
     this.changes,
     this.outline,
     this.initialFilter = OverviewFilter.all,
+    this.besidePage,
   });
+
+  /// Offered as "Show beside the page": closes the overview and keeps the
+  /// pages in a column beside the page (the editor's page sidebar). Null
+  /// where there is no room for it, or it shows already.
+  final VoidCallback? besidePage;
 
   final OverviewHandlers handlers;
   final SurfaceCopier copier;
@@ -130,6 +136,12 @@ class _PageOverviewState extends State<PageOverview> {
   void _move(NotebookPage page, int toIndex) {
     widget.handlers.move(page, toIndex);
     _reload();
+  }
+
+  /// Leaves the overview for the pages beside the page.
+  void _showBeside() {
+    Navigator.of(context).pop();
+    widget.besidePage?.call();
   }
 
   void _toggle(NotebookPage page) => setState(() {
@@ -233,6 +245,10 @@ class _PageOverviewState extends State<PageOverview> {
           onSelect: _filter == OverviewFilter.outline || _selecting
               ? null
               : () => setState(() => _selection = {}),
+          // Like Select, with the thumbnails (not the outline).
+          onBesidePage: _selecting || _filter == OverviewFilter.outline || widget.besidePage == null
+              ? null
+              : _showBeside,
         ),
         bottomNavigationBar: _selecting
             ? PageSelectionBar(

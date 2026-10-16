@@ -46,7 +46,12 @@ class EditorLayers extends StatelessWidget {
     this.onDrop,
     this.split,
     this.menu,
+    this.sidebar,
   });
+
+  /// The page sidebar, in [ChromeLayout.aside] under the top chrome (null
+  /// when it is not shown).
+  final Widget? sidebar;
 
   final EditorSession session;
 
@@ -109,12 +114,37 @@ class EditorLayers extends StatelessWidget {
     );
   }
 
+  /// [child] over the surface's area: the pane less the sidebar beside it.
+  /// (Positioned, not nested: the eyedropper tells the layers apart.)
+  Widget _overSurface(Widget child) => Positioned(
+    left: layout.aside.left,
+    right: layout.aside.right,
+    top: 0,
+    bottom: 0,
+    child: child,
+  );
+
+  /// The sidebar along the start edge, under the top chrome.
+  Widget? _sidebar() {
+    final sidebar = this.sidebar;
+    final aside = layout.aside;
+    if (sidebar == null || aside.horizontal == 0) return null;
+    return Positioned(
+      top: layout.barBottom,
+      bottom: 0,
+      left: aside.left > 0 ? 0 : null,
+      right: aside.right > 0 ? 0 : null,
+      width: aside.horizontal,
+      child: sidebar,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Positioned.fill(
-          child: RepaintBoundary(
+        _overSurface(
+          RepaintBoundary(
             key: canvasKey,
             child: EditorCanvas(
               session: session,
@@ -128,13 +158,11 @@ class EditorLayers extends StatelessWidget {
             ),
           ),
         ),
-        if (session.pdf case final pdf?) Positioned.fill(child: PdfLayer(interaction: pdf)),
+        if (session.pdf case final pdf?) _overSurface(PdfLayer(interaction: pdf)),
         if (session.zoomWindow.isOpen)
           // It moves with every frame of a scroll: laid out and repainted
           // alone, not with the editor.
-          Positioned.fill(
-            child: RepaintBoundary(child: ZoomFrameOverlay(zoom: session.zoomWindow)),
-          ),
+          _overSurface(RepaintBoundary(child: ZoomFrameOverlay(zoom: session.zoomWindow))),
         if (session.canvas != null)
           Positioned.fill(
             child: Padding(
@@ -148,11 +176,9 @@ class EditorLayers extends StatelessWidget {
               ),
             ),
           ),
-        Positioned.fill(
-          child: ImageDropTarget(images: session.images, onDrop: onDrop),
-        ),
-        Positioned.fill(
-          child: AudioLayer(
+        _overSurface(ImageDropTarget(images: session.images, onDrop: onDrop)),
+        _overSurface(
+          AudioLayer(
             audio: audio,
             session: session,
             chromeInsets: layout.covered,
@@ -165,8 +191,8 @@ class EditorLayers extends StatelessWidget {
         if (_minimap() case final minimap?) Positioned.fill(child: minimap),
         if (session.zoomWindow.isOpen)
           Positioned(
-            left: 0,
-            right: 0,
+            left: layout.aside.left,
+            right: layout.aside.right,
             top: layout.zoomBoxAtTop ? layout.zoomBoxTop : null,
             bottom: layout.zoomBoxAtTop ? null : layout.zoomBoxBottom,
             height: layout.zoomBox,
@@ -174,13 +200,17 @@ class EditorLayers extends StatelessWidget {
               child: ZoomBox(
                 atTop: layout.zoomBoxAtTop,
                 session: session,
-                padding: EdgeInsets.only(left: layout.safe.left, right: layout.safe.right),
+                padding: EdgeInsets.only(
+                  left: layout.aside.left > 0 ? 0 : layout.safe.left,
+                  right: layout.aside.right > 0 ? 0 : layout.safe.right,
+                ),
               ),
             ),
           ),
+        ?_sidebar(),
         Positioned.fill(child: chrome),
-        Positioned.fill(
-          child: EditorSearchLayer(
+        _overSurface(
+          EditorSearchLayer(
             controller: search,
             covered: layout.covered,
             onClose: focusNode.requestFocus,
@@ -191,8 +221,8 @@ class EditorLayers extends StatelessWidget {
             child: SplitDropHighlight(split: split.controller, pane: split.pane),
           ),
         if (menu case final menu?)
-          Positioned.fill(
-            child: CanvasContextMenu(at: menu.at, actions: menu.actions, onDismiss: onCloseMenu),
+          _overSurface(
+            CanvasContextMenu(at: menu.at, actions: menu.actions, onDismiss: onCloseMenu),
           ),
       ],
     );
