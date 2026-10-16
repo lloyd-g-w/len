@@ -66,9 +66,8 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   round 11, performance rounds (pan, paged scroll, web long tasks), bug hunts 1–5.
 
 ## Owner reports (after the first list)
-- 🚧 (fix/mouse-ink) **Mouse ink still not smooth** (owner screenshot): at normal widths the
-  outline wobbles, width swells and pinches, small kinks; the earlier smoother only acted
-  below 2.5 px on screen.
+- ✅ **Mouse ink** (owner): the wobbly sample was drawn with the stabiliser off; with it on, mouse
+  ink is fine (owner: no change wanted).
 - 🚧 (merged; to verify on the tablet, flicker log in Ink Lab) **The pen still flickers sometimes** on the Android tablet (S Pen),
   no clear pattern: find every handover / prediction / tile cause, test, fix, and add an
   on-device flicker log to catch the rest.
