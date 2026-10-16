@@ -56,7 +56,7 @@ extension _SyncPull on SyncEngine {
     CancelCheck cancelled,
     void Function(Future<Uint8List>) next,
   ) async {
-    final page = await decodePulled(body, since: since) ?? (throw SyncException.unexpected);
+    final page = await decodePulled(body, since: since) ?? (throw SyncException.unreadable(body));
     final header = (
       nextSince: page.nextSince,
       hasMore: page.hasMore,
@@ -120,7 +120,7 @@ extension _SyncPull on SyncEngine {
       }
       rethrow;
     }
-    if (page == null) throw SyncException.unexpected;
+    if (page == null) throw SyncException.unreadable(body);
     changes.addAll(page.changes);
     // Its commits are not this connection's: tell those watching them.
     if (page.applied > 0) database.announceCommit();

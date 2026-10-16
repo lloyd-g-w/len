@@ -160,6 +160,41 @@ void main() {
       expect(a.dirty, hasLength(1));
     });
 
+    test('answers cut short or "busy" are network failures, not a wrong address', () async {
+      final (a, b) = twoDevices();
+      _notebook(a, 'One');
+      await a.sync();
+      _notebook(b, 'Two');
+      for (final (path, status) in [
+        ('/v1/health', 200),
+        ('/v1/push', 200),
+        ('/v1/pull', 200),
+        ('/v1/pull', 429),
+      ]) {
+        var cut = true;
+        final flaky = _hookedApi(a.server, (r) async {
+          if (r.url.path != path || !cut) return null;
+          cut = false;
+          if (status == 429) return http.Response('{"error":"slow down"}', 429);
+          final whole = await a.server.client.send(
+            http.Request(r.method, r.url)
+              ..headers.addAll(r.headers)
+              ..bodyBytes = r.bodyBytes,
+          );
+          final body = await whole.stream.toBytes();
+          return http.Response.bytes(body.sublist(0, body.length ~/ 2), 200);
+        });
+        await expectLater(
+          b.s.sync.engine.sync(flaky),
+          throwsA(isA<SyncException>().having((e) => e.kind, 'kind', SyncFailure.network)),
+          reason: '$path $status',
+        );
+      }
+      await b.sync();
+      expect(_titles(b), ['One', 'Two']);
+      expect(b.dirty, isEmpty);
+    });
+
     test('a pull failing half way resumes after the last applied page', () async {
       final (a, b) = twoDevices();
       const total = SyncApi.pullLimit + 200;
