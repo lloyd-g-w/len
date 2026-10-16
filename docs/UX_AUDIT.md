@@ -96,12 +96,13 @@ handles lose contrast on dark paper.
   cover width: at 2× a sideways phone keeps four covers with whole titles
   (the row runs under the fold, as it already did at 1.3×).
 
-**R23-6 P2 · Selection chrome on dark paper was 2.9:1.** ⬜
+**R23-6 P2 · Selection chrome on dark paper was 2.9:1.** ✅
 - *What:* the lasso, selection frame and handles are ruling blue
   (`AppTheme.seed`) on the paper; on Dark paper that is 2.9:1, under the
   3:1 a state needs.
-- *Fix:* the frame, lasso and rotate line get a paper-coloured halo under
-  the blue line, readable on any paper (and on images).
+- *Fix:* the frame, lasso and rotate line get a 1-px paper-coloured band
+  each side of the blue line, readable on any paper, image or ink (handles
+  were already paper discs ringed in blue).
 
 **R23-7 P3 · Smaller large-text cuts.** ⬜
 - The canvas's "Hold for a template" hint ellipsizes at 2× on a phone;
