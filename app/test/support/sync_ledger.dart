@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:len/app_services.dart';
 
+import 'package:len/data/syncable_table.dart';
+
 import 'fault_devices.dart';
 
 /// A row version: `updatedAt`, then `deviceId` (last-write-wins order).
@@ -32,6 +34,10 @@ class SyncLedger {
   /// `table/id` → every live version devices wrote locally.
   final Map<String, List<RowVersion>> _edits = {};
 
+  /// `table/id` of rows edited in place → what each live version written
+  /// locally held (its record's `data`, as JSON).
+  final Map<String, Map<RowVersion, String>> _contents = {};
+
   /// Rows deleted (alone or with their page or notebook): `table/id` → the
   /// versions the deleting devices knew.
   final Map<String, List<({RowVersion known})>> _deletions = {};
@@ -60,7 +66,12 @@ class SyncLedger {
       if (old != null && old.$1 == version) continue;
       final known = newest[key];
       if (known == null || _newer(version, known)) newest[key] = version;
-      if (live) _edits.putIfAbsent(key, () => []).add(version);
+      if (live) {
+        _edits.putIfAbsent(key, () => []).add(version);
+        if (_content.contains(key.split('/').first)) {
+          _contents.putIfAbsent(key, () => {})[version] = content(s, key)!;
+        }
+      }
       if (!live && old != null && old.$2) {
         _deletions.putIfAbsent(key, () => []).add((known: old.$1));
       }
@@ -77,6 +88,17 @@ class SyncLedger {
       }
       if (!live && wasLive) deleted.add(key);
     }
+  }
+
+  /// What live row [key] (`table/id`) of [s] holds: its record's data, as
+  /// JSON; null if it is not live.
+  static String? content(AppServices s, String key) {
+    final [table, id] = key.split('/');
+    final store = s.sync.engine.stores.whereType<SyncableTable>().firstWhere(
+      (t) => t.table == table,
+    );
+    final rows = s.database.db.select('SELECT * FROM $table WHERE id = ? AND deleted = 0', [id]);
+    return rows.isEmpty ? null : jsonEncode(store.rowToRecord(rows.single).data);
   }
 
   /// What [s] (a converged device) lost of what was written: rows behind
@@ -105,6 +127,29 @@ class SyncLedger {
         out.add(
           '$key: edit ${edit.at}/${edit.device} lost to deletions knowing only '
           '${[for (final d in deletions) '${d.known.at}/${d.known.device}']}',
+        );
+      }
+    }
+    // A row edited in place that ends live holds an edit no deletion knew,
+    // or what a deletion knew (brought back) only if no edit newer than
+    // that one went unknown to every deletion: a copy brought back never
+    // replaces an edit it did not know.
+    for (final MapEntry(:key, value: contents) in _contents.entries) {
+      final now = content(s, key);
+      if (now == null) continue;
+      final deletions = _deletions[key] ?? const [];
+      bool unknown(RowVersion edit) => deletions.every((d) => _newer(edit, d.known));
+      final holding = [
+        for (final MapEntry(key: version, value: data) in contents.entries)
+          if (data == now) version,
+      ];
+      if (holding.isEmpty || holding.any(unknown)) continue;
+      final newest = holding.reduce((a, b) => _newer(a, b) ? a : b);
+      for (final edit in contents.keys) {
+        if (!unknown(edit) || !_newer(edit, newest)) continue;
+        out.add(
+          '$key: edit ${edit.at}/${edit.device} lost to a copy brought back of '
+          '${newest.at}/${newest.device}',
         );
       }
     }
