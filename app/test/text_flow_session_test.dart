@@ -31,10 +31,15 @@ class FakePages implements TextFlowPages {
   final List<String> added = [];
   void Function(String pageId)? onActivate;
 
+  /// Pages of another size than [size].
+  final Map<String, Size> sizes = {};
+
+  Size sizeOf(String id) => sizes[id] ?? size;
+
   @override
   List<FlowPage>? pagesFrom(String pageId) {
     final i = ids.indexOf(pageId);
-    return i == -1 ? null : [for (final id in ids.skip(i)) FlowPage.of(id, size)];
+    return i == -1 ? null : [for (final id in ids.skip(i)) FlowPage.of(id, sizeOf(id))];
   }
 
   @override
@@ -44,7 +49,17 @@ class FakePages implements TextFlowPages {
   }
 
   @override
-  Offset? offsetOf(String pageId, int k) => together ? Offset(0, k * (size.height + gap)) : null;
+  Offset? offsetOf(String pageId, int k) {
+    if (!together) return null;
+    // Centred one under another; pages to be added are like the last.
+    final i = ids.indexOf(pageId);
+    Size at(int j) => sizeOf(ids[j.clamp(0, ids.length - 1)]);
+    var y = 0.0;
+    for (var j = i; j < i + k; j++) {
+      y += at(j).height + gap;
+    }
+    return Offset((at(i).width - at(i + k).width) / 2, y);
+  }
 
   @override
   List<SurfaceElement> elementsOn(String pageId) => elements.allOn(pageId);
@@ -56,7 +71,7 @@ class FakePages implements TextFlowPages {
         pageId,
         () =>
             SurfaceModel(surfaceId: pageId, repository: strokes, elementRepository: elements)
-              ..ensureLoaded(Offset.zero & size),
+              ..ensureLoaded(Offset.zero & sizeOf(pageId)),
       );
 
   @override

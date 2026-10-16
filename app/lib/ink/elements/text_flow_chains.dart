@@ -137,7 +137,9 @@ class TextFlowChains {
     }
     double room(int k) =>
         k == 0 ? after.first.bottom - rect.top : after[math.min(k, after.length - 1)].room;
-    return TextFlowLayout.split(layout, room);
+    double width(int k) =>
+        k == 0 ? rect.width : columnOn(after.first, pageOf(after, k), rect).width;
+    return TextFlowLayout.split(layout, room, width: width);
   }
 
   /// The page part [k] of a chain starting on [pageId] goes to ([after]
@@ -159,16 +161,31 @@ class TextFlowChains {
       final offset = pages.offsetOf(pageId, k);
       if (offset == null) return null;
       final page = pageOf(after, k);
-      final left = _leftOn(after.first, page, rect.left);
-      out.add(Rect.fromLTWH(offset.dx + left, offset.dy + page.top, rect.width, parts[k].height));
+      out.add(_frameOn(after.first, page, rect, parts[k].height).shift(offset));
     }
     return out;
   }
 
-  /// A continuation's left edge on [page] for a head at [left] on [head]:
-  /// lined up with it when pages are centred one under another.
-  static double _leftOn(FlowPage head, FlowPage page, double left) =>
-      left + (page.size.width - head.size.width) / 2;
+  /// Where a continuation of a head at [rect] on page [head] lies across
+  /// [page]: lined up with it when pages are centred one under another,
+  /// and as wide; on a narrower page where that would stick out, as wide
+  /// as fits between its side margins ([FlowPage.marginOf]) at most.
+  static ({double left, double width}) columnOn(FlowPage head, FlowPage page, Rect rect) {
+    final left = rect.left + (page.size.width - head.size.width) / 2;
+    final width = page.size.width;
+    if (width >= head.size.width || (left >= 0 && left + rect.width <= width)) {
+      return (left: left, width: rect.width);
+    }
+    final margin = FlowPage.marginOf(page.size);
+    final fits = math.max(math.min(rect.width, width - 2 * margin), TextLayout.minWidth);
+    return (left: left.clamp(margin, math.max(margin, width - margin - fits)), width: fits);
+  }
+
+  /// A continuation [height] tall on [page] of a head at [rect] on [head].
+  static Rect _frameOn(FlowPage head, FlowPage page, Rect rect, double height) {
+    final column = columnOn(head, page, rect);
+    return Rect.fromLTWH(column.left, page.top, column.width, height);
+  }
 
   /// The continuations [parts] of [whole] make after [head] (on [pageId]),
   /// on the pages there are: for drawing them while the chain is edited
@@ -185,12 +202,7 @@ class TextFlowChains {
             id: '${head.id}~$k',
             surfaceId: after[k].id!,
             type: ElementType.text.name,
-            rect: Rect.fromLTWH(
-              _leftOn(after.first, after[k], r.left),
-              after[k].top,
-              r.width,
-              parts[k].height,
-            ),
+            rect: _frameOn(after.first, after[k], r, parts[k].height),
             z: head.z,
             createdAt: head.createdAt,
             data: parts[k].dataOf(whole, from: head.id).toJson(),
@@ -233,7 +245,7 @@ class TextFlowChains {
         id: was?.id ?? clock.newId(),
         surfaceId: id,
         type: ElementType.text.name,
-        rect: Rect.fromLTWH(_leftOn(after.first, page, r.left), page.top, r.width, parts[k].height),
+        rect: _frameOn(after.first, page, r, parts[k].height),
         z: was?.z ?? _topZ(id) + 1,
         createdAt: was?.createdAt ?? clock.nowMs(),
         data: parts[k].dataOf(whole, from: previous).toJson(was?.data ?? const {}),

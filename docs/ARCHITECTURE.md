@@ -2051,7 +2051,9 @@ GoodNotes-style rich text inside a box.
 - **Flow across pages** (`ink/elements/text_flow_*.dart`, `domain/text/text_flow.dart`,
   `features/editor/document/document_text_flow.dart`): on a paged notebook a box (not
   rotated) reaching the page's bottom margin (6 % of the page height) continues in a box at
-  the top margin of the next page (below a header area), lined up with it, and so on; a page
+  the top margin of the next page (below a header area), lined up with it and as wide (on a
+  narrower page where that would stick out, a portrait page after a landscape slide: as wide as
+  fits between its side margins, `TextFlowChains.columnOn`), and so on; a page
   like the last is added when the text runs past it. The first box (the *head*) holds the
   chain's position, width and box style; each continuation is an element of its own page
   holding its part of the text, with `TextData.flow` (`TextFlow`: the box it continues,
@@ -2062,7 +2064,8 @@ GoodNotes-style rich text inside a box.
   page begins with). So every page draws, thumbnails, searches and exports (PNG, PDF) on its own,
   and the chain's text is `TextFlow.join` of the parts. `TextFlowLayout.split` cuts one
   `TextBoxLayout` of the whole text at line boundaries (a paragraph may split, at least one
-  line per part); `TextFlowChains` finds a chain (continuations on the very next pages,
+  line per part; from a part on a page of another width on, the rest is laid out again at that
+  width); `TextFlowChains` finds a chain (continuations on the very next pages,
   `TextFlowChains.continuationsOf` / `headOf`, read from storage) and `reflow`s it into
   per-page edits (continuations keep their ids on their page; ones no longer needed go).
   `TextFlowPages` is the editor's view of the notebook (`DocumentTextFlow`): pages, margins,
@@ -2076,7 +2079,8 @@ GoodNotes-style rich text inside a box.
   ↑ out of it goes to the page before), so typing, deleting, selecting, formatting and the IME work across pages
   natively and each part shows where it will be stored (the editor measures the field's room
   line once and corrects the placeholders by what the field adds,
-  `RichTextController.roomExtra`). The other pages' boxes are hidden meanwhile and drawn as
+  `RichTextController.roomExtra`; the field is as wide as the first box, so a part on a
+  narrower page shows wider while edited, its room measured at the field's width). The other pages' boxes are hidden meanwhile and drawn as
   typed in other views (lifted content). One page at a time (single-page flow) the box tapped
   is edited alone and its chain flows again when it ends (a style given to its first line, when
   that line goes on with the page before, goes to the parts holding the paragraph's start). Either way the end is one

@@ -160,9 +160,19 @@ extension _SessionFlow on TextEditSession {
     final m = _measured(current.copyWith(data: data.toJson(current.data)));
     final frames = m.frames;
     if (frames == null) return const [];
+    // The field lays the whole text out as wide as the first box: a part on
+    // a page of another width is as tall there as its text is at that width.
+    final width = frames.first.width;
+    double shown(int k) => frames[k].width == width
+        ? frames[k].height
+        : TextLayout.heightOf(m.parts[k].dataOf(data, from: '-'), width);
     return [
       for (var k = 1; k < m.parts.length; k++)
-        (at: m.parts[k].start, gap: frames[k].top - frames[k - 1].bottom, soft: m.parts[k].joined),
+        (
+          at: m.parts[k].start,
+          gap: frames[k].top - frames[k - 1].top - shown(k - 1),
+          soft: m.parts[k].joined,
+        ),
     ];
   }
 
