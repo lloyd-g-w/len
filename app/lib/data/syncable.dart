@@ -21,10 +21,11 @@ class SyncRecord {
   /// Collection-specific payload; null for tombstones.
   final Map<String, Object?>? data;
 
-  /// What a deletion knew, for rows edited in place (docs/SYNC_PROTOCOL.md,
-  /// "Deletion conflicts"): on a tombstone, the version of the row it
-  /// replaced; on a live record, which is then a copy a deletion conflict
-  /// brought back, the base of the deletion it undoes. Null otherwise.
+  /// For rows edited in place (docs/SYNC_PROTOCOL.md, "Deletion
+  /// conflicts"): on a live record, the version of the edit whose content
+  /// it holds when that is not its own (an edit kept over a deletion, a
+  /// copy brought back); on a tombstone, that of what the deletion replaced.
+  /// Null otherwise.
   final RecordVersion? base;
 
   /// The record already parsed into what its store writes (a `StrokeRow`),

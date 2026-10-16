@@ -50,9 +50,9 @@ class SyncRecord {
   /// Opaque JSON object payload.
   final Map<String, Object?>? data;
 
-  /// The version a deletion replaced (on a tombstone), or the version the
-  /// deletion a copy undoes had replaced (on a live record a deletion
-  /// conflict brought back); `null` for none. Opaque to the server, which
+  /// The version of the edit the record's content comes from, when that is
+  /// not the record's own (on a live record), or of what the deletion
+  /// replaced (on a tombstone); `null` for none. Opaque to the server, which
   /// stores and returns it with the record (docs/SYNC_PROTOCOL.md,
   /// "Deletion conflicts").
   final RecordVersion? base;

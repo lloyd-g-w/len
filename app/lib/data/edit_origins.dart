@@ -20,7 +20,7 @@ typedef LocalVersion = ({
 ///
 /// A row's *origin* is the version of the edit whose content it holds: its
 /// own version, unless the row is an edit kept over a deletion
-/// ([keepAsEdit]) or a copy a deletion conflict brought back ([revived]),
+/// (`SyncableTable.keepAsEdit`) or a copy a deletion conflict brought back ([revived]),
 /// which hold an older edit at a newer version. Stored in `origin_at` /
 /// `origin_device`, valid while `origin_for` is the row's `updated_at`, so
 /// any local write makes the row an edit of its own. A tombstone's *base*

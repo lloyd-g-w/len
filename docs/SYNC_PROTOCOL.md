@@ -32,9 +32,10 @@ defaults, unknown fields and values tolerated.
 }
 ```
 
-`base` (optional; `updatedAt` an int, `deviceId` 1..64 chars) tells what a deletion knew: on a
-tombstone, the version of the row it replaced; on a live record, which is then a copy a deletion
-conflict brought back, the `base` of the deletion it undoes (see
+`base` (optional; `updatedAt` an int, `deviceId` 1..64 chars) names the edit a record's content
+comes from: on a live record, the version of the edit whose content it holds, when that is not the
+record's own (an edit kept over a deletion, a copy a deletion conflict brought back); on a
+tombstone, that of what the deletion replaced, i.e. what the deleting device knew (see
 [Deletion conflicts](#deletion-conflicts)). The server stores and returns it with the record, as
 sent (absent when none); it plays no part in last-write-wins.
 
@@ -277,34 +278,39 @@ stays there), where the user can restore it or delete it forever again.
   last-write-wins over the deletion).
 - **Edits in place.** Text boxes, recordings and outline entries (`elements`, `recordings`,
   `outline`) are edited in place, so an edit of one can race a deletion of it (alone, or with its
-  page or notebook) whatever their versions: an edit and a deletion that did not know each other
-  keep the edit. What a deletion knew is its tombstone's `base`, the version of the row it
-  replaced; a version later than that (last-write-wins order) is one it did not know. A client
-  pulling a tombstone for such a row whose live version here the deletion did not know keeps that
-  version; a client pulling a live version of such a row that its own deletion did not know,
-  when the deletion would win, takes that version. Either way the row becomes a local edit with a
-  version later than both, pushed after the pull, and the page or notebook deleted with it comes
-  back as below. Whether the row was pushed already does not matter, so an edit whose push was
-  answered but the answer lost, or a record pulled again (a page of the feed applied in part),
-  never undoes a deletion that knew it. (A tombstone without `base` counts only an edit or
-  deletion here that is not pushed yet as unknown to the other side.) Step 1 holds these rows and
-  tombstones back until the pull, so such a race is found by a client rather than decided by
-  last-write-wins on the server.
+  page or notebook) whatever their versions, and a version may hold an older edit (an edit kept
+  over a deletion or a copy brought back, below, are re-stamped). So their records carry `base`,
+  and a client pulling one compares the edits the versions hold — a live version's *origin* (its
+  `base`, else its own version) and a tombstone's `base` (what the deletion knew; a version whose
+  origin is later, in last-write-wins order, is one it did not know) — where last-write-wins alone
+  would decide otherwise:
+  - two live versions: the later edit wins, whichever version holds it;
+  - an edit and a deletion that did not know each other keep the edit, whichever is later: a
+    pulled tombstone keeps a live version here whose origin it did not know, and a deletion here
+    takes a pulled live version whose origin it did not know;
+  - a deletion here that knew the pulled version's origin stays, unless that version brings back
+    this very deletion's rows (its version is the deletion's + 1, see Revival); then the content
+    the tombstone kept here comes back instead if its origin is later.
+
+  The winner becomes a local edit later than both versions, keeping its origin, pushed after the
+  pull; a page or notebook deleted with the row comes back as below. Whether a row was pushed
+  already does not matter, so an edit whose push was answered but the answer lost, or a record
+  pulled again (a page of the feed applied in part), never undoes a deletion that knew it. (A
+  tombstone without `base` counts only an edit or deletion here that is not pushed yet as unknown
+  to the other side.) Step 1 holds these rows and tombstones back until the pull, so such a race is
+  found by a client rather than decided by last-write-wins on the server.
 - **Revival.** The client revives the page or notebook and every row of the same deletion (same
   `updatedAt` and `deviceId`) as local edits at the version right after the deletion's
   (`updatedAt + 1`, not the current time), which it pushes right after the pull: a copy brought
-  back never beats an edit made elsewhere after the deletion that it has not seen yet. A revived
-  notebook gets `trashedAt` (unless it is in the trash already). Pages deleted earlier, by another
-  deletion, stay deleted. Every device holding the deleted content does this, so it does not
-  matter which syncs first; repeated revivals are ordinary last-write-wins updates of the same
-  data. Tombstones the client only knows as placeholders (never seen live) are not revived.
-- **Copies brought back are no edits.** A revived text box, recording or outline entry carries the
-  `base` of the tombstone it replaces (until it is next edited), so other clients can tell it from
-  an edit: one holding a live version of the row that the undone deletion did not know (later than
-  `base`, and not itself such a copy) keeps that version as a local edit over the copy, like over
-  the tombstone — so an edit made before the deletion and not pushed yet survives a third device
-  bringing the page back first. Nor does such a copy count as an edit a later deletion did not
-  know: deleted again, it stays deleted, even where it was never pushed.
+  back never beats an edit made elsewhere after the deletion that it has not seen yet, nor (by its
+  origin, above) one made before it. A revived text box, recording or outline entry keeps the
+  origin of the content its tombstone kept, so a copy brought back is no edit: one older than an
+  edit elsewhere loses to it, and deleted again by a deletion that knew its content it stays
+  deleted, even where it was never pushed. A revived notebook gets `trashedAt` (unless it is in
+  the trash already). Pages deleted earlier, by another deletion, stay deleted. Every device holding
+  the deleted content does this, so it does not matter which syncs first; repeated revivals are
+  ordinary last-write-wins updates of the same data. Tombstones the client only knows as
+  placeholders (never seen live) are not revived.
 - **Payloads are kept for 30 days.** A tombstoned stroke or element keeps its points or data on the
   device (never sent: tombstones carry `data: null`), and the blobs of tombstoned pages, elements
   and recordings stay referenced, for 30 days, matching the server's blob grace period; then they
