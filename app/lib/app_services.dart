@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:cross_file/cross_file.dart';
 
@@ -94,7 +95,8 @@ class AppServices {
   /// handed to the app from outside, [incomingLinks] links it was opened
   /// with (`platform/incoming_files`). [camera] replaces the system camera
   /// (tests), [strokeReader] the one lazy loading reads with (tests: one
-  /// answering later, as the background one does). The sync
+  /// answering later, as the background one does), [syncJitter] spreads
+  /// sync's reconnections (tests seed it). The sync
   /// token goes to [secureStore] (`platformSecureStore`); without one (a
   /// browser, tests) it is kept in the database.
   factory AppServices.create(
@@ -112,6 +114,7 @@ class AppServices {
     SecureStore? secureStore,
     CameraCapture camera = const SystemCameraCapture(),
     StrokeReader? strokeReader,
+    Random? syncJitter,
   }) {
     final settings = SettingsRepository(database);
     final tokens = SyncTokenStore(settings, secureStore, clock: clock);
@@ -164,15 +167,14 @@ class AppServices {
       strokeReader: strokeReader ?? openStrokeReader(database.path, fallback: strokes),
       blobs: blobs,
       elements: elements,
-      sync: syncApiFactory == null
-          ? SyncController(engine: engine, settings: settings, tokens: tokens, clock: clock)
-          : SyncController(
-              engine: engine,
-              settings: settings,
-              tokens: tokens,
-              apiFactory: syncApiFactory,
-              clock: clock,
-            ),
+      sync: SyncController(
+        engine: engine,
+        settings: settings,
+        tokens: tokens,
+        apiFactory: syncApiFactory ?? SyncController.defaultApi,
+        clock: clock,
+        jitter: syncJitter,
+      ),
       search: search,
       recognition: recognition,
       pointerActivity: pointerActivity,
