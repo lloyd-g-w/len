@@ -219,7 +219,7 @@ abstract final class Palette {
 
   /// The hairline round a cover or a page preview, so light paper
   /// separates from what is behind it: black at 8 %.
-  static const Color paperEdge = Color(0x14000000);
+  static const Color paperEdge = Color.from(alpha: 0.08, red: 0, green: 0, blue: 0);
 
   /// Writing printed on paper: [ink] at 60 % on light paper, white at
   /// 70 % on dark paper (the canvas's empty hint).
