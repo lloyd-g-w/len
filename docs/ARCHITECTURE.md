@@ -835,7 +835,9 @@ pages than the notes use is refused. Both re-read the page after the file
 picker (a sync may have swapped or deleted its PDF meanwhile). A new PDF
 page of another shape reshapes its page (`NotebookPage.sizeFor`: width
 kept, height from the PDF page's aspect ratio, so ink stays put, anchored
-top left), in the same step; the confirmation says "Pages change shape to
+top left), in the same step, and the text boxes on pages changing shape flow again
+(`TextFlowChains.reflowOn`: a part past a shorter page's new bottom goes on to the next
+page); the confirmation says "Pages change shape to
 match" and, when a page getting shorter has notes past its new bottom edge, that they will be hidden (`pdfReshapeNote`). The overview's cells take the shape of
 most of the notebook's pages (`commonPageAspect`), so slide decks get
 landscape cells.
@@ -924,7 +926,10 @@ Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
 on mobile, written into a folder the user picks on desktop and downloaded as
-one ZIP named after the export in browsers (`zipOf`). Shares carry the
+one ZIP named after the export in browsers (`zipOf`; its name cleaned as files' are,
+`core/file_names.dart` `safeFileName`, and names inside, like several notebooks' files,
+kept apart even when they differ only by case, `uniqueFileName`, as Windows and macOS don't
+tell them apart). Shares carry the
 notebook's title as their subject; Android's temporary copies (a folder per share in cache
 `export/`, so a name shared again never rewrites a file still being read) are deleted by the next share once over an hour old. On Android the
 export sheet also offers Save to device: the system's save dialog (one file)
@@ -2079,7 +2084,9 @@ GoodNotes-style rich text inside a box.
 - **Flow across pages** (`ink/elements/text_flow_*.dart`, `domain/text/text_flow.dart`,
   `features/editor/document/document_text_flow.dart`): on a paged notebook a box (not
   rotated) reaching the page's bottom margin (6 % of the page height) continues in a box at
-  the top margin of the next page (below a header area), lined up with it, and so on; a page
+  the top margin of the next page (below a header area), lined up with it and as wide (on a
+  narrower page where that would stick out, a portrait page after a landscape slide: as wide as
+  fits between its side margins, `TextFlowChains.columnOn`), and so on; a page
   like the last is added when the text runs past it. The first box (the *head*) holds the
   chain's position, width and box style; each continuation is an element of its own page
   holding its part of the text, with `TextData.flow` (`TextFlow`: the box it continues,
@@ -2090,7 +2097,8 @@ GoodNotes-style rich text inside a box.
   page begins with). So every page draws, thumbnails, searches and exports (PNG, PDF) on its own,
   and the chain's text is `TextFlow.join` of the parts. `TextFlowLayout.split` cuts one
   `TextBoxLayout` of the whole text at line boundaries (a paragraph may split, at least one
-  line per part); `TextFlowChains` finds a chain (continuations on the very next pages,
+  line per part; from a part on a page of another width on, the rest is laid out again at that
+  width); `TextFlowChains` finds a chain (continuations on the very next pages,
   `TextFlowChains.continuationsOf` / `headOf`, read from storage) and `reflow`s it into
   per-page edits (continuations keep their ids on their page; ones no longer needed go).
   `TextFlowPages` is the editor's view of the notebook (`DocumentTextFlow`): pages, margins,
@@ -2104,16 +2112,20 @@ GoodNotes-style rich text inside a box.
   ↑ out of it goes to the page before), so typing, deleting, selecting, formatting and the IME work across pages
   natively and each part shows where it will be stored (the editor measures the field's room
   line once and corrects the placeholders by what the field adds,
-  `RichTextController.roomExtra`). The other pages' boxes are hidden meanwhile and drawn as
+  `RichTextController.roomExtra`; the field is as wide as the first box, so a part on a
+  narrower page shows wider while edited, its room measured at the field's width). The other pages' boxes are hidden meanwhile and drawn as
   typed in other views (lifted content). One page at a time (single-page flow) the box tapped
-  is edited alone and its chain flows again when it ends. Either way the end is one
+  is edited alone and its chain flows again when it ends (a style given to its first line, when
+  that line goes on with the page before, goes to the parts holding the paragraph's start). Either way the end is one
   notebook-wide undo step (`PageModels.group`; pages added for the text are recorded last, so
   undo deletes them with their text and redo restores both). The session lays the text out
   once per keystroke (`TextLayoutCache`: width, height, split and the field's breaks read one
   layout; the field lays out on its own). **Lasso**: a continuation is not selected on its own
   (it follows its head); moving, resizing, restyling or rotating a head flows its chain again
   from where it is (`SelectionPlan.flowText`, same undo step; a rotated head takes the whole
-  text and stops flowing), deleting it deletes the chain, copy / cut / duplicate take the whole
+  text and stops flowing), deleting it deletes the chain (every box whose `TextFlow.from` leads
+  back to it, `TextFlowChains.allAfter`: a rival continuation two devices made, and what runs on
+  from it, too; a reflow drops those as well), copy / cut / duplicate take the whole
   text, so does dragging it into the other split pane (placed as the selection was shown, on the
   page its first line lands on; pasted on a page it flows; on a canvas it is one tall box). Ctrl+V
   of plain text on a page flows too (from no higher than the top margin). **Broken chains**: a continuation whose box before is gone or not on the page

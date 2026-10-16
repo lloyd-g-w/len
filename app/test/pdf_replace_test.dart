@@ -8,11 +8,15 @@ import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_page.dart';
+import 'package:len/domain/surface_element.dart';
+import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/documents/overview/page_commands.dart';
 import 'package:len/features/documents/pdf/pdf_import.dart';
 import 'package:len/features/documents/pdf/pdf_renderer.dart';
 import 'package:len/features/editor/editor_canvas.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/ink/elements/text_flow_chains.dart';
+import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/platform/blob_backend_native.dart';
 import 'package:len/ui/app_theme.dart';
 import 'package:pdf/pdf.dart' as pw;
@@ -281,8 +285,12 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  /// A notebook made from PDF [bytes], open in the editor.
-  Future<Notebook> openLecture(WidgetTester tester, List<int> bytes) async {
+  /// A notebook made from PDF [bytes] ([prepare]d), open in the editor.
+  Future<Notebook> openLecture(
+    WidgetTester tester,
+    List<int> bytes, {
+    void Function(Notebook nb)? prepare,
+  }) async {
     tester.view
       ..physicalSize = const ui.Size(900, 1200)
       ..devicePixelRatio = 1;
@@ -299,6 +307,7 @@ void main() {
       await importer.dispose();
       return notebook;
     }))!;
+    prepare?.call(nb);
     await tester.pumpWidget(
       AppScope(
         services: services,
@@ -366,4 +375,82 @@ void main() {
     expect(find.text('This page was deleted meanwhile'), findsOneWidget);
     expect(await tester.runAsync(() => services.blobs.has(shaOf(updated))), isFalse);
   });
+
+  testWidgets(
+    'text flowing across a page getting shorter flows again, in the same undo step',
+    skip: pdfium == null,
+    (tester) async {
+      final old = await otherPdf(pages: 2);
+      final updated = await otherPdf(pages: 2, format: const pw.PdfPageFormat(800, 450));
+      final text = [for (var i = 0; i < 30; i++) 'Line $i'].join('\n');
+      late List<SurfaceElement> before;
+      final nb = await openLecture(
+        tester,
+        old,
+        prepare: (nb) {
+          final pages = services.pages.pagesOf(nb.id);
+          before = chainOf(text, pages[0], pages[1]);
+          services.elements.save(before);
+        },
+      );
+      final pages = services.pages.pagesOf(nb.id);
+      final file = File('${dir.path}/Lecture 5 v2.pdf')..writeAsBytesSync(updated);
+      await replace(tester, pages.first, file);
+      final shorter = services.pages.pagesOf(nb.id);
+      expect(shorter.first.height, lessThan(pages.first.height));
+      final boxes = [
+        for (final p in shorter)
+          for (final e in services.elements.allOn(p.id)) (page: p, box: e),
+      ];
+      expect(boxes.length, greaterThan(2), reason: 'more text goes on to the next pages');
+      for (final (:page, :box) in boxes) {
+        expect(box.rect.bottom, lessThanOrEqualTo(FlowPage.of(page.id, page.size).bottom + 0.01));
+      }
+      for (var k = 1; k < boxes.length; k++) {
+        expect(TextFlowChains.flowOf(boxes[k].box)!.from, boxes[k - 1].box.id);
+      }
+      expect(TextFlow.join([for (final b in boxes) TextData.fromJson(b.box.data)]).text, text);
+
+      await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
+      await tester.pump();
+      expect(services.pages.pagesOf(nb.id).first.size, pages.first.size);
+      expect(
+        [for (final p in services.pages.pagesOf(nb.id)) ...services.elements.allOn(p.id)]
+            .map((e) => (e.id, e.rect)),
+        before.map((e) => (e.id, e.rect)),
+      );
+    },
+  );
+}
+
+/// [text] in a box reaching the bottom margin of page [a] and going on in
+/// a box on page [b], as the editor stores it.
+List<SurfaceElement> chainOf(String text, NotebookPage a, NotebookPage b) {
+  final whole = TextData.rich(text: text);
+  final top = a.height * 0.1;
+  final layout = TextLayout.layout(whole, 200);
+  final room = FlowPage.of(a.id, a.size).bottom - top;
+  final parts = TextFlowLayout.split(layout, (k) => k == 0 ? room : 1000);
+  layout.dispose();
+  expect(parts, hasLength(2));
+  return [
+    SurfaceElement(
+      id: 'head',
+      surfaceId: a.id,
+      type: ElementType.text.name,
+      rect: Rect.fromLTWH(40, top, 200, parts[0].height),
+      z: 1,
+      createdAt: 1,
+      data: parts[0].dataOf(whole).toJson(),
+    ),
+    SurfaceElement(
+      id: 'next',
+      surfaceId: b.id,
+      type: ElementType.text.name,
+      rect: Rect.fromLTWH(40, FlowPage.of(b.id, b.size).top, 200, parts[1].height),
+      z: 1,
+      createdAt: 1,
+      data: parts[1].dataOf(whole, from: 'head').toJson(),
+    ),
+  ];
 }

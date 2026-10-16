@@ -12,6 +12,8 @@ import 'text_layout.dart';
 export 'text_flow_layout.dart';
 export 'text_flow_pages.dart';
 
+part 'text_flow_chains_edits.dart';
+
 /// A text box of a chain and the page it is on.
 typedef FlowBox = ({String pageId, SurfaceElement box});
 
@@ -25,10 +27,12 @@ typedef FlowBox = ({String pageId, SurfaceElement box});
 /// continuation whose box before is gone, or not on the page before (pages
 /// deleted or reordered), stands alone: it keeps its text and is drawn as
 /// it was; the chain before it simply ends.
-class TextFlowChains {
+class TextFlowChains with _ChainEdits {
   TextFlowChains(this.pages, {this.clock = const Clock()});
 
+  @override
   final TextFlowPages pages;
+  @override
   final Clock clock;
 
   /// Most boxes a chain reaches.
@@ -40,11 +44,13 @@ class TextFlowChains {
 
   /// Whether text box [box] on [pageId] flows across pages: a text box, not
   /// rotated, on a page.
+  @override
   bool canFlow(String pageId, SurfaceElement box) =>
       box.knownType == ElementType.text && box.rotation == 0 && pages.pagesFrom(pageId) != null;
 
   /// The boxes continuing box [headId] (on page [pageId]) on the pages
   /// after it, in order.
+  @override
   List<FlowBox> continuationsOf(String pageId, String headId) {
     final after = pages.pagesFrom(pageId);
     if (after == null) return const [];
@@ -57,6 +63,30 @@ class TextFlowChains {
       if (next == null) break;
       out.add((pageId: id, box: next));
       previous = next.id;
+    }
+    return out;
+  }
+
+  /// Every box on the pages after [pageId] whose chain leads back to box
+  /// [headId] there: its continuations, and boxes continuing them that
+  /// the chain did not take (see [_continuing]) with what runs on from
+  /// those, in page order.
+  @override
+  List<FlowBox> allAfter(String pageId, String headId) {
+    final after = pages.pagesFrom(pageId);
+    if (after == null) return const [];
+    final out = <FlowBox>[];
+    var from = {headId};
+    for (final page in after.skip(1).take(maxParts)) {
+      final id = page.id;
+      if (id == null) break;
+      final next = [
+        for (final e in pages.elementsOn(id))
+          if (from.contains(flowOf(e)?.from)) e,
+      ];
+      if (next.isEmpty) break;
+      out.addAll([for (final e in next) (pageId: id, box: e)]);
+      from = {for (final e in next) e.id};
     }
     return out;
   }
@@ -79,6 +109,7 @@ class TextFlowChains {
   /// The first box of the chain [box] (on [pageId]) belongs to: [box]
   /// itself when it continues no box, null when the chain is broken (it
   /// stands alone).
+  @override
   FlowBox? headOf(String pageId, SurfaceElement box) {
     var page = pageId;
     var current = box;
@@ -107,6 +138,7 @@ class TextFlowChains {
 
   /// The parts of [layout] (the whole text of a chain whose head is at
   /// [rect] on [pageId]) on that page and the pages after it.
+  @override
   List<FlowPart> split(String pageId, Rect rect, TextBoxLayout layout) {
     final after = pages.pagesFrom(pageId);
     if (after == null) {
@@ -114,7 +146,9 @@ class TextFlowChains {
     }
     double room(int k) =>
         k == 0 ? after.first.bottom - rect.top : after[math.min(k, after.length - 1)].room;
-    return TextFlowLayout.split(layout, room);
+    double width(int k) =>
+        k == 0 ? rect.width : columnOn(after.first, pageOf(after, k), rect).width;
+    return TextFlowLayout.split(layout, room, width: width);
   }
 
   /// The page part [k] of a chain starting on [pageId] goes to ([after]
@@ -136,16 +170,31 @@ class TextFlowChains {
       final offset = pages.offsetOf(pageId, k);
       if (offset == null) return null;
       final page = pageOf(after, k);
-      final left = _leftOn(after.first, page, rect.left);
-      out.add(Rect.fromLTWH(offset.dx + left, offset.dy + page.top, rect.width, parts[k].height));
+      out.add(_frameOn(after.first, page, rect, parts[k].height).shift(offset));
     }
     return out;
   }
 
-  /// A continuation's left edge on [page] for a head at [left] on [head]:
-  /// lined up with it when pages are centred one under another.
-  static double _leftOn(FlowPage head, FlowPage page, double left) =>
-      left + (page.size.width - head.size.width) / 2;
+  /// Where a continuation of a head at [rect] on page [head] lies across
+  /// [page]: lined up with it when pages are centred one under another,
+  /// and as wide; on a narrower page where that would stick out, as wide
+  /// as fits between its side margins ([FlowPage.marginOf]) at most.
+  static ({double left, double width}) columnOn(FlowPage head, FlowPage page, Rect rect) {
+    final left = rect.left + (page.size.width - head.size.width) / 2;
+    final width = page.size.width;
+    if (width >= head.size.width || (left >= 0 && left + rect.width <= width)) {
+      return (left: left, width: rect.width);
+    }
+    final margin = FlowPage.marginOf(page.size);
+    final fits = math.max(math.min(rect.width, width - 2 * margin), TextLayout.minWidth);
+    return (left: left.clamp(margin, math.max(margin, width - margin - fits)), width: fits);
+  }
+
+  /// A continuation [height] tall on [page] of a head at [rect] on [head].
+  static Rect _frameOn(FlowPage head, FlowPage page, Rect rect, double height) {
+    final column = columnOn(head, page, rect);
+    return Rect.fromLTWH(column.left, page.top, column.width, height);
+  }
 
   /// The continuations [parts] of [whole] make after [head] (on [pageId]),
   /// on the pages there are: for drawing them while the chain is edited
@@ -162,12 +211,7 @@ class TextFlowChains {
             id: '${head.id}~$k',
             surfaceId: after[k].id!,
             type: ElementType.text.name,
-            rect: Rect.fromLTWH(
-              _leftOn(after.first, after[k], r.left),
-              after[k].top,
-              r.width,
-              parts[k].height,
-            ),
+            rect: _frameOn(after.first, after[k], r, parts[k].height),
             z: head.z,
             createdAt: head.createdAt,
             data: parts[k].dataOf(whole, from: head.id).toJson(),
@@ -175,129 +219,4 @@ class TextFlowChains {
         ),
     ];
   }
-
-  /// The edits that store [whole] as the text of the chain whose first box
-  /// is [head] (on [pageId]; its data is replaced) in place of its old
-  /// continuations [old]: the head as laid out (its part of the text, its
-  /// height) and each page's edit of continuations. Adds pages as needed:
-  /// call within [TextFlowPages.batch].
-  ({SurfaceElement head, Map<String, InkEdit> edits}) reflow(
-    String pageId,
-    SurfaceElement head,
-    TextData whole,
-    List<FlowBox> old, {
-    TextBoxLayout? layout,
-  }) {
-    final after = pages.pagesFrom(pageId)!;
-    final laid = layout ?? TextLayout.layout(whole, head.rect.width);
-    final parts = split(pageId, head.rect, laid);
-    if (layout == null) laid.dispose();
-    final r = head.rect;
-    final first = head.copyWith(
-      rect: Rect.fromLTWH(r.left, r.top, r.width, parts.first.height),
-      data: parts.first.dataOf(whole).toJson(head.data),
-    );
-    final edits = <String, _Edits>{};
-    _Edits on(String id) => edits[id] ??= _Edits();
-    final kept = <String>{};
-    var previous = head.id;
-    for (var k = 1; k < parts.length; k++) {
-      var page = pageOf(after, k);
-      final id = page.id ?? pages.addPage();
-      page = FlowPage(id: id, size: page.size, top: page.top, bottom: page.bottom);
-      final was = _reuse(old, k - 1, id, kept);
-      final box = SurfaceElement(
-        id: was?.id ?? clock.newId(),
-        surfaceId: id,
-        type: ElementType.text.name,
-        rect: Rect.fromLTWH(_leftOn(after.first, page, r.left), page.top, r.width, parts[k].height),
-        z: was?.z ?? _topZ(id) + 1,
-        createdAt: was?.createdAt ?? clock.nowMs(),
-        data: parts[k].dataOf(whole, from: previous).toJson(was?.data ?? const {}),
-      );
-      previous = box.id;
-      if (was != null) {
-        kept.add(was.id);
-        if (_same(was, box)) continue;
-        on(id).removed.add(was);
-      }
-      on(id).added.add(box);
-    }
-    for (final o in old) {
-      if (!kept.contains(o.box.id)) on(o.pageId).removed.add(o.box);
-    }
-    for (final r in _rivals(pageId, head.id, old)) {
-      on(r.pageId).removed.add(r.box);
-    }
-    return (head: first, edits: {for (final e in edits.entries) e.key: e.value.build()});
-  }
-
-  /// Boxes continuing a box of the chain of [headId] (on [pageId]; its
-  /// continuations [old]) on the very next page that the chain did not
-  /// take (see [_continuing]): two devices made it run on at once. They
-  /// hold a copy of its text, so they go when it flows again.
-  List<FlowBox> _rivals(String pageId, String headId, List<FlowBox> old) {
-    final taken = {for (final o in old) o.box.id};
-    final out = <FlowBox>[];
-    for (final (:page, id: from) in [
-      (page: pageId, id: headId),
-      for (final o in old) (page: o.pageId, id: o.box.id),
-    ]) {
-      final next = pages.pagesFrom(page)?.skip(1).firstOrNull?.id;
-      if (next == null) continue;
-      for (final e in pages.elementsOn(next)) {
-        if (flowOf(e)?.from == from && !taken.contains(e.id)) out.add((pageId: next, box: e));
-      }
-    }
-    return out;
-  }
-
-  /// The old continuation to keep for part [index] on page [pageId]: the
-  /// one that was there.
-  static SurfaceElement? _reuse(List<FlowBox> old, int index, String pageId, Set<String> kept) {
-    if (index < old.length && old[index].pageId == pageId && !kept.contains(old[index].box.id)) {
-      return old[index].box;
-    }
-    return old
-        .where((o) => o.pageId == pageId && !kept.contains(o.box.id))
-        .map((o) => o.box)
-        .firstOrNull;
-  }
-
-  double _topZ(String pageId) {
-    var top = 0.0;
-    for (final e in pages.elementsOn(pageId)) {
-      if (e.z > top) top = e.z;
-    }
-    return top;
-  }
-
-  static bool _same(SurfaceElement a, SurfaceElement b) =>
-      a.rect == b.rect &&
-      a.rotation == b.rotation &&
-      a.z == b.z &&
-      TextData.fromJson(a.data) == TextData.fromJson(b.data);
-
-  /// The edits removing the continuations [rest] of a deleted head.
-  static Map<String, InkEdit> removing(List<FlowBox> rest) {
-    final edits = <String, List<SurfaceElement>>{};
-    for (final r in rest) {
-      (edits[r.pageId] ??= []).add(r.box);
-    }
-    return {for (final e in edits.entries) e.key: InkEdit(removedElements: e.value)};
-  }
-
-  /// Commits each page's edit of [edits] to its model.
-  void commit(Map<String, InkEdit> edits) {
-    for (final e in edits.entries) {
-      pages.modelOf(e.key).commit(e.value);
-    }
-  }
-}
-
-class _Edits {
-  final List<SurfaceElement> added = [];
-  final List<SurfaceElement> removed = [];
-
-  InkEdit build() => InkEdit(addedElements: added, removedElements: removed);
 }

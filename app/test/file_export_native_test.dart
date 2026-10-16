@@ -55,4 +55,18 @@ void main() {
     expect(String.fromCharCodes(archive.files.first.content), 'Physics p1.png');
     expect(zipOf(files).name, 'Len export.zip');
   });
+
+  test('the ZIP is named as exported files are; names inside never clash on any system', () {
+    final files = [
+      for (final name in ['Physics.pdf', 'physics.pdf', 'PHYSICS.PDF', 'physics (2).pdf'])
+        (bytes: Uint8List.fromList(name.codeUnits), name: name),
+    ];
+    expect(zipOf(files, subject: 'CON').name, 'CON_.zip');
+    expect(zipOf(files, subject: 'Notes...').name, 'Notes.zip');
+    expect(zipOf(files, subject: 'a' * 300).name, '${'a' * 100}.zip');
+    expect(zipOf(files, subject: ' ?? ').name, 'Len export.zip');
+    final names = [for (final f in ZipDecoder().decodeBytes(zipOf(files).bytes).files) f.name];
+    expect(names, ['Physics.pdf', 'physics (2).pdf', 'PHYSICS (3).PDF', 'physics (2) (2).pdf']);
+    expect({for (final n in names) n.toLowerCase()}, hasLength(4));
+  });
 }

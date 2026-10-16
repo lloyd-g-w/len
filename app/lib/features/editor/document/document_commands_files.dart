@@ -6,7 +6,30 @@ mixin _DocumentFiles {
   Notebook Function() get notebook;
   DocumentController get doc;
   PageEdits get edits;
+  TextFlowChains get flows;
   NotebookPage get _current;
+
+  /// [PageEdits.replacePdf] with the text on pages changing shape flowed
+  /// again (a part past a shorter page's bottom goes on to the next page),
+  /// as one undo step.
+  PageEdit _replacePdf({
+    required String from,
+    required String to,
+    required List<Size> shapes,
+    List<PageSpec> extra = const [],
+    NotebookPage? after,
+  }) {
+    final sizes = {for (final p in doc.pages) p.id: p.size};
+    late PageEdit edit;
+    flows.pages.batch(() {
+      edit = edits.replacePdf(from: from, to: to, shapes: shapes, extra: extra, after: after);
+      flows.reflowOn([
+        for (final p in doc.pages)
+          if (sizes[p.id] case final size? when size != p.size) p.id,
+      ]);
+    });
+    return edit;
+  }
 
   /// Lets the user pick a file for PDF [blob], which pages of this notebook
   /// are drawn on but which can't be had (UX_AUDIT #24).
@@ -20,7 +43,7 @@ mixin _DocumentFiles {
       context,
       notebookId: notebook().id,
       missing: blob,
-      use: (to, shapes) => edits.replacePdf(from: blob, to: to, shapes: shapes),
+      use: (to, shapes) => _replacePdf(from: blob, to: to, shapes: shapes),
       file: file,
     );
     switch (result) {
@@ -46,7 +69,7 @@ mixin _DocumentFiles {
       file: file,
     );
     if (replacement == null) return;
-    final edit = edits.replacePdf(
+    final edit = _replacePdf(
       from: replacement.from,
       to: replacement.blob,
       shapes: replacement.shapes,

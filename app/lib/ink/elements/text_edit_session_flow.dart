@@ -160,9 +160,19 @@ extension _SessionFlow on TextEditSession {
     final m = _measured(current.copyWith(data: data.toJson(current.data)));
     final frames = m.frames;
     if (frames == null) return const [];
+    // The field lays the whole text out as wide as the first box: a part on
+    // a page of another width is as tall there as its text is at that width.
+    final width = frames.first.width;
+    double shown(int k) => frames[k].width == width
+        ? frames[k].height
+        : TextLayout.heightOf(m.parts[k].dataOf(data, from: '-'), width);
     return [
       for (var k = 1; k < m.parts.length; k++)
-        (at: m.parts[k].start, gap: frames[k].top - frames[k - 1].bottom, soft: m.parts[k].joined),
+        (
+          at: m.parts[k].start,
+          gap: frames[k].top - frames[k - 1].top - shown(k - 1),
+          soft: m.parts[k].joined,
+        ),
     ];
   }
 
@@ -174,7 +184,7 @@ extension _SessionFlow on TextEditSession {
       if (original == null) return;
       chains.pages.batch(() {
         _model.commit(InkEdit(removedElements: [original]));
-        chains.commit(TextFlowChains.removing(_rest));
+        chains.commit(chains.removing(_model.surfaceId, original.id, _rest));
       });
       return;
     }
@@ -202,6 +212,7 @@ extension _SessionFlow on TextEditSession {
     final empty = data.text.trim().isEmpty;
     if (head != null) {
       if (!empty) {
+        _carryFirstLine(parts, data);
         parts[_aloneIndex] = data;
       } else {
         final gone = parts.removeAt(_aloneIndex);
@@ -222,14 +233,31 @@ extension _SessionFlow on TextEditSession {
     final whole = parts.isEmpty ? const TextData() : TextFlow.join(parts);
     chains.pages.batch(() {
       if (whole.text.trim().isEmpty) {
-        if (stored != null) _modelOf(headPage).commit(InkEdit(removedElements: [stored]));
-        chains.commit(TextFlowChains.removing(_rest));
+        if (stored == null) return;
+        _modelOf(headPage).commit(InkEdit(removedElements: [stored]));
+        chains.commit(chains.removing(headPage, stored.id, _rest));
         return;
       }
       final r = chains.reflow(headPage, first, whole, _rest);
       _modelOf(headPage).commit(InkEdit(removedElements: [?stored], addedElements: [r.head]));
       chains.commit(r.edits);
     });
+  }
+
+  /// A part edited on its own whose first line goes on with the page
+  /// before ([TextFlow.joined]) shares that paragraph with the parts
+  /// before it, whose style wins when the chain is joined: a style changed
+  /// there ([data], a heading, a tick) goes back to them.
+  void _carryFirstLine(List<TextData> parts, TextData data) {
+    final was = parts[_aloneIndex];
+    final style = data.paras.first;
+    if (_aloneIndex == 0 || !(was.flow?.joined ?? false) || style == was.paras.first) return;
+    for (var k = _aloneIndex - 1; k >= 0; k--) {
+      final part = parts[k];
+      parts[k] = part.withFormatting(paras: [...part.paras.take(part.lineCount - 1), style]);
+      // A part all of that paragraph's: it goes on from the part before.
+      if (part.lineCount > 1 || !(part.flow?.joined ?? false)) break;
+    }
   }
 
   /// Tells the pages what to draw in place of the boxes edited, for their

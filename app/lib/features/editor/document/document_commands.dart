@@ -9,6 +9,7 @@ import '../../../data/surface_copier.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
+import '../../../ink/elements/text_flow_chains.dart';
 import '../../documents/export/export_flow.dart';
 import '../../documents/export/notebook_exporter.dart';
 import '../../documents/export/print_flow.dart';
@@ -21,10 +22,12 @@ import '../../documents/scan/scan_flow.dart';
 import '../../documents/template_picker.dart';
 import '../../documents/templates/user_templates.dart';
 import 'document_controller.dart';
+import 'document_text_flow.dart';
 import 'go_to_page_dialog.dart';
 import 'page_actions.dart';
 import 'page_backgrounds.dart';
 import 'page_edits.dart';
+import 'page_models.dart';
 import 'page_overview.dart';
 import 'page_transfer_flow.dart';
 
@@ -60,6 +63,13 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
   /// Page changes as steps of the notebook's undo history.
   @override
   late final PageEdits edits;
+
+  /// The notebook's text boxes flowing across its pages.
+  @override
+  late final TextFlowChains flows = TextFlowChains(
+    DocumentTextFlow(doc: doc, commands: this),
+    clock: services.clock,
+  );
 
   /// Fresh pages were added to write on (the editor starts writing).
   VoidCallback? onBlankPage;

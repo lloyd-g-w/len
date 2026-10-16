@@ -118,7 +118,7 @@ class SelectionPlan {
     }
     for (final MapEntry(key: id, value: (model, before)) in removed.entries) {
       if (added.containsKey(id) || TextFlowChains.flowOf(before) != null) continue;
-      _merge(chains, TextFlowChains.removing(chains.continuationsOf(model.surfaceId, before.id)));
+      _merge(chains, chains.removing(model.surfaceId, before.id));
     }
     for (final (model, after) in added.values) {
       final before = removed[after.id];
@@ -146,7 +146,9 @@ class SelectionPlan {
           rect: Rect.fromLTWH(r.left, r.top, r.width, rest.isEmpty ? r.height : height),
           data: whole.toJson(head.data),
         );
-        _merge(chains, TextFlowChains.removing(rest));
+        if (rest.isNotEmpty) {
+          _merge(chains, chains.removing(before!.$1.surfaceId, before.$2.id, rest));
+        }
       }
       if (identical(laid, after)) continue;
       final edit = (_arrivals[model]?.addedElements.contains(after) ?? false)
