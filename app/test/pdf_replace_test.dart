@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/domain/notebook.dart';
+import 'package:len/domain/notebook_page.dart';
 import 'package:len/features/documents/overview/page_commands.dart';
 import 'package:len/features/documents/pdf/pdf_import.dart';
 import 'package:len/features/documents/pdf/pdf_renderer.dart';
@@ -219,5 +221,91 @@ void main() {
     expect(find.text('These pages already show “Lecture 5.pdf”'), findsOneWidget);
     expect(await tester.runAsync(() => services.blobs.has(shaOf(old))), isTrue);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  /// A notebook made from PDF [bytes], open in the editor.
+  Future<Notebook> openLecture(WidgetTester tester, List<int> bytes) async {
+    tester.view
+      ..physicalSize = const ui.Size(900, 1200)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    addTearDown(() => tester.pumpWidget(const SizedBox()));
+    final nb = (await tester.runAsync(() async {
+      final file = File('${dir.path}/Lecture 5.pdf')..writeAsBytesSync(bytes);
+      final importer = PdfImporter(services);
+      final notebook = await importer.createNotebook(
+        await importer.store(XFile(file.path)),
+        title: 'Lecture 5',
+        cover: 0,
+      );
+      await importer.dispose();
+      return notebook;
+    }))!;
+    await tester.pumpWidget(
+      AppScope(
+        services: services,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: EditorScreen(notebook: nb),
+        ),
+      ),
+    );
+    await pumpUntilPdfRendered(tester);
+    return nb;
+  }
+
+  /// Replace PDF… on [page] (as it was when the menu opened) with [file].
+  Future<void> replace(
+    WidgetTester tester,
+    NotebookPage page,
+    File file, {
+    bool agree = true,
+  }) async {
+    final session = tester.widget<EditorCanvas>(find.byType(EditorCanvas)).session;
+    var finished = false;
+    final done = session.commands!
+        .replacePdf(tester.element(find.byType(EditorCanvas)), page, file: XFile(file.path))
+        .whenComplete(() => finished = true);
+    await pumpUntil(tester, () => finished || find.text('Replace the PDF?').evaluate().isNotEmpty);
+    if (!finished && agree) await tester.tap(find.text('Replace'));
+    await pumpUntil(tester, () => finished);
+    await done;
+    await tester.pump();
+  }
+
+  testWidgets(
+    'pages relinked by a sync during the file picker: it goes on from what they show now',
+    skip: pdfium == null,
+    (tester) async {
+      final old = await otherPdf(pages: 2);
+      final synced = await otherPdf(pages: 3);
+      final updated = await otherPdf(pages: 4);
+      final nb = await openLecture(tester, old);
+      final page = services.pages.pagesOf(nb.id).first; // The menu's page.
+      // Meanwhile another device replaced the PDF (the pages now show v2).
+      services.pages.relinkBackground(nb.id, from: shaOf(old), to: shaOf(synced));
+      final file = File('${dir.path}/Lecture 5 v3.pdf')..writeAsBytesSync(updated);
+      await replace(tester, page, file);
+      expect(find.text('PDF replaced'), findsOneWidget);
+      final shown = [for (final p in services.pages.pagesOf(nb.id)) p.pdf?.blob];
+      expect(shown.take(2), [shaOf(updated), shaOf(updated)]);
+      await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
+      await tester.pump();
+      expect(services.pages.pagesOf(nb.id).map((p) => p.pdf?.blob), [shaOf(synced), shaOf(synced)]);
+    },
+  );
+
+  testWidgets('a page deleted during the file picker says so', skip: pdfium == null, (
+    tester,
+  ) async {
+    final old = await otherPdf(pages: 2);
+    final updated = await otherPdf(pages: 4);
+    final nb = await openLecture(tester, old);
+    final page = services.pages.pagesOf(nb.id).first;
+    services.pages.delete(page.id); // On another device, synced meanwhile.
+    final file = File('${dir.path}/Lecture 5 v2.pdf')..writeAsBytesSync(updated);
+    await replace(tester, page, file);
+    expect(find.text('This page was deleted meanwhile'), findsOneWidget);
+    expect(await tester.runAsync(() => services.blobs.has(shaOf(updated))), isFalse);
   });
 }

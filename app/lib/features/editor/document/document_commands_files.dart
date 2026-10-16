@@ -37,18 +37,17 @@ mixin _DocumentFiles {
   /// lecturer's corrected slides) and shows it under the notes of every
   /// page drawn on the old one, as one undoable step (UX_AUDIT R18-1).
   Future<void> replacePdf(BuildContext context, NotebookPage page, {XFile? file}) async {
-    final current = page.pdf?.blob;
-    if (current == null) return;
+    if (page.pdf == null) return;
     final services = AppScope.read(context);
     final replacement = await replacePdfFlow(
       context,
       notebookId: notebook().id,
-      current: current,
+      pageId: page.id,
       file: file,
     );
     if (replacement == null) return;
     final edit = edits.replacePdf(
-      from: current,
+      from: replacement.from,
       to: replacement.blob,
       shapes: replacement.shapes,
       extra: replacement.extra,

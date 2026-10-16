@@ -17,6 +17,9 @@ const _pdfTypes = [
 
 /// A PDF chosen to replace another in a notebook ([replacePdfFlow]).
 typedef PdfReplacement = ({
+  /// The PDF it replaces.
+  String from,
+
   /// The new PDF's blob.
   String blob,
 
@@ -33,15 +36,17 @@ typedef PdfReplacement = ({
   NotebookPage after,
 });
 
-/// Lets the user pick a new version of PDF [current] (the lecturer's
-/// corrected slides) for the pages of [notebookId] drawn on it, keeping
-/// their notes (UX_AUDIT R18-1). Checks the file, asks, and returns what
-/// to change; null if cancelled, refused or failed (the user has been
-/// told why). The caller makes the change (undoably).
+/// Lets the user pick a new version of the PDF page [pageId] of
+/// [notebookId] is drawn on (the lecturer's corrected slides) for the
+/// pages drawn on it, keeping their notes (UX_AUDIT R18-1). Checks the
+/// file, asks, and returns what to change; null if cancelled, refused or
+/// failed (the user has been told why). The caller makes the change
+/// (undoably). The page is read again once the file is copied: a sync may
+/// have changed its PDF meanwhile (that one is replaced) or deleted it.
 Future<PdfReplacement?> replacePdfFlow(
   BuildContext context, {
   required String notebookId,
-  required String current,
+  required String pageId,
   XFile? file,
 }) async {
   final services = AppScope.read(context);
@@ -50,6 +55,7 @@ Future<PdfReplacement?> replacePdfFlow(
   final importer = PdfImporter(services);
   final renderer = PdfRenderer(services.blobs);
   String? sha;
+  String? current; // The PDF the page shows now.
   Future<PdfReplacement?> discard() async {
     await renderer.dispose();
     if (sha != null && sha != current) await importer.discard(sha!);
@@ -65,17 +71,20 @@ Future<PdfReplacement?> replacePdfFlow(
       (progress) async {
         progress.stageStarted('Copying file…');
         sha = await importer.store(picked, cancel: progress.token);
+        final page = services.pages.get(pageId);
+        current = page?.pdf?.blob;
+        if (current == null) return (page: page, sizes: const <Size>[], oldCount: null);
         if (sha == current) return null;
         progress.stageStarted('Reading pages…');
         final sizes = await renderer.pageSizes(sha!);
         // The old one's length, if it is here (else: what the notes use).
         int? oldCount;
         try {
-          oldCount = (await renderer.pageSizes(current)).length;
+          oldCount = (await renderer.pageSizes(current!)).length;
         } on Object {
           oldCount = null;
         }
-        return (sizes: sizes, oldCount: oldCount);
+        return (page: page, sizes: sizes, oldCount: oldCount);
       },
     );
     if (!context.mounted) return await discard();
@@ -84,6 +93,13 @@ Future<PdfReplacement?> replacePdfFlow(
       return null;
     }
     if (read == null) return await discard();
+    if (current == null) {
+      showMessage(
+        context,
+        read.page == null ? 'This page was deleted meanwhile' : 'This page no longer shows a PDF',
+      );
+      return await discard();
+    }
 
     final using = [
       for (final page in services.pages.pagesOf(notebookId))
@@ -125,7 +141,7 @@ Future<PdfReplacement?> replacePdfFlow(
       confirmLabel: 'Replace',
     );
     if (!agreed) return await discard();
-    return (blob: sha!, shapes: read.sizes, extra: extra, after: after);
+    return (from: current!, blob: sha!, shapes: read.sizes, extra: extra, after: after);
   } on Cancelled {
     return await discard();
   } on Object catch (e, stack) {
