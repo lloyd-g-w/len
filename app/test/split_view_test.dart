@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
+import 'package:len/core/clock.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/stroke_reader.dart';
 import 'package:len/data/stroke_repository.dart';
@@ -31,6 +32,7 @@ Future<(AppServices, Notebook, Notebook)> pumpWorkspace(
   NotebookKind kind = NotebookKind.paged,
   AudioBackends? audio,
   StrokeReader Function(StrokeRepository strokes)? reader,
+  Clock clock = const Clock(),
 }) async {
   tester.view
     ..physicalSize = size
@@ -41,6 +43,7 @@ Future<(AppServices, Notebook, Notebook)> pumpWorkspace(
     db,
     audio: audio,
     strokeReader: reader?.call(StrokeRepository(db, deviceId: 'reader')),
+    clock: clock,
   );
   addTearDown(s.dispose);
   Notebook make(String title) =>

@@ -1,3 +1,20 @@
+# Two tiers (docs/CONVENTIONS.md, "Rules"): the default run leaves out the
+# slow tier (`flutter test -x slow`); CI runs that in a job of its own
+# (`flutter test -t slow`). Plain `flutter test` runs both.
+
+# Test files run in parallel, one per core here (package:test's default is
+# half the cores). Measured on the 6-core dev machine, default tier: 13.5 min
+# at 3, 8.3 min at 6, slower again at 8. `-j N` overrides it.
+concurrency: 6
 tags:
   inklab:
     # The Ink Lab suite (test/inklab/); see docs/INK_LAB.md.
+  perf:
+    # Benchmarks at scale (test/perf/): big libraries, notebooks and canvases.
+    add_tags: [slow]
+  screenshots:
+    # The screenshot scenarios (test/screenshots/); without
+    # --dart-define=SCREENSHOTS=true they render as layout smoke tests.
+    add_tags: [slow]
+  slow:
+    # The slow tier: run with `flutter test -t slow` (CI runs it on every push).

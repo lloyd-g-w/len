@@ -1,3 +1,6 @@
+@Tags(['perf'])
+library;
+
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';

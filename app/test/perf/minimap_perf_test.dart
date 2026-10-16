@@ -1,3 +1,6 @@
+@Tags(['perf'])
+library;
+
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';

@@ -3,6 +3,7 @@
 // to the pen's width) levels only while the pen is wide enough on screen;
 // `MouseSmoother` makes up the rest, and leaves wide enough pens alone.
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -83,18 +84,23 @@ double _wobble(List<Offset> line) {
   return sum;
 }
 
+/// The mouse's true path, densely sampled (px), as x, y pairs.
+final Float64List _truth = Float64List.fromList([
+  for (var t = 0.0; t <= 1; t += 0.0005) ...[_curve(t).dx, _curve(t).dy],
+]);
+
 /// The farthest [line] strays from the mouse's true path (px).
 double _deviation(List<Offset> line) {
-  final truth = [for (var t = 0.0; t <= 1; t += 0.0005) _curve(t)];
   var worst = 0.0;
   for (final p in line) {
     var best = double.infinity;
-    for (final q in truth) {
-      best = math.min(best, (q - p).distance);
+    for (var i = 0; i < _truth.length; i += 2) {
+      final dx = _truth[i] - p.dx, dy = _truth[i + 1] - p.dy;
+      best = math.min(best, dx * dx + dy * dy);
     }
     worst = math.max(worst, best);
   }
-  return worst;
+  return math.sqrt(worst);
 }
 
 void main() {

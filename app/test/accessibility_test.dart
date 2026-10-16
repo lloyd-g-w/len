@@ -191,93 +191,7 @@ final Map<String, List<Finder> Function()> phoneEditorStates = {
 };
 
 void main() {
-  for (final (name, size) in [('phone', phone), ('tablet', tablet)]) {
-    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-      final label = '$name ${mode.name}';
-
-      testWidgets('library $label', (tester) async {
-        await expectAccessible(
-          tester,
-          size: size,
-          scenario: (t) => pumpScreen(t, (_) => const LibraryScreen(), size: size, mode: mode),
-        );
-      });
-
-      testWidgets('settings $label', (tester) async {
-        await expectAccessible(
-          tester,
-          size: size,
-          scenario: (t) => pumpScreen(t, (_) => const SettingsScreen(), size: size, mode: mode),
-        );
-      });
-
-      testWidgets('new notebook $label', (tester) async {
-        await expectAccessible(
-          tester,
-          size: size,
-          scenario: (t) async {
-            await pumpScreen(t, (_) => const LibraryScreen(), size: size, mode: mode);
-            await tapAll(t, [find.bySemanticsLabel('New notebook')]);
-          },
-        );
-      });
-
-      final states = size == phone ? phoneEditorStates : editorStates;
-      for (final MapEntry(key: state, value: taps) in states.entries) {
-        testWidgets('$state $label', (tester) async {
-          await expectAccessible(
-            tester,
-            size: size,
-            scenario: (t) async {
-              await pumpScreen(
-                t,
-                (s) => EditorScreen(notebook: physics(s)),
-                size: size,
-                mode: mode,
-              );
-              await tapAll(t, taps());
-            },
-          );
-        });
-      }
-    }
-  }
-
-  // A phone held sideways: short-window chrome, Android's targets.
-  for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-    final label = 'phone sideways ${mode.name}';
-    testWidgets('library $label', (tester) async {
-      await expectAccessible(
-        tester,
-        size: sideways,
-        scenario: (t) => pumpScreen(t, (_) => const LibraryScreen(), size: sideways, mode: mode),
-      );
-    });
-
-    for (final MapEntry(key: state, value: taps) in phoneEditorStates.entries) {
-      testWidgets('$state $label', (tester) async {
-        await expectAccessible(
-          tester,
-          size: sideways,
-          // The options sheet scrolls: its next group fades out at the
-          // window's bottom edge, by design.
-          contrastHere: const {
-            'label: "Size"': 'the pen sheet\'s Size group, inside its scroll fade',
-            'label: "0.65 mm"': 'the pen sheet\'s size readout, inside its scroll fade',
-          },
-          scenario: (t) async {
-            await pumpScreen(
-              t,
-              (s) => EditorScreen(notebook: physics(s)),
-              size: sideways,
-              mode: mode,
-            );
-            await tapAll(t, taps());
-          },
-        );
-      });
-    }
-  }
+  mainScreenTests(ThemeMode.light);
 
   // Controls whose hit area hangs past their box (HitOverhang): the
   // guideline skips them where they touch a scrollable's edge, so check
@@ -315,19 +229,59 @@ void main() {
     });
   });
 
-  // Large text (the largest Android font size is 2×): nothing overflows,
-  // and the guidelines still hold.
-  for (final (name, size) in [('phone', phone), ('phone sideways', sideways), ('tablet', tablet)]) {
-    for (final (screen, home) in <(String, Widget Function(AppServices))>[
-      ('library', (_) => const LibraryScreen()),
-      ('settings', (_) => const SettingsScreen()),
-      ('editor', (s) => EditorScreen(notebook: physics(s))),
-    ]) {
-      testWidgets('$screen $name at 2× text', (tester) async {
+  // A phone held sideways: accessibility_sideways_test.dart. Large text:
+  // accessibility_large_text_test.dart and accessibility_largest_text_test.dart.
+}
+
+/// The guidelines on the library, settings, a new notebook and the
+/// editor's states, on a phone and a tablet in [mode]: light here, dark in
+/// accessibility_dark_test.dart (so they run in parallel).
+void mainScreenTests(ThemeMode mode) {
+  for (final (name, size) in [('phone', phone), ('tablet', tablet)]) {
+    final label = '$name ${mode.name}';
+
+    testWidgets('library $label', (tester) async {
+      await expectAccessible(
+        tester,
+        size: size,
+        scenario: (t) => pumpScreen(t, (_) => const LibraryScreen(), size: size, mode: mode),
+      );
+    });
+
+    testWidgets('settings $label', (tester) async {
+      await expectAccessible(
+        tester,
+        size: size,
+        scenario: (t) => pumpScreen(t, (_) => const SettingsScreen(), size: size, mode: mode),
+      );
+    });
+
+    testWidgets('new notebook $label', (tester) async {
+      await expectAccessible(
+        tester,
+        size: size,
+        scenario: (t) async {
+          await pumpScreen(t, (_) => const LibraryScreen(), size: size, mode: mode);
+          await tapAll(t, [find.bySemanticsLabel('New notebook')]);
+        },
+      );
+    });
+
+    final states = size == phone ? phoneEditorStates : editorStates;
+    for (final MapEntry(key: state, value: taps) in states.entries) {
+      testWidgets('$state $label', (tester) async {
         await expectAccessible(
           tester,
           size: size,
-          scenario: (t) => pumpScreen(t, home, size: size, textScale: 2),
+          scenario: (t) async {
+            await pumpScreen(
+              t,
+              (s) => EditorScreen(notebook: physics(s)),
+              size: size,
+              mode: mode,
+            );
+            await tapAll(t, taps());
+          },
         );
       });
     }

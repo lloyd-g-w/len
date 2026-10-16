@@ -33,7 +33,27 @@ jobs:
           cache: true # caches the SDK and ~/.pub-cache
       - run: flutter pub get
       - run: flutter analyze
-      - run: flutter test
+      # The default tier; the slow one runs in its own job (below).
+      - run: flutter test --exclude-tags slow
+
+  app-test-slow:
+    # The slow tier (dart_test.yaml, docs/CONVENTIONS.md "Rules"): the
+    # benchmarks in test/perf/ and the screenshot scenarios in
+    # test/screenshots/ (layout smoke tests without SCREENSHOTS=true).
+    name: App · slow tests (perf, screenshots)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test --tags slow
 
   wet-ink-kotlin:
     # The low-latency overlay's Kotlin model (android/.../WetInk*.kt) on a

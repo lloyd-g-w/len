@@ -62,6 +62,17 @@ List<SuiteEntry> suiteEntries({PenEnds? ends}) {
   ];
 }
 
+/// The stabilisers whose entries [inklab_test.dart] leaves to files of their
+/// own (inklab_stabiliser_0_4_test.dart, inklab_stabiliser_1_test.dart), so
+/// the suite runs in three files at once.
+const List<double> stabilisersApart = [0.4, 1];
+
+/// [entries] at [streamline], or with null those at none of
+/// [stabilisersApart]: together the files judge every entry once.
+Iterable<SuiteEntry> entriesAt(List<SuiteEntry> entries, double? streamline) => entries.where(
+  (e) => streamline == null ? !stabilisersApart.contains(e.streamline) : e.streamline == streamline,
+);
+
 /// The pen ends `--dart-define=INKLAB_ENDS=<round|flat|tapered>` asks for
 /// (null: the pen's own, round).
 PenEnds? suiteEnds() {
