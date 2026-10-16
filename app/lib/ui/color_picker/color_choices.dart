@@ -152,19 +152,19 @@ class EyedropperButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final height = EndTextButton.height;
-    final reach = (Targets.of(context, height) - height) / 2;
-    // The row keeps its height; on touch the hit area hangs over the gaps
-    // around it, as Custom's does.
+    final hit = Targets.of(context, height);
+    // The row keeps its height; on touch the hit area is as wide as a
+    // target and hangs over the gaps above and below, as Custom's does.
     return HitOverhang(
-      overhang: EdgeInsets.all(reach),
+      overhang: EdgeInsets.symmetric(vertical: (hit - height) / 2),
       child: IconButton(
         key: const ValueKey('pick-from-page'),
         tooltip: 'Pick from page',
         onPressed: onPressed,
         icon: const Icon(Symbols.colorize_sharp, size: Glyphs.menu),
         style: IconButton.styleFrom(
-          minimumSize: Size.square(height),
-          maximumSize: Size.square(height),
+          minimumSize: Size(hit, height),
+          maximumSize: Size(hit, height),
           padding: EdgeInsets.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
