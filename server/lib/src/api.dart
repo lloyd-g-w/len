@@ -59,18 +59,41 @@ Handler buildHandler({
 
 /// Turns unexpected exceptions into a JSON 500 (inside the CORS middleware,
 /// so browsers can read it); details go to stderr, never to the client.
+///
+/// A request whose body breaks off (the client hung up, or its connection
+/// dropped, mid-request) is no server error: it is logged in one line and
+/// answered 400, which nobody may be listening for any more.
 Handler _internalErrors(Handler inner) {
   return (Request request) async {
     try {
-      return await inner(request);
+      return await inner(request.change(body: _abortable(request.read())));
     } on HijackException {
       rethrow;
+    } on _ClientAborted catch (e) {
+      stderr.writeln('len-sync: ${request.method} /${request.url.path} broken off: ${e.cause}');
+      return _json(HttpStatus.badRequest, {'error': 'request broken off'});
     } catch (e, st) {
       stderr.writeln('len-sync: error handling ${request.method} /${request.url.path}: $e\n$st');
       return _json(HttpStatus.internalServerError, {'error': 'internal server error'});
     }
   };
 }
+
+/// Thrown while reading a request body that broke off: the client hung up
+/// or its connection dropped mid-request.
+class _ClientAborted implements Exception {
+  _ClientAborted(this.cause);
+
+  /// What reading the body failed with.
+  final Object cause;
+
+  @override
+  String toString() => 'client aborted: $cause';
+}
+
+/// [body], failing with [_ClientAborted] where reading it fails.
+Stream<List<int>> _abortable(Stream<List<int>> body) =>
+    body.handleError((Object e) => throw _ClientAborted(e), test: (e) => e is! _ClientAborted);
 
 /// Middleware rejecting requests without `Authorization: Bearer <token>`
 /// with 401, except for [publicPaths] (relative URL paths, no leading `/`).

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -377,10 +378,72 @@ void main() {
     expect(await jsonOf(r), {'error': 'internal server error'});
   });
 
+  group('a client hanging up mid-request', () {
+    /// [path] answered to a body that breaks off after [sent] bytes, and
+    /// what the server logged meanwhile.
+    Future<(Response, List<String>)> brokenOff(String method, String path, List<int> sent) async {
+      final body = StreamController<List<int>>()
+        ..add(sent)
+        ..addError(const SocketException('Connection reset by peer'))
+        ..close();
+      final log = _Log();
+      final r = await IOOverrides.runZoned(
+        () => handler(
+          Request(
+            method,
+            Uri.parse('http://localhost$path'),
+            headers: {'authorization': 'Bearer $token'},
+            body: body.stream,
+          ),
+        ),
+        stderr: () => log,
+      );
+      return (r, log.lines);
+    }
+
+    test('a push: nothing applied, one line logged, no 500', () async {
+      final json = utf8.encode(
+        jsonEncode({
+          'records': [record('a')],
+        }),
+      );
+      final (r, log) = await brokenOff('POST', '/v1/push', json.sublist(0, json.length - 3));
+      expect(r.statusCode, 400);
+      expect(await jsonOf(r), {'error': 'request broken off'});
+      expect(store.currentSeq(), 0);
+      expect(log, hasLength(1));
+      expect(log.single, contains('POST /v1/push broken off'));
+      expect(log.single.split('\n'), hasLength(1));
+    });
+
+    test('a file upload: nothing stored, one line logged', () async {
+      final sha = '0' * 64;
+      final (r, log) = await brokenOff('PUT', '/v1/blobs/$sha', [1, 2, 3]);
+      expect(r.statusCode, 400);
+      expect(log, hasLength(1));
+      expect(BlobStore.open(blobDir.path).size(sha), isNull);
+      final left = Directory(
+        blobDir.path,
+      ).listSync(recursive: true).whereType<File>().where((f) => !f.path.endsWith('.lock'));
+      expect(left, isEmpty);
+    });
+  });
+
   test('constantTimeEquals', () {
     expect(constantTimeEquals([1, 2, 3], [1, 2, 3]), isTrue);
     expect(constantTimeEquals([1, 2, 3], [1, 2, 4]), isFalse);
     expect(constantTimeEquals([1, 2], [1, 2, 0]), isFalse);
     expect(constantTimeEquals([], []), isTrue);
   });
+}
+
+/// Captures what is written to stderr.
+class _Log implements Stdout {
+  final List<String> lines = [];
+
+  @override
+  void writeln([Object? object = '']) => lines.add('$object');
+
+  @override
+  Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
