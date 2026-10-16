@@ -130,28 +130,29 @@ class SyncLedger {
         );
       }
     }
-    // A row edited in place that ends live holds an edit no deletion knew,
-    // or what a deletion knew (brought back) only if no edit newer than
-    // that one went unknown to every deletion: a copy brought back never
-    // replaces an edit it did not know.
+    // A row edited in place that ends live holds the newest edit no
+    // deletion knew, or a newer one: neither a copy brought back nor an
+    // edit kept over a deletion replaces an edit it did not know.
     for (final MapEntry(:key, value: contents) in _contents.entries) {
       final now = content(s, key);
       if (now == null) continue;
       final deletions = _deletions[key] ?? const [];
-      bool unknown(RowVersion edit) => deletions.every((d) => _newer(edit, d.known));
+      final unknown = [
+        for (final edit in contents.keys)
+          if (deletions.every((d) => _newer(edit, d.known))) edit,
+      ];
+      if (unknown.isEmpty) continue;
+      final newest = unknown.reduce((a, b) => _newer(a, b) ? a : b);
       final holding = [
         for (final MapEntry(key: version, value: data) in contents.entries)
           if (data == now) version,
       ];
-      if (holding.isEmpty || holding.any(unknown)) continue;
-      final newest = holding.reduce((a, b) => _newer(a, b) ? a : b);
-      for (final edit in contents.keys) {
-        if (!unknown(edit) || !_newer(edit, newest)) continue;
-        out.add(
-          '$key: edit ${edit.at}/${edit.device} lost to a copy brought back of '
-          '${newest.at}/${newest.device}',
-        );
-      }
+      if (holding.any((h) => !_newer(newest, h))) continue;
+      out.add(
+        '$key: edit ${newest.at}/${newest.device} lost; it holds what '
+        '${holding.isEmpty ? 'no edit wrote' : [for (final h in holding) '${h.at}/${h.device}'].join(', ')} '
+        'wrote',
+      );
     }
     for (final key in created.difference(deleted)) {
       if (!(now[key]?.$2 ?? false)) out.add('$key: deleted, but nobody deleted it knowingly');

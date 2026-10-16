@@ -166,7 +166,8 @@ Map<String, Object?> syncedState(AppServices s) => {
                 for (final e in row.entries)
                   if (!_bookkeeping.contains(e.key))
                     e.key: e.value is List<int> ? base64Encode(e.value as List<int>) : e.value,
-                if (row['revived_at'] == row['updated_at']) 'revived': _baseOf(row),
+                if (row['origin_for'] == row['updated_at'])
+                  'origin': '${row['origin_at']}/${row['origin_device']}',
               },
     },
   for (final (table, column) in [('stroke_chunks', 'stroke_id'), ('element_chunks', 'element_id')])
@@ -178,10 +179,18 @@ Map<String, Object?> syncedState(AppServices s) => {
     ],
 };
 
-/// Local columns that are no synced state: unpushed changes, and what a
-/// row's tombstone or revival noted (synced only while it is one).
-const _bookkeeping = {'dirty', 'base_at', 'base_device', 'revived_at'};
+/// Local columns that are no synced state as such: unpushed changes, and
+/// the origin and base of rows edited in place (`EditOrigins`; synced as a
+/// record's `base`, compared as such).
+const _bookkeeping = {
+  'dirty',
+  'base_at',
+  'base_device',
+  'origin_at',
+  'origin_device',
+  'origin_for',
+};
 
-/// The `base` a tombstone or revived row carries, as text ('' for none).
+/// The `base` a tombstone carries, as text ('' for none).
 String _baseOf(Row row) =>
     row['base_at'] == null ? '' : ' base ${row['base_at']}/${row['base_device']}';

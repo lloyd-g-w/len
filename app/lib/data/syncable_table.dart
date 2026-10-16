@@ -2,6 +2,7 @@ import 'package:sqlite3/common.dart';
 
 import '../core/clock.dart';
 import 'app_database.dart';
+import 'edit_origins.dart';
 import 'syncable.dart';
 
 /// Shared sync bookkeeping for tables with the standard
@@ -22,14 +23,16 @@ abstract class SyncableTable implements SyncableStore {
 
   /// Collections whose rows are edited in place (strokes are replaced
   /// instead, and the library's rows are organisation, not content): an
-  /// edit of one can race a deletion of it, so their tombstones note what
-  /// the deletion knew and their revived rows are marked as such (columns
-  /// `base_at`, `base_device`, `revived_at`; docs/SYNC_PROTOCOL.md,
-  /// "Deletion conflicts").
+  /// edit of one can race a deletion of it, so their rows note which edit
+  /// their content comes from and their tombstones what the deletion knew
+  /// ([EditOrigins]; docs/SYNC_PROTOCOL.md, "Deletion conflicts").
   static const editedInPlaceCollections = {'elements', 'recordings', 'outline'};
 
   /// Whether this table is one of [editedInPlaceCollections].
   bool get editedInPlace => editedInPlaceCollections.contains(collection);
+
+  /// The origins of this table's rows if it is [editedInPlace].
+  late final EditOrigins? origins = editedInPlace ? EditOrigins(db, table) : null;
 
   CommonDatabase get db => database.db;
 
@@ -89,52 +92,31 @@ abstract class SyncableTable implements SyncableStore {
   /// deletion that raced an edit, see `DeletionConflicts`: the version right
   /// after the deletion's, so a copy brought back never beats an edit made
   /// elsewhere). Tables whose tombstones keep every column revive them as
-  /// they were. Rows edited in place are marked as revived at [version] (see
-  /// [editedInPlace]), keeping the base of the deletion they undo.
+  /// they were. Rows edited in place keep the origin of their content
+  /// ([EditOrigins]): a copy brought back is no edit.
   void revive(Iterable<String> ids, {required int version}) {
-    final marked = editedInPlace ? ', revived_at = ?1' : '';
+    final kept = origins == null
+        ? ''
+        : ', origin_for = CASE WHEN origin_for = updated_at AND origin_at IS NOT NULL '
+              'THEN ?1 ELSE 0 END';
     for (final id in ids) {
       db.execute(
-        'UPDATE $table SET deleted = 0, dirty = 1, updated_at = ?1, device_id = ?2$marked '
+        'UPDATE $table SET deleted = 0, dirty = 1, updated_at = ?1, device_id = ?2$kept '
         'WHERE id = ?3 AND deleted = 1 AND updated_at < ?1',
         [version, deviceId, id],
       );
     }
   }
 
-  /// What a pull needs to know of local row [id] of a table edited in place
-  /// ([editedInPlace]) to tell an edit and a deletion that did not know
-  /// each other; null if there is no such row.
-  LocalVersion? localVersion(String id) {
-    final rows = database.select(
-      'SELECT updated_at, device_id, deleted, dirty, base_at, base_device, revived_at '
-      'FROM $table WHERE id = ?',
-      [id],
-    );
-    if (rows.isEmpty) return null;
-    final row = rows.first;
-    final at = row['updated_at'] as int;
-    return (
-      version: (updatedAt: at, deviceId: row['device_id'] as String),
-      deleted: row['deleted'] == 1,
-      dirty: row['dirty'] == 1,
-      base: _baseOf(row),
-      revived: row['deleted'] == 0 && row['revived_at'] == at,
-    );
-  }
-
-  static RecordVersion? _baseOf(Row row) => switch ((row['base_at'], row['base_device'])) {
-    (final int at, final String device) => (updatedAt: at, deviceId: device),
-    _ => null,
-  };
-
   /// Makes the local version of row [id] a new local edit, later than
-  /// version [over] (another device's, or a deletion's here): an edit and
-  /// a deletion that did not know each other keep the edit (see
+  /// version [over] (another device's, or a deletion's here), holding the
+  /// same content from the same edit ([EditOrigins]): an edit and a
+  /// deletion that did not know each other keep the edit (see
   /// `PullApplier`).
   void keepAsEdit(String id, {required int over}) {
     final now = clock.nowMs();
-    db.execute('UPDATE $table SET updated_at = ?, device_id = ?, dirty = 1 WHERE id = ?', [
+    final kept = origins == null ? '' : ', ${EditOrigins.keepOrigin}';
+    db.execute('UPDATE $table SET updated_at = ?1, device_id = ?2, dirty = 1$kept WHERE id = ?3', [
       now > over ? now : over + 1,
       deviceId,
       id,
@@ -149,15 +131,11 @@ abstract class SyncableTable implements SyncableStore {
         'ORDER BY id LIMIT ?',
         [after ?? '', limit],
       )
-      .map(editedInPlace ? _recordWithBase : rowToRecord)
+      .map((row) {
+        final record = rowToRecord(row);
+        return origins?.withBase(row, record) ?? record;
+      })
       .toList();
-
-  /// [rowToRecord] with the base a tombstone or a revived row carries.
-  SyncRecord _recordWithBase(Row row) {
-    final record = rowToRecord(row);
-    final carries = row['deleted'] == 1 || row['revived_at'] == row['updated_at'];
-    return carries ? record.withBase(_baseOf(row)) : record;
-  }
 
   @override
   void markClean(List<RowVersion> versions) {
@@ -192,28 +170,14 @@ abstract class SyncableTable implements SyncableStore {
         )) {
       return false;
     }
-    writeRemote(record);
-    if (editedInPlace) {
-      // What the deletion knew, or what the one a revived copy undoes knew.
-      db.execute('UPDATE $table SET base_at = ?, base_device = ?, revived_at = ? WHERE id = ?', [
-        record.base?.updatedAt,
-        record.base?.deviceId,
-        record.base != null && !record.deleted ? record.updatedAt : 0,
-        record.id,
-      ]);
-    }
+    takeRemote(record);
     return true;
   }
-}
 
-/// A local row's version and what [SyncableTable.localVersion] says of it:
-/// whether it has unpushed changes, the [base] its tombstone or revived
-/// copy carries, and whether it is a copy a deletion conflict brought back
-/// ([revived]) and not edited since.
-typedef LocalVersion = ({
-  RecordVersion version,
-  bool deleted,
-  bool dirty,
-  RecordVersion? base,
-  bool revived,
-});
+  /// Writes remote [record] (see [writeRemote]) with what it says of the
+  /// origin of its content or what its deletion knew ([EditOrigins]).
+  void takeRemote(SyncRecord record) {
+    writeRemote(record);
+    origins?.tookRemote(record);
+  }
+}

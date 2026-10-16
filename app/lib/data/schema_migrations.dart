@@ -28,24 +28,43 @@ abstract final class SchemaMigrations {
     _deletionBases,
   ];
 
-  /// Version 15: what deletions of rows edited in place knew, and which of
-  /// those rows are copies a deletion conflict brought back (see
-  /// `SyncableTable.editedInPlace`; docs/SYNC_PROTOCOL.md, "Deletion
-  /// conflicts"). `base_at` / `base_device`: on a tombstone, the version it
-  /// replaced (a trigger notes it whichever way the row is deleted); on a
-  /// revived row, the base of the deletion it undid. `revived_at`: the
-  /// version a row was revived at, so it stops counting as revived with
-  /// the next write.
+  /// Version 15: which edit the content of a row edited in place comes
+  /// from, and what its deletion knew (see `SyncableTable.editedInPlace`;
+  /// docs/SYNC_PROTOCOL.md, "Deletion conflicts"). `origin_at` /
+  /// `origin_device`: the version of the edit whose content the row holds,
+  /// valid while `origin_for` is the row's `updated_at` (else the row's own
+  /// version is: so any local write makes the row an edit of its own); set
+  /// when an edit is kept over a deletion or a row brought back. `base_at` /
+  /// `base_device` on a tombstone: the origin of what the deletion replaced.
+  /// Triggers note both when a live row is deleted, however that is done,
+  /// and keep a tombstone's origin across new versions of it.
   static void _deletionBases(CommonDatabase db) {
     for (final table in const ['elements', 'recordings', 'outline']) {
-      db.execute('ALTER TABLE $table ADD COLUMN base_at INTEGER');
-      db.execute('ALTER TABLE $table ADD COLUMN base_device TEXT');
-      db.execute('ALTER TABLE $table ADD COLUMN revived_at INTEGER NOT NULL DEFAULT 0');
+      for (final column in const [
+        'base_at INTEGER',
+        'base_device TEXT',
+        'origin_at INTEGER',
+        'origin_device TEXT',
+        'origin_for INTEGER NOT NULL DEFAULT 0',
+      ]) {
+        db.execute('ALTER TABLE $table ADD COLUMN $column');
+      }
+      const valid = 'OLD.origin_for = OLD.updated_at AND OLD.origin_at IS NOT NULL';
       db.execute('''
-        CREATE TRIGGER ${table}_deletion_base AFTER UPDATE OF deleted ON $table
+        CREATE TRIGGER ${table}_deleted AFTER UPDATE OF deleted ON $table
         WHEN OLD.deleted = 0 AND NEW.deleted = 1 BEGIN
-          UPDATE $table SET base_at = OLD.updated_at, base_device = OLD.device_id
+          UPDATE $table SET
+            origin_at = CASE WHEN $valid THEN OLD.origin_at ELSE OLD.updated_at END,
+            origin_device = CASE WHEN $valid THEN OLD.origin_device ELSE OLD.device_id END,
+            origin_for = NEW.updated_at
           WHERE rowid = NEW.rowid;
+          UPDATE $table SET base_at = origin_at, base_device = origin_device
+          WHERE rowid = NEW.rowid;
+        END''');
+      db.execute('''
+        CREATE TRIGGER ${table}_tombstone_versions AFTER UPDATE OF updated_at ON $table
+        WHEN OLD.deleted = 1 AND NEW.deleted = 1 AND $valid BEGIN
+          UPDATE $table SET origin_for = NEW.updated_at WHERE rowid = NEW.rowid;
         END''');
     }
   }

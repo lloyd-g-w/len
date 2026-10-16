@@ -343,8 +343,9 @@ void main() {
 /// of a fresh database (14 only rewrites data).
 void _dropChunkDigests(CommonDatabase db) {
   for (final table in ['elements', 'recordings', 'outline']) {
-    db.execute('DROP TRIGGER ${table}_deletion_base');
-    for (final column in ['base_at', 'base_device', 'revived_at']) {
+    db.execute('DROP TRIGGER ${table}_deleted');
+    db.execute('DROP TRIGGER ${table}_tombstone_versions');
+    for (final column in ['base_at', 'base_device', 'origin_at', 'origin_device', 'origin_for']) {
       db.execute('ALTER TABLE $table DROP COLUMN $column');
     }
   }
