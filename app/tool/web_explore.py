@@ -1013,12 +1013,17 @@ class Walk:
         await tool_options(page, 'k', 'Laser pointer (K)')
         await choose(page, 'When I stop')
         await page.keyboard.press('Escape')
-        # The dot under the hovering mouse, hidden from the shots (it is
-        # drawn a little differently from one frame to the next).
-        await page.evaluate('''([x, y]) => { const d = document.createElement('div');
-          d.id = 'len-walk-mask'; d.style.cssText = `position: fixed; left: ${x - 30}px;
-            top: ${y - 30}px; width: 60px; height: 60px; background: #888; z-index: 99999;
-            pointer-events: none`; document.body.append(d); }''', [x + 200, y + 200])
+        # Hidden from the shots: the dot under the hovering mouse (drawn a
+        # little differently from one frame to the next), and the toolbar
+        # (focus goes back to the laser button once the options have
+        # closed, its ring sometimes only after the first shot).
+        back = await page.get_by_role('button', name='Back', exact=True).bounding_box()
+        await page.evaluate('''([x, y, bar]) => { for (const [l, t, w, h] of
+            [[x - 30, y - 30, 60, 60], [0, 0, innerWidth, bar]]) {
+          const d = document.createElement('div'); d.className = 'len-walk-mask';
+          d.style.cssText = `position: fixed; left: ${l}px; top: ${t}px; width: ${w}px;
+            height: ${h}px; background: #888; z-index: 99999; pointer-events: none`;
+          document.body.append(d); } }''', [x + 200, y + 200, back['y'] + back['height'] + 8])
         await page.mouse.move(x + 200, y + 200)
         await page.wait_for_timeout(500)
         blank = await shot(page)
@@ -1035,7 +1040,7 @@ class Walk:
             for name, data in (('before', blank), ('after', last)):
                 with open(os.path.join(OUT, f'{self.name}-{self.n:02}-laser-{name}.png'), 'wb') as f:
                     f.write(data)
-        await page.evaluate("() => document.getElementById('len-walk-mask').remove()")
+        await page.evaluate("() => document.querySelectorAll('.len-walk-mask').forEach((d) => d.remove())")
         w.expect(last == blank, 'the laser trail faded')
         await wait_query(page, self.FEATURES + 'AND s.deleted = 0', lambda r: len(r) == 1,
                          'the laser stored nothing')
