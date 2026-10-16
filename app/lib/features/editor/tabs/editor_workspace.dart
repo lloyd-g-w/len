@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app_services.dart';
+import '../../../core/startup_trace.dart';
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
 import '../editor_screen.dart';
@@ -76,6 +77,7 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
     super.initState();
     _tabs.addListener(_onTabs);
     _services.workspace.shown = true; // Reopened at the next launch.
+    StartupTrace.markAfterFrame('editor');
   }
 
   @override

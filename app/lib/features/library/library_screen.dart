@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app_services.dart';
+import '../../core/startup_trace.dart';
 import '../../data/surface_stats.dart';
 import '../../domain/notebook.dart';
 import '../../ui/app_theme.dart';
@@ -112,6 +113,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     // A recording or a camera photo cut off by the app being killed:
     // offer to recover it, carry on with it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      StartupTrace.mark('library');
       if (!mounted) return;
       final restored = _reopenWorkspace(services);
       unawaited(_resumeLostPhoto(services, editorUp: restored != null));

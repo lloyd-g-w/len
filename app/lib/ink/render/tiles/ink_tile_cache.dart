@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/startup_trace.dart';
 import '../../../domain/chunk_grid.dart';
 import '../../../domain/stroke.dart';
 import '../../lab/perf_probe.dart';
@@ -233,6 +234,7 @@ class InkTileCache extends ChangeNotifier {
       }
     }
     if (_tiles.length > maxTiles) _prune();
+    if (!model.isLoading) StartupTrace.markAfterFrame('ink');
     PerfProbe.count('tileImages', lastPaint.images);
     PerfProbe.count('tileVector', lastPaint.vectorTiles);
     PerfProbe.count('tileOverlays', lastPaint.overlayStrokes);

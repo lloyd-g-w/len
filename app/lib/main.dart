@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'app_services.dart';
 import 'core/font_licenses.dart';
+import 'core/startup_trace.dart';
 import 'data/app_database.dart';
 import 'data/blob_gc.dart';
 import 'data/install_identity.dart';
@@ -26,6 +27,7 @@ import 'ui/open_elsewhere.dart';
 import 'ui/startup_error.dart';
 
 Future<void> main(List<String> args) async {
+  StartupTrace.begin();
   WidgetsFlutterBinding.ensureInitialized();
   registerFontLicenses();
   // Web: one tab at a time owns the database; another can take it over.
@@ -54,6 +56,7 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
     // Natively: files in the app-support directory. Web: IndexedDB.
     dir = await appDataDirectory();
     database = await AppDatabase.openDefault(dir, writes: writes);
+    StartupTrace.mark('database');
     _checkInstallation(dir, database);
     final blobs = await openBlobBackend(dir, writes: writes);
     services = AppServices.create(
@@ -88,9 +91,17 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
   }
   // Sync starts once the token is read from the secure store (which may
   // ask to unlock a keyring, so the app doesn't wait for it).
+  StartupTrace.mark('services');
   unawaited(services.sync.tokens.load().whenComplete(services.sync.start));
   if (PerfProbe.requested) PerfProbe.start();
   runApp(LenApp(services: services));
+  StartupTrace.mark('runApp');
+  unawaited(
+    WidgetsBinding.instance.waitUntilFirstFrameRasterized.then((_) {
+      StartupTrace.mark('first frame');
+      StartupTrace.watchTurns();
+    }),
+  );
   // Throttled to once a day; deletes blobs unreferenced for a week. Its
   // scans run on this thread: later, not while the first frames build.
   unawaited(Future<void>.delayed(LocalBlobGc.startDelay, services.blobGc.runIfDue));
