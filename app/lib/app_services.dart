@@ -324,6 +324,7 @@ class AppServices {
     ],
     blobs: blobs,
     deviceId: strokes.deviceId,
+    clock: clock,
     openBlobFile: openFileInput,
     checksumBlobFile: fileCrc32,
     fetchBlob: sync.fetchBlob,

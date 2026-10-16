@@ -20,7 +20,8 @@ import 'package:len/sync/remote_changes.dart';
 
 // Write paths around the origin and base of rows edited in place
 // (`EditOrigins`; docs/SYNC_PROTOCOL.md, "Deletion conflicts"): what a
-// tombstone says its deletion knew must stay what that deletion knew.
+// tombstone says its deletion knew must stay what that deletion knew, and
+// copies and imports are edits of their own (stamped by the app's clock).
 
 AppServices _services({Clock clock = const Clock()}) =>
     AppServices.create(AppDatabase.inMemory(), blobBackend: MemoryBlobBackend(), clock: clock);
@@ -212,5 +213,24 @@ void main() {
     await pull(entry(local.version.updatedAt + 1, 'c', base: (updatedAt: 100, deviceId: 'b')));
     final row = s.database.db.select('SELECT * FROM outline WHERE id = ?', ['o1']).single;
     expect((row['deleted'], row['notebook_id'], row['device_id']), (0, 'nb', 'c'));
+  });
+
+  test('imports are stamped by the app\'s clock', () async {
+    final clock = _StillClock(5000);
+    final s = _services(clock: clock);
+    addTearDown(s.dispose);
+    s.notebooks.create(
+      title: 'Diary',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    final out = OutputMemoryStream();
+    await s.lenFiles.write(const LenScope.library(), out);
+    clock.now = 6000;
+    final result = await s.lenFiles.import(
+      await s.lenFiles.open(InputMemoryStream(out.getBytes())),
+    );
+    expect(s.notebooks.get(result.notebooks.single)!.updatedAt, 6000);
   });
 }
