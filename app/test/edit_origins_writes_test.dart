@@ -13,6 +13,10 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
+import 'package:len/data/syncable.dart';
+import 'package:len/sync/pull_applier.dart';
+import 'package:len/sync/pull_page.dart';
+import 'package:len/sync/remote_changes.dart';
 
 // Write paths around the origin and base of rows edited in place
 // (`EditOrigins`; docs/SYNC_PROTOCOL.md, "Deletion conflicts"): what a
@@ -156,5 +160,57 @@ void main() {
         expect(r.base, isNull, reason: '${r.collection}/${r.id}');
       }
     }
+  });
+
+  test('a tombstone known only as such, kept over an edit its deletion knew, keeps no content '
+      'origin: a copy brought back later revives no empty row', () async {
+    final s = _services();
+    addTearDown(s.dispose);
+    final engine = s.sync.engine;
+    final applier = PullApplier(
+      database: s.database,
+      settings: s.settings,
+      repositories: engine.repositories,
+      stores: {for (final store in engine.stores) store.collection: store},
+    );
+    var seq = 0;
+    Future<void> pull(SyncRecord record) => applier.applyPage(
+      PullPage(records: [record], nextSince: ++seq, hasMore: true, lastSeq: seq + 1),
+      RemoteChanges(),
+      hadChanges: false,
+      budgetUs: 1 << 30,
+      pause: () async => true,
+    );
+    SyncRecord entry(int at, String device, {bool deleted = false, RecordVersion? base}) =>
+        SyncRecord(
+          collection: 'outline',
+          id: 'o1',
+          updatedAt: at,
+          deviceId: device,
+          deleted: deleted,
+          data: deleted
+              ? null
+              : {
+                  'notebookId': 'nb',
+                  'pageId': 'p',
+                  'parentId': null,
+                  'title': 'Start',
+                  'createdAt': 1,
+                },
+          base: base,
+        );
+    // A deletion on device x that knew the edit at 100 (never seen live here).
+    await pull(entry(200, 'x', deleted: true, base: (updatedAt: 100, deviceId: 'b')));
+    // That very edit, pushed again late: the deletion stays, kept here as
+    // a newer tombstone.
+    await pull(entry(300, 'b', base: (updatedAt: 100, deviceId: 'b')));
+    final local = s.outline.origins!.of('o1')!;
+    expect(local.deleted, isTrue);
+    expect(local.origin, isNull, reason: 'it keeps no content');
+    // Elsewhere that tombstone met the content and brought it back (its
+    // version + 1): here nothing comes back but that copy.
+    await pull(entry(local.version.updatedAt + 1, 'c', base: (updatedAt: 100, deviceId: 'b')));
+    final row = s.database.db.select('SELECT * FROM outline WHERE id = ?', ['o1']).single;
+    expect((row['deleted'], row['notebook_id'], row['device_id']), (0, 'nb', 'c'));
   });
 }
