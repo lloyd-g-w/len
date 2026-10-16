@@ -11,6 +11,7 @@ SyncRecord rec(
   String collection = 'notes',
   bool deleted = false,
   Map<String, Object?>? data = const {'v': 1},
+  RecordVersion? base,
 }) => SyncRecord(
   collection: collection,
   id: id,
@@ -18,6 +19,7 @@ SyncRecord rec(
   deviceId: deviceId,
   deleted: deleted,
   data: data,
+  base: base,
 );
 
 void main() {
@@ -49,6 +51,16 @@ void main() {
     expect(page.records.map((r) => r.seq), [1, 2, 3]);
     expect(page.records.map((r) => r.id), ['1', '2', '3']);
     expect(page.records.first.data, {'v': 1});
+  });
+
+  test('a record keeps its base until a record without one replaces it', () {
+    const base = RecordVersion(updatedAt: 900, deviceId: 'dev-b');
+    store.push([rec('1', deleted: true, base: base)]);
+    expect(only().base?.toJson(), base.toJson());
+    expect(only().toJson()['base'], {'updatedAt': 900, 'deviceId': 'dev-b'});
+    store.push([rec('1', updatedAt: 2000)]);
+    expect(only().base, isNull);
+    expect(only().toJson().containsKey('base'), isFalse);
   });
 
   test('same id in different collections are distinct', () {
@@ -206,7 +218,7 @@ void main() {
     expect(store.pragma('synchronous'), 2); // FULL
   });
 
-  test('creates the schema at user_version 1; reopening changes nothing', () async {
+  test('creates the schema at user_version 2; reopening changes nothing', () async {
     final dir = await Directory.systemTemp.createTemp('len_store_schema');
     addTearDown(() => dir.delete(recursive: true));
     final path = '${dir.path}/len.db';
@@ -216,8 +228,8 @@ void main() {
         .map((r) => '${r['type']} ${r['name']} ${r['sql']}')
         .join('\n');
     final raw = sqlite3.open(path);
-    expect(raw.userVersion, 1);
-    expect(RecordStore.schemaVersion, 1);
+    expect(raw.userVersion, 2);
+    expect(RecordStore.schemaVersion, 2);
     final before = schema(raw);
     expect(before, allOf(contains('table records'), contains('index records_seq')));
     expect(before, allOf(contains('table blob_gc'), contains('table meta')));
@@ -226,8 +238,33 @@ void main() {
     RecordStore.open(path).close();
     final again = sqlite3.open(path);
     expect(schema(again), before);
-    expect(again.userVersion, 1);
+    expect(again.userVersion, 2);
     again.close();
+  });
+
+  test('a version 1 database gains record bases, keeping its records', () async {
+    final dir = await Directory.systemTemp.createTemp('len_store_v1');
+    addTearDown(() => dir.delete(recursive: true));
+    final path = '${dir.path}/len.db';
+    sqlite3.open(path)
+      ..execute('''
+        CREATE TABLE records (collection TEXT NOT NULL, id TEXT NOT NULL,
+          updated_at INTEGER NOT NULL, device_id TEXT NOT NULL, deleted INTEGER NOT NULL,
+          data TEXT, seq INTEGER NOT NULL, PRIMARY KEY (collection, id))''')
+      ..execute('CREATE UNIQUE INDEX records_seq ON records (seq)')
+      ..execute(
+        'CREATE TABLE blob_gc (sha256 TEXT PRIMARY KEY NOT NULL, '
+        'unreferenced_since INTEGER NOT NULL) WITHOUT ROWID',
+      )
+      ..execute('CREATE TABLE meta (key TEXT PRIMARY KEY NOT NULL, value) WITHOUT ROWID')
+      ..execute("INSERT INTO records VALUES ('notes', '1', 5, 'dev-a', 0, '{\"v\":1}', 1)")
+      ..userVersion = 1
+      ..close();
+    final store = RecordStore.open(path);
+    addTearDown(store.close);
+    expect(store.pull(since: 0, limit: 10).records.single.data, {'v': 1});
+    store.push([rec('2', deleted: true, base: const RecordVersion(updatedAt: 4, deviceId: 'b'))]);
+    expect(store.pull(since: 1, limit: 10).records.single.base?.updatedAt, 4);
   });
 
   test('refuses a database from a newer server', () async {

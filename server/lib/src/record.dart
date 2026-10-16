@@ -20,6 +20,7 @@ class SyncRecord {
     required this.deviceId,
     required this.deleted,
     required Map<String, Object?>? data,
+    this.base,
     this.seq,
   }) : data = deleted ? null : data;
 
@@ -48,6 +49,13 @@ class SyncRecord {
 
   /// Opaque JSON object payload.
   final Map<String, Object?>? data;
+
+  /// The version a deletion replaced (on a tombstone), or the version the
+  /// deletion a copy undoes had replaced (on a live record a deletion
+  /// conflict brought back); `null` for none. Opaque to the server, which
+  /// stores and returns it with the record (docs/SYNC_PROTOCOL.md,
+  /// "Deletion conflicts").
+  final RecordVersion? base;
 
   /// Server-assigned change number; `null` for records not yet stored.
   final int? seq;
@@ -80,6 +88,7 @@ class SyncRecord {
       deviceId: _requireId(json, 'deviceId'),
       deleted: deleted,
       data: data as Map<String, Object?>?,
+      base: _optionalVersion(json, 'base'),
     );
   }
 
@@ -98,8 +107,27 @@ class SyncRecord {
     'deviceId': deviceId,
     'deleted': deleted,
     'data': data,
+    if (base case final base?) 'base': base.toJson(),
     if (seq != null) 'seq': seq,
   };
+
+  /// Parses the optional version [key] (`{"updatedAt": int, "deviceId": id}`
+  /// or null).
+  static RecordVersion? _optionalVersion(Map<String, Object?> json, String key) {
+    final value = json[key];
+    if (value == null) return null;
+    if (value is! Map<String, Object?>) {
+      throw RecordValidationException('$key must be an object or null');
+    }
+    try {
+      return RecordVersion(
+        updatedAt: _requireInt(value, 'updatedAt'),
+        deviceId: _requireId(value, 'deviceId'),
+      );
+    } on RecordValidationException catch (e) {
+      throw RecordValidationException('$key.${e.message}');
+    }
+  }
 
   static String _requireString(Map<String, Object?> json, String key) {
     final value = json[key];
@@ -153,4 +181,14 @@ class SyncRecord {
     }
     return value;
   }
+}
+
+/// A record version: `updatedAt` and `deviceId`.
+class RecordVersion {
+  const RecordVersion({required this.updatedAt, required this.deviceId});
+
+  final int updatedAt;
+  final String deviceId;
+
+  Map<String, Object?> toJson() => {'updatedAt': updatedAt, 'deviceId': deviceId};
 }

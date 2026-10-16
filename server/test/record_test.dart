@@ -131,6 +131,29 @@ void main() {
       );
     });
 
+    test('parses an optional base version', () {
+      final base = {'updatedAt': 5, 'deviceId': 'dev-2'};
+      final r = SyncRecord.fromJson({...validJson(), 'deleted': true, 'base': base});
+      expect(r.base?.toJson(), base);
+      expect(r.toJson()['base'], base);
+      expect(SyncRecord.fromJson({...validJson(), 'base': null}).base, isNull);
+      for (final bad in [
+        5,
+        'x',
+        {'updatedAt': 5},
+        {'deviceId': 'd'},
+        {'updatedAt': 1.5, 'deviceId': 'd'},
+        {'updatedAt': 5, 'deviceId': ''},
+        {'updatedAt': 5, 'deviceId': 'd' * 65},
+      ]) {
+        expect(
+          () => SyncRecord.fromJson({...validJson(), 'base': bad}),
+          throwsValidation,
+          reason: '$bad',
+        );
+      }
+    });
+
     test('rejects missing fields', () {
       for (final key in validJson().keys.where((k) => k != 'data')) {
         final json = validJson()..remove(key);

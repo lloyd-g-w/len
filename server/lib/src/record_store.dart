@@ -87,7 +87,7 @@ class RecordStore {
   factory RecordStore.inMemory() => RecordStore._(sqlite3.openInMemory());
 
   /// Schema version stored in `PRAGMA user_version`.
-  static const schemaVersion = 1;
+  static const schemaVersion = 2;
 
   final Database _db;
 
@@ -135,6 +135,14 @@ class RecordStore {
         _db.userVersion = 1;
       });
     }
+    if (version < 2) {
+      // A record's `base` version (see `SyncRecord.base`).
+      _transaction(() {
+        _db.execute('ALTER TABLE records ADD COLUMN base_at INTEGER');
+        _db.execute('ALTER TABLE records ADD COLUMN base_device TEXT');
+        _db.userVersion = 2;
+      });
+    }
   }
 
   /// Applies [records] atomically using the LWW rule.
@@ -153,14 +161,16 @@ class RecordStore {
       );
       final upsert = _db.prepare('''
         INSERT INTO records
-          (collection, id, updated_at, device_id, deleted, data, seq)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+          (collection, id, updated_at, device_id, deleted, data, base_at, base_device, seq)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (collection, id) DO UPDATE SET
-          updated_at = excluded.updated_at,
-          device_id  = excluded.device_id,
-          deleted    = excluded.deleted,
-          data       = excluded.data,
-          seq        = excluded.seq
+          updated_at  = excluded.updated_at,
+          device_id   = excluded.device_id,
+          deleted     = excluded.deleted,
+          data        = excluded.data,
+          base_at     = excluded.base_at,
+          base_device = excluded.base_device,
+          seq         = excluded.seq
       ''');
       try {
         for (final record in records) {
@@ -181,6 +191,8 @@ class RecordStore {
             record.deviceId,
             record.deleted ? 1 : 0,
             record.data == null ? null : jsonEncode(record.data),
+            record.base?.updatedAt,
+            record.base?.deviceId,
             seq,
           ]);
         }
@@ -208,7 +220,7 @@ class RecordStore {
     _checkSince(since);
     final stmt = _db.prepare(
       // `CAST(… AS BLOB)` makes length() count the UTF-8 bytes of the JSON.
-      'SELECT collection, id, updated_at, device_id, deleted, data, seq, '
+      'SELECT collection, id, updated_at, device_id, deleted, data, base_at, base_device, seq, '
       'length(CAST(data AS BLOB)) AS data_bytes '
       'FROM records WHERE seq > ? ORDER BY seq ASC LIMIT ?',
     );
@@ -267,8 +279,9 @@ class RecordStore {
   /// Gives the server a new [serverId] (after it lost history).
   void rotateServerId() {
     final random = Random.secure();
-    final id = [for (var i = 0; i < 16; i++) random.nextInt(256).toRadixString(16).padLeft(2, '0')]
-        .join();
+    final id = [
+      for (var i = 0; i < 16; i++) random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ].join();
     _db.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('serverId', ?)", [id]);
   }
 
@@ -329,6 +342,10 @@ class RecordStore {
       deviceId: row['device_id'] as String,
       deleted: row['deleted'] == 1,
       data: data == null ? null : jsonDecode(data) as Map<String, Object?>,
+      base: switch ((row['base_at'], row['base_device'])) {
+        (final int at, final String device) => RecordVersion(updatedAt: at, deviceId: device),
+        _ => null,
+      },
       seq: row['seq'] as int,
     );
   }
