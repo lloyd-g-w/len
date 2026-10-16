@@ -33,6 +33,7 @@ class EditorLayers extends StatelessWidget {
   const EditorLayers({
     super.key,
     required this.session,
+    required this.canvasKey,
     required this.notebook,
     required this.layout,
     required this.focusNode,
@@ -47,6 +48,9 @@ class EditorLayers extends StatelessWidget {
   });
 
   final EditorSession session;
+
+  /// The surface's repaint boundary (captured by the eyedropper).
+  final GlobalKey canvasKey;
   final Notebook notebook;
   final ChromeLayout layout;
   final FocusNode focusNode;
@@ -106,15 +110,18 @@ class EditorLayers extends StatelessWidget {
     return Stack(
       children: [
         Positioned.fill(
-          child: EditorCanvas(
-            session: session,
-            paper: notebook.paper,
-            paperColor: notebook.paperColor,
-            focusNode: focusNode,
-            guard: guard,
-            chromeInsets: layout.covered,
-            onFollowLink: onFollowLink,
-            selectionActions: () => [linkSelectionAction(context, session)],
+          child: RepaintBoundary(
+            key: canvasKey,
+            child: EditorCanvas(
+              session: session,
+              paper: notebook.paper,
+              paperColor: notebook.paperColor,
+              focusNode: focusNode,
+              guard: guard,
+              chromeInsets: layout.covered,
+              onFollowLink: onFollowLink,
+              selectionActions: () => [linkSelectionAction(context, session)],
+            ),
           ),
         ),
         if (session.pdf case final pdf?) Positioned.fill(child: PdfLayer(interaction: pdf)),

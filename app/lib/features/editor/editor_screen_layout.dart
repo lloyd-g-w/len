@@ -95,32 +95,35 @@ extension _EditorLayout on _EditorScreenState {
     _guard.laidOut(compact: layout.compactBar);
     return CanvasGuardScope(
       guard: _guard,
-      child: Listener(
-        onPointerDown: (e) {
-          // What opens from here (dialogs, sheets) belongs to this editor.
-          _services.routeOwners.current = this;
-          // Its first contact also gives this pane the split's full chrome
-          // (the contact itself still draws, scrolls or taps as usual).
-          if (_pane case final pane?) widget.split!.use(pane);
-        },
-        child: EditorLayers(
-          key: _areaKey,
-          session: _session,
-          notebook: _notebook,
-          layout: layout,
-          focusNode: _focusNode,
-          guard: _guard,
-          audio: _audio,
-          search: _search,
-          chrome: _buildChrome(layout, tabs, band),
-          onFollowLink: _followLink,
-          split: _pane == null ? null : (controller: widget.split!, pane: _pane),
-          menu: _menu,
-          onCloseMenu: _closeMenu,
-        ),
-      ),
+      child: EyedropperScope(pick: _eyedropper.pick, child: _buildLayers(layout, tabs, band)),
     );
   }
+
+  Widget _buildLayers(ChromeLayout layout, OpenNotebooks? tabs, bool band) => Listener(
+    onPointerDown: (e) {
+      // What opens from here (dialogs, sheets) belongs to this editor.
+      _services.routeOwners.current = this;
+      // Its first contact also gives this pane the split's full chrome
+      // (the contact itself still draws, scrolls or taps as usual).
+      if (_pane case final pane?) widget.split!.use(pane);
+    },
+    child: EditorLayers(
+      key: _areaKey,
+      canvasKey: _canvasKey,
+      session: _session,
+      notebook: _notebook,
+      layout: layout,
+      focusNode: _focusNode,
+      guard: _guard,
+      audio: _audio,
+      search: _search,
+      chrome: _buildChrome(layout, tabs, band),
+      onFollowLink: _followLink,
+      split: _pane == null ? null : (controller: widget.split!, pane: _pane),
+      menu: _menu,
+      onCloseMenu: _closeMenu,
+    ),
+  );
 
   /// The chrome; in a split view it dims while the other pane is in use.
   Widget _buildChrome(ChromeLayout layout, OpenNotebooks? tabs, bool band) {

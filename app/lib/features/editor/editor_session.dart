@@ -256,6 +256,9 @@ class EditorSession with _EditorSessionZoom {
 
   bool _disposed = false;
 
+  /// Screen edges covered by chrome, as last laid out.
+  EdgeInsets get chromeInsets => _chromeInsets;
+
   /// Screen edges covered by chrome (the low-latency overlay stays clear of them).
   @override
   EdgeInsets _chromeInsets = EdgeInsets.zero;
