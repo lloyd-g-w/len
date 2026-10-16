@@ -9,7 +9,7 @@ unset LD_LIBRARY_PATH
 # Playwright finds its Firefox in the environment's root (the browsers
 # package's directories are linked there).
 exec nix shell --impure --expr 'with import (builtins.getFlake "nixpkgs") {};
-  buildEnv { name = "len-web-explore"; paths = [ (python3.withPackages (p: [ p.playwright ]))
+  buildEnv { name = "len-web-explore"; paths = [ (python3.withPackages (p: [ p.playwright p.pypdf ]))
     chromium xvfb-run playwright-driver.browsers ]; }' \
   -c bash -c 'export PLAYWRIGHT_BROWSERS_PATH; PLAYWRIGHT_BROWSERS_PATH=$(dirname "$(dirname "$(command -v python3)")")
     exec python3 tool/web_explore.py "$@"' web_explore "${@:-build/web}"

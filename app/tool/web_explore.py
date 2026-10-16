@@ -7,7 +7,7 @@ JavaScript / WebAssembly and run in a browser; this does.
   tool/build_web.sh                      # or tool/build_web.sh --wasm
   nix shell --impure --expr 'with import (builtins.getFlake "nixpkgs") {};
     buildEnv { name = "len-web-explore"; paths = [ (python3.withPackages
-      (p: [ p.playwright ])) chromium xvfb-run playwright-driver.browsers ]; }' \\
+      (p: [ p.playwright p.pypdf ])) chromium xvfb-run playwright-driver.browsers ]; }' \\
     -c env PLAYWRIGHT_BROWSERS_PATH=... python3 tool/web_explore.py build/web
 
 (`tool/web_explore.sh` does exactly that.) Chromium runs headed under Xvfb
@@ -26,10 +26,15 @@ tiles and rows are named buttons for screen readers) → save a notebook
 style and create a canvas with it → a rectangle with the Shapes tool, a
 corner handle dragged → the lasso as a rectangle → the laser fading "When
 I stop" → the minimap (Shift+M) → the zoom window (M) → a scan from a
-picked image (its page a JPEG the browser encoded). Then a second fresh
+picked image (its page a JPEG the browser encoded) → an Arabic text box
+(right to left) copied as HTML (the copy event's, and lassoed through the
+async Clipboard API in Chromium) → Pick from page in a colour slot's
+editor → a long text box flowing onto a page added for it → slides inserted
+from a landscape PDF, Go to page "s2" → Settings → Storage. Exported PDFs
+are read back with pypdf. Then a second fresh
 profile restores that backup made big (big_backup: ~20 MB, 4000 strokes, large images, read in
 slices on the web) and opens the big notebook at a page with an image and
-at its last page.
+at its last page, which it exports as a PDF (curves, bytes per point).
 
 Collected per step: console errors and warnings, the app's own logs that
 say something failed, uncaught exceptions, failed or 4xx/5xx requests,
@@ -118,15 +123,16 @@ def png(width, height, noise=False):
             + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))
 
 
-def pdf(pages):
-    """A PDF with one line of text per page (Helvetica, so it's searchable)."""
-    n = len(pages)
+def pdf(pages, size=(595, 842)):
+    """A PDF with one line of text per page (Helvetica, so it's searchable),
+    pages of [size] points (A4 portrait; landscape: slides)."""
+    n, (pw, ph) = len(pages), size
     objs = ['<< /Type /Catalog /Pages 2 0 R >>',
             f'<< /Type /Pages /Kids [{" ".join(f"{3 + 2 * i} 0 R" for i in range(n))}] /Count {n} >>']
     for i, text in enumerate(pages):
-        objs.append(f'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] '
+        objs.append(f'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {pw} {ph}] '
                     f'/Resources << /Font << /F1 {3 + 2 * n} 0 R >> >> /Contents {4 + 2 * i} 0 R >>')
-        s = f'BT /F1 28 Tf 72 740 Td ({text}) Tj ET'
+        s = f'BT /F1 28 Tf 72 {ph - 100} Td ({text}) Tj ET'
         objs.append(f'<< /Length {len(s)} >>\nstream\n{s}\nendstream')
     objs.append('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
     out, offsets = b'%PDF-1.4\n', []
@@ -233,6 +239,10 @@ INIT = '''(() => {
       window.lenLongTasks.push([Math.round(e.startTime), Math.round(e.duration)]); })
       .observe({ type: 'longtask', buffered: true });
   } catch (e) {}
+  // What the last copy event carried (after the app's capturing handler).
+  window.lenCopied = null;
+  window.addEventListener('copy', (e) => { const d = e.clipboardData;
+    if (d) window.lenCopied = { plain: d.getData('text/plain'), html: d.getData('text/html') }; });
   window.lenSaved = {};
   if (window.showSaveFilePicker) window.showSaveFilePicker = async (options) => {
     const name = (options && options.suggestedName) || 'file', parts = [];
@@ -509,6 +519,22 @@ async def saved_file(page, watch, name_part, timeout=60):
     w.expect(False, f'a file named like "{name_part}" was saved')
 
 
+def pdf_pages(path):
+    """The pages of the PDF at [path] as pypdf reads it, with the bytes of
+    each one's content streams (decompressed); a check fails when it isn't a
+    whole, readable PDF."""
+    from pypdf import PdfReader
+    try:
+        data = open(path, 'rb').read()
+        w.expect(data.startswith(b'%PDF') and b'%%EOF' in data[-1024:], f'{path} starts and ends as a PDF')
+        reader = PdfReader(io.BytesIO(data), strict=True)
+        return [(p, p.get_contents().get_data() if p.get_contents() else b'') for p in reader.pages]
+    except w.CheckFailed:
+        raise
+    except Exception as e:
+        w.expect(False, f'{path} reads as a PDF: {e}')
+
+
 async def pick_file(page, path, action):
     async with page.expect_file_chooser(timeout=30000) as chooser:
         await action()
@@ -584,6 +610,14 @@ async def expect_items(page, names):
 
 
 # --- The walk ----------------------------------------------------------------
+
+# The clipboard's HTML through the async Clipboard API (needs the
+# clipboard-read permission), or why not.
+READ_CLIPBOARD_HTML = '''async () => { try {
+    for (const item of await navigator.clipboard.read())
+      if (item.types.includes('text/html')) return await (await item.getType('text/html')).text();
+    return ''; } catch (e) { return 'unreadable: ' + e; } }'''
+
 
 class Walk:
     """One browser's walk; each step leaves a screenshot and its findings."""
@@ -804,9 +838,11 @@ class Walk:
         await page.get_by_role('radio', name='All pages').click()
         await tap(page, 'Export')
         path = await saved_file(page, self.watch, '.pdf')
-        data = open(path, 'rb').read()
-        pages = len(re.findall(rb'/Type\s*/Page[^s]', data))
-        w.expect(data.startswith(b'%PDF') and pages == 2, f'a 2-page PDF: {pages} pages, {len(data)} bytes')
+        pages = pdf_pages(path)
+        text = ' '.join(p.extract_text() for p, _ in pages)
+        w.expect(len(pages) == 2 and 'Lighthouse keeper' in text,
+                 f'a 2-page PDF with the PDF\'s text: {len(pages)} pages, {text[:80]!r}, '
+                 f'{os.path.getsize(path)} bytes')
 
     async def shortcuts(self):
         page = self.page
@@ -1033,6 +1069,152 @@ class Walk:
         await page.keyboard.press('m')
         await options.first.wait_for(state='detached', timeout=15000)
 
+    # Text across languages and pages, the clipboard, the eyedropper, slide
+    # numbers and storage (on the canvas, then a notebook of their own).
+
+    FEATURE_TEXT = """SELECT e.data FROM elements e JOIN notebooks n ON n.id = e.surface_id
+        WHERE n.title = 'Features' AND e.type = 'text' AND e.deleted = 0"""
+    RTL = 'مرحبا بالعالم'
+
+    async def rtl_text(self):
+        """A text box typed in Arabic: a right-to-left paragraph."""
+        page = self.page
+        x, y = await view_center(page)
+        await page.keyboard.press('t')
+        await page.mouse.click(x - 150, y + 170)
+        await type_text(page, self.RTL)
+        await page.wait_for_timeout(500)  # Laid out, for the screenshot.
+
+    async def copy_rich(self):
+        """Copy in the box puts its HTML (dir="rtl") beside the plain text on
+        the clipboard; so does Copy on the box lassoed (Chromium: read back
+        through the async Clipboard API)."""
+        page = self.page
+        await page.evaluate('window.lenCopied = null')
+        await page.keyboard.press('Control+a')
+        await page.keyboard.press('Control+c')
+        await page.wait_for_function('window.lenCopied', timeout=10000)
+        copied = await page.evaluate('window.lenCopied')
+        w.expect(self.RTL in copied['plain'] and 'dir="rtl"' in copied['html']
+                 and self.RTL in copied['html'], f'the copy event carried rich HTML: {copied}')
+        await page.keyboard.press('Escape')
+        await wait_query(page, self.FEATURE_TEXT, lambda r: len(r) == 1 and self.RTL in r[0][0],
+                         'the right-to-left text stored')
+        x, y = await view_center(page)
+        await page.keyboard.press('l')  # A rectangle since lasso_rectangle.
+        await drag(page, [(x - 190, y + 130), (x + 220, y + 260)], steps=20)
+        await tap(page, 'Copy')
+        if self.cdp is None:  # Firefox doesn't let pages read the clipboard.
+            await page.keyboard.press('Escape')
+            return
+        html = None
+        for _ in range(20):
+            html = await probe(page, READ_CLIPBOARD_HTML)
+            if html and self.RTL in html:
+                break
+            await page.wait_for_timeout(500)
+        await page.keyboard.press('Escape')
+        w.expect(html and self.RTL in html and 'dir="rtl"' in html,
+                 f'the clipboard holds the box as HTML: {html!r}')
+
+    async def eyedropper(self):
+        """Pick from page in a pen colour slot's editor: the slot takes the
+        canvas's colour."""
+        page = self.page
+        x, y = await view_center(page)
+        await page.keyboard.press('p')
+        slot = page.get_by_role('button', name=re.compile(r'^Colour 1, '))
+        name = lambda: slot.first.evaluate("e => e.getAttribute('aria-label') || e.textContent")
+        before = await name()
+        pick = page.get_by_role('button', name='Pick from page', exact=True)
+        for _ in range(2):  # Selected first, then its editor.
+            box = await slot.first.bounding_box()
+            await page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+            try:
+                await pick.first.wait_for(timeout=3000)
+                break
+            except PlaywrightTimeout:
+                pass
+        box = await pick.first.bounding_box()
+        await page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+        await page.wait_for_timeout(800)
+        await page.mouse.move(x + 240, y + 180)
+        await page.wait_for_timeout(500)
+        await page.screenshot(path=os.path.join(OUT, f'{self.name}-{self.n:02}-eyedropper-loupe.png'))
+        await page.mouse.click(x + 250, y + 200)  # Empty canvas.
+        after = before
+        for _ in range(20):
+            after = await name()
+            if after != before:
+                break
+            await page.wait_for_timeout(500)
+        w.expect(after != before, f'the slot took the picked colour: {before!r} → {after!r}')
+        await pick.first.wait_for(state='detached', timeout=15000)
+
+    FLOW_PAGES = """SELECT p.background FROM pages p JOIN notebooks n ON n.id = p.notebook_id
+        WHERE n.title = 'Flow' AND p.deleted = 0 ORDER BY p.sort_key"""
+    FLOW_TEXT = """SELECT e.data FROM elements e JOIN pages p ON p.id = e.surface_id
+        JOIN notebooks n ON n.id = p.notebook_id
+        WHERE n.title = 'Flow' AND e.type = 'text' AND e.deleted = 0"""
+
+    async def text_flow(self):
+        """A long text box in a new notebook runs on onto a page added for it."""
+        page = self.page
+        await tap(page, 'New notebook')
+        await choose(page, 'Notebook')
+        await page.get_by_role('textbox').first.click()
+        await page.wait_for_timeout(300)
+        await type_text(page, 'Flow')
+        await tap(page, 'Create')
+        await page.get_by_role('button', name='Back', exact=True).wait_for(timeout=30000)
+        x, y = await view_center(page)
+        await page.keyboard.press('t')
+        await page.mouse.click(x - 200, y - 250)
+        await page.wait_for_function("document.activeElement && ['INPUT', 'TEXTAREA']"
+                                     ".includes(document.activeElement.tagName)", timeout=15000)
+        for i in range(1, 71):
+            await page.keyboard.type(f'Flowing line {i}', delay=5)
+            await page.keyboard.press('Enter')
+        await type_text(page, 'The end')
+        await page.wait_for_timeout(500)
+        await page.screenshot(path=os.path.join(OUT, f'{self.name}-{self.n:02}-flow-typed.png'))
+        await page.keyboard.press('Escape')
+        await wait_query(page, self.FLOW_PAGES, lambda r: len(r) >= 2, 'a page added for the text')
+        texts = lambda r: [json.loads(d) for (d,) in r]
+        await wait_query(page, self.FLOW_TEXT,
+                         lambda r: len(r) >= 2 and sum('flow' in t for t in texts(r)) == len(r) - 1
+                         and 'The end' in ''.join(map(json.dumps, texts(r))),
+                         'the text in boxes continuing one another')
+
+    async def slide_number(self):
+        """Slides inserted after a page; Go to page takes "s2"."""
+        page = self.page
+        before = len(await query(page, self.FLOW_PAGES))
+        await tap(page, 'Insert')
+        await pick_file(page, self.fx['deck'], lambda: tap(page, 'Pages from PDF…'))
+        await wait_query(page, self.FLOW_PAGES, lambda r: len(r) == before + 3, 'the slides inserted')
+        rows = await query(page, self.FLOW_PAGES)
+        backgrounds = [json.loads(b) if b else {} for (b,) in rows]
+        slide2 = [i for i, b in enumerate(backgrounds) if b.get('type') == 'pdf' and b.get('page') == 1]
+        w.expect(len(slide2) == 1 and slide2[0] != 1, f'slide 2 is a page of another number: {rows}')
+        await go_to_page(page, 's2')
+        await expect_text(page, f'Page {slide2[0] + 1} of {len(rows)}')
+        await page.wait_for_timeout(1000)  # Painted, for the screenshot.
+
+    async def storage(self):
+        """Settings → Storage measures the space used in this browser and
+        lists the largest notebooks."""
+        page = self.page
+        await tap(page, 'Back')
+        await tap(page, 'Settings')
+        await wheel(page, 400, times=12)
+        await expect_text(page, 'Space used')
+        w.expect(await w.wait_text(page, 'Measuring…', gone=True, timeout=60000), 'the space measured')
+        await expect_text(page, 'in this browser')
+        await expect_text(page, 'Largest notebooks')
+        await page.wait_for_timeout(300)
+        await tap(page, 'Back')
+
     async def scan(self):
         """Scan document… from a picked image: a notebook whose page is
         the photo flattened to a JPEG (the browser's encoder)."""
@@ -1089,6 +1271,21 @@ class Walk:
             await wheel(page, 200, times=2)  # The image in view.
             await page.wait_for_timeout(4000)  # Painted, for the screenshot.
             await page.screenshot(path=os.path.join(OUT, f'{self.name}-big-page-{number}.png'))
+        # Its last page as a PDF: ink as fitted curves, well under what
+        # sampled outlines took (~250 bytes per point, UX_AUDIT R22-1).
+        await page.keyboard.press('Control+e')
+        await page.get_by_role('radio', name='Current page').click()
+        await tap(page, 'Export')
+        path = await saved_file(page, self.watch, '.pdf')
+        pages = pdf_pages(path)
+        content = pages[0][1] if len(pages) == 1 else b''
+        curves, lines = len(re.findall(rb' c\s', content)), len(re.findall(rb' l\s', content))
+        size, points = os.path.getsize(path), BIG_STROKES * 150
+        print(f'  page {BIG_PAGES} as PDF: {size} bytes ({size / points:.1f} per point), '
+              f'{curves} curves, {lines} lines')
+        w.expect(len(pages) == 1 and curves > lines * 5 and size < points * 60,
+                 f'a 1-page PDF of curves under 60 bytes per point: {len(pages)} pages, {size} bytes, '
+                 f'{curves} curves, {lines} lines')
         await tap(page, 'Back')
         await expect_text(page, 'Explore')
 
@@ -1098,7 +1295,8 @@ class Walk:
                 self.import_pdf, self.search, self.export_pdf, self.shortcuts, self.settings,
                 self.backup, self.offline_reload, self.phone, self.memory, self.library_semantics,
                 self.notebook_style, self.shape_handle, self.lasso_rectangle, self.laser_hold,
-                self.minimap, self.zoom_window, self.scan]
+                self.minimap, self.zoom_window, self.rtl_text, self.copy_rich, self.eyedropper,
+                self.scan, self.text_flow, self.slide_number, self.storage]
 
 
 async def launch(p, browser, profile):
@@ -1115,6 +1313,7 @@ async def launch(p, browser, profile):
     page = ctx.pages[0] if ctx.pages else await ctx.new_page()
     cdp = None
     if browser == 'chromium':
+        await ctx.grant_permissions(['clipboard-read', 'clipboard-write'])
         cdp = await ctx.new_cdp_session(page)
         await cdp.send('Performance.enable')
     return ctx, page, cdp
@@ -1165,11 +1364,13 @@ def firefox_installed(p):
 async def main():
     os.makedirs(OUT, exist_ok=True)
     fixtures = {'png': os.path.join(OUT, 'fixture.png'), 'pdf': os.path.join(OUT, 'fix.pdf'),
-                'photo': os.path.join(OUT, 'photo.png')}
+                'photo': os.path.join(OUT, 'photo.png'), 'deck': os.path.join(OUT, 'deck.pdf')}
     with open(fixtures['png'], 'wb') as f:
         f.write(png(320, 200))
     with open(fixtures['photo'], 'wb') as f:
         f.write(document_photo(800, 600))
+    with open(fixtures['deck'], 'wb') as f:
+        f.write(pdf(['Slide one', 'Slide two', 'Slide three'], size=(842, 595)))
     with open(fixtures['pdf'], 'wb') as f:
         f.write(pdf(['Lighthouse keeper notes', 'Second page of the fixture']))
     wanted = [b for b in os.environ.get('LEN_EXPLORE_BROWSERS', 'chromium,firefox').split(',') if b]
