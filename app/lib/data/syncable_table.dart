@@ -74,16 +74,17 @@ abstract class SyncableTable implements SyncableStore {
     });
   }
 
-  /// Brings tombstoned rows [ids] back as local edits (a deletion that
-  /// raced an edit, see `DeletionConflicts`). Tables whose tombstones keep
-  /// every column revive them as they were.
-  void revive(Iterable<String> ids) {
-    final now = clock.nowMs();
+  /// Brings tombstoned rows [ids] back as local edits at [version] (a
+  /// deletion that raced an edit, see `DeletionConflicts`: the version right
+  /// after the deletion's, so a copy brought back never beats an edit made
+  /// elsewhere). Tables whose tombstones keep every column revive them as
+  /// they were.
+  void revive(Iterable<String> ids, {required int version}) {
     for (final id in ids) {
       db.execute(
         'UPDATE $table SET deleted = 0, dirty = 1, updated_at = ?, device_id = ? '
-        'WHERE id = ? AND deleted = 1',
-        [nextVersion(id, now), deviceId, id],
+        'WHERE id = ? AND deleted = 1 AND updated_at < ?',
+        [version, deviceId, id, version],
       );
     }
   }

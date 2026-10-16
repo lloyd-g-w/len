@@ -133,6 +133,42 @@ void main() {
     });
   }
 
+  test('a device bringing a page back never overwrites an edit it has not seen', () async {
+    final (a, b) = twoDevices();
+    final c = TestDevice(a.server, a.time, 'c');
+    final nb = _notebook(a);
+    final page = a.s.pages.pagesOf(nb.id).single;
+    a.s.elements.save([_text('box', page.id)]);
+    await a.sync();
+    await b.sync();
+    await c.sync();
+
+    // C writes on the page and B deletes it, unaware of each other; A edits
+    // the text box after the deletion, offline.
+    _write(c, nb.id, page.id, 'ink');
+    a.time.tick();
+    b.s.notebooks.deletePage(page.id);
+    await b.sync();
+    a.time.tick();
+    a.s.elements.save([_text('box', page.id, text: 'edited')]);
+    // C brings the page back (its ink) with the text box as it knew it.
+    a.time.tick();
+    await c.sync();
+    await a.sync();
+    for (var i = 0; i < 2; i++) {
+      for (final d in [a, b, c]) {
+        await d.sync();
+      }
+    }
+
+    for (final d in [a, b, c]) {
+      expect(_pages(d, nb.id), [page.id], reason: d.clock.prefix);
+      expect(_ink(d, page.id), ['ink']);
+      final boxes = SurfaceCopier(d.s.strokes, elements: d.s.elements).loadAllElements(page.id);
+      expect(boxes.single.data['text'], 'edited', reason: d.clock.prefix);
+    }
+  });
+
   test('a deleted page another device wrote on comes back into its notebook', () async {
     final (a, b) = twoDevices();
     final nb = _notebook(a);
@@ -397,14 +433,14 @@ void main() {
   });
 }
 
-SurfaceElement _text(String id, String surface) => SurfaceElement(
+SurfaceElement _text(String id, String surface, {String text = 'words'}) => SurfaceElement(
   id: id,
   surfaceId: surface,
   type: 'text',
   rect: const Rect.fromLTWH(0, 0, 50, 20),
   z: 1,
   createdAt: 1,
-  data: const TextData(text: 'words').toJson(),
+  data: TextData(text: text).toJson(),
 );
 
 SurfaceElement _image(String id, String surface, String sha) => SurfaceElement(

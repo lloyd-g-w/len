@@ -103,7 +103,7 @@ void main() {
       ]);
       expect(strokes.populatedChunks('s', ChunkGrid.rangeFor(Rect.largest)), isEmpty);
       // A tombstone keeps its points (a deletion conflict may revive it).
-      strokes.revive(['a']);
+      strokes.revive(['a'], version: saved + 2);
       expect(strokes.loadChunks('s', [(x: 0, y: 0)]).single.points, isNotEmpty);
     });
 

@@ -262,7 +262,9 @@ stays there), where the user can restore it or delete it forever again.
   also notices a live record replacing a page or notebook it holds as a tombstone (the edit won
   last-write-wins over the deletion).
 - **Revival.** The client revives the page or notebook and every row of the same deletion (same
-  `updatedAt` and `deviceId`) as local edits, which it pushes right away; a revived notebook gets
+  `updatedAt` and `deviceId`) as local edits at the version right after the deletion's
+  (`updatedAt + 1`, not the current time), which it pushes right away: a copy brought back never
+  beats an edit made elsewhere that it has not seen yet. A revived notebook gets
   `trashedAt` (unless it is in the trash already). Pages deleted earlier, by another deletion, stay
   deleted. Every device holding the deleted content does this, so it does not matter which syncs
   first; repeated revivals are ordinary last-write-wins updates of the same data. Tombstones the
@@ -276,7 +278,7 @@ stays there), where the user can restore it or delete it forever again.
   whose folder is gone.
 
 **Local versions.** `updatedAt` comes from the client's wall clock, but a local write always stamps
-`max(now, previous updatedAt + 1)`. An edit therefore always beats the version it replaces, even if
+`max(now, previous updatedAt + 1)` (revivals excepted, see above). An edit therefore always beats the version it replaces, even if
 that version came from a device whose clock runs ahead, and two writes to a row never share a
 version (which the "unchanged since read" check of step 1 relies on).
 

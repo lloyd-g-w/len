@@ -70,8 +70,7 @@ class ElementRepository extends SyncableTable {
 
   /// Brings back tombstoned elements whose data is still kept.
   @override
-  void revive(Iterable<String> ids) {
-    final now = clock.nowMs();
+  void revive(Iterable<String> ids, {required int version}) {
     for (final id in ids) {
       final rows = db.select(
         "SELECT * FROM elements WHERE id = ? AND deleted = 1 AND data <> '{}'",
@@ -79,7 +78,9 @@ class ElementRepository extends SyncableTable {
       );
       final element = rows.isEmpty ? null : StrokeQueries.rowToElement(rows.first);
       if (element == null) continue; // Its data was purged.
-      _upsert(element, updatedAt: nextVersion(id, now), deviceId: deviceId, dirty: true);
+      if (version > (rows.first['updated_at'] as int)) {
+        _upsert(element, updatedAt: version, deviceId: deviceId, dirty: true);
+      }
     }
   }
 
