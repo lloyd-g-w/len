@@ -24,6 +24,10 @@ class RealServer {
   /// Times the server was restarted.
   int restarts = 0;
 
+  /// The most records a pull page holds, if fewer than clients ask for (a
+  /// server may cut pages short: long pulls in tests).
+  int? maxPage;
+
   void _open() {
     store = server.RecordStore.open('${dir.path}/len.db');
     blobs = server.BlobStore.open('${dir.path}/blobs');
@@ -41,10 +45,15 @@ class RealServer {
   /// Serves [request] (its URL's path from `/v1/…`), with [body] instead
   /// of the request's own if given.
   Future<http.StreamedResponse> handle(http.BaseRequest request, {Stream<List<int>>? body}) async {
+    var url = request.url.replace(scheme: 'http', host: 'sync.test');
+    final limit = int.tryParse(url.queryParameters['limit'] ?? '');
+    if (url.path == '/v1/pull' && maxPage != null && limit != null && limit > maxPage!) {
+      url = url.replace(queryParameters: {...url.queryParameters, 'limit': '$maxPage'});
+    }
     final response = await _handler(
       shelf.Request(
         request.method,
-        request.url.replace(scheme: 'http', host: 'sync.test'),
+        url,
         headers: request.headers,
         body: body ?? request.finalize(),
       ),

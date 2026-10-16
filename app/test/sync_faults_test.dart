@@ -41,7 +41,7 @@ void Function() _dieAfter(int afterUs) =>
 /// devices, then a clean sync of all; returns what went wrong.
 Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) async {
   final r = math.Random(seed);
-  final server = RealServer();
+  final server = RealServer()..maxPage = r.nextInt(3) == 0 ? null : 2 + r.nextInt(15);
   final network = FaultyNetwork(server, r)..rate = const [0.15, 0.3, 0.5][seed % 3];
   final time = SharedTime();
   final devices = [
