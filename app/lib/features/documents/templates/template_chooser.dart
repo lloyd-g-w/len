@@ -90,7 +90,7 @@ class _TemplateChooserState extends State<TemplateChooser> {
           unawaited(
             Scrollable.ensureVisible(
               options,
-              duration: Motion.medium,
+              duration: Motion.moving(context, Motion.medium),
               alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
             ),
           );

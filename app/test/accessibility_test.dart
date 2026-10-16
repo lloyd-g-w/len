@@ -44,35 +44,36 @@ ThemeData _theme(ThemeData t) => !_boxFont
         textTheme: t.textTheme.apply(fontFamily: 'FlutterTest', fontSizeFactor: 0.6),
       );
 
-/// Pumps [home] with fresh seeded services at [size].
+/// Pumps [home] with fresh [services] (default: seeded ones) at [size].
 Future<AppServices> pumpScreen(
   WidgetTester tester,
   Widget Function(AppServices s) home, {
   required Size size,
   ThemeMode mode = ThemeMode.light,
   double textScale = 1,
+  AppServices Function()? services,
 }) async {
   setWindow(tester, size);
   tester.platformDispatcher.textScaleFactorTestValue = textScale;
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-  final services = seededServices();
-  addTearDown(services.dispose);
+  final s = (services ?? seededServices)();
+  addTearDown(s.dispose);
   await tester.pumpWidget(
     AppScope(
       key: UniqueKey(),
-      services: services,
+      services: s,
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: _theme(AppTheme.light()),
         darkTheme: _theme(AppTheme.dark()),
         themeMode: mode,
         builder: (context, child) => HitOverhangScope(child: child!),
-        home: home(services),
+        home: home(s),
       ),
     ),
   );
   await settle(tester);
-  return services;
+  return s;
 }
 
 /// Small tap targets known and owned elsewhere: a pattern in the failing

@@ -156,7 +156,7 @@ class _GoToPageDialogState extends State<GoToPageDialog> {
       position.minScrollExtent,
       position.maxScrollExtent,
     );
-    if (animate) {
+    if (animate && !Motion.reduced(context)) {
       _strip.animateTo(offset, duration: Motion.medium, curve: Motion.standard);
     } else {
       _strip.jumpTo(offset);

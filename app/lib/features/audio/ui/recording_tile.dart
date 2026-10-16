@@ -65,7 +65,8 @@ class RecordingTile extends StatelessWidget {
           Expanded(
             child: Text(
               formatRecordedAt(recording.startedAt, now: audio.services.clock.nowDate()),
-              maxLines: 1,
+              // Large text: the date wraps rather than losing its time.
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ),

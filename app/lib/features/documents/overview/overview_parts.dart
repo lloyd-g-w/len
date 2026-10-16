@@ -48,7 +48,8 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool outline;
 
   /// Height of the filter row at [textScale] (it grows with large text).
-  static double filterHeight(double textScale) => 48 + 12 * (textScale - 1).clamp(0.0, 1.0);
+  static double filterHeight(double textScale) =>
+      (Targets.touchFirst ? 56 : 48) + 12 * (textScale - 1).clamp(0.0, 1.0);
 
   /// The text scale the bar is laid out for (preferredSize is asked
   /// without a context).
@@ -89,7 +90,10 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
               SegmentedButton<OverviewFilter>(
                 key: const ValueKey('overview-filter'),
                 showSelectedIcon: false,
-                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                // Full touch targets on touch; compact with a pointer.
+                style: ButtonStyle(
+                  visualDensity: Targets.touchFirst ? null : VisualDensity.compact,
+                ),
                 segments: [
                   for (final f in OverviewFilter.values)
                     if (outline || f != OverviewFilter.outline)
@@ -182,7 +186,7 @@ class AddPageTile extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: OverviewGrid.footer),
+        SizedBox(height: OverviewGrid.footer(context)),
       ],
     );
   }

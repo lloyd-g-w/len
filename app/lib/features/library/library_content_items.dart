@@ -43,6 +43,7 @@ extension _LibraryItems on _LibraryContentState {
         coverWidth: LibraryContent.coverWidth,
         spacing: LibraryContent.gridSpacingFor(compact: compact),
         captionHeight: NotebookCard.captionHeight(MediaQuery.textScalerOf(context)),
+        textScale: MediaQuery.textScalerOf(context).scale(100) / 100,
       ),
       itemCount: notebooks.length + offset,
       findChildIndexCallback: _indexOf(notebooks, offset: offset),

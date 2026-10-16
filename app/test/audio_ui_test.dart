@@ -137,6 +137,8 @@ void main() {
     await tester.tap(find.byTooltip('Record audio'));
     await _settleAsync(tester);
     expect(e.audio.log, ['permission', 'start']);
+    // The button gave way to the controls: screen readers hear it (R23-3).
+    expect(tester.takeAnnouncements().map((a) => a.message), ['Recording']);
     expect(find.byKey(const ValueKey('recording-pill')), findsOneWidget);
 
     e.audio.capture.emitLevel(0.8);
@@ -166,9 +168,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Couldn’t pause the recording'), findsNothing);
 
+    tester.takeAnnouncements();
     await tester.tap(find.byTooltip('Pause recording'));
     await _settleAsync(tester);
     expect(find.text('Paused'), findsOneWidget);
+    expect(tester.takeAnnouncements().map((a) => a.message), ['Recording paused']);
     await expectLater(
       find.byKey(const ValueKey('recording-pill')),
       matchesGoldenFile('goldens/audio_recording_paused.png'),
@@ -176,6 +180,7 @@ void main() {
     e.clock.now += 20000; // Paused: does not count.
     await tester.tap(find.byTooltip('Resume recording'));
     await _settleAsync(tester);
+    expect(tester.takeAnnouncements().map((a) => a.message), ['Recording resumed']);
     e.clock.now += 5000;
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('1:10'), findsOneWidget);
@@ -371,6 +376,9 @@ void main() {
     await tester.tap(find.text('Record audio'));
     await _settleAsync(tester);
     expect(find.byKey(const ValueKey('recording-pill')), findsOneWidget);
+    // Floating controls: named, full-size targets (UX_AUDIT round 23).
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
     e.clock.now += 3000;
     await tester.tap(find.byTooltip('Stop recording'));
     await _settleAsync(tester);
@@ -392,6 +400,8 @@ void main() {
       find.byType(EditorScreen),
       matchesGoldenFile('goldens/audio_playback_phone.png'),
     );
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
 
     // Tap the second word of the page (written at 3 s).
     final doc = tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;

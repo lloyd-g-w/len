@@ -104,13 +104,17 @@ class _AddPageFooterState extends State<AddPageFooter> {
         if (hint) ...[
           const SizedBox(height: Gaps.xs),
           // A gesture hint: screen readers offer the button's long press.
+          // One line (the footer is placed by its height): large text
+          // shrinks to fit rather than cutting the hint short.
           ExcludeSemantics(
-            child: Text(
-              AddPageFooter.caption,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                AddPageFooter.caption,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+                maxLines: 1,
+              ),
             ),
           ),
         ],

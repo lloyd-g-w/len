@@ -31,6 +31,12 @@ class ViewportAnimator {
 
   bool get isAnimating => _ticker.isActive;
 
+  /// Whether the platform asks for reduced motion: zooms and travels then
+  /// jump to their view (DESIGN §5). Glides after a fling stay: they follow
+  /// the finger's own movement.
+  static bool get reducedMotion =>
+      SchedulerBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+
   /// Glides on with [velocity] (screen pixels per second), slowing down.
   void fling(Offset velocity) {
     stop();
@@ -63,7 +69,7 @@ class ViewportAnimator {
     final a = anchor ?? viewport.size.center(Offset.zero);
     final w0 = viewport.toWorld(a);
     final w1 = (a - offset) / s1;
-    if ((s1 - s0).abs() < 1e-9 && (w1 - w0).distance * s0 < 0.5) {
+    if (reducedMotion || (s1 - s0).abs() < 1e-9 && (w1 - w0).distance * s0 < 0.5) {
       viewport.setView(scale: s1, offset: offset);
       return;
     }

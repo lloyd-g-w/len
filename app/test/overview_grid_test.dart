@@ -40,7 +40,10 @@ void main() {
       );
       final cell = tester.getSize(find.byKey(const ValueKey(0)));
       final page = (cell.width - OverviewGrid.ring) / aspect + OverviewGrid.ring;
-      expect(cell.height, closeTo(page + OverviewGrid.footer, 0.5));
+      expect(
+        cell.height,
+        closeTo(page + OverviewGrid.footer(tester.element(find.byKey(const ValueKey(0)))), 0.5),
+      );
       // Slides get wider cells: three across a portrait tablet, not four.
       if (aspect > 1) expect(cell.width, greaterThan(220));
     });

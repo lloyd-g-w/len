@@ -160,6 +160,27 @@ void main() {
     expect(s.sync.state, SyncState.error);
   });
 
+  testWidgets('Sync now tells screen readers how it went (R23-3)', (tester) async {
+    final s = _device(FakeServer(), token: FakeServer.token);
+    addTearDown(s.dispose);
+    await tester.runAsync(s.sync.syncNow);
+    expect(s.sync.state, SyncState.idle);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SyncStatusButton(sync: s.sync, onOpenSettings: () {}),
+        ),
+      ),
+    );
+    final announced = <String>[];
+    await tester.tap(find.byType(IconButton));
+    await pumpUntil(tester, () {
+      announced.addAll([for (final a in tester.takeAnnouncements()) a.message]);
+      return announced.length == 2;
+    }, reason: 'two announcements');
+    expect(announced, ['Syncing', 'Synced']);
+  });
+
   group('sync setup (UX_AUDIT P1-23)', () {
     test('assumes https:// when no scheme is typed', () {
       expect(SyncSettings.completeUrl(' len.example '), 'https://len.example');

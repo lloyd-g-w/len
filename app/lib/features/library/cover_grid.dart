@@ -18,16 +18,21 @@ class CoverGridDelegate extends SliverGridDelegate {
     required this.coverWidth,
     required this.spacing,
     required this.captionHeight,
+    this.textScale = 1,
   });
 
   final double coverWidth;
   final double spacing;
   final double captionHeight;
 
+  /// The system text scale: the narrowest cover grows with it (up to
+  /// [coverWidth]), so its title keeps room for more than a few letters.
+  final double textScale;
+
   /// The most of the viewport's height one row (cover and caption) takes.
   static const double maxRowShare = 0.6;
 
-  /// The narrowest a cover gets to fit [maxRowShare].
+  /// The narrowest a cover gets to fit [maxRowShare] (at 1× text).
   static const double minCoverWidth = 96;
 
   /// How many columns of about [coverWidth] fit [width] (at least two);
@@ -39,17 +44,18 @@ class CoverGridDelegate extends SliverGridDelegate {
     double spacing, {
     double? height,
     double captionHeight = 0,
+    double minWidth = minCoverWidth,
   }) {
     final columns = math.max(2, ((width + spacing) / (coverWidth + spacing)).floor());
     if (height == null || !height.isFinite) return columns;
     final widest = (height * maxRowShare - captionHeight) * ThumbnailRenderer.aspect;
     final tile = (width - spacing * (columns - 1)) / columns;
     if (tile <= widest) return columns;
-    // Never narrower than [minCoverWidth] (large text in a short window
-    // would shrink covers to stamps): then the row may run under the fold.
+    // Never narrower than [minWidth] (large text in a short window would
+    // shrink covers to stamps): then the row may run under the fold.
     double tileOf(int n) => (width - spacing * (n - 1)) / n;
     var fitted = ((width + spacing) / (math.max(widest, 1) + spacing)).ceil();
-    while (fitted > columns && tileOf(fitted) < minCoverWidth) {
+    while (fitted > columns && tileOf(fitted) < minWidth) {
       fitted--;
     }
     return math.max(columns, fitted);
@@ -68,6 +74,10 @@ class CoverGridDelegate extends SliverGridDelegate {
           ? (viewport - constraints.precedingScrollExtent - Gaps.lg) / maxRowShare
           : viewport,
       captionHeight: captionHeight,
+      minWidth: (minCoverWidth * textScale).clamp(
+        minCoverWidth,
+        math.max(coverWidth, minCoverWidth),
+      ),
     );
     final tile = (width - spacing * (columns - 1)) / columns;
     final height = tile / ThumbnailRenderer.aspect + captionHeight;
@@ -83,5 +93,8 @@ class CoverGridDelegate extends SliverGridDelegate {
 
   @override
   bool shouldRelayout(CoverGridDelegate old) =>
-      old.coverWidth != coverWidth || old.spacing != spacing || old.captionHeight != captionHeight;
+      old.coverWidth != coverWidth ||
+      old.spacing != spacing ||
+      old.captionHeight != captionHeight ||
+      old.textScale != textScale;
 }
