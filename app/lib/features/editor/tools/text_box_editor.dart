@@ -217,6 +217,9 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
                     cursorWidth: cursor,
                     cursorColor: accent,
                     onDone: _session.end,
+                    // Past the box's start, Ctrl+Z undoes the page's edits.
+                    onUndo: _session.undo,
+                    onRedo: _session.redo,
                   ),
                 ),
               ),

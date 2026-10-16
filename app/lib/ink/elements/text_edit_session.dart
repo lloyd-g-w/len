@@ -64,6 +64,11 @@ class TextEditSession extends ChangeNotifier {
   /// The history of the box being typed in, set by its editor.
   BoxHistory? boxHistory;
 
+  /// The editor's undo and redo (the box's history first, then past its
+  /// start the page's), for the box's own Ctrl+Z / Ctrl+Shift+Z; null:
+  /// the box's history alone.
+  VoidCallback? undo, redo;
+
   TextData get data => TextData.fromJson(_current?.data ?? const {});
 
   /// Starts a new text box at world point [at] (its first line's middle),

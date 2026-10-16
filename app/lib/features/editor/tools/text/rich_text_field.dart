@@ -15,7 +15,9 @@ import 'rich_text_controller.dart';
 /// Ctrl+V pastes HTML from other apps formatted, Ctrl+Shift+V as plain text;
 /// Ctrl+Shift+7 / 8 / 9 numbered list, bullets, checklist; Ctrl+Alt+1 / 2
 /// headings, Ctrl+Alt+0 body text; Tab / Shift+Tab indent list items;
-/// Ctrl+Enter ticks a checklist item; Esc finishes. Left and right arrows
+/// Ctrl+Enter ticks a checklist item; Esc finishes; Ctrl+Z and Ctrl+Shift+Z
+/// [onUndo] and [onRedo] (the box's history, with formatting: the field's
+/// own undo knows none). Left and right arrows
 /// move the caret visually in right-to-left paragraphs too (left is
 /// forwards there).
 class RichTextField extends StatelessWidget {
@@ -26,6 +28,8 @@ class RichTextField extends StatelessWidget {
     required this.cursorWidth,
     required this.cursorColor,
     required this.onDone,
+    this.onUndo,
+    this.onRedo,
   });
 
   final RichTextController controller;
@@ -33,6 +37,9 @@ class RichTextField extends StatelessWidget {
   final double cursorWidth;
   final Color cursorColor;
   final VoidCallback onDone;
+
+  /// Undo and redo; the [controller]'s own by default.
+  final VoidCallback? onUndo, onRedo;
 
   /// Extra width the field needs beyond the text for its caret (see
   /// `RenderEditable`), so it wraps exactly where the box does.
@@ -51,10 +58,9 @@ class RichTextField extends StatelessWidget {
       SingleActivator key(LogicalKeyboardKey k, {bool shift = false, bool alt = false}) =>
           SingleActivator(k, control: control, meta: !control, shift: shift, alt: alt);
       map.addAll({
-        // The box's own undo: the field's knows no formatting.
-        key(LogicalKeyboardKey.keyZ): c.undo,
-        key(LogicalKeyboardKey.keyZ, shift: true): c.redo,
-        key(LogicalKeyboardKey.keyY): c.redo,
+        key(LogicalKeyboardKey.keyZ): onUndo ?? c.undo,
+        key(LogicalKeyboardKey.keyZ, shift: true): onRedo ?? c.redo,
+        key(LogicalKeyboardKey.keyY): onRedo ?? c.redo,
         key(LogicalKeyboardKey.keyB): c.toggleBold,
         key(LogicalKeyboardKey.keyI): c.toggleItalic,
         key(LogicalKeyboardKey.keyU): c.toggleUnderline,

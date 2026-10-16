@@ -7,6 +7,7 @@ import 'package:len/ui/floating_panel.dart';
 
 import 'content_tools_ui_test.dart';
 import 'search_ui_test.dart' show textBox;
+import 'text_box_ui_test.dart' show ctrl;
 
 /// Typing around a text box: undo while typing, the soft keyboard, the
 /// Text tool with a keyboard (UX_AUDIT round 19).
@@ -148,6 +149,15 @@ void main() {
     );
     expect(button.onPressed, isNotNull);
     await tester.tap(undo);
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+    expect(liveElements(services, nb.id), isEmpty);
+
+    // Ctrl+Z in the field does the same: the box, then the page.
+    await key(tester, LogicalKeyboardKey.keyB);
+    await tester.pumpAndSettle();
+    expect(typed(tester), 'b');
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
     await tester.pumpAndSettle();
     expect(field, findsNothing);
     expect(liveElements(services, nb.id), isEmpty);

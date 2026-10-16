@@ -134,6 +134,9 @@ class EditorSession with _EditorSessionZoom {
     }
     gestures.onDoubleTap = zoom.toggle;
     if (initialZoom != null) _restoreZoom(initialZoom);
+    content.text
+      ..undo = undo.undo
+      ..redo = undo.redo;
     reading = FingerReading(tools: tools, hasContent: _hasContent, busy: _busy);
     input.events.contact = reading.wrote;
     commands?.onBlankPage = reading.write;
