@@ -181,7 +181,7 @@ abstract final class UserTemplates {
     final confirmed = await confirmAction(
       context,
       title: 'Delete “${template.name}”?',
-      message: 'Pages already using it keep their background.',
+      message: 'Pages already using it keep their background',
       confirmLabel: 'Delete',
       destructive: true,
     );

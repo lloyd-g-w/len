@@ -152,7 +152,7 @@ class RecordingTile extends StatelessWidget {
         final confirmed = await confirmAction(
           context,
           title: 'Delete recording?',
-          message: '“${recording.title}” will be deleted on all your devices.',
+          message: '“${recording.title}” will be deleted on all your devices',
           confirmLabel: 'Delete',
           destructive: true,
         );

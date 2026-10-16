@@ -88,7 +88,7 @@ final List<ShortcutGroup> shortcutGroups = [
     ], shown: '[ / ]'),
   ]),
   ShortcutGroup('Selection', [
-    ShortcutHelp('Select all on the page (or in view)', [_ctrl(LogicalKeyboardKey.keyA)]),
+    ShortcutHelp('Select all on page (or in view)', [_ctrl(LogicalKeyboardKey.keyA)]),
     const ShortcutHelp('Nudge 1 pt / 10 pt', [
       SingleActivator(LogicalKeyboardKey.arrowLeft),
       SingleActivator(LogicalKeyboardKey.arrowUp),
@@ -148,7 +148,7 @@ final List<ShortcutGroup> shortcutGroups = [
       SingleActivator(LogicalKeyboardKey.equal),
       SingleActivator(LogicalKeyboardKey.minus),
     ], shown: '+ / −'),
-    const ShortcutHelp('100 %', [SingleActivator(LogicalKeyboardKey.digit0)]),
+    const ShortcutHelp('100%', [SingleActivator(LogicalKeyboardKey.digit0)]),
     const ShortcutHelp('Fit content', [SingleActivator(LogicalKeyboardKey.digit1, shift: true)]),
     const ShortcutHelp('Move around', [
       SingleActivator(LogicalKeyboardKey.arrowLeft),

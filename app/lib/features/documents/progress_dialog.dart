@@ -150,7 +150,8 @@ Future<T> _run<T>(
   final route = DialogRoute<void>(
     context: context,
     barrierDismissible: false,
-    barrierColor: DialogTheme.of(context).barrierColor ?? Colors.black54,
+    barrierColor:
+        DialogTheme.of(context).barrierColor ?? Surfaces.scrim(Theme.of(context).brightness),
     themes: InheritedTheme.capture(from: context, to: navigator.context),
     builder: (context) => PopScope(
       canPop: false,
@@ -229,7 +230,7 @@ class ProgressDialog extends StatelessWidget {
             final detail = progress.detail;
             return Semantics(
               liveRegion: true,
-              value: fraction == null ? null : '${(fraction * 100).round()} %',
+              value: fraction == null ? null : '${(fraction * 100).round()}%',
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,

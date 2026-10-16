@@ -54,7 +54,7 @@ extension _TextBoxHandles on _TextBoxEditorState {
                   width: size,
                   height: size,
                   decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
-                  child: Icon(icon, size: 14 / scale, color: Colors.white),
+                  child: Icon(icon, size: 14 / scale, color: Tones.light.onAccent),
                 ),
               ),
             ),

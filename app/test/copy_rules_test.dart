@@ -67,14 +67,32 @@ int _afterArgument(String source, int i) {
   return -1;
 }
 
-/// The copy shown by `Text(…)` and as `showMessage(context, …)` (or the
-/// `_toast` / `showOverviewMessage` wrappers) in [source], where it is
-/// written as string literals.
+/// Named arguments whose string is shown as it is: rows, captions,
+/// tooltips, dialog messages.
+const copyArguments = [
+  'label',
+  'title',
+  'subtitle',
+  'message',
+  'tooltip',
+  'caption',
+  'hintText',
+  'helperText',
+  'labelText',
+  'semanticLabel',
+];
+
+/// The copy shown by `Text(…)`, as `showMessage(context, …)` (or the
+/// `_toast` / `showOverviewMessage` wrappers) and in [copyArguments] in
+/// [source], where it is written as string literals.
 Iterable<String> uiCopy(String source) sync* {
-  final calls = RegExp(r'\b(Text|showMessage|_toast|showOverviewMessage)\(');
+  final calls = RegExp(
+    r'\b(Text|showMessage|_toast|showOverviewMessage)\(|'
+    '\\b(?:${copyArguments.join('|')}): ',
+  );
   for (final m in calls.allMatches(source)) {
     var at = m.end;
-    if (m.group(1) != 'Text') {
+    if (m.group(1) case final call? when call != 'Text') {
       at = _afterArgument(source, at);
       if (at == -1) continue;
     }
@@ -86,6 +104,36 @@ Iterable<String> uiCopy(String source) sync* {
 /// "...").
 bool singleSentenceWithStop(String copy) =>
     copy.endsWith('.') && !copy.endsWith('..') && !RegExp(r'[.?!] [A-Z]').hasMatch(copy);
+
+/// Words that keep their capital inside a sentence: names, keys and the
+/// sections and places Len names.
+const properWords = {
+  'Len', 'Android', 'Wi-Fi', 'S', 'Pen', 'Ink', 'Lab', 'My', 'Settings', 'Trash', //
+  'Favourites', 'Library', 'Writing', 'Handwriting', 'Sync', 'General', 'Backup', //
+  'Storage', 'About', 'Ctrl', 'Shift', 'Alt', 'Esc', 'Tab', 'Space', 'Home', 'End', //
+  'Del', 'Menu', 'Type', 'Sofia', 'Sans', 'Inter', 'Lora', 'JetBrains', 'Mono', //
+  'Caveat', 'Undo', 'Redo', 'Export…', 'Done', 'Keep', 'Set', 'Back', 'Locate', //
+  'Turn', 'Try', 'Google', 'Chrome', 'Firefox', 'Safari', 'Linux', 'Windows', //
+  'GoodNotes', 'Notewise', 'FlateDecode', 'Corrupt', 'Server', 'Enter',
+};
+
+/// Whether [copy] reads as Title Case: a word after the first starts with
+/// a capital and isn't a name ([properWords]), an acronym or a sentence's
+/// first word.
+bool titleCased(String copy) {
+  final words = copy.split(RegExp(r'\s+'));
+  for (var i = 1; i < words.length; i++) {
+    final word = words[i]
+        .replaceAll(RegExp(r'^[(“‘"]+|’s$|[)”’",:;.!?]+$'), '')
+        .replaceAll(RegExp(r'\+.*'), ''); // Ctrl+Z, Shift+Enter: keys.
+    if (!RegExp(r'^[A-Z][a-z]').hasMatch(word)) continue; // Lower case, acronyms, 1 – 5.
+    if (properWords.contains(word)) continue;
+    if (RegExp(r'[.?!:;—]$').hasMatch(words[i - 1])) continue; // A new sentence.
+    if (words[i - 1].contains(r'$') || word.contains(r'$')) continue;
+    return true;
+  }
+  return false;
+}
 
 /// CONVENTIONS (copy): a single sentence shown on its own takes no full stop.
 void main() {
@@ -122,6 +170,47 @@ void main() {
       if (file is! File || !file.path.endsWith('.dart')) continue;
       for (final copy in uiCopy(file.readAsStringSync())) {
         if (singleSentenceWithStop(copy)) offenders.add('${file.path}: $copy');
+      }
+    }
+    expect(offenders, isEmpty);
+  });
+
+  test('Title Case is told from names, keys and new sentences', () {
+    expect(titleCased('Move To Trash'), isTrue);
+    expect(titleCased('Export PDF Pages…'), isTrue);
+    expect(titleCased('Import Len file…'), isFalse);
+    expect(titleCased('Undo (Ctrl+Z)'), isFalse);
+    expect(titleCased('Saved. Open the folder'), isFalse);
+    expect(titleCased('Export as PDF'), isFalse);
+  });
+
+  // UX_AUDIT R24: rows, buttons and titles are sentence case; a capital
+  // after the first word is a name (Len, PDF, Android, a key, a section).
+  test('UI copy is sentence case', () {
+    final offenders = <String>[];
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      for (final copy in uiCopy(file.readAsStringSync())) {
+        if (titleCased(copy)) offenders.add('${file.path}: $copy');
+      }
+    }
+    expect(offenders, isEmpty);
+  });
+
+  // CONVENTIONS (icons, colour): Material Symbols Sharp only; features pick
+  // colours from the tokens (`Tones`, `Palette`, `Surfaces`, the scheme).
+  test('no Material Icons, and no colour literals in features', () {
+    final offenders = <String>[];
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      final feature = file.path.startsWith('lib/features/');
+      final lines = file.readAsLinesSync();
+      for (final (i, line) in lines.indexed) {
+        if (line.trimLeft().startsWith('//')) continue;
+        if (RegExp(r'\bIcons\.').hasMatch(line) ||
+            (feature && RegExp(r'\bColor\(0x|\bColors\.(?!transparent\b)').hasMatch(line))) {
+          offenders.add('${file.path}:${i + 1}: ${line.trim()}');
+        }
       }
     }
     expect(offenders, isEmpty);

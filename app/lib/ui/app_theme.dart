@@ -214,6 +214,25 @@ abstract final class Palette {
   /// not the chrome, so the same in both themes.
   static const Color cropShade = Color(0x99000000);
 
+  /// Rule-of-thirds guides over a photo being cropped.
+  static const Color cropGuide = Color(0x88FFFFFF);
+
+  /// The hairline round a cover or a page preview, so light paper
+  /// separates from what is behind it: black at 8 %.
+  static const Color paperEdge = Color.from(alpha: 0.08, red: 0, green: 0, blue: 0);
+
+  /// Writing printed on paper: [ink] at 60 % on light paper, white at
+  /// 70 % on dark paper (the canvas's empty hint).
+  static Color printOn({required bool darkPaper}) => darkPaper
+      ? const Color(0xFFFFFFFF).withValues(alpha: 0.7)
+      : const Color(0xFF000000).withValues(alpha: 0.6);
+
+  /// Search matches: marker yellow (a warmer amber in dark mode); the
+  /// current match is ringed in the light theme's ruling blue, as pages are
+  /// light in both themes.
+  static Color searchMatch(Brightness b) =>
+      b == Brightness.light ? const Color(0xFFFFD43B) : const Color(0xFFFFB020);
+
   static const List<int> covers = [
     0xFF3B5BDB, // ink blue
     0xFF0CA678, // teal

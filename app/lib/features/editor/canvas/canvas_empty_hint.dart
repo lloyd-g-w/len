@@ -66,9 +66,7 @@ class _CanvasEmptyHintState extends State<CanvasEmptyHint> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colour = widget.darkPaper
-        ? Colors.white.withValues(alpha: 0.7)
-        : Colors.black.withValues(alpha: 0.6);
+    final colour = Palette.printOn(darkPaper: widget.darkPaper);
     return IgnorePointer(
       child: AnimatedOpacity(
         opacity: _empty ? 1 : 0,

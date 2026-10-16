@@ -110,7 +110,7 @@ class _GhostPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     canvas
-      ..saveLayer(Offset.zero & size, Paint()..color = const Color(0x99000000))
+      ..saveLayer(Offset.zero & size, Paint()..color = Tones.light.ink.withValues(alpha: 0.6))
       ..translate(at.dx, at.dy)
       ..scale(scale)
       ..translate(-centre.dx, -centre.dy)
