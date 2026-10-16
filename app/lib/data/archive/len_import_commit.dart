@@ -5,6 +5,7 @@ import 'package:sqlite3/common.dart';
 
 import '../../domain/notebook_style.dart';
 import '../syncable.dart';
+import '../syncable_table.dart';
 import 'len_remap.dart';
 import 'len_stores.dart';
 
@@ -187,7 +188,9 @@ class LenImportCommit {
   /// A restore keeping the ids of notebooks deleted here wrote over their
   /// tombstones, whose deletion may not have synced yet: they become
   /// tombstones again, as the deletion left them (its device and version,
-  /// see `DeletionConflicts`), rather than being removed.
+  /// see `DeletionConflicts`), rather than being removed. What those
+  /// deletions knew was written over: the rows edited in place forget it
+  /// (unknown, see `EditOrigins`) rather than claim the restore's version.
   void _retombstone() {
     final deleted = _db.select(
       'SELECT id, device_id, updated_at FROM notebooks '
@@ -206,6 +209,15 @@ class LenImportCommit {
           mark,
         );
       }
+    }
+    // The deletion triggers noted the restore's rows as what was deleted.
+    for (final table in SyncableTable.editedInPlaceCollections) {
+      _db.execute(
+        'UPDATE $table SET base_at = NULL, base_device = NULL, origin_at = NULL, '
+        'origin_device = NULL, origin_for = 0 '
+        'WHERE deleted = 1 AND base_at = ? AND base_device = ?',
+        [remap.version, remap.deviceId],
+      );
     }
   }
 
