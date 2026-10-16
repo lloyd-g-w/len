@@ -153,7 +153,10 @@ class LenArchiveWriter {
   Future<void> _addBlob(ZipEncoder zip, String sha, CancellationToken? cancel) async {
     // Its copy here may have gone since the index was written (Settings →
     // Storage → Free up meanwhile): downloaded again.
-    if (!await blobs.has(sha) && !(await fetchBlob?.call(sha) ?? false)) {
+    // Awaited apart: dart2wasm miscompiles `!await a && await b` (see
+    // test/wasm_await_rules_test.dart).
+    final here = await blobs.has(sha);
+    if (!here && !(await fetchBlob?.call(sha) ?? false)) {
       throw StateError('Blob $sha vanished while exporting');
     }
     cancel?.check();
