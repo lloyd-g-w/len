@@ -1,26 +1,29 @@
 import '../../app_services.dart';
 import '../../data/surface_stats.dart';
 import '../../domain/notebook.dart';
+import '../../platform/background_query.dart';
 import 'tabs/open_notebooks.dart';
 
-/// Where notebook [notebook] opens on this device (UX_AUDIT R16-4): the
-/// view this device kept for it, unless another device wrote in it since
-/// this one last left it (or it was never opened here): then a paged
-/// notebook opens framed on the page written last. Write pages 14–16 on the
-/// tablet, open the notebook on the laptop: it shows page 16, not the page
-/// the laptop showed a week ago.
-EditorViewState? resumeView(AppServices services, Notebook notebook) {
-  final kept = EditorViewState.decode(services.settings.editorView(notebook.id));
-  if (notebook.kind != NotebookKind.paged) return kept;
-  final page = SurfaceStats(services.database).pageWrittenElsewhere(
-    notebook.id,
-    deviceId: services.strokes.deviceId,
-    after: kept?.savedAt ?? 0,
+/// Where notebook [notebook] opens on this device at once: the view this
+/// device kept for it. (Then [writtenElsewhere] may move it on.)
+EditorViewState? keptView(AppServices services, Notebook notebook) =>
+    EditorViewState.decode(services.settings.editorView(notebook.id));
+
+/// The page (id) of paged notebook [notebook] it should move on to from [kept]
+/// ([keptView]) as it opens (UX_AUDIT R16-4), or null: if another device
+/// wrote in it since this one last left it (or it was never opened here),
+/// the page written last. Write pages 14–16 on the tablet, open the
+/// notebook on the laptop: it shows page 16, not the page the laptop showed
+/// a week ago. Asked off the UI thread (it reads every stroke of the
+/// notebook), so the editor opens on [kept] meanwhile.
+Future<String?> writtenElsewhere(AppServices services, Notebook notebook, EditorViewState? kept) {
+  final id = notebook.id;
+  final deviceId = services.strokes.deviceId;
+  final after = kept?.savedAt ?? 0;
+  return queryInBackground(
+    services.database,
+    (db) => SurfaceStats(db).pageWrittenElsewhere(id, deviceId: deviceId, after: after),
   );
-  if (page == null) return kept;
-  final index = services.pages.pagesOf(notebook.id).indexWhere((p) => p.id == page);
-  if (index < 0 || index == kept?.page) return kept;
-  return EditorViewState.page(index, fit: kept?.fit);
 }
 
 /// When this device leaves notebook [notebookId] ([EditorViewState.savedAt]),

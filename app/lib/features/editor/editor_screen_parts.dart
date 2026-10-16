@@ -3,19 +3,35 @@ part of 'editor_screen.dart';
 /// The pieces [_EditorScreenState] wires together: the session, its pane
 /// in the split view, the tips and the commands.
 extension _EditorParts on _EditorScreenState {
-  EditorSession _newSession() => EditorSession(
-    services: _services,
-    shared: _shared,
-    onStylusDetected: _onStylusDetected,
-    initialView: widget.secondPane
+  EditorSession _newSession() {
+    final notebook = widget.notebook;
+    final shown = widget.secondPane
         ? _services.openNotebooks.splitView
-        : _services.openNotebooks.viewOf(widget.notebook.id) ??
-              resumeView(_services, widget.notebook),
-    // The second pane leaves the zoom window to the first.
-    initialZoom: widget.secondPane
-        ? null
-        : ZoomWindowState.decode(_services.settings.zoomWindow(widget.notebook.id)),
-  );
+        : _services.openNotebooks.viewOf(notebook.id);
+    final fresh = shown == null && !widget.secondPane;
+    final kept = fresh ? keptView(_services, notebook) : null;
+    final session = EditorSession(
+      services: _services,
+      shared: _shared,
+      onStylusDetected: _onStylusDetected,
+      initialView: shown ?? kept,
+      // The second pane leaves the zoom window to the first.
+      initialZoom: widget.secondPane
+          ? null
+          : ZoomWindowState.decode(_services.settings.zoomWindow(notebook.id)),
+    );
+    // Opened afresh (not a tab shown again): it may move on to where
+    // another device wrote since (R16-4).
+    if (session.doc case final doc? when fresh) {
+      final from = doc.currentPage;
+      unawaited(
+        writtenElsewhere(_services, notebook, kept).then((page) {
+          if (page != null && mounted) doc.resumeAt(page, from: from);
+        }),
+      );
+    }
+    return session;
+  }
 
   SplitPane _newPane() => SplitPane(
     session: _session,

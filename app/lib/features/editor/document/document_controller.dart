@@ -146,6 +146,17 @@ class DocumentController extends _DocumentState with _DocumentViewport {
     notifyListeners();
   }
 
+  /// Moves on to page [pageId] as the notebook opens (it was written on
+  /// last on another device, see `writtenElsewhere`), unless the user has
+  /// left page [from] meanwhile. Before the first framing it is framed
+  /// instead of the view the notebook opened with.
+  void resumeAt(String pageId, {required int from}) {
+    final index = _pages.indexWhere((p) => p.id == pageId);
+    if (index < 0 || index == from || _current != from) return;
+    _initialView = null;
+    goToPage(index);
+  }
+
   /// Like [goToPage], but scrolls there smoothly in continuous flow (and
   /// with [animateSamePage], also re-fits the page shown in single flow).
   void scrollToPage(int index, {bool animateSamePage = false}) {
