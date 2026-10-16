@@ -405,6 +405,34 @@ void main() {
       await closeEditor(tester);
     });
 
+    testWidgets('a planner page with links and nothing written opens in reading', (tester) async {
+      final (s, _) = await pumpEditor(tester, size: phone);
+      await closeEditor(tester);
+      final papers = PlannerPlan(
+        start: DateTime.utc(2026, 10, 1),
+        linked: true,
+      ).papersFor(PaperStyle.monthlyCalendar);
+      final planner = s.notebooks.create(
+        title: 'Planner',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+        papers: papers,
+      );
+      await tester.pumpWidget(
+        AppScope(
+          services: s,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: EditorScreen(notebook: planner),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(toolsOf(tester).reading, isTrue, reason: 'a finger follows its links');
+      await closeEditor(tester);
+    });
+
     testWidgets('an empty notebook opens in writing', (tester) async {
       final (s, nb) = await pumpEditor(tester, size: phone);
       await closeEditor(tester);

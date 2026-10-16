@@ -61,14 +61,14 @@ extension _EditorSessionParts on EditorSession {
 /// What [FingerReading] asks of an [EditorSession].
 extension _EditorSessionReading on EditorSession {
   /// Whether the page in view (or the canvas) has anything to read: a PDF
-  /// or scanned background, or ink, text boxes or images (loaded, or
-  /// stored).
+  /// or scanned background, planner links, or ink, text boxes or images
+  /// (loaded, or stored).
   bool _hasContent() {
     final doc = this.doc;
     final String surfaceId;
     if (doc != null) {
       final page = doc.pages[doc.currentPage];
-      if (page.background != null) return true;
+      if (page.background != null || doc.hasPlannerLinks(doc.currentPage)) return true;
       surfaceId = page.id;
     } else {
       surfaceId = canvas!.surfaceId;

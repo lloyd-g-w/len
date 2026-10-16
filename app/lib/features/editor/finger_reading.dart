@@ -10,7 +10,7 @@ import '../../ui/app_theme.dart';
 /// two fingers and a resting thumb would mark the page. This puts the
 /// editor in [ToolSettings.reading] (one finger scrolls, zooms, follows
 /// links, double-tap zooms and long-presses for the menu) where there is
-/// something to read:
+/// something to read (or follow: a planner's links):
 ///
 /// - opening ([open]) a page — or canvas — with content starts in reading;
 ///   an empty one in writing;
@@ -45,7 +45,7 @@ class FingerReading {
   final ToolSettings tools;
 
   /// Whether the page in view (or the canvas) has anything to read: ink,
-  /// text boxes, images or a PDF or scanned background.
+  /// text boxes, images, a PDF or scanned background or planner links.
   /// Answered at once (from the database if need be), so what an editor
   /// opens in depends on the page alone, never on what happens while a
   /// background read is under way.
