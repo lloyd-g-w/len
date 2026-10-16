@@ -218,6 +218,20 @@ void pasteTests() {
     final rest = chains.continuationsOf('p0', copy.id);
     expect(TextFlowChains.wholeOf(copy, rest).text, text);
   });
+
+  test('a copied chain pastes as it was shown: its first box centred where pasted', () {
+    final text = [for (var i = 0; i < 60; i++) 'Line $i'].join('\n');
+    session.create(const Offset(40, 600), style: const TextData(), width: 300);
+    session.setData(TextData.rich(text: text));
+    session.end();
+    final head = elements.allOn('p0').single;
+    selection.select(const [], [pages.modelOf('p0').elementById(head.id)!]);
+    selection.copy();
+    selection.paste(const Offset(200, 300));
+    final copy = elements.allOn('p0').firstWhere((e) => e.id != head.id);
+    expect(copy.rect.top, closeTo(300 - head.rect.height / 2, 0.01));
+    expect(TextFlowChains.wholeOf(copy, chains.continuationsOf('p0', copy.id)).text, text);
+  });
 }
 
 void pasteTextTests() {

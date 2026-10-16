@@ -76,12 +76,11 @@ class SelectionController extends _SelectionCore {
   }
 
   /// What a copy of the selection holds (a text box flowing across pages
-  /// with its whole text) and the bounds around it: what is copied, or
-  /// dropped into another editor.
-  ({List<Stroke> strokes, List<SurfaceElement> elements, Rect bounds}) get carried {
-    final elements = _whole(_elements);
-    return (strokes: _strokes, elements: elements, bounds: boundsOf(_strokes, elements));
-  }
+  /// with its whole text): what is copied, or dropped into another editor;
+  /// [bounds] are the selection's as shown, so a copy is placed as it was
+  /// seen (the rest of a whole text flowing on below).
+  ({List<Stroke> strokes, List<SurfaceElement> elements, Rect bounds}) get carried =>
+      (strokes: _strokes, elements: _whole(_elements), bounds: boundsOf(_strokes, _elements));
 
   void cut() {
     copy();
@@ -91,9 +90,8 @@ class SelectionController extends _SelectionCore {
   /// Adds a copy of the selection slightly offset and selects it.
   void duplicate() {
     if (isEmpty) return;
-    final elements = _whole(_elements);
-    final bounds = boundsOf(_strokes, elements);
-    _paste(_strokes, elements, bounds, bounds.center + const Offset(24, 24));
+    final c = carried;
+    _paste(c.strokes, c.elements, c.bounds, c.bounds.center + const Offset(24, 24));
   }
 
   /// Pastes the clipboard centred on world point [at] and selects it.
