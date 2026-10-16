@@ -30,16 +30,18 @@ abstract final class StrokeOutline {
     return path;
   }
 
-  /// Like [build], but writes the outline's segments to [sink].
+  /// Like [build], but writes the outline's segments to [sink]; sides fit
+  /// within [tolerance] (world units) if given, else the screen's.
   static void emit(
     OutlineSink sink,
     List<StrokePoint> points,
     OutlineSpec spec, {
     bool complete = true,
+    double? tolerance,
   }) {
     final shaper = _shape(points, spec, complete);
     if (shaper.inputCount == 0) return;
-    emitLine(sink, shaper, spec, live: !complete);
+    emitLine(sink, shaper, spec, live: !complete, tolerance: tolerance);
   }
 
   /// Emits the outline of an [update]d [shaper] (a dot when too short);
@@ -49,6 +51,7 @@ abstract final class StrokeOutline {
     StrokeShaper shaper,
     OutlineSpec spec, {
     bool live = false,
+    double? tolerance,
   }) {
     if (isDot(shaper)) return dot(sink, shaper, spec);
     final n = live ? shaper.liveLength : shaper.length;
@@ -58,6 +61,7 @@ abstract final class StrokeOutline {
       flatCaps: spec.flatCaps,
       width: spec.width,
       step: shaper.p.step,
+      tolerance: tolerance,
     ).emit(sink);
   }
 

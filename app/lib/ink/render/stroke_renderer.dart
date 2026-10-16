@@ -44,16 +44,24 @@ abstract final class StrokeRenderer {
   }
 
   /// Like [buildPath], but writes the outline's segments to [sink] (tests
-  /// and the Ink Lab measure them).
+  /// and the Ink Lab measure them; PDF export writes them), fitting the
+  /// sides within [tolerance] (world units) if given.
   static void emitOutline(
     OutlineSink sink,
     List<StrokePoint> points, {
     required double width,
     required StrokeStyle style,
     required bool complete,
+    double? tolerance,
   }) {
     if (points.isEmpty) return;
-    StrokeOutline.emit(sink, points, specFor(width, style), complete: complete);
+    StrokeOutline.emit(
+      sink,
+      points,
+      specFor(width, style),
+      complete: complete,
+      tolerance: tolerance,
+    );
   }
 
   /// The outline shape parameters for a stroke: pen and highlighter alike,

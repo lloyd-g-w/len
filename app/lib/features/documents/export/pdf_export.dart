@@ -12,6 +12,7 @@ import '../../../domain/pdf_page_space.dart';
 import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
 import '../../../ink/elements/element_renderer.dart';
+import '../../../ink/render/outline_sink.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import 'export_page.dart';
@@ -28,8 +29,8 @@ part 'pdf_export_drawing.dart';
 
 /// Writes pages to a PDF with vector ink and vector templates.
 ///
-/// Ink outlines are the exact paths the app renders, flattened into
-/// polygons finer than the eye can see. Imported PDF pages keep their
+/// Ink outlines are the exact paths the app renders: their own lines and
+/// Bézier curves. Imported PDF pages keep their
 /// original content: each is copied from its source PDF as a Form XObject
 /// (text stays text, vectors stay vectors; [PdfPageImporter]), and only a
 /// page that cannot be copied is embedded as an image. Text boxes are real,
@@ -43,8 +44,11 @@ abstract final class PdfExporter {
   /// PDF points (1/72 in) per world unit (1/96 in).
   static const double pointsPerUnit = 72 / 96;
 
-  /// Maximum distance between polygon points along a curve, in world units.
-  static const double flattenStep = 0.75;
+  /// How far (world units) an exported ink outline may stray from the
+  /// screen's: 0.04 units, 10 µm, a tenth of a 300-dpi printer's dot. The
+  /// screen fits ten times tighter only so live ink never shimmers when
+  /// zoomed in; here it would double the file.
+  static const double inkTolerance = 0.04;
 
   /// Resolution of rendered elements (text boxes).
   static const double elementDpi = 300;
