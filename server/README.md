@@ -47,6 +47,19 @@ content-addressed files in a blob directory next to it.
    (`.env` from step 1.) Update with `docker compose pull && docker compose
    up -d` (data lives in the volume and survives).
 
+   **A host folder instead of a volume, as another user** (e.g. a NAS
+   dataset owned by uid/gid 568): the server needs no root, so run it as the
+   folder's owner and bind-mount the folder at `/data`:
+
+   ```yaml
+   services:
+     len-sync:
+       image: ghcr.io/lloyd-g-w/len-sync:latest
+       user: "568:568"
+       volumes:
+         - /mnt/main/stacks/len-sync:/data
+   ```
+
 3. **Put it behind HTTPS.** The token travels in every request, so never
    expose the server over plain HTTP. Compose only binds to `127.0.0.1:8080`;
    use a reverse proxy such as [Caddy](https://caddyserver.com), which gets
