@@ -52,6 +52,10 @@ abstract final class PdfExporter {
   /// zoomed in; here it would double the file.
   static const double inkTolerance = 0.04;
 
+  /// How long writing a page's ink runs before letting the event loop
+  /// turn.
+  static const Duration yieldEvery = Duration(milliseconds: 12);
+
   /// Resolution of rendered elements (text boxes).
   static const double elementDpi = 300;
 
@@ -145,8 +149,15 @@ abstract final class PdfExporter {
 
     await drawElements(true);
     // Highlighter beneath pen ink, as on screen (see ContentPainter).
+    final slice = Stopwatch()..start();
     for (final stroke in [...export.strokes]..sort(Stroke.drawOrder)) {
       _drawStroke(pen, stroke);
+      // A dense page takes seconds in a browser, all on its one thread:
+      // the tab (progress, Cancel) keeps responding.
+      if (slice.elapsed > yieldEvery) {
+        await Future<void>.delayed(Duration.zero);
+        slice.reset();
+      }
     }
     await drawElements(false);
     return vector;
