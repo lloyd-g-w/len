@@ -144,9 +144,6 @@ class _EditorScreenState extends State<_EditorView> {
   /// The pane's size, as last laid out.
   Size _paneSize = Size.zero;
 
-  /// Whether the pane has room for the page sidebar.
-  bool get _sidebarFits => _session.doc != null && SidebarMetrics.fits(_paneSize);
-
   /// Shows or hides the pages beside the page, and remembers it.
   void _setSidebar(bool open) {
     if (!mounted || _session.doc == null) return;
@@ -156,11 +153,6 @@ class _EditorScreenState extends State<_EditorView> {
     }
     _services.settings.setPageSidebar(_notebook.id, open);
     setState(() => _sidebar = open);
-  }
-
-  /// F4: the pages beside the page, on or off (not in focus mode).
-  void _toggleSidebar() {
-    if (!_focus) _setSidebar(!(_sidebar && _sidebarFits));
   }
 
   /// The tool to put back on leaving focus mode entered with the laser (F5).

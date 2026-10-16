@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../app_services.dart';
 import '../../../data/surface_copier.dart';
@@ -14,12 +13,12 @@ import '../../../ui/fast_scroll.dart';
 import '../../../ui/menus.dart';
 import '../../documents/overview/page_commands.dart';
 import '../../documents/overview/page_moves.dart';
-import '../chrome/bar_button.dart';
 import '../document/document_commands.dart';
 import '../document/document_controller.dart';
 import '../document/page_backgrounds.dart';
 import '../document/page_thumbnail.dart';
 import 'sidebar_add_page.dart';
+import 'sidebar_header.dart';
 import 'sidebar_metrics.dart';
 import 'sidebar_tile.dart';
 import 'thumbnail_refresh.dart';
@@ -227,7 +226,7 @@ class _PageSidebarState extends State<PageSidebar> {
           padding: EdgeInsets.only(left: widget.padding.left, right: widget.padding.right),
           child: Column(
             children: [
-              _Header(count: _pages.length, rtl: rtl, onClose: widget.onClose),
+              SidebarHeader(count: _pages.length, rtl: rtl, onClose: widget.onClose),
               Expanded(
                 child: Focus(
                   canRequestFocus: false,
@@ -284,42 +283,6 @@ class _PageSidebarState extends State<PageSidebar> {
         onTap: () => _go(index),
         onMenu: (at) => unawaited(_menu(index, at)),
         onMove: (direction) => _step(page, direction),
-      ),
-    );
-  }
-}
-
-/// The column's head: how many pages, and the way to hide it.
-class _Header extends StatelessWidget {
-  const _Header({required this.count, required this.rtl, required this.onClose});
-
-  final int count;
-  final bool rtl;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      height: Targets.barHit(context),
-      child: Row(
-        children: [
-          const SizedBox(width: SidebarMetrics.side + Gaps.sm),
-          Expanded(
-            child: Text(
-              count == 1 ? '1 page' : '$count pages',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(fontFeatures: AppTheme.tabularFigures),
-            ),
-          ),
-          BarButton(
-            icon: rtl ? Symbols.right_panel_close_sharp : Symbols.left_panel_close_sharp,
-            tooltip: Targets.touchFirst ? 'Hide pages' : 'Hide pages (F4)',
-            onPressed: onClose,
-          ),
-          const SizedBox(width: Gaps.xs),
-        ],
       ),
     );
   }
