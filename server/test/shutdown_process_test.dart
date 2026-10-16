@@ -39,10 +39,29 @@ void main() {
     final request = await client.get('127.0.0.1', port, '/v1/health');
     await (await request.close()).drain<void>();
 
+    // And one listening to the event stream, which never ends by itself.
+    final events = await client.get('127.0.0.1', port, '/v1/events');
+    events.headers.set('authorization', 'Bearer shutdown-test-token-0123456789');
+    final stream = await events.close();
+    expect(stream.statusCode, 200);
+    final streamEnded = Completer<void>();
+    stream.listen(
+      (_) {},
+      onDone: streamEnded.complete,
+      onError: (Object _) {
+        if (!streamEnded.isCompleted) streamEnded.complete();
+      },
+    );
+
+    final stopping = Stopwatch()..start();
     server.kill(ProcessSignal.sigterm);
     final code = await server.exitCode.timeout(const Duration(seconds: 20));
     expect(code, 0, reason: '$out');
     expect('$out', contains('shutting down'));
     expect('$out', isNot(contains('Unhandled exception')));
+    // The stream was ended, not waited for until the grace period ran out.
+    expect('$out', isNot(contains('forcing closed')));
+    expect(stopping.elapsed, lessThan(const Duration(seconds: 8)));
+    await streamEnded.future.timeout(const Duration(seconds: 5));
   }, timeout: const Timeout(Duration(minutes: 2)));
 }

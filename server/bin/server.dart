@@ -28,6 +28,7 @@ Future<void> main(List<String> args) async {
   final store = RecordStore.open(config.dbPath);
   final blobs = BlobStore.open(config.blobDir);
   final requests = RequestTracker();
+  final events = ChangeEvents();
   final handler = const Pipeline()
       .addMiddleware(logRequests())
       .addMiddleware(requests.middleware)
@@ -39,6 +40,7 @@ Future<void> main(List<String> args) async {
           maxBlobBytes: config.blobMaxBytes,
           blobIdleTimeout: config.blobIdleTimeout,
           cors: config.cors,
+          events: events,
         ),
       );
 
@@ -53,7 +55,9 @@ Future<void> main(List<String> args) async {
   // Stop accepting connections, let requests in flight finish (a push
   // commits, an upload completes) and only then close the database; give
   // up after a grace period that fits Docker's default stop timeout (10 s).
+  // Event streams never end by themselves: end them first.
   final closing = server.close();
+  await events.close();
   final grace = Stopwatch()..start();
   if (!await requests.drain(_shutdownGrace)) {
     stderr.writeln('len-sync: ${requests.inFlight} request(s) still running, closing anyway');

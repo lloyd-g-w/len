@@ -10,6 +10,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import 'blob_api.dart';
 import 'blob_store.dart';
+import 'change_events.dart';
 import 'cors.dart';
 import 'record.dart';
 import 'record_store.dart';
@@ -37,6 +38,9 @@ const _publicPaths = {'v1/health'};
 /// Blob uploads are limited to [maxBlobBytes]; the push body limit
 /// ([maxPushBytes]) does not apply to them, and an upload pausing longer
 /// than [blobIdleTimeout] is abandoned.
+///
+/// `GET /v1/events` streams through [events] (a new set if not given; the
+/// caller closes it at shutdown).
 Handler buildHandler({
   required RecordStore store,
   required BlobStore blobs,
@@ -44,11 +48,17 @@ Handler buildHandler({
   int maxBlobBytes = defaultMaxBlobBytes,
   Duration blobIdleTimeout = defaultBlobIdleTimeout,
   CorsPolicy cors = const CorsPolicy.any(),
+  ChangeEvents? events,
 }) {
+  final changes = events ?? ChangeEvents();
   final router = Router(notFoundHandler: _notFound)
     ..get('/v1/health', (Request request) => _health(store, maxBlobBytes))
-    ..post('/v1/push', (Request request) => _push(request, store))
-    ..get('/v1/pull', (Request request) => _pull(request, store));
+    ..post('/v1/push', (Request request) => _push(request, store, changes))
+    ..get('/v1/pull', (Request request) => _pull(request, store, changes))
+    ..get(
+      '/v1/events',
+      (Request request) => changes.subscribe(seq: store.currentSeq(), serverId: store.serverId),
+    );
   addBlobRoutes(router, blobs, maxBytes: maxBlobBytes, idleTimeout: blobIdleTimeout);
   return const Pipeline()
       .addMiddleware(corsMiddleware(cors))
@@ -147,7 +157,7 @@ Response _health(RecordStore store, int maxBlobBytes) => _json(HttpStatus.ok, {
 Response _notFound(Request request) => _json(HttpStatus.notFound, {'error': 'not found'});
 
 /// `POST /v1/push`: validates every record, then applies all atomically.
-Future<Response> _push(Request request, RecordStore store) async {
+Future<Response> _push(Request request, RecordStore store, ChangeEvents events) async {
   final Object? body;
   try {
     body = await _readJsonBody(request, maxPushBytes);
@@ -186,8 +196,9 @@ Future<Response> _push(Request request, RecordStore store) async {
   try {
     result = store.push(records, since: since);
   } on HistoryLostException {
-    return _historyLost();
+    return _historyLost(store, events);
   }
+  if (result.applied > 0) events.publish(seq: result.serverSeq, serverId: store.serverId);
   return _json(HttpStatus.ok, {
     'applied': result.applied,
     'ignored': result.ignored,
@@ -196,7 +207,7 @@ Future<Response> _push(Request request, RecordStore store) async {
 }
 
 /// `GET /v1/pull?since=&limit=`: one page of the change feed.
-Response _pull(Request request, RecordStore store) {
+Response _pull(Request request, RecordStore store, ChangeEvents events) {
   final params = request.url.queryParameters;
   final since = _intParam(params['since'], fallback: 0);
   final limit = _intParam(params['limit'], fallback: defaultPullLimit);
@@ -211,7 +222,7 @@ Response _pull(Request request, RecordStore store) {
   try {
     page = store.pull(since: since, limit: limit > maxPullLimit ? maxPullLimit : limit);
   } on HistoryLostException {
-    return _historyLost();
+    return _historyLost(store, events);
   }
   return _json(HttpStatus.ok, {
     'records': [for (final r in page.records) r.toJson()],
@@ -248,10 +259,14 @@ Future<Object?> _readJsonBody(Request request, int maxBytes) async {
   return jsonDecode(text);
 }
 
-/// 409: the client has seen changes this server no longer has.
-Response _historyLost() => _json(HttpStatus.conflict, {
-  'error': 'history lost: the server was restored or replaced; upload everything again',
-});
+/// 409: the client has seen changes this server no longer has. The server
+/// took a new id: open event streams hear of it, so every client resets.
+Response _historyLost(RecordStore store, ChangeEvents events) {
+  events.publish(seq: store.currentSeq(), serverId: store.serverId);
+  return _json(HttpStatus.conflict, {
+    'error': 'history lost: the server was restored or replaced; upload everything again',
+  });
+}
 
 Response _badRequest(String message) => _json(HttpStatus.badRequest, {'error': message});
 
