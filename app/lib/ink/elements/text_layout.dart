@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 
-import '../../domain/text/paragraph_direction.dart';
 import '../../domain/text/rich_text_buffer.dart';
 import '../../domain/text/text_data.dart';
 import 'list_marker.dart';
@@ -101,9 +100,12 @@ abstract final class TextLayout {
   };
 
   /// The list markers of [data], in line order; [directions] are its
-  /// paragraphs' ([ParagraphDirection.of]).
+  /// paragraphs' ([TextData.directions]). A box continuing a list item
+  /// from the page before ([TextFlow.joined]) starts with a
+  /// [ListMarker.continued] one; numbers run on ([TextFlow.numbers]).
   static List<ListMarker> markersOf(TextData data, [List<TextDirection>? directions]) {
-    final dirs = directions ?? ParagraphDirection.of(data.text);
+    final dirs = directions ?? data.directions;
+    final flow = data.flow;
     final paras = data.paras;
     final chars = data.charStyles();
     final markers = <ListMarker>[];
@@ -118,11 +120,12 @@ abstract final class TextLayout {
           ListMarker(
             line: line,
             para: para,
-            number: RichTextBuffer.listNumberOf(paras, line),
+            number: RichTextBuffer.listNumberOf(paras, line, flow?.numbers ?? const []),
             fontSize: sizeOf(data, first, para),
             color: first.color ?? data.color,
             font: first.font ?? data.font,
             direction: dirs[line],
+            continued: line == 0 && (flow?.joined ?? false),
           ),
         );
       }
@@ -170,6 +173,8 @@ abstract final class TextLayout {
           children.add(switch (piece.kind) {
             InsertKind.marker => marker(piece.marker!),
             InsertKind.space => gap(piece.size),
+            InsertKind.room => roomSpan(piece.size.height),
+            InsertKind.roomBreak => const TextSpan(text: '\n', style: _roomStyle),
             _ => TextSpan(text: piece.char, style: around),
           });
         }
@@ -187,6 +192,21 @@ abstract final class TextLayout {
   }
 
   static final Paint _clear = Paint()..color = const Color(0x00000000);
+
+  /// The placeholder of the room over a page edge ([FlowBreak.gap] tall).
+  static InlineSpan roomSpan(double gap) => WidgetSpan(
+    alignment: PlaceholderAlignment.bottom,
+    child: SizedBox(width: 0, height: gap < 0 ? 0 : gap),
+  );
+
+  /// The line break after [roomSpan]: so small the line is as tall as the
+  /// room.
+  static const TextStyle _roomStyle = TextStyle(
+    inherit: false,
+    fontSize: 0.01,
+    height: 1,
+    color: Color(0x00000000),
+  );
 
   /// The placeholder of a gap or padding ([size]).
   static InlineSpan gapSpan(Size size) => WidgetSpan(
@@ -238,9 +258,14 @@ abstract final class TextLayout {
   /// The width [data] needs without wrapping (auto-width boxes).
   static double naturalWidth(TextData data) {
     final layout = TextBoxLayout(data, double.infinity);
-    final width = layout.painter.maxIntrinsicWidth;
+    final width = naturalWidthOf(layout);
     layout.dispose();
-    final w = (width + autoWidthSlack).ceilToDouble();
+    return width;
+  }
+
+  /// [naturalWidth] of text laid out without a width limit.
+  static double naturalWidthOf(TextBoxLayout unbounded) {
+    final w = (unbounded.painter.maxIntrinsicWidth + autoWidthSlack).ceilToDouble();
     return w < minWidth ? minWidth : w;
   }
 }

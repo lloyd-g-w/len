@@ -5,6 +5,7 @@ import '../../core/clock.dart';
 import '../../domain/surface_element.dart';
 import '../../domain/text/text_data.dart';
 import '../elements/text_edit_session.dart';
+import '../elements/text_flow_chains.dart';
 import '../elements/text_layout.dart';
 import '../input/live_ink.dart';
 import '../selection/ink_clipboard.dart';
@@ -137,6 +138,13 @@ class ContentTools {
     if (back != null && tools.tool == EditorTool.text) tools.tool = back;
   }
 
+  /// Text boxes flowing across the pages of a notebook; null on a canvas.
+  TextFlowChains? get flows => text.flows;
+  set flows(TextFlowChains? value) {
+    text.flows = value;
+    selection.flows = value;
+  }
+
   SurfaceModel get model => selection.model;
 
   /// Switches surface (page turn): the selection is dropped and a text
@@ -252,8 +260,21 @@ class ContentTools {
       createdAt: clock.nowMs(),
       data: text.toJson(),
     );
-    model.commit(InkEdit(addedElements: [element]));
-    selection.select(const [], [element]);
+    final chains = flows;
+    if (chains == null || !chains.canFlow(model.surfaceId, element)) {
+      model.commit(InkEdit(addedElements: [element]));
+      selection.select(const [], [element]);
+      return;
+    }
+    // On a page, a long text runs on over the next pages.
+    late SurfaceElement head;
+    chains.pages.batch(() {
+      final r = chains.reflow(model.surfaceId, element, text, const []);
+      head = r.head;
+      model.commit(InkEdit(addedElements: [head]));
+      chains.commit(r.edits);
+    });
+    selection.select(const [], [head]);
   }
 
   /// Widest a pasted text box is, as a fraction of the visible width.

@@ -74,13 +74,16 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
   }
 
   /// Keeps the caret off the spot before a list marker (and inside a wrap's
-  /// or an isolate's insert): it steps over it in the direction it was
-  /// moving, or to the nearest spot after a jump.
+  /// or an isolate's or a page break's insert): it steps over it in the
+  /// direction it was moving, or to the nearest spot after a jump (up out
+  /// of a page break's room: to the page before, down: to the next).
   TextSelection _normalize(TextSelection s, TextSelection old) {
     if (!s.isValid || _offsets.isEmpty) return s;
     int fix(int d, int was) {
       if (!_offsets.isHidden(d)) return d;
-      final step = was == d + 1 ? -1 : (was == d - 1 ? 1 : 0);
+      final step = _offsets.isPageBreak(d)
+          ? (was > d ? -1 : 1)
+          : (was == d + 1 ? -1 : (was == d - 1 ? 1 : 0));
       return _offsets.allowedNear(d, text.length, step: step);
     }
 
@@ -179,10 +182,12 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
     }
     _pending = null;
     _data = null;
-    final plan = _planOf(data);
+    final breaks = _breaksOf(data);
+    final plan = _planOf(data, breaks);
     final offsets = plan.offsets;
     final display = offsets.display(_buffer.text);
     _plan = plan;
+    _breaks = breaks;
     if (display == n) {
       super.value = next.copyWith(selection: _normalize(next.selection, old.selection));
     } else {

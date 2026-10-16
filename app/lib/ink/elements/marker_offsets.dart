@@ -11,9 +11,14 @@ import 'text_plan.dart';
 ///   as the marker column ([wrapText]), so the continuation line hangs
 ///   under the item's text, and
 /// - around paragraphs running against the box's direction, isolates and
-///   the placeholders that align their lines (with a break at each wrap).
+///   the placeholders that align their lines (with a break at each wrap),
+///   and
+/// - at each page break of a box flowing across pages (`FlowBreak`, in the
+///   editing field only) a line holding a placeholder as tall as the room
+///   to the next page.
 ///
-/// The model offset at a wrap maps to the start of the continuation line.
+/// The model offset at a wrap or page break maps to the start of the
+/// continuation line.
 class MarkerOffsets {
   MarkerOffsets(List<TextInsert> inserts) : _inserts = inserts;
 
@@ -86,6 +91,25 @@ class MarkerOffsets {
 
   /// Whether display character [d] is a list marker.
   bool isMarker(int d) => pieceAt(d)?.kind == InsertKind.marker;
+
+  /// Whether display offset [d] lies inside a page break's room (on the
+  /// line of the room over a page edge, or just before it).
+  bool isPageBreak(int d) => pieceAt(d)?.isRoom ?? false;
+
+  /// Display offset of the room placeholder of the page break at model
+  /// offset [at], if there is one.
+  int? roomOf(int at) {
+    var shift = 0;
+    for (final i in _inserts) {
+      if (i.at > at) break;
+      if (i.at == at) {
+        final k = i.pieces.indexWhere((p) => p.kind == InsertKind.room);
+        if (k >= 0) return i.at + shift + k;
+      }
+      shift += i.length;
+    }
+    return null;
+  }
 
   /// Whether display character [d] was inserted by the layout.
   bool isInserted(int d) => pieceAt(d) != null;

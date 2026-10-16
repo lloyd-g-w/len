@@ -1,11 +1,16 @@
+import 'dart:ui' show TextDirection;
+
+import 'paragraph_direction.dart';
 import 'paragraph_style.dart';
 import 'span_style.dart';
 import 'text_alignment.dart';
+import 'text_flow.dart';
 import 'text_font.dart';
 
 export 'paragraph_style.dart';
 export 'span_style.dart';
 export 'text_alignment.dart';
+export 'text_flow.dart';
 export 'text_font.dart';
 
 /// The content and formatting of a text element (`SurfaceElement.data` of
@@ -29,7 +34,8 @@ class TextData {
     this.align = TextAlignment.start,
     this.autoWidth = false,
   }) : spans = const [],
-       _paras = const [];
+       _paras = const [],
+       flow = null;
 
   TextData._(
     this.text,
@@ -40,6 +46,7 @@ class TextData {
     required this.color,
     required this.align,
     required this.autoWidth,
+    this.flow,
   });
 
   /// Formatted text; [spans] and [paras] are normalised.
@@ -52,6 +59,7 @@ class TextData {
     int color = defaultColor,
     TextAlignment align = TextAlignment.start,
     bool autoWidth = false,
+    TextFlow? flow,
   }) => TextData._(
     text,
     normalizeSpans(spans, text.length),
@@ -61,6 +69,7 @@ class TextData {
     color: color,
     align: align,
     autoWidth: autoWidth,
+    flow: flow,
   );
 
   static const int defaultColor = 0xFF1A2233;
@@ -86,6 +95,28 @@ class TextData {
   /// Whether the box is as wide as its text (it grows while typing) rather
   /// than wrapping at a width the user chose.
   final bool autoWidth;
+
+  /// Set on a box continuing another one from the page before (see
+  /// [TextFlow]); null on a box of its own and on the first of a chain.
+  final TextFlow? flow;
+
+  /// A copy continuing as [flow] says (null: standing on its own).
+  TextData withFlow(TextFlow? flow) => TextData._(
+    text,
+    spans,
+    _paras,
+    font: font,
+    fontSize: fontSize,
+    color: color,
+    align: align,
+    autoWidth: autoWidth,
+    flow: flow,
+  );
+
+  /// The direction of each paragraph (see [ParagraphDirection]); a box
+  /// continuing another keeps its first paragraph's from the whole text
+  /// ([TextFlow.direction]).
+  List<TextDirection> get directions => ParagraphDirection.of(text, first: flow?.direction);
 
   /// One style per line of [text].
   List<ParaStyle> get paras {
@@ -123,13 +154,15 @@ class TextData {
       color: color is int ? color : defaultColor,
       align: TextAlignment.tryParse(json['align']) ?? TextAlignment.start,
       autoWidth: json['autoWidth'] == true,
+      flow: TextFlow.fromJson(json['flow']),
     );
   }
 
   /// Merges into [base] so unknown keys written by newer clients survive
   /// an edit made here.
   Map<String, Object?> toJson([Map<String, Object?> base = const {}]) => {
-    ...base,
+    for (final e in base.entries)
+      if (e.key != 'flow') e.key: e.value,
     'text': text,
     'spans': [for (final s in spans) s.toJson()],
     'paras': [for (final p in _paras) p.toJson()],
@@ -138,6 +171,7 @@ class TextData {
     'color': color,
     'align': align.name,
     'autoWidth': autoWidth,
+    if (flow case final flow?) 'flow': flow.toJson(),
   };
 
   /// A copy with other box defaults. Changing [text] drops the formatting
@@ -160,6 +194,7 @@ class TextData {
       color: color ?? this.color,
       align: align ?? this.align,
       autoWidth: autoWidth ?? this.autoWidth,
+      flow: flow,
     );
   }
 
@@ -173,6 +208,7 @@ class TextData {
     color: color,
     align: align,
     autoWidth: autoWidth,
+    flow: flow,
   );
 
   /// Every size (the box's and the spans') scaled by [factor], so the
@@ -194,6 +230,7 @@ class TextData {
       color: color,
       align: align,
       autoWidth: autoWidth,
+      flow: flow,
     );
   }
 
@@ -210,6 +247,7 @@ class TextData {
     color: argb,
     align: align,
     autoWidth: autoWidth,
+    flow: flow,
   );
 
   /// All text in [value]: span fonts are dropped.
@@ -222,6 +260,7 @@ class TextData {
     color: color,
     align: align,
     autoWidth: autoWidth,
+    flow: flow,
   );
 
   /// The style of every UTF-16 unit of [text].
@@ -278,6 +317,7 @@ class TextData {
       other.color == color &&
       other.align == align &&
       other.autoWidth == autoWidth &&
+      other.flow == flow &&
       _listEquals(other.spans, spans) &&
       _listEquals(other.paras, paras);
 
@@ -289,6 +329,7 @@ class TextData {
     color,
     align,
     autoWidth,
+    flow,
     Object.hashAll(spans),
     Object.hashAll(paras),
   );

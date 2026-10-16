@@ -1,7 +1,6 @@
 import 'dart:ui' show TextDirection;
 
 import 'html_css.dart';
-import 'paragraph_direction.dart';
 import 'text_data.dart';
 
 /// Formatted text as an HTML fragment for other apps (Google Docs, Word,
@@ -78,7 +77,7 @@ class _BoxWriter {
   late final List<SpanStyle> _styles = data.charStyles();
 
   /// Each paragraph's direction (its first strong character's).
-  late final List<TextDirection> _dirs = ParagraphDirection.of(data.text);
+  late final List<TextDirection> _dirs = data.directions;
 
   /// The current paragraph's direction and alignment as attributes. Start
   /// and end become left / right (apps such as Word ignore CSS's logical

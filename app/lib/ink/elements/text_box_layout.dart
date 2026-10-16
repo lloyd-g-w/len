@@ -47,7 +47,7 @@ class TextBoxLayout {
   final TextPlan plan;
   late final TextPainter painter;
 
-  /// The list markers, in line order.
+  /// The list markers drawn, in line order (see [TextPlan.markers]).
   List<ListMarker> get markers => plan.markers;
 
   /// Model offsets where the plan continues a line on the next (see

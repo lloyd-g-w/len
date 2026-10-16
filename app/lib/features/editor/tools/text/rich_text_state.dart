@@ -23,6 +23,7 @@ abstract class _RichTextState extends TextEditingController {
   TextData _box;
   RichTextBuffer _buffer;
   late TextPlan _plan;
+  List<FlowBreak> _breaks = const [];
   double _wrapWidth = double.infinity;
 
   MarkerOffsets get _offsets => _plan.offsets;
@@ -40,6 +41,29 @@ abstract class _RichTextState extends TextEditingController {
   /// [ListMarker.size]).
   Widget Function(ListMarker marker)? markerBuilder;
 
+  /// Where the text, a box flowing across pages, continues on the next
+  /// page when it is [TextData] (see [FlowBreak]); none by default. When
+  /// that changes for another reason (the box moved), [refreshLayout].
+  List<FlowBreak> Function(TextData data)? breaksOf;
+
+  /// The page breaks shown (see [breaksOf]).
+  List<FlowBreak> get breaks => _breaks;
+
+  /// How much taller than its placeholder the field lays out the line of
+  /// a page break's room (the field's own line metrics; measured by the
+  /// editor): the placeholder is made that much shorter, so the next page's
+  /// text starts where it will be stored.
+  double get roomExtra => _roomExtra;
+  double _roomExtra = 0;
+  set roomExtra(double value) {
+    if (value == _roomExtra) return;
+    _roomExtra = value;
+    refreshLayout(); // Same text, other placeholders.
+  }
+
+  /// Display offset of the room placeholder of page break [b].
+  int? roomOffset(FlowBreak b) => _offsets.roomOf(b.at);
+
   /// The formatted text with the box's defaults.
   TextData get data => _data ??= _buffer.toData(_box);
 
@@ -51,17 +75,37 @@ abstract class _RichTextState extends TextEditingController {
   set wrapWidth(double width) {
     if (width == _wrapWidth) return;
     _wrapWidth = width;
-    final plan = _planOf(data);
+    refreshLayout();
+  }
+
+  /// Lays the text out again if its plan (wraps, padding, page breaks)
+  /// changed, keeping the selection and an IME composition.
+  void refreshLayout() {
+    final breaks = _breaksOf(data);
+    final plan = _planOf(data, breaks);
+    _breaks = breaks;
     if (listEquals(plan.inserts, _plan.inserts)) return;
     if (plan.offsets.display(_buffer.text) == text) {
-      // Only padding changed: the same text, laid out anew.
+      // Only sizes changed (padding, a room): the same text, laid out anew.
       _plan = plan;
       notifyListeners();
       return;
     }
+    final c = value.composing;
+    final composing = c.isValid && !c.isCollapsed
+        ? TextRange(start: _offsets.toModel(c.start), end: _offsets.toModel(c.end))
+        : null;
     _sync(
       selection.isValid ? _modelSelection(selection) : const TextSelection.collapsed(offset: 0),
     );
+    if (composing != null) {
+      super.value = value.copyWith(
+        composing: TextRange(
+          start: _offsets.toDisplay(composing.start),
+          end: _offsets.toDisplay(composing.end),
+        ),
+      );
+    }
   }
 
   /// How the field lays out (see [TextPlan]).
@@ -72,15 +116,27 @@ abstract class _RichTextState extends TextEditingController {
     extentOffset: _offsets.toModel(s.extentOffset),
   );
 
-  /// The plan of [data] at [wrapWidth].
-  TextPlan _planOf(TextData data) => TextPlan.of(data, _wrapWidth);
+  /// The page breaks of [data] (see [breaksOf]).
+  List<FlowBreak> _breaksOf(TextData data) => breaksOf?.call(data) ?? const [];
 
-  /// Replaces everything (a new box started).
-  void load(TextData data) {
+  /// The plan of [data] at [wrapWidth] with [breaks] (by default its own),
+  /// their rooms made [roomExtra] shorter.
+  TextPlan _planOf(TextData data, [List<FlowBreak>? breaks]) => TextPlan.of(
+    data,
+    _wrapWidth,
+    breaks: [
+      for (final b in breaks ?? _breaksOf(data))
+        (at: b.at, gap: math.max(0.0, b.gap - _roomExtra), soft: b.soft),
+    ],
+  );
+
+  /// Replaces everything (a new box started), the caret at [caret] (model
+  /// offset; the end by default).
+  void load(TextData data, {int? caret}) {
     _box = data;
     _buffer = RichTextBuffer(data);
     _pending = null;
-    _sync(TextSelection.collapsed(offset: data.text.length));
+    _sync(TextSelection.collapsed(offset: (caret ?? data.text.length).clamp(0, data.text.length)));
     _history.reset(_snapshot);
   }
 
@@ -94,7 +150,8 @@ abstract class _RichTextState extends TextEditingController {
   /// Rebuilds the display text and selects [model] (box-text offsets).
   void _sync(TextSelection model, {bool changed = false}) {
     _data = null;
-    _plan = _planOf(data);
+    _breaks = _breaksOf(data);
+    _plan = _planOf(data, _breaks);
     super.value = TextEditingValue(
       text: _offsets.display(_buffer.text),
       selection: model.copyWith(

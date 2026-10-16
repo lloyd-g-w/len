@@ -3,8 +3,9 @@ import 'text_data.dart';
 /// Strict reading of a text element's `data` from sync or an archive (see
 /// SYNC_PROTOCOL.md, *Text boxes*): every field is required and must be
 /// well-formed, so a malformed record is skipped as a whole instead of
-/// showing a box that is not what its writer meant. Unknown keys are
-/// ignored. (`TextData.fromJson` stays tolerant: it reads rows this app
+/// showing a box that is not what its writer meant. `flow` is optional
+/// (only a box continuing another has one) but strict when present
+/// ([TextFlow.fromJson]). Unknown keys are ignored. (`TextData.fromJson` stays tolerant: it reads rows this app
 /// wrote.)
 abstract final class TextRecord {
   /// [json] as text data; throws [FormatException] if it is malformed.
@@ -24,6 +25,8 @@ abstract final class TextRecord {
     }
     final paras = [for (final p in _field<List<Object?>>(json, 'paras')) _para(p)];
     if (paras.isNotEmpty && paras.length != '\n'.allMatches(text).length + 1) _bad('paras');
+    // Only a box continuing another has a flow; when present it is strict.
+    final flow = json.containsKey('flow') ? TextFlow.fromJson(json['flow']) ?? _bad('flow') : null;
     return TextData.rich(
       text: text,
       spans: spans,
@@ -33,6 +36,7 @@ abstract final class TextRecord {
       color: color,
       align: align,
       autoWidth: _field<bool>(json, 'autoWidth'),
+      flow: flow,
     );
   }
 

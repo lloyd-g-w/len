@@ -52,6 +52,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
     super.initState();
     _text
       ..onDataChanged = _push
+      ..breaksOf = _session.breaksFor
       ..markerBuilder = (m) => ListMarkerView(
         marker: m,
         onToggle: () {
@@ -100,7 +101,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
     if (element != null) _text.wrapWidth = element.rect.width;
     _editingId = id;
     if (id == null) return;
-    _text.load(_session.data);
+    _text.load(_session.data, caret: _session.startCaret);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _editingId != null) _focus.requestFocus();
     });
@@ -110,10 +111,47 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
   void _onSelection() {
     final element = _session.current;
     if (element == null || !mounted || _text.selection == _revealedSelection) return;
-    _scheduleReveal(element, _screenBounds(element));
+    // Over pages, the format bar goes to the part with the caret.
+    final frame = _session.frames.length < 2 ? 0 : _session.frameOf(_text.modelSelection.end);
+    if (frame != _caretFrame) setState(() => _caretFrame = frame);
+    _scheduleReveal(element, _revealBounds(element));
+  }
+
+  /// Measures how tall the field lays out the line of a page break's room
+  /// and makes its placeholders that much shorter (see
+  /// [RichTextController.roomExtra]), so text on the next page starts at its
+  /// top margin, where it is stored.
+  void _measureRooms() {
+    if (!mounted) return;
+    final breaks = _text.breaks;
+    if (breaks.isEmpty) return;
+    final at = _text.roomOffset(breaks.first);
+    final editable = _focus.context?.findAncestorStateOfType<EditableTextState>()?.renderEditable;
+    if (at == null || editable == null || !editable.attached || !editable.hasSize) return;
+    final boxes = editable.getBoxesForSelection(
+      TextSelection(baseOffset: at, extentOffset: at + 1),
+    );
+    if (boxes.isEmpty) return;
+    final used = math.max(0.0, breaks.first.gap - _text.roomExtra);
+    if (used == 0) return;
+    final extra = boxes.first.bottom - boxes.first.top - used;
+    if ((extra - _text.roomExtra).abs() > 0.01 && extra.abs() < used) _text.roomExtra = extra;
+  }
+
+  /// The part of the box to keep in view (on screen): where the caret is,
+  /// when the text continues on other pages.
+  Rect _revealBounds(SurfaceElement element) {
+    final frames = _session.frames;
+    if (frames.length < 2) return _screenBounds(element);
+    final frame = frames[_session.frameOf(_text.modelSelection.end)];
+    final v = widget.viewport;
+    return Rect.fromPoints(v.toScreen(frame.topLeft), v.toScreen(frame.bottomRight));
   }
 
   TextSelection? _revealedSelection;
+
+  /// Which of the session's frames the caret is in.
+  int _caretFrame = 0;
 
   /// Keeps the caret clear of the keyboard and the docked bar (after this
   /// frame).
@@ -176,8 +214,12 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
       builder: (context, _) {
         final element = _session.current;
         if (element == null) return const SizedBox.shrink();
-        final bounds = _screenBounds(element);
+        // Over pages, the part with the caret (the bar goes with it).
+        final bounds = _revealBounds(element);
         _scheduleReveal(element, bounds);
+        if (_text.breaks.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _measureRooms());
+        }
         final scale = widget.viewport.scale;
         // The box sits on the paper, not the chrome: ink blue in both themes
         // (like the selection handles).
@@ -186,25 +228,30 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
         // exactly as it renders.
         final pad = 6 / scale;
         final cursor = 2 / scale;
+        final frames = _session.frames;
+        final outline = IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: accent.withValues(alpha: 0.7), width: 1.5 / scale),
+              borderRadius: BorderRadius.circular(4 / scale),
+            ),
+          ),
+        );
+        final width = element.rect.width + RichTextField.caretMargin(cursor);
         final box = SizedBox(
-          width: element.rect.width + RichTextField.caretMargin(cursor),
+          width: width,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              Positioned(
-                left: -pad,
-                top: -pad,
-                right: -pad,
-                bottom: -pad,
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: accent.withValues(alpha: 0.7), width: 1.5 / scale),
-                      borderRadius: BorderRadius.circular(4 / scale),
-                    ),
+              // One outline per page the text is on.
+              if (frames.length < 2)
+                Positioned(left: -pad, top: -pad, right: -pad, bottom: -pad, child: outline)
+              else
+                for (final f in frames)
+                  Positioned.fromRect(
+                    rect: f.shift(-element.rect.topLeft).inflate(pad),
+                    child: outline,
                   ),
-                ),
-              ),
               TextSelectionTheme(
                 data: TextSelectionThemeData(
                   selectionColor: accent.withValues(alpha: 0.25),
@@ -238,25 +285,38 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
                   clipBehavior: Clip.none,
                   children: [
                     box,
-                    _grip(
-                      scale,
-                      accent,
-                      pad: pad,
-                      alignment: Alignment.topLeft,
-                      icon: Symbols.open_with_sharp,
-                      tooltip: 'Move',
-                      onDrag: (d) => _session.setRect(_session.current!.rect.shift(d)),
-                    ),
-                    for (final side in [Alignment.centerLeft, Alignment.centerRight])
-                      _grip(
-                        scale,
-                        accent,
-                        pad: pad,
-                        alignment: side,
-                        icon: Symbols.drag_indicator_sharp,
-                        tooltip: 'Width',
-                        onDrag: (d) => _resize(side.x, d),
+                    // The grips sit on the first page's part.
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      width: width,
+                      height: frames.length < 2 ? null : element.rect.height,
+                      bottom: frames.length < 2 ? 0 : null,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          _grip(
+                            scale,
+                            accent,
+                            pad: pad,
+                            alignment: Alignment.topLeft,
+                            icon: Symbols.open_with_sharp,
+                            tooltip: 'Move',
+                            onDrag: (d) => _session.setRect(_session.current!.rect.shift(d)),
+                          ),
+                          for (final side in [Alignment.centerLeft, Alignment.centerRight])
+                            _grip(
+                              scale,
+                              accent,
+                              pad: pad,
+                              alignment: side,
+                              icon: Symbols.drag_indicator_sharp,
+                              tooltip: 'Width',
+                              onDrag: (d) => _resize(side.x, d),
+                            ),
+                        ],
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -266,7 +326,7 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
               dockedKey: _dockedBar,
               controller: _text,
               tools: widget.tools,
-              onBoxChanged: (box) => widget.tools.textStyle = box,
+              onBoxChanged: (box) => widget.tools.textStyle = box.withFlow(null),
               onDelete: () {
                 _session.setData(const TextData());
                 _session.end();

@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../app_services.dart';
 import '../../domain/notebook.dart';
 import '../../domain/preferences.dart';
+import '../../ink/elements/text_flow_chains.dart';
 import '../../ink/input/canvas_gestures.dart';
 import '../../ink/input/ink_input_controller.dart';
 import '../../ink/input/live_ink.dart';
@@ -22,6 +23,7 @@ import 'document/document_commands.dart';
 import 'document/document_controller.dart';
 import 'document/document_layout.dart';
 import 'document/document_selection.dart';
+import 'document/document_text_flow.dart';
 import 'document/page_backgrounds.dart';
 import 'document/page_fit.dart';
 import 'document/undo_target.dart';
@@ -109,6 +111,11 @@ class EditorSession with _EditorSessionZoom {
       content.lasso.text = pdf; // The lasso selects PDF text too.
       // A lasso reaches across pages; selections dropped on a page move there.
       content.selection.surfaces = DocumentSelection(doc);
+      // Text boxes flow on across pages.
+      content.flows = TextFlowChains(
+        DocumentTextFlow(doc: doc, commands: commands),
+        clock: services.clock,
+      );
       final animator = docAnimator = ViewportAnimator(doc.viewport);
       doc.beforeJump = animator.stop;
       input = doc.input = _inputFor(

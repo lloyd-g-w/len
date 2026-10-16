@@ -2,6 +2,9 @@ import 'dart:ui';
 
 import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
+import '../../domain/text/text_data.dart';
+import '../elements/text_flow_chains.dart';
+import '../elements/text_layout.dart';
 import '../surface_model.dart';
 import '../undo_history.dart';
 import 'selection_surfaces.dart';
@@ -86,6 +89,95 @@ class SelectionPlan {
       home ? stored : e.copyWith(surfaceId: id),
       home ? null : SelectionSource(target, stored),
     );
+  }
+
+  /// Whether the plan adds or removes text boxes.
+  bool get touchesText => [..._first.values, ..._arrivals.values].any(
+    (e) => [...e.addedElements, ...e.removedElements].any((x) => x.knownType == ElementType.text),
+  );
+
+  /// Lets the text boxes this plan changes flow across pages ([chains]):
+  /// the chain of a first box moved, resized or restyled flows again from
+  /// where it is now (continuations follow it), one deleted takes its
+  /// continuations along, and a box no longer flowing (rotated, a broken
+  /// chain's box) holds the whole text. The selection keeps the first boxes
+  /// as laid out. Pages it adds need the commit run in
+  /// [TextFlowPages.batch].
+  void flowText(TextFlowChains chains) {
+    final added = <String, (SurfaceModel, SurfaceElement)>{};
+    final removed = <String, (SurfaceModel, SurfaceElement)>{};
+    for (final edits in [_first, _arrivals]) {
+      for (final MapEntry(key: model, value: edit) in edits.entries) {
+        for (final e in edit.removedElements) {
+          if (e.knownType == ElementType.text) removed[e.id] = (model, e);
+        }
+        for (final e in edit.addedElements) {
+          if (e.knownType == ElementType.text) added[e.id] = (model, e);
+        }
+      }
+    }
+    for (final MapEntry(key: id, value: (model, before)) in removed.entries) {
+      if (added.containsKey(id) || TextFlowChains.flowOf(before) != null) continue;
+      _merge(chains, TextFlowChains.removing(chains.continuationsOf(model.surfaceId, before.id)));
+    }
+    for (final (model, after) in added.values) {
+      final before = removed[after.id];
+      // A box continuing another could only be selected once its chain
+      // broke: it stands alone now.
+      final head = TextFlowChains.flowOf(after) == null
+          ? after
+          : after.copyWith(data: TextData.fromJson(after.data).withFlow(null).toJson(after.data));
+      final rest = before == null || TextFlowChains.flowOf(before.$2) != null
+          ? const <FlowBox>[]
+          : chains.continuationsOf(before.$1.surfaceId, before.$2.id);
+      if (rest.isEmpty && identical(head, after) && !chains.canFlow(model.surfaceId, head)) {
+        continue;
+      }
+      final whole = TextFlowChains.wholeOf(head, rest);
+      SurfaceElement laid;
+      if (chains.canFlow(model.surfaceId, head)) {
+        final r = chains.reflow(model.surfaceId, head, whole, rest);
+        laid = r.head;
+        _merge(chains, r.edits);
+      } else {
+        final height = TextLayout.heightOf(whole, head.rect.width);
+        final r = head.rect;
+        laid = head.copyWith(
+          rect: Rect.fromLTWH(r.left, r.top, r.width, rest.isEmpty ? r.height : height),
+          data: whole.toJson(head.data),
+        );
+        _merge(chains, TextFlowChains.removing(rest));
+      }
+      if (identical(laid, after)) continue;
+      final edit = (_arrivals[model]?.addedElements.contains(after) ?? false)
+          ? _arrivals[model]!
+          : _first[model]!;
+      edit.addedElements[edit.addedElements.indexOf(after)] = laid;
+      _relaid(after, laid);
+    }
+  }
+
+  /// Adds the edits of other pages [edits] (continuations) to the plan.
+  void _merge(TextFlowChains chains, Map<String, InkEdit> edits) {
+    for (final MapEntry(key: page, value: edit) in edits.entries) {
+      final target = _edit(_first, chains.pages.modelOf(page));
+      target.removedElements.addAll(edit.removedElements);
+      target.addedElements.addAll(edit.addedElements);
+    }
+  }
+
+  /// The selection holds [laid] (stored) in place of [stored].
+  void _relaid(SurfaceElement stored, SurfaceElement laid) {
+    final i = elements.indexWhere((e) => e.id == stored.id);
+    if (i == -1) return;
+    final shown = elements[i];
+    final r = shown.rect;
+    elements[i] = shown.copyWith(
+      rect: Rect.fromLTWH(r.left, r.top, laid.rect.width, laid.rect.height),
+      data: laid.data,
+    );
+    final source = sources[stored.id];
+    if (source != null) sources[stored.id] = SelectionSource(source.surface, laid);
   }
 
   /// Commits every surface's edits; through [batch] (one undo step) when

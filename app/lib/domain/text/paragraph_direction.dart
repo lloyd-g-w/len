@@ -34,14 +34,16 @@ abstract final class ParagraphDirection {
     return null;
   }
 
-  /// The directions of the paragraphs (lines split by `\n`) of [text].
-  static List<TextDirection> of(String text) {
+  /// The directions of the paragraphs (lines split by `\n`) of [text];
+  /// [first], if given, is the first one's (a box continuing a paragraph
+  /// from the page before, see `TextFlow.direction`).
+  static List<TextDirection> of(String text, {TextDirection? first}) {
     final found = <TextDirection?>[];
     var start = 0;
     while (true) {
       final nl = text.indexOf('\n', start);
       final end = nl < 0 ? text.length : nl;
-      found.add(firstStrong(text, start, end));
+      found.add(found.isEmpty && first != null ? first : firstStrong(text, start, end));
       if (nl < 0) break;
       start = nl + 1;
     }

@@ -20,6 +20,15 @@ enum InsertKind {
 
   /// Closes the isolate (U+2069 PDI).
   pop,
+
+  /// The room over a page edge in the editing field of a box flowing
+  /// across pages (U+FFFC, as tall as [InsertPiece.size]); on a line of its
+  /// own, ended by a [roomBreak].
+  room,
+
+  /// The line break after a [room], so small the line is as tall as the
+  /// room.
+  roomBreak,
 }
 
 /// One character of a [TextInsert].
@@ -37,6 +46,15 @@ class InsertPiece {
   static const InsertPiece lineBreak = InsertPiece._(InsertKind.lineBreak);
   static const InsertPiece pop = InsertPiece._(InsertKind.pop);
 
+  /// The room of a page break, [gap] tall.
+  InsertPiece.room(double gap)
+    : kind = InsertKind.room,
+      size = Size(0, gap < 0 ? 0 : gap),
+      marker = null,
+      direction = null;
+
+  static const InsertPiece roomBreak = InsertPiece._(InsertKind.roomBreak);
+
   const InsertPiece.isolate(TextDirection this.direction)
     : kind = InsertKind.isolate,
       size = Size.zero,
@@ -44,20 +62,26 @@ class InsertPiece {
 
   final InsertKind kind;
 
-  /// The placeholder size of [InsertKind.marker] and [InsertKind.space].
+  /// The placeholder size of [InsertKind.marker], [InsertKind.space] and
+  /// [InsertKind.room].
   final Size size;
   final ListMarker? marker;
   final TextDirection? direction;
 
   /// The character it stands for in the laid-out text.
   String get char => switch (kind) {
-    InsertKind.marker || InsertKind.space => '\uFFFC',
-    InsertKind.lineBreak => '\n',
+    InsertKind.marker || InsertKind.space || InsertKind.room => '\uFFFC',
+    InsertKind.lineBreak || InsertKind.roomBreak => '\n',
     InsertKind.isolate => direction == TextDirection.rtl ? '\u2067' : '\u2066',
     InsertKind.pop => '\u2069',
   };
 
-  bool get isPlaceholder => kind == InsertKind.marker || kind == InsertKind.space;
+  bool get isPlaceholder =>
+      kind == InsertKind.marker || kind == InsertKind.space || kind == InsertKind.room;
+
+  /// Whether it belongs to a page break's room ([InsertKind.room] or
+  /// [InsertKind.roomBreak]).
+  bool get isRoom => kind == InsertKind.room || kind == InsertKind.roomBreak;
 
   @override
   bool operator ==(Object other) =>
@@ -72,9 +96,10 @@ class InsertPiece {
 }
 
 /// Characters the layout inserts into a text box's text before model
-/// offset [at]: list markers, hanging-indent breaks and gaps, and around
+/// offset [at]: list markers, hanging-indent breaks and gaps, around
 /// paragraphs running against the box's direction their isolates and the
-/// padding that aligns them (see `TextPlan`).
+/// padding that aligns them, and in the editing field of a box flowing
+/// across pages the rooms over the page edges (see `TextPlan`).
 ///
 /// The caret never rests inside an insert except at [allowed] positions
 /// (0 = before its first character, [length] = after its last); model

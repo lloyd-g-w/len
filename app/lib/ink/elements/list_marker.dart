@@ -15,6 +15,7 @@ class ListMarker {
     required this.fontSize,
     required this.color,
     required this.font,
+    this.continued = false,
     this.direction = TextDirection.ltr,
   });
 
@@ -33,6 +34,11 @@ class ListMarker {
 
   /// Font of the line's text (for numbers).
   final TextFont font;
+
+  /// Whether the item began in the box before (a box continuing on the
+  /// next page, `TextFlow.joined`): its line keeps the marker's room (it
+  /// hangs under the item's text) but shows no marker.
+  final bool continued;
 
   /// The paragraph's direction: the marker column is on its text side.
   final TextDirection direction;
@@ -167,10 +173,11 @@ class ListMarker {
       other.fontSize == fontSize &&
       other.color == color &&
       other.font == font &&
-      other.direction == direction;
+      other.direction == direction &&
+      other.continued == continued;
 
   @override
-  int get hashCode => Object.hash(line, para, number, fontSize, color, font, direction);
+  int get hashCode => Object.hash(line, para, number, fontSize, color, font, direction, continued);
 
   static Paint _stroke(Paint base, double width) => Paint()
     ..color = base.color

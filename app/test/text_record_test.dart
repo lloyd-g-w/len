@@ -173,6 +173,85 @@ void main() {
       );
     });
 
+    test('a continuation\'s flow is read strictly; it is the one optional key', () {
+      const flow = TextFlow(from: 'head', joined: true, numbers: [2], direction: TextDirection.rtl);
+      final continued = complete.withFlow(flow);
+      final good = json(continued);
+      expect(good['flow'], {
+        'from': 'head',
+        'joined': true,
+        'numbers': [2],
+        'dir': 'rtl',
+      });
+      expect(TextRecord.parse(good), continued);
+      expect(TextRecord.parse(good).flow, flow);
+      // Without one the box stands on its own (the first of a chain).
+      expect(TextRecord.parse({...good}..remove('flow')).flow, isNull);
+      final whole = good['flow']! as Map<String, Object?>;
+      for (final key in whole.keys) {
+        expect(
+          () => TextRecord.parse({
+            ...good,
+            'flow': {...whole}..remove(key),
+          }),
+          throwsFormatException,
+          reason: 'flow without $key',
+        );
+      }
+      for (final bad in <Object?>[
+        null,
+        'head',
+        {...whole, 'from': ''},
+        {...whole, 'joined': 1},
+        {
+          ...whole,
+          'numbers': [-1],
+        },
+        {...whole, 'dir': 'up'},
+      ]) {
+        expect(
+          () => TextRecord.parse({...good, 'flow': bad}),
+          throwsFormatException,
+          reason: '$bad',
+        );
+      }
+      // Through sync: a malformed flow skips the element record.
+      final db = AppDatabase.inMemory();
+      addTearDown(db.close);
+      final elements = ElementRepository(db, deviceId: 'a', clock: FakeClock());
+      SyncRecord record(String id, Map<String, Object?> data) => SyncRecord(
+        collection: 'elements',
+        id: id,
+        updatedAt: 5,
+        deviceId: 'b',
+        deleted: false,
+        data: {
+          'surfaceId': 's',
+          'type': 'text',
+          'x': 0,
+          'y': 0,
+          'w': 50,
+          'h': 20,
+          'rotation': 0,
+          'z': 1,
+          'createdAt': 1,
+          'data': data,
+        },
+      );
+      elements.applyRemote(record('ok', good));
+      expect(TextData.fromJson(elements.allOn('s').single.data).flow, flow);
+      expect(
+        () => elements.applyRemote(
+          record('bad', {
+            ...good,
+            'flow': {...whole}..remove('dir'),
+          }),
+        ),
+        throwsFormatException,
+      );
+      expect(elements.allOn('s'), hasLength(1));
+    });
+
     test('sync skips text elements in the old format', () {
       final db = AppDatabase.inMemory();
       final elements = ElementRepository(db, deviceId: 'a', clock: FakeClock());

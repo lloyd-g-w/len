@@ -321,7 +321,7 @@ back to the blobs the zip holds.
 | `templates` | `{name, blob, width, height, createdAt}` — one of the user's own templates ("My templates"): `blob` is the `<sha256>` of a PNG or JPEG image ([blob](#blobs)), `width` / `height` (> 0) the size in world units (96 per inch) of pages made from it. Pages made from a template copy its blob into their `paperData`, so renaming or deleting (tombstoning) a template never changes existing pages. |
 | `notebook_styles` | `{name, style, isDefault: bool, createdAt}` — one of the user's notebook styles: what a new notebook starts as. `style` = `{kind: "paged"|"canvas", paper, look, paperColor, format, orientation, coverColor, weekStart?, locale?}`: `paper` a built-in template name (never `image`; planners are generated from the day a notebook is made, in the style's calendar: for a planner `paper`, `weekStart` ∈ `monday`, `sunday` and `locale`, a planner language tag as in its `paperData`, are required; other templates have neither), `look` a paper look as in `paperData.look`, `paperColor` as on notebooks, `format` ∈ `a4`, `a5`, `letter`, `square`, `orientation` ∈ `portrait`, `landscape`, `coverColor` an ARGB integer. Every field is required (`weekStart` and `locale` for planners only); malformed → skipped. At most one style has `isDefault` true (marking one clears the others as further writes); should several arrive marked, the one with the latest `updatedAt` is the default. Notebooks made from a style copy its values, so editing or deleting a style never changes them. |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style}` — `tool` ∈ `ballpoint` (the pen), `highlighter`. `style` = `{o: opacity, th: thinning, sl: streamline, u?: unit, e: ends, ts?: taperStart, te?: taperEnd, cs?: cutStart, ce?: cutEnd, f?: fill, sh?: shape}` (`o`, `th`, `sl` in 0..1; `u`: world units per screen pixel when written, i.e. 1 / zoom; absent → estimated from the points). `e` is required: `round`, `flat` or `taper`; `ts` and `te` are required for `taper` only, each 0..24 multiples of stroke width (0 means round at that end). `cs` and `ce` mark ends cut by the pixel eraser (absent for the pen's own ends): `cs` (0 < cs ≤ 1) is where the first resampled point of the centre line lies after the first point, in resampling steps, so a fragment resamples where the stroke it was cut from did; `ce` is `true`. Cut ends have no pen-down/up hook trimmed. `f` is the fill colour of a closed shape (an ARGB integer, 0..0xFFFFFFFF, alpha included: tints are translucent), painted beneath the outline as the polygon through the points; absent for no fill, and only shown on a stroke whose last point is its first (within 0.01). `sh` is the geometry of a shape (drawn with the Shape tool or snapped), absent for free-hand ink: `{k: kind, p: [x0, y0, x1, y1, …], i?: inner}` with `k` ∈ `line`, `arrow` (2 points: tail, tip), `rectangle` (4 corners in order), `triangle` (3 vertices), `diamond` (4 vertices), `polygon` (3–12 vertices), `ellipse` (3 points: the centre and the ends of two conjugate semi-axes u, v; the outline is centre + u·cos t + v·sin t), `star` (3 points: a frame like the ellipse's, the outer points at −90° + k·72° of its unit circle; `i`, required for stars only, is the inner radius as a share of the outer one, 0.1..0.95). Coordinates are finite world units. The points are the outline built from it, so a client that ignores `sh` still draws the shape; a malformed `sh` makes the record malformed. Unknown keys ignored. The highlighter has flat caps regardless of pen settings. `createdAt` is the wall time (epoch ms) the stroke was *begun* (pen down), not finished: strokes are painted in this order, and audio replay shows a stroke from the moment writing it started. |
-| `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements. `type` = `text` (`data` = `{text, spans, paras, font, size, color, align, autoWidth}`, see [Text boxes](#text-boxes)), `image` (`data` = `{blob, width, height, crop?}`, see below) or `link` (`data` = `{target}`, see [Links](#links)). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
+| `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements. `type` = `text` (`data` = `{text, spans, paras, font, size, color, align, autoWidth, flow?}`, see [Text boxes](#text-boxes)), `image` (`data` = `{blob, width, height, crop?}`, see below) or `link` (`data` = `{target}`, see [Links](#links)). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
 | `recordings` | `{notebookId, audio, durationMs, startedAt, title, mime, segments, waveform, trimStartMs, trimEndMs}` — an audio recording of a notebook. `audio` = `[[<sha256>, durationMs], …]` (never empty) are the parts of the audio in order, each a [blob](#blobs) of `mime`: `audio/aac` (raw AAC in ADTS frames; parts join by concatenation into one stream), `audio/mp4` AAC or `audio/webm` Opus (recorded in browsers; each part a complete file, played one after the other). A recording being made gains a part every few minutes, so the record is updated (and its finished parts uploaded) while recording continues. `durationMs` is the audio length (the sum of the parts); `startedAt` is the wall time (epoch ms) recording began; `segments` = `[[startedAt, durationMs], …]` are the stretches captured between pauses, mapping audio time to wall time so ink (`strokes.createdAt`) can be replayed with it (empty → one segment `[startedAt, durationMs]`); ink and elements are replayed from their `createdAt`. `waveform` is `""` (none) or the `<sha256>` of the recording's [waveform](#waveforms) blob. `trimStartMs` / `trimEndMs` (ints, `0 ≤ trimStartMs ≤ trimEndMs ≤ durationMs`, else malformed) are the audio kept by a non-destructive trim, positions in the whole audio: `0` and `durationMs` when untrimmed (a recording being made stays untrimmed). Clients play, list, replay and export only the kept range; the parts keep all the audio, so trimming back restores it — until the user frees the space trimmed away: the record is then rewritten with only the parts the trim touches, `durationMs`, `segments`, `startedAt`, `waveform` and the trim moved to begin at the first kept part (the dropped blobs become unreferenced). Deleting a notebook tombstones its recordings. |
 | `outline`   | `{notebookId, pageId, parentId: string|null, title, createdAt}` — an entry of a notebook's own outline (table of contents) leading to page `pageId`. Entries nest by `parentId` (null = top level). There is no stored order: siblings are shown in the order of their pages in the notebook (then by `createdAt`), so reordering pages reorders the outline and concurrent additions never conflict. An entry whose parent is missing, or that is part of a parent cycle, is shown at the top level; one whose page was deleted is shown as such (deleting a page keeps its entries, so undoing the deletion restores them). Deleting an entry moves its children to its parent. |
 | `recognised_text` | `{language, lines}` — handwriting a device with a recogniser read on one surface; the record's `id` **is the surface id** (a page id, or a canvas notebook's id). See [Recognised handwriting](#recognised-handwriting). |
@@ -335,7 +335,7 @@ wire; handwriting enters it through `recognised_text` (below).
 present, possibly `null`), and enumerated values must be ones listed here. A record that is missing
 a field, has a value of the wrong type or an unknown enumerated value is malformed: the client skips
 it (see [Client algorithm](#client-algorithm)). Unknown extra fields are ignored. Exceptions: an
-element's `type` and the contents of its `data` are open (see its row), and `strokes` (see its row).
+element's `type` and the contents of its `data` are open (see its row; a text box's `flow` is strict, see [Text flowing across pages](#text-boxes)), and `strokes` (see its row).
 
 Enumerated values: `kind` as above (notebooks); `paper` and `paperColor` see [Paper and pages](#paper-and-pages);
 `color`, `coverColor` are ARGB ints.
@@ -370,7 +370,7 @@ one; list markers and hanging indents sit on the start side too. Formatting is c
   attributes take the box's.
 - `paras` = `[para, …]` — empty when no line is formatted, else one object per line: `h` heading
   level (1 or 2), `l` list ∈ `bullet`, `number`, `check`, `x` ticked (`true`, checklists), `n` list
-  indent level (1–4); `{}` is body text. Numbers are not stored (they count consecutive items).
+  indent level (1–4); `{}` is body text. Numbers are not stored (they count consecutive items; a list running on from the page before counts on, see `flow.numbers` below).
 
 Example: `{"text": "Todo\nmilk", "spans": [[0, 4, {"b": true}]], "paras": [{"h": 1}, {"l": "check",
 "x": true}], "font": "inter", "size": 24, "color": 4280229663, "align": "start", "autoWidth": true}`.
@@ -379,6 +379,34 @@ well-formed (spans in range, sorted and set; `paras` empty or one per line; know
 and alignments); otherwise the whole element record is malformed and skipped. Unknown keys are
 ignored and survive local edits. (Before schema version 14 `align` was `left` / `center` / `right`;
 the migration rewrote local boxes as `start` / `end` and sent them again.)
+
+**Text flowing across pages.** On a paged notebook a text box reaching the bottom of its page
+continues in a text box at the top of the next page, and so on: a *chain*. Its first box has no
+`flow`; every other box of the chain has `data.flow` = `{from, joined, numbers, dir}` and holds its own
+part of the text (so each page is complete on its own: search, thumbnails and exports read only
+its elements):
+
+- `from` (non-empty string): the id of the box it continues, which is on the page right before it
+  (pages in `sortKey` order).
+- `joined` (bool): its first line goes on with the last paragraph of the box before (the page
+  ended inside it): the whole text joins the two parts without a line break, and if that
+  paragraph is a list item its first line here shows no marker but keeps the item's indent.
+  Otherwise the parts are separate paragraphs (joined with `\n`).
+- `numbers` (list of ints ≥ 0, at most 5): for each list indent level, how many numbered items of
+  a list running on into this box came before it (its numbers count on from there); trailing
+  zeros are left out, `[]` for none.
+- `dir` (`ltr` or `rtl`): the direction its first paragraph has in the whole text (a paragraph's
+  is its first strong character's, see `align` above); it overrides the
+  direction this box's own first paragraph would get, so a right-to-left paragraph split between
+  pages stays right-to-left (and its marker on the right) whatever word the next part begins with.
+
+Every field is required and typed as above: `flow` is the one optional key of text `data`
+(`TextRecord`), and an `elements` record whose text `data` has a `flow` that is not well-formed is
+malformed and skipped. Clients find a chain by following `from` page by
+page; a box whose `from` is missing, deleted or not on the page before (pages deleted, reordered or
+copied) stands alone and is drawn as it is. Clients rewrite the whole chain as one edit when it is
+changed (continuations keep their ids while they stay on the same page); duplicating a notebook
+points `from` at the copies.
 
 **Image elements.** `data.blob` is the `<sha256>` of the encoded image ([blob](#blobs); PNG, JPEG or
 WebP as written by current clients — readers decode whatever the platform supports and show a
