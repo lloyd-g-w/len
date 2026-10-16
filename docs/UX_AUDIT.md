@@ -52,7 +52,7 @@ temporary copies pile up in Android's cache. There is no print path.
 | A page as an image to a chat | PNG at 288 dpi, current page, Share | GoodNotes: PNG / JPG | Keep |
 | Emailing a PDF | share sheet: file only, no subject | GoodNotes: the title as subject | R22-4 ✅ |
 | A `.len` file to a classmate | Len file: ink, text, PDFs, images, audio; opens with Open with / share / drop | .goodnotes / .note | Keep |
-| Printing | none: export, then print from a reader | GoodNotes, Notability: Print | R22-8 ⬜ (Next) |
+| Printing | none: export, then print from a reader | GoodNotes, Notability: Print | R22-8 ✅ |
 | Audio | ⋯ → Share… / Save to device: `.aac` | Notability: m4a | Keep |
 | Several notebooks | library selection or a folder → one PDF each (or PNGs, or one Len file) | GoodNotes: the same | Keep |
 | File names | "Title.pdf", "Title p1-3,5.pdf", "Title p3.png"; same names kept apart | GoodNotes: title | Keep; R22-5 ✅ |
@@ -118,7 +118,7 @@ temporary copies pile up in Android's cache. There is no print path.
 - *Fix:* several files download as one ZIP named after what was
   exported ("Physics p1-3.zip", "3 notebooks.zip"). Effort S.
 
-**R22-8 P3 · No print path.** ⬜ (docs/TODO.md Next)
+**R22-8 P3 · No print path.** ✅
 - *What:* printing a worksheet means exporting a PDF and printing it
   from another app. GoodNotes and Notability print directly.
 - *Proposal:* Print… beside Export… handing the same PDF to the
@@ -126,6 +126,11 @@ temporary copies pile up in Android's cache. There is no print path.
   dialog, the browser's). Large: a package with native parts on every
   platform (`printing` brings its own PDFium on desktops, beside
   `pdfium_dart`'s).
+- *Fix:* Print… (⋯, Ctrl+P, the library's notebook menu) opens the export
+  sheet as a print sheet (PDF only, Print button) and hands the PDF to
+  Android's print dialog, the Windows PDF reader's print command, the
+  browser's print dialog, or on Linux the default viewer (said in the
+  sheet). Small platform code, no package.
 
 
 ## Round 21 audit — diagrams and drawing (`review/round21`)
