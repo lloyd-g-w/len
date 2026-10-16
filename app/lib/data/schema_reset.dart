@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:sqlite3/common.dart';
 
 import 'search/search_schema.dart';
@@ -57,6 +60,10 @@ abstract final class SchemaCheck {
     }
     return shape;
   }
+
+  /// A digest of [shape] ([shapeOf]): SHA-256 of its sorted entries.
+  static String digestOf(Set<String> shape) =>
+      sha256.convert(utf8.encode((shape.toList()..sort()).join('\n'))).toString();
 
   /// Whether [db] has no tables, indexes, triggers or views.
   static bool isEmpty(CommonDatabase db) =>

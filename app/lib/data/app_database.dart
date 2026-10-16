@@ -35,12 +35,18 @@ class AppDatabase {
   /// Opens the app's own database `len.db` in [directory] — on the web it
   /// lives in IndexedDB instead, [directory] is ignored and the database
   /// joins [writes] (whose writes reach storage asynchronously).
+  ///
+  /// A database already in the current schema ([SchemaMigrations.shapeDigest])
+  /// opens without building a fresh schema to compare with; otherwise one
+  /// is built first (browsers can't open a scratch database synchronously).
   static Future<AppDatabase> openDefault(String directory, {StorageWrites? writes}) async {
-    _expected ??= _shapeOfFresh(await openSqliteScratch());
-    return AppDatabase.fromConnection(
+    final database = AppDatabase._(
       await openSqlite(name: _defaultName, directory: directory, writes: writes),
       path: sqliteFilePath(name: _defaultName, directory: directory),
-    );
+    ).._configure();
+    final current = database._version == latestVersion && database._hasCurrentShape();
+    if (!current) _expected ??= _shapeOfFresh(await openSqliteScratch());
+    return database.._migrate(shapeChecked: current);
   }
 
   static const _defaultName = 'len.db';
@@ -169,7 +175,8 @@ class AppDatabase {
     db.execute('PRAGMA cache_size = -16384');
   }
 
-  void _migrate() {
+  /// [shapeChecked]: the schema is known to be current ([openDefault]).
+  void _migrate({bool shapeChecked = false}) {
     final version = _version;
     var kept = const <String, String>{};
     if (version > SchemaMigrations.all.length || (version == 0 && !SchemaCheck.isEmpty(db))) {
@@ -181,7 +188,7 @@ class AppDatabase {
         debugPrint('Migrating the database from version $version failed: $e');
         kept = _reset(version);
       }
-      if (schemaReset == null && !SchemaCheck.shapeOf(db).containsAll(_expectedShape())) {
+      if (schemaReset == null && !shapeChecked && !_hasExpectedShape()) {
         kept = _reset(version);
       }
     }
@@ -225,6 +232,17 @@ class AppDatabase {
     );
     debugPrint('Database schema (version $version) not usable; started fresh (backup: $backup)');
     return kept;
+  }
+
+  /// Whether the schema is exactly what the migrations produce.
+  bool _hasCurrentShape() =>
+      SchemaCheck.digestOf(SchemaCheck.shapeOf(db)) == SchemaMigrations.shapeDigest;
+
+  /// Whether the schema has everything the migrations produce.
+  bool _hasExpectedShape() {
+    final shape = SchemaCheck.shapeOf(db);
+    return SchemaCheck.digestOf(shape) == SchemaMigrations.shapeDigest ||
+        shape.containsAll(_expectedShape());
   }
 
   /// The shape of a freshly migrated database ([SchemaCheck.shapeOf]),
