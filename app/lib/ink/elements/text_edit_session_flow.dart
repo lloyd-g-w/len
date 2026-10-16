@@ -201,7 +201,21 @@ extension _SessionFlow on TextEditSession {
     ];
     final empty = data.text.trim().isEmpty;
     if (head != null) {
-      empty ? parts.removeAt(_aloneIndex) : parts[_aloneIndex] = data;
+      if (!empty) {
+        parts[_aloneIndex] = data;
+      } else {
+        final gone = parts.removeAt(_aloneIndex);
+        // What went on with the emptied part's last paragraph now goes on
+        // with what that paragraph went on with (as deleting the part from
+        // the whole text would).
+        final next = _aloneIndex < parts.length ? parts[_aloneIndex] : null;
+        final flow = next?.flow;
+        if (_aloneIndex > 0 && flow != null && flow.joined && !(gone.flow?.joined ?? false)) {
+          parts[_aloneIndex] = next!.withFlow(
+            TextFlow(from: flow.from, numbers: flow.numbers, direction: flow.direction),
+          );
+        }
+      }
     }
     final stored = head == null || _aloneIndex == 0 ? original : head.box;
     final first = head == null || _aloneIndex == 0 ? current : head.box;
