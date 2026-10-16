@@ -3,13 +3,14 @@ import 'package:sqlite3/common.dart';
 import 'syncable.dart';
 
 /// A local row's version and what [EditOrigins.of] says of it: whether it
-/// has unpushed changes, the [origin] of its content and, on a tombstone,
-/// the [base] its deletion knew.
+/// has unpushed changes, the [origin] of its content (of the content a
+/// tombstone kept, null if unknown) and, on a tombstone, the [base] its
+/// deletion knew.
 typedef LocalVersion = ({
   RecordVersion version,
   bool deleted,
   bool dirty,
-  RecordVersion origin,
+  RecordVersion? origin,
   RecordVersion? base,
 });
 
@@ -48,16 +49,21 @@ class EditOrigins {
   LocalVersion? of(String id) {
     final rows = db.select(
       'SELECT updated_at, device_id, deleted, dirty, base_at, base_device, '
-      '${_origin('at')} AS o_at, ${_origin('device')} AS o_device FROM $table WHERE id = ?',
+      'origin_at, origin_device, origin_for FROM $table WHERE id = ?',
       [id],
     );
     if (rows.isEmpty) return null;
     final row = rows.first;
+    final version = (updatedAt: row['updated_at'] as int, deviceId: row['device_id'] as String);
+    final deleted = row['deleted'] == 1;
+    final noted = row['origin_for'] == version.updatedAt
+        ? _version(row['origin_at'], row['origin_device'])
+        : null;
     return (
-      version: (updatedAt: row['updated_at'] as int, deviceId: row['device_id'] as String),
-      deleted: row['deleted'] == 1,
+      version: version,
+      deleted: deleted,
       dirty: row['dirty'] == 1,
-      origin: (updatedAt: row['o_at'] as int, deviceId: row['o_device'] as String),
+      origin: noted ?? (deleted ? null : version),
       base: _version(row['base_at'], row['base_device']),
     );
   }

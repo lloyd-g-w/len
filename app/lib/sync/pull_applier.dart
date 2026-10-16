@@ -172,7 +172,8 @@ class PullApplier {
   ///   takes a pulled edit later than it knew.
   /// - A deletion here that knew the content a pulled version holds stays,
   ///   unless that version brings back the very deletion's rows (a deletion
-  ///   conflict elsewhere: the version right after the deletion's).
+  ///   conflict elsewhere: the version right after the deletion's); then
+  ///   the content this tombstone kept comes back instead if it is later.
   ///
   /// The winner becomes a local edit later than both versions, to push; a
   /// page or notebook deleted with the row comes back once the pull ends
@@ -190,39 +191,47 @@ class PullApplier {
     final local = origins.of(record.id);
     if (local == null) return null;
     final incoming = (updatedAt: record.updatedAt, deviceId: record.deviceId);
+    final holds = record.base ?? incoming; // The edit the pulled content comes from.
     final wins = isLaterVersion(incoming, local.version);
-    final keepLocal = switch ((local.deleted, record.deleted)) {
-      // A later edit here than the pulled version holds.
-      (false, false) when wins => isLaterVersion(local.origin, record.base ?? incoming),
-      // An edit here the pulled deletion did not know.
-      (false, true) when wins => _unknown(local.origin, to: record.base, unpushed: local.dirty),
-      // A deletion here that knew what the pulled version holds, which
-      // does not undo this very deletion.
-      (true, false) when wins =>
-        local.base != null &&
-            !isLaterVersion(record.base ?? incoming, local.base!) &&
-            record.updatedAt != local.version.updatedAt + 1,
-      _ => false,
-    };
-    if (keepLocal) {
+    final kept = local.origin;
+    bool keep() {
       store.keepAsEdit(record.id, over: record.updatedAt);
       return true;
     }
-    final takeRemote = switch ((local.deleted, record.deleted)) {
-      // A later edit pulled than the version here holds.
-      (false, false) when !wins => isLaterVersion(record.base ?? incoming, local.origin),
-      // A pulled edit this deletion did not know.
-      (true, false) when !wins => _unknown(
-        record.base ?? incoming,
-        to: local.base,
-        unpushed: local.dirty,
-      ),
-      _ => false,
-    };
-    if (!takeRemote) return null;
-    store.takeRemote(record);
-    store.keepAsEdit(record.id, over: local.version.updatedAt);
-    return true;
+
+    bool take() {
+      store.takeRemote(record);
+      store.keepAsEdit(record.id, over: local.version.updatedAt);
+      return true;
+    }
+
+    switch ((local.deleted, record.deleted)) {
+      case (false, false):
+        // The later edit, whichever version holds it.
+        if (wins && isLaterVersion(kept!, holds)) return keep();
+        if (!wins && isLaterVersion(holds, kept!)) return take();
+      case (false, true) when wins:
+        // An edit here the pulled deletion did not know.
+        if (_unknown(kept!, to: record.base, unpushed: local.dirty)) return keep();
+      case (true, false) when wins:
+        if (record.updatedAt == local.version.updatedAt + 1) {
+          // This very deletion brought back elsewhere: with the later
+          // content, this tombstone's if it kept a later one.
+          if (kept != null && isLaterVersion(kept, holds)) {
+            store.revive([record.id], version: record.updatedAt + 1);
+            // Unless its content was dropped meanwhile.
+            if (origins.of(record.id)?.deleted == false) return true;
+          }
+        } else if (local.base case final knew? when !isLaterVersion(holds, knew)) {
+          // Content this deletion knew.
+          return keep();
+        }
+      case (true, false):
+        // A pulled edit this deletion did not know.
+        if (_unknown(holds, to: local.base, unpushed: local.dirty)) return take();
+      case (false, true) || (true, true):
+    }
+    return null;
   }
 
   /// Whether a deletion that knew version [to] did not know [version]: it

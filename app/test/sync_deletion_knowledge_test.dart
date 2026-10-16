@@ -11,12 +11,13 @@ import 'package:len/sync/pull_applier.dart';
 import 'support/fake_server.dart';
 import 'support/two_devices.dart';
 
-// What a deletion knew decides a race with an edit of a row edited in place
-// (docs/SYNC_PROTOCOL.md, "Deletion conflicts"): tombstones carry the
-// version they replaced, copies brought back the base of the deletion they
-// undo. So an edit no deletion knew survives a page brought back elsewhere
-// first, and a deletion that knew an edit is not undone by it however often
-// the edit is pulled or pushed again.
+// Which edit a row's content comes from and what a deletion knew decide the
+// races of rows edited in place (docs/SYNC_PROTOCOL.md, "Deletion
+// conflicts"): copies brought back carry the origin of their content,
+// tombstones what they replaced. So an edit no deletion knew survives a page
+// brought back elsewhere first, a page comes back with the newest content
+// any device kept, and a deletion that knew an edit is not undone by it
+// however often the edit is pulled or pushed again.
 
 typedef _Page = ({String notebook, String page});
 
@@ -104,6 +105,33 @@ void main() {
       expect(_pages(d, at), [at.page], reason: d.clock.prefix);
       expect(_ink(d, at), ['ink', 'more']);
       expect(_box(d, at), 'edited', reason: d.clock.prefix);
+    }
+  });
+
+  test('a page brought back holds the newest content a device kept of it', () async {
+    final (a, b) = twoDevices();
+    final c = TestDevice(a.server, a.time, 'c');
+    final at = _pageWithBox(a);
+    for (final d in [a, b, c]) {
+      await d.sync();
+    }
+
+    // B edits the box and deletes the page before syncing: nobody else
+    // ever sees the edit. C, which wrote on the page, brings it back with
+    // the box as it knew it.
+    b.time.tick();
+    _editBox(b, at, 'newer');
+    b.time.tick();
+    b.s.notebooks.deletePage(at.page);
+    _write(c, at, 'more');
+    await b.sync();
+    await c.sync();
+    expect(_box(c, at), 'words');
+    await _settle([a, b, c]);
+
+    for (final d in [a, b, c]) {
+      expect(_pages(d, at), [at.page], reason: d.clock.prefix);
+      expect(_box(d, at), 'newer', reason: d.clock.prefix);
     }
   });
 
@@ -205,8 +233,8 @@ void main() {
     }
   });
 
-  test('tombstones carry what they replaced; copies brought back the base of the deletion '
-      'they undo', () async {
+  test('tombstones carry what they replaced; copies brought back the origin of their '
+      'content', () async {
     final (a, b) = twoDevices();
     final at = _pageWithBox(a);
     await send(a, b);
