@@ -926,7 +926,10 @@ Files are saved with a save dialog on desktop (`file_selector`), the share
 sheet on Android (`share_plus`) and downloaded in browsers
 (`platform/file_export*`); several PNGs (`saveOrShareAll`) are shared at once
 on mobile, written into a folder the user picks on desktop and downloaded as
-one ZIP named after the export in browsers (`zipOf`). Shares carry the
+one ZIP named after the export in browsers (`zipOf`; its name cleaned as files' are,
+`core/file_names.dart` `safeFileName`, and names inside, like several notebooks' files,
+kept apart even when they differ only by case, `uniqueFileName`, as Windows and macOS don't
+tell them apart). Shares carry the
 notebook's title as their subject; Android's temporary copies (a folder per share in cache
 `export/`, so a name shared again never rewrites a file still being read) are deleted by the next share once over an hour old. On Android the
 export sheet also offers Save to device: the system's save dialog (one file)

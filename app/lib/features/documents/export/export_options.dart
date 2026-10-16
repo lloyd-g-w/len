@@ -1,10 +1,9 @@
-import 'dart:convert';
-
-import 'package:flutter/widgets.dart' show StringCharacters;
-
+import '../../../core/file_names.dart';
 import '../../../data/archive/len_format.dart';
 import '../../../domain/notebook_page.dart';
 import '../../../domain/paper.dart';
+
+export '../../../core/file_names.dart' show maxFileNameBase, safeFileName;
 
 /// The file format of an export.
 enum ExportFormat {
@@ -150,39 +149,3 @@ List<String> exportFileNames(String title, ExportFormat format, List<int> pages,
 
 /// Longest page range listed in a file name.
 const int _maxRangeName = 40;
-
-/// A file name from a notebook title: characters file systems refuse
-/// become spaces, runs of spaces one ("Physics: week 3/4" → "Physics week
-/// 3 4", R22-5), no trailing dots (Windows drops them), at most
-/// [maxFileNameBase] characters and [_maxBaseBytes] bytes of UTF-8 (whole
-/// characters), and never a Windows device name ("CON", "NUL.txt"…: such a
-/// file is the device), which gets a "_".
-String safeFileName(String title) {
-  var cleaned = title
-      .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F\x7F]'), ' ')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-  final kept = StringBuffer();
-  var count = 0, bytes = 0;
-  for (final c in cleaned.characters) {
-    bytes += utf8.encode(c).length;
-    if (++count > maxFileNameBase || bytes > _maxBaseBytes) break;
-    kept.write(c);
-  }
-  cleaned = kept.toString().replaceFirst(RegExp(r'[. ]+$'), '');
-  if (cleaned.isEmpty) return 'Notebook';
-  final device = cleaned.split('.').first.trimRight();
-  return _windowsDevice.hasMatch(device)
-      ? '${device}_${cleaned.substring(device.length)}'
-      : cleaned;
-}
-
-/// Names Windows keeps for devices, whatever the extension.
-final _windowsDevice = RegExp(r'^(CON|PRN|AUX|NUL|COM[0-9¹²³]|LPT[0-9¹²³])$', caseSensitive: false);
-
-/// Longest notebook title kept in a file name, leaving room for a page
-/// range and the extension within file systems' 255 bytes.
-const int maxFileNameBase = 100;
-
-/// At most this many bytes of UTF-8 of a title go into a file name.
-const int _maxBaseBytes = 180;

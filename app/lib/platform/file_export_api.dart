@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 
+import '../core/file_names.dart';
+
 /// Where exported files went (`platform/file_export`).
 enum ExportedTo {
   /// Saved as a file (desktop: the path is known).
@@ -38,8 +40,9 @@ class ExportedFiles {
 }
 
 /// Several exported [files] as one ZIP (browsers ask before a site
-/// downloads several files, R22-7), named after [subject] ("Physics.zip")
-/// or "Len export.zip"; names repeated inside get " (2)"….
+/// downloads several files, R22-7), named after [subject] as exported
+/// files are ([safeFileName]: "Physics.zip") or "Len export.zip"; names
+/// repeated inside, even only by case, get " (2)"… ([uniqueFileName]).
 ({Uint8List bytes, String name}) zipOf(
   List<({Uint8List bytes, String name})> files, {
   String? subject,
@@ -47,21 +50,10 @@ class ExportedFiles {
   final archive = Archive();
   final taken = <String>{};
   for (final f in files) {
-    var name = f.name;
-    final dot = name.lastIndexOf('.');
-    for (var n = 2; !taken.add(name); n++) {
-      name = dot <= 0
-          ? '${f.name} ($n)'
-          : '${f.name.substring(0, dot)} ($n)${f.name.substring(dot)}';
-    }
-    archive.add(ArchiveFile.bytes(name, f.bytes));
+    archive.add(ArchiveFile.bytes(uniqueFileName(f.name, taken), f.bytes));
   }
-  final base = (subject ?? '')
-      .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), ' ')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
   return (
     bytes: ZipEncoder().encodeBytes(archive),
-    name: '${base.isEmpty ? 'Len export' : base}.zip',
+    name: '${safeFileName(subject ?? '', fallback: 'Len export')}.zip',
   );
 }

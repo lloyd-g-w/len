@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app_services.dart';
+import '../../../core/file_names.dart';
 import '../../../data/archive/len_archives.dart';
 import '../../../domain/folder.dart';
 import '../../../domain/notebook.dart';
@@ -98,15 +99,9 @@ Future<void> _exportSeveral(
   }
   final report = ExportReport();
   final taken = <String>{};
-  // Two notebooks of the same name don't overwrite each other.
-  String unique(String name) {
-    final dot = name.lastIndexOf('.');
-    var candidate = name;
-    for (var i = 2; !taken.add(candidate); i++) {
-      candidate = '${name.substring(0, dot)} ($i)${name.substring(dot)}';
-    }
-    return candidate;
-  }
+  // Two notebooks of the same name (or names only differing by case) don't
+  // overwrite each other.
+  String unique(String name) => uniqueFileName(name, taken);
 
   try {
     final files = await runWithSteps(context, 'Exporting', subject: subject, cancellable: true, (
