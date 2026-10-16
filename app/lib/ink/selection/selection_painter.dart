@@ -100,17 +100,16 @@ class SelectionPainter extends CustomPainter {
     final outline = _outline;
     final shape = selection.shape;
     final handles = SelectionChrome.handles(frame, viewport, shape: shape);
-    if (shape == null || shape.kind.isClosed) {
-      final corners = [for (final c in frame.corners) viewport.toScreen(c)];
-      drawDashed(canvas, corners, _halo, close: true);
-      drawDashed(canvas, corners, outline, close: true);
-    }
+    final corners = shape == null || shape.kind.isClosed
+        ? [for (final c in frame.corners) viewport.toScreen(c)]
+        : null;
     final rotate = handles.remove(SelectionHandle.rotate);
-    if (rotate != null) {
-      final topMid = viewport.toScreen(frame.at(const Offset(0.5, 0)));
-      canvas
-        ..drawLine(topMid, rotate, _halo)
-        ..drawLine(topMid, rotate, outline);
+    final topMid = rotate == null ? null : viewport.toScreen(frame.at(const Offset(0.5, 0)));
+    // Every band before any line: a band over a line it meets (the rotate
+    // stem over the frame's top) would notch it.
+    for (final paint in [_halo, outline]) {
+      if (corners != null) drawDashed(canvas, corners, paint, close: true);
+      if (rotate != null) canvas.drawLine(topMid!, rotate, paint);
     }
     for (final entry in handles.entries) {
       _knob(canvas, entry.value, entry.key.isCorner ? 6.5 : 5.0);
