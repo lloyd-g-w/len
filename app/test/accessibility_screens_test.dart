@@ -21,7 +21,8 @@ import 'screenshots/screenshot_harness.dart';
 // Flutter's accessibility guidelines (see accessibility_test.dart) over the
 // screens and slips beyond the library, settings and editor chrome: the
 // page overview, recordings, scan, storage, the library's menus and
-// sheets, and large text (1.5× and 2×) on each.
+// sheets, and large text (1.5× and 2×) on each (largeTextTests, run by
+// accessibility_large_text_test.dart and accessibility_largest_text_test.dart).
 
 /// Seeded services whose Physics notebook has a recording.
 AppServices withRecording() {
@@ -154,76 +155,6 @@ void main() {
     }
   }
 
-  // Large text: Android's font sizes go to 2×; 1.5× is a common choice.
-  final large = <String, Screen>{
-    'library': (home: (_) => const LibraryScreen(), services: null, open: null),
-    'settings': (home: (_) => const SettingsScreen(), services: null, open: null),
-    'editor': (home: (s) => EditorScreen(notebook: physics(s)), services: null, open: null),
-    'new notebook': (
-      home: (_) => const LibraryScreen(),
-      services: null,
-      open: (t) => tapAll(t, [find.bySemanticsLabel('New notebook')]),
-    ),
-    'export sheet': (
-      home: (s) => EditorScreen(notebook: physics(s)),
-      services: null,
-      open: (t) => tapAll(t, [find.byTooltip('More options'), find.text('Export…')]),
-    ),
-    'pen options': (
-      home: (s) => EditorScreen(notebook: physics(s)),
-      services: null,
-      // Wide windows: the toolbar's pen; phones: the switcher's.
-      open: (t) async {
-        final pen = find.byTooltip('Pen (P)');
-        if (pen.evaluate().isNotEmpty) return tapAll(t, [pen]);
-        await tapAll(t, [find.byTooltip('Pen: tap to switch tools'), find.text('Pen')]);
-      },
-    ),
-    'more menu': (
-      home: (s) => EditorScreen(notebook: physics(s)),
-      services: null,
-      open: (t) => tapAll(t, [find.byTooltip('More options')]),
-    ),
-    ...screens,
-  };
-  // What the contrast check can't measure at large text, by screen.
-  const largeContrast = <String, Map<String, String>>{
-    // Passes with the app's font; with the test font's boxes at 2× the
-    // check reads the outlined button's label as a light grey.
-    'scan': {'label: "Choose photos…"': 'the test font at 2×; passes with Sofia Sans'},
-    // The options sheet scrolls on a short window: its next group fades
-    // out at the bottom edge, by design.
-    'pen options': {
-      'label: "Size"': 'the pen sheet\'s Size group, inside its scroll fade',
-      'label: "0.65 mm"': 'the pen sheet\'s size readout, inside its scroll fade',
-    },
-  };
-  for (final scale in [1.5, 2.0]) {
-    for (final (name, size) in [
-      ('phone', phone),
-      ('phone sideways', sideways),
-      ('tablet', tablet),
-    ]) {
-      for (final MapEntry(key: screen, value: s) in large.entries) {
-        // The menu scrolls on a short window: its last row sits in the
-        // scroll fade by design.
-        if (screen == 'more menu' && size == sideways) continue;
-        testWidgets('$screen $name at $scale× text', (tester) async {
-          await expectAccessible(
-            tester,
-            size: size,
-            contrastHere: largeContrast[screen] ?? const {},
-            scenario: (t) async {
-              await pumpScreen(t, s.home, size: size, textScale: scale, services: s.services);
-              await s.open?.call(t);
-            },
-          );
-          expect(tester.takeException(), isNull);
-        });
-      }
-    }
-  }
-
   // Text that would be cut at 2× on a phone (UX_AUDIT R23-7).
   group('at 2× nothing is cut short', () {
     bool cut(WidgetTester tester, Finder text) =>
@@ -251,4 +182,76 @@ void main() {
       expect(cut(tester, find.textContaining('1970')), isFalse);
     });
   });
+}
+
+/// What [largeTextTests] checks: the main screens and slips, and [screens].
+/// Android's font sizes go to 2×; 1.5× is a common choice.
+final Map<String, Screen> large = {
+  'library': (home: (_) => const LibraryScreen(), services: null, open: null),
+  'settings': (home: (_) => const SettingsScreen(), services: null, open: null),
+  'editor': (home: (s) => EditorScreen(notebook: physics(s)), services: null, open: null),
+  'new notebook': (
+    home: (_) => const LibraryScreen(),
+    services: null,
+    open: (t) => tapAll(t, [find.bySemanticsLabel('New notebook')]),
+  ),
+  'export sheet': (
+    home: (s) => EditorScreen(notebook: physics(s)),
+    services: null,
+    open: (t) => tapAll(t, [find.byTooltip('More options'), find.text('Export…')]),
+  ),
+  'pen options': (
+    home: (s) => EditorScreen(notebook: physics(s)),
+    services: null,
+    // Wide windows: the toolbar's pen; phones: the switcher's.
+    open: (t) async {
+      final pen = find.byTooltip('Pen (P)');
+      if (pen.evaluate().isNotEmpty) return tapAll(t, [pen]);
+      await tapAll(t, [find.byTooltip('Pen: tap to switch tools'), find.text('Pen')]);
+    },
+  ),
+  'more menu': (
+    home: (s) => EditorScreen(notebook: physics(s)),
+    services: null,
+    open: (t) => tapAll(t, [find.byTooltip('More options')]),
+  ),
+  ...screens,
+};
+
+/// What the contrast check can't measure at large text, by screen.
+const Map<String, Map<String, String>> largeContrast = {
+  // Passes with the app's font; with the test font's boxes at 2× the
+  // check reads the outlined button's label as a light grey.
+  'scan': {'label: "Choose photos…"': 'the test font at 2×; passes with Sofia Sans'},
+  // The options sheet scrolls on a short window: its next group fades
+  // out at the bottom edge, by design.
+  'pen options': {
+    'label: "Size"': 'the pen sheet\'s Size group, inside its scroll fade',
+    'label: "0.65 mm"': 'the pen sheet\'s size readout, inside its scroll fade',
+  },
+};
+
+/// The guidelines over [large] at [scale]× text on a phone (also sideways)
+/// and a tablet: one file per scale (accessibility_large_text_test.dart,
+/// accessibility_largest_text_test.dart), so they run in parallel.
+void largeTextTests(double scale) {
+  for (final (name, size) in [('phone', phone), ('phone sideways', sideways), ('tablet', tablet)]) {
+    for (final MapEntry(key: screen, value: s) in large.entries) {
+      // The menu scrolls on a short window: its last row sits in the
+      // scroll fade by design.
+      if (screen == 'more menu' && size == sideways) continue;
+      testWidgets('$screen $name at $scale× text', (tester) async {
+        await expectAccessible(
+          tester,
+          size: size,
+          contrastHere: largeContrast[screen] ?? const {},
+          scenario: (t) async {
+            await pumpScreen(t, s.home, size: size, textScale: scale, services: s.services);
+            await s.open?.call(t);
+          },
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
 }
