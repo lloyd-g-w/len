@@ -9,6 +9,7 @@ import 'package:len/features/audio/recording_controller.dart';
 import 'package:len/features/editor/shared/shared_notebooks.dart';
 
 import 'support/fake_audio.dart';
+import 'support/tester_clock.dart';
 
 /// Waits (real time) until [done] holds.
 Future<void> until(bool Function() done) async {
@@ -25,7 +26,12 @@ void main() {
   test('a notebook closed while recording keeps the microphone until its recording is saved, '
       'and lists it when reopened meanwhile', () async {
     final audio = FakeAudio();
-    final services = AppServices.create(AppDatabase.inMemory(), audio: audio.backends);
+    final clock = FixedClock(DateTime.utc(2026));
+    final services = AppServices.create(
+      AppDatabase.inMemory(),
+      audio: audio.backends,
+      clock: clock,
+    );
     Notebook notebook(String title) => services.notebooks.create(
       title: title,
       kind: NotebookKind.paged,
@@ -37,7 +43,7 @@ void main() {
 
     final first = shared.acquire(physics);
     expect(await first.audio.recorder.start(), isTrue);
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    clock.at = clock.at.add(const Duration(milliseconds: 600)); // Long enough to keep.
     final saving = Completer<void>();
     audio.capture.holdStop = saving.future;
     unawaited(first.audio.recorder.stop());
@@ -59,7 +65,12 @@ void main() {
 
   test('R17-1: a notebook left while recording goes on recording until stopped', () async {
     final audio = FakeAudio();
-    final services = AppServices.create(AppDatabase.inMemory(), audio: audio.backends);
+    final clock = FixedClock(DateTime.utc(2026));
+    final services = AppServices.create(
+      AppDatabase.inMemory(),
+      audio: audio.backends,
+      clock: clock,
+    );
     Notebook notebook(String title) => services.notebooks.create(
       title: title,
       kind: NotebookKind.paged,
@@ -93,7 +104,7 @@ void main() {
     expect(shared.unattended.value, same(first));
 
     // Stopped from the notice: saved, then let go.
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    clock.at = clock.at.add(const Duration(milliseconds: 600)); // Long enough to keep.
     expect(await recorder.stop(), isNotNull);
     await pumpEventQueue();
     expect(shared.unattended.value, isNull);
@@ -105,7 +116,12 @@ void main() {
   test('R17: a notebook trashed here while it records unattended is let go: its recording '
       'is stopped and saved into it, so restoring brings back both', () async {
     final audio = FakeAudio();
-    final services = AppServices.create(AppDatabase.inMemory(), audio: audio.backends);
+    final clock = FixedClock(DateTime.utc(2026));
+    final services = AppServices.create(
+      AppDatabase.inMemory(),
+      audio: audio.backends,
+      clock: clock,
+    );
     final physics = services.notebooks.create(
       title: 'Physics',
       kind: NotebookKind.paged,
@@ -116,7 +132,7 @@ void main() {
     final first = shared.acquire(physics);
     final recorder = first.audio.recorder;
     expect(await recorder.start(), isTrue);
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    clock.at = clock.at.add(const Duration(milliseconds: 600)); // Long enough to keep.
     shared.release(first);
     await pumpEventQueue();
     expect(shared.unattended.value, same(first));
@@ -140,7 +156,12 @@ void main() {
   test('R17: a recording that finishes saving after its notebook was deleted forever is '
       'deleted with it', () async {
     final audio = FakeAudio();
-    final services = AppServices.create(AppDatabase.inMemory(), audio: audio.backends);
+    final clock = FixedClock(DateTime.utc(2026));
+    final services = AppServices.create(
+      AppDatabase.inMemory(),
+      audio: audio.backends,
+      clock: clock,
+    );
     final physics = services.notebooks.create(
       title: 'Physics',
       kind: NotebookKind.paged,
@@ -150,7 +171,7 @@ void main() {
     final shared = SharedNotebooks(services);
     final first = shared.acquire(physics);
     expect(await first.audio.recorder.start(), isTrue);
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    clock.at = clock.at.add(const Duration(milliseconds: 600)); // Long enough to keep.
     shared.release(first);
     await pumpEventQueue();
     final saving = Completer<void>();
