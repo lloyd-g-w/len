@@ -7,6 +7,7 @@ import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
 import 'package:len/ink/elements/text_edit_session.dart';
 import 'package:len/ink/elements/text_flow_chains.dart';
+import 'package:len/ink/undo_history.dart';
 
 import 'data_test.dart' show FakeClock;
 import 'text_flow_session_test.dart' show FakePages;
@@ -35,6 +36,8 @@ void main() {
     pages.models.dispose();
     db.close();
   });
+
+  group('rivals', rivalTests);
 
   SurfaceElement box(String id, String page, String text, {TextFlow? flow}) => SurfaceElement(
     id: id,
@@ -79,5 +82,59 @@ void main() {
     session.setData(TextData.rich(text: '').withFlow(TextData.fromJson(c1.data).flow));
     session.end();
     expect(whole().text, 'Alphagamma');
+  });
+}
+
+/// Two devices that made a chain run on at once each stored a box
+/// continuing it on the same page: the chain takes the older, and the next
+/// time it flows the other goes.
+void rivalTests() {
+  late AppDatabase db;
+  late ElementRepository elements;
+  late FakePages pages;
+  late TextFlowChains chains;
+
+  setUp(() {
+    db = AppDatabase.inMemory();
+    final clock = FakeClock();
+    elements = ElementRepository(db, deviceId: 'dev', clock: clock);
+    final strokes = StrokeRepository(db, deviceId: 'dev', clock: clock);
+    pages = FakePages(elements, strokes, ['p0', 'p1', 'p2']);
+    chains = TextFlowChains(pages, clock: clock);
+  });
+
+  tearDown(() {
+    pages.models.dispose();
+    db.close();
+  });
+
+  SurfaceElement box(String id, String page, String text, {TextFlow? flow, int created = 1}) =>
+      SurfaceElement(
+        id: id,
+        surfaceId: page,
+        type: ElementType.text.name,
+        rect: Rect.fromLTWH(40, page == 'p0' ? 600 : 48, 300, 30),
+        z: 1,
+        createdAt: created,
+        data: TextData.rich(text: text).withFlow(flow).toJson(),
+      );
+
+  test('a rival continuation goes when the chain flows again', () {
+    elements.save([
+      box('h', 'p0', 'Alpha'),
+      box('x', 'p1', 'Beta', flow: const TextFlow(from: 'h')),
+      box('y', 'p1', 'Beta too', flow: const TextFlow(from: 'h'), created: 2),
+    ]);
+    final head = elements.allOn('p0').single;
+    final rest = chains.continuationsOf('p0', 'h');
+    expect([for (final r in rest) r.box.id], ['x']);
+    pages.batch(() {
+      final r = chains.reflow('p0', head, TextFlowChains.wholeOf(head, rest), rest);
+      pages.modelOf('p0').commit(InkEdit(removedElements: [head], addedElements: [r.head]));
+      chains.commit(r.edits);
+    });
+    // All fits on p0 now: neither stays on p1.
+    expect(elements.allOn('p1'), isEmpty);
+    expect(TextData.fromJson(elements.allOn('p0').single.data).text, 'Alpha\nBeta');
   });
 }
