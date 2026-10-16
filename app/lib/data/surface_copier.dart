@@ -56,11 +56,16 @@ class SurfaceCopier {
           .map((r) => r['id'] as String)
           .toList();
       final now = strokes.clock.nowMs();
+      // A copy is an edit of its own (`EditOrigins`).
+      final fresh = table == 'elements'
+          ? ', origin_at = NULL, origin_device = NULL, origin_for = 0, base_at = NULL, '
+                'base_device = NULL'
+          : '';
       for (final oldId in ids) {
         final newId = strokes.clock.newId();
         db.execute(
           'UPDATE temp.surface_copy SET id = ?, surface_id = ?, updated_at = ?, device_id = ?, '
-          'dirty = 1 WHERE id = ?',
+          'dirty = 1$fresh WHERE id = ?',
           [newId, to, now, strokes.deviceId, oldId],
         );
         // A stroke's digest is its id's hash; an element's, its value's.
