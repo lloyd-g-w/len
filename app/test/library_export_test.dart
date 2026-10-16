@@ -74,7 +74,7 @@ void main() {
                   context,
                   [a, b, c],
                   exporter: exporter,
-                  save: (files, {required mime, toDevice = false}) async {
+                  save: (files, {required mime, toDevice = false, subject}) async {
                     saved.addAll([for (final f in files) f.name]);
                     return ExportedFiles(ExportedTo.shared, count: files.length);
                   },

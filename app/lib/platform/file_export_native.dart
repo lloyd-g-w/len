@@ -26,15 +26,18 @@ bool get canShowInFolder =>
     defaultTargetPlatform == TargetPlatform.macOS;
 
 /// Desktop: asks where to save and writes the file. Mobile: opens the share
-/// sheet, or with [toDevice] (Android) the system's save dialog. Null if
-/// cancelled.
+/// sheet (with [subject] for mail apps, R22-4), or with [toDevice]
+/// (Android) the system's save dialog. Null if cancelled.
 Future<ExportedFiles?> saveOrShare(
   Uint8List bytes, {
   required String name,
   required String mime,
   bool toDevice = false,
+  String? subject,
 }) async {
-  if (_mobile) return _mobileExport([(bytes: bytes, name: name)], mime, toDevice: toDevice);
+  if (_mobile) {
+    return _mobileExport([(bytes: bytes, name: name)], mime, toDevice: toDevice, subject: subject);
+  }
   final extension = p.extension(name).replaceFirst('.', '');
   final location = await getSaveLocation(
     suggestedName: name,
@@ -60,12 +63,19 @@ Future<ExportedFiles?> saveOrShareAll(
   List<({Uint8List bytes, String name})> files, {
   required String mime,
   bool toDevice = false,
+  String? subject,
 }) async {
   final single = files.length == 1 ? files.single : null;
   if (single != null) {
-    return saveOrShare(single.bytes, name: single.name, mime: mime, toDevice: toDevice);
+    return saveOrShare(
+      single.bytes,
+      name: single.name,
+      mime: mime,
+      toDevice: toDevice,
+      subject: subject,
+    );
   }
-  if (_mobile) return _mobileExport(files, mime, toDevice: toDevice);
+  if (_mobile) return _mobileExport(files, mime, toDevice: toDevice, subject: subject);
   final dir = await getDirectoryPath(confirmButtonText: 'Save here');
   if (dir == null) return null;
   for (final f in files) {
@@ -80,6 +90,7 @@ Future<ExportedFiles?> _mobileExport(
   List<({Uint8List bytes, String name})> files,
   String mime, {
   required bool toDevice,
+  String? subject,
 }) async {
   final tmp = await getTemporaryDirectory();
   final dir = await Directory(p.join(tmp.path, 'export')).create(recursive: true);
@@ -89,16 +100,24 @@ Future<ExportedFiles?> _mobileExport(
     await file.writeAsBytes(f.bytes, flush: true);
     paths.add(file.path);
   }
-  return _mobileShare(paths, [for (final f in files) f.name], mime, toDevice: toDevice);
+  return _mobileShare(
+    paths,
+    [for (final f in files) f.name],
+    mime,
+    toDevice: toDevice,
+    subject: subject,
+  );
 }
 
-/// Opens the share sheet for the files at [paths] (named [names]), or with
-/// [toDevice] the system's save dialog.
+/// Opens the share sheet for the files at [paths] (named [names]), titled
+/// [subject] (a mail's subject), or with [toDevice] the system's save
+/// dialog.
 Future<ExportedFiles?> _mobileShare(
   List<String> paths,
   List<String> names,
   String mime, {
   required bool toDevice,
+  String? subject,
 }) async {
   final single = names.length == 1 ? names.single : null;
   if (toDevice && canSaveToDevice) {
@@ -117,7 +136,11 @@ Future<ExportedFiles?> _mobileShare(
     );
   }
   final result = await SharePlus.instance.share(
-    ShareParams(files: [for (final path in paths) XFile(path, mimeType: mime)]),
+    ShareParams(
+      files: [for (final path in paths) XFile(path, mimeType: mime)],
+      subject: subject,
+      title: subject,
+    ),
   );
   if (result.status == ShareResultStatus.dismissed) return null;
   return ExportedFiles(ExportedTo.shared, count: names.length, name: single);
@@ -145,7 +168,13 @@ Future<ExportedFiles?> shareFile(
   required String name,
   required String mime,
   bool toDevice = false,
-}) => _mobileShare([path], [name], mime, toDevice: toDevice);
+}) => _mobileShare(
+  [path],
+  [name],
+  mime,
+  toDevice: toDevice,
+  subject: p.basenameWithoutExtension(name),
+);
 
 /// Opens the file manager at [path] (a file: selected where the file
 /// manager allows; a folder: opened). Desktops only; never throws.

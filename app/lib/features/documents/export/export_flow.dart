@@ -23,11 +23,12 @@ typedef ExportFile = ({Uint8List bytes, String name});
 /// Hands exported [files] to the user and returns where they went (null
 /// if cancelled); `saveOrShareAll` from `platform/file_export`. With
 /// [toDevice] (Android) through the system's save dialog instead of the
-/// share sheet.
+/// share sheet; [subject] titles a share (a mail's subject).
 typedef ExportSaver = Future<platform.ExportedFiles?> Function(
   List<ExportFile> files, {
   required String mime,
   bool toDevice,
+  String? subject,
 });
 
 /// Asks what to export from [pages] of [notebook] (the export sheet,
@@ -129,7 +130,12 @@ Future<void> runExport(
       return pngs;
     });
     if (!context.mounted) return;
-    final saved = await save(files, mime: options.format.mime, toDevice: options.toDevice);
+    final saved = await save(
+      files,
+      mime: options.format.mime,
+      toDevice: options.toDevice,
+      subject: notebook.title,
+    );
     if (saved == null || !context.mounted) return;
     showExported(context, saved, plural: 'images', note: report.summary);
   } on Cancelled {
@@ -212,7 +218,12 @@ Future<void> exportCanvasFlow(
       return [(bytes: bytes, name: name)];
     });
     if (files.isEmpty || !context.mounted) return;
-    final saved = await save(files, mime: options.format.mime, toDevice: options.toDevice);
+    final saved = await save(
+      files,
+      mime: options.format.mime,
+      toDevice: options.toDevice,
+      subject: notebook.title,
+    );
     if (saved == null || !context.mounted) return;
     showExported(context, saved, plural: 'images', note: report.summary);
   } on Cancelled {

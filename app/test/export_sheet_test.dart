@@ -72,6 +72,7 @@ void main() {
   late _FakeExporter exporter;
   late List<(List<String>, String)> saved;
   late List<bool> toDevices;
+  late List<String?> subjects;
 
   setUp(() {
     services = AppServices.create(AppDatabase.inMemory());
@@ -92,6 +93,7 @@ void main() {
     exporter = _FakeExporter(services);
     saved = [];
     toDevices = [];
+    subjects = [];
   });
   tearDown(() => services.dispose());
 
@@ -118,9 +120,10 @@ void main() {
                   currentPage: 1,
                   initialPages: initialPages,
                   exporter: exporter,
-                  save: (files, {required mime, toDevice = false}) async {
+                  save: (files, {required mime, toDevice = false, subject}) async {
                     saved.add(([for (final f in files) f.name], mime));
                     toDevices.add(toDevice);
+                    subjects.add(subject);
                     return ExportedFiles(
                       ExportedTo.file,
                       count: 1,
@@ -220,6 +223,8 @@ void main() {
     expect(page.paperColor, PaperColor.white);
     expect(scale, 3);
     expect(saved.single.$1, ['Lab p2.png']);
+    // A mail gets the notebook's title as its subject (R22-4).
+    expect(subjects.single, 'Lab');
   });
 
   testWidgets('the next export starts with the last one\'s choices (UX_AUDIT R22-2)', (
