@@ -2219,8 +2219,10 @@ with a template is "Add page after" held down in the page menu).
   finger always writes, so reading back took two fingers and a resting thumb
   marked the page. `FingerReading` puts the editor in `ToolSettings.reading`
   where there is something to read: opening on a page (or canvas) with ink,
-  text boxes, images or a PDF / scan background (loaded, else
-  `StrokeReader.contentBounds`) starts in reading, an empty one in writing;
+  text boxes, images, a PDF / scan background or planner links (loaded, else
+  `StrokeRepository.hasContent`, a quick query on the UI isolate, so the
+  answer is there at once and never depends on a background read's timing)
+  starts in reading, an empty one in writing;
   after `FingerReading.idle` (2 min) without a drawing contact
   (`InkEvents.contact`) it reads again, if the page has content and nothing is
   under way (a stroke, a text box typed, a selection, the zoom window).
