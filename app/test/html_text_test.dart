@@ -252,4 +252,9 @@ void main() {
       ]);
     });
   });
+
+  test('a fragment marker cut short reads the whole document', () {
+    expect(fragmentOf('<p>a</p><!--StartFragment'), '<p>a</p><!--StartFragment');
+    expect(_parse('<p>hello</p><!--StartFragment').text, 'hello');
+  });
 }

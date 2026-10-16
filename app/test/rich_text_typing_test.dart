@@ -72,4 +72,33 @@ void main() {
     c.redo();
     expect(c.data.text, 'ok 你好');
   });
+
+  test('a composition the keyboard lets go of without a change ends its undo step', () {
+    // Gboard keeps a typed word composing; selecting it ends that with
+    // the same text. Bold is then a step of its own.
+    final c = RichTextController(const TextData());
+    c.value = const TextEditingValue(
+      text: 'hello',
+      selection: TextSelection.collapsed(offset: 5),
+      composing: TextRange(start: 0, end: 5),
+    );
+    c.value = const TextEditingValue(
+      text: 'hello',
+      selection: TextSelection(baseOffset: 0, extentOffset: 5),
+    );
+    c.toggleBold();
+    c.undo();
+    expect(c.data.text, 'hello');
+    expect(c.data.charStyles().first.bold, isFalse);
+    // A command while still composing is its own step too.
+    final d = RichTextController(const TextData());
+    d.value = const TextEditingValue(
+      text: 'hi',
+      selection: TextSelection.collapsed(offset: 2),
+      composing: TextRange(start: 0, end: 2),
+    );
+    d.toggleList(ListKind.bullet);
+    d.undo();
+    expect((d.data.text, d.data.paras.single.list), ('hi', ListKind.none));
+  });
 }

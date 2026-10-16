@@ -4,6 +4,7 @@ import 'package:flutter/painting.dart';
 
 import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
+import '../../domain/text/paragraph_direction.dart';
 import '../../domain/text/text_data.dart';
 import '../elements/text_layout.dart';
 import 'handwriting_recognizer.dart';
@@ -92,17 +93,22 @@ abstract final class ConvertToText {
     // wraps only below the floor.
     final target = math.max(lines.length, '\n'.allMatches(text).length + 1);
     var size = base;
+    final rtl = ParagraphDirection.baseOf(text) == TextDirection.rtl;
     late TextData data;
     late double width, left;
     while (true) {
       data = TextData(text: text, fontSize: size, color: colour);
       // The ink's width, but no narrower than the longest word.
       width = math.max(bounds.width, _longestWord(data));
-      left = bounds.left;
+      // Wider than the ink, a box grows away from its start: a
+      // right-to-left reading to the left.
+      left = rtl ? bounds.right - width : bounds.left;
       if (area != null) {
         final inside = area.deflate(math.min(_margin, area.shortestSide / 8));
         width = math.min(width, math.max(inside.width, TextLayout.minWidth));
-        if (left + width > inside.right) left = math.max(inside.left, inside.right - width);
+        if (rtl) left = bounds.right - width;
+        if (left + width > inside.right) left = inside.right - width;
+        if (left < inside.left) left = inside.left;
       }
       if (size <= floor || _lineCount(data, width) <= target) break;
       size = math.max(floor, size * 0.94);

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
@@ -8,11 +9,13 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/audio/recording_controller.dart';
 import 'package:len/features/audio/ui/audio_bar_button.dart';
+import 'package:len/features/editor/chrome/editor_tips.dart';
 import 'package:len/features/editor/chrome/editor_top_bar.dart';
 import 'package:len/features/editor/chrome/title_button.dart';
 import 'package:len/features/editor/editor_canvas.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_session.dart';
+import 'package:len/features/editor/finger_reading.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/sync/sync_engine.dart';
 import 'package:len/ui/text_prompt.dart';
@@ -302,6 +305,48 @@ void main() {
       expect(tester.takeException(), isNull);
       await closeEditor(tester);
     });
+  });
+
+  testWidgets('a PDF dropped on a pane goes to that pane\'s notebook', (tester) async {
+    final (s, physics, chemistry) = await pumpWorkspace(tester);
+    s.openNotebooks.openSplit(chemistry.id);
+    await tester.pumpAndSettle();
+    await drawIn(tester, 0); // Physics in use.
+    expect(s.incomingFiles.targets.active?.notebookId, physics.id);
+    String? target;
+    s.incomingFiles.handler = (_) => target = s.incomingFiles.targets.active?.notebookId;
+    final drop = tester.widgetList<DropTarget>(find.byType(DropTarget)).last;
+    drop.onDragDone!(
+      DropDoneDetails(
+        files: [DropItemFile('/tmp/Lecture 5.pdf', name: 'Lecture 5.pdf')],
+        localPosition: const Offset(100, 100),
+        globalPosition: const Offset(900, 100),
+      ),
+    );
+    await tester.pump();
+    expect(target, chemistry.id);
+    await closeEditor(tester);
+  });
+
+  testWidgets('a parked pane going back to reading offers no tip nobody sees', (tester) async {
+    FingerReading.debugEnabled = true;
+    final (s, _, chemistry) = await pumpWorkspace(tester);
+    s.openNotebooks.openSplit(chemistry.id);
+    await tester.pumpAndSettle();
+    await drawIn(tester, 1);
+    final right = sessionsOf(tester)[1];
+    tester.view.physicalSize = const Size(800, 1280);
+    await tester.pumpAndSettle();
+    expect(find.byType(EditorScreen), findsOneWidget, reason: 'parked');
+    await tester.pump(FingerReading.idle + const Duration(seconds: 10));
+    await tester.pumpAndSettle();
+    expect(right.tools.reading, isTrue);
+    expect(s.settings.seenTips, isNot(contains(EditorTip.reading.name)));
+    // Shown again: the tip.
+    tester.view.physicalSize = const Size(1440, 900);
+    await tester.pumpAndSettle();
+    expect(find.text('Reading: one finger scrolls; tap the pen to write'), findsOneWidget);
+    await closeEditor(tester);
   });
 
   testWidgets('a parked pane that records: Show swaps it in, Stop stops it', (tester) async {

@@ -114,6 +114,7 @@ extension _EditorLayout on _EditorScreenState {
           search: _search,
           chrome: _buildChrome(layout, tabs, band),
           onFollowLink: _followLink,
+          onDrop: _use,
           split: _pane == null ? null : (controller: widget.split!, pane: _pane),
           menu: _menu,
           onCloseMenu: _closeMenu,

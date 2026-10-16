@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../domain/text/text_data.dart';
 import '../../../../ink/elements/text_layout.dart';
+import '../../../../platform/clipboard_html.dart';
 import 'rich_paste.dart';
 import 'rich_text_controller.dart';
 
@@ -14,7 +15,9 @@ import 'rich_text_controller.dart';
 /// Ctrl+V pastes HTML from other apps formatted, Ctrl+Shift+V as plain text;
 /// Ctrl+Shift+7 / 8 / 9 numbered list, bullets, checklist; Ctrl+Alt+1 / 2
 /// headings, Ctrl+Alt+0 body text; Tab / Shift+Tab indent list items;
-/// Ctrl+Enter ticks a checklist item; Esc finishes. Left and right arrows
+/// Ctrl+Enter ticks a checklist item; Esc finishes; Ctrl+Z and Ctrl+Shift+Z
+/// [onUndo] and [onRedo] (the box's history, with formatting: the field's
+/// own undo knows none). Left and right arrows
 /// move the caret visually in right-to-left paragraphs too (left is
 /// forwards there).
 class RichTextField extends StatelessWidget {
@@ -25,6 +28,8 @@ class RichTextField extends StatelessWidget {
     required this.cursorWidth,
     required this.cursorColor,
     required this.onDone,
+    this.onUndo,
+    this.onRedo,
   });
 
   final RichTextController controller;
@@ -32,6 +37,9 @@ class RichTextField extends StatelessWidget {
   final double cursorWidth;
   final Color cursorColor;
   final VoidCallback onDone;
+
+  /// Undo and redo; the [controller]'s own by default.
+  final VoidCallback? onUndo, onRedo;
 
   /// Extra width the field needs beyond the text for its caret (see
   /// `RenderEditable`), so it wraps exactly where the box does.
@@ -50,10 +58,9 @@ class RichTextField extends StatelessWidget {
       SingleActivator key(LogicalKeyboardKey k, {bool shift = false, bool alt = false}) =>
           SingleActivator(k, control: control, meta: !control, shift: shift, alt: alt);
       map.addAll({
-        // The box's own undo: the field's knows no formatting.
-        key(LogicalKeyboardKey.keyZ): c.undo,
-        key(LogicalKeyboardKey.keyZ, shift: true): c.redo,
-        key(LogicalKeyboardKey.keyY): c.redo,
+        key(LogicalKeyboardKey.keyZ): onUndo ?? c.undo,
+        key(LogicalKeyboardKey.keyZ, shift: true): onRedo ?? c.redo,
+        key(LogicalKeyboardKey.keyY): onRedo ?? c.redo,
         key(LogicalKeyboardKey.keyB): c.toggleBold,
         key(LogicalKeyboardKey.keyI): c.toggleItalic,
         key(LogicalKeyboardKey.keyU): c.toggleUnderline,
@@ -120,60 +127,74 @@ class RichTextField extends StatelessWidget {
         bindings: _bindings,
         // The canvas draws the box at its own size whatever the system text
         // size: the field matches it, so it wraps where the box does.
-        child: MediaQuery.withNoTextScaling(
-          child: TextField(
-            key: const ValueKey('text-box-field'),
-            controller: controller,
-            focusNode: focusNode,
-            maxLines: null,
-            strutStyle: TextLayout.strutOf(data),
-            style: TextLayout.baseStyle(data),
-            textAlign: TextLayout.alignOf(data),
-            textDirection: controller.plan.base,
-            cursorColor: cursorColor,
-            cursorWidth: cursorWidth,
-            contextMenuBuilder: (context, state) => AdaptiveTextSelectionToolbar.buttonItems(
-              anchors: state.contextMenuAnchors,
-              buttonItems: [
-                for (final item in state.contextMenuButtonItems)
-                  switch (item.type) {
-                    ContextMenuButtonType.copy => item.copyWith(
-                      onPressed: () {
-                        controller.copySelection();
-                        state.hideToolbar();
-                      },
-                    ),
-                    ContextMenuButtonType.paste => item.copyWith(
-                      onPressed: () async {
-                        if (await pasteClipboardHtml(controller)) {
+        // A browser copies the field's own text (with isolates and
+        // breaks at wraps): while it has focus the box's text answers
+        // (checked again per event: a field gone with the box may not
+        // have said it lost focus).
+        child: Focus(
+          canRequestFocus: false,
+          skipTraversal: true,
+          onFocusChange: (focused) => focused
+              ? claimFieldCopies(
+                  controller,
+                  (cut) => focusNode.hasFocus ? controller.copyNow(cut: cut) : null,
+                )
+              : releaseFieldCopies(controller),
+          child: MediaQuery.withNoTextScaling(
+            child: TextField(
+              key: const ValueKey('text-box-field'),
+              controller: controller,
+              focusNode: focusNode,
+              maxLines: null,
+              strutStyle: TextLayout.strutOf(data),
+              style: TextLayout.baseStyle(data),
+              textAlign: TextLayout.alignOf(data),
+              textDirection: controller.plan.base,
+              cursorColor: cursorColor,
+              cursorWidth: cursorWidth,
+              contextMenuBuilder: (context, state) => AdaptiveTextSelectionToolbar.buttonItems(
+                anchors: state.contextMenuAnchors,
+                buttonItems: [
+                  for (final item in state.contextMenuButtonItems)
+                    switch (item.type) {
+                      ContextMenuButtonType.copy => item.copyWith(
+                        onPressed: () {
+                          controller.copySelection();
                           state.hideToolbar();
-                        } else {
-                          item.onPressed?.call();
-                        }
-                      },
-                    ),
-                    ContextMenuButtonType.cut => item.copyWith(
-                      onPressed: () {
-                        controller.copySelection(cut: true);
-                        state.hideToolbar();
-                      },
-                    ),
-                    _ => item,
-                  },
-              ],
-            ),
-            // Fully explicit, so the app's input theme (fill, padding, focus
-            // outline) cannot shift the text off where the box renders it.
-            decoration: const InputDecoration(
-              isCollapsed: true,
-              filled: false,
-              contentPadding: EdgeInsets.zero,
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              disabledBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              focusedErrorBorder: InputBorder.none,
+                        },
+                      ),
+                      ContextMenuButtonType.paste => item.copyWith(
+                        onPressed: () async {
+                          if (await pasteClipboardHtml(controller)) {
+                            state.hideToolbar();
+                          } else {
+                            item.onPressed?.call();
+                          }
+                        },
+                      ),
+                      ContextMenuButtonType.cut => item.copyWith(
+                        onPressed: () {
+                          controller.copySelection(cut: true);
+                          state.hideToolbar();
+                        },
+                      ),
+                      _ => item,
+                    },
+                ],
+              ),
+              // Fully explicit, so the app's input theme (fill, padding, focus
+              // outline) cannot shift the text off where the box renders it.
+              decoration: const InputDecoration(
+                isCollapsed: true,
+                filled: false,
+                contentPadding: EdgeInsets.zero,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+              ),
             ),
           ),
         ),

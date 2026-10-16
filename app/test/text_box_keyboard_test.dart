@@ -7,6 +7,7 @@ import 'package:len/ui/floating_panel.dart';
 
 import 'content_tools_ui_test.dart';
 import 'search_ui_test.dart' show textBox;
+import 'text_box_ui_test.dart' show ctrl;
 
 /// Typing around a text box: undo while typing, the soft keyboard, the
 /// Text tool with a keyboard (UX_AUDIT round 19).
@@ -136,6 +137,32 @@ void main() {
     expect(field, findsNothing);
   });
 
+  testWidgets('a box started by typing on an untouched page can be undone', (tester) async {
+    final (services, nb) = await openCanvas(tester);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await key(tester, LogicalKeyboardKey.keyA);
+    await tester.pumpAndSettle();
+    expect(typed(tester), 'a');
+    final undo = find.byTooltip('Undo (Ctrl+Z)');
+    final button = tester.widget<BarButton>(
+      find.ancestor(of: undo, matching: find.byType(BarButton)),
+    );
+    expect(button.onPressed, isNotNull);
+    await tester.tap(undo);
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+    expect(liveElements(services, nb.id), isEmpty);
+
+    // Ctrl+Z in the field does the same: the box, then the page.
+    await key(tester, LogicalKeyboardKey.keyB);
+    await tester.pumpAndSettle();
+    expect(typed(tester), 'b');
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+    expect(liveElements(services, nb.id), isEmpty);
+  });
+
   testWidgets('Back finishes the box being typed in, then leaves', (tester) async {
     final (services, nb) = await openCanvas(tester);
     await key(tester, LogicalKeyboardKey.keyT);
@@ -146,6 +173,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(field, findsNothing);
     expect(liveElements(services, nb.id), hasLength(1));
+  });
+
+  testWidgets('in focus mode Back finishes the box first, then leaves focus mode', (tester) async {
+    final (services, nb) = await openCanvas(tester);
+    final undo = find.byTooltip('Undo (Ctrl+Z)').first;
+    bool barVisible() =>
+        tester.getTopLeft(undo).dy >= 0 && undo.hitTestable().evaluate().isNotEmpty;
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.period);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(barVisible(), isFalse);
+    await key(tester, LogicalKeyboardKey.keyT);
+    await mouseDrag(tester, const [Offset(300, 400)]);
+    await tester.pumpAndSettle();
+    await tester.enterText(field, 'milk');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+    expect(liveElements(services, nb.id), hasLength(1));
+    expect(barVisible(), isFalse, reason: 'still in focus mode');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(barVisible(), isTrue);
   });
 
   testWidgets('screen readers read the text boxes in view; activating one edits it', (

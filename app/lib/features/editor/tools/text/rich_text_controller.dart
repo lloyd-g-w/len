@@ -38,9 +38,12 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
   /// that formatting, so it wins over the clipboard's HTML).
   static bool isOwnClip(String text) => _clip?.text == _clean(text);
 
-  /// [text] without marker placeholders, its line breaks all \n.
-  static String _clean(String text) =>
-      text.replaceAll('\uFFFC', '').replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  /// [text] without marker placeholders and bidi isolates (the layout's,
+  /// in text a browser copied from the field), its line breaks all \n.
+  static String _clean(String text) => text
+      .replaceAll(RegExp('[\uFFFC\u2066-\u2069]'), '')
+      .replaceAll('\r\n', '\n')
+      .replaceAll('\r', '\n');
 
   /// [text] from the clipboard as a new box formatted like [box]; text
   /// last copied from a box here keeps its formatting.
@@ -59,7 +62,12 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
       final sel = _normalize(next.selection, old.selection);
       if (sel != old.selection) _pending = null;
       super.value = next.copyWith(selection: sel);
-      if (sel.isValid) _history.select(_modelSelection(sel));
+      if (sel.isValid) {
+        _history.select(
+          _modelSelection(sel),
+          composing: next.composing.isValid && !next.composing.isCollapsed,
+        );
+      }
       return;
     }
     _applyEdit(old, next);
@@ -150,15 +158,18 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
         : end > start && _buffer.text.codeUnitAt(start) != 0x0A
         ? _buffer.charStyle(start)
         : _buffer.styleAt(start);
-    // Text copied from a box here keeps its formatting; a browser paste
-    // (web) of HTML from another app is formatted.
+    // Text copied from a box here keeps its formatting (a paste: more
+    // than one character at once, not composed by the keyboard, so what
+    // is typed or swiped is never taken for it); a browser paste (web) of
+    // HTML from another app is formatted.
+    final pasted = inserted.length > 1 && !(next.composing.isValid && !next.composing.isCollapsed);
     final rich = inserted.isEmpty
         ? null
-        : clip?.text == inserted
+        : pasted && clip?.text == inserted
         ? clip
         : _pastedHtml(inserted);
     if (rich != null) {
-      _buffer.insertRich(start, end, rich, style);
+      _buffer.insertRich(start, end, rich, style, exact: identical(rich, clip));
       inserted = rich.text;
     } else {
       _buffer.replace(start, end, inserted, style);
@@ -302,11 +313,31 @@ class RichTextController extends _RichTextState with _RichTextFormatting impleme
     if (r.isCollapsed) return;
     final clip = _clip = _buffer.slice(r.start, r.end, _box);
     await writeRichClipboard(clip.text, htmlFromText(clip));
-    if (cut) {
-      _buffer.replace(r.start, r.end, '', SpanStyle.plain);
-      _pending = null;
-      _changedKeeping(TextRange.collapsed(r.start));
-    }
+    if (cut) _cut(r);
+  }
+
+  /// The selected text, plain and as HTML, for a browser's copy or cut
+  /// event (which the field's own text, with its layout inserts, must not
+  /// answer); remembers its formatting, and [cut] deletes it. Null when
+  /// nothing is selected.
+  ({String plain, String html})? copyNow({bool cut = false}) {
+    final r = modelSelection;
+    if (r.isCollapsed) return null;
+    final clip = _clip = _buffer.slice(r.start, r.end, _box);
+    if (cut) _cut(r);
+    return (plain: clip.text, html: htmlFromText(clip));
+  }
+
+  void _cut(TextRange r) {
+    _buffer.replace(r.start, r.end, '', SpanStyle.plain);
+    _pending = null;
+    _changedKeeping(TextRange.collapsed(r.start));
+  }
+
+  @override
+  void dispose() {
+    releaseFieldCopies(this);
+    super.dispose();
   }
 
   TextData? _pastedHtml(String inserted) {

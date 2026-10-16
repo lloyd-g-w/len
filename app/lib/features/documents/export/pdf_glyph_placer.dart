@@ -90,11 +90,15 @@ class _GlyphPlacer {
     return true;
   }
 
-  /// The word at [start] glyph by glyph: Arabic shaped, marks over their
-  /// letter, brackets mirrored in right-to-left runs.
+  /// The word at [start] glyph by glyph: Arabic shaped (joining the
+  /// letters around it, in other runs), marks over their letter, brackets
+  /// mirrored in right-to-left runs.
   void _glyphs(int start, String word) {
     final glyphs = word.codeUnits.any(_isArabic)
-        ? ArabicForms.shape(word)
+        ? [
+            for (final g in ArabicForms.shape(text, start, start + word.length))
+              (glyph: g.glyph, start: g.start - start, end: g.end - start),
+          ]
         : [
             for (var i = 0; i < word.length; i++)
               if (!_isLow(word.codeUnitAt(i)))

@@ -15,9 +15,13 @@ import 'editor_images.dart';
 ///
 /// Lies over the editor (filling it) without taking pointer events.
 class ImageDropTarget extends StatefulWidget {
-  const ImageDropTarget({super.key, required this.images});
+  const ImageDropTarget({super.key, required this.images, this.onDrop});
 
   final EditorImages images;
+
+  /// Files were dropped here: this editor is the one in use (of two in a
+  /// split view, the files it hands on go to it).
+  final VoidCallback? onDrop;
 
   @override
   State<ImageDropTarget> createState() => _ImageDropTargetState();
@@ -37,6 +41,7 @@ class _ImageDropTargetState extends State<ImageDropTarget> {
       onDragExited: (_) => setState(() => _hovering = false),
       onDragDone: (details) {
         setState(() => _hovering = false);
+        widget.onDrop?.call();
         final images = <XFile>[], others = <XFile>[];
         for (final f in details.files) {
           (ImportRouter.kindOf(f) == IncomingKind.image ? images : others).add(f);

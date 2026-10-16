@@ -49,14 +49,22 @@ abstract final class ArabicForms {
       c == 0x0670 ||
       (c >= 0x06D6 && c <= 0x06ED && c != 0x06DD && c != 0x06DE && c != 0x06E9);
 
-  static bool _joinsAfter(int c) => _dual.containsKey(c) || c == _tatweel;
-  static bool _joinsBefore(int c) => _dual.containsKey(c) || _right.containsKey(c) || c == _tatweel;
+  /// Zero-width joiner: makes its neighbours join, like tatweel.
+  static const int _zwj = 0x200D;
 
-  /// [text] (one word, logical order, UTF-16 code units of the Basic
-  /// Multilingual Plane) shaped: the glyphs to draw, each with the range
-  /// [start, end) of [text] it stands for, in logical order.
-  static List<({String glyph, int start, int end})> shape(String text) {
+  static bool _joinsAfter(int c) => _dual.containsKey(c) || c == _tatweel || c == _zwj;
+  static bool _joinsBefore(int c) =>
+      _dual.containsKey(c) || _right.containsKey(c) || c == _tatweel || c == _zwj;
+
+  /// [text] (logical order, UTF-16 code units of the Basic Multilingual
+  /// Plane) from [from] to [to] (all of it by default) shaped: the glyphs
+  /// to draw, each with the range [start, end) of [text] it stands for, in
+  /// logical order. Letters join their neighbours outside the range too (a
+  /// differently formatted part of a word joins as on screen); lam and
+  /// alef form their ligature only both inside it.
+  static List<({String glyph, int start, int end})> shape(String text, [int from = 0, int? to]) {
     final units = text.codeUnits;
+    final end = to ?? units.length;
     int? neighbour(int i, int step) {
       for (var k = i + step; k >= 0 && k < units.length; k += step) {
         if (!isMark(units[k])) return k;
@@ -65,16 +73,20 @@ abstract final class ArabicForms {
     }
 
     final out = <({String glyph, int start, int end})>[];
-    var i = 0;
-    while (i < units.length) {
+    var i = from;
+    while (i < end) {
       final c = units[i];
       final before = neighbour(i, -1);
       final joinsPrev = before != null && _joinsAfter(units[before]) && _joinsBefore(c);
       final next = neighbour(i, 1);
-      if (c == _lam && next != null && _lamAlef.containsKey(units[next])) {
-        // The ligature stands for lam, the alef and the marks between.
+      if (c == _lam && next != null && next < end && _lamAlef.containsKey(units[next])) {
+        // The ligature stands for lam, the alef and the marks between;
+        // those marks follow it.
         final glyph = _lamAlef[units[next]]! + (joinsPrev ? 1 : 0);
         out.add((glyph: String.fromCharCode(glyph), start: i, end: next + 1));
+        for (var k = i + 1; k < next; k++) {
+          out.add((glyph: String.fromCharCode(units[k]), start: k, end: k + 1));
+        }
         i = next + 1;
         continue;
       }

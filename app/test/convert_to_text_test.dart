@@ -14,6 +14,7 @@ import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/ink/recognition/convert_to_text.dart';
 import 'package:len/ink/recognition/handwriting_recognizer.dart';
+import 'package:len/ink/recognition/ink_clustering.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
 import 'package:len/ink/selection/selection_controller.dart';
 import 'package:len/ink/surface_model.dart';
@@ -126,6 +127,20 @@ void main() {
     final fitted = box(area: phone);
     expect(fitted.rect.left, greaterThanOrEqualTo(phone.left));
     expect(fitted.rect.right, lessThanOrEqualTo(phone.right));
+  });
+
+  test('a right-to-left reading wider than the ink grows to the left of it', () {
+    final ink = [scribble('w', 's', const Rect.fromLTRB(300, 380, 340, 420), createdAt: 1)];
+    SurfaceElement box(String text, {Rect? area}) =>
+        ConvertToText.textBox(ink, text, id: 't', surfaceId: 's', z: 1, createdAt: 1, area: area);
+    final bounds = InkClustering.inkBounds(ink.single);
+    final hebrew = box('שלוםעליכםחברים');
+    expect(hebrew.rect.width, greaterThan(bounds.width + 20));
+    // Its start (right) edge where the writing began.
+    expect(hebrew.rect.right, closeTo(bounds.right, 1));
+    // Kept inside the visible area.
+    final fitted = box('שלוםעליכםחברים', area: const Rect.fromLTWH(250, 0, 400, 800));
+    expect(fitted.rect.left, greaterThanOrEqualTo(250));
   });
 
   test('replacing the selected strokes is one undoable edit', () {

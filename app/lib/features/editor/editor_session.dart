@@ -134,9 +134,19 @@ class EditorSession with _EditorSessionZoom {
     }
     gestures.onDoubleTap = zoom.toggle;
     if (initialZoom != null) _restoreZoom(initialZoom);
+    content.text
+      ..undo = undo.undo
+      ..redo = undo.redo;
     reading = FingerReading(tools: tools, hasContent: _hasContent, busy: _busy);
     input.events.contact = reading.wrote;
     commands?.onBlankPage = reading.write;
+    content.selection.addListener(_onSelection);
+  }
+
+  /// Something selected while reading (pasted, inserted, all selected)
+  /// writes: a finger moves it rather than scrolling.
+  void _onSelection() {
+    if (!content.selection.isEmpty) reading.write();
   }
 
   @override
@@ -265,6 +275,7 @@ class EditorSession with _EditorSessionZoom {
   void dispose() {
     _disposed = true;
     reading.dispose();
+    content.selection.removeListener(_onSelection);
     input.cancelDraw(); // Stops a stroke's or tool's pending timers.
     if (_zoomCreated) zoomWindow.dispose();
     images.dispose();

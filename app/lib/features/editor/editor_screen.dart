@@ -237,6 +237,12 @@ class _EditorScreenState extends State<_EditorView> {
     _parked = parked;
     // A parked pane takes no files; shown again, it takes them when used.
     if (parked) _services.incomingFiles.targets.remove(_importTarget);
+    // Gone to reading while parked: the reading tip now it shows.
+    if (!parked && _session.tools.reading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_parked && _session.tools.reading) _onReading();
+      });
+    }
   }
 
   void _onTabs() {
@@ -270,7 +276,12 @@ class _EditorScreenState extends State<_EditorView> {
   }
 
   void _onFocus() {
-    if (!_focusNode.hasFocus) return;
+    if (_focusNode.hasFocus) _use();
+  }
+
+  /// This editor is the one in use (focused, files dropped on it): the
+  /// split view's, and where files and dialogs go.
+  void _use() {
     if (_pane case final pane?) widget.split!.use(pane);
     _services.incomingFiles.targets.add(_importTarget);
     _services.routeOwners.current = this; // Dialogs opened by keyboard.
@@ -350,11 +361,12 @@ class _EditorScreenState extends State<_EditorView> {
     final band =
         primaryWidth != null &&
         EditorTopBar.showsStrip(Size(primaryWidth, MediaQuery.sizeOf(context).height), open);
-    // Back (e.g. Android's) leaves focus mode before leaving the editor.
+    // Back (e.g. Android's) leaves focus mode before leaving the editor;
+    // a box being typed in finishes first (its own handler, after this one).
     return PopScope(
       canPop: !_focus,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _setFocus(false);
+        if (!didPop && !_session.content.text.isEditing) _setFocus(false);
       },
       child: Scaffold(
         body: CallbackShortcuts(

@@ -37,25 +37,31 @@ class _TextHistory {
     _composing = false;
   }
 
-  /// The selection moved to [selection] without a change.
-  void select(TextSelection selection) {
+  /// The selection moved to [selection] without a change; an IME
+  /// composition goes on only while still [composing] (a keyboard letting
+  /// go of a word ends its step).
+  void select(TextSelection selection, {bool composing = false}) {
     final last = _last;
     if (last != null) _last = (data: last.data, selection: selection);
+    _composing = _composing && composing;
   }
 
   /// The text changed to [state]. A typing run continues when the edit
   /// starts at [runFrom] where the last one ended; it then goes on at
   /// [runTo] (-1 ends the run). Changes while [composing] (and the one
-  /// that ends the composition) go on the same step.
+  /// that ends the composition) go on the same step; a [command]
+  /// (formatting, lists, a cut) is always a step of its own.
   void changed(
     _Snapshot state, {
     int runFrom = -1,
     int runTo = -1,
     bool deletes = false,
     bool composing = false,
+    bool command = false,
   }) {
     final last = _last;
-    final continues = _composing || (runFrom >= 0 && runFrom == _runAt && deletes == _runDeletes);
+    final continues =
+        !command && (_composing || (runFrom >= 0 && runFrom == _runAt && deletes == _runDeletes));
     _composing = composing;
     if (!continues && last != null) {
       _undo.add(last);
