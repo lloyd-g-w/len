@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/surface_copier.dart';
@@ -187,4 +188,32 @@ void main() {
       }
     }
   }
+
+  // Text that would be cut at 2× on a phone (UX_AUDIT R23-7).
+  group('at 2× nothing is cut short', () {
+    bool cut(WidgetTester tester, Finder text) =>
+        tester.renderObject<RenderParagraph>(text).didExceedMaxLines;
+
+    testWidgets('the Add page hint', (tester) async {
+      await pumpScreen(
+        tester,
+        (s) => EditorScreen(notebook: physics(s)),
+        size: phone,
+        textScale: 2,
+      );
+      expect(cut(tester, find.text('Hold for a template')), isFalse);
+    });
+
+    testWidgets('a recording\'s date', (tester) async {
+      await pumpScreen(
+        tester,
+        (s) => EditorScreen(notebook: physics(s)),
+        size: phone,
+        textScale: 2,
+        services: withRecording,
+      );
+      await openRecordings(tester);
+      expect(cut(tester, find.textContaining('1970')), isFalse);
+    });
+  });
 }

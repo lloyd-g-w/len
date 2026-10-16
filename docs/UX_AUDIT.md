@@ -104,11 +104,12 @@ handles lose contrast on dark paper.
   each side of the blue line, readable on any paper, image or ink (handles
   were already paper discs ringed in blue).
 
-**R23-7 P3 · Smaller large-text cuts.** ⬜
-- The canvas's "Hold for a template" hint ellipsizes at 2× on a phone;
-  a recording's date ellipsizes at 2×. Both readable in full by a screen
-  reader; wrap them.
-
+**R23-7 P3 · Smaller large-text cuts.** ✅
+- *What:* the canvas's "Hold for a template" hint ellipsized at 2× on a
+  phone ("Hold for a templa…"); a recording's date lost its time ("1 Jan
+  1970, 0…").
+- *Fix:* the hint shrinks to fit its one line (the footer is placed by its
+  height); the date wraps to a second line.
 
 ## Round 21 audit — diagrams and drawing (`review/round21`)
 
