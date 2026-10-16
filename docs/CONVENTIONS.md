@@ -160,6 +160,9 @@ migrations needs no manual cleanup — but don't rely on it once we ship.
 nix develop -c bash -c 'cd app && flutter analyze && flutter test -x slow'  # default tier
 nix develop -c bash -c 'cd app && flutter test -t slow'   # slow tier: perf + screenshots
 nix develop -c bash -c 'cd app && flutter test'           # both tiers in one run
+# On a shared machine, full runs go through app/tool/heavy.sh (lock + memory cap):
+app/tool/heavy.sh nix develop -c bash -c 'cd app && flutter test -x slow'
+app/tool/heavy.sh nix develop -c bash -c 'cd app && flutter test -t slow'
 nix develop -c bash -c 'cd app && flutter build web --release'   # web must keep compiling
 nix develop .#android -c bash -c 'cd app && flutter build apk --debug'
 app/tool/generate_icons.sh   # after changing the icon design (commit the output)

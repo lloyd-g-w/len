@@ -64,7 +64,8 @@ flutter test -t slow                      # the slow tier: test/perf, test/scree
 
 `flutter test` alone runs both tiers. CI runs both on every push
 (`docs/CONVENTIONS.md`, "Rules"); on a shared machine wrap full runs in
-`tool/heavy.sh`.
+`tool/heavy.sh`, e.g. from `app/`:
+`tool/heavy.sh flutter test -x slow` (and `-t slow`).
 
 **End-to-end tests** drive the real Linux app (real SQLite, files, plugins,
 rendering and a local sync server, two devices) under a virtual display:

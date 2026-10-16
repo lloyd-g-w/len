@@ -73,7 +73,9 @@ tool/heavy.sh nix develop ..# -c bash -c \
 ```
 
 `inklab_test.dart` has one test per metric per entry. Entries are the ten
-simulated cases at stabiliser 0, 0.4 and 1, plus every recording. Real
+simulated cases at stabiliser 0, 0.4 and 1, plus every recording; the
+entries at 0.4 and 1 are judged in `inklab_stabiliser_0_4_test.dart` and
+`inklab_stabiliser_1_test.dart`, so the three files run in parallel. Real
 device recordings (`recordings/real_*.leninput`, a minute or more of writing
 each) take many minutes to replay through the pixel metrics, so they only run
 with `--dart-define=INKLAB_REAL=true`:
