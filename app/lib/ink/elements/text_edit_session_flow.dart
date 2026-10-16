@@ -202,6 +202,7 @@ extension _SessionFlow on TextEditSession {
     final empty = data.text.trim().isEmpty;
     if (head != null) {
       if (!empty) {
+        _carryFirstLine(parts, data);
         parts[_aloneIndex] = data;
       } else {
         final gone = parts.removeAt(_aloneIndex);
@@ -231,6 +232,22 @@ extension _SessionFlow on TextEditSession {
       _modelOf(headPage).commit(InkEdit(removedElements: [?stored], addedElements: [r.head]));
       chains.commit(r.edits);
     });
+  }
+
+  /// A part edited on its own whose first line goes on with the page
+  /// before ([TextFlow.joined]) shares that paragraph with the parts
+  /// before it, whose style wins when the chain is joined: a style changed
+  /// there ([data], a heading, a tick) goes back to them.
+  void _carryFirstLine(List<TextData> parts, TextData data) {
+    final was = parts[_aloneIndex];
+    final style = data.paras.first;
+    if (_aloneIndex == 0 || !(was.flow?.joined ?? false) || style == was.paras.first) return;
+    for (var k = _aloneIndex - 1; k >= 0; k--) {
+      final part = parts[k];
+      parts[k] = part.withFormatting(paras: [...part.paras.take(part.lineCount - 1), style]);
+      // A part all of that paragraph's: it goes on from the part before.
+      if (part.lineCount > 1 || !(part.flow?.joined ?? false)) break;
+    }
   }
 
   /// Tells the pages what to draw in place of the boxes edited, for their

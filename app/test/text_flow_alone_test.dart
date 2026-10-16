@@ -93,6 +93,36 @@ void main() {
     session.end();
     expect(whole().text, 'Alphagamma');
   });
+
+  group('a paragraph split between pages, restyled from its part on the next page', () {
+    void restyle(ParaStyle style) {
+      elements.save([
+        box('h', 'p0', 'Intro\nAlpha'),
+        box('c1', 'p1', 'beta\nAfter', flow: const TextFlow(from: 'h', joined: true)),
+      ]);
+      session.model = pages.modelOf('p1');
+      final c1 = elements.allOn('p1').single;
+      session.edit(c1);
+      final data = TextData.fromJson(c1.data);
+      session.setData(
+        TextData.rich(text: data.text, paras: [style, ParaStyle.body]).withFlow(data.flow),
+      );
+      session.end();
+    }
+
+    test('a heading', () {
+      restyle(const ParaStyle(heading: 1));
+      expect(whole().text, 'Intro\nAlphabeta\nAfter');
+      expect(whole().paras.map((p) => p.heading), [0, 1, 0]);
+      expect(TextData.fromJson(elements.allOn('p0').single.data).paras[1].heading, 1);
+    });
+
+    test('a tick', () {
+      restyle(const ParaStyle(list: ListKind.check, checked: true));
+      expect(whole().paras[1].checked, isTrue);
+      expect(whole().paras[0].list, ListKind.none);
+    });
+  });
 }
 
 /// Two devices that made a chain run on at once each stored a box

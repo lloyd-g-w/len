@@ -2075,7 +2075,8 @@ GoodNotes-style rich text inside a box.
   line once and corrects the placeholders by what the field adds,
   `RichTextController.roomExtra`). The other pages' boxes are hidden meanwhile and drawn as
   typed in other views (lifted content). One page at a time (single-page flow) the box tapped
-  is edited alone and its chain flows again when it ends. Either way the end is one
+  is edited alone and its chain flows again when it ends (a style given to its first line, when
+  that line goes on with the page before, goes to the parts holding the paragraph's start). Either way the end is one
   notebook-wide undo step (`PageModels.group`; pages added for the text are recorded last, so
   undo deletes them with their text and redo restores both). The session lays the text out
   once per keystroke (`TextLayoutCache`: width, height, split and the field's breaks read one
