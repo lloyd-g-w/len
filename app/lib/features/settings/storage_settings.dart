@@ -181,8 +181,8 @@ class _StorageSettingsState extends State<StorageSettings> {
         title: 'Keep data on this device',
         subtitle: switch (persisted) {
           null => 'Checking…',
-          true => 'On: the browser keeps Len’s data until you clear it.',
-          false => 'Off: the browser may clear Len’s data when storage runs low.',
+          true => 'On: the browser keeps Len’s data until you clear it',
+          false => 'Off: the browser may clear Len’s data when storage runs low',
         },
         trailing: persisted == false
             ? OutlinedButton(onPressed: _asking ? null : _request, child: const Text('Turn on'))
