@@ -188,7 +188,7 @@ TextData? _readable(TextData data) {
   ];
   return TextData.rich(
     text: text,
-    spans: TextData.compact(chars),
+    spans: StyledRange.compact(chars),
     paras: data.paras.sublist(first, last + 1),
   );
 }
@@ -220,7 +220,7 @@ TextData _anyText(math.Random r) {
   final lines = '\n'.allMatches(text).length + 1;
   return TextData.rich(
     text: text,
-    spans: TextData.compact(chars),
+    spans: StyledRange.compact(chars),
     paras: [for (var i = 0; i < lines; i++) _para(r)],
     font: TextFont.values[r.nextInt(TextFont.values.length)],
     color: _colors[r.nextInt(_colors.length)],

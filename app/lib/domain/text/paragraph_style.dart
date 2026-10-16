@@ -62,6 +62,16 @@ class ParaStyle {
     );
   }
 
+  /// One style per line of [text] (unmodifiable), or none when all are
+  /// [body] (the stored form).
+  static List<ParaStyle> normalize(List<ParaStyle> paras, String text) {
+    final lines = '\n'.allMatches(text).length + 1;
+    if (paras.every((p) => p == ParaStyle.body)) return const [];
+    return List.unmodifiable([
+      for (var i = 0; i < lines; i++) i < paras.length ? paras[i] : ParaStyle.body,
+    ]);
+  }
+
   Map<String, Object?> toJson() => {
     if (heading != 0) 'h': heading,
     if (isList) 'l': list.name,

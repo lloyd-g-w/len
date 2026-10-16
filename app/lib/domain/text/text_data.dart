@@ -23,7 +23,7 @@ export 'text_font.dart';
 /// non-overlapping, non-empty, never plain, and adjacent equal spans
 /// merged; [paras] has exactly one entry per line. [TextData.fromJson]
 /// tolerates malformed values (it reads rows this app wrote); records from
-/// elsewhere are checked by [TextData.strict] first (see SYNC_PROTOCOL.md).
+/// elsewhere are checked by [TextRecord.parse] first (see SYNC_PROTOCOL.md).
 class TextData {
   /// A box of plain [text]. Use [TextData.rich] for formatted text.
   const TextData({
@@ -62,8 +62,8 @@ class TextData {
     TextFlow? flow,
   }) => TextData._(
     text,
-    normalizeSpans(spans, text.length),
-    _normalizeParas(paras, text),
+    StyledRange.normalize(spans, text.length),
+    ParaStyle.normalize(paras, text),
     font: font,
     fontSize: fontSize.clamp(minFontSize, maxFontSize),
     color: color,
@@ -134,14 +134,10 @@ class TextData {
     final size = json['size'];
     final color = json['color'];
     final text = json['text'] is String ? json['text']! as String : '';
-    final spans = <StyledRange>[];
-    if (json['spans'] case final List<Object?> list) {
-      for (final s in list) {
-        if (s is List && s.length == 3 && s[0] is int && s[1] is int && s[2] is Map) {
-          spans.add(StyledRange(s[0] as int, s[1] as int, SpanStyle.fromJson(s[2] as Map)));
-        }
-      }
-    }
+    final spans = [
+      if (json['spans'] case final List<Object?> list)
+        for (final s in list) ?StyledRange.tryParse(s),
+    ];
     final paras = json['paras'] is List
         ? [for (final p in json['paras']! as List) ParaStyle.fromJson(p)]
         : const <ParaStyle>[];
@@ -270,42 +266,6 @@ class TextData {
       styles.fillRange(s.start, s.end, s.style);
     }
     return styles;
-  }
-
-  /// Sorted, clipped to [length], overlaps resolved (later spans win),
-  /// plain and empty ones dropped, adjacent equal ones merged.
-  static List<StyledRange> normalizeSpans(List<StyledRange> spans, int length) {
-    if (spans.isEmpty) return const [];
-    final styles = List<SpanStyle>.filled(length, SpanStyle.plain);
-    for (final s in spans) {
-      final start = s.start.clamp(0, length), end = s.end.clamp(0, length);
-      if (end > start) styles.fillRange(start, end, s.style);
-    }
-    return compact(styles);
-  }
-
-  /// Per-character [styles] as normalised ranges.
-  static List<StyledRange> compact(List<SpanStyle> styles) {
-    final out = <StyledRange>[];
-    var i = 0;
-    while (i < styles.length) {
-      final style = styles[i];
-      var j = i + 1;
-      while (j < styles.length && styles[j] == style) {
-        j++;
-      }
-      if (!style.isPlain) out.add(StyledRange(i, j, style));
-      i = j;
-    }
-    return List.unmodifiable(out);
-  }
-
-  static List<ParaStyle> _normalizeParas(List<ParaStyle> paras, String text) {
-    final lines = '\n'.allMatches(text).length + 1;
-    if (paras.every((p) => p == ParaStyle.body)) return const [];
-    return List.unmodifiable([
-      for (var i = 0; i < lines; i++) i < paras.length ? paras[i] : ParaStyle.body,
-    ]);
   }
 
   @override
