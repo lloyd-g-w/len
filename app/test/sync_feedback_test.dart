@@ -262,10 +262,13 @@ void main() {
       await tester.enterText(find.widgetWithText(TextField, 'Server URL'), 'http://other.test');
       server.serverId = 'another-server';
       await tester.tap(find.text('Connect'));
+      // Then the sync with it runs: let it finish (on a busy machine it
+      // could still be pulling, with a timer pending, when the test ends).
       await pumpUntil(
         tester,
-        () => s.settings.syncUrl == 'http://other.test',
-        reason: 'the new server saved',
+        () => s.settings.syncUrl == 'http://other.test' && s.sync.state != SyncState.syncing,
+        stable: 3,
+        reason: 'the new server saved and synced with',
       );
       expect(s.blobs.sizeOf(sha), 500);
       await tester.pumpWidget(const SizedBox());
