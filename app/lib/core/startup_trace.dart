@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:ui' show FramePhase, TimingsCallback;
 
 import 'package:flutter/scheduler.dart';
 
@@ -21,7 +22,7 @@ abstract final class StartupTrace {
   /// Turns at least this long count as the app not answering.
   static const Duration longTurn = Duration(milliseconds: 50);
 
-  /// How long after the first frame long turns are watched for.
+  /// How long after `runApp` long turns are watched for.
   static const Duration watchWindow = Duration(seconds: 6);
 
   static final Stopwatch _sinceMain = Stopwatch();
@@ -30,7 +31,36 @@ abstract final class StartupTrace {
   /// Called first thing in `main`: times are relative to it.
   static void begin() {
     _sinceMain.start();
+    _mainMicros = developer.Timeline.now;
     mark('main');
+  }
+
+  static int _mainMicros = 0;
+  static int _framesShown = 0;
+
+  /// Prints the phases of the first [frames] frames (only in tracing
+  /// builds), in ms since main:
+  ///
+  ///     len-startup-frame <n> build <start>-<end> raster <start>-<end>
+  static void watchFrames({int frames = 12}) {
+    if (!enabled) return;
+    late final TimingsCallback callback;
+    callback = (timings) {
+      for (final t in timings) {
+        if (_framesShown++ >= frames) {
+          SchedulerBinding.instance.removeTimingsCallback(callback);
+          return;
+        }
+        String at(FramePhase phase) =>
+            ((t.timestampInMicroseconds(phase) - _mainMicros) / 1000).toStringAsFixed(0);
+        _print(
+          'len-startup-frame ${t.frameNumber} build ${at(FramePhase.buildStart)}-'
+          '${at(FramePhase.buildFinish)} raster ${at(FramePhase.rasterStart)}-'
+          '${at(FramePhase.rasterFinish)}',
+        );
+      }
+    };
+    SchedulerBinding.instance.addTimingsCallback(callback);
   }
 
   /// Milliseconds since [begin].

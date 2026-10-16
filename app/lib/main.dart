@@ -29,6 +29,7 @@ import 'ui/startup_error.dart';
 Future<void> main(List<String> args) async {
   StartupTrace.begin();
   WidgetsFlutterBinding.ensureInitialized();
+  StartupTrace.watchFrames();
   registerFontLicenses();
   // Web: one tab at a time owns the database; another can take it over.
   final tabs = openTabHandover();
@@ -96,11 +97,11 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
   if (PerfProbe.requested) PerfProbe.start();
   runApp(LenApp(services: services));
   StartupTrace.mark('runApp');
+  StartupTrace.watchTurns();
   unawaited(
-    WidgetsBinding.instance.waitUntilFirstFrameRasterized.then((_) {
-      StartupTrace.mark('first frame');
-      StartupTrace.watchTurns();
-    }),
+    WidgetsBinding.instance.waitUntilFirstFrameRasterized.then(
+      (_) => StartupTrace.mark('first frame'),
+    ),
   );
   // Throttled to once a day; deletes blobs unreferenced for a week. Its
   // scans run on this thread: later, not while the first frames build.

@@ -42,7 +42,10 @@ part 'library_screen_layout.dart';
 /// Esc ends selection or clears the search. Ctrl- and Shift-click select
 /// notebooks.
 class LibraryScreen extends StatefulWidget {
-  const LibraryScreen({super.key});
+  const LibraryScreen({super.key, this.restored});
+
+  /// The editor launched over the library ([launchRoutes]), if any.
+  final Route<void>? restored;
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -115,10 +118,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       StartupTrace.mark('library');
       if (!mounted) return;
-      final restored = _reopenWorkspace(services);
-      unawaited(_resumeLostPhoto(services, editorUp: restored != null));
+      unawaited(_resumeLostPhoto(services, editorUp: widget.restored != null));
       unawaited(offerRecordingRecovery(context, services));
       _onSyncSetup(); // Launched with a setup link.
+    });
+    // Back from the editor launched over the library: as after
+    // [LibraryActions.openNotebook].
+    widget.restored?.popped.then((_) {
+      if (!mounted) return;
+      _thumbnails.invalidate(services.openNotebooks.takeVisited());
+      _controller.reload();
     });
     _remoteChanges = services.sync.remoteChanges.listen((c) {
       if (c.strokeSurfaces.isNotEmpty || c.pagesOfNotebooks.isNotEmpty) _thumbnails.invalidate();
@@ -127,16 +136,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _syncNotices = services.sync.notices.listen((notice) {
       if (mounted) showMessage(context, notice);
     });
-  }
-
-  /// The app was left in the editor (killed in the background, a window
-  /// closed): its tabs open again, the library underneath (UX_AUDIT R7-7).
-  /// Returns the notebook shown, if any.
-  Notebook? _reopenWorkspace(AppServices services) {
-    if (services.incomingFiles.targets.active != null) return null; // An editor is up.
-    final active = services.workspace.restore(services.notebooks.get);
-    if (active != null) unawaited(_actions.openNotebook(context, active));
-    return active;
   }
 
   /// Android killed Len while the camera app was in front: the photo
