@@ -106,8 +106,9 @@ temporary copies pile up in Android's cache. There is no print path.
 - *What:* each share writes its files into the cache's `export/` folder
   and nothing removes them; every assignment and page ever shared stays
   there until Android clears the cache.
-- *Fix:* the folder is emptied before the next export writes into it
-  (the previous share is finished by then). Effort S.
+- *Fix:* each share first deletes what earlier shares left there over
+  an hour ago (newer files stay: the app shared to may still be reading
+  them). Effort S.
 
 **R22-7 P3 · Several files on the web are several downloads.** ✅
 - *What:* PNGs of a range or several notebooks download one by one, a

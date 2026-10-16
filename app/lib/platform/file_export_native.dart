@@ -92,8 +92,7 @@ Future<ExportedFiles?> _mobileExport(
   required bool toDevice,
   String? subject,
 }) async {
-  final tmp = await getTemporaryDirectory();
-  final dir = await Directory(p.join(tmp.path, 'export')).create(recursive: true);
+  final dir = await freshExportDir(await getTemporaryDirectory());
   final paths = <String>[];
   for (final f in files) {
     final file = File(p.join(dir.path, f.name));
@@ -107,6 +106,24 @@ Future<ExportedFiles?> _mobileExport(
     toDevice: toDevice,
     subject: subject,
   );
+}
+
+/// The `export` folder in [tmp] for the files of one share. Files earlier
+/// shares left there over an hour ago are deleted, so shared assignments
+/// don't pile up in the cache (R22-6); newer ones stay, as an app shared
+/// to may still be reading them (an upload in the background).
+@visibleForTesting
+Future<Directory> freshExportDir(Directory tmp, {DateTime? now}) async {
+  final dir = await Directory(p.join(tmp.path, 'export')).create(recursive: true);
+  final before = (now ?? DateTime.now()).subtract(const Duration(hours: 1));
+  try {
+    for (final entry in dir.listSync()) {
+      if (entry.statSync().modified.isBefore(before)) await entry.delete(recursive: true);
+    }
+  } on FileSystemException catch (e) {
+    debugPrint('Cannot clear $dir: $e');
+  }
+  return dir;
 }
 
 /// Opens the share sheet for the files at [paths] (named [names]), titled
