@@ -42,7 +42,7 @@ void Function() _dieAfter(int afterUs) =>
 Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) async {
   final r = math.Random(seed);
   final server = RealServer();
-  final network = FaultyNetwork(server, r)..rate = 0.3;
+  final network = FaultyNetwork(server, r)..rate = const [0.15, 0.3, 0.5][seed % 3];
   final time = SharedTime();
   final devices = [
     for (var i = 0; i < deviceCount; i++)
@@ -64,7 +64,16 @@ Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) asyn
         SyncEngine.workerFromBytes = r.nextBool() ? 0 : 64 * 1024;
         BackgroundPullWorker.debugOnServe = r.nextInt(6) == 0 ? _dieAfter(r.nextInt(20000)) : null;
         await d.sync(killAfter: roll >= 84 ? Duration(microseconds: r.nextInt(30000)) : null);
-      } else if (roll < 91) {
+      } else if (roll < 90) {
+        // Shows something whose file is elsewhere: fetched over the faulty
+        // network (a failure leaves it to the next time).
+        final s = d.app;
+        final missing = [
+          for (final sha in s.sync.engine.blobReferences.all())
+            if (!await s.blobs.has(sha)) sha,
+        ];
+        if (missing.isNotEmpty) await s.sync.fetchBlob(missing[r.nextInt(missing.length)]);
+      } else if (roll < 92) {
         d.restart();
       } else if (roll < 95) {
         // The clock jumps (forwards or back) by up to an hour.
@@ -168,6 +177,8 @@ Future<List<String>> _problems(
     for (final d in devices) {
       if (!await d.s.blobs.has(sha) && !await d.s.sync.fetchBlob(sha)) {
         out.add('${d.prefix}: cannot get blob $sha');
+      } else if (sha256.convert((await d.s.blobs.read(sha))!).toString() != sha) {
+        out.add('${d.prefix}: blob $sha is damaged');
       }
     }
   }
