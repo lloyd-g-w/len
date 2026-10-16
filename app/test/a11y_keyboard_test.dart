@@ -156,7 +156,7 @@ void main() {
       expect(find.text('Size'), findsWidgets, reason: 'the pen options are open');
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
-      expect(focused(tester), 'Custom', reason: 'focus moved into the popover');
+      expect(focused(tester), 'Pick from page', reason: 'focus moved into the popover');
       await press(tester, LogicalKeyboardKey.escape);
       expect(find.text('Custom'), findsNothing);
       expect(focused(tester), 'Pen (P)');
