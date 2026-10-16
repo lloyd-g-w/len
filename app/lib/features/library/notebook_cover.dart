@@ -87,7 +87,7 @@ class NotebookCover extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: radius,
-              border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+              border: Border.all(color: Palette.paperEdge),
             ),
           ),
         ],
@@ -127,7 +127,9 @@ class _Spine extends StatelessWidget {
           child: SizedBox(
             width: width,
             height: constraints.maxHeight,
-            child: ColoredBox(color: onPreview ? color : Color.lerp(color, Colors.black, _shade)!),
+            child: ColoredBox(
+              color: onPreview ? color : Color.lerp(color, Tones.light.ink, _shade)!,
+            ),
           ),
         );
       },
@@ -157,7 +159,7 @@ class _CanvasTag extends StatelessWidget {
             decoration: BoxDecoration(
               color: Palette.paper,
               borderRadius: BorderRadius.circular(Radii.xs),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+              border: Border.all(color: Palette.paperEdge),
             ),
             // Paper stays light in both themes, so its ink is the light Ink.
             child: Icon(
@@ -187,7 +189,7 @@ class _FavoriteBadge extends StatelessWidget {
         // A badge printed on the cover: flat, radius xs (DESIGN §3).
         color: Palette.paper,
         borderRadius: BorderRadius.circular(Radii.xs),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+        border: Border.all(color: Palette.paperEdge),
       ),
       // Paper stays light in both themes, so its ink is the light Ink.
       child: Icon(Symbols.star_sharp, fill: 1, size: 16, color: Tones.of(Brightness.light).ink),

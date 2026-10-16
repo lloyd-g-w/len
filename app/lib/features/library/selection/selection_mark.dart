@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
+import '../../../ui/select_check.dart';
 
 /// Overlay on a cover in selection mode: a checkbox, and an accent ring
 /// when selected. It takes no taps: the whole cover (or list row)
@@ -17,22 +17,7 @@ class SelectionMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final check = AnimatedContainer(
-      duration: Motion.fast,
-      width: compact ? 20 : 24,
-      height: compact ? 20 : 24,
-      // A checkbox (DESIGN §6: 2-dp corners, blue when on), flat on the
-      // cover. The same in light and dark mode: covers don't follow the
-      // theme. A dark edge on white shows on light and dark covers alike.
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(Radii.xs),
-        color: selected ? scheme.primary : Colors.white.withValues(alpha: 0.92),
-        border: Border.all(color: selected ? Colors.white : Colors.black54, width: 1.5),
-      ),
-      child: selected
-          ? Icon(Symbols.check_sharp, size: compact ? 14 : 18, color: scheme.onPrimary)
-          : null,
-    );
+    final check = SelectCheck(selected: selected, small: compact);
     return IgnorePointer(
       child: AnimatedContainer(
         duration: Motion.fast,

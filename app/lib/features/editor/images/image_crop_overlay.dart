@@ -268,7 +268,7 @@ class _CropPainter extends CustomPainter {
     canvas.drawPath(Path()..addPolygon([at(0, 0), at(1, 0), at(1, 1), at(0, 1)], true), outline);
     // Rule-of-thirds guides.
     final guide = Paint()
-      ..color = const Color(0x88FFFFFF)
+      ..color = Palette.cropGuide
       ..strokeWidth = Hairline.width;
     for (final f in const [1 / 3, 2 / 3]) {
       canvas

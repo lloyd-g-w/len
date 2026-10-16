@@ -33,7 +33,7 @@ class HighlightedText extends StatelessWidget {
     final emphasis = base.copyWith(
       fontWeight: FontWeight.w600,
       color: scheme.onSurface,
-      backgroundColor: SearchColors.match(scheme).withValues(alpha: 0.45),
+      backgroundColor: Palette.searchMatch(scheme.brightness).withValues(alpha: 0.45),
     );
     final text = snippet.text;
     final spans = <TextSpan>[];
@@ -50,18 +50,4 @@ class HighlightedText extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
     );
   }
-}
-
-/// Colours of search highlights (DESIGN §1): every match is marked like a
-/// highlighter on paper, in marker yellow (content, a warmer amber in dark
-/// lists); the current match is a state, so it takes the accent: a ruling
-/// blue ring around its marker.
-abstract final class SearchColors {
-  /// Marker yellow for matches (a warmer amber in dark mode).
-  static Color match(ColorScheme scheme) =>
-      scheme.brightness == Brightness.light ? const Color(0xFFFFD43B) : const Color(0xFFFFB020);
-
-  /// The ring around the current match on the page: the light theme's
-  /// ruling blue, since pages are light even in dark mode.
-  static Color current(ColorScheme scheme) => Tones.light.accent;
 }

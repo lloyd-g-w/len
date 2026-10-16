@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../ui/app_theme.dart';
+
 /// An eraser glyph (a tilted block with a band at its tip), drawn like the
 /// Sharp symbols beside it: 1.5-px strokes, square corners, mitred joins.
 /// Sized and coloured by [IconTheme]; its `fill` (the active tool) fills
@@ -16,7 +18,7 @@ class EraserIcon extends StatelessWidget {
     return SizedBox.square(
       dimension: size,
       child: CustomPaint(
-        painter: _EraserPainter(theme.color ?? Colors.black, filled: (theme.fill ?? 0) >= 0.5),
+        painter: _EraserPainter(theme.color ?? Tones.light.ink, filled: (theme.fill ?? 0) >= 0.5),
       ),
     );
   }

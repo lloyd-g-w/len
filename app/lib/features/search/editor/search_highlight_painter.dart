@@ -6,7 +6,7 @@ import 'editor_search_host.dart';
 
 /// Paints search matches over the editor's surface: every match on
 /// screen in marker yellow, the current one stronger with a ruling blue
-/// ring (SearchColors).
+/// ring (`Palette.searchMatch`).
 class SearchHighlightPainter extends CustomPainter {
   SearchHighlightPainter({
     required this.controller,

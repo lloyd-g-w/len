@@ -150,7 +150,8 @@ Future<T> _run<T>(
   final route = DialogRoute<void>(
     context: context,
     barrierDismissible: false,
-    barrierColor: DialogTheme.of(context).barrierColor ?? Colors.black54,
+    barrierColor:
+        DialogTheme.of(context).barrierColor ?? Surfaces.scrim(Theme.of(context).brightness),
     themes: InheritedTheme.capture(from: context, to: navigator.context),
     builder: (context) => PopScope(
       canPop: false,

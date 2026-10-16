@@ -3,7 +3,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../../ui/app_theme.dart';
-import '../highlighted_text.dart';
 import 'editor_search_bar.dart';
 import 'editor_search_controller.dart';
 import 'search_highlight_painter.dart';
@@ -55,8 +54,8 @@ class EditorSearchLayer extends StatelessWidget {
                 painter: SearchHighlightPainter(
                   controller: controller,
                   host: controller.host,
-                  matchColor: SearchColors.match(scheme),
-                  currentColor: SearchColors.current(scheme),
+                  matchColor: Palette.searchMatch(scheme.brightness),
+                  currentColor: Tones.light.accent,
                 ),
               ),
             ),
