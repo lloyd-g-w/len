@@ -9,6 +9,7 @@ import 'package:len/data/blob_backend.dart';
 import 'package:len/data/surface_copier.dart';
 import 'package:len/domain/cancellation.dart';
 import 'package:len/domain/notebook.dart';
+import 'package:len/domain/notebook_style.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/backup/len_import_flow.dart';
@@ -206,6 +207,17 @@ void main() {
     expect(version('notebooks', diary.id), greaterThan(ahead));
     expect(version('pages', page), greaterThan(ahead));
     expect(version('strokes', 'ink-Diary'), greaterThan(ahead));
+  });
+
+  test('a backup holding notebook styles still tells what is here', () async {
+    source.notebookStyles.create(
+      name: 'Lecture',
+      choice: const NotebookChoice(paper: PaperStyle.cornell, coverColor: 7),
+    );
+    final bytes = await backup();
+    final from = await open(source, bytes);
+    expect(from.contents.notebooks.values.toSet(), {'Physics', 'Diary'});
+    expect(source.lenFiles.present(from).values.toSet(), {'Physics', 'Diary'});
   });
 
   test('the folder a restore goes into syncs like what it holds', () async {
