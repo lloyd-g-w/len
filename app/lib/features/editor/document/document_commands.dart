@@ -70,7 +70,6 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
   }
 
   /// Whether the page structure changed (pages added, moved, …).
-  @override
   bool changed = false;
 
   @override
@@ -79,7 +78,6 @@ class DocumentCommands with _DocumentFiles, _DocumentTemplates {
   /// Reloads the page list, keeping [keep] (or the current page) in view.
   /// A no-op once the editor closed (e.g. a page-delete snack bar's Undo
   /// pressed later still restores the page, but there is nothing to show).
-  @override
   void reload({String? keep}) {
     if (_disposed) return;
     var pages = actions.pages;

@@ -20,6 +20,10 @@ typedef PdfReplacement = ({
   /// The new PDF's blob.
   String blob,
 
+  /// The sizes of its pages, by index (the pages drawn on them take their
+  /// shape, see [NotebookPage.sizeFor]).
+  List<Size> shapes,
+
   /// Pages for the new PDF's pages beyond the old one's end, to add after
   /// [after]; empty when it has none, or the notebook didn't show the old
   /// one's last page.
@@ -109,17 +113,19 @@ Future<PdfReplacement?> replacePdfFlow(
               ),
           ];
     final after = using.last.page;
+    final reshaped = using.any((u) => u.page.sizeFor(read.sizes[u.index]) != u.page.size);
     final agreed = await confirmAction(
       context,
       title: 'Replace the PDF?',
       message:
           '“${picked.name}” will show under the notes on ${_pages(using.length)}, page for '
           'page; the notes stay where they are.'
-          '${extra.isEmpty ? '' : ' Its ${_newPages(extra.length)} added at the end.'}',
+          '${extra.isEmpty ? '' : ' Its ${_newPages(extra.length)} added at the end.'}'
+          '${reshaped ? ' Pages change shape to match.' : ''}',
       confirmLabel: 'Replace',
     );
     if (!agreed) return await discard();
-    return (blob: sha!, extra: extra, after: after);
+    return (blob: sha!, shapes: read.sizes, extra: extra, after: after);
   } on Cancelled {
     return await discard();
   } on Object catch (e, stack) {

@@ -142,25 +142,43 @@ class PageRepository extends SyncableTable {
   /// Points the pages of [notebookId] whose background is a page of PDF
   /// [from] at the same page of PDF [to] (relinking a PDF that went
   /// missing, or replacing it with a new version), only pages [only] if
-  /// given. Returns the pages changed.
-  List<String> relinkBackground(
+  /// given. With [shapes] (the sizes of [to]'s pages, by index), each page
+  /// takes the shape of its new PDF page ([NotebookPage.sizeFor]). Returns
+  /// the pages changed, with their sizes before.
+  List<({String id, Size size})> relinkBackground(
     String notebookId, {
     required String from,
     required String to,
     Set<String>? only,
+    List<Size>? shapes,
   }) {
-    final changed = <String>[];
+    final changed = <({String id, Size size})>[];
     database.transaction(() {
       for (final page in pagesOf(notebookId)) {
         final bg = page.pdf;
         if (bg == null || bg.blob != from) continue;
         if (only != null && !only.contains(page.id)) continue;
         final relinked = PageBackground.pdf(blob: to, pageIndex: bg.pageIndex);
-        _update(page.id, 'background = ?', [jsonEncode(relinked.toJson())]);
-        changed.add(page.id);
+        final shape = shapes != null && bg.pageIndex < shapes.length ? shapes[bg.pageIndex] : null;
+        final size = shape == null ? page.size : page.sizeFor(shape);
+        _update(page.id, 'background = ?, width = ?, height = ?', [
+          jsonEncode(relinked.toJson()),
+          size.width,
+          size.height,
+        ]);
+        changed.add((id: page.id, size: page.size));
       }
     });
     return changed;
+  }
+
+  /// Gives pages back the sizes [relinkBackground] returned (its undo).
+  void setSizes(Iterable<({String id, Size size})> sizes) {
+    database.transaction(() {
+      for (final (:id, :size) in sizes) {
+        _update(id, 'width = ?, height = ?', [size.width, size.height]);
+      }
+    });
   }
 
   void setBookmarked(String pageId, bool bookmarked) =>
