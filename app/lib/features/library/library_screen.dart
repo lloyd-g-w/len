@@ -115,8 +115,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
         _controller.section == LibrarySection.library ? _controller.folderId : null;
     // A recording or a camera photo cut off by the app being killed:
     // offer to recover it, carry on with it.
+    StartupTrace.markAfterFrame('library');
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      StartupTrace.mark('library');
       if (!mounted) return;
       unawaited(_resumeLostPhoto(services, editorUp: widget.restored != null));
       unawaited(offerRecordingRecovery(context, services));

@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'dart:ui' show FramePhase, TimingsCallback;
+import 'dart:ui' show FramePhase;
 
 import 'package:flutter/scheduler.dart';
 
@@ -38,29 +38,40 @@ abstract final class StartupTrace {
   static int _mainMicros = 0;
   static int _framesShown = 0;
 
+  /// Labels marked after a frame ([markAfterFrame]) whose frame is not
+  /// on screen yet, with when they were marked (Timeline µs).
+  static final Map<String, int> _awaitingRaster = {};
+
   /// Prints the phases of the first [frames] frames (only in tracing
   /// builds), in ms since main:
   ///
   ///     len-startup-frame <n> build <start>-<end> raster <start>-<end>
+  ///
+  /// and, for each [markAfterFrame] label, when its frame was on screen
+  /// (`len-startup <label> shown …`, rasterised).
   static void watchFrames({int frames = 12}) {
     if (!enabled) return;
-    late final TimingsCallback callback;
-    callback = (timings) {
+    SchedulerBinding.instance.addTimingsCallback((timings) {
       for (final t in timings) {
-        if (_framesShown++ >= frames) {
-          SchedulerBinding.instance.removeTimingsCallback(callback);
-          return;
+        int at(FramePhase phase) => t.timestampInMicroseconds(phase);
+        String ms(FramePhase phase) => ((at(phase) - _mainMicros) / 1000).toStringAsFixed(0);
+        if (_framesShown++ < frames) {
+          _print(
+            'len-startup-frame ${t.frameNumber} build ${ms(FramePhase.buildStart)}-'
+            '${ms(FramePhase.buildFinish)} raster ${ms(FramePhase.rasterStart)}-'
+            '${ms(FramePhase.rasterFinish)}',
+          );
         }
-        String at(FramePhase phase) =>
-            ((t.timestampInMicroseconds(phase) - _mainMicros) / 1000).toStringAsFixed(0);
-        _print(
-          'len-startup-frame ${t.frameNumber} build ${at(FramePhase.buildStart)}-'
-          '${at(FramePhase.buildFinish)} raster ${at(FramePhase.rasterStart)}-'
-          '${at(FramePhase.rasterFinish)}',
-        );
+        // A post-frame callback runs before its frame's build finishes.
+        for (final (label, marked) in [for (final e in _awaitingRaster.entries) (e.key, e.value)]) {
+          if (at(FramePhase.buildFinish) < marked) continue;
+          _awaitingRaster.remove(label);
+          final shown = at(FramePhase.rasterFinish);
+          final epoch = DateTime.now().microsecondsSinceEpoch - (developer.Timeline.now - shown);
+          _print('len-startup $label shown $epoch +${((shown - _mainMicros) / 1000).round()}ms');
+        }
       }
-    };
-    SchedulerBinding.instance.addTimingsCallback(callback);
+    });
   }
 
   /// Milliseconds since [begin].
@@ -78,7 +89,10 @@ abstract final class StartupTrace {
   /// of it is) done.
   static void markAfterFrame(String label) {
     if (_seen.contains(label)) return;
-    SchedulerBinding.instance.addPostFrameCallback((_) => mark(label));
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (enabled && !_seen.contains(label)) _awaitingRaster[label] = developer.Timeline.now;
+      mark(label);
+    });
   }
 
   /// Watches the UI thread's turns from now for [watchWindow] (only in

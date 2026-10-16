@@ -25,8 +25,11 @@ def launch(bundle, run):
     try:
         if template != '-':
             shutil.copytree(template, data, dirs_exist_ok=True)
+        # Mesa's shader cache stays warm, as on a desktop that ran Len before
+        # (it would live in XDG_CACHE_HOME); Len's own cache is fresh.
         env = dict(os.environ, XDG_DATA_HOME=data, XDG_CONFIG_HOME=f'{data}/config',
-                   XDG_CACHE_HOME=f'{data}/cache', TMPDIR=data)
+                   XDG_CACHE_HOME=f'{data}/cache', TMPDIR=data,
+                   MESA_SHADER_CACHE_DIR=os.path.join(tempfile.gettempdir(), 'len-bench-mesa'))
         t0 = time.time_ns() // 1000
         proc = subprocess.Popen([bundle], env=env, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True)
