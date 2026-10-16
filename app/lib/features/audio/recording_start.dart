@@ -59,3 +59,8 @@ extension _RecordingStart on RecordingController {
     );
   }
 }
+
+/// [RecordingController.start] gave up because the controller shut down.
+class _ShutDown implements Exception {
+  const _ShutDown();
+}
