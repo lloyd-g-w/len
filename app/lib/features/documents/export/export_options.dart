@@ -140,8 +140,22 @@ List<String> exportFileNames(String title, ExportFormat format, List<int> pages,
   return [whole ? '$base.$ext' : '$base p${formatPageRange(pages)}.$ext'];
 }
 
-/// A file name from a notebook title.
+/// A file name from a notebook title: characters file systems refuse
+/// become spaces, runs of spaces one ("Physics: week 3/4" → "Physics week
+/// 3 4", R22-5), no trailing dots (Windows drops them), at most
+/// [maxFileNameBase] characters.
 String safeFileName(String title) {
-  final cleaned = title.replaceAll(RegExp(r'[\\/:*?"<>|\n\r\t]'), ' ').trim();
+  var cleaned = title
+      .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F\x7F]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  if (cleaned.runes.length > maxFileNameBase) {
+    cleaned = String.fromCharCodes(cleaned.runes.take(maxFileNameBase)).trimRight();
+  }
+  cleaned = cleaned.replaceFirst(RegExp(r'[. ]+$'), '');
   return cleaned.isEmpty ? 'Notebook' : cleaned;
 }
+
+/// Longest notebook title kept in a file name, leaving room for a page
+/// range and the extension within file systems' 255 bytes.
+const int maxFileNameBase = 100;

@@ -56,14 +56,18 @@ void main() {
 
     test('PNG: one file per page', () {
       expect(exportFileNames('a/b: c', ExportFormat.png, [0, 3], 4), [
-        'a b  c p1.png',
-        'a b  c p4.png',
+        'a b c p1.png',
+        'a b c p4.png',
       ]);
     });
 
     test('safe names', () {
       expect(safeFileName('  '), 'Notebook');
       expect(safeFileName('x?y*'), 'x y');
+      // R22-5: one space where several were, no trailing dots, a length cap.
+      expect(safeFileName('Physics: week 3/4'), 'Physics week 3 4');
+      expect(safeFileName('Notes\t\n(draft)...'), 'Notes (draft)');
+      expect(safeFileName('a' * 300), hasLength(maxFileNameBase));
     });
   });
 
