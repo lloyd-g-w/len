@@ -267,6 +267,44 @@ void main() {
     expect(store.pull(since: 1, limit: 10).records.single.base?.updatedAt, 4);
   });
 
+  test('a database the schema 1 server wrote keeps its records and id, and gains bases', () async {
+    // test/fixtures/schema1.sqlite: written by the server before schema 2
+    // (elements e0…e4 at 100…104 from "dev", e3 deleted).
+    final dir = await Directory.systemTemp.createTemp('len_store_schema1');
+    addTearDown(() => dir.delete(recursive: true));
+    final path = '${dir.path}/len.db';
+    File('test/fixtures/schema1.sqlite').copySync(path);
+    var store = RecordStore.open(path);
+    expect(store.serverId, '12c72c55d4a576078a1aee683738533d');
+    final old = store.pull(since: 0, limit: 10).records;
+    expect(
+      [for (final r in old) '${r.id}@${r.updatedAt}${r.deleted ? ' deleted' : ''}'],
+      ['e0@100', 'e1@101', 'e2@102', 'e3@103 deleted', 'e4@104'],
+    );
+    expect(old.every((r) => r.base == null), isTrue);
+    const base = RecordVersion(updatedAt: 101, deviceId: 'dev');
+    store.push([
+      SyncRecord(
+        collection: 'elements',
+        id: 'e1',
+        updatedAt: 200,
+        deviceId: 'dev2',
+        deleted: true,
+        data: null,
+        base: base,
+      ),
+    ]);
+    store.close();
+    store = RecordStore.open(path); // A restart.
+    addTearDown(store.close);
+    final e1 = store.pull(since: 5, limit: 10).records.single;
+    expect((e1.id, e1.seq), ('e1', 6));
+    expect(e1.base?.toJson(), base.toJson());
+    final raw = sqlite3.open(path);
+    addTearDown(raw.close);
+    expect(raw.userVersion, RecordStore.schemaVersion);
+  });
+
   test('refuses a database from a newer server', () async {
     final dir = await Directory.systemTemp.createTemp('len_store_newer');
     addTearDown(() => dir.delete(recursive: true));
