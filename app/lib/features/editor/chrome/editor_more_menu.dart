@@ -20,7 +20,7 @@ import 'editor_menu_actions.dart';
 
 part 'editor_more_menu_rows.dart';
 
-/// The top bar's "⋯" menu (REDESIGN §2.3): search and export; the page
+/// The top bar's "⋯" menu (REDESIGN §2.3): search, export and print; the page
 /// (paged) or the background (canvas); view options; split view; drawing
 /// with a finger; settings. Phones ([compact]) add audio and the open
 /// notebooks at the top, and open Page and View in place of the menu
@@ -97,6 +97,13 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
                   'Export…',
                   onExport,
                   shortcut: const SingleActivator(LogicalKeyboardKey.keyE, control: true),
+                ),
+              if (a.onPrint case final onPrint?)
+                _item(
+                  Symbols.print_sharp,
+                  'Print…',
+                  onPrint,
+                  shortcut: const SingleActivator(LogicalKeyboardKey.keyP, control: true),
                 ),
               const Divider(),
               if (a.isPaged)

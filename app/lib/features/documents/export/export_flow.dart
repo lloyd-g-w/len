@@ -99,18 +99,14 @@ Future<void> runExport(
     ) async {
       progress.stageStarted('Rendering…');
       if (options.format == ExportFormat.pdf) {
-        final bytes = await worker.pdf(
+        final bytes = await renderPdf(
+          worker,
+          progress,
           selected,
           title: notebook.title,
           backgrounds: options.includeBackgrounds,
           report: report,
-          onProgress: (stage, done, total) => progress.step(
-            done,
-            total,
-            stage: stage == ExportStage.preparing ? 'Preparing pages…' : 'Writing PDF…',
-          ),
         );
-        progress.check(); // Cancelled while the file was assembled.
         return [(bytes: bytes, name: names.single)];
       }
       final pngs = [
@@ -147,6 +143,32 @@ Future<void> runExport(
   } finally {
     if (exporter == null) await worker.dispose();
   }
+}
+
+/// One PDF of [pages] (already resolved: [ExportOptions.resolve]) titled
+/// [title], its stages and pages shown on [progress]; throws [Cancelled]
+/// if cancelled meanwhile.
+Future<Uint8List> renderPdf(
+  NotebookExporter worker,
+  TaskProgress progress,
+  List<NotebookPage> pages, {
+  required String title,
+  required bool backgrounds,
+  required ExportReport report,
+}) async {
+  final bytes = await worker.pdf(
+    pages,
+    title: title,
+    backgrounds: backgrounds,
+    report: report,
+    onProgress: (stage, done, total) => progress.step(
+      done,
+      total,
+      stage: stage == ExportStage.preparing ? 'Preparing pages…' : 'Writing PDF…',
+    ),
+  );
+  progress.check(); // Cancelled while the file was assembled.
+  return bytes;
 }
 
 /// "“Lecture.pdf”" for one file, "3 images" for several.

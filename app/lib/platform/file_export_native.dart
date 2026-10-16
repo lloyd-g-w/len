@@ -111,8 +111,8 @@ Future<ExportedFiles?> _mobileExport(
 /// The `export` folder in [tmp] for the files of one share. Files earlier
 /// shares left there over an hour ago are deleted, so shared assignments
 /// don't pile up in the cache (R22-6); newer ones stay, as an app shared
-/// to may still be reading them (an upload in the background).
-@visibleForTesting
+/// to may still be reading them (an upload in the background). Prints
+/// write there too (`print_document_native.dart`).
 Future<Directory> freshExportDir(Directory tmp, {DateTime? now}) async {
   final dir = await Directory(p.join(tmp.path, 'export')).create(recursive: true);
   final before = (now ?? DateTime.now()).subtract(const Duration(hours: 1));

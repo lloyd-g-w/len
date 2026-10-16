@@ -77,6 +77,8 @@ mixin _NotebookActions {
         if (target != null && context.mounted) move(context, [notebook.id], target.folderId);
       case NotebookAction.export:
         await exportNotebooks(context, [notebook]);
+      case NotebookAction.print:
+        await printNotebook(context, notebook);
       case NotebookAction.select:
         startSelection(context, notebook.id);
       case NotebookAction.trash:

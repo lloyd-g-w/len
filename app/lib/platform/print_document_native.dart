@@ -62,24 +62,22 @@ Future<void> _open(String path) async {
   if (!await launchUrl(Uri.file(path))) throw StateError('No app opens $path');
 }
 
-typedef _ShellExecuteC =
-    IntPtr Function(
-      IntPtr hwnd,
-      Pointer<Utf16> verb,
-      Pointer<Utf16> file,
-      Pointer<Utf16> parameters,
-      Pointer<Utf16> directory,
-      Int32 show,
-    );
-typedef _ShellExecuteDart =
-    int Function(
-      int hwnd,
-      Pointer<Utf16> verb,
-      Pointer<Utf16> file,
-      Pointer<Utf16> parameters,
-      Pointer<Utf16> directory,
-      int show,
-    );
+typedef _ShellExecuteC = IntPtr Function(
+  IntPtr hwnd,
+  Pointer<Utf16> verb,
+  Pointer<Utf16> file,
+  Pointer<Utf16> parameters,
+  Pointer<Utf16> directory,
+  Int32 show,
+);
+typedef _ShellExecuteDart = int Function(
+  int hwnd,
+  Pointer<Utf16> verb,
+  Pointer<Utf16> file,
+  Pointer<Utf16> parameters,
+  Pointer<Utf16> directory,
+  int show,
+);
 typedef _CoInitializeExC = Int32 Function(Pointer<Void> reserved, Uint32 mode);
 typedef _CoInitializeExDart = int Function(Pointer<Void> reserved, int mode);
 
@@ -92,9 +90,8 @@ bool _shellExecute(String verb, String path) {
     DynamicLibrary.open('ole32.dll').lookupFunction<_CoInitializeExC, _CoInitializeExDart>(
       'CoInitializeEx',
     )(nullptr, 0x2 /* COINIT_APARTMENTTHREADED */);
-    final run = DynamicLibrary.open(
-      'shell32.dll',
-    ).lookupFunction<_ShellExecuteC, _ShellExecuteDart>('ShellExecuteW');
+    final run = DynamicLibrary.open('shell32.dll')
+        .lookupFunction<_ShellExecuteC, _ShellExecuteDart>('ShellExecuteW');
     return using((arena) {
       // Values up to 32 are errors (SE_ERR_NOASSOC: no print command).
       final code = run(
