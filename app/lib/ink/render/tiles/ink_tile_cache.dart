@@ -214,52 +214,7 @@ class InkTileCache extends ChangeNotifier {
     // stay: they may be on screen again soon).
     final ring = area.inflate(TileSpace.size / space.k);
     _requests.removeWhere((index, p) => p > 0 && !space.worldRectOf(index).overlaps(ring));
-    // Where tile (0, 0) of [space] sits, on whole device pixels.
-    final x0 = (view.origin.dx - space.phase.dx).roundToDouble();
-    final y0 = (view.origin.dy - space.phase.dy).roundToDouble();
-    final missing = <ui.Rect>[];
-    final overlays = <InkTile>[];
-    for (final index in space.covering(area)) {
-      final tile = _tiles[index] ??= InkTile(pool, space, index);
-      final rect = space.worldRectOf(index);
-      tile.blank ??= model.chunksIn(ChunkGrid.rangeFor(rect)).isEmpty;
-      if (tile.blank! && tile.overlay.isEmpty) continue;
-      final image = tile.image;
-      if (image != null) {
-        final dst = same
-            ? ui.Rect.fromLTWH(
-                index.x * TileSpace.size + x0,
-                index.y * TileSpace.size + y0,
-                TileSpace.size.toDouble(),
-                TileSpace.size.toDouble(),
-              )
-            : view.toDevice(rect);
-        if (tile.underlay.isNotEmpty) _drawUnderlay(canvas, view, tile);
-        _drawImage(canvas, image, dst, exact: same);
-        pool.touch(tile);
-        lastPaint.images++;
-        if (tile.stale) {
-          lastPaint.staleImages++;
-          _request(index, 1);
-        }
-        if (tile.overlay.isNotEmpty) overlays.add(tile);
-        continue;
-      }
-      _request(index, 1);
-      if (tile.edited) {
-        missing.add(rect); // Shown as it now is at once.
-        continue;
-      }
-      final uncovered = _drawOld(canvas, view, rect);
-      if (_oldSpace == null && !_holdForLoad) {
-        missing.addAll(uncovered); // A first show.
-      } else {
-        // Not rendered since a zoom (a rim zooming out exposed), or
-        // waiting for the surface to load: empty for the frame or two
-        // until it is, rather than frames of vectors.
-        lastPaint.blankPixels += _pixels(uncovered, view);
-      }
-    }
+    final (:missing, :overlays) = _paintTiles(canvas, view, space, area, same: same);
     if (missing.isNotEmpty) {
       lastPaint
         ..vectorTiles = missing.length
@@ -283,36 +238,13 @@ class InkTileCache extends ChangeNotifier {
     PerfProbe.count('tileOverlays', lastPaint.overlayStrokes);
   }
 
-  /// Whether [tile] is to be rendered ahead: strokes written over its
-  /// image wait for the pen to rest where renders are spared.
-  bool _wantsRender(InkTile tile) =>
-      tile.needsRender && !(_spare && tile.image != null && !tile.stale);
-
   /// Draws, scaled into [view], what the tiles hold of [world] that is up
   /// to date (images of this or the previous zoom; no stale ones), as a
   /// stand-in while zoomed out to level-of-detail rasters that are not
   /// made yet. Renders and requests nothing; returns the parts of [world]
   /// not covered.
-  List<ui.Rect> paintStandIn(ui.Canvas canvas, TileView view, ui.Rect world) {
-    final space = _space;
-    if (space == null || view.clip != _clip) return [world];
-    final area = view.clip == null ? world : world.intersect(view.clip!);
-    if (area.isEmpty) return const [];
-    final uncovered = <ui.Rect>[];
-    for (final index in space.covering(area)) {
-      final rect = space.worldRectOf(index).intersect(area);
-      final tile = _tiles[index];
-      final image = tile?.image;
-      if (tile != null && image != null && !tile.stale) {
-        _drawImage(canvas, image, view.toDevice(space.worldRectOf(index)), exact: false);
-        if (tile.overlay.isNotEmpty) _drawOverlay(canvas, view, tile);
-        lastPaint.images++;
-      } else if (tile == null || tile.blank != true || tile.overlay.isNotEmpty) {
-        uncovered.addAll(_drawOld(canvas, view, rect));
-      }
-    }
-    return uncovered;
-  }
+  List<ui.Rect> paintStandIn(ui.Canvas canvas, TileView view, ui.Rect world) =>
+      _paintStandIn(canvas, view, world);
 
   /// Edits over at most this many tiles drop their images (drawn as vectors
   /// until rendered: shown at once); larger ones keep them as stand-ins.
