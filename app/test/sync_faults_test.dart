@@ -41,6 +41,7 @@ void Function() _dieAfter(int afterUs) =>
 /// devices, then a clean sync of all; returns what went wrong.
 Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) async {
   final r = math.Random(seed);
+  RandomEdits.backups.clear();
   final server = RealServer()..maxPage = r.nextInt(3) == 0 ? null : 2 + r.nextInt(15);
   final network = FaultyNetwork(server, r);
   final faultRate = const [0.15, 0.3, 0.5][seed % 3];
@@ -59,7 +60,13 @@ Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) asyn
       if (roll < 52) {
         final s = d.app;
         final before = SyncLedger.snapshot(s);
-        await RandomEdits(s, r).any();
+        try {
+          await RandomEdits(s, r).any();
+        } on StateError {
+          // Killed while a backup fetched files: the edit stopped with it.
+          if (d.alive && identical(s, d.s)) rethrow;
+          continue;
+        }
         ledger.record(before, s);
       } else if (roll < 88) {
         // Some syncs see a good network, so more get through to the end.

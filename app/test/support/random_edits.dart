@@ -2,7 +2,11 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui';
 
+import 'package:archive/archive.dart';
 import 'package:len/app_services.dart';
+import 'package:len/data/archive/len_archives.dart';
+import 'package:len/data/stroke_queries.dart';
+import 'package:len/domain/cancellation.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_style.dart';
 import 'package:len/domain/paper.dart';
@@ -13,8 +17,9 @@ import 'package:len/domain/text/text_data.dart';
 
 /// Random user edits on one device, as the app makes them: notebooks,
 /// pages, strokes, text boxes (chains flowing across pages included),
-/// trash and deletion, folders, notebook styles, recordings in parts and
-/// templates. Each edit is one of the repositories' own operations.
+/// trash and deletion, folders, notebook styles, recordings in parts,
+/// templates, duplicated notebooks, pages copied or moved, deleted text
+/// brought back (undo), and backups taken and restored (or cancelled). Each edit is one of the repositories' own operations.
 class RandomEdits {
   RandomEdits(this.s, this.r);
 
@@ -87,6 +92,10 @@ class RandomEdits {
       template,
       rename,
       outline,
+      duplicate,
+      copyPages,
+      undoDeleteText,
+      backup,
     ];
     await edits[r.nextInt(edits.length)]!();
   }
@@ -381,6 +390,85 @@ class RandomEdits {
       s.outline.delete(_pick(entries).id);
     }
     _touch(nb);
+  }
+
+  /// A notebook duplicated (with its pages, content, recordings and outline).
+  Future<void> duplicate() async {
+    final notebooks = _notebooks;
+    if (notebooks.isEmpty) return newNotebook();
+    s.notebooks.duplicate(_pick(notebooks));
+  }
+
+  /// Some pages copied to the end of another notebook, sometimes deleted
+  /// here after (a move).
+  Future<void> copyPages() async {
+    final paged = _paged;
+    if (paged.length < 2) return newNotebook();
+    final from = _pick(paged);
+    final to = _pick([
+      for (final n in paged)
+        if (n != from) n,
+    ]);
+    final pages = _pagesOf(from)..shuffle(r);
+    if (pages.isEmpty) return;
+    final moved = pages.take(1 + r.nextInt(pages.length)).toList();
+    s.notebooks.copyPages(from, moved, to);
+    if (r.nextBool() && moved.length < pages.length) {
+      for (final page in moved) {
+        s.notebooks.deletePage(page);
+      }
+    }
+    _touch(to);
+  }
+
+  /// A deleted text box brought back as it was (undo), if its page is live.
+  Future<void> undoDeleteText() async {
+    final rows = s.database.db.select(
+      "SELECT * FROM elements WHERE deleted = 1 AND type = 'text' AND data <> '{}' ORDER BY id",
+    );
+    final surfaces = _surfaces.toSet();
+    final boxes = [
+      for (final row in rows)
+        if (surfaces.contains(row['surface_id'])) ?StrokeQueries.rowToElement(row),
+    ];
+    if (boxes.isEmpty) return;
+    final box = _pick(boxes);
+    s.elements.save([box]);
+    _touch(box.surfaceId);
+  }
+
+  /// Backups each device took, by device id ([backup] restores them).
+  static final Map<String, Uint8List> backups = {};
+
+  /// A backup of the library taken, or the last one restored (keeping ids:
+  /// notebooks deleted since come back under their own), sometimes
+  /// cancelled half way.
+  Future<void> backup() async {
+    final device = s.notebooks.deviceId;
+    final saved = backups[device];
+    if (saved == null || r.nextInt(3) == 0) {
+      final out = OutputMemoryStream();
+      await s.lenFiles.write(const LenScope.library(), out);
+      backups[device] = out.getBytes();
+      return;
+    }
+    final present = s.lenFiles.present(await s.lenFiles.open(InputMemoryStream(saved)));
+    final cancel = CancellationToken();
+    final cancelAt = r.nextInt(3) == 0 ? r.nextDouble() : null;
+    try {
+      await s.lenFiles.import(
+        await s.lenFiles.open(InputMemoryStream(saved)),
+        keepIds: true,
+        skip: present.keys.toSet(),
+        folderName: r.nextBool() ? 'Backup' : null,
+        cancel: cancel,
+        onProgress: (done) {
+          if (cancelAt != null && done >= cancelAt) cancel.cancel();
+        },
+      );
+    } on Cancelled {
+      // Nothing restored.
+    }
   }
 
   Future<void> template() async {

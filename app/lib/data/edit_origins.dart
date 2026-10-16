@@ -41,9 +41,11 @@ class EditOrigins {
   /// SQL for a row's origin, its `at` or `device` part ([part]).
   static String _origin(String part) {
     final own = part == 'at' ? 'updated_at' : 'device_id';
-    return 'CASE WHEN origin_for = updated_at AND origin_at IS NOT NULL '
-        'THEN origin_$part ELSE $own END';
+    return 'CASE WHEN $_valid THEN origin_$part ELSE $own END';
   }
+
+  /// SQL: whether the noted origin is the row's.
+  static const _valid = 'origin_for = updated_at AND origin_at IS NOT NULL';
 
   /// Row [id] as a pull compares it with a record, or null if there is none.
   LocalVersion? of(String id) {
@@ -96,9 +98,15 @@ class EditOrigins {
   }
 
   /// SQL assignments for an `UPDATE` giving a row a new version `?1`
-  /// (bound by the caller) that keeps its origin.
+  /// (bound by the caller) that keeps its origin: a tombstone's stays
+  /// unknown if it is (one known only as such keeps no content).
   static final keepOrigin =
-      'origin_at = ${_origin('at')}, origin_device = ${_origin('device')}, origin_for = ?1';
+      'origin_at = ${_kept('at')}, origin_device = ${_kept('device')}, origin_for = ?1';
+
+  /// SQL for the origin [part] a new version keeps: the row's, but none on
+  /// a tombstone whose origin is unknown.
+  static String _kept(String part) =>
+      'CASE WHEN deleted = 1 AND NOT ($_valid) THEN NULL ELSE ${_origin(part)} END';
 
   /// Marks row [id], brought back at [version], as holding the content its
   /// tombstone kept (whose origin was noted at [tombstone], the tombstone's

@@ -5,6 +5,7 @@ import 'package:sqlite3/common.dart';
 
 import '../../domain/notebook_style.dart';
 import '../syncable.dart';
+import '../syncable_table.dart';
 import 'len_remap.dart';
 import 'len_stores.dart';
 
@@ -21,6 +22,9 @@ class LenImportCommit {
 
   final List<(String, SyncRecord)> _folders = [], _notebooks = [];
   final List<SyncRecord> _templates = [], _styles = [];
+
+  /// The folder [finish] made to hold the import, if any.
+  String? _holder;
 
   CommonDatabase get _db => stores.any.db;
 
@@ -68,7 +72,7 @@ class LenImportCommit {
       var root = parent;
       if (folderName != null && (_folders.isNotEmpty || _notebooks.isNotEmpty)) {
         folders.add(remap.clock.newId());
-        root = top = folders.last;
+        root = top = _holder = folders.last;
         _write(
           SyncRecord(
             collection: 'folders',
@@ -187,7 +191,9 @@ class LenImportCommit {
   /// A restore keeping the ids of notebooks deleted here wrote over their
   /// tombstones, whose deletion may not have synced yet: they become
   /// tombstones again, as the deletion left them (its device and version,
-  /// see `DeletionConflicts`), rather than being removed.
+  /// see `DeletionConflicts`), rather than being removed. What those
+  /// deletions knew was written over: the rows edited in place forget it
+  /// (unknown, see `EditOrigins`) rather than claim the restore's version.
   void _retombstone() {
     final deleted = _db.select(
       'SELECT id, device_id, updated_at FROM notebooks '
@@ -206,6 +212,15 @@ class LenImportCommit {
           mark,
         );
       }
+    }
+    // The deletion triggers noted the restore's rows as what was deleted.
+    for (final table in SyncableTable.editedInPlaceCollections) {
+      _db.execute(
+        'UPDATE $table SET base_at = NULL, base_device = NULL, origin_at = NULL, '
+        'origin_device = NULL, origin_for = 0 '
+        'WHERE deleted = 1 AND base_at = ? AND base_device = ?',
+        [remap.version, remap.deviceId],
+      );
     }
   }
 
@@ -242,6 +257,7 @@ class LenImportCommit {
         insert.execute(['o', id]);
       }
       for (final id in [
+        ?_holder,
         for (final (_, f) in _folders) f.id,
         for (final t in _templates) t.id,
         for (final s in _styles) s.id,
