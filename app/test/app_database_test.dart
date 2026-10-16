@@ -3,6 +3,7 @@ import 'dart:isolate';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/platform/sqlite_connection_native.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 /// [AppDatabase.transaction] and two connections to one file (the app's
@@ -51,6 +52,42 @@ void main() {
       {'n': 2},
     ]);
   });
+
+  test('a connection opens while another closes and checkpoints its log', () async {
+    final path = '${dir.path}/len.db';
+    AppDatabase.open(path).close();
+    for (final open in <AppDatabase Function()>[
+      () => AppDatabase.attach(path), // A pull worker's.
+      () => AppDatabase.open(path), // The app's, an old worker still finishing.
+    ]) {
+      final locked = ReceivePort();
+      final exit = ReceivePort();
+      await Isolate.spawn(_churn, (path, locked.sendPort), onExit: exit.sendPort);
+      await locked.first;
+      for (var i = 0; i < 200; i++) {
+        open().close();
+      }
+      await exit.first;
+    }
+  });
+}
+
+/// Opens, writes to and closes the database at the path, again and again
+/// (each last close checkpoints the log).
+void _churn((String, SendPort) args) {
+  final (path, started) = args;
+  started.send(true);
+  final watch = Stopwatch()..start();
+  while (watch.elapsedMilliseconds < 1000) {
+    final db = sqlite3.open(path);
+    waitWhenBusy(db, AppDatabase.busyTimeoutMs);
+    db.execute('PRAGMA journal_mode = WAL');
+    db
+      ..execute('BEGIN IMMEDIATE')
+      ..execute("INSERT OR REPLACE INTO settings VALUES ('churn', ?)", ['x' * 100000])
+      ..execute('COMMIT')
+      ..close();
+  }
 }
 
 /// Holds the write lock of the database at the path for a while (as a pull

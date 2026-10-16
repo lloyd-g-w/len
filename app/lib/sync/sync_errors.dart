@@ -71,6 +71,30 @@ class SyncException implements Exception {
     kind: SyncFailure.incompatible,
   );
 
+  /// An answer that began as JSON and broke off (a connection or a proxy
+  /// closing early): a network failure, not a wrong address.
+  static const brokenOff = SyncException(
+    'The connection to the sync server broke off — sync will try again',
+    kind: SyncFailure.network,
+  );
+
+  /// Why a successful answer [body] (UTF-8) could not be read: it was cut
+  /// short ([brokenOff]: it starts like a JSON object but is none), or is
+  /// not what a Len sync server sends ([otherwise]).
+  static SyncException unreadable(List<int> body, {SyncException otherwise = unexpected}) {
+    var i = 0;
+    while (i < body.length && (body[i] == 0x20 || body[i] == 0x0A || body[i] == 0x0D)) {
+      i++;
+    }
+    if (i == body.length || body[i] != 0x7B) return otherwise; // '{'
+    try {
+      jsonDecode(utf8.decode(body));
+      return otherwise; // Complete JSON, of the wrong shape.
+    } on FormatException {
+      return brokenOff;
+    }
+  }
+
   /// A request that failed before any answer arrived ([error] is what the
   /// HTTP client threw), explained in words: raw socket errors say little
   /// to most people. The details go to the debug log.
@@ -106,6 +130,10 @@ class SyncException implements Exception {
     413 => const SyncException(
       'The sync server refused an oversized request',
       kind: SyncFailure.tooLarge,
+    ),
+    429 => const SyncException(
+      'The sync server is busy — sync will try again',
+      kind: SyncFailure.network,
     ),
     502 || 503 || 504 => SyncException(
       'The sync server is not responding (error $status from a proxy) — is it running?',

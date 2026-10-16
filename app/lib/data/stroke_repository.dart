@@ -81,13 +81,14 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
 
   /// Brings back tombstoned strokes whose points are still kept.
   @override
-  void revive(Iterable<String> ids) {
-    final now = clock.nowMs();
+  void revive(Iterable<String> ids, {required int version}) {
     for (final id in ids) {
       final rows = db.select('SELECT * FROM strokes WHERE id = ? AND deleted = 1', [id]);
       final stroke = rows.isEmpty ? null : StrokeQueries.rowToStroke(rows.first);
       if (stroke == null) continue; // Its points were purged.
-      _upsert(stroke, updatedAt: nextVersion(id, now), deviceId: deviceId, dirty: true);
+      if (version > (rows.first['updated_at'] as int)) {
+        _upsert(stroke, updatedAt: version, deviceId: deviceId, dirty: true);
+      }
     }
   }
 

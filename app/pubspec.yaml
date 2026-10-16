@@ -53,6 +53,11 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # The real sync server, run in process by the fault-injection sync tests
+  # (test/support/real_server.dart).
+  len_sync_server:
+    path: ../server
+  shelf: ^1.4.2
 
 flutter:
   uses-material-design: true

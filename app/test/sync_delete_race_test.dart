@@ -57,6 +57,37 @@ Future<void> _settle(TestDevice a, TestDevice b) async {
   expect(b.dirty, isEmpty);
 }
 
+/// [edit] on B (offline) and [delete] on A, the edit made before or after
+/// ([editLast]) the deletion; then the deleting device or the editing one
+/// syncs first ([deleterFirst]), and both until they settle.
+Future<void> _race(
+  TestDevice a,
+  TestDevice b, {
+  required bool editLast,
+  required bool deleterFirst,
+  required void Function() delete,
+  required void Function() edit,
+}) async {
+  a.time.tick();
+  if (editLast) {
+    delete();
+    a.time.tick();
+    edit();
+  } else {
+    edit();
+    a.time.tick();
+    delete();
+  }
+  if (deleterFirst) {
+    await a.sync();
+    await b.sync();
+  } else {
+    await b.sync();
+    await a.sync();
+  }
+  await _settle(a, b);
+}
+
 void main() {
   for (final editLast in [false, true]) {
     final order = editLast ? 'after' : 'before';
@@ -132,6 +163,176 @@ void main() {
       });
     });
   }
+
+  // Text boxes, recordings and outline entries are edited in place: an
+  // edit the deleting device did not know survives whether it was made
+  // before or after the deletion and whichever device syncs first.
+  for (final editLast in [false, true]) {
+    for (final deleterFirst in [false, true]) {
+      final when =
+          'edited ${editLast ? 'after' : 'before'} the deletion, '
+          '${deleterFirst ? 'the deleting' : 'the editing'} device syncing first';
+      test('a text box $when: its page comes back with the edit', () async {
+        final (a, b) = twoDevices();
+        final nb = _notebook(a);
+        final page = a.s.pages.pagesOf(nb.id).single;
+        a.s.elements.save([_text('box', page.id)]);
+        _write(a, nb.id, page.id, 'ink');
+        await send(a, b);
+
+        await _race(
+          a,
+          b,
+          editLast: editLast,
+          deleterFirst: deleterFirst,
+          delete: () => a.s.notebooks.deletePage(page.id),
+          edit: () => b.s.elements.save([_text('box', page.id, text: 'edited')]),
+        );
+
+        for (final d in [a, b]) {
+          expect(_pages(d, nb.id), [page.id], reason: d.clock.prefix);
+          expect(_ink(d, page.id), ['ink']);
+          final boxes = SurfaceCopier(d.s.strokes, elements: d.s.elements).loadAllElements(page.id);
+          expect(boxes.single.data['text'], 'edited', reason: d.clock.prefix);
+        }
+      });
+
+      test('a recording and an outline entry $when: the notebook comes back with them', () async {
+        final (a, b) = twoDevices();
+        final nb = _notebook(a);
+        final page = a.s.pages.pagesOf(nb.id).single;
+        final recording = a.s.recordings.save(
+          notebookId: nb.id,
+          parts: [RecordingPart('1' * 64, 1000)],
+          mime: 'audio/aac',
+          title: 'Talk',
+          segments: const [RecordingSegment(1, 1000)],
+        );
+        final entry = a.s.outline.add(notebookId: nb.id, pageId: page.id, title: 'One');
+        await send(a, b);
+
+        await _race(
+          a,
+          b,
+          editLast: editLast,
+          deleterFirst: deleterFirst,
+          delete: () => a.s.notebooks
+            ..trash(nb.id)
+            ..delete(nb.id),
+          edit: () {
+            b.s.recordings.save(
+              id: recording.id,
+              notebookId: nb.id,
+              parts: [RecordingPart('1' * 64, 1000), RecordingPart('2' * 64, 1000)],
+              mime: 'audio/aac',
+              title: 'Talk',
+              segments: const [RecordingSegment(1, 2000)],
+            );
+            b.s.outline.update(entry.copyWith(title: 'Renamed'));
+          },
+        );
+
+        for (final d in [a, b]) {
+          expect(_trash(d), [nb.id], reason: d.clock.prefix);
+          expect(_pages(d, nb.id), [page.id]);
+          expect(d.s.recordings.get(recording.id)!.parts, hasLength(2));
+          expect(d.s.outline.entriesOf(nb.id).single.title, 'Renamed');
+        }
+      });
+
+      test('a text box deleted alone, $when: it stays, edited', () async {
+        final (a, b) = twoDevices();
+        final nb = _notebook(a);
+        final page = a.s.pages.pagesOf(nb.id).single;
+        a.s.elements.save([_text('box', page.id)]);
+        await send(a, b);
+
+        await _race(
+          a,
+          b,
+          editLast: editLast,
+          deleterFirst: deleterFirst,
+          delete: () => a.s.elements.delete(['box']),
+          edit: () => b.s.elements.save([_text('box', page.id, text: 'edited')]),
+        );
+
+        for (final d in [a, b]) {
+          final boxes = SurfaceCopier(d.s.strokes, elements: d.s.elements).loadAllElements(page.id);
+          expect(boxes.single.data['text'], 'edited', reason: d.clock.prefix);
+        }
+      });
+    }
+  }
+
+  test('an edit survives a deletion made after a first pull stopped half way', () async {
+    final (a, b) = twoDevices();
+    final nb = _notebook(a);
+    final page = a.s.pages.pagesOf(nb.id).single;
+    a.s.elements.save([_text('box', page.id)]);
+    await a.sync();
+    for (var i = 0; i < 20; i++) {
+      _write(a, nb.id, page.id, 'ink$i');
+    }
+    await a.sync();
+    // B's first pull stops (the app closed) once it holds the text box, before
+    // its page is complete: nothing counts as pulled yet.
+    PullApplier.debugSliceRecords = 1;
+    addTearDown(() => PullApplier.debugSliceRecords = null);
+    bool holdsBox() => b.db.select("SELECT 1 FROM elements WHERE id = 'box'").isNotEmpty;
+    await b.s.sync.engine.sync(apiFor(a.server), isCancelled: holdsBox);
+    expect(b.s.settings.syncLastSeq, 0);
+    PullApplier.debugSliceRecords = null;
+
+    a.time.tick();
+    a.s.elements.save([_text('box', page.id, text: 'edited')]);
+    await a.sync();
+    a.time.tick();
+    b.s.notebooks.deletePage(page.id); // Without having seen the edit.
+    await b.sync();
+    await _settle(a, b);
+
+    for (final d in [a, b]) {
+      expect(_pages(d, nb.id), [page.id], reason: d.clock.prefix);
+      final boxes = SurfaceCopier(d.s.strokes, elements: d.s.elements).loadAllElements(page.id);
+      expect(boxes.single.data['text'], 'edited', reason: d.clock.prefix);
+    }
+  });
+
+  test('a device bringing a page back never overwrites an edit it has not seen', () async {
+    final (a, b) = twoDevices();
+    final c = TestDevice(a.server, a.time, 'c');
+    final nb = _notebook(a);
+    final page = a.s.pages.pagesOf(nb.id).single;
+    a.s.elements.save([_text('box', page.id)]);
+    await a.sync();
+    await b.sync();
+    await c.sync();
+
+    // C writes on the page and B deletes it, unaware of each other; A edits
+    // the text box after the deletion, offline.
+    _write(c, nb.id, page.id, 'ink');
+    a.time.tick();
+    b.s.notebooks.deletePage(page.id);
+    await b.sync();
+    a.time.tick();
+    a.s.elements.save([_text('box', page.id, text: 'edited')]);
+    // C brings the page back (its ink) with the text box as it knew it.
+    a.time.tick();
+    await c.sync();
+    await a.sync();
+    for (var i = 0; i < 2; i++) {
+      for (final d in [a, b, c]) {
+        await d.sync();
+      }
+    }
+
+    for (final d in [a, b, c]) {
+      expect(_pages(d, nb.id), [page.id], reason: d.clock.prefix);
+      expect(_ink(d, page.id), ['ink']);
+      final boxes = SurfaceCopier(d.s.strokes, elements: d.s.elements).loadAllElements(page.id);
+      expect(boxes.single.data['text'], 'edited', reason: d.clock.prefix);
+    }
+  });
 
   test('a deleted page another device wrote on comes back into its notebook', () async {
     final (a, b) = twoDevices();
@@ -397,14 +598,14 @@ void main() {
   });
 }
 
-SurfaceElement _text(String id, String surface) => SurfaceElement(
+SurfaceElement _text(String id, String surface, {String text = 'words'}) => SurfaceElement(
   id: id,
   surfaceId: surface,
   type: 'text',
   rect: const Rect.fromLTWH(0, 0, 50, 20),
   z: 1,
   createdAt: 1,
-  data: const TextData(text: 'words').toJson(),
+  data: TextData(text: text).toJson(),
 );
 
 SurfaceElement _image(String id, String surface, String sha) => SurfaceElement(

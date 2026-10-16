@@ -85,7 +85,11 @@ class SyncApi {
     if (response.statusCode != 200) {
       throw SyncException.status(response.statusCode, response.body);
     }
-    return ServerInfo.fromJson(decodeObject(response.body));
+    final json = decodeObject(response.body);
+    if (json == null) {
+      throw SyncException.unreadable(response.bodyBytes, otherwise: SyncException.notLen);
+    }
+    return ServerInfo.fromJson(json);
   }
 
   /// Uploads [records], split into as many requests as the server's count
@@ -127,7 +131,9 @@ class SyncApi {
         final rejected = _rejectedIndex(response, sending.length);
         if (rejected == null) {
           _expectOk(response);
-          if (decodeObject(response.body) == null) throw SyncException.unexpected;
+          if (decodeObject(response.body) == null) {
+            throw SyncException.unreadable(response.bodyBytes);
+          }
           return;
         }
         final record = sending.removeAt(rejected).record;
@@ -179,12 +185,10 @@ class SyncApi {
   /// Malformed records are dropped (and counted) rather than failing the
   /// whole page, so one bad record can never block sync forever. Pages are
   /// decoded off the UI thread where the platform can ([decodePulled]).
-  Future<PullPage> pull({required int since, int limit = pullLimit}) async =>
-      await decodePulled(
-        await pullBody(since: since, limit: limit),
-        since: since,
-      ) ??
-      (throw SyncException.unexpected);
+  Future<PullPage> pull({required int since, int limit = pullLimit}) async {
+    final body = await pullBody(since: since, limit: limit);
+    return await decodePulled(body, since: since) ?? (throw SyncException.unreadable(body));
+  }
 
   /// Fetches one page of changes after [since], undecoded (see
   /// `decodePullPage`).
@@ -275,6 +279,6 @@ class SyncApi {
   Future<Map<String, Object?>> _send(Future<http.Response> Function() request) async {
     final response = await _request(request);
     _expectOk(response);
-    return decodeObject(response.body) ?? (throw SyncException.unexpected);
+    return decodeObject(response.body) ?? (throw SyncException.unreadable(response.bodyBytes));
   }
 }

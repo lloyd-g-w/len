@@ -74,18 +74,32 @@ abstract class SyncableTable implements SyncableStore {
     });
   }
 
-  /// Brings tombstoned rows [ids] back as local edits (a deletion that
-  /// raced an edit, see `DeletionConflicts`). Tables whose tombstones keep
-  /// every column revive them as they were.
-  void revive(Iterable<String> ids) {
-    final now = clock.nowMs();
+  /// Brings tombstoned rows [ids] back as local edits at [version] (a
+  /// deletion that raced an edit, see `DeletionConflicts`: the version right
+  /// after the deletion's, so a copy brought back never beats an edit made
+  /// elsewhere). Tables whose tombstones keep every column revive them as
+  /// they were.
+  void revive(Iterable<String> ids, {required int version}) {
     for (final id in ids) {
       db.execute(
         'UPDATE $table SET deleted = 0, dirty = 1, updated_at = ?, device_id = ? '
-        'WHERE id = ? AND deleted = 1',
-        [nextVersion(id, now), deviceId, id],
+        'WHERE id = ? AND deleted = 1 AND updated_at < ?',
+        [version, deviceId, id, version],
       );
     }
+  }
+
+  /// Makes the local version of row [id] a new local edit, later than
+  /// version [over] (another device's, or a deletion's here): an edit and
+  /// a deletion that did not know each other keep the edit (see
+  /// `PullApplier`).
+  void keepAsEdit(String id, {required int over}) {
+    final now = clock.nowMs();
+    db.execute('UPDATE $table SET updated_at = ?, device_id = ?, dirty = 1 WHERE id = ?', [
+      now > over ? now : over + 1,
+      deviceId,
+      id,
+    ]);
   }
 
   @override

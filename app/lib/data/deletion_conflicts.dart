@@ -102,7 +102,7 @@ class DeletionConflicts {
 
   void _revivePage(String id, DeletionMark mark, Revival out) {
     final pages = notebooks.pages;
-    pages.revive([id]);
+    pages.revive([id], version: mark.version + 1);
     _reviveMarked(notebooks.strokes, 'surface_id = ?', [id], mark);
     final elements = notebooks.elements;
     if (elements != null) _reviveMarked(elements, 'surface_id = ?', [id], mark);
@@ -118,7 +118,7 @@ class DeletionConflicts {
   }
 
   void _reviveNotebook(String id, DeletionMark mark, Revival out) {
-    notebooks.revive([id]);
+    notebooks.revive([id], version: mark.version + 1);
     if (notebooks.get(id) case final n? when n.trashedAt == null) notebooks.trash(id);
     final pageIds = _reviveMarked(notebooks.pages, 'notebook_id = ?', [id], mark);
     // Any page: one revived earlier may still miss content of this deletion.
@@ -161,7 +161,7 @@ class DeletionConflicts {
       ))
         row['id'] as String,
     ];
-    table.revive(ids);
+    table.revive(ids, version: mark.version + 1);
     return ids;
   }
 
