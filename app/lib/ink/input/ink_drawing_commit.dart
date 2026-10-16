@@ -23,9 +23,9 @@ extension _InkCommit on InkDrawing {
       createdAt: _drawStartedAt,
       shape: shape,
     );
-    // Over PDF text, a highlight snaps to the words it covers (always: no
-    // hold needed).
-    if (stroke.tool.isHighlighter) {
+    // Over PDF text, a highlight snaps to the words it covers (no hold
+    // needed) unless the highlighter's Snap to text is off.
+    if (stroke.tool.isHighlighter && tools.configOf(stroke.tool).snapToText) {
       if (highlightSnap?.snap(stroke) case final snapped? when snapped.isNotEmpty) {
         return model.commit(InkEdit(added: snapped));
       }

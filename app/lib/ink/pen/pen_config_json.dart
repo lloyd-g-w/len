@@ -20,6 +20,7 @@ abstract final class PenConfigJson {
     final thinning = _unit(json['thinning']);
     final streamline = _unit(json['streamline']);
     final straight = json['straight'];
+    final snapToText = json['snapToText'];
     final ends = PenEnds.fromJson(json['ends']);
     if (colors == null ||
         widths == null ||
@@ -29,6 +30,7 @@ abstract final class PenConfigJson {
         thinning == null ||
         streamline == null ||
         straight is! bool ||
+        snapToText is! bool ||
         ends == null ||
         !defaults.endStyles.contains(ends.style)) {
       return null;
@@ -42,6 +44,7 @@ abstract final class PenConfigJson {
       thinning: thinning,
       streamline: streamline,
       straight: straight,
+      snapToText: snapToText,
       ends: ends,
     );
   }

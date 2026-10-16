@@ -20,6 +20,7 @@ class PenConfig {
     required this.thinning,
     required this.streamline,
     this.straight = false,
+    this.snapToText = true,
     this.ends = const PenEnds(),
   }) : assert(colors.length > 0 && widths.length > 0);
 
@@ -65,6 +66,10 @@ class PenConfig {
   /// the highlighter).
   final bool straight;
 
+  /// Over PDF text, a stroke snaps to the words it covers (offered for the
+  /// highlighter); off, it stays as drawn.
+  final bool snapToText;
+
   /// The shape of the ends (`PenDefaults.endStyles` lists those offered:
   /// the highlighter's are flat or round).
   final PenEnds ends;
@@ -83,6 +88,7 @@ class PenConfig {
     double? thinning,
     double? streamline,
     bool? straight,
+    bool? snapToText,
     PenEnds? ends,
   }) => PenConfig(
     colors: colors ?? this.colors,
@@ -93,11 +99,12 @@ class PenConfig {
     thinning: thinning ?? this.thinning,
     streamline: streamline ?? this.streamline,
     straight: straight ?? this.straight,
+    snapToText: snapToText ?? this.snapToText,
     ends: ends ?? this.ends,
   );
 
   /// A copy with the feel settings (opacity, pressure sensitivity,
-  /// stabiliser, straight lines, ends) of [tool]'s defaults, keeping the
+  /// stabiliser, straight lines, snap to text, ends) of [tool]'s defaults, keeping the
   /// slots.
   PenConfig withFeelDefaults(InkTool tool) {
     final d = PenConfig.defaultsFor(tool);
@@ -106,6 +113,7 @@ class PenConfig {
       thinning: d.thinning,
       streamline: d.streamline,
       straight: d.straight,
+      snapToText: d.snapToText,
       ends: d.ends,
     );
   }
@@ -170,6 +178,7 @@ class PenConfig {
     'thinning': thinning,
     'streamline': streamline,
     'straight': straight,
+    'snapToText': snapToText,
     'ends': ends.toJson(),
   };
 
@@ -189,6 +198,7 @@ class PenConfig {
       other.thinning == thinning &&
       other.streamline == streamline &&
       other.straight == straight &&
+      other.snapToText == snapToText &&
       other.ends == ends;
 
   @override
@@ -201,6 +211,7 @@ class PenConfig {
     thinning,
     streamline,
     straight,
+    snapToText,
     ends,
   );
 }

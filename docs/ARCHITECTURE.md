@@ -1802,8 +1802,11 @@ scribble (the dimming shows it before anything goes; Settings turns
 scribble to erase off).
 
 **Text-aware highlighter** (`input/highlight_snap.dart`, set by paged
-editors to `features/editor/pdf/PdfHighlightSnap`): always (it needs no
-hold, whatever hold to snap is set to), a highlighter stroke of which
+editors to `features/editor/pdf/PdfHighlightSnap`, on the page, in the
+zoom window and in either split pane): unless the highlighter's **Snap to
+text** is off (`PenConfig.snapToText`, on by default; checked at commit in
+`InkDrawing`, so off every highlight stays exactly as drawn), and with no
+hold (whatever hold to snap is set to), a highlighter stroke of which
 ≥ 70 % runs along lines of PDF text (within 0.85 × a line's height of its
 middle, ≥ 1.5 line heights along each line it counts, its middle on
 average within 0.35 × the line's height of the line's middle or within
@@ -2260,8 +2263,8 @@ are always flat (`PdfHighlights`: the band ends where the text does).
 User customisation lives in `ToolSettings`, persisted as JSON in the local
 `settings` table: per ink a `PenConfig` with **independent quick colours and
 quick widths** (1–5 slots each, one of each selected) and feel settings
-(pressure sensitivity, stabiliser, ends, straight lines; opacity for the
-highlighter — the pen is always opaque), plus eraser options,
+(pressure sensitivity, stabiliser, ends, straight lines; opacity and snap
+to text for the highlighter — the pen is always opaque), plus eraser options,
 hold-to-straighten and the 8 **recent colours** (`RecentColors`: colours
 newly put into an ink's quick slots or given to text or the laser, noted when
 the tool options popover closes, and colours picked with `pickColour`; shown in
@@ -2312,7 +2315,8 @@ paper colour.
 The ink panels (`features/editor/pen/`) are self-contained:
 `PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, ends)
 and `HighlighterOptionsPanel` (preview, opacity, pressure sensitivity — off
-by default —, stabiliser, ends: flat or round, straight lines); on their
+by default —, stabiliser, ends: flat or round, straight lines, snap to
+text); on their
 own, their Reset restores the feel settings. The writing
 gestures hold to snap and scribble to erase are app preferences
 (`AppPreferences.holdToSnap` / `scribbleToErase`), whose one home is
