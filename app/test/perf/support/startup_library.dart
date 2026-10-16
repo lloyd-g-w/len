@@ -20,15 +20,12 @@ class StartupLibrary {
   /// The 500-page notebook of handwriting, open in the kept workspace.
   final Notebook lectures;
 
-  /// The page the workspace was left at.
-  static const int lecturePage = 250;
-
   /// Fills [s] with the library a launch is measured on: [notebookCount]
   /// notebooks (as [BigLibrary.build]: folders, favourites, a trash, PDF
   /// notebooks, a page of handwriting on each cover), a notebook of
   /// [lecturePages] pages of handwriting with three recordings, a
   /// recording on every tenth notebook, and the workspace left in the
-  /// big notebook at [lecturePage] with a second tab open (so a launch
+  /// big notebook at its middle page with a second tab open (so a launch
   /// restores it).
   static StartupLibrary build(
     AppServices s,
@@ -41,7 +38,7 @@ class StartupLibrary {
       clock,
       folderCount: 20,
       notebookCount: notebookCount,
-      trashCount: 20,
+      trashCount: notebookCount ~/ 15,
       coverLines: 20,
     );
     final lectures = s.notebooks.create(
@@ -85,7 +82,7 @@ class StartupLibrary {
     final second = library.notebooks[3];
     s.settings
       ..recentNotebooks = [lectures.id, second.id, for (final n in library.notebooks.take(10)) n.id]
-      ..setEditorView(lectures.id, const EditorViewState.page(lecturePage).encode())
+      ..setEditorView(lectures.id, EditorViewState.page(lecturePages ~/ 2).encode())
       ..workspace = jsonEncode({
         'tabs': [second.id, lectures.id],
         'active': lectures.id,
