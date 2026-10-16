@@ -133,66 +133,72 @@ void main() {
     });
   });
 
-  testWidgets('far zoom: paint work is bounded by visible chunks, not by strokes', (tester) async {
-    await tester.runAsync(() async {
-      // 50 000 scribbles over 25 600 × 16 000 world units: 1 600 chunks,
-      // all visible at 5 % on a 1280 × 800 view.
-      final strokes = scribbles(50000, const Rect.fromLTWH(0, 0, 25600, 16000));
-      final scene = _Scene(
-        strokes,
-        scale: 0.05,
-        size: const Size(1280, 800),
-        centre: const Offset(12800, 8000),
-      );
-      final visible = scene.model.chunksIn(ChunkGrid.rangeFor(scene.viewport.visibleWorld));
-      expect(scene.model.loadedStrokeCount, 50000);
+  // A benchmark at scale (50 000 strokes): in the slow tier (perf).
+  testWidgets(
+    'far zoom: paint work is bounded by visible chunks, not by strokes',
+    (tester) async {
+      await tester.runAsync(() async {
+        // 50 000 scribbles over 25 600 × 16 000 world units: 1 600 chunks,
+        // all visible at 5 % on a 1280 × 800 view.
+        final strokes = scribbles(50000, const Rect.fromLTWH(0, 0, 25600, 16000));
+        final scene = _Scene(
+          strokes,
+          scale: 0.05,
+          size: const Size(1280, 800),
+          centre: const Offset(12800, 8000),
+        );
+        final visible = scene.model.chunksIn(ChunkGrid.rangeFor(scene.viewport.visibleWorld));
+        expect(scene.model.loadedStrokeCount, 50000);
 
-      final record = Stopwatch()..start();
-      final vector = _CountingCanvas();
-      scene.painter(lod: false).paint(vector, scene.viewport.size);
-      final recordTime = record.elapsed;
-      expect(vector.pictures, visible.length);
+        final record = Stopwatch()..start();
+        final vector = _CountingCanvas();
+        scene.painter(lod: false).paint(vector, scene.viewport.size);
+        final recordTime = record.elapsed;
+        expect(vector.pictures, visible.length);
 
-      // With LOD, an uncached screen never records more than a few chunks
-      // in one frame: the rest is filled in by background batches.
-      final cold = _Scene(strokes, scale: 0.05, size: const Size(1280, 800));
-      final coldCanvas = _CountingCanvas();
-      final coldWatch = Stopwatch()..start();
-      cold.painter(lod: true).paint(coldCanvas, cold.viewport.size);
-      final coldFrame = coldWatch.elapsed;
-      expect(coldCanvas.pictures, lessThanOrEqualTo(CommittedInkPainter.freshRecordingsPerFrame));
-      cold.dispose();
+        // With LOD, an uncached screen never records more than a few chunks
+        // in one frame: the rest is filled in by background batches.
+        final cold = _Scene(strokes, scale: 0.05, size: const Size(1280, 800));
+        final coldCanvas = _CountingCanvas();
+        final coldWatch = Stopwatch()..start();
+        cold.painter(lod: true).paint(coldCanvas, cold.viewport.size);
+        final coldFrame = coldWatch.elapsed;
+        expect(coldCanvas.pictures, lessThanOrEqualTo(CommittedInkPainter.freshRecordingsPerFrame));
+        cold.dispose();
 
-      final warm = Stopwatch()..start();
-      await scene.warmRasters();
-      final warmTime = warm.elapsed;
-      final lod = _CountingCanvas();
-      final paintWatch = Stopwatch()..start();
-      scene.painter(lod: true).paint(lod, scene.viewport.size);
-      final lodPaint = paintWatch.elapsed;
-      expect(lod.pictures, 0);
-      expect(lod.images, visible.length);
-      expect(scene.rasters.bytes, lessThanOrEqualTo(256 << 20));
+        final warm = Stopwatch()..start();
+        await scene.warmRasters();
+        final warmTime = warm.elapsed;
+        final lod = _CountingCanvas();
+        final paintWatch = Stopwatch()..start();
+        scene.painter(lod: true).paint(lod, scene.viewport.size);
+        final lodPaint = paintWatch.elapsed;
+        expect(lod.pictures, 0);
+        expect(lod.images, visible.length);
+        expect(scene.rasters.bytes, lessThanOrEqualTo(256 << 20));
 
-      // Rasterising the frame: replaying 50k outlines vs 1 600 images.
-      final (vectorImage, vectorRaster) = await scene.render(lod: false);
-      final (lodImage, lodRaster) = await scene.render(lod: true);
-      vectorImage.dispose();
-      lodImage.dispose();
-      // ignore: avoid_print
-      print(
-        'LOD benchmark: ${strokes.length} strokes, ${visible.length} chunks visible\n'
-        '  vector: ${vector.pictures} pictures (${strokes.length} outlines), '
-        'first-frame recording ${recordTime.inMilliseconds} ms, '
-        'frame raster ${vectorRaster.inMilliseconds} ms\n'
-        '  LOD: ${lod.images} images, cold frame ${coldFrame.inMilliseconds} ms, '
-        'paint ${lodPaint.inMicroseconds} µs, frame raster ${lodRaster.inMilliseconds} ms, '
-        'rasters made in ${warmTime.inMilliseconds} ms, ${scene.rasters.bytes >> 10} KiB',
-      );
-      expect(lodRaster, lessThan(vectorRaster));
-      scene.dispose();
-    });
-  }, timeout: const Timeout(Duration(minutes: 5)));
+        // Rasterising the frame: replaying 50k outlines vs 1 600 images.
+        final (vectorImage, vectorRaster) = await scene.render(lod: false);
+        final (lodImage, lodRaster) = await scene.render(lod: true);
+        vectorImage.dispose();
+        lodImage.dispose();
+        // ignore: avoid_print
+        print(
+          'LOD benchmark: ${strokes.length} strokes, ${visible.length} chunks visible\n'
+          '  vector: ${vector.pictures} pictures (${strokes.length} outlines), '
+          'first-frame recording ${recordTime.inMilliseconds} ms, '
+          'frame raster ${vectorRaster.inMilliseconds} ms\n'
+          '  LOD: ${lod.images} images, cold frame ${coldFrame.inMilliseconds} ms, '
+          'paint ${lodPaint.inMicroseconds} µs, frame raster ${lodRaster.inMilliseconds} ms, '
+          'rasters made in ${warmTime.inMilliseconds} ms, ${scene.rasters.bytes >> 10} KiB',
+        );
+        expect(lodRaster, lessThan(vectorRaster));
+        scene.dispose();
+      });
+    },
+    timeout: const Timeout(Duration(minutes: 5)),
+    tags: ['perf'],
+  );
 
   for (final batched in [false, true]) {
     testWidgets('far zoom: LOD rendering looks like the vector rendering'
