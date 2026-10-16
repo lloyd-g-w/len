@@ -3265,7 +3265,10 @@ at phone, tablet and desktop sizes in light and dark with real fonts. Run
 See [`SYNC_PROTOCOL.md`](SYNC_PROTOCOL.md). Every synced table has
 `updated_at / device_id / deleted / dirty`. A cycle pushes dirty rows, then
 pulls the server's change feed from the last seen sequence number, applying
-records with last-write-wins. Remote records are parsed strictly
+records with last-write-wins, then pushes what waited for the pull: edits of
+rows edited in place (text boxes, recordings, outline entries) and every
+deletion, so the pull can tell an edit and a deletion that did not know each
+other (`PullApplier`: the edit is kept, see "Deletion conflicts" below). Remote records are parsed strictly
 (`RecordFields`): every field of the collection's format is required, and a
 malformed record is skipped. Open screens subscribe to
 `SyncController.remoteChanges` and reload only the affected surfaces.
@@ -3342,7 +3345,11 @@ rows of one deletion are recognisable on every device; tombstoned strokes and
 elements keep their payload, and tombstones their blobs, for 30 days
 (`TombstonePayloads`, purged by `LocalBlobGc`). After a pull the engine revives
 deleted pages / notebooks that hold live content and notebooks / pages whose
-tombstone a live record replaced, then pushes the revived rows. Tombstones are
+tombstone a live record replaced, at the version right after the deletion's
+(a stale copy never beats an edit not seen yet), then pushes the revived rows. A
+text box, recording or outline entry edited here and not pushed yet keeps its
+edit over a pulled deletion, and one deleted here and not pushed yet takes an
+edit pulled from elsewhere (`PullApplier._keepEdit`). Tombstones are
 pushed children first, so a half-finished push never looks like a conflict. The
 device whose deletion was undone says so once after that sync (`revivalNotices`, through
 `SyncController.notices`: "“Lab book” is back in the trash: another device wrote in it
