@@ -61,6 +61,29 @@ class TextFlowChains {
     return out;
   }
 
+  /// Every box on the pages after [pageId] whose chain leads back to box
+  /// [headId] there: its continuations, and boxes continuing them that
+  /// the chain did not take (see [_continuing]) with what runs on from
+  /// those, in page order.
+  List<FlowBox> allAfter(String pageId, String headId) {
+    final after = pages.pagesFrom(pageId);
+    if (after == null) return const [];
+    final out = <FlowBox>[];
+    var from = {headId};
+    for (final page in after.skip(1).take(maxParts)) {
+      final id = page.id;
+      if (id == null) break;
+      final next = [
+        for (final e in pages.elementsOn(id))
+          if (from.contains(flowOf(e)?.from)) e,
+      ];
+      if (next.isEmpty) break;
+      out.addAll([for (final e in next) (pageId: id, box: e)]);
+      from = {for (final e in next) e.id};
+    }
+    return out;
+  }
+
   /// The box on [pageId] continuing box [from]: of several (two devices
   /// reflowing at once), the oldest.
   SurfaceElement? _continuing(String pageId, String from) {
@@ -235,7 +258,8 @@ class TextFlowChains {
   /// Boxes continuing a box of the chain of [headId] (on [pageId]; its
   /// continuations [old]) on the very next page that the chain did not
   /// take (see [_continuing]): two devices made it run on at once. They
-  /// hold a copy of its text, so they go when it flows again.
+  /// hold a copy of its text, so they go when it flows again, with what
+  /// runs on from them.
   List<FlowBox> _rivals(String pageId, String headId, List<FlowBox> old) {
     final taken = {for (final o in old) o.box.id};
     final out = <FlowBox>[];
@@ -246,7 +270,10 @@ class TextFlowChains {
       final next = pages.pagesFrom(page)?.skip(1).firstOrNull?.id;
       if (next == null) continue;
       for (final e in pages.elementsOn(next)) {
-        if (flowOf(e)?.from == from && !taken.contains(e.id)) out.add((pageId: next, box: e));
+        if (flowOf(e)?.from != from || taken.contains(e.id)) continue;
+        out
+          ..add((pageId: next, box: e))
+          ..addAll(allAfter(next, e.id));
       }
     }
     return out;
@@ -278,13 +305,17 @@ class TextFlowChains {
       a.z == b.z &&
       TextData.fromJson(a.data) == TextData.fromJson(b.data);
 
-  /// The edits removing the continuations [rest] of a deleted head.
-  static Map<String, InkEdit> removing(List<FlowBox> rest) {
-    final edits = <String, List<SurfaceElement>>{};
-    for (final r in rest) {
-      (edits[r.pageId] ??= []).add(r.box);
+  /// The edits removing what follows head [headId] (on [pageId]) when it
+  /// is deleted: its continuations [rest] and every box whose chain leads
+  /// to it ([allAfter]: a rival left by two devices too).
+  Map<String, InkEdit> removing(String pageId, String headId, [List<FlowBox> rest = const []]) {
+    final edits = <String, Map<String, SurfaceElement>>{};
+    for (final r in [...rest, ...allAfter(pageId, headId)]) {
+      (edits[r.pageId] ??= {})[r.box.id] = r.box;
     }
-    return {for (final e in edits.entries) e.key: InkEdit(removedElements: e.value)};
+    return {
+      for (final e in edits.entries) e.key: InkEdit(removedElements: [...e.value.values]),
+    };
   }
 
   /// Flows again every chain with a box on [pageIds] (pages that changed

@@ -100,13 +100,14 @@ void main() {
 /// time it flows the other goes.
 void rivalTests() {
   late AppDatabase db;
+  late FakeClock clock;
   late ElementRepository elements;
   late FakePages pages;
   late TextFlowChains chains;
 
   setUp(() {
     db = AppDatabase.inMemory();
-    final clock = FakeClock();
+    clock = FakeClock();
     elements = ElementRepository(db, deviceId: 'dev', clock: clock);
     final strokes = StrokeRepository(db, deviceId: 'dev', clock: clock);
     pages = FakePages(elements, strokes, ['p0', 'p1', 'p2']);
@@ -146,6 +147,52 @@ void rivalTests() {
     // All fits on p0 now: neither stays on p1.
     expect(elements.allOn('p1'), isEmpty);
     expect(TextData.fromJson(elements.allOn('p0').single.data).text, 'Alpha\nBeta');
+  });
+
+  /// A chain whose rival continuation (y, on p1) runs on itself (z, p2).
+  void rivalChain() => elements.save([
+    box('h', 'p0', 'Alpha'),
+    box('x', 'p1', 'Beta', flow: const TextFlow(from: 'h')),
+    box('y', 'p1', 'Beta too', flow: const TextFlow(from: 'h'), created: 2),
+    box('z', 'p2', 'Gamma too', flow: const TextFlow(from: 'y'), created: 2),
+  ]);
+
+  test('what runs on from a rival goes with it', () {
+    rivalChain();
+    final head = elements.allOn('p0').single;
+    final rest = chains.continuationsOf('p0', 'h');
+    pages.batch(() {
+      final r = chains.reflow('p0', head, TextFlowChains.wholeOf(head, rest), rest);
+      pages.modelOf('p0').commit(InkEdit(removedElements: [head], addedElements: [r.head]));
+      chains.commit(r.edits);
+    });
+    expect(elements.allOn('p1') + elements.allOn('p2'), isEmpty);
+  });
+
+  test('deleting the first box deletes every box whose chain leads to it', () {
+    rivalChain();
+    final selection = SelectionController(
+      model: pages.modelOf('p0'),
+      clipboard: InkClipboard(),
+      clock: clock,
+    )..flows = chains;
+    addTearDown(selection.dispose);
+    selection.select(const [], [pages.modelOf('p0').elementById('h')!]);
+    selection.delete();
+    expect(elements.allOn('p0') + elements.allOn('p1') + elements.allOn('p2'), isEmpty);
+    pages.models.undo();
+    expect(elements.allOn('p1').map((e) => e.id), unorderedEquals(['x', 'y']));
+    expect(elements.allOn('p2').map((e) => e.id), ['z']);
+  });
+
+  test('emptying the first box in the editor does too', () {
+    rivalChain();
+    final session = TextEditSession(model: pages.modelOf('p0'), clock: clock)..flows = chains;
+    addTearDown(session.dispose);
+    session.edit(elements.allOn('p0').single);
+    session.setData(const TextData());
+    session.end();
+    expect(elements.allOn('p0') + elements.allOn('p1') + elements.allOn('p2'), isEmpty);
   });
 }
 

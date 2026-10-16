@@ -2082,7 +2082,9 @@ GoodNotes-style rich text inside a box.
   layout; the field lays out on its own). **Lasso**: a continuation is not selected on its own
   (it follows its head); moving, resizing, restyling or rotating a head flows its chain again
   from where it is (`SelectionPlan.flowText`, same undo step; a rotated head takes the whole
-  text and stops flowing), deleting it deletes the chain, copy / cut / duplicate take the whole
+  text and stops flowing), deleting it deletes the chain (every box whose `TextFlow.from` leads
+  back to it, `TextFlowChains.allAfter`: a rival continuation two devices made, and what runs on
+  from it, too; a reflow drops those as well), copy / cut / duplicate take the whole
   text, so does dragging it into the other split pane (placed as the selection was shown, on the
   page its first line lands on; pasted on a page it flows; on a canvas it is one tall box). Ctrl+V
   of plain text on a page flows too (from no higher than the top margin). **Broken chains**: a continuation whose box before is gone or not on the page

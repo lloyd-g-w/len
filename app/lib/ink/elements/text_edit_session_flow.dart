@@ -174,7 +174,7 @@ extension _SessionFlow on TextEditSession {
       if (original == null) return;
       chains.pages.batch(() {
         _model.commit(InkEdit(removedElements: [original]));
-        chains.commit(TextFlowChains.removing(_rest));
+        chains.commit(chains.removing(_model.surfaceId, original.id, _rest));
       });
       return;
     }
@@ -222,8 +222,9 @@ extension _SessionFlow on TextEditSession {
     final whole = parts.isEmpty ? const TextData() : TextFlow.join(parts);
     chains.pages.batch(() {
       if (whole.text.trim().isEmpty) {
-        if (stored != null) _modelOf(headPage).commit(InkEdit(removedElements: [stored]));
-        chains.commit(TextFlowChains.removing(_rest));
+        if (stored == null) return;
+        _modelOf(headPage).commit(InkEdit(removedElements: [stored]));
+        chains.commit(chains.removing(headPage, stored.id, _rest));
         return;
       }
       final r = chains.reflow(headPage, first, whole, _rest);
