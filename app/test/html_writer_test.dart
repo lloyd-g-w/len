@@ -100,6 +100,24 @@ void main() {
       expect(_read(html).text, 'a\n\nb');
     });
 
+    test('boxes ending in blank lines end at their text, as the plain text does', () {
+      final html = htmlFromTexts([
+        const TextData(text: 'a\n\n'),
+        TextData.rich(
+          text: 'b  \n \n',
+          paras: const [
+            ParaStyle.body,
+            ParaStyle(list: ListKind.bullet),
+            ParaStyle.body,
+          ],
+        ),
+      ]);
+      expect(html, htmlFromTexts(const [TextData(text: 'a'), TextData(text: 'b')]));
+      expect(_read(html).text, 'a\n\nb');
+      // One box copied in its own field keeps what was selected.
+      expect(_read(htmlFromText(const TextData(text: 'a\n\nb'))).text, 'a\n\nb');
+    });
+
     test("Len's highlights stay colours once blended onto white", () {
       for (final h in textHighlights) {
         expect(htmlHighlight(h), isNotNull, reason: h.toRadixString(16));

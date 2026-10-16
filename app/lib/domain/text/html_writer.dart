@@ -14,20 +14,26 @@ import 'text_data.dart';
 /// so apps without checklists still show it); one block per line, spaces
 /// kept with `&nbsp;` where HTML would collapse them; alignment as
 /// `text-align`. Sizes are left to the receiving app (headings carry
-/// theirs). Several [boxes] are separated by an empty line.
+/// theirs). Several [boxes] (copied whole, with the lasso) are separated
+/// by an empty line and end at their text, as their plain text does:
+/// blank lines and spaces after it are left out.
 String htmlFromTexts(Iterable<TextData> boxes) {
   final out = StringBuffer();
   var first = true;
   for (final box in boxes) {
     if (!first) out.write('<div><br></div>');
     first = false;
-    _BoxWriter(box, out).write();
+    _BoxWriter(box, out).write(box.text.trimRight().length);
   }
   return out.toString();
 }
 
-/// [htmlFromTexts] of one box.
-String htmlFromText(TextData data) => htmlFromTexts([data]);
+/// [htmlFromTexts] of the text selected in one box, all of it.
+String htmlFromText(TextData data) {
+  final out = StringBuffer();
+  _BoxWriter(data, out).write(data.text.length);
+  return out.toString();
+}
 
 /// The text colour [argb] as written to HTML (opaque), or null where it
 /// is written as none: transparent or grey (`textFromHtml` drops greys
@@ -93,10 +99,12 @@ class _BoxWriter {
     return '${rtl ? ' dir="rtl"' : ''}${align == null ? '' : ' style="text-align:$align"'}';
   }
 
-  void write() {
+  /// Writes the lines of the text up to [end].
+  void write(int end) {
     final paras = data.paras;
     var start = 0;
     for (final (i, line) in data.text.split('\n').indexed) {
+      if (start > end) break;
       final p = paras[i];
       if (p.isList) {
         _item(p, i);
@@ -112,7 +120,7 @@ class _BoxWriter {
       if (p.list == ListKind.check) {
         out.write('<span aria-hidden="true">${p.checked ? '☑' : '☐'} </span>');
       }
-      _line(start, start + line.length);
+      _line(start, start + line.length < end ? start + line.length : end);
       if (tag != null) out.write('</$tag>');
       start += line.length + 1;
     }
