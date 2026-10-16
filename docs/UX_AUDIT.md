@@ -1,5 +1,107 @@
 # Len — UX/UI audit
 
+## Round 23 audit — accessibility (`review/round23`)
+
+Lens: Len with a screen reader (TalkBack, NVDA / Orca, VoiceOver: what
+Flutter's semantics tree gives them), very large text (system scale 1.5×
+and 2×; earlier rounds checked 1.3×), contrast in light and dark (WCAG AA:
+4.5:1 for text, 3:1 for the parts of controls and states that must be
+seen), reduced motion, signals carried by colour alone, touch targets,
+focus after dialogs and sheets close, announcements (live regions) and a
+name for every icon-only control. Keyboard access had its own round
+(`a11y/keyboard` below). Checked with Flutter's guidelines
+(`androidTapTargetGuideline` / `iOSTapTargetGuideline`,
+`labeledTapTargetGuideline`, `textContrastGuideline`) over the library,
+settings, the editor chrome on phone, sideways phone and tablet with every
+tool popover and sheet, the new-notebook and export sheets, ⋯, the page
+overview (and selecting), recordings, scan, storage and the library's
+menus and search — light and dark, and again at 1.5× and 2× text
+(`accessibility_test.dart`, `accessibility_screens_test.dart`); rendered
+the same screens at 1.5× and 2× (`large_text_screenshot_test.dart`);
+computed the tokens' contrast; read the motion, announcement and
+semantics code. Nothing was run on a device. ⬜ open, ✅ fixed on this
+branch.
+
+Summary: the foundations are good — every tappable control on the
+screens checked has a name, chrome text meets AA in both themes
+(Graphite 6.3:1 on Board, 5.5:1 on Desk; dark 7.2:1), touch targets are
+48 dp on touch (quick slots 44 by design), selection is exposed as
+`selected`, progress dialogs are live regions, and large text reflows
+rather than overflows (segmented controls stack, sheets scroll). What a
+screen-reader user misses is feedback that sighted users get from things
+appearing: starting or pausing a recording and "Sync now" say nothing. What
+reduced motion misses is most of the editor's travel: going to a page,
+double-tap zoom, sheets, route slides and disclosure chevrons still move.
+Large text breaks in two places: the scan screen's title disappears at
+2×, and a sideways phone's library cuts titles to three letters. The
+page overview's filter and its ⋯ were 40 dp tall on touch; selection
+handles lose contrast on dark paper.
+
+| Area | Len | Verdict |
+|---|---|---|
+| Names for icon-only controls | every tappable node labelled on all screens checked (guideline) | Keep |
+| Roles and states | buttons, headers, `selected` on tools, segments, tiles, covers, templates | Keep |
+| Touch targets | 48 dp on touch; quick slots 44 (CONVENTIONS); overview filter and ⋯ 40 | R23-1 ✅ |
+| Text contrast | Graphite ≥ 5.5:1 on every chrome surface, ruling blue ≥ 5.0 on Sheet / Board, error ≥ 4.8 | Keep |
+| Component contrast | Pencil outlines 3.1–3.5:1 on Board / Sheet; selection chrome on dark paper 2.9:1 | R23-6 ✅ |
+| Disabled states | 38 % ink (≈ 2.5:1), as Material; WCAG exempts inactive controls | Keep |
+| Selected segment | a faint plate (1.2:1) and an Ink label (Graphite otherwise, 6:1 vs 19:1) | Keep (label carries it) |
+| Colour-only signals | sync error: red icon + its own text; recording: red dot + timer + controls; current page: margin rule + bold number | Keep |
+| Large text 1.5× / 2× | reflows; scan title lost at 2×; sideways library titles cut | R23-2 ✅, R23-5 ✅ |
+| Reduced motion | chrome fades, popovers, tool clusters, the zoom window honour it; page travel, zoom, sheets, routes, chevrons, sizes don't | R23-4 ✅ |
+| Announcements | progress dialogs, notices, page moves, snack bars; nothing on record / pause / resume or Sync now | R23-3 ✅ |
+| Focus after dialogs and sheets | the route below gets its focused control back (Flutter's scope); popovers return focus to their opener | Keep |
+
+### Prioritised items
+
+**R23-1 P1 · The page overview's filter and page ⋯ were 40 dp on touch.** ✅
+- *What:* the All / Bookmarked / Outline filter used a compact
+  segmented button (40 dp) and each tile's ⋯ sat in a 40-dp number row,
+  under Android's 48 dp — the overview's only two kinds of control.
+- *Fix:* the filter keeps the standard density on touch (compact with a
+  pointer), and the number row is `Targets.barHit` tall (48 on touch).
+
+**R23-2 P1 · The scan screen's title disappeared at 2× text.** ✅
+- *What:* "Create notebook" grew with the text and took the whole app bar;
+  "Scan" and the page count were squeezed to nothing on a phone.
+- *Fix:* the action takes at most half the bar and its label shrinks to fit.
+
+**R23-3 P1 · Recording and Sync now said nothing to a screen reader.** ⬜
+- *What:* Record swaps the button for the recording controls (focus is
+  lost, nothing is read); pause and resume change an icon; Sync now turns
+  an icon — a sighted user sees all of it, a TalkBack user hears nothing
+  until "Saved …" when recording stops.
+- *Fix:* announce "Recording", "Recording paused", "Recording resumed",
+  and after Sync now "Synced" or the error.
+
+**R23-4 P1 · Reduced motion: page travel, zoom, sheets and routes still move.** ⬜
+- *What:* DESIGN §5 promises fades only, and chrome, popovers and the
+  zoom window honour it; but going to a page (overview, search, outline,
+  links), double-tap and keyboard zoom glide; sheets slide up; routes slide
+  in; disclosure chevrons turn; expanding panels grow; the tip banner
+  slides; scrolling to a revealed control animates.
+- *Fix:* `Motion.moving(context, d)` (zero when reduced) for everything
+  that moves; the viewport animator and the document scroller jump; sheets
+  and routes fade.
+
+**R23-5 P2 · A sideways phone's library cut titles to three letters at 2×.** ⬜
+- *What:* covers keep their width as text grows, so at 2× a sideways
+  phone shows seven covers whose titles read "Trav…", "Spa…".
+- *Fix:* cover cells grow with the text scale (fewer, wider columns).
+
+**R23-6 P2 · Selection chrome on dark paper was 2.9:1.** ⬜
+- *What:* the lasso, selection frame and handles are ruling blue
+  (`AppTheme.seed`) on the paper; on Dark paper that is 2.9:1, under the
+  3:1 a state needs.
+- *Fix:* the frame, lasso and rotate line get a paper-coloured halo under
+  the blue line, readable on any paper (and on images).
+
+**R23-7 P3 · Smaller large-text cuts.** ⬜
+- The canvas's "Hold for a template" hint ellipsizes at 2× on a phone;
+  a recording's date ellipsizes at 2×. Both readable in full by a screen
+  reader; wrap them.
+
+
 ## Round 21 audit — diagrams and drawing (`review/round21`)
 
 Lens: an engineering or science student drawing by hand with the S Pen —
