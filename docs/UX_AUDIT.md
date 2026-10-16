@@ -34,8 +34,9 @@ reduced motion misses is most of the editor's travel: going to a page,
 double-tap zoom, sheets, route slides and disclosure chevrons still move.
 Large text breaks in two places: the scan screen's title disappears at
 2×, and a sideways phone's library cuts titles to three letters. The
-page overview's filter and its ⋯ were 40 dp tall on touch; selection
-handles lose contrast on dark paper.
+page overview's filter and its ⋯, and the audio player's scrubber, speed
+and Trim were under 48 dp on touch; selection lines lose contrast on dark
+paper. Pages themselves are silent to a screen reader (R23-10, Next).
 
 | Area | Len | Verdict |
 |---|---|---|
@@ -47,7 +48,7 @@ handles lose contrast on dark paper.
 | Disabled states | 38 % ink (≈ 2.5:1), as Material; WCAG exempts inactive controls | Keep |
 | Selected segment | a faint plate (1.2:1) and an Ink label (Graphite otherwise, 6:1 vs 19:1) | Keep (label carries it) |
 | Colour-only signals | sync error: red icon + its own text; recording: red dot + timer + controls; current page: margin rule + bold number | Keep |
-| Large text 1.5× / 2× | reflows; scan title lost at 2×; sideways library titles cut | R23-2 ✅, R23-5 ✅ |
+| Large text 1.5× / 2× | reflows; scan title lost at 2×; sideways library titles cut; a hint and a date ellipsized | R23-2 ✅, R23-5 ✅, R23-7 ✅ |
 | Reduced motion | Flutter cuts its own animations to 5 %; Len's page travel, zooms and scrolls to a control still glided | R23-4 ✅ |
 | Announcements | progress dialogs, notices, page moves, snack bars; nothing on record / pause / resume or Sync now | R23-3 ✅ |
 | Pages to a screen reader | no node: the page, its typed text and recognised handwriting are silent | R23-10 ⬜ (Next) |
