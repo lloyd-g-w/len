@@ -36,16 +36,20 @@ class AppDatabase {
   /// lives in IndexedDB instead, [directory] is ignored and the database
   /// joins [writes] (whose writes reach storage asynchronously).
   ///
-  /// A database already in the current schema ([SchemaMigrations.shapeDigest])
-  /// opens without building a fresh schema to compare with; otherwise one
-  /// is built first (browsers can't open a scratch database synchronously).
+  /// A new database, or one already in the current schema
+  /// ([SchemaMigrations.shapeDigest]), opens without building a fresh
+  /// schema to compare with; otherwise one is built first (browsers can't
+  /// open a scratch database synchronously).
   static Future<AppDatabase> openDefault(String directory, {StorageWrites? writes}) async {
     final database = AppDatabase._(
       await openSqlite(name: _defaultName, directory: directory, writes: writes),
       path: sqliteFilePath(name: _defaultName, directory: directory),
     ).._configure();
-    final current = database._version == latestVersion && database._hasCurrentShape();
-    if (!current) _expected ??= _shapeOfFresh(await openSqliteScratch());
+    final version = database._version;
+    final current = version == latestVersion && database._hasCurrentShape();
+    // Compared with only when migrated from an older version or changed (a
+    // new database, version 0, is created by the migrations).
+    if (version > 0 && !current) _expected ??= _shapeOfFresh(await openSqliteScratch());
     return database.._migrate(shapeChecked: current);
   }
 

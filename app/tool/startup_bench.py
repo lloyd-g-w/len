@@ -74,7 +74,9 @@ for run in range(runs):
         launch(bundle, run)
 
 for bundle in bundles:
-    print(f'\n{bundle}: median ms since launch (min-max) of {runs}:')
+    print(f'\n{bundle}: median ms since launch (min-max), and since main, of {runs}:')
     for key in results[bundle][0]:
         values = [r[key] for r in results[bundle] if key in r]
-        print(f'  {key:12s} {statistics.median(values):7.0f}  ({min(values):.0f}-{max(values):.0f})')
+        dart = [r[key] - r['main'] for r in results[bundle] if key in r]
+        print(f'  {key:14s} {statistics.median(values):6.0f}  ({min(values):.0f}-{max(values):.0f})'
+              f'  {statistics.median(dart):6.0f}  ({min(dart):.0f}-{max(dart):.0f})')
