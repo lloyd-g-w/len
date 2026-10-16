@@ -63,7 +63,9 @@ class AudioplayersPlayback implements AudioPlayback {
     Future<bool> Function(String) fetch,
   ) async {
     for (final sha in recording.blobs) {
-      if (!await blobs.has(sha) && !await fetch(sha)) {
+      // Awaited apart: dart2wasm miscompiles `!await a && await b`.
+      final here = await blobs.has(sha);
+      if (!here && !await fetch(sha)) {
         throw const AudioUnavailable(notDownloaded);
       }
     }

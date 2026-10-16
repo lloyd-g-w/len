@@ -67,6 +67,10 @@ void main() {
     expect(curves, greaterThan(lines * 5));
     // Coordinates carry at most two decimals.
     expect(RegExp(r'\d\.\d{3,} [\d.]+ [\d.]+ [\d.]+ [\d.]+ [\d.]+ c').hasMatch(content), isFalse);
+    // No line to where the path already is (an arc starting at the end of
+    // the segment before it: round caps and joins).
+    final idle = RegExp(r'(?<![\d.])([\d.]+ [\d.]+) [cl]\s+\1 l\s').allMatches(content).length;
+    expect(idle, 0, reason: '$idle zero-length lines of $lines');
   });
 
   test(
