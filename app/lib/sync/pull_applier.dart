@@ -13,6 +13,7 @@ import '../data/repositories.dart';
 import '../data/settings_repository.dart';
 import '../data/stroke_repository.dart';
 import '../data/syncable.dart';
+import '../data/syncable_table.dart';
 import '../data/template_repository.dart';
 import 'pull_page.dart';
 import 'remote_changes.dart';
@@ -118,7 +119,7 @@ class PullApplier {
       };
       // A deleted notebook or page edited elsewhere: see DeletionConflicts.
       final deletion = record.deleted ? null : _conflicts.tombstoneOf(record.collection, record.id);
-      if (!store.applyRemote(record)) return;
+      if (!(_keepEdit(store, record) ?? store.applyRemote(record))) return;
       if (deletion != null) {
         _conflicts.reviveDeleted(record.collection, record.id, deletion, revival);
       }
@@ -155,6 +156,44 @@ class PullApplier {
       if (e is! TypeError && e is! ArgumentError) rethrow;
       debugPrint('Skipping unreadable ${record.collection}/${record.id}: $e');
     }
+  }
+
+  /// Collections whose rows are edited in place (strokes are replaced
+  /// instead, and the library's rows are organisation, not content).
+  static const editedInPlace = {'elements', 'recordings', 'outline'};
+
+  /// An edit and a deletion of the same row that did not know each other
+  /// keep the edit, whichever is later (docs/SYNC_PROTOCOL.md, "Deletion
+  /// conflicts"): a deletion arriving for a row with an edit here that was
+  /// never pushed, or an edit arriving for a row deleted here, unpushed,
+  /// when the deletion would win. The edit then becomes a local edit later
+  /// than both, to push; a page or notebook deleted with the row comes back
+  /// once the pull ends ([DeletionConflicts.resolve]). Returns whether the
+  /// row changed, or null when [record] is no such race.
+  ///
+  /// Such rows are pushed after the pull (`SyncEngine`), so they are still
+  /// dirty here. (Not on a first sync or after switching servers: every
+  /// row is pushed before the pull then.)
+  bool? _keepEdit(SyncableStore store, SyncRecord record) {
+    if (store is! SyncableTable || !editedInPlace.contains(record.collection)) return null;
+    final rows = database.select(
+      'SELECT updated_at, device_id, deleted FROM ${store.table} WHERE id = ? AND dirty = 1',
+      [record.id],
+    );
+    if (rows.isEmpty || (rows.first['deleted'] == 1) == record.deleted) return null;
+    final local = rows.first['updated_at'] as int;
+    final wins = record.supersedes(updatedAt: local, deviceId: rows.first['device_id'] as String);
+    if (record.deleted) {
+      // An edit here the deleting device cannot have seen.
+      if (!wins) return null;
+      store.keepAsEdit(record.id, over: record.updatedAt);
+    } else {
+      // An edit elsewhere this unpushed deletion did not know.
+      if (wins) return null;
+      store.writeRemote(record);
+      store.keepAsEdit(record.id, over: local);
+    }
+    return true;
   }
 
   /// Adds [id] unless it is unknown (null, or empty for placeholder

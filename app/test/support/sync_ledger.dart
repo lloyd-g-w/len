@@ -32,9 +32,13 @@ class SyncLedger {
   /// `table/id` → every live version devices wrote locally.
   final Map<String, List<RowVersion>> _edits = {};
 
-  /// Rows a page or notebook deletion removed: `table/id` → the deletion's
-  /// version and the version the deleting device knew.
-  final Map<String, List<({RowVersion deletion, RowVersion known})>> _deletions = {};
+  /// Rows deleted (alone or with their page or notebook): `table/id` → the
+  /// versions the deleting devices knew.
+  final Map<String, List<({RowVersion known})>> _deletions = {};
+
+  /// Collections edited in place, whose edits a deletion that did not know
+  /// them must not lose (docs/SYNC_PROTOCOL.md, "Deletion conflicts").
+  static const _content = {'elements', 'recordings', 'outline'};
 
   /// Every synced row of [s]: `table/id` → (version, live).
   static Map<String, (RowVersion, bool)> snapshot(AppServices s) => {
@@ -51,22 +55,14 @@ class SyncLedger {
   /// Records what one local edit on [s] did: [before] and the state now.
   void record(Map<String, (RowVersion, bool)> before, AppServices s) {
     final after = snapshot(s);
-    // The versions of page and notebook deletions this edit made.
-    final marks = {
-      for (final MapEntry(:key, value: (version, live)) in after.entries)
-        if (!live &&
-            (before[key]?.$2 ?? false) &&
-            (key.startsWith('pages/') || key.startsWith('notebooks/')))
-          version,
-    };
     for (final MapEntry(:key, value: (version, live)) in after.entries) {
       final old = before[key];
       if (old != null && old.$1 == version) continue;
       final known = newest[key];
       if (known == null || _newer(version, known)) newest[key] = version;
       if (live) _edits.putIfAbsent(key, () => []).add(version);
-      if (!live && old != null && old.$2 && marks.contains(version)) {
-        _deletions.putIfAbsent(key, () => []).add((deletion: version, known: old.$1));
+      if (!live && old != null && old.$2) {
+        _deletions.putIfAbsent(key, () => []).add((known: old.$1));
       }
       final wasLive = old?.$2 ?? false;
       if (live && !wasLive) {
@@ -96,6 +92,19 @@ class SyncLedger {
       } else if (_newer(version, row.$1)) {
         out.add(
           '$key: at ${row.$1.at}/${row.$1.device}, written at ${version.at}/${version.device}',
+        );
+      }
+    }
+    // A row edited in place ends deleted only by a deletion that knew each
+    // of its edits.
+    for (final MapEntry(:key, value: edits) in _edits.entries) {
+      if (!_content.contains(key.split('/').first) || (now[key]?.$2 ?? true)) continue;
+      final deletions = _deletions[key] ?? const [];
+      for (final edit in edits) {
+        if (deletions.any((d) => !_newer(edit, d.known))) continue;
+        out.add(
+          '$key: edit ${edit.at}/${edit.device} lost to deletions knowing only '
+          '${[for (final d in deletions) '${d.known.at}/${d.known.device}']}',
         );
       }
     }

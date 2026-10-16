@@ -226,7 +226,11 @@ again lazily if a record referencing it arrives later.
    below (parents first), then tombstones in the reverse order (children first, so a server never
    holds a deleted page or notebook whose content is still live because a push stopped half way) —
    and send them in requests of at most 1000 records and ~4 MiB of
-   JSON. A request answered with `413` (a reverse proxy may allow smaller bodies than the server)
+   JSON. Before the pull, only live rows of the collections other than `elements`, `recordings`
+   and `outline` are pushed; those and every tombstone follow the pull (step 3), which tells
+   whether they raced edits elsewhere ([Deletion conflicts](#deletion-conflicts)). The first sync
+   with a server (every row marked for upload, see [Switching servers](#client-algorithm)) pushes
+   everything before the pull, until one such push went through. A request answered with `413` (a reverse proxy may allow smaller bodies than the server)
    is sent again in halves, and later requests of that sync are kept below half its size. A single
    record too large for the body limit is skipped (it stays dirty), and so
    is a record the server rejects with `400` and its `index` (logged; the rest of that request is
@@ -237,8 +241,9 @@ again lazily if a record referencing it arrives later.
 2. **Pull**: from the stored `lastPulledSeq`, page through `/v1/pull`, applying each record locally
    with the same LWW rule, then persist `nextSince` in the same local transaction. Malformed
    records and unknown collections are skipped (never retried), so they cannot block sync.
-   After the last page the client resolves [deletion conflicts](#deletion-conflicts) and, if it
-   brought anything back, pushes again.
+   After the last page the client resolves [deletion conflicts](#deletion-conflicts).
+3. **Push the rest**: as in step 1, everything still dirty (what waited for the pull, and what
+   deletion conflicts brought back).
 
 Records echoed back from the client's own push are harmless (LWW makes them no-ops).
 
@@ -261,6 +266,15 @@ stays there), where the user can restore it or delete it forever again.
   canvas content — content that was written without knowing about the deletion. While pulling, it
   also notices a live record replacing a page or notebook it holds as a tombstone (the edit won
   last-write-wins over the deletion).
+- **Edits in place.** Text boxes, recordings and outline entries (`elements`, `recordings`,
+  `outline`) are edited in place, so an edit of one can race a deletion of it (alone, or with its
+  page or notebook) whatever their versions: an edit and a deletion that did not know each other
+  keep the edit. A client pulling a tombstone for such a row that it edited and has not pushed yet
+  keeps its edit (the deleting device cannot have seen it); a client pulling a live version of
+  such a row that it deleted and has not pushed yet takes that version (the deletion did not know
+  it). Either way the row becomes a local edit with a version later than both, pushed after the
+  pull, and the page or notebook deleted with it comes back as below. (This is why step 1 holds
+  these rows and tombstones back until the pull.)
 - **Revival.** The client revives the page or notebook and every row of the same deletion (same
   `updatedAt` and `deviceId`) as local edits at the version right after the deletion's
   (`updatedAt + 1`, not the current time), which it pushes right away: a copy brought back never

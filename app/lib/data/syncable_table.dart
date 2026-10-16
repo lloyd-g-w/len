@@ -89,6 +89,19 @@ abstract class SyncableTable implements SyncableStore {
     }
   }
 
+  /// Makes the local version of row [id] a new local edit, later than
+  /// version [over] (another device's, or a deletion's here): an edit and
+  /// a deletion that did not know each other keep the edit (see
+  /// `PullApplier`).
+  void keepAsEdit(String id, {required int over}) {
+    final now = clock.nowMs();
+    db.execute('UPDATE $table SET updated_at = ?, device_id = ?, dirty = 1 WHERE id = ?', [
+      now > over ? now : over + 1,
+      deviceId,
+      id,
+    ]);
+  }
+
   @override
   List<SyncRecord> dirtyRecords(int limit, {String? after, bool? deleted}) => db
       .select(

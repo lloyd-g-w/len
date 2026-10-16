@@ -59,6 +59,13 @@ class SettingsRepository {
   int get syncLastSeq => int.tryParse(_get(_syncLastSeq) ?? '') ?? 0;
   set syncLastSeq(int value) => _set(_syncLastSeq, '$value');
 
+  /// Whether every row was marked for upload (a new server) and the next
+  /// sync pushes them all before it pulls, until one such push went
+  /// through (`SyncEngine`).
+  bool get syncPushAllFirst => _get('sync_push_all_first') == 'true';
+  set syncPushAllFirst(bool value) =>
+      value ? _set('sync_push_all_first', 'true') : _remove('sync_push_all_first');
+
   /// When (ms) sync last succeeded, or null if never.
   int? get syncLastSuccess => int.tryParse(_get('sync_last_success') ?? '');
   set syncLastSuccess(int? value) =>

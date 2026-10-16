@@ -25,10 +25,13 @@ typedef CancelCheck = bool Function();
 /// How far a pull is (see [SyncEngine.onPullProgress]).
 typedef PullProgress = ({int from, int done, int total, RemoteChanges changes});
 
-/// Runs one push-then-pull sync cycle against the server.
+/// Runs one push-pull-push sync cycle against the server.
 ///
-/// Push before pull: local edits reach the server first, and anything the
-/// server returns that is older is discarded by last-write-wins anyway.
+/// Most local edits are pushed before the pull: they reach the server
+/// first, and anything the server returns that is older is discarded by
+/// last-write-wins anyway. Edits of rows edited in place (text boxes,
+/// recordings, outline entries) and deletions follow the pull, which tells
+/// whether they raced each other ([PullApplier]).
 class SyncEngine {
   SyncEngine({
     required this.database,
@@ -146,13 +149,14 @@ class SyncEngine {
       }
       settings
         ..syncBlobsCollectedAt = 0
-        ..syncServerId = serverId;
+        ..syncServerId = serverId
+        ..syncPushAllFirst = true;
       blobs?.markAllNotUploaded();
     });
     _uploadFailures.clear();
   }
 
-  /// Pushes local changes, then pulls remote ones. Throws [SyncException]
+  /// Pushes local changes and pulls remote ones. Throws [SyncException]
   /// on network or server errors; [isCancelled] is checked after every
   /// request, before anything is written locally.
   ///
@@ -202,10 +206,16 @@ class SyncEngine {
     }
     if (blobs != null) await _uploadBlobs(api, blobs, info, cancelled);
     if (cancelled()) return RemoteChanges();
-    await _push(api, cancelled);
+    // Edits of text boxes, recordings and outline entries and every
+    // deletion wait for the pull, which tells whether they raced each other
+    // ([PullApplier]). Not when a new server needs every row: those are
+    // no edits made here.
+    final pushAll = settings.syncPushAllFirst;
+    await _push(api, cancelled, beforePull: !pushAll);
+    if (pushAll && !cancelled()) settings.syncPushAllFirst = false;
     final changes = await _pull(api, cancelled);
-    // Content brought back by a deletion conflict goes out right away.
-    if (changes.revived && !cancelled()) await _push(api, cancelled);
+    // The rest, with what deletion conflicts brought back.
+    if (!cancelled()) await _push(api, cancelled);
     return changes;
   }
 
@@ -250,11 +260,15 @@ class SyncEngine {
   /// Pushes live rows parents first and tombstones children first: however
   /// much of a push reaches the server, it never holds content whose parent
   /// it lacks, nor a deleted page or notebook whose content is still live
-  /// (which other devices would take for a deletion conflict).
-  Future<void> _push(SyncApi api, CancelCheck cancelled) async {
+  /// (which other devices would take for a deletion conflict). [beforePull]
+  /// pushes only live rows that are not edited in place
+  /// ([PullApplier.editedInPlace]).
+  Future<void> _push(SyncApi api, CancelCheck cancelled, {bool beforePull = false}) async {
     for (final store in stores) {
+      if (beforePull && PullApplier.editedInPlace.contains(store.collection)) continue;
       await _pushStore(api, cancelled, store, deleted: false);
     }
+    if (beforePull) return;
     for (final store in stores.toList().reversed) {
       await _pushStore(api, cancelled, store, deleted: true);
     }
