@@ -126,7 +126,13 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   `begin` and dropped after 1 s; zooming across the level of detail showed nothing where
   the new images were not made yet (old rasters / stale tiles now stand in); after a pan, the
   pen-up shifted the stroke by a fraction of a device pixel (tiles now aligned to their pixels,
-  views pan in whole device pixels). Frame-by-frame tests cover the live stroke (stabiliser,
+  views pan in whole device pixels). Round 4: at pen-up with the stabiliser on, the committed
+  outline refitted the shown tail's last stretch (edge pixels changed shade; now it reuses the
+  last frame's outline, cut and joined where it ended, the live line a sample short so its end's
+  tangent is known); live ink filled as two overlapping paths had darker edge pixels at their
+  seam that lightened at pen-up (now one path); a mouse with its stabiliser on showed a tip
+  that settled at pen-up (now only the final line); the Android overlay was then a sample
+  ahead of Flutter's stabilised line (a pop when it retracted; it follows now). Frame-by-frame tests cover the live stroke (stabiliser,
   ends, zooms, pixel ratios), the composited editor, erasing, undo / redo, selections, mid-stroke
   syncs and the web's merged atlases.
 - ✅ **Live sync, actually live**: edits show on other devices within a fraction of a second

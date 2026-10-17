@@ -1703,7 +1703,8 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   starts two widths before Flutter's shown tip, whose zone has less ink
   than the line will have there. With the stabiliser on, it draws what Flutter's live
   ink does: only the final, smoothed line (the shaper's `finalCount`,
-  ported), from where Flutter's shown frame ends (the lag reach before
+  ported; round ends a sample short, `StrokeOutline.shownOf`), from where
+  Flutter's shown frame ends (the lag reach before
   its newest input), and no predicted tip or line to the raw sample
   (`WetContact.predicts`) — the smoothed line, as soon as the smoothing
   allows. Two checks keep the ports equal: a shared golden
@@ -2791,16 +2792,29 @@ does not grow with the stroke's length.
    appended to a **frozen path** once, and only the **tail** after them is
    rebuilt (≈ 20 µs per frame on desktop, flat with length; with flat
    ends nothing within two widths of the tip, its end's zone, is frozen).
-   The tail starts with a round cap inside the frozen part, so opaque ink fills
-   the two without a seam (`LiveInkPainter`); translucent ink fills one
-   combined path. **With the stabiliser on** (> 0) live ink shows only
+   The tail starts with a round cap inside the frozen part; both are
+   filled as **one path** (`LiveOutline.combined`, `LiveInkPainter`), as
+   the committed stroke is: two overlapping fills darken the antialiased
+   edge pixels where they overlap, which lightened at pen-up.
+   **With the stabiliser on** (> 0) live ink shows only
    the final line (`StrokeShaper.liveLength`, `ShapeParams.lag`): it
    trails the pen by the reach of the smoothing (kernel, corner test and
    resampling: ≈ 6 px at 0.2, 10 px at 0.4, 15 px at 1) — the least the
    smoothing needs — instead of drawing a
    provisional tip that wags into place; the first sample shows as a dot
-   from pen-down, and at pen-up the end catches up with the pen. At 0 the
-   live line reaches the pen, as below.
+   from pen-down, and at pen-up the end catches up with the pen. With
+   round ends the live line stops one sample short of the final line
+   (`StrokeOutline.shownOf`), so its end's tangent is known
+   (`RibbonEmitter.lookahead`: the end's offsets are those the whole line
+   has there). That costs 0.5–0.8 screen px more trail (≈ 1 px at most;
+   the Ink Lab's cases at 0.2–1), 5–7 % of the trail; in time it is
+   that distance over the pen's speed (median ≈ 4 ms on the simulated
+   handwriting, the same at 120 and 240 Hz: the sample is the
+   resampled line's, not the digitiser's). Flat ends do not take it (their
+   end's zone is redrawn at pen-up anyway). A mouse with its stabiliser on
+   (applied by `MouseSmoother`, the outline has none) shows only the final
+   line too (`LiveInk.trails`), so its end does not settle at pen-up. At 0
+   the live line reaches the pen, as below.
 6. **Commit** (`LiveStrokeBuilder.finishLive`): at pen-up the shaper rolls
    back to a recent **checkpoint** that does not depend on the last
    samples, and completes from there with the pen-up hook trimmed and the
@@ -2808,7 +2822,19 @@ does not grow with the stroke's length.
    takes 0.2–1.5 ms on the Ink Lab's cases and recordings and 1–3 ms on
    its 8 s stroke (desktop, JIT; noisy), and
    the committed outline equals the last live frame except at its very
-   end. Committed outlines are memoised per stroke (`StrokeRenderer.adopt`).
+   end. With the stabiliser on and round ends the hand-over keeps even
+   the curves the last frame drew (`live_stroke_handover.dart`): the
+   committed outline is that frame's frozen part and tail, cut straight
+   where its line ended (`RibbonEmitter.emitCut`) and continued edge to
+   edge from the same offset points (`emitJoined`); at a corner or fold
+   there, the shown outline whole (with its end cap) plus the rest. Rebuilt,
+   the cubics over the tail's last stretch were fitted further and edge
+   pixels changed shade at pen-up (by up to a quarter). So a stroke's
+   committed outline depends on its last frame and differs from one
+   rebuilt from its points (after a reload, on another device) by
+   sub-pixel shades (≤ 17/255 in `mouse_ink_golden_test`), never at
+   pen-up. A frame that showed only the first sample's dot keeps that
+   circle in the committed outline. Committed outlines are memoised per stroke (`StrokeRenderer.adopt`).
 
 `OutlineSink` lets tests record the exact segments; `test/ribbon_exactness_test.dart`
 checks that the fitted contours cover what the circles cover, and
