@@ -4,6 +4,7 @@ import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/toolbar/tool_options_popover.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
 import 'package:len/features/editor/toolbar/toolbar_metrics.dart';
+import 'package:len/features/editor/pen/option_controls.dart' show percent;
 import 'package:len/features/editor/tools/laser_options_panel.dart';
 import 'package:len/features/editor/tools/laser_preview.dart';
 import 'package:len/features/editor/tools/laser_slots.dart';
@@ -83,6 +84,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(tools.recentColors, [0xFF00FFAA]);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('size slots say their size, as the slider does', (tester) async {
+    final tools = await pumpToolbar(tester, const Size(1280, 800));
+    final want = percent(
+      (tools.laser.sizes[2] - LaserConfig.minSize) / (LaserConfig.maxSize - LaserConfig.minSize),
+    );
+    expect(find.byTooltip('Size $want'), findsOneWidget);
   });
 
   testWidgets('long-press a size to edit it: a preview and a slider', (tester) async {

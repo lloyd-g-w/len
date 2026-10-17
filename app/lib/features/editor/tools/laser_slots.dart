@@ -59,6 +59,10 @@ class LaserSizeSlots extends StatelessWidget {
     return SizeSlotRow(
       diameters: [for (final s in laser.sizes) dotSize(s)],
       selected: !editable || !tools.reading ? laser.sizeIndex : null,
+      // Said as the size slider says it.
+      describe: (i) => percent(
+        (laser.sizes[i] - LaserConfig.minSize) / (LaserConfig.maxSize - LaserConfig.minSize),
+      ),
       onSelect: (i) => tools.laser = tools.laser.copyWith(sizeIndex: i),
       onEdit: editable
           ? (anchor, i) => showAdaptivePopover<void>(
