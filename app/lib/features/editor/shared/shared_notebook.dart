@@ -241,10 +241,19 @@ class SharedNotebook extends ChangeNotifier {
       if (_reloads.containsKey(surface)) continue;
       final model = _modelOf(surface);
       if (model == null) continue;
-      _reloads[surface] = model.changes.listen((change) {
-        if (!change.loaded) return;
+      // A load brings strokes (`loaded`), and so does a reload's swap (in
+      // place: a change of content); a microtask also sees the reload
+      // finished, which ends just after its swap.
+      void check() {
         remoteInk.recheck();
         if (!remoteInk.reloading.contains(surface)) unawaited(_reloads.remove(surface)?.cancel());
+      }
+
+      _reloads[surface] = model.changes.listen((_) {
+        check();
+        scheduleMicrotask(() {
+          if (_reloads.containsKey(surface)) check();
+        });
       });
     }
     for (final surface in [..._reloads.keys]) {
