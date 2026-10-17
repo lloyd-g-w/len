@@ -163,7 +163,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   `nix develop`; a Flutter from outside the dev shell lacks its toolchain and libraries. The
   repo has an `.envrc` (direnv: `use flake`) and the README says so.
 
-- 🚧 (feat/version-history) **Version history** (owner): a notebook's (and canvas's) history to
+- ✅ **Version history** (owner): a notebook's (and canvas's) history to
   browse and restore: versions kept automatically (after a stretch of editing goes quiet, and at
   most every few minutes while editing; thinned over time: all of today, hourly for a week,
   daily for a month, …) and named ones saved by hand ("Save version…"); a timeline with
