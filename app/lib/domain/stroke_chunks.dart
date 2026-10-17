@@ -61,40 +61,69 @@ abstract final class StrokeChunks {
       pieces += (points[i + 1].offset - points[i].offset).distance / _piece + 1;
     }
     if (pieces > _maxPieces) return ChunkGrid.rangeFor(bounds).keys.toSet();
-    for (var i = 0; i + 1 < points.length; i++) {
-      final a = points[i].offset;
-      final b = points[i + 1].offset;
-      final reach = pad + _stray(points, i, a, b) * 1.25 + 1;
-      final pieces = math.max(1, ((b - a).distance / _piece).ceil());
+    // In plain doubles (no offsets, rects or ranges per piece: a commit of
+    // many long lines spent most of its time here), skipping a piece in the
+    // chunks of the one before it and stopping once every chunk of the
+    // bounds is in.
+    const size = ChunkGrid.size;
+    final (left, top, right, bottom) = (bounds.left, bounds.top, bounds.right, bounds.bottom);
+    var last = (minX: 0, minY: 0, maxX: -1, maxY: -1);
+    for (var i = 0; i + 1 < points.length && keys.length < range.count; i++) {
+      final ax = points[i].x, ay = points[i].y;
+      final bx = points[i + 1].x, by = points[i + 1].y;
+      final reach = pad + _stray(points, i, ax, ay, bx, by) * 1.25 + 1;
+      final dx = bx - ax, dy = by - ay;
+      final pieces = math.max(1, (math.sqrt(dx * dx + dy * dy) / _piece).ceil());
       for (var k = 0; k < pieces; k++) {
-        final p = Offset.lerp(a, b, k / pieces)!;
-        final q = Offset.lerp(a, b, (k + 1) / pieces)!;
-        final piece = Rect.fromPoints(p, q).inflate(reach).intersect(bounds);
-        keys.addAll(ChunkGrid.rangeFor(piece).keys);
+        // As Offset.lerp, Rect.fromPoints, inflate and intersect would.
+        final t0 = k / pieces, t1 = (k + 1) / pieces;
+        final px = ax * (1.0 - t0) + bx * t0, py = ay * (1.0 - t0) + by * t0;
+        final qx = ax * (1.0 - t1) + bx * t1, qy = ay * (1.0 - t1) + by * t1;
+        final minX = (math.max(math.min(px, qx) - reach, left) / size).floor();
+        final minY = (math.max(math.min(py, qy) - reach, top) / size).floor();
+        final maxX = (math.min(math.max(px, qx) + reach, right) / size).floor();
+        final maxY = (math.min(math.max(py, qy) + reach, bottom) / size).floor();
+        if (minX == last.minX && minY == last.minY && maxX == last.maxX && maxY == last.maxY) {
+          continue;
+        }
+        last = (minX: minX, minY: minY, maxX: maxX, maxY: maxY);
+        for (var y = minY; y <= maxY; y++) {
+          for (var x = minX; x <= maxX; x++) {
+            keys.add((x: x, y: y));
+          }
+        }
       }
     }
     return keys;
   }
 
-  /// How far the samples around segment [i] lie from it (they pull the
-  /// smoothed curve sideways by at most this much).
-  static double _stray(List<StrokePoint> points, int i, Offset a, Offset b) {
+  /// How far the samples around segment [i] (from a to b) lie from it
+  /// (they pull the smoothed curve sideways by at most this much).
+  static double _stray(
+    List<StrokePoint> points,
+    int i,
+    double ax,
+    double ay,
+    double bx,
+    double by,
+  ) {
     final from = math.max(0, i - _window);
     final to = math.min(points.length - 1, i + 1 + _window);
+    final abx = bx - ax, aby = by - ay;
+    final lengthSq = abx * abx + aby * aby;
     var stray = 0.0;
     for (var j = from; j <= to; j++) {
-      stray = math.max(stray, _distanceToSegment(points[j].offset, a, b));
+      // The distance to the segment.
+      final apx = points[j].x - ax, apy = points[j].y - ay;
+      var dx = apx, dy = apy;
+      if (lengthSq != 0) {
+        final t = ((apx * abx + apy * aby) / lengthSq).clamp(0.0, 1.0);
+        dx = points[j].x - (ax + abx * t);
+        dy = points[j].y - (ay + aby * t);
+      }
+      stray = math.max(stray, math.sqrt(dx * dx + dy * dy));
     }
     return stray;
-  }
-
-  static double _distanceToSegment(Offset p, Offset a, Offset b) {
-    final ab = b - a;
-    final lengthSq = ab.distanceSquared;
-    if (lengthSq == 0) return (p - a).distance;
-    final ap = p - a;
-    final t = ((ap.dx * ab.dx + ap.dy * ab.dy) / lengthSq).clamp(0.0, 1.0);
-    return (p - (a + ab * t)).distance;
   }
 }
 
