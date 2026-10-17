@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app_services.dart';
 import '../../data/versions/versions.dart';
@@ -65,7 +66,7 @@ class VersionPreview extends StatelessWidget {
           const SizedBox(width: Gaps.lg),
         ],
       ),
-      body: v.canvas != null
+      body: v.isCanvas
           ? Padding(
               padding: const EdgeInsets.all(Gaps.xl),
               child: Center(
@@ -75,27 +76,39 @@ class VersionPreview extends StatelessWidget {
                 ),
               ),
             )
-          : GridView.builder(
-              padding: EdgeInsets.all(compact ? Gaps.lg : Gaps.xxl),
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 180,
-                mainAxisSpacing: Gaps.lg,
-                crossAxisSpacing: Gaps.lg,
-                childAspectRatio: 0.62,
-              ),
-              itemCount: v.pages.length,
-              itemBuilder: (context, i) => _PageTile(
-                key: ValueKey('version-page-${v.pages[i].id}'),
-                index: i,
-                count: v.pages.length,
-                onTap: () => unawaited(_openPage(context, v.pages[i], i)),
-                child: VersionSurfaceView(
-                  sheets: sheets,
-                  version: v,
-                  page: v.pages[i],
-                  images: services.images,
-                ),
-              ),
+          : FutureBuilder<VersionBody?>(
+              future: sheets.body(v),
+              builder: (context, snapshot) {
+                final body = snapshot.data;
+                if (body == null) {
+                  return snapshot.connectionState == ConnectionState.done
+                      ? const _Unavailable()
+                      : const SizedBox.shrink();
+                }
+                final pages = body.pages;
+                return GridView.builder(
+                  padding: EdgeInsets.all(compact ? Gaps.lg : Gaps.xxl),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 180,
+                    mainAxisSpacing: Gaps.lg,
+                    crossAxisSpacing: Gaps.lg,
+                    childAspectRatio: 0.62,
+                  ),
+                  itemCount: pages.length,
+                  itemBuilder: (context, i) => _PageTile(
+                    key: ValueKey('version-page-${pages[i].id}'),
+                    index: i,
+                    count: pages.length,
+                    onTap: () => unawaited(_openPage(context, pages[i], i, pages.length)),
+                    child: VersionSurfaceView(
+                      sheets: sheets,
+                      version: v,
+                      page: pages[i],
+                      images: services.images,
+                    ),
+                  ),
+                );
+              },
             ),
     );
   }
@@ -106,13 +119,13 @@ class VersionPreview extends StatelessWidget {
     onRestored?.call();
   }
 
-  Future<void> _openPage(BuildContext context, VersionPage page, int index) =>
+  Future<void> _openPage(BuildContext context, VersionPage page, int index, int count) =>
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (pageContext) => Scaffold(
             appBar: AppBar(
               title: Text(
-                'Page ${index + 1} of ${version.pages.length}',
+                'Page ${index + 1} of $count',
                 style: Theme.of(pageContext).textTheme.titleMedium,
               ),
               actions: [
@@ -155,6 +168,39 @@ class VersionPreview extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// What a preview shows when the version's pages can't be had.
+class _Unavailable extends StatelessWidget {
+  const _Unavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(Gaps.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Symbols.cloud_off_sharp,
+              size: Glyphs.empty,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: Gaps.md),
+            Text(
+              'This version is not on this device. Connect to sync to see it',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// A page's thumbnail with its number under it.

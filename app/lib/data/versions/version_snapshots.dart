@@ -10,8 +10,12 @@ import '../blob_store.dart';
 import '../notebook_rows.dart';
 import '../page_rows.dart';
 import '../repositories.dart';
+import '../syncable_table.dart';
+import 'version_content.dart';
 import 'version_packs.dart';
 import 'version_rows.dart';
+import 'version_table.dart';
+import 'work_slices.dart';
 
 /// A surface packed: its packs, the blobs its elements show and how many
 /// strokes it holds.
@@ -19,13 +23,23 @@ typedef PackedSurface = ({VersionSurface surface, List<String> blobs, int stroke
 
 /// Makes versions of notebooks from what is stored now (docs/ARCHITECTURE.md,
 /// "Version history"): every surface packed (or its packs taken from the
-/// `version_packs` cache while its change mark holds), the summary against
-/// the newest version before.
+/// `version_packs` cache while its change mark holds), with its recognised
+/// handwriting, the recordings and the outline, written as table blobs;
+/// the summary against the newest version before.
 class VersionSnapshots {
-  VersionSnapshots({required this.repositories, required this.blobs, required this.deviceName});
+  VersionSnapshots({
+    required this.repositories,
+    required this.blobs,
+    required this.content,
+    required this.deviceName,
+  });
 
   final Repositories repositories;
   final BlobStore blobs;
+
+  /// Reads versions' bodies (the one before, for the summary) and keeps
+  /// the body of a version made here.
+  final VersionContent content;
 
   /// How this device names itself (`Android`).
   final String deviceName;
@@ -68,31 +82,45 @@ class VersionSnapshots {
             [notebookId],
           );
     final previous = versions.latest(notebookId);
-    final media = <String>{};
     var strokes = 0;
     final pages = <VersionPage>[];
     VersionSurface? canvasSurface;
     final counts = <String, int>{};
+    final slices = WorkSlices();
     for (final row in pageRows) {
+      await slices.yieldIfDue();
       final id = row['id'] as String;
       final data = PageRows.recordData(row);
       final packed = await pack(id);
-      media.addAll(packed.blobs);
       strokes += counts[id] = packed.strokes;
       pages.add(
         VersionPage(
           id: id,
           fields: {for (final key in VersionRows.pageFields) key: data[key]},
-          content: packed.surface,
+          content: _withText(packed, id),
         ),
       );
     }
     if (canvas) {
       final packed = await pack(notebookId);
-      media.addAll(packed.blobs);
       strokes = counts[notebookId] = packed.strokes;
-      canvasSurface = packed.surface;
+      canvasSurface = _withText(packed, notebookId);
     }
+    final body = VersionBody(
+      pages: pages,
+      canvas: canvasSurface,
+      recordings: _records(
+        repositories.recordings,
+        'SELECT * FROM recordings WHERE notebook_id = ? AND deleted = 0 ORDER BY started_at, id',
+        notebookId,
+      ),
+      outline: _records(
+        repositories.outline,
+        'SELECT * FROM outline WHERE notebook_id = ? AND deleted = 0 ORDER BY created_at, id',
+        notebookId,
+      ),
+    );
+    final table = await _putTable(VersionTable.rowsOf(body, notebookId), slices);
     final made = NotebookVersion(
       id: versions.clock.newId(),
       notebookId: notebookId,
@@ -102,15 +130,57 @@ class VersionSnapshots {
       deviceId: versions.deviceId,
       deviceName: deviceName,
       notebook: notebook,
-      pages: pages,
-      canvas: canvasSurface,
-      blobs: media.toList()..sort(),
+      table: table,
       summary: VersionSummary(pages: pages.length, strokes: strokes),
       size: 0,
     );
-    final old = previous?.packs ?? const <String>{};
-    final size = made.packs.difference(old).fold(0, (sum, sha) => sum + (blobs.sizeOf(sha) ?? 0));
-    return _withSummary(made, previous, size, counts);
+    content.remember(made, body);
+    VersionBody? before;
+    if (previous != null) {
+      try {
+        before = await content.body(previous);
+      } on VersionUnavailable {
+        before = null; // Counted as if it were the first.
+      }
+    }
+    final old = {...?before?.packs, ...?previous?.table};
+    final size = {
+      ...body.packs,
+      ...table,
+    }.difference(old).fold(0, (sum, sha) => sum + (blobs.sizeOf(sha) ?? 0));
+    return _withSummary(made, body, before, size, counts);
+  }
+
+  /// [packed] with the handwriting recognised on [surfaceId].
+  VersionSurface _withText(PackedSurface packed, String surfaceId) {
+    final rows = _db.select('SELECT * FROM recognised_text WHERE id = ? AND deleted = 0', [
+      surfaceId,
+    ]);
+    return VersionSurface(
+      ink: packed.surface.ink,
+      items: packed.surface.items,
+      blobs: packed.blobs,
+      text: rows.isEmpty ? null : repositories.recognisedText.rowToRecord(rows.first).data,
+    );
+  }
+
+  /// The live records [sql] selects of [notebookId] from [store], without
+  /// `notebookId`.
+  List<VersionRecord> _records(SyncableTable store, String sql, String notebookId) => [
+    for (final row in _db.select(sql, [notebookId]))
+      (id: row['id'] as String, data: {...store.rowToRecord(row).data!}..remove('notebookId')),
+  ];
+
+  /// Writes the table blobs of [rows], noting what each names.
+  Future<List<String>> _putTable(List<Map<String, Object?>> rows, WorkSlices slices) async {
+    final table = <String>[];
+    for (final run in VersionTable.cut(rows)) {
+      await slices.yieldIfDue();
+      final sha = await blobs.putBytes(VersionTable.encode(run), mime: VersionTable.mime);
+      content.links?.add(sha, BlobReferences.inValue(run));
+      table.add(sha);
+    }
+    return table;
   }
 
   /// The packs of surface [surfaceId] as stored now (from the cache while
@@ -188,18 +258,20 @@ class VersionSnapshots {
 
   static List<String> _list(String json) => (jsonDecode(json) as List).cast<String>();
 
-  /// [made] with its summary against [previous] and its [size].
+  /// [made] with its summary against the body before it ([previous]) and
+  /// its [size].
   Future<NotebookVersion> _withSummary(
     NotebookVersion made,
-    NotebookVersion? previous,
+    VersionBody body,
+    VersionBody? previous,
     int size,
     Map<String, int> counts,
   ) async {
     final before = {for (final p in previous?.pages ?? const <VersionPage>[]) p.id: p};
-    final now = {for (final p in made.pages) p.id: p};
+    final now = {for (final p in body.pages) p.id: p};
     var added = 0, removed = 0, edited = 0, strokesAdded = 0, strokesRemoved = 0;
     String? focus;
-    for (final page in made.pages) {
+    for (final page in body.pages) {
       final old = before[page.id];
       if (old == null) {
         added++;
@@ -218,7 +290,7 @@ class VersionSnapshots {
       removed++;
       strokesRemoved += (await _ids(old.content.ink)).length;
     }
-    if (made.canvas case final canvas?) {
+    if (body.canvas case final canvas?) {
       final (plus, minus) = await _strokeChanges(previous?.canvas ?? VersionSurface.empty, canvas);
       strokesAdded += plus;
       strokesRemoved += minus;
@@ -232,9 +304,7 @@ class VersionSnapshots {
       deviceId: made.deviceId,
       deviceName: made.deviceName,
       notebook: made.notebook,
-      pages: made.pages,
-      canvas: made.canvas,
-      blobs: made.blobs,
+      table: made.table,
       summary: VersionSummary(
         pages: made.summary.pages,
         strokes: made.summary.strokes,

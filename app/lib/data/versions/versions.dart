@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../domain/notebook.dart';
 import '../../domain/notebook_version.dart';
+import '../blob_links.dart';
 import '../blob_store.dart';
 import '../repositories.dart';
 import '../tombstone_payloads.dart';
@@ -25,15 +26,21 @@ class Versions extends ChangeNotifier {
     required BlobStore blobs,
     required String deviceName,
     Future<bool> Function(String sha)? fetch,
-  }) : snapshots = VersionSnapshots(
-         repositories: repositories,
+  }) : content = VersionContent(
          blobs: blobs,
-         deviceName: deviceName,
-       ),
-       content = VersionContent(blobs: blobs, fetch: fetch);
+         fetch: fetch,
+         links: BlobLinks(repositories.versions.db),
+       ) {
+    snapshots = VersionSnapshots(
+      repositories: repositories,
+      blobs: blobs,
+      content: content,
+      deviceName: deviceName,
+    );
+  }
 
   final Repositories repositories;
-  final VersionSnapshots snapshots;
+  late final VersionSnapshots snapshots;
   final VersionContent content;
   late final VersionRestorer restorer = VersionRestorer(
     repositories: repositories,

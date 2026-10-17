@@ -325,7 +325,7 @@ void main() {
     expect(find.bySemanticsLabel(label), findsOneWidget);
     expect(
       tester.getSemantics(find.byType(RoomPresence)),
-      isNot(containsSemantics(tooltip: label)),
+      isNot(isSemantics(tooltip: label)),
       reason: 'the tooltip repeats the label',
     );
     await show(compact: false, scale: 2);

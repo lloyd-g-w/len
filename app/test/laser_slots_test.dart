@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
+import 'package:len/features/editor/pen/option_controls.dart' show percent;
 import 'package:len/features/editor/toolbar/tool_options_popover.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
 import 'package:len/features/editor/toolbar/toolbar_metrics.dart';
-import 'package:len/features/editor/pen/option_controls.dart' show percent;
 import 'package:len/features/editor/tools/laser_options_panel.dart';
 import 'package:len/features/editor/tools/laser_preview.dart';
 import 'package:len/features/editor/tools/laser_slots.dart';

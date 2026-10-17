@@ -23,7 +23,9 @@ abstract final class VersionRows {
     'background',
   ];
 
-  /// Parses live record [record]; throws [FormatException] when malformed.
+  /// Parses live record [record] (format 2, with `table`, or format 1,
+  /// with `pages`, `canvas` and `blobs`); throws [FormatException] when
+  /// malformed.
   static NotebookVersion fromRecord(SyncRecord record) {
     final f = RecordFields(record);
     String nonEmpty(String key) {
@@ -33,7 +35,7 @@ abstract final class VersionRows {
 
     final notebookId = nonEmpty('notebookId');
     final notebook = _notebook(f, f.object('notebook'));
-    final canvasJson = f.objectOrNull('canvas');
+    final format2 = record.data!.containsKey('table');
     return NotebookVersion(
       id: record.id,
       notebookId: notebookId,
@@ -43,16 +45,75 @@ abstract final class VersionRows {
       deviceId: nonEmpty('deviceId'),
       deviceName: f.string('deviceName'),
       notebook: notebook,
+      table: format2 ? _shas(f, f.list('table'), 'table') : const [],
+      inline: format2 ? null : _inline(f, notebookId),
+      summary: _summary(f, f.object('summary')),
+      size: f.integer('size'),
+    );
+  }
+
+  /// The body a format 1 record carries.
+  static VersionBody _inline(RecordFields f, String notebookId) {
+    final canvasJson = f.objectOrNull('canvas');
+    return VersionBody(
       pages: [
         for (final page in f.list('pages'))
           page is Map<String, Object?> ? _page(f, page, notebookId) : f.invalid('pages'),
       ],
       canvas: canvasJson == null ? null : _surface(f, canvasJson, 'canvas'),
+      recordings: null,
+      outline: null,
       blobs: _shas(f, f.list('blobs'), 'blobs'),
-      summary: _summary(f, f.object('summary')),
-      size: f.integer('size'),
     );
   }
+
+  /// The body in the rows of [version]'s table blobs (`VersionTable`):
+  /// pages and the canvas checked as strictly as a record (throws
+  /// [FormatException]), recordings and outline entries kept as they are
+  /// (checked when written back), rows of other types ignored.
+  static VersionBody bodyOf(NotebookVersion version, List<Map<String, Object?>> rows) {
+    final f = RecordFields(
+      SyncRecord(
+        collection: 'versions',
+        id: version.id,
+        updatedAt: 0,
+        deviceId: '-',
+        deleted: false,
+        data: const {},
+      ),
+    );
+    final pages = <VersionPage>[];
+    VersionSurface? canvas;
+    final recordings = <VersionRecord>[];
+    final outline = <VersionRecord>[];
+    for (final row in rows) {
+      final id = row['id'];
+      if (id is! String || id.isEmpty) f.invalid('table');
+      switch (row['t']) {
+        case 'page':
+          pages.add(_page(f, row, version.notebookId));
+        case 'canvas':
+          canvas = _surface(f, row, 'table');
+        case 'recording':
+          recordings.add((id: id, data: _data(f, row)));
+        case 'outline':
+          outline.add((id: id, data: _data(f, row)));
+      }
+    }
+    if (version.isCanvas) canvas ??= VersionSurface.empty;
+    return VersionBody(
+      pages: version.isCanvas ? const [] : pages,
+      canvas: version.isCanvas ? canvas : null,
+      recordings: recordings,
+      outline: outline,
+    );
+  }
+
+  static Map<String, Object?> _data(RecordFields f, Map<String, Object?> row) =>
+      switch (row['data']) {
+        final Map<String, Object?> data => data,
+        _ => f.invalid('table'),
+      };
 
   static Map<String, Object?> _notebook(RecordFields f, Map<String, Object?> json) {
     final n = RecordFields(_nested(f, 'notebook', json));
@@ -88,11 +149,23 @@ abstract final class VersionRows {
     return VersionPage(id: id, fields: fields, content: _surface(f, json, 'pages'));
   }
 
+  /// A surface: `ink` and `items` (packs); in table rows also `blobs`
+  /// and `text` (a `recognised_text` record's data, or null).
   static VersionSurface _surface(RecordFields f, Map<String, Object?> json, String key) {
     final ink = json['ink'];
     final items = json['items'];
     if (ink is! List<Object?> || items is! List<Object?>) f.invalid(key);
-    return VersionSurface(ink: _shas(f, ink, key), items: _shas(f, items, key));
+    final table = json.containsKey('t');
+    final blobs = table ? json['blobs'] : const <Object?>[];
+    final text = table ? json['text'] : null;
+    if (blobs is! List<Object?>) f.invalid(key);
+    if (text is! Map<String, Object?>? || (table && !json.containsKey('text'))) f.invalid(key);
+    return VersionSurface(
+      ink: _shas(f, ink, key),
+      items: _shas(f, items, key),
+      blobs: _shas(f, blobs, key),
+      text: text,
+    );
   }
 
   static List<String> _shas(RecordFields f, List<Object?> list, String key) => [

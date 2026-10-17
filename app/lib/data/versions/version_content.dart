@@ -7,12 +7,17 @@ import '../../domain/paper.dart';
 import '../../domain/shape_ids.dart';
 import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
+import '../blob_links.dart';
+import '../blob_references.dart';
 import '../blob_store.dart';
 import '../element_repository.dart';
 import '../page_rows.dart';
 import '../stroke_row.dart';
 import '../syncable.dart';
 import 'version_packs.dart';
+import 'version_rows.dart';
+import 'version_table.dart';
+import 'work_slices.dart';
 
 /// A surface as a version holds it.
 typedef SurfaceContent = ({List<Stroke> strokes, List<SurfaceElement> elements});
@@ -32,9 +37,16 @@ class VersionUnavailable implements Exception {
 /// Reads what versions hold: their pages, and their surfaces' strokes and
 /// elements from the packs (fetched first when not on this device).
 class VersionContent {
-  VersionContent({required this.blobs, this.fetch});
+  VersionContent({required this.blobs, this.fetch, this.links});
 
   final BlobStore blobs;
+
+  /// Where the blobs a table blob names are noted when it is read here.
+  final BlobLinks? links;
+
+  /// Bodies read, by version id, most recently used last.
+  final Map<String, VersionBody> _bodies = {};
+  static const _cachedBodies = 16;
 
   /// Fetches blob [sha] from the sync server; true once it is here. Null:
   /// no server.
@@ -43,11 +55,6 @@ class VersionContent {
   /// Decoded packs, most recently used last.
   final Map<String, List<PackItem>> _packs = {};
   static const _cachedPacks = 128;
-
-  /// The pages of [version] as pages of its notebook (sort keys 0, 1, …).
-  static List<NotebookPage> pagesOf(NotebookVersion version) => [
-    for (final (i, page) in version.pages.indexed) pageOf(version, page, sortKey: i.toDouble()),
-  ];
 
   /// [page] of [version] as a page of its notebook (a version's pages are
   /// valid: they were checked when the record was read).
@@ -76,6 +83,54 @@ class VersionContent {
       paperColor: PaperColor.parse(n['paperColor'] as String?),
       coverColor: n['coverColor'] as int,
     );
+  }
+
+  /// The body of [version]: in its record (format 1), else read from its
+  /// table blobs (fetched when not here). Throws [VersionUnavailable] when
+  /// some can't be had or are malformed.
+  Future<VersionBody> body(NotebookVersion version) async {
+    if (version.inline case final body?) return body;
+    if (_bodies.remove(version.id) case final body?) return _bodies[version.id] = body;
+    final rows = <Map<String, Object?>>[];
+    var missing = 0;
+    final slices = WorkSlices();
+    for (final sha in version.table) {
+      await slices.yieldIfDue();
+      final run = await _tableRows(sha);
+      if (run == null) {
+        missing++;
+      } else {
+        rows.addAll(run);
+      }
+    }
+    if (missing > 0) throw VersionUnavailable(missing);
+    final VersionBody body;
+    try {
+      body = VersionRows.bodyOf(version, rows);
+    } on FormatException {
+      throw VersionUnavailable(version.table.length);
+    }
+    remember(version, body);
+    return body;
+  }
+
+  /// Keeps [body] as [version]'s (one made here).
+  void remember(NotebookVersion version, VersionBody body) {
+    _bodies[version.id] = body;
+    if (_bodies.length > _cachedBodies) _bodies.remove(_bodies.keys.first);
+  }
+
+  /// The rows of table blob [sha] (fetched if not here), noting the blobs
+  /// they name; null when it can't be had or is no table blob.
+  Future<List<Map<String, Object?>>?> _tableRows(String sha) async {
+    var bytes = await blobs.read(sha);
+    if (bytes == null && (await fetch?.call(sha) ?? false)) bytes = await blobs.read(sha);
+    if (bytes == null) return null;
+    final rows = VersionTable.decode(Uint8List.fromList(bytes));
+    if (rows != null && links != null && !links!.knows(sha)) {
+      links!.add(sha, BlobReferences.inValue(rows));
+    }
+    return rows;
   }
 
   /// Whether every pack of [surfaces] is on this device.

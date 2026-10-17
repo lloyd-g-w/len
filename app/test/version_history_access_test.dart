@@ -47,6 +47,7 @@ void main() {
   late AppServices s;
   late Notebook notebook;
   final shot = GlobalKey();
+  List<String> pageIds() => [for (final p in s.pages.pagesOf(notebook.id)) p.id];
 
   /// A notebook of a blank page and a red scan, with two versions.
   Future<void> setUpNotebook(WidgetTester tester) async {
@@ -115,24 +116,19 @@ void main() {
     final handle = tester.ensureSemantics();
     await setUpNotebook(tester);
     await open(tester, const Size(1200, 900));
-    final v = s.versions.of(notebook.id).first;
     expect(
       tester.getSemantics(find.bySemanticsLabel(RegExp('^Edited, 14:04'))),
-      containsSemantics(isButton: true, hasTapAction: true),
+      isSemantics(isButton: true, hasTapAction: true),
     );
     expect(
       tester.getSemantics(find.byTooltip('Version options').first),
-      containsSemantics(tooltip: 'Version options', isButton: true, hasTapAction: true),
+      isSemantics(tooltip: 'Version options', isButton: true, hasTapAction: true),
     );
     await openPreview(tester);
-    final tile = find.byKey(ValueKey('version-page-${v.pages.last.id}'));
+    final tile = find.byKey(ValueKey('version-page-${pageIds().last}'));
     expect(
       tester.getSemantics(tile),
-      containsSemantics(
-        isButton: true,
-        hasTapAction: true,
-        label: 'Page 2 of 2',
-      ),
+      isSemantics(isButton: true, hasTapAction: true, label: 'Page 2 of 2'),
     );
     handle.dispose();
   });
@@ -191,8 +187,7 @@ void main() {
     await setUpNotebook(tester);
     await open(tester, const Size(1200, 900));
     await openPreview(tester);
-    final v = s.versions.of(notebook.id).first;
-    final tile = find.byKey(ValueKey('version-page-${v.pages.last.id}'));
+    final tile = find.byKey(ValueKey('version-page-${pageIds().last}'));
     final centre = tester.getCenter(tile) - const Offset(0, 12);
     Future<ui.Color> pixel() async {
       await tester.pump();

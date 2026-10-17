@@ -73,8 +73,10 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 16);
-    expect(AppDatabase.latestVersion, 16);
+    expect(schema['version'], 17);
+    expect(AppDatabase.latestVersion, 17);
+    // Version 17: what reference blobs name.
+    expect(schema.keys, contains('blob_links'));
     // Version 16: version history.
     expect(schema.keys, containsAll(['versions', 'version_packs']));
     // Version 7: a notebook's paper look.
@@ -341,7 +343,7 @@ void main() {
   });
 }
 
-/// Back to before version 10 (the chunk indexes): undoes versions 10 to 16
+/// Back to before version 10 (the chunk indexes): undoes versions 10 to 17
 /// of a fresh database (14 only rewrites data).
 void _dropChunkDigests(CommonDatabase db) {
   for (final table in ['elements', 'recordings', 'outline']) {
@@ -359,4 +361,5 @@ void _dropChunkDigests(CommonDatabase db) {
   db.execute('DROP TABLE freed_blobs');
   db.execute('DROP TABLE versions');
   db.execute('DROP TABLE version_packs');
+  db.execute('DROP TABLE blob_links');
 }

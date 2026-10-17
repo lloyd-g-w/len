@@ -69,8 +69,8 @@ void main() {
     a.strokes.save([_ink('two', page.id, x: 50)]);
     final named = (await a.versions.save(n.id, name: 'Draft'))!;
     await sync(a);
-    // Packs went up before the records that name them.
-    for (final sha in v1.packs) {
+    // Packs and table blobs went up before the records that name them.
+    for (final sha in [...(await a.versions.content.body(v1)).packs, ...v1.table]) {
       expect(server.blobs.containsKey(sha), isTrue);
     }
 
@@ -87,9 +87,10 @@ void main() {
     expect(seen.last.deviceId, a.strokes.deviceId, reason: 'who made it');
     expect(seen.last.deviceId, isNot(b.strokes.deviceId));
 
-    // The packs are fetched when needed.
-    expect(b.versions.content.isHere([seen.last.pages.single.content]), isFalse);
-    final preview = await b.versions.content.load(seen.last.pages.single.content, page.id);
+    // The table blobs and packs are fetched when needed.
+    final body = await b.versions.content.body(seen.last);
+    expect(b.versions.content.isHere([body.pages.single.content]), isFalse);
+    final preview = await b.versions.content.load(body.pages.single.content, page.id);
     expect(preview.strokes.map((s) => s.id), ['one']);
 
     // Restored on b, the restore reaches a.
@@ -150,7 +151,9 @@ void main() {
       ),
     ]);
     final v = (await a.versions.record(n.id))!;
+    // Through its table blob: the record names that alone.
     expect(a.sync.engine.blobReferences.all(), contains(sha));
-    expect(v.toData().toString(), contains(sha));
+    expect(v.toData().toString(), isNot(contains(sha)));
+    expect(a.sync.engine.blobReferences.keeps(sha, 0), isTrue);
   });
 }

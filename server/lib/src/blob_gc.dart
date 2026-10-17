@@ -1,6 +1,9 @@
 /// Garbage collection of blobs no live record references.
 library;
 
+import 'dart:convert';
+import 'dart:io';
+
 import 'blob_store.dart';
 import 'record_store.dart';
 
@@ -41,6 +44,11 @@ class BlobGcResult {
 /// side: any string that happens to equal a stored blob's sha256 keeps that
 /// blob, and a client that stored references in some other encoding would
 /// have them collected (current clients write plain `<sha256>` strings).
+///
+/// *Reference blobs* (docs/SYNC_PROTOCOL.md, "Reference blobs": the bytes
+/// `LR`, format 1, then a zlib stream) reference blobs too: a reference
+/// blob that is referenced is inflated and scanned the same way, and so on,
+/// so a version record keeps the packs its table blobs name.
 ///
 /// A blob is deleted only if it was found unreferenced by an earlier run at
 /// least [grace] ago, is still unreferenced (checked again right before
@@ -121,21 +129,53 @@ class BlobGc {
   }
 
   /// The blobs among [candidates] that the data of some live record
-  /// mentions.
+  /// mentions, directly or through reference blobs.
   Set<String> referencedAmong(Set<String> candidates) {
-    final found = <String>{};
-    if (candidates.isEmpty) return found;
-    records.forEachLiveData((data) {
-      for (final match in _hexRun.allMatches(data)) {
+    if (candidates.isEmpty) return {};
+    final reached = <String>{};
+    final open = <String>[];
+    void scan(String text) {
+      for (final match in _hexRun.allMatches(text)) {
         final run = match[0]!;
         for (var i = 0; i + 64 <= run.length; i++) {
           final sha = run.substring(i, i + 64);
-          if (candidates.contains(sha)) found.add(sha);
+          if (reached.add(sha)) open.add(sha);
         }
       }
-    });
-    return found;
+    }
+
+    records.forEachLiveData(scan);
+    while (open.isNotEmpty) {
+      if (_referenceText(open.removeLast()) case final text?) scan(text);
+    }
+    return reached.intersection(candidates);
   }
+
+  /// The text a stored reference blob [sha] holds; null when [sha] is not
+  /// stored or no reference blob.
+  String? _referenceText(String sha) {
+    final RandomAccessFile file;
+    try {
+      file = File(blobs.pathFor(sha)).openSync();
+    } on FileSystemException {
+      return null;
+    }
+    try {
+      final head = file.readSync(3);
+      if (head.length < 3 || head[0] != _magic[0] || head[1] != _magic[1] || head[2] != 1) {
+        return null;
+      }
+      final rest = file.readSync(file.lengthSync() - 3);
+      return utf8.decode(zlib.decode(rest), allowMalformed: true);
+    } on Object {
+      return null; // Unreadable or no zlib stream: references nothing.
+    } finally {
+      file.closeSync();
+    }
+  }
+
+  /// `LR`: the magic of reference blobs.
+  static const _magic = [0x4C, 0x52];
 
   bool _newerThan(String sha, DateTime cutoff) {
     final modified = blobs.modified(sha);
