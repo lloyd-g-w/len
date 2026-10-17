@@ -185,6 +185,12 @@ draws a few dozen images, however much ink is on screen.
   images of the tiles they touch as stale stand-ins until re-rendered (that
   content was not on screen yet), so a loading canvas never drops to
   vectors.
+- **Shown again** (`SurfaceChange.overlaid` from `setHidden`): a lasso
+  selection hides the strokes it lifts and draws them over the ink itself;
+  dropping it (pen-down elsewhere) only shows them again, so the tiles
+  keep their images, stale, with those pen strokes drawn over them and
+  highlights beneath them until re-rendered. Before, a selection over
+  more than two tiles vanished for a frame or two when dropped.
 - **Other edits** (erase, undo, lasso) touch only the tiles under the edited
   items' bounds (`SurfaceChange.areas`, not whole chunks). Up to two tiles
   are dropped and drawn from vectors for a frame or two (an eraser stroke

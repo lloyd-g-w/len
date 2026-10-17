@@ -33,13 +33,15 @@ class SurfaceChange {
   /// it may stand in until a new rendering is made.
   final List<Stroke>? underlaid;
 
-  /// Set when the change only adds these pen strokes, but they are no
-  /// [appended] ones: something in their chunks paints over them (a text
-  /// box or an image above the ink, ink of a later paint order, say from
-  /// another device). A rendering from before with them drawn over it looks
-  /// as the live stroke did (over all committed ink), so it may stand in
-  /// until a new rendering is made — rather than the stroke vanishing at
-  /// pen-up until one is.
+  /// Set when the change only adds these strokes (or shows them again: a
+  /// selection dropped), but they are no [appended] or [underlaid] ones:
+  /// something in their chunks paints over them (a text box or an image
+  /// above the ink, ink of a later paint order, say from another device),
+  /// or they were drawn elsewhere (lifted by a selection, over the ink). A
+  /// rendering from before with the pen strokes drawn over it and the
+  /// highlighter ones beneath it looks as the live or lifted strokes did,
+  /// so it may stand in until a new rendering is made — rather than the
+  /// strokes vanishing until one is.
   final List<Stroke>? overlaid;
 
   /// Set when the change only brings in stored content (a load): a

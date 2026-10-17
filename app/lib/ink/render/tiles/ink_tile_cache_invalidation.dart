@@ -115,11 +115,12 @@ extension _Invalidation on InkTileCache {
     }
   }
 
-  /// New pen strokes something paints over (no append): tiles with an
-  /// image keep it, stale, with the strokes drawn over it — as the live
-  /// stroke was, over the committed ink — until rendered again (urgently);
-  /// tiles without one show the content as it now is from vectors. So the
-  /// stroke never misses a frame at pen-up, however many tiles it crosses.
+  /// New strokes (or shown again) that are no append: tiles with an image
+  /// keep it, stale, with the pen strokes drawn over it and highlights
+  /// beneath it — as the live stroke or a selection drew them — until
+  /// rendered again (urgently); tiles without one show the content as it
+  /// now is from vectors. So the strokes never miss a frame at pen-up (or
+  /// when a selection is dropped), however many tiles they cross.
   void _overlay(List<Stroke> strokes, List<ui.Rect> areas) {
     for (final tile in _touching(_tiles, areas)) {
       if (tile.image == null) {
@@ -132,8 +133,10 @@ extension _Invalidation on InkTileCache {
       tile
         ..dropParked()
         ..version += 1
-        ..stale = true
-        ..overlay.addAll(strokes.where((s) => s.bounds.overlaps(rect)));
+        ..stale = true;
+      for (final s in strokes) {
+        if (s.bounds.overlaps(rect)) (s.tool.isHighlighter ? tile.underlay : tile.overlay).add(s);
+      }
       if (_inUse) _request(tile.index, 0);
     }
   }

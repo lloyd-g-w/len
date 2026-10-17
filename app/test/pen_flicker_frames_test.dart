@@ -13,6 +13,7 @@ import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
+import 'package:len/ink/render/stroke_renderer.dart';
 import 'package:len/ink/undo_history.dart';
 
 import 'support/canvas_fixtures.dart';
@@ -175,6 +176,45 @@ void main() {
         ..add(await f.frame())
         ..addAll(await f.until(() => settledTiles(scene)));
       await expectNoLostInk(frames, except: endOf(f, points));
+      scene.dispose();
+    });
+  });
+
+  testWidgets('a selection dropped (pen-down elsewhere) over many tiles: its ink stays', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final ink = background();
+      final scene = InkScene(ink, dpr: 2);
+      // A lasso selection lifts these strokes: the tiles render without
+      // them, the selection draws them over the ink.
+      final selected = [
+        for (final s in ink)
+          if (s.bounds.top > 120 && s.bounds.bottom < 260) s,
+      ];
+      scene.model.setHidden({for (final s in selected) s.id}, owner: #selection);
+      await scene.warm();
+      var lifted = true;
+      final f = InkFrames(
+        size: scene.size,
+        dpr: scene.dpr,
+        viewport: scene.viewport,
+        paintInk: (canvas) {
+          scene.painter().paint(canvas, scene.size);
+          if (!lifted) return;
+          for (final s in selected) {
+            StrokeRenderer.draw(canvas, s);
+          }
+        },
+      );
+      final frames = [await f.frame()];
+      // The pen touches down outside it: the selection is dropped.
+      lifted = false;
+      scene.model.setHidden(const {}, owner: #selection);
+      frames
+        ..add(await f.frame())
+        ..addAll(await f.until(() => settledTiles(scene)));
+      await expectNoLostInk(frames);
       scene.dispose();
     });
   });

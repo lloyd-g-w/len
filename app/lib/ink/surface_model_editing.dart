@@ -196,14 +196,12 @@ mixin _SurfaceEditing on _SurfaceState {
     );
   }
 
-  /// Whether [edit] only adds new pen strokes (that are no append, see
-  /// [SurfaceChange.overlaid]). Checked before the strokes are inserted.
+  /// Whether [edit] only adds new strokes (that are no append or underlay,
+  /// see [SurfaceChange.overlaid]). Checked before they are inserted.
   bool _isOverlay(InkEdit edit) {
     if (edit.added.isEmpty || edit.removed.isNotEmpty) return false;
     if (edit.addedElements.isNotEmpty || edit.removedElements.isNotEmpty) return false;
-    return edit.added.every(
-      (s) => !s.tool.isHighlighter && !_strokes.containsId(s.id) && !_hidden.contains(s.id),
-    );
+    return edit.added.every((s) => !_strokes.containsId(s.id) && !_hidden.contains(s.id));
   }
 
   /// Whether [edit] only adds pen strokes painted over everything already
