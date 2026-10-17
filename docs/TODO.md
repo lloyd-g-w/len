@@ -267,25 +267,15 @@ From the reports; the owner picks. Status as above.
 
 - ✅ **Undo after a version restore** (UX_AUDIT R25-6): the editor's undo steps from before a
   restore survive it, so Ctrl+Z does nothing visible and Ctrl+Shift+Z writes an old stroke back
-<<<<<<< HEAD
-  onto the restored page. Decide: drop the undo steps of the surfaces a restore rewrote (its Undo
-  is the snack bar's), or make the restore one `UndoHistory` step.
-- ✅ **Remote pointers on other pages and in the zoom window** (UX_AUDIT R25-15–R25-18): done
-  on the branch: a hover (or a mouse laser's dot) goes as the page under it, through the layout
+  onto the restored page. Done: open editors drop the undo and redo steps of the surfaces a
+  restore rewrote (a whole-notebook restore its page-level steps too); its Undo is the snack
+  bar's; other surfaces keep theirs.
+- ✅ **Remote pointers on other pages and in the zoom window** (UX_AUDIT R25-15–R25-18): a hover (or a mouse laser's dot) goes as the page under it, through the layout
   (`DocumentController.pagePointOf`), while a laser trail stays on the page it began on, in its
   coordinates even beyond its edge; the zoom window draws other devices' live ink and pointers
   (the same layers over its view); the hover dot takes its colours from the paper
   (`Palette.pointerOn`, ringed with the paper), not the theme; a device joining mid-stroke gets
   the stroke again from its start (SYNC_PROTOCOL updated).
-=======
-  onto the restored page. Done: open editors drop the undo and redo steps of the surfaces a
-  restore rewrote (a whole-notebook restore its page-level steps too); its Undo is the snack
-  bar's; other surfaces keep theirs.
-- 🚧 (fix/remote-pointers) **Remote pointers on other pages and in the zoom window** (UX_AUDIT R25-16, R25-17): a hover
-  or mouse laser over a page that is not the active one is sent as the active page's (map it
-  with the layout first); the zoom window draws neither other devices' live ink nor their
-  pointers; their hover dot is a hollow ring on light paper in dark mode (R25-18).
->>>>>>> fix/r25-followups
 - ✅ **Text boxes read twice** (UX_AUDIT R25-23): a page's screen-reader value holds its text
   boxes, and the active page's boxes are nodes of their own too. Done: the active surface's
   boxes in view (those with nodes) are left out of its value; other pages keep theirs.
