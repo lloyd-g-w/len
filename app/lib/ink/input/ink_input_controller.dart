@@ -252,6 +252,15 @@ class InkInputController {
   /// Whether the last contact that ended left a stroke.
   bool get inked => _draw.inked;
 
+  /// Whether a press [e] can only pan or zoom (or be ignored as a palm),
+  /// never use the tool: a finger while fingers navigate, a mouse's other
+  /// buttons. (A finger while fingers draw may still draw.)
+  bool onlyNavigates(PointerDownEvent e) => switch (e.kind) {
+    PointerDeviceKind.touch => tools.fingersNavigate,
+    PointerDeviceKind.mouse => e.buttons & kPrimaryMouseButton == 0,
+    _ => false,
+  };
+
   /// Whether [pointer] currently pans/zooms the view (rather than drawing,
   /// or being ignored as a palm).
   bool navigates(int pointer) => _nav.contains(pointer);

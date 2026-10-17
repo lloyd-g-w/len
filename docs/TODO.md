@@ -87,12 +87,12 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Owner asks (round 13)
 - ✅ **Highlighter and laser customisation like the pen's**: the highlighter already had every
   pen option (now tested); the laser gets editable, persisted quick colour and size slots (1–5
-  each, shared slot rows and editors, 1–9 and [ / ] too) and the pen's popover layout.
+  each, shared slot rows and editors, 1–5 and [ / ] too) and the pen's popover layout.
 - ✅ **The laser's ends can't be changed** (owner, again): the laser has the
   pen's slots but not its feel: ends (round / flat / tapered), pressure, stabiliser; the trail
   drawn with the pen's outline engine. Done: the laser popover has the pen's Pressure
   sensitivity, Stabiliser and Ends controls (round / tapered with start / end / both and
-  length / flat), greyed out in dot mode; persisted (old settings load as before: flat, off,
+  length / flat; under Feel, as the pen's, hidden for the dot since round 25); persisted (old settings load as before: flat, off,
   off), Reset restores them. Each trail stroke is shaped by the pen's `StrokeShaper`
   (sampling, smoothing, stabiliser, pressure radii, tapers) incrementally, then drawn as the
   laser's glow and core with the fade (round ends add a soft half disc); the preview shows a
@@ -195,7 +195,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   (settings, pages by id in order, strokes / elements by id), one page (back after its
   predecessor), copy as new notebook (new ids, own links / flows / connectors follow); a
   `restore` version is saved first and the snack bar's Undo restores it; open editors reload
-  (`SyncController.announce`). UI: editor ⋯ "Save version…" / "Version history…", library
+  (`SyncController.announce`). UI: editor ⋯ "Version history…" (Save version… in its header, R25-33), library
   notebook menu "Version history…"; history sheet (day groups, thumbnail of the first changed
   page, time, device, summary; ⋯ Restore…, Copy as new notebook, Rename…, Delete version,
   Delete older versions…), preview route (page grid, page view with Restore this page; canvas
@@ -259,9 +259,37 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   into an icon where its label would squeeze the title; names take two lines. The thumbnail's
   public `VersionSurfaceViewState.loaded` replaces the painter peek; goldens add a long name
   at text scale 1.3 and 2.0.
+  Merged with round 25 (R25-7): the bar's date is the short "Today, 14:02", and the page
+  view's Restore this page docks in the same bottom bar.
 
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
+
+- ✅ **Undo after a version restore** (UX_AUDIT R25-6): the editor's undo steps from before a
+  restore survive it, so Ctrl+Z does nothing visible and Ctrl+Shift+Z writes an old stroke back
+  onto the restored page. Done: open editors drop the undo and redo steps of the surfaces a
+  restore rewrote (a whole-notebook restore its page-level steps too); its Undo is the snack
+  bar's; other surfaces keep theirs.
+- ✅ **Remote pointers on other pages and in the zoom window** (UX_AUDIT R25-15–R25-18): a hover (or a mouse laser's dot) goes as the page under it, through the layout
+  (`DocumentController.pagePointOf`), while a laser trail stays on the page it began on, in its
+  coordinates even beyond its edge; the zoom window draws other devices' live ink and pointers
+  (the same layers over its view); the hover dot takes its colours from the paper
+  (`Palette.pointerOn`, ringed with the paper), not the theme; a device joining mid-stroke gets
+  the stroke again from its start (SYNC_PROTOCOL updated).
+- ✅ **Text boxes read twice** (UX_AUDIT R25-23): a page's screen-reader value holds its text
+  boxes, and the active page's boxes are nodes of their own too. Done: the active surface's
+  boxes in view (those with nodes) are left out of its value; other pages keep theirs.
+- ✅ **A curve in progress and a finger pan on another page** (UX_AUDIT R25-29, suspected): the
+  pan's first touch activates that page, which finishes (or, with one anchor, drops) the curve.
+  Done: while a curve is drawn, a press that only pans or zooms (a finger while fingers
+  navigate) keeps its page; a stylus on another page finishes it and starts one there, as
+  before. Still worth a look on the tablet.
+- ✅ **Teach curve editing and attaching ends** (UX_AUDIT R25-30): no hint says a tap on a
+  selected curve's line adds an anchor and a double tap removes one, or that line and arrow
+  ends attach to shapes. Done: two one-time tips on the tips budget — "Tap the curve to add a
+  point; double-tap a point to remove it" when a curve is first selected (gone if it is
+  deselected), and "Drop a line or arrow end on a shape to attach it" when a dragged or drawn
+  end first finds a shape (once the pen rests, when drawn).
 
 - ✅ **Pages to screen readers** (UX_AUDIT R23-10): `PageSemantics`, one node per page in view
   ("Page 3 of 12, bookmarked") valued with its text boxes, recognised handwriting and PDF text

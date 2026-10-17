@@ -390,7 +390,12 @@ Strokes stay in **page-local** coordinates. The ink engine always works on one
 surface, so `PageViewport` adapts the document viewport to the active page
 (`world = document − page origin`) and forwards pans/zooms to the document;
 `PagedDocumentView` makes the page under the first pointer of a gesture (or
-under any stylus) active before handing the event to `InkInputController`.
+under any stylus) active before handing the event to `InkInputController`, except a press
+on the active page's selection (`ContentTools.holds`) and, while a curve is drawn there, a
+press that can only pan or zoom (`InkInputController.onlyNavigates`: a finger while fingers
+navigate, a mouse's other buttons; R25-29), which keep the page so the curve goes on. A press
+that draws on another page (a stylus) finishes the curve where it was drawn and starts
+there, as a tool change would: no anchor ever lands off the curve's page that way.
 Everything the engine draws or hit-tests therefore lands on the right page.
 
 `DocumentSurfaces` holds a `SurfaceModel` + `ChunkPictureCache` only for
@@ -456,7 +461,9 @@ bookmarked", whose value is the page's text: `SurfaceText` (`data/search/surface
 reads the text boxes (`search_docs`, placed by `elements`) and recognised handwriting
 (`ink_text`) in reading order (top, then left), then the PDF page's extracted text
 (`search_docs` kind `pdf`; turning semantics on schedules `SearchService.indexPdfs` for PDFs not
-read yet). Scroll forward / back (`onScrollUp` / `onScrollDown`) and the custom actions *Next
+read yet). The active page's text boxes in view are nodes of their own (`TextBoxSemantics`), so
+its value leaves them out (`TextBoxSemantics.shown`, R25-23: read once); other pages, and boxes
+out of view, stay in their page's value. Scroll forward / back (`onScrollUp` / `onScrollDown`) and the custom actions *Next
 page* / *Previous page* call `scrollToPage` and announce the page's name. An infinite canvas is
 one "Canvas" node with its whole text. Cost: nothing while no semantics client is attached
 (`SemanticsBinding.semanticsEnabled`, listened to: the widget is an empty box, listens to
@@ -521,7 +528,9 @@ again. Text being typed reads once its write lands. The nodes take no pointers.
   phrased for `PenButtonAction`), hold to snap (a hand-drawn line or shape,
   `HoldToStraighten.wouldSnap` via `InkEvents.shapeDrawn`; writing on puts it off to the
   next shape), the lasso (when picked; never over a selection, and a selection is the
-  tip done), scribble to erase (the eraser picked again). Each only while its setting
+  tip done), scribble to erase (the eraser picked again), curve points (a single curve
+  selected; gone with it), attaching ends (`SelectionController.attachHint` set by a
+  handle drag or the Shape tool; R25-30). Each only while its setting
   is on. `TipBanner` (`chrome/tip_banner.dart`) sits at the bottom above the toolbar,
   ignores all pointers (strokes go to the page), fades while the pen is down and hides
   behind snack bars; its 10 s stop meanwhile, and it counts as seen
@@ -635,7 +644,8 @@ again. Text being typed reads once its write lands. The nodes take no pointers.
   through a magnifier. A `ZoomFrame` (surface id, origin, scale) marks a rectangle on a page
   (or the canvas) with the box's aspect; `ZoomBox`, docked above the bottom chrome
   (`ChromeLayout.zoomBox`, counted in `covered` so the page scrolls clear of it), shows it
-  magnified with the page's paper and ink. Pointers in the box go to the window's own
+  magnified with the page's paper and ink (other devices' live ink and pointers too, the main
+  view's layers over the box's viewport). Pointers in the box go to the window's own
   `InkInputController` over `ZoomBoxViewport` (a `ViewportController` the window sets; finger
   pans and pinches move or size the frame instead), so ink is smoothed, pressure-shaped,
   live and undoable exactly as on the page; the pen keeps its page width. `ZoomRules` is the
@@ -2127,10 +2137,14 @@ surface.
   id). Following: every selection edit goes through `_replace`, where
   `_SelectionConnectors._connect` gives each edited shape its old shape
   id (`_identified`; one moved to another page becomes a shape of its
-  own there) and adds the unselected lines attached to it (found near its
+  own there, and a selected line landing on that page with it is
+  attached to it under its new id) and adds the unselected lines attached to it (found near its
   bounds, and lying on this stroke of the shape: `Connectors.targetOf`)
   to the same `SelectionPlan` (`replaceUnselected`), their ends moved
-  onto the new outline by `ShapeDrags` (a bend keeps its place): one
+  onto the new outline by `ShapeDrags` (a bend keeps its place; a
+  circle or ellipse stretched gets new principal axes, so under a
+  selection transform its attachments are re-parametrised to the same
+  point, `_remapped`): one
   `InkEdit`, one undo step, synced as ordinary strokes (a remote device
   receives box and arrow together). While a
   target is dragged or reshaped, the followers are drawn as they will be
@@ -2234,8 +2248,8 @@ surface.
   pen or finger and presenting with F5, `test/laser_hold_input_test.dart`). Set in the tool's options
   popup (`LaserOptionsPanel`, with a live preview: a finished stroke through `LaserStroke`, so
   ends, pressure and stabiliser show; the pen's `PressureSlider`, `StabiliserSlider` and
-  `PenEndsOptions`, greyed out for the dot as the highlighter greys its stabiliser for straight
-  lines; `test/laser_feel_test.dart`, `test/laser_trail_shape_test.dart`). The old painter drew two lines per sample, one
+  `PenEndsOptions` collapsed under Feel after Fade, as the pen's, and hidden for the dot as
+  Fade is; `test/laser_feel_test.dart`, `test/laser_trail_shape_test.dart`). The old painter drew two lines per sample, one
   with a blur mask filter — hundreds of blurs per frame; `test/perf/laser_perf_test.dart`
   measures a move (0 rebuilds, 1 paint) and a full trail against it.
 
@@ -2399,7 +2413,8 @@ GoodNotes-style rich text inside a box.
 - **Screen readers**: while semantics are on, `TextBoxSemantics` lays a node
   over each text box in view on the edited surface (its text, in reading
   order; activating it edits the box). The pages themselves are
-  `PageSemantics`' nodes (see *Paged notebooks*).
+  `PageSemantics`' nodes (see *Paged notebooks*), whose values leave these
+  boxes out.
 - **Lasso**: *Style* (`selection_style_panel.dart`) changes font and size of the
   selected boxes and pen type / width of selected ink (`SelectionController
   .restyleText` / `restyleInk`, one undo step each); *Colour* recolours all text.
@@ -3045,7 +3060,8 @@ shares between versions (and between devices of one platform family).
   goes to the background (hidden / paused). One equal to the latest
   version (same packs and fields) is not made. The app turns the recorder
   on (`main.dart`); tests not about it leave it off, so edits start no
-  timers. "Save version…" (the editor's ⋯ menu, the history's header) makes
+  timers. "Save version…" (the history sheet's header; ⋯ has only Version
+  history…, UX_AUDIT R25-33) makes
   a `named` one at once.
 - **Thinning** (`VersionPolicy`, pure, deterministic): automatic versions
   are kept all for the last day, then the newest per hour for a week, per
@@ -3075,7 +3091,12 @@ shares between versions (and between devices of one platform family).
   its own pages, text flows and connectors follow the copies; recordings
   copied with the same audio blobs, outline entries onto the copied pages;
   recognised text is read again, as for a duplicated notebook). Open
-  editors reload as after a sync (`SyncController.announce`).
+  editors reload as after a sync (`SyncController.announce`), and drop the
+  undo and redo steps of the surfaces it rewrote (`RemoteChanges.rewrittenSurfaces`,
+  `PageModels.forget`; a whole-notebook restore its page-level steps too, R25-6):
+  undoing them would take out what is gone, redoing write back what was
+  replaced. A restore is not an `UndoHistory` step: its Undo is the snack bar's.
+  Steps on other surfaces (another notebook in split view) stay.
 - **Audio** is kept by blob reference: a version names a recording's parts
   and waveform, so audio freed after a trim ("Free space") stays on the
   server and devices until no version names it (thinned or deleted).
@@ -3879,13 +3900,16 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   sends the points not sent yet at most every 50 ms — nothing at all while nobody else is in
   the room, so the local pen pays one listener call and a null check per point; with someone
   there, a list slice and a small JSON message 20 times a second, never per point (about 0.15 µs a
-  point on average, `test/perf/live_ink_relay_perf_test.dart`). On the
+  point on average, `test/perf/live_ink_relay_perf_test.dart`). It follows the room's presence too:
+  a device joining mid-stroke (another view opening the notebook, a reconnect) gets the stroke
+  again from its start, in messages of at most 300 points, even one begun while nobody was there. On the
   other side `RemoteInk` (`ink/remote_ink.dart`, one per `SharedNotebook`) keeps the strokes
   being written per writer connection, each with a `LiveStrokeBuilder` that extends its outline
   by the points a message adds (as the writer's own live ink is built; whole again only when
   points are replaced), and `RemoteInkPainter` paints them in their own
   `RepaintBoundary` between the committed ink and the local `LiveInkPainter` (`InkSurface`
-  for canvases; `PagedDocumentView` once for all pages, clipped to each page's frame), so a
+  for canvases; `PagedDocumentView` once for all pages, clipped to each page's frame; the zoom
+  window's `ZoomBoxPaper` for its frame's surface, with the pointers' overlay too), so a
   remote stroke growing repaints only that layer. It goes once every stroke it became is
   applied and drawn: `SharedNotebook._onRemoteChanges` refreshes the open surfaces first and
   then calls `RemoteInk.landed`, so the committed stroke and the provisional one swap in the
@@ -3902,13 +3926,18 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   `EditorSession`) shows where this editor points: `InkEvents.hovered` (the input's hover, in
   the active surface's coordinates; null on exit and on a pen or mouse press) and the laser's
   `LaserTrail` (pressed, hovering, dot, and the trail points added since — `LaserTrail.added`).
+  A hover (or a laser's dot without a trail) goes as the page under it: `locate`
+  (`DocumentController.pagePointOf`, through the layout; the nearest page in a gap) maps it from
+  the active page's coordinates; a laser trail stays on the page it began on (a press activates
+  that page), even beyond its edge, so it draws on unbroken.
   It hooks into both only while another device is in the room (it follows presence), so alone
   it costs nothing; then it sends what changed at most every 40 ms, a held laser again every
   second. `RemotePointers` (`ink/remote_pointers.dart`, one per `SharedNotebook`) keeps a
   `RemotePointer` per device — its hover position or a `LaserTrail` replaying its laser — hides
   it after 3 s without news and drops it when the device leaves. `RemotePointersOverlay` (in
   `EditorCanvas`, over the content layer; `RepaintBoundary`, ticking only while a laser fades)
-  paints them through `frameOf` (a page's frame, the canvas as is): a small dot for hovering,
+  paints them through `frameOf` (a page's frame, the canvas as is): a small dot for hovering
+  (`Palette.pointerOn` the page's paper, ringed with the paper: `paperOf`, not the theme),
   the laser as `LaserPaint` draws the local one, each labelled with the device's plate
   (`RoomPresence.initialOf`, the presence plate's colours) — its *name tag*, unless the local
   setting `pointer_tags` (`AppPreferences.pointerTags`, default on; "⋯" → View → *Name tags*

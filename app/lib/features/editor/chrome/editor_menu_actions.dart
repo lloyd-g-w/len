@@ -33,7 +33,6 @@ class EditorMenuActions {
     this.onBackground,
     this.minimap,
     this.onMinimap,
-    this.onSaveVersion,
     this.onVersionHistory,
     this.pointerTags = true,
     this.onPointerTags,
@@ -94,9 +93,8 @@ class EditorMenuActions {
   final bool? minimap;
   final VoidCallback? onMinimap;
 
-  /// "Save version…" and "Version history…" (docs/ARCHITECTURE.md,
-  /// "Version history").
-  final VoidCallback? onSaveVersion;
+  /// "Version history…" (docs/ARCHITECTURE.md, "Version history"); its
+  /// sheet's header has Save version… (one row in ⋯, UX_AUDIT R25-33).
   final VoidCallback? onVersionHistory;
 
   /// Whether other devices' pointers carry their name tag; [onPointerTags]

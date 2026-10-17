@@ -59,6 +59,8 @@ extension _EditorParts on _EditorScreenState {
         selection: Listenable.merge([_session.content.selection, _session.pdf?.selection]),
         selected: () =>
             !_session.content.selection.isEmpty || !(_session.pdf?.selection.isEmpty ?? true),
+        curveSelected: () => _session.content.selection.shapeStroke?.shape?.kind == ShapeKind.curve,
+        attaching: () => _session.content.selection.attachHint != null,
         pen: _session.live,
         lasso: _session.content.lassoPath,
         penButton: () => _services.preferences.penButtonAction,

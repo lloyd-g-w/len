@@ -82,9 +82,14 @@ class ShapeOptionsPanel extends StatelessWidget {
             Text('Tap a shape to edit it; undo takes back a point', style: text.bodySmall),
           ] else
             Text('Drag to draw, tap a shape to edit it', style: text.bodySmall),
-          // Only a keyboard has Shift.
+          // Only a keyboard has Shift, Enter and Esc.
           if (!Targets.touchFirst)
-            Text('Hold Shift for regular shapes and 15° lines', style: text.bodySmall),
+            Text(
+              tools.shape == ShapeKind.curve
+                  ? 'Enter finishes a curve, Esc drops it'
+                  : 'Hold Shift for regular shapes and 15° lines',
+              style: text.bodySmall,
+            ),
           // Hold to snap is a writing gesture: its switch is in Settings.
           Text(
             tools.holdToStraighten

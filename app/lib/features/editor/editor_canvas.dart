@@ -95,6 +95,9 @@ class EditorCanvas extends StatelessWidget {
                 final index = doc.pages.indexWhere((p) => p.id == id);
                 return index < 0 ? null : doc.layout.frameOf(index);
               },
+        paperOf: (id) =>
+            doc?.pages.where((p) => p.id == id).firstOrNull?.paperColor ??
+            session.notebook.paperColor,
       ),
     );
   }
@@ -111,7 +114,12 @@ class EditorCanvas extends StatelessWidget {
     final doc = session.doc;
     return doc != null
         ? PageSemantics.document(doc: doc, texts: texts)
-        : PageSemantics.canvas(canvasId: session.notebook.id, texts: texts);
+        : PageSemantics.canvas(
+            canvasId: session.notebook.id,
+            canvas: session.canvas!,
+            viewport: session.canvasViewport!,
+            texts: texts,
+          );
   }
 
   Widget _surface(BuildContext context) {

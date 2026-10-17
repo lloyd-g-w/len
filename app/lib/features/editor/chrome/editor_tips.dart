@@ -97,6 +97,8 @@ class TipsController extends ValueNotifier<TipMessage?> {
   bool Function()? _hasPdf;
   Listenable? _selection;
   bool Function() _selected = _nothing;
+  bool Function() _curveSelected = _nothing;
+  bool Function() _attaching = _nothing;
   PenButtonAction Function() _penButton = _eraser;
 
   /// Follows [tools]: picking the lasso offers [EditorTip.lasso] (mentioning
@@ -105,11 +107,16 @@ class TipsController extends ValueNotifier<TipMessage?> {
   /// a second time offers [EditorTip.scribble]. Any change of [pen] (the
   /// live ink: pens, the highlighter, shapes) or of [lasso] (the loop being
   /// drawn) is pen activity. [penButton] is what the side button does.
+  /// A selection that is a single curve ([curveSelected]) offers
+  /// [EditorTip.curve]; a line's end that would attach to a shape
+  /// ([attaching], told by [selection] too) offers [EditorTip.attach].
   void followTools(
     ToolSettings tools, {
     bool Function()? hasPdf,
     Listenable? selection,
     bool Function()? selected,
+    bool Function()? curveSelected,
+    bool Function()? attaching,
     LiveInk? pen,
     LassoPath? lasso,
     PenButtonAction Function()? penButton,
@@ -119,6 +126,8 @@ class TipsController extends ValueNotifier<TipMessage?> {
     _hasPdf = hasPdf;
     _selection = selection?..addListener(_onSelection);
     _selected = selected ?? _nothing;
+    _curveSelected = curveSelected ?? _nothing;
+    _attaching = attaching ?? _nothing;
     _pen = pen?..addListener(_onPen);
     _lasso = lasso?..addListener(_onPen);
     _penButton = penButton ?? _eraser;
@@ -138,6 +147,9 @@ class TipsController extends ValueNotifier<TipMessage?> {
   void _onSelection() {
     // The user did what the lasso tip says.
     if (value?.tip == EditorTip.lasso && _selected()) _hide(done: true);
+    if (value?.tip == EditorTip.curve && !_curveSelected()) _hide();
+    if (_attaching()) offer(EditorTip.attach);
+    if (_curveSelected()) offer(EditorTip.curve);
   }
 
   void _onPen() {
@@ -192,6 +204,9 @@ class TipsController extends ValueNotifier<TipMessage?> {
       EditorTip.lasso => (tools == null || tools.tool == EditorTool.lasso) && !_selected(),
       EditorTip.scribble =>
         tools == null || (tools.tool == EditorTool.eraser && tools.scribbleToErase),
+      // Only over what it is about (a selection gone is the tip moot).
+      EditorTip.curve => _curveSelected(),
+      EditorTip.attach => true,
     };
   }
 

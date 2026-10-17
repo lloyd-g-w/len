@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../../domain/paper.dart';
 import '../../../ink/remote_pointers.dart';
 import '../../../ink/render/laser_painter.dart';
 import '../../../ink/viewport.dart';
@@ -19,6 +20,7 @@ class RemotePointersOverlay extends StatefulWidget {
     required this.pointers,
     required this.viewport,
     required this.frameOf,
+    required this.paperOf,
     this.tags = true,
   });
 
@@ -31,6 +33,9 @@ class RemotePointersOverlay extends StatefulWidget {
   /// Where surface [id] lies in [viewport]'s world (a page's frame; the
   /// canvas: [Rect.largest]), or null when this view does not show it.
   final Rect? Function(String id) frameOf;
+
+  /// The paper of surface [id] (the hover dot takes its colours from it).
+  final PaperColor Function(String id) paperOf;
 
   @override
   State<RemotePointersOverlay> createState() => _RemotePointersOverlayState();
@@ -82,11 +87,10 @@ class _RemotePointersOverlayState extends State<RemotePointersOverlay>
             pointers: widget.pointers,
             viewport: widget.viewport,
             frameOf: widget.frameOf,
+            paperOf: widget.paperOf,
             tags: widget.tags,
             plate: Color.alphaBlend(Surfaces.selected(scheme), Surfaces.chrome(scheme)),
             label: Theme.of(context).textTheme.labelSmall!.copyWith(color: scheme.onSurface),
-            dot: scheme.onSurface,
-            halo: scheme.surface,
           ),
         ),
       ),
@@ -100,25 +104,26 @@ class RemotePointersPainter extends CustomPainter {
     required this.pointers,
     required this.viewport,
     required this.frameOf,
+    required this.paperOf,
     this.tags = true,
     required this.plate,
     required this.label,
-    required this.dot,
-    required this.halo,
   }) : super(repaint: Listenable.merge([pointers, viewport]));
 
   final RemotePointers pointers;
   final ViewportController viewport;
   final Rect? Function(String id) frameOf;
 
+  /// The paper of surface [id]: the hover dot is [Palette.pointerOn] it,
+  /// ringed with the paper's colour (paper is light in a dark theme too).
+  final PaperColor Function(String id) paperOf;
+
   /// Whether to draw the device plates (name tags) by the pointers.
   final bool tags;
 
-  /// The device plate's fill and text, the hover dot and its halo.
+  /// The device plate's fill and text.
   final Color plate;
   final TextStyle label;
-  final Color dot;
-  final Color halo;
 
   /// The hovering pointer's dot (screen radius) and how far the plate sits
   /// from where it points.
@@ -140,9 +145,10 @@ class RemotePointersPainter extends CustomPainter {
       Offset? tip;
       if (p.hover case final hover?) {
         tip = toScreen(hover);
+        final paper = paperOf(p.surface);
         canvas
-          ..drawCircle(tip, dotRadius + 1.5, Paint()..color = halo)
-          ..drawCircle(tip, dotRadius, Paint()..color = dot);
+          ..drawCircle(tip, dotRadius + 1.5, Paint()..color = paper.paper)
+          ..drawCircle(tip, dotRadius, Paint()..color = Palette.pointerOn(darkPaper: paper.isDark));
       }
       if (p.laser.isVisible) {
         (_lasers[p.laser] ??= LaserPaint()).paint(
@@ -181,9 +187,8 @@ class RemotePointersPainter extends CustomPainter {
       old.pointers != pointers ||
       old.viewport != viewport ||
       old.frameOf != frameOf ||
+      old.paperOf != paperOf ||
       old.tags != tags ||
       old.plate != plate ||
-      old.label != label ||
-      old.dot != dot ||
-      old.halo != halo;
+      old.label != label;
 }

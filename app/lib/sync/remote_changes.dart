@@ -65,6 +65,20 @@ class RemoteChanges {
   /// it), as a restore does.
   void reloadSurface(String surface) => _manyChanged(surface);
 
+  /// Surfaces a version restore rewrote: open editors reload them and drop
+  /// their undo steps (R25-6; the restore's Undo is its snack bar's).
+  final Set<String> rewrittenSurfaces = {};
+
+  /// Notebooks a version restore rewrote whole (pages and settings): open
+  /// editors drop their page-level undo steps too.
+  final Set<String> rewrittenNotebooks = {};
+
+  /// Notes that a restore rewrote [surface] (see [rewrittenSurfaces]).
+  void rewriteSurface(String surface) {
+    reloadSurface(surface);
+    rewrittenSurfaces.add(surface);
+  }
+
   /// Whether deleted content came back (see `DeletionConflicts`); it is
   /// local edits to push.
   bool revived = false;
@@ -119,6 +133,8 @@ class RemoteChanges {
     outlineOfNotebooks.addAll(other.outlineOfNotebooks);
     recordingsOfNotebooks.addAll(other.recordingsOfNotebooks);
     versionsOfNotebooks.addAll(other.versionsOfNotebooks);
+    rewrittenSurfaces.addAll(other.rewrittenSurfaces);
+    rewrittenNotebooks.addAll(other.rewrittenNotebooks);
   }
 
   bool get isEmpty =>
@@ -129,5 +145,6 @@ class RemoteChanges {
       strokeSurfaces.isEmpty &&
       recordingsOfNotebooks.isEmpty &&
       outlineOfNotebooks.isEmpty &&
-      versionsOfNotebooks.isEmpty;
+      versionsOfNotebooks.isEmpty &&
+      rewrittenNotebooks.isEmpty;
 }

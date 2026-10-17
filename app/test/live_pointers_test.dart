@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:fake_async/fake_async.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,12 +11,15 @@ import 'package:len/data/stroke_reader.dart';
 import 'package:len/domain/chunk_digest.dart';
 import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/notebook.dart';
+import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/live_ink/pointer_relay.dart';
 import 'package:len/features/editor/live_ink/remote_pointers_overlay.dart';
+import 'package:len/features/editor/zoom/zoom_box_paper.dart';
 import 'package:len/ink/input/ink_events.dart';
 import 'package:len/ink/remote_ink.dart';
 import 'package:len/ink/remote_pointers.dart';
+import 'package:len/ink/render/remote_ink_painter.dart';
 import 'package:len/ink/tools/laser.dart';
 import 'package:len/ink/viewport.dart';
 import 'package:len/sync/live_link.dart';
@@ -24,7 +30,7 @@ import 'package:len/sync/remote_changes.dart';
 import 'document_editor_test.dart' show pumpEditor, closeEditor;
 import 'split_view_test.dart' show pumpWorkspace;
 import 'support/live_devices.dart';
-import 'support/zoom_fixtures.dart' show zoomSession;
+import 'support/zoom_fixtures.dart' show openZoom, zoomSession;
 
 // Toward real-time collaboration: other devices' pointers (hover, laser)
 // shown live, and the provisional ink of their strokes handed over to the
@@ -203,8 +209,7 @@ void main() {
       },
       plate: const Color(0xFFEEEEEE),
       label: const TextStyle(fontSize: 12),
-      dot: const Color(0xFF000000),
-      halo: const Color(0xFFFFFFFF),
+      paperOf: (_) => PaperColor.white,
     );
     final recorder = ui.PictureRecorder();
     painter.paint(Canvas(recorder), const Size(800, 600));
@@ -230,14 +235,99 @@ void main() {
         tags: tags,
         plate: const Color(0xFFEEEEEE),
         label: const TextStyle(fontSize: 12),
-        dot: const Color(0xFF000000),
-        halo: const Color(0xFFFFFFFF),
+        paperOf: (_) => PaperColor.white,
       ).paint(canvas, const Size(800, 600));
       return (plates: canvas.rrects, dots: canvas.circles);
     }
 
     expect(paint(tags: true), (plates: 1, dots: 2));
     expect(paint(tags: false), (plates: 0, dots: 2), reason: 'the dot stays');
+  });
+
+  test('the hover dot takes its colours from the paper, not the theme', () {
+    final rooms = _rooms();
+    final pointers = RemotePointers(rooms, room: 'nb');
+    addTearDown(pointers.dispose);
+    for (final page in ['light', 'dark']) {
+      _say(rooms, {
+        'k': 'pointer',
+        'page': page,
+        'at': [5, 5],
+      }, from: 'c-$page');
+    }
+    final canvas = _CountingCanvas();
+    RemotePointersPainter(
+      pointers: pointers,
+      viewport: ViewportController(),
+      frameOf: (_) => const Rect.fromLTWH(0, 0, 800, 1000),
+      paperOf: (id) => id == 'dark' ? PaperColor.dark : PaperColor.cream,
+      tags: false,
+      plate: const Color(0xFFEEEEEE),
+      label: const TextStyle(fontSize: 12),
+    ).paint(canvas, const Size(800, 600));
+    final [lightHalo, lightDot, darkHalo, darkDot] = canvas.circleColours;
+    expect(
+      lightHalo.toARGB32(),
+      PaperColor.cream.paper.toARGB32(),
+      reason: 'ringed with the paper',
+    );
+    expect(darkHalo.toARGB32(), PaperColor.dark.paper.toARGB32());
+    double contrast(Color a, Color b) {
+      final (x, y) = (a.computeLuminance(), b.computeLuminance());
+      return (math.max(x, y) + 0.05) / (math.min(x, y) + 0.05);
+    }
+
+    expect(contrast(lightDot, PaperColor.cream.paper), greaterThan(7));
+    expect(contrast(darkDot, PaperColor.dark.paper), greaterThan(7));
+  });
+
+  test('a hover goes as the page under it; a laser trail stays on the page it began on', () {
+    fakeAsync((async) {
+      final events = InkEvents();
+      final laser = LaserTrail();
+      final sent = <Map<String, Object?>>[];
+      // Pages p1 (active, 0..1000 down) and p2 below it (1000..2000).
+      final relay = PointerRelay(
+        events: events,
+        laser: laser,
+        surface: () => 'p1',
+        locate: (at) => at.dy < 1000 ? ('p1', at) : ('p2', at - const Offset(0, 1000)),
+        send: sent.add,
+        presence: ChangeNotifier(),
+        anyoneThere: () => true,
+      );
+      addTearDown(relay.dispose);
+      Map<String, Object?> last() {
+        async.elapse(const Duration(milliseconds: 50));
+        return sent.last;
+      }
+
+      Matcher points(String page, List<double> at) =>
+          allOf(containsPair('page', page), containsPair('at', at));
+
+      events.hovered!(const Offset(30, 400));
+      expect(last(), containsPair('page', 'p1'));
+      events.hovered!(const Offset(30, 1250));
+      expect(last(), points('p2', [30, 250]));
+      // A mouse's laser dot alone (no trail): the page under it too.
+      events.hovered!(null);
+      laser.hover(const Offset(40, 1100));
+      expect(last(), points('p2', [40, 100]));
+      laser.hover(null);
+      // A trail begun on p1 and drawn on into p2: all of it on p1.
+      laser
+        ..config = laser.config.copyWith(mode: LaserMode.trail)
+        ..down(const Offset(50, 900));
+      for (var y = 950.0; y <= 1200; y += 50) {
+        laser.move(Offset(50, y));
+        async.elapse(const Duration(milliseconds: 50));
+      }
+      final trail = sent.where((m) => m['laser'] is Map && (m['laser'] as Map)['down'] == true);
+      expect(trail.map((m) => m['page']).toSet(), {'p1'});
+      expect(trail.last['at'], [50.0, 1200.0], reason: 'beyond its edge');
+      laser.up();
+      expect(last()['page'], 'p1', reason: 'its trail still fades there');
+    });
   });
 
   test('a snapped highlight\'s ink stays until every stroke it became arrived', () {
@@ -383,6 +473,12 @@ void main() {
       );
     await tester.pump();
     expect(find.byType(RemotePointersOverlay), findsOneWidget);
+    // Its dot takes the colours of each page's paper (the third is dark).
+    final overlay = tester.widget<RemotePointersOverlay>(find.byType(RemotePointersOverlay));
+    expect(
+      [for (final p in s.pages.pagesOf(nb.id)) overlay.paperOf(p.id)],
+      [PaperColor.white, PaperColor.cream, PaperColor.dark],
+    );
     expect(session.shared.remotePointers.pointers.single.hover, const Offset(120, 80));
     expect(session.pointerRelay, isNotNull);
     expect(session.input.events.hovered, isNotNull, reason: 'someone is there: hooked in');
@@ -390,6 +486,100 @@ void main() {
     await tester.pump();
     expect(session.shared.remotePointers.isEmpty, isTrue);
     expect(session.input.events.hovered, isNull);
+    await closeEditor(tester);
+  });
+
+  testWidgets('in the editor: a mouse over another page than the active one points there', (
+    tester,
+  ) async {
+    final (s, nb) = await pumpEditor(tester);
+    final pages = s.pages.pagesOf(nb.id);
+    final session = zoomSession(tester);
+    final doc = session.doc!;
+    s.sync.rooms.receive(
+      LivePresence(nb.id, const [(connection: 'c9', deviceId: 'd9', name: 'Linux')]),
+    );
+    await tester.pump();
+    final relayed = session.input.events.hovered!;
+    final seen = <Offset?>[];
+    session.input.events.hovered = (world) {
+      seen.add(world);
+      relayed(world);
+    };
+    expect(doc.activePageData.id, pages[0].id);
+    final second = doc.layout.frameOf(1)!;
+    final screen = doc.viewport.toScreen(second.topLeft + const Offset(60, 40));
+    expect(screen.dy, lessThan(1300), reason: 'the second page shows');
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: screen - const Offset(0, 1));
+    await mouse.moveTo(screen);
+    await tester.pump();
+    expect(doc.activePageData.id, pages[0].id, reason: 'hovering activates nothing');
+    final (page, at) = doc.pagePointOf(seen.last!);
+    expect(page, pages[1].id);
+    expect((at - const Offset(60, 40)).distance, lessThan(0.01));
+    expect(session.pointerRelay.locate, isNotNull);
+    s.sync.rooms.receive(LivePresence(nb.id, const []));
+    await tester.pump();
+    await closeEditor(tester);
+  });
+
+  testWidgets('in the zoom window: other devices\' live ink and pointers show there too', (
+    tester,
+  ) async {
+    final (s, nb) = await pumpEditor(tester);
+    final zoom = await openZoom(tester);
+    final frame = zoom.frame!;
+    final at = frame.origin + const Offset(20, 10);
+    void say(Map<String, Object?> data) =>
+        s.sync.rooms.receive(LiveEphemeral(room: nb.id, from: 'c9', deviceId: 'd9', data: data));
+    s.sync.rooms.receive(
+      LivePresence(nb.id, const [(connection: 'c9', deviceId: 'd9', name: 'Linux')]),
+    );
+    say({
+      'k': 'ink',
+      's': 'w',
+      'page': frame.surfaceId,
+      'tool': 'ballpoint',
+      'color': 0xFF112233,
+      'width': 3,
+      'from': 0,
+      'p': [at.dx, at.dy, 0.5, at.dx + 30, at.dy + 4, 0.5],
+    });
+    say({
+      'k': 'pointer',
+      'page': frame.surfaceId,
+      'at': [at.dx, at.dy],
+    });
+    await tester.pump();
+    final paper = find.byType(ZoomBoxPaper);
+    final ink = tester
+        .widgetList<CustomPaint>(find.descendant(of: paper, matching: find.byType(CustomPaint)))
+        .map((c) => c.painter)
+        .whereType<RemoteInkPainter>()
+        .single;
+    expect(ink.remote.strokesOn(frame.surfaceId), hasLength(1));
+    expect(ink.frameOf(frame.surfaceId), isNotNull, reason: 'the frame\'s page shows');
+    expect(ink.frameOf('another page'), isNull);
+    expect(ink.viewport, same(zoom.view));
+    final overlay = tester.widget<RemotePointersOverlay>(
+      find.descendant(of: paper, matching: find.byType(RemotePointersOverlay)),
+    );
+    expect(overlay.viewport, same(zoom.view));
+    final canvas = _CountingCanvas();
+    RemotePointersPainter(
+      pointers: overlay.pointers,
+      viewport: overlay.viewport,
+      frameOf: overlay.frameOf,
+      plate: const Color(0xFFEEEEEE),
+      label: const TextStyle(fontSize: 12),
+      paperOf: (_) => PaperColor.white,
+    ).paint(canvas, zoom.box);
+    expect(canvas.circles, 2, reason: 'the hover dot and its halo');
+    expect((Offset.zero & zoom.box).contains(zoom.view.toScreen(at)), isTrue);
+    s.sync.rooms.receive(LivePresence(nb.id, const []));
+    await tester.pump();
     await closeEditor(tester);
   });
 
@@ -434,11 +624,17 @@ class _CountingCanvas implements Canvas {
   int rrects = 0;
   int circles = 0;
 
+  /// The colours of the circles, in order.
+  final List<Color> circleColours = [];
+
   @override
   void drawRRect(RRect rrect, Paint paint) => rrects++;
 
   @override
-  void drawCircle(Offset c, double radius, Paint paint) => circles++;
+  void drawCircle(Offset c, double radius, Paint paint) {
+    circles++;
+    circleColours.add(paint.color);
+  }
 
   @override
   Object? noSuchMethod(Invocation invocation) => null;

@@ -114,6 +114,9 @@ void main() {
       final current = saved(0, version: ToolSettings.prefsVersion);
       expect(restored(current).configOf(InkTool.ballpoint).streamline, 0);
       expect(restored(current).toJson()['version'], ToolSettings.prefsVersion);
+      // Saved by a later version: nothing to upgrade.
+      final later = saved(0, version: ToolSettings.prefsVersion + 1);
+      expect(restored(later).configOf(InkTool.ballpoint).streamline, 0);
     });
 
     test('corrupt stored prefs fall back to defaults', () {

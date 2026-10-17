@@ -12,6 +12,7 @@ import 'package:len/ink/selection/lasso.dart';
 import 'package:len/ink/selection/lasso_config.dart';
 import 'package:len/ink/selection/selection_controller.dart';
 import 'package:len/ink/selection/selection_surfaces.dart';
+import 'package:len/ink/shapes/shape_builder.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/undo_history.dart';
 
@@ -217,6 +218,44 @@ void main() {
     models.redo();
     expect(stored.loadAllElements('b').map((e) => e.id), contains('ta'));
     expect(stored.loadAllElements('a'), isEmpty);
+  });
+
+  test('a box and its arrow dropped onto the next page together stay attached', () {
+    Stroke onA(ShapeGeometry shape, String id) => Stroke(
+      id: id,
+      surfaceId: 'a',
+      tool: InkTool.ballpoint,
+      color: 0xFF000000,
+      width: 2,
+      points: ShapeBuilder.pointsOf(shape),
+      createdAt: 1,
+      shape: shape,
+    );
+    final box = onA(
+      ShapeBuilder.dragged(ShapeKind.rectangle, const Offset(50, 70), const Offset(70, 90)),
+      'box',
+    );
+    final arrow = onA(
+      ShapeGeometry(
+        ShapeKind.arrow,
+        const [Offset(20, 80), Offset(50, 80)],
+        tip: const ShapeAttachment('box', 0.875), // the left side's middle
+      ),
+      'arrow',
+    );
+    a.commit(InkEdit(added: [box, arrow]));
+    selection.select([a.strokeById('box')!, a.strokeById('arrow')!], const []);
+    final move = selection.frame!.moved(const Offset(0, 60));
+    selection
+      ..setPreview(move.transform, move.frame)
+      ..commitPreview();
+    final onB = stored.loadAll('b').where((s) => s.shape != null).toList();
+    final box2 = onB.firstWhere((s) => s.shape!.kind == ShapeKind.rectangle);
+    final arrow2 = onB.firstWhere((s) => s.shape!.kind == ShapeKind.arrow);
+    // A shape of its own on page b, its arrow attached to it there.
+    expect(box2.shapeId, isNot('box'));
+    expect(arrow2.shape!.tip, ShapeAttachment(box2.shapeId, 0.875));
+    expect(arrow2.shape!.points[1], const Offset(50, 20));
   });
 
   test('delete, recolour and duplicate act on both pages with one undo each', () {

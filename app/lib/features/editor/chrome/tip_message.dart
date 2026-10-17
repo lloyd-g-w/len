@@ -28,6 +28,14 @@ enum EditorTip {
 
   /// Scribble to erase (when the eraser is picked again).
   scribble,
+
+  /// Adding and removing a curve's anchors (when a curve is first
+  /// selected, R25-30).
+  curve,
+
+  /// Line and arrow ends attach to shapes (when an end being dragged or
+  /// drawn first finds a shape to attach to, R25-30).
+  attach,
 }
 
 /// What a shown tip says.
@@ -82,6 +90,16 @@ TipMessage? tipMessage(
     tip,
     Symbols.ink_eraser_sharp,
     'Or scribble over ink with the pen to erase it',
+  ),
+  EditorTip.curve => TipMessage(
+    tip,
+    Symbols.conversion_path_sharp,
+    'Tap the curve to add a point; double-tap a point to remove it',
+  ),
+  EditorTip.attach => TipMessage(
+    tip,
+    Symbols.arrow_right_alt_sharp,
+    'Drop a line or arrow end on a shape to attach it',
   ),
 };
 

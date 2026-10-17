@@ -146,6 +146,19 @@ void main() {
     expect(find.text('Hold to snap is off (Settings → Writing)'), findsOneWidget);
   });
 
+  testWidgets('shapes: with a keyboard, curves say Enter and Esc rather than Shift', (
+    tester,
+  ) async {
+    Targets.debugTouchFirst = false;
+    addTearDown(() => Targets.debugTouchFirst = null);
+    await pump(tester, ShapeOptionsPanel(tools: tools));
+    expect(find.text('Hold Shift for regular shapes and 15° lines'), findsOneWidget);
+    tools.shape = ShapeKind.curve;
+    await tester.pump();
+    expect(find.text('Hold Shift for regular shapes and 15° lines'), findsNothing);
+    expect(find.text('Enter finishes a curve, Esc drops it'), findsOneWidget);
+  });
+
   testWidgets('shapes: Reset in the header restores the rectangle and no fill (R12-9)', (
     tester,
   ) async {

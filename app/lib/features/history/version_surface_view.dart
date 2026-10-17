@@ -13,6 +13,8 @@ import '../../domain/surface_element.dart';
 import '../../ink/images/element_images.dart';
 import '../../ink/render/content_painter.dart';
 import '../../ui/app_theme.dart';
+import '../editor/document/missing_pdf_painter.dart';
+import '../editor/document/page_backgrounds.dart';
 import '../editor/document/page_painting.dart';
 
 /// A surface of a version ready to paint: its page (for a canvas, the
@@ -27,9 +29,15 @@ typedef VersionSheet = ({
 /// Loads and keeps what version surfaces hold, for the history's
 /// thumbnails and previews (packs fetched when not on this device).
 class VersionSheets {
-  VersionSheets(this.versions);
+  VersionSheets(this.versions, {this.backgrounds});
 
   final Versions versions;
+
+  /// Page backgrounds (PDF pages, scans) drawn beneath the ink; owned:
+  /// disposed with this.
+  final PageBackgrounds? backgrounds;
+
+  void dispose() => backgrounds?.dispose();
   final Map<String, Future<VersionSheet?>> _loaded = {};
   final Map<String, Future<VersionBody?>> _bodies = {};
 
@@ -243,6 +251,8 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
                     widget.images,
                     page == null ? null : widget.version,
                     page,
+                    widget.sheets.backgrounds,
+                    MediaQuery.devicePixelRatioOf(context),
                     _imagesShown,
                   ),
                 ),
@@ -265,12 +275,22 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
 }
 
 class _SheetPainter extends CustomPainter {
-  _SheetPainter(this.sheet, this.images, this.version, this.page, this.imagesShown);
+  _SheetPainter(
+    this.sheet,
+    this.images,
+    this.version,
+    this.page,
+    this.backgrounds,
+    this.dpr,
+    this.imagesShown,
+  ) : super(repaint: backgrounds);
 
   final VersionSheet? sheet;
   final ElementImages images;
   final NotebookVersion? version;
   final VersionPage? page;
+  final PageBackgrounds? backgrounds;
+  final double dpr;
   final int imagesShown;
 
   /// Pictures up to this wide are thumbnails (the history's rows).
@@ -292,6 +312,8 @@ class _SheetPainter extends CustomPainter {
     // In a thumbnail, ink too thin to show as more than a line is drawn as
     // one: outlines take ~0.3 ms a stroke to build, on this thread.
     final thumbnail = size.width <= thumbnailWidth;
+    final bg = page.background;
+    final image = bg == null ? null : backgrounds?.imageFor(bg, size.width * dpr);
     canvas
       ..save()
       ..scale(scale);
@@ -301,6 +323,7 @@ class _SheetPainter extends CustomPainter {
       strokes: origin == null ? sheet?.strokes ?? const [] : const [],
       elements: origin == null ? sheet?.elements ?? const [] : const [],
       scale: scale,
+      background: image,
       images: images,
       miniature: true,
       worldOrigin: origin,
@@ -309,6 +332,7 @@ class _SheetPainter extends CustomPainter {
     if (sheet != null && origin != null) {
       // A canvas: its content where it is, moved into the frame.
       canvas
+        ..save()
         ..clipRect(Offset.zero & page.size)
         ..translate(-origin.dx, -origin.dy);
       ContentPainter.paint(
@@ -319,6 +343,10 @@ class _SheetPainter extends CustomPainter {
         pixelScale: scale,
         sketchThin: thumbnail,
       );
+      canvas.restore();
+    }
+    if (bg != null && image == null && (backgrounds?.isMissing(bg) ?? false)) {
+      paintMissingPdf(canvas, page.size, scan: !bg.isPdf);
     }
     canvas.restore();
   }
@@ -328,5 +356,7 @@ class _SheetPainter extends CustomPainter {
       !identical(old.sheet, sheet) ||
       old.version?.id != version?.id ||
       old.page != page ||
+      old.backgrounds != backgrounds ||
+      old.dpr != dpr ||
       old.imagesShown != imagesShown;
 }

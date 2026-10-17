@@ -3,15 +3,15 @@ part of 'version_preview.dart';
 /// The preview's title on wide screens: when, then the version's name and
 /// where it was made, each on one line (the full text in a tooltip).
 class _Title extends StatelessWidget {
-  const _Title(this.version, {required this.madeOn});
+  const _Title(this.version, {required this.when, required this.madeOn});
 
   final NotebookVersion version;
+  final String when;
   final String madeOn;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final when = VersionLabels.when(version);
     final subtitle = '${VersionLabels.title(version)} $madeOn';
     return Tooltip(
       message: '$when\n$subtitle',
@@ -171,19 +171,24 @@ class _PageTile extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     button: true,
     label: 'Page ${index + 1} of $count',
+    onTap: onTap,
     excludeSemantics: true,
-    child: GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Expanded(child: Center(child: child)),
-          const SizedBox(height: Gaps.xs),
-          Text(
-            '${index + 1}',
-            style: Theme.of(context).textTheme.bodySmall
-                ?.copyWith(fontFeatures: AppTheme.tabularFigures),
-          ),
-        ],
+    child: FocusableActionDetector(
+      mouseCursor: SystemMouseCursors.click,
+      actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => onTap())},
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          children: [
+            Expanded(child: Center(child: child)),
+            const SizedBox(height: Gaps.xs),
+            Text(
+              '${index + 1}',
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(fontFeatures: AppTheme.tabularFigures),
+            ),
+          ],
+        ),
       ),
     ),
   );

@@ -8,15 +8,20 @@ extension _SelectionConnectors on _SelectionCore {
   /// [strokes] (replacing the selected ones, in order) with their
   /// attachments brought up to date, and the unselected lines attached to
   /// replaced shapes following them in [plan]. [surfaceOf] tells the
-  /// surface stroke `i` goes to.
+  /// surface stroke `i` goes to; [moved], the transform that made
+  /// [strokes], if one did (see [_remapped]).
   List<Stroke> _connect(
     List<Stroke> strokes,
     SelectionPlan plan,
-    SurfaceModel Function(int i) surfaceOf,
-  ) {
+    SurfaceModel Function(int i) surfaceOf, {
+    Affine? moved,
+  }) {
     final selected = {for (final s in _strokes) s.shapeId};
     // Shapes replaced on the surface they were on: shape id → new stroke.
     final replaced = <String, Stroke>{};
+    // Shapes moved to another surface (shapes of their own there): old
+    // shape id → new stroke and its surface.
+    final away = <String, (Stroke, SurfaceModel)>{};
     final identified = [
       for (var i = 0; i < strokes.length; i++)
         i < _strokes.length ? _identified(_strokes[i], strokes[i], surfaceOf(i)) : strokes[i],
@@ -24,16 +29,43 @@ extension _SelectionConnectors on _SelectionCore {
     for (var i = 0; i < _strokes.length && i < identified.length; i++) {
       final old = _strokes[i], now = identified[i];
       if (!ShapeAnchors.isTarget(old.shape) || !ShapeAnchors.isTarget(now.shape)) continue;
-      if (now.shapeId == old.shapeId) replaced[old.shapeId] = now;
+      if (now.shapeId == old.shapeId) {
+        replaced[old.shapeId] = now;
+      } else {
+        away[old.shapeId] = (now, surfaceOf(i));
+      }
     }
     final out = [
       for (var i = 0; i < identified.length; i++)
         (identified[i].shape?.isAttached ?? false) && i < _strokes.length
-            ? _attachedSelected(identified[i], _sourceOf(_strokes[i]), selected, replaced)
+            ? _attachedSelected(
+                identified[i],
+                _sourceOf(_strokes[i]),
+                surfaceOf(i),
+                selected,
+                replaced,
+                away,
+                moved,
+              )
             : identified[i],
     ];
-    if (replaced.isNotEmpty) _follow(plan, replaced);
+    if (replaced.isNotEmpty) _follow(plan, replaced, moved);
     return out;
+  }
+
+  /// Attachment [a] to a selected circle or ellipse that [t] mapped to
+  /// [now], at the same point of its outline: a stretch turns the axes
+  /// ([ShapeGeometry.map] keeps them perpendicular), which shifts the
+  /// parameter. Other shapes, and edits that are no transform, keep it.
+  ShapeAttachment _remapped(ShapeAttachment a, Stroke now, Affine? t) {
+    final shape = now.shape!;
+    if (t == null || (shape.kind != ShapeKind.circle && shape.kind != ShapeKind.ellipse)) {
+      return a;
+    }
+    final old = _strokes.firstWhere((s) => s.shapeId == a.id).shape!;
+    final p = t.apply(ShapeAnchors.pointAt(old, a.at));
+    if ((ShapeAnchors.pointAt(shape, a.at) - p).distance <= 1e-6) return a;
+    return ShapeAttachment(a.id, ShapeAnchors.nearest(shape, p));
   }
 
   /// [now], the edit of shape [old] going to surface [to], with [old]'s
@@ -51,14 +83,18 @@ extension _SelectionConnectors on _SelectionCore {
   ShiftedSurface _sourceOf(Stroke s) =>
       _sources[s.id]?.surface ?? (model: _model, shift: Offset.zero);
 
-  /// Selected line [s] (stored on [source]) with each end attached to a
-  /// shape edited with it (among the [selected] shape ids; kept when it
-  /// stays on its surface), or to another it still sits on; else let go.
+  /// Selected line [s] (stored on [source], going to [to]) with each end
+  /// attached to a shape edited with it (among the [selected] shape ids;
+  /// kept when it stays on its surface, renamed when both go to the same
+  /// other one: [away]), or to another it still sits on; else let go.
   Stroke _attachedSelected(
     Stroke s,
     ShiftedSurface source,
+    SurfaceModel to,
     Set<String> selected,
     Map<String, Stroke> replaced,
+    Map<String, (Stroke, SurfaceModel)> away,
+    Affine? moved,
   ) {
     final line = s.shape!;
     // Where its ends are stored.
@@ -66,7 +102,12 @@ extension _SelectionConnectors on _SelectionCore {
     ShapeAttachment? kept(int end) {
       final a = line.attachmentOf(end);
       if (a == null) return null;
-      if (selected.contains(a.id)) return replaced.containsKey(a.id) ? a : null;
+      if (selected.contains(a.id)) {
+        if (replaced[a.id] case final now?) return _remapped(a, now, moved);
+        final there = away[a.id];
+        if (there == null || there.$2 != to) return null;
+        return _remapped(a, there.$1, moved).withId(there.$1.shapeId);
+      }
       final near = Rect.fromCircle(center: stored.points[end], radius: 1);
       final target = Connectors.targetOf(stored, end, source.model.strokesNear(near));
       return Connectors.sits(stored, end, target?.shape) ? a : null;
@@ -83,9 +124,9 @@ extension _SelectionConnectors on _SelectionCore {
   }
 
   /// Adds to [plan] the unselected lines attached to the [replaced] shapes,
-  /// following them.
-  void _follow(SelectionPlan plan, Map<String, Stroke> replaced) {
-    for (final (model, line, shape) in _followersOf(replaced)) {
+  /// following them ([moved]: the transform that made them, if one did).
+  void _follow(SelectionPlan plan, Map<String, Stroke> replaced, Affine? moved) {
+    for (final (model, line, shape) in _followersOf(replaced, moved: moved)) {
       plan.replaceUnselected(model, line, Connectors.rebuilt(line, shape, id: clock.newId()));
     }
   }
@@ -94,10 +135,12 @@ extension _SelectionConnectors on _SelectionCore {
   /// where they are stored, and their geometry following the shapes (in
   /// that surface's coordinates). With [homeOnly], only lines on this
   /// surface. A line attached to another stroke of the same shape (a copy
-  /// left by edits on two devices at once, near its end) stays.
+  /// left by edits on two devices at once, near its end) stays. [moved]:
+  /// the transform that made the shapes, if one did ([_remapped]).
   List<(SurfaceModel, Stroke, ShapeGeometry)> _followersOf(
     Map<String, Stroke> replaced, {
     bool homeOnly = false,
+    Affine? moved,
   }) {
     final selected = {for (final s in _strokes) s.id};
     final lines = <String, (SurfaceModel, Stroke, ShapeGeometry)>{};
@@ -123,7 +166,8 @@ extension _SelectionConnectors on _SelectionCore {
       for (final s in attached) {
         final shape = lines[s.id]?.$3 ?? s.shape!;
         if (!follows(s.shape!, 0) && !follows(s.shape!, 1)) continue;
-        lines[s.id] = (surface.model, s, Connectors.follow(shape, target));
+        final kept = shape.withAttachments((a) => a.id == id ? _remapped(a, now, moved) : a);
+        lines[s.id] = (surface.model, s, Connectors.follow(kept, target));
       }
     }
     return lines.values.toList();
@@ -154,11 +198,11 @@ extension _SelectionConnectors on _SelectionCore {
 
   /// Shows the unselected lines attached to [replaced] shapes (selected
   /// ones as a gesture would leave them) following them, in place of their
-  /// stored selves.
-  void _previewFollowers(Map<String, Stroke> replaced) {
+  /// stored selves ([moved]: the transform that makes them, if one does).
+  void _previewFollowers(Map<String, Stroke> replaced, {Affine? moved}) {
     final lines = replaced.isEmpty
         ? const <(SurfaceModel, Stroke, ShapeGeometry)>[]
-        : _followersOf(replaced, homeOnly: true);
+        : _followersOf(replaced, homeOnly: true, moved: moved);
     if (lines.isEmpty && _followers == null) return;
     _followers?.dispose();
     _followers = lines.isEmpty
