@@ -83,7 +83,14 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   each, shared slot rows and editors, 1–9 and [ / ] too) and the pen's popover layout.
 - 🚧 (feat/laser-feel) **The laser's ends can't be changed** (owner, again): the laser has the
   pen's slots but not its feel: ends (round / flat / tapered), pressure, stabiliser; the trail
-  drawn with the pen's outline engine.
+  drawn with the pen's outline engine. Done: the laser popover has the pen's Pressure
+  sensitivity, Stabiliser and Ends controls (round / tapered with start / end / both and
+  length / flat), greyed out in dot mode; persisted (old settings load as before: flat, off,
+  off), Reset restores them. Each trail stroke is shaped by the pen's `StrokeShaper`
+  (sampling, smoothing, stabiliser, pressure radii, tapers) incrementally, then drawn as the
+  laser's glow and core with the fade (round ends add a soft half disc); the preview shows a
+  finished stroke. Defaults look as before; frame cost about as before
+  (`test/perf/laser_perf_test.dart`).
 - 🚧 (feat/shape-handles) **Better shape control points** (pen → shape and the Shape tool): handles by meaning,
   not bounding-box corners: a circle / ellipse by centre (move) and radius (or two radii and a
   rotation), rectangle corners + edge midpoints + rotation, line / arrow endpoints (and a bend),
