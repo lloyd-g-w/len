@@ -4,6 +4,7 @@ import '../../domain/notebook.dart';
 import '../../domain/notebook_page.dart';
 import '../../domain/notebook_version.dart';
 import '../../domain/paper.dart';
+import '../../domain/shape_ids.dart';
 import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
 import '../blob_store.dart';
@@ -98,19 +99,23 @@ class VersionContent {
   ///
   /// With [renamed] (old id → new id: the notebook, pages, strokes and
   /// elements of a copy), items take their new ids, and so do the
-  /// references among them: links to pages, text flows, connectors.
+  /// references among them: links to pages, text flows, and shapes with
+  /// their connectors ([ShapeIds]; names no item has get ids from [newId]).
   Future<SurfaceContent> load(
     VersionSurface surface,
     String surfaceId, {
     bool strict = false,
     Map<String, String>? renamed,
+    String Function()? newId,
   }) async {
     final strokes = <Stroke>[];
     final elements = <SurfaceElement>[];
     String rename(String id) => renamed?[id] ?? id;
+    final shapeIdOf = renamed == null ? null : ShapeIds.mapper(renamed, newId ?? () => '');
     for (final (id, data) in await _itemsOf(surface.ink, strict: strict)) {
       try {
-        final record = renamed == null ? data : _renamedStroke(data, rename);
+        final style = shapeIdOf == null ? null : ShapeIds.remapStyle(data['style'], shapeIdOf);
+        final record = style == null ? data : {...data, 'style': style};
         strokes.add(StrokeRow.strokeFromRecord(rename(id), {...record, 'surfaceId': surfaceId}));
       } on FormatException {
         // Left out (docs/SYNC_PROTOCOL.md, "Version history").
@@ -153,35 +158,6 @@ class VersionContent {
   Future<Set<String>> itemIds(VersionSurface surface) async => {
     for (final (id, _) in await _itemsOf(surface.packs.toList(), strict: false)) id,
   };
-
-  /// Stroke record [data] with its connectors' ends (`style.sh.a`) renamed.
-  static Map<String, Object?> _renamedStroke(
-    Map<String, Object?> data,
-    String Function(String) rename,
-  ) {
-    final style = data['style'];
-    if (style is! Map<String, Object?>) return data;
-    final shape = style['sh'];
-    if (shape is! Map<String, Object?>) return data;
-    final ends = shape['a'];
-    if (ends is! List<Object?>) return data;
-    return {
-      ...data,
-      'style': {
-        ...style,
-        'sh': {
-          ...shape,
-          'a': [
-            for (final end in ends)
-              if (end case {'id': final String id})
-                {...end as Map<String, Object?>, 'id': rename(id)}
-              else
-                end,
-          ],
-        },
-      },
-    };
-  }
 
   /// Element [data] with the ids it refers to renamed: a link's page (and
   /// notebook), a text flow's box before.

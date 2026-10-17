@@ -54,6 +54,11 @@ class AppPreferences extends ChangeNotifier {
   bool get canvasMinimap => _settings.canvasMinimap;
   set canvasMinimap(bool value) => _update(() => _settings.canvasMinimap = value);
 
+  /// Whether other devices' pointers (live sync) carry their name tag, the
+  /// plate with the device's initial; off leaves the bare dot or laser.
+  bool get pointerTags => _settings.pointerTags;
+  set pointerTags(bool value) => _update(() => _settings.pointerTags = value);
+
   /// Centre of the floating toolbar, as fractions of the editor's size.
   (double, double)? get toolbarFloat => _settings.toolbarFloat;
   set toolbarFloat((double, double)? value) => _update(() => _settings.toolbarFloat = value);

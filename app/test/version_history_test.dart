@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/core/clock.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/surface_copier.dart';
 import 'package:len/data/versions/version_packs.dart';
 import 'package:len/data/versions/version_policy.dart';
 import 'package:len/data/versions/version_recorder.dart';
@@ -20,6 +21,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
+import 'package:len/ink/shapes/shape_builder.dart';
 
 /// A clock tests move by hand; ids `v0`, `v1`, …
 class _Clock extends Clock {
@@ -372,6 +374,44 @@ void main() {
       );
       // The original is untouched.
       expect(strokesOn(first), {'a0'});
+    });
+
+    test('a copy keeps its connectors attached to its own shapes', () async {
+      final n = paged(pages: 1);
+      final page = pageIds(n).single;
+      final box = ShapeBuilder.dragged(
+        ShapeKind.rectangle,
+        const Offset(300, 200),
+        const Offset(400, 300),
+      ).withOrigin('box');
+      Stroke shape(String id, ShapeGeometry g) => Stroke(
+        id: id,
+        surfaceId: page,
+        tool: InkTool.ballpoint,
+        color: 0xFF1C7ED6,
+        width: 2,
+        points: ShapeBuilder.pointsOf(g),
+        createdAt: 1,
+        style: ShapeBuilder.styleFor(const StrokeStyle(unit: 1)),
+        shape: g,
+      );
+      s.strokes.save([
+        shape('box2', box),
+        shape(
+          'arrow',
+          ShapeGeometry(ShapeKind.arrow, const [
+            Offset(150, 250),
+            Offset(300, 250),
+          ], tip: const ShapeAttachment('box', 0.875)),
+        ),
+      ]);
+      final v = (await versions().record(n.id))!;
+      final copy = (await versions().copy(v, title: 'Copy'))!;
+      final copied = SurfaceCopier(s.strokes).loadAll(s.pages.pagesOf(copy.id).single.id);
+      final arrow = copied.firstWhere((x) => x.shape!.kind == ShapeKind.arrow);
+      final rect = copied.firstWhere((x) => x.shape!.kind == ShapeKind.rectangle);
+      expect(rect.shapeId, isNot('box'), reason: 'a shape of its own');
+      expect(arrow.shape!.tip!.id, rect.shapeId);
     });
 
     test('a version whose packs are not here (offline) changes nothing', () async {

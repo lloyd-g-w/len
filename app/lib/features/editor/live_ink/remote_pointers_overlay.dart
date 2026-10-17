@@ -9,7 +9,8 @@ import 'room_presence.dart';
 
 /// Shows the pointers of the other devices in the notebook ([RemotePointers]):
 /// a hovering pen or mouse as a small dot, a laser as the laser shows, each
-/// labelled with its device's plate as presence shows it. Its own layer
+/// labelled with its device's plate as presence shows it (its name tag,
+/// unless [tags] is off). Its own layer
 /// (a [RepaintBoundary] driven by the pointers, no rebuilds), ticking only
 /// while a laser fades; nothing at all while nobody points.
 class RemotePointersOverlay extends StatefulWidget {
@@ -18,10 +19,14 @@ class RemotePointersOverlay extends StatefulWidget {
     required this.pointers,
     required this.viewport,
     required this.frameOf,
+    this.tags = true,
   });
 
   final RemotePointers pointers;
   final ViewportController viewport;
+
+  /// Whether each pointer carries its device's plate (the name tag).
+  final bool tags;
 
   /// Where surface [id] lies in [viewport]'s world (a page's frame; the
   /// canvas: [Rect.largest]), or null when this view does not show it.
@@ -77,6 +82,7 @@ class _RemotePointersOverlayState extends State<RemotePointersOverlay>
             pointers: widget.pointers,
             viewport: widget.viewport,
             frameOf: widget.frameOf,
+            tags: widget.tags,
             plate: Color.alphaBlend(Surfaces.selected(scheme), Surfaces.chrome(scheme)),
             label: Theme.of(context).textTheme.labelSmall!.copyWith(color: scheme.onSurface),
             dot: scheme.onSurface,
@@ -94,6 +100,7 @@ class RemotePointersPainter extends CustomPainter {
     required this.pointers,
     required this.viewport,
     required this.frameOf,
+    this.tags = true,
     required this.plate,
     required this.label,
     required this.dot,
@@ -103,6 +110,9 @@ class RemotePointersPainter extends CustomPainter {
   final RemotePointers pointers;
   final ViewportController viewport;
   final Rect? Function(String id) frameOf;
+
+  /// Whether to draw the device plates (name tags) by the pointers.
+  final bool tags;
 
   /// The device plate's fill and text, the hover dot and its halo.
   final Color plate;
@@ -146,7 +156,7 @@ class RemotePointersPainter extends CustomPainter {
           tip = toScreen(head) + Offset.fromDirection(0.8, LaserPainter.dotRadius(p.laser.config));
         }
       }
-      if (tip != null) _plate(canvas, tip + plateOffset, pointers.nameOf(p.connection));
+      if (tags && tip != null) _plate(canvas, tip + plateOffset, pointers.nameOf(p.connection));
     }
   }
 
@@ -171,6 +181,7 @@ class RemotePointersPainter extends CustomPainter {
       old.pointers != pointers ||
       old.viewport != viewport ||
       old.frameOf != frameOf ||
+      old.tags != tags ||
       old.plate != plate ||
       old.label != label ||
       old.dot != dot ||

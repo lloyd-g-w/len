@@ -205,6 +205,8 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
         if (!compact) _zoomWindow(),
         if (a.minimap case final minimap?)
           _switch(Symbols.map_sharp, 'Minimap', minimap, a.onMinimap, shortcut: minimapShortcut),
+        if (a.onPointerTags != null)
+          _switch(Symbols.badge_sharp, 'Name tags', a.pointerTags, a.onPointerTags),
         _item(
           Symbols.fullscreen_sharp,
           'Focus mode',

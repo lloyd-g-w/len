@@ -91,7 +91,13 @@ class VersionRestorer {
     }
     final loaded = [
       for (final (surface, id) in surfaces)
-        await content.load(surface, renamed[id]!, strict: true, renamed: renamed),
+        await content.load(
+          surface,
+          renamed[id]!,
+          strict: true,
+          renamed: renamed,
+          newId: clock.newId,
+        ),
     ];
     final now = clock.nowMs();
     final copyId = renamed[version.notebookId]!;

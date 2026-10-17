@@ -67,6 +67,11 @@ EditorMenuActions editorMenuActions(
     onMinimap: nav == null ? null : () => prefs.canvasMinimap = !prefs.canvasMinimap,
     onSaveVersion: () => saveVersionFlow(context, session.services, session.notebook.id),
     onVersionHistory: () => showVersionHistory(context, session.services, session.notebook.id),
+    // Only while another device is here: its pointer is what they label.
+    pointerTags: prefs.pointerTags,
+    onPointerTags: session.services.sync.rooms.othersIn(session.shared.id).isEmpty
+        ? null
+        : () => prefs.pointerTags = !prefs.pointerTags,
   );
 }
 

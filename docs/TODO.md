@@ -140,9 +140,13 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   over loopback); the stroke being written drawn live on the others (replaced by its record),
   presence plates in the editor bar; the event stream and the cycle as fallbacks. Cursors
   are not sent yet (the room data has room for them).
-- 🚧 (feat/pointer-tags) **Hide the name tags of other devices' pointers** (owner): a toggle for
+- ✅ **Hide the name tags of other devices' pointers** (owner): a toggle for
   the device initial plate drawn beside another device's pen / laser while it writes (⋯ → View
-  and Settings), persisted; the pointer itself and presence in the bar stay.
+  and Settings), persisted; the pointer itself and presence in the bar stay. Done on the
+  branch: `pointerTags` preference (`pointer_tags`, default on), ⋯ → View → *Name tags*
+  (paged notebooks and canvases, while another device is in the notebook) and a *Name tags* switch in Settings → Sync
+  while connected; `RemotePointersPainter.tags` skips the plates, repainting at once. Remote
+  live ink draws no tag, so nothing to hide there.
 - ✅ **Live sync follow-ups**: cursors / pointers of other devices (the laser
   too); no gap between another device's live stroke and its record when the page reloads fully
   (500+ changes, a selection in the way) or for a highlight snapped to text (it ends without a
@@ -214,15 +218,23 @@ From the reports; the owner picks. Status as above.
   end (bent too) dropped on a closed shape's outline, or inside it (where it faces the other
   end), attaches — by handle drag or drawn so with the Shape tool; the target's outline and
   a snap dot show meanwhile. `ShapeGeometry.tail` / `tip` (synced `sh.a`, optional) keep the
-  shape's stroke id and a point on its outline in the shape's own terms. Moving, resizing,
+  shape's id (its identity across edits, `sh.o`) and a point on its outline in the shape's own terms. Moving, resizing,
   rotating or reshaping the shape moves the ends live and in the same undo step (the
-  selection's `_replace` re-points and rebuilds the lines); remote devices get both. Moved
+  selection's `_replace` rebuilds the lines); remote devices get both. Moved
   together they move rigidly; a line moved alone lets go (Excalidraw); copies attach to
   copied targets; a deleted target leaves the line where it is; never across pages.
-- 🚧 (fix/connector-ids) **Connector follow-ups**: a duplicated page's (or notebook's) arrows
-  stay attached to the copies (`surface_copier` remaps `sh.a`); references that survive
-  concurrent edits (an edit replaces the stroke id, so two devices editing at once can leave an
-  arrow pointing at a gone id): resolve to the stroke that replaced it, or give shapes a stable id.
+- ✅ **Connector follow-ups**: shapes keep an identity across edits
+  (`sh.o`, the id of the stroke first drawn; `Stroke.shapeId`) and attachments name it, so an
+  edit no longer re-points arrows. Duplicated pages and notebooks, pages sent to another
+  notebook and imported Len files map origins and attachment ids with the stroke ids
+  (`ShapeIds`), so copied arrows attach to the copied boxes. Concurrent edits (box moved on one
+  device, arrow recoloured or drawn on another) are repaired by every device applying the
+  other's changes (`ConnectorRepair`, `SyncEngine.afterApply`): the line is replaced by one on
+  the shape, with a deterministic id (UUID v5 of line and target ids) so devices repairing at
+  once write one record; synced, no undo step, no loop. Tests: `connector_copies_test`,
+  `connector_sync_test`. Still open: the duplicate arrows any two concurrent edits of one
+  stroke leave (both edits survive), and a stale end restored by undo waits for the next sync
+  touching its page.
 - ✅ **Eyedropper** (UX_AUDIT R21-7): "Pick from page" next to Custom in every editor colour
   block (quick slots, tool options, shape fill, Style, text colour): the picker steps aside,
   "Tap a colour on the page" shows, and the next press on the page (a loupe while it rests

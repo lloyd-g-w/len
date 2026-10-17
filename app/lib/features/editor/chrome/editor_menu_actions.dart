@@ -35,6 +35,8 @@ class EditorMenuActions {
     this.onMinimap,
     this.onSaveVersion,
     this.onVersionHistory,
+    this.pointerTags = true,
+    this.onPointerTags,
   });
 
   final VoidCallback onBack;
@@ -96,6 +98,11 @@ class EditorMenuActions {
   /// "Version history").
   final VoidCallback? onSaveVersion;
   final VoidCallback? onVersionHistory;
+
+  /// Whether other devices' pointers carry their name tag; [onPointerTags]
+  /// toggles it (null: not offered, nobody else is here).
+  final bool pointerTags;
+  final VoidCallback? onPointerTags;
 
   bool get isPaged => onPageCommand != null;
 }
