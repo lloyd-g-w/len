@@ -3723,7 +3723,11 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   `EditorCanvas`, over the content layer; `RepaintBoundary`, ticking only while a laser fades)
   paints them through `frameOf` (a page's frame, the canvas as is): a small dot for hovering,
   the laser as `LaserPaint` draws the local one, each labelled with the device's plate
-  (`RoomPresence.initialOf`, the presence plate's colours).
+  (`RoomPresence.initialOf`, the presence plate's colours) — its *name tag*, unless the local
+  setting `pointer_tags` (`AppPreferences.pointerTags`, default on; "⋯" → View → *Name tags*
+  in every notebook, and Settings → Sync once connected) is off: then only the dot or laser
+  shows (the overlay rebuilds on the preference, `RemotePointersPainter.tags`). Presence in
+  the bar and remote live ink (which carries no tag) are unaffected.
 - **End to end**: `integration_test/live_test.dart` runs two app instances at once
   (`tool/e2e.sh`'s `live` phase, `LEN_E2E_ROLE` a and b, talking through files): B sees A's
   pointer, its stroke as written, then the record, with no sync run in between.
