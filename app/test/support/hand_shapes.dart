@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:len/domain/stroke.dart';
+import 'package:len/ink/shapes/polyline.dart';
 
 import 'handwriting.dart';
 
@@ -89,6 +90,37 @@ class HandShapes {
     final w1 = tip + _rotate(back, spread), w2 = tip + _rotate(back, -spread);
     final path = [tail, tip, w1, tip + Offset(_gauss(), _gauss()), w2];
     return _sampled(_wobble(_round(_dense(path), head * 0.08), v.distance * 0.5));
+  }
+
+  /// A smooth curve through [through] as a hand draws it (a Catmull-Rom
+  /// spline, wobbly); [closed] loops back to the start, a little short of
+  /// or past it.
+  List<Offset> curve(List<Offset> through, {bool closed = false}) {
+    final p = closed ? [...through, through.first] : through;
+    Offset at(int i) => closed ? through[i % through.length] : p[i.clamp(0, p.length - 1)];
+    final path = <Offset>[];
+    for (var i = 0; i < p.length - 1; i++) {
+      final p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+      final n = math.max(4, ((p2 - p1).distance / 2).round());
+      for (var k = 0; k < n; k++) {
+        final t = k / n, t2 = t * t, t3 = t2 * t;
+        path.add(
+          (p1 * 2 +
+                  (p2 - p0) * t +
+                  (p0 * 2 - p1 * 5 + p2 * 4 - p3) * t2 +
+                  (p1 * 3 - p0 - p2 * 3 + p3) * t3) *
+              0.5,
+        );
+      }
+    }
+    path.add(p.last);
+    if (closed) {
+      final extra = (path.length * _between(-0.02, 0.03)).round();
+      if (extra < 0) path.removeRange(path.length + extra, path.length);
+      if (extra > 0) path.addAll(path.sublist(1, extra + 1));
+    }
+    final size = Polyline.bounds(path).longestSide;
+    return _sampled(_wobble(path, size));
   }
 
   /// Ordinary handwriting: a few cursive words, letters and digits, none

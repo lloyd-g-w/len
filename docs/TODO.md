@@ -88,15 +88,21 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 - ✅ **Highlighter and laser customisation like the pen's**: the highlighter already had every
   pen option (now tested); the laser gets editable, persisted quick colour and size slots (1–5
   each, shared slot rows and editors, 1–9 and [ / ] too) and the pen's popover layout.
-- 🚧 (feat/shape-handles) **Better shape control points** (pen → shape and the Shape tool): handles by meaning,
-  not bounding-box corners: a circle / ellipse by centre (move) and radius (or two radii and a
-  rotation), rectangle corners + edge midpoints + rotation, line / arrow endpoints (and a bend),
-  polygon / triangle / diamond vertices, star centre + outer / inner radius + points; snapping
-  and Shift constraints while dragging; one undo step per drag; synced.
-- 🚧 (feat/shape-handles) **Arbitrary curves**: a Curve kind (cubic Bézier spline, open or closed) in the Shape
-  tool (tap / drag to place anchors and pull tangents) and from pen → shape (a held smooth
-  stroke that is no other shape snaps to a fitted spline); anchors and tangent handles
-  editable on selection, add / remove anchors; fill when closed.
+- 🚧 (feat/laser-feel) **The laser's ends can't be changed** (owner, again): the laser has the
+  pen's slots but not its feel: ends (round / flat / tapered), pressure, stabiliser; the trail
+  drawn with the pen's outline engine.
+- ✅ **Better shape control points**: handles by meaning for drawn and snapped shapes (circle
+  centre + radius, ellipse centre + two radii, rectangle / diamond corners + sides, a line's
+  bend, star centre + point + inner radius and its points in Style) with snaps and Shift
+  constraints, one undo step per drag, synced in the shape geometry (circle kind, bends, `n`).
+- ✅ **Arbitrary curves**: a Curve kind (cubic Bézier spline, open or closed, filled when
+  closed) drawn anchor by anchor with the Shape tool or snapped from a held smooth stroke
+  (Schneider fit); anchors and tangents are editable, a tap on the line adds an anchor and a
+  double tap removes one.
+- ⬜ **Shape follow-ups** (from the shape-handles review): undo while a curve is being drawn
+  takes back its last anchor (today it undoes earlier strokes); a circle can be squashed into
+  an ellipse from a handle; with Curve picked a tap on a shape selects it rather than placing an
+  anchor (or the hint says how).
 - 🚧 (fix/pen-flicker-3) **The pen still flickers sometimes** (owner, again): keep hunting every cause on every
   platform (Linux, web, Android), with frame-by-frame tests.
 - 🚧 (feat/live-sync-2) **Live sync, actually live**: edits show on other devices within a fraction of a second

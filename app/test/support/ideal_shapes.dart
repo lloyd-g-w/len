@@ -68,7 +68,7 @@ List<ShapeCase> idealShapes(Offset centre, double size, {double angle = 0}) {
       ]),
     ),
     (name: 'ellipse', kind: ShapeKind.ellipse, path: oval(.5, .3)),
-    (name: 'circle', kind: ShapeKind.ellipse, path: oval(.45, .45)),
+    (name: 'circle', kind: ShapeKind.circle, path: oval(.45, .45)),
     (name: 'pentagon', kind: ShapeKind.polygon, path: closed(turned(_regular(5)))),
     (name: 'hexagon', kind: ShapeKind.polygon, path: closed(turned(_regular(6)))),
   ];
@@ -125,7 +125,7 @@ List<ShapeCase> handShapes(Offset centre, double size, {double angle = 0, int se
       kind: ShapeKind.ellipse,
       path: hand.ellipse(centre, size * .5, size * .3, angle: angle),
     ),
-    (name: 'circle', kind: ShapeKind.ellipse, path: hand.ellipse(centre, size * .45, size * .45)),
+    (name: 'circle', kind: ShapeKind.circle, path: hand.ellipse(centre, size * .45, size * .45)),
     (name: 'pentagon', kind: ShapeKind.polygon, path: poly(_regular(5), turn: angle)),
     (name: 'hexagon', kind: ShapeKind.polygon, path: poly(_regular(6), turn: angle)),
   ];

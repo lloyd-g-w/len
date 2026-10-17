@@ -10,6 +10,7 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/ink/geometry/affine.dart';
 import 'package:len/ink/geometry/stroke_splitter.dart';
 import 'package:len/ink/selection/transform_items.dart';
+import 'package:len/ink/shapes/polyline.dart';
 import 'package:len/ink/shapes/shape_builder.dart';
 
 Stroke shapeStroke(ShapeGeometry shape, {String id = 'a', int? fill}) => Stroke(
@@ -35,6 +36,18 @@ void main() {
       Offset(5, 30),
       Offset(-10, 15),
     ]),
+    ShapeBuilder.dragged(ShapeKind.ellipse, const Offset(10, 20), const Offset(90, 100)),
+    ShapeGeometry(ShapeKind.line, const [Offset(0, 0), Offset(100, 0), Offset(40, 30)]),
+    ShapeGeometry(ShapeKind.arrow, const [Offset(0, 0), Offset(100, 0), Offset(40, -30)]),
+    ShapeBuilder.dragged(ShapeKind.star, Offset.zero, const Offset(90, 90)).withStar(tips: 7),
+    ShapeGeometry(ShapeKind.curve, const [
+      Offset(0, 0),
+      Offset(30, -20),
+      Offset(70, -20),
+      Offset(100, 0),
+      Offset(130, 20),
+      Offset(-30, 20),
+    ]),
   ];
 
   group('ShapeGeometry', () {
@@ -54,7 +67,7 @@ void main() {
         },
         {
           ...line,
-          'p': [0, 0, 1, 1, 2, 2],
+          'p': [0, 0, 1, 1, 2, 2, 3, 3],
         },
         {
           ...line,
@@ -67,6 +80,18 @@ void main() {
         {...line, 'i': 0.4},
         {...star}..remove('i'),
         {...star, 'i': 1.5},
+        {...star, 'n': 2},
+        {...star, 'n': 13},
+        {...star, 'n': 5.5},
+        {...line, 'n': 5},
+        {
+          'k': 'curve',
+          'p': [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
+        },
+        {
+          'k': 'circle',
+          'p': [0, 0, 1, 1, 2, 2],
+        },
         {
           'k': 'polygon',
           'p': [0, 0, 1, 1],
@@ -76,19 +101,73 @@ void main() {
       }
     });
 
+    test('shapes written before handles by meaning still read', () {
+      // A star without its number of points (all had five), a straight
+      // line of two points, a skewed ellipse (conjugate radii, below).
+      final star = ShapeGeometry.fromJson({
+        'k': 'star',
+        'p': [50, 50, 90, 50, 50, 90],
+        'i': 0.42,
+      });
+      expect(star.tips, 5);
+      expect(ShapeBuilder.starVertices(star), hasLength(10));
+      final line = ShapeGeometry.fromJson({
+        'k': 'arrow',
+        'p': [0, 0, 100, 0],
+      });
+      expect(line.isBent, isFalse);
+      expect(ShapeBuilder.outline(line).first, Offset.zero);
+    });
+
+    test('an ellipse keeps perpendicular radii; a circle turned stays one', () {
+      final skewed = ShapeGeometry.fromJson({
+        'k': 'ellipse',
+        'p': [0, 0, 50, 0, 20, 30],
+      });
+      final [c, a, b] = skewed.points;
+      expect((a - c).dx * (b - c).dx + (a - c).dy * (b - c).dy, closeTo(0, 1e-9));
+      // The same ellipse: its outline passes through the conjugate ends.
+      final outline = ShapeBuilder.outline(skewed);
+      for (final p in const [Offset(50, 0), Offset(20, 30), Offset(-50, 0)]) {
+        var near = double.infinity;
+        for (var i = 1; i < outline.length; i++) {
+          near = math.min(near, Polyline.distanceToSegment(p, outline[i - 1], outline[i]));
+        }
+        expect(near, lessThan(0.5));
+      }
+      final circle = ShapeGeometry(ShapeKind.circle, const [Offset(10, 10), Offset(60, 10)]);
+      final turned = circle.map(
+        Affine.rotation(0.6, pivot: Offset.zero).then(Affine.scaling(2, 2)).apply,
+      );
+      expect(turned.kind, ShapeKind.circle);
+      expect((turned.points[1] - turned.points[0]).distance, closeTo(100, 1e-9));
+      expect(circle.isClosed, isTrue);
+      expect(every.last.isClosed, isTrue);
+      expect(every.last.anchorCount, 2);
+    });
+
     test('an affine map maps its outline exactly', () {
       final t = Affine.rotation(0.7, pivot: const Offset(50, 50)).then(Affine.scaling(1.5, 0.8));
       for (final g in every) {
         final mapped = ShapeBuilder.outline(g.map(t.apply));
         final expected = [for (final p in ShapeBuilder.outline(g)) t.apply(p)];
+        if (g.kind == ShapeKind.curve || g.isBent) {
+          // Flattened anew; its control points map exactly.
+          expect(g.map(t.apply).points, [for (final p in g.points) t.apply(p)]);
+          continue;
+        }
         // Arrow heads are rebuilt for the new shaft; the rest maps exactly.
         if (g.kind == ShapeKind.arrow) {
           expect(mapped.take(2), expected.take(2));
           continue;
         }
-        if (g.kind == ShapeKind.ellipse) {
-          // Sampled anew, on the mapped ellipse (unit circle in its frame).
-          final [c, a, b] = g.map(t.apply).points;
+        if (g.kind == ShapeKind.ellipse || g.kind == ShapeKind.circle) {
+          // Sampled anew, on the mapped ellipse (unit circle in its frame):
+          // squashed, a circle is one.
+          final m = g.map(t.apply);
+          expect(m.kind, ShapeKind.ellipse);
+          final [c, a, b] = m.points;
+          expect((a - c).dx * (b - c).dx + (a - c).dy * (b - c).dy, closeTo(0, 1e-6));
           final u = a - c, v = b - c, det = u.dx * v.dy - u.dy * v.dx;
           for (final p in mapped) {
             final d = p - c;

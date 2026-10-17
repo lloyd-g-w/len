@@ -16,8 +16,10 @@ optional sync through a tiny server you host yourself.
 - **Pen, highlighter, eraser**: the highlighter uses the pen's engine (pressure, flat or
   round ends) and sits behind the ink; pixel or stroke eraser, or scribble over ink to
   erase it.
-- **Shapes**: draw and hold to snap, or the Shape tool (Shift for regular shapes);
-  drag a selected shape's handles to reshape it; closed shapes take a fill.
+- **Shapes**: draw and hold to snap (a smooth stroke becomes a curve), or the Shape tool
+  (Shift for regular shapes; curves anchor by anchor); drag a selected shape's handles —
+  corners, sides, centre, radii, a line's bend, a curve's anchors and tangents — to reshape
+  it, with snapping; closed shapes take a fill.
 - **Lasso**: freehand or rectangle; select what it touches, mostly or wholly encloses,
   and which items (ink, highlighter, text, images).
 - **Laser pointer**: fades per stroke, or holds everything until you stop writing; quick

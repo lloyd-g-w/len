@@ -297,5 +297,6 @@ class InkDrawing {
     screen: e.localPosition,
     world: viewport.toWorld(e.localPosition),
     pressure: StrokeSampler.pressureOf(e),
+    kind: e.kind,
   );
 }

@@ -12,6 +12,7 @@ import '../surface_model.dart';
 import '../tool_settings.dart';
 import '../viewport.dart';
 import 'content_hit_test.dart';
+import 'curve_drawing.dart';
 import 'pointer_tool.dart';
 
 /// Draws the selected [ShapeKind] by dragging out its bounding box (or,
@@ -23,7 +24,8 @@ import 'pointer_tool.dart';
 /// holding Shift (pressed or released at any time during the drag) makes
 /// the shape regular (squares, circles, equilateral triangles, regular
 /// stars) or steps lines by 15°. A tap on a shape selects it, to edit its
-/// points.
+/// points. Curves are drawn anchor by anchor ([CurveDrawing]): [finishCurve]
+/// (Enter, another tool) commits one, [cancelCurve] (Escape) drops it.
 class ShapeTool implements PointerTool {
   ShapeTool({
     required this.model,
@@ -55,32 +57,58 @@ class ShapeTool implements PointerTool {
   bool _dragged = false;
   ShapeGeometry? _shape;
 
+  /// The curve being drawn, anchor by anchor.
+  late final CurveDrawing curve = CurveDrawing(live: live, viewport: viewport, clock: clock);
+
+  /// Commits the curve being drawn (Enter, a change of tool); false when
+  /// none is.
+  bool finishCurve() => curve.finish();
+
+  /// Drops the curve being drawn (Escape); false when none is.
+  bool cancelCurve() => curve.cancel();
+
   @override
   void down(ToolPointer p) {
+    if (tools.shape == ShapeKind.curve) {
+      final config = tools.configOf(InkTool.ballpoint);
+      curve.down(
+        p,
+        model: model(),
+        fill: tools.shapeFill.colorFor(config.color),
+        begin: () => _begin(ShapeKind.curve),
+      );
+      return;
+    }
+    curve.finish();
     _start = _end = p.world;
     _startedAt = clock.nowMs();
     _startScreen = p.screen;
     _dragged = false;
     _shape = null;
+    _begin(tools.shape);
+    HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  /// Starts the live stroke of a [kind] with the pen's look.
+  void _begin(ShapeKind kind) {
     const ink = InkTool.ballpoint;
     final config = tools.configOf(ink);
-    final kind = tools.shape;
     final style = ShapeBuilder.styleFor(tools.styleFor(ink).copyWith(unit: 1 / viewport.scale));
     live
       ..begin(
         tool: ink,
         color: config.color,
         width: config.width,
-        // Closed shapes take the tool's fill.
+        // Closed shapes take the tool's fill (curves once closed).
         style: kind.isClosed ? style.withFill(tools.shapeFill.colorFor(config.color)) : style,
       )
       // Not free-hand ink (no low-latency overlay).
       ..straightened = true;
-    HardwareKeyboard.instance.addHandler(_onKey);
   }
 
   @override
   void move(ToolPointer p) {
+    if (curve.active) return curve.move(p);
     if (_start == null) return;
     _end = p.world;
     if (!_dragged && (p.screen - _startScreen).distance < minDrag) return;
@@ -108,6 +136,7 @@ class ShapeTool implements PointerTool {
 
   @override
   void up() {
+    if (curve.active) return curve.up();
     _stopKeys();
     final shape = _shape;
     final points = live.finish();
@@ -135,6 +164,7 @@ class ShapeTool implements PointerTool {
 
   @override
   void cancel() {
+    if (curve.active) return curve.cancelGesture();
     _stopKeys();
     if (_start != null) live.finish();
     _start = null;

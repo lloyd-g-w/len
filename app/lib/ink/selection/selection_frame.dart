@@ -79,14 +79,30 @@ class SelectionFrame {
       (transform: Affine.translation(delta), frame: SelectionFrame(rect.shift(delta), angle));
 
   /// Rotation so that the rotate handle points from the centre towards
-  /// [pointer]; with [snap], angles within 5° of a multiple of 45° snap.
-  ({Affine transform, SelectionFrame frame}) rotatedTowards(Offset pointer, {bool snap = true}) {
+  /// [pointer]; with [snap], angles within 5° of a multiple of 45° snap,
+  /// and within 2° of one of 15°; with [steps] (Shift), it turns in 15°
+  /// steps.
+  ({Affine transform, SelectionFrame frame}) rotatedTowards(
+    Offset pointer, {
+    bool snap = true,
+    bool steps = false,
+  }) {
     final v = pointer - center;
     var target = math.atan2(v.dx, -v.dy); // 0 = pointing up
-    if (snap) {
-      const step = math.pi / 4, tolerance = 5 * math.pi / 180;
-      final nearest = (target / step).round() * step;
-      if ((target - nearest).abs() < tolerance) target = nearest;
+    const fine = math.pi / 12;
+    if (steps) {
+      target = (target / fine).round() * fine;
+    } else if (snap) {
+      for (final (step, tolerance) in const [
+        (math.pi / 4, 5 * math.pi / 180),
+        (fine, 2 * math.pi / 180),
+      ]) {
+        final nearest = (target / step).round() * step;
+        if ((target - nearest).abs() < tolerance) {
+          target = nearest;
+          break;
+        }
+      }
     }
     final delta = target - angle;
     return (transform: Affine.rotation(delta, pivot: center), frame: SelectionFrame(rect, target));

@@ -1767,9 +1767,21 @@ overshoot closing the loop: long rectangles stay rectangles), then 3 → triangl
 → diamond (diagonals along the axes), rectangle (right angles; rotated or,
 within 6°, axis-aligned, each side midway between its corners), else
 polygon (five or more corners must have half the ellipse's error: a ring
-around a word is no hexagon). Strokes under 48 screen px long and closed
-ones under 48 px across stay as written (letters such as "l", "o" or
-"0"), and handwriting, curves and scribbles are never recognised.
+around a word is no hexagon); a nearly round ellipse is a circle. Strokes
+under 48 screen px long and closed ones under 48 px across stay as
+written (letters such as "l", "o" or "0"). A stroke that is none of these
+but smooth, at least 128 px across (`HoldToStraighten.minCurve`: a held
+"C" of large handwriting is less), becomes a **curve**
+(`shapes/curve_recognizer.dart`): resampled to 64 points and smoothed, it
+must have no turn sharper than 60° over three points each side (letters'
+cusps, zig-zags, corners), no crossing (loops: "e", "l"), at most 360° of
+turning in all (720° closed) and two changes of direction (four closed:
+no waves or spirals), and a cubic spline fitted to it
+(`shapes/curve_fit.dart`, Schneider's algorithm: least squares on
+chord-length parameters, Newton–Raphson refinement, split at the worst
+point with a shared tangent) within 2 % of its diagonal must need at most
+five anchors (six closed). Handwriting and scribbles are never
+recognised.
 Snapped shapes have the shape look (`ShapeBuilder.styleFor`) and their
 geometry (`LiveInk.shape` → `Stroke.shape`); only the clean shape is
 committed. The recogniser is tested on hand-drawn samples
@@ -1848,11 +1860,19 @@ surface.
   constant pressure (`shapes/shape_builder.dart`), so they render, erase,
   select and sync like ink, and that carry their geometry
   (`Stroke.shape`, `domain/shape_geometry.dart`: the kind and its control
-  points — line ends, corners, vertices, an ellipse's centre and conjugate
-  semi-axes, a star's frame and inner radius), so they stay editable.
-  Every kind is described by points an affine map takes to the same kind,
-  so moving, scaling and rotating a selection maps them
-  (`TransformItems.stroke`); the pixel eraser's pieces are free-hand ink.
+  points — line ends and a bend (the middle of a quadratic Bézier), corners,
+  vertices, a circle's centre and rim point, an ellipse's centre and
+  perpendicular semi-axes, a star's frame, inner radius and number of
+  points, a curve's anchors and tangent handles (a cubic Bézier spline,
+  `shapes/bezier.dart`)), so they stay editable.
+  Every kind is described by points an affine map takes to the same kind
+  (a squashed circle becomes an ellipse; an ellipse's semi-axes are made
+  perpendicular again, `ShapeGeometry.map`), so moving, scaling and
+  rotating a selection maps them (`TransformItems.stroke`); the pixel
+  eraser's pieces are free-hand ink. Curved outlines (bends, ellipses,
+  curves) are flattened finely enough to read as curves at the zoom they
+  are built at (`ShapeBuilder.outline`); PDF export, hit tests and fills
+  use the points, like any stroke's.
   A shape's look is the pen's colour, width and opacity as an even line
   with round ends (`ShapeBuilder.styleFor`: no pressure, taper, flat ends
   or stabiliser). An arrowhead is 18 % of the arrow within 12–20 units
@@ -1864,8 +1884,18 @@ surface.
   of regular proportions regular and a line within 4° of level, upright
   or diagonal exactly so — as do a held line or arrow once snapped (its end
   while the pen moves on), the straight pen, a line's end handle and a
-  rectangle's or ellipse's corner handle) and commits exactly the shape
-  last shown; a tap on a shape selects it. The live outline is rebuilt
+  rectangle's corner handle) and commits exactly the shape last shown (an
+  ellipse dragged square is a circle); a tap on a shape selects it (not
+  with Curve picked: its taps place anchors).
+  **Curves** (`tools/curve_drawing.dart`) are drawn a gesture at a time:
+  a tap places an anchor (a corner), a press-drag places one and pulls its
+  tangents out symmetrically, a tap on the first anchor closes the curve
+  (with the tool's fill) and finishes it, a second tap on the last anchor
+  (within 400 ms) finishes it open, as do Enter and another tool or page
+  (`ShapeTool.finishCurve`, via `EditorScreen`'s keys and
+  `ContentTools`); Escape drops it (`cancelCurve`). The curve so far is
+  the live stroke between gestures; a gesture that turns into a pinch takes
+  back only its own anchor. One stroke, one undo step. The live outline is rebuilt
   whenever the live points are replaced rather than extended
   (`LiveInk.generation`; the incremental builder would otherwise keep the
   outline of an earlier preview).
@@ -1957,20 +1987,47 @@ surface.
   once the answer is in (a few ms); the latest long press wins.
 - **Editing a shape's points**: a single shape selected on its own surface
   (`SelectionController.shapeStroke`, by the lasso or a tap — with the
-  lasso, or the Shape tool on a shape) shows its control points as handles
-  instead of the frame's resize handles (`ShapeHandles`,
-  `SelectionChrome.shapeHandles`: line and arrow ends, rectangle and
-  diamond and triangle corners, polygon vertices, an ellipse's bounding
-  corners, a star's five points — turning and sizing it about its centre —
-  and a small solid dot setting its inner radius). Rectangles and
-  ellipses keep their side directions (the opposite corner stays); lines
-  and arrows have no frame (their ends move and turn them; Shift: 15°)
-  and move only from near the stroke (`SelectionChrome.grabs`), closed
-  shapes keep the rotate handle; Shift on a rectangle's or ellipse's corner
-  keeps its proportions. A turned rectangle, ellipse or star gets a frame
-  turned with it (`ShapeHandles.angleOf`, `SelectionFrame.around`), so the
-  handles sit on it. Handles are 6.5 px knobs like the frame's, reached
-  within `SelectionChrome.shapeHitRadius` (24 px, a fingertip; inside a
+  lasso, or the Shape tool on a shape) shows handles by meaning instead of
+  the frame's resize handles (`ShapeHandles.of`, each with a `HandleRole`;
+  what a drag does is `ShapeDrags`): line and arrow ends and a bend
+  handle in the middle (dragging it bends the line through the pointer;
+  straight again near the chord's middle, a symmetric arc near the
+  perpendicular or with Shift; the ends keep a bend in place), rectangle
+  corners (the opposite one stays, sides keep their directions; Shift:
+  proportions) and side middles (that side moves; Shift: proportions about
+  the opposite side), diamond vertices (along their axis, the opposite one
+  fixed) and side middles (sizing it from the opposite side: the box it is
+  drawn in), triangle and polygon vertices (free; Shift: one axis), a
+  circle's centre (moves it) and radius, an ellipse's centre and two radii
+  (each sizes its axis about the centre; Shift: both), a star's centre, top
+  point (turns and sizes it) and inner point (inner radius; its number of
+  points is in Style, `StepperRow`), a curve's anchors (moving their
+  tangents) and tangent handles (on an arm from their anchor; the opposite
+  one turns with it when they were in line, a smooth anchor). Snaps while
+  dragging within `LassoTool.snapReach` (8 px) or by angle
+  (`ShapeSnap`): level / upright / diagonal within 4° and other 15° steps
+  within 2° (line ends, a star's turn, tangents, the rotate handle, which
+  turns in 15° steps with Shift), equal radii and square sides within 6 %,
+  points lining up with the shape's others, a regular star's inner
+  radius, a tangent onto its anchor (a corner). On a curve, a tap on its
+  line adds an anchor there (`Bezier.split`: the outline stays) and a
+  double tap on an anchor removes it (two anchors at least). Lines,
+  arrows and open curves have no frame (their handles move and turn them)
+  and move only from near the stroke (`SelectionChrome.grabs`); closed
+  shapes keep the rotate handle. A turned rectangle, diamond, ellipse or
+  star gets a frame turned with it (`ShapeHandles.angleOf`,
+  `SelectionFrame.around`), so the handles sit on it. Handles look like
+  what they do (`SelectionPainter`, accent on paper): 6.5 px knobs for
+  points, smaller ones for sides, a ringed dot for a centre, a diamond for
+  a radius, a small square for a bend, solid dots for a star's inner
+  radius and for tangents; secondary handles (sides, centres, bends,
+  tangents) step aside within 24 px of a primary one, so small shapes
+  show their corners or radii only (`SelectionChrome.crowd`); a tangent
+  shorter than that (none at all: a corner anchor, as a tap places it)
+  shows 24 px from its anchor, along itself or its segment, and grows
+  from the anchor when dragged, so corners can be made smooth. They are
+  reached within `SelectionChrome.shapeHitRadius` by input (24 px for a
+  finger, `Targets.touch` across; 22 for a pen; 18 for a mouse; inside a
   small shape's frame less, so it still moves by its middle; the rotate
   handle wins when nearer), grabbed where they are (no jump). Dragging one (`LassoTool`, mode reshape) shows the shape
   rebuilt (`ShapeBuilder.reshaped`: outline 2 px apart at its zoom, same
@@ -2454,9 +2511,11 @@ with a template is "Add page after" held down in the page menu).
   sizes − n +"); the pen palette is 2 × 7 (`ColorSwatches.palette`, holding
   the pen and text defaults), the highlighter's 2 × 5); `EraserOptionsPanel`;
   none for the lasso (`ToolDescriptor.options` null: tapping it again does
-  nothing; a one-time tip explains it); Shapes (`ShapeOptionsPanel`: seven
-  kinds in one row, the fill (`FillChoices`), and a caption pointing to hold to snap in Settings →
-  Writing, or saying it is off there);
+  nothing; a one-time tip explains it); Shapes (`ShapeOptionsPanel`: eight
+  kinds in one row, each up to a bar button wide (36 dp in the 320-dp popover), the fill
+  (`FillChoices`; for curves too, used once closed), and a caption on drawing the kind (curves:
+  taps, drags, closing, finishing) pointing to hold to snap in Settings → Writing, or saying it is
+  off there);
   `TextOptionsPanel`;
   `LaserOptionsPanel` (`ToolSettings.laser`, laid out as the inks': title with
   Reset — dot / trail and fading back to the defaults, the quick slots kept —, preview,
