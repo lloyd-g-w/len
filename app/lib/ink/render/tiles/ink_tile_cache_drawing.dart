@@ -68,8 +68,10 @@ extension _Drawing on InkTileCache {
       } else {
         // Not rendered since a zoom (a rim zooming out exposed), or
         // waiting for the surface to load: empty for the frame or two
-        // until it is, rather than frames of vectors.
+        // until it is, rather than frames of vectors. Strokes written
+        // since show over the stand-ins (they kept their images).
         lastPaint.blankPixels += _pixels(uncovered, view);
+        if (tile.overlay.isNotEmpty) overlays.add(tile);
       }
     }
     return (missing: missing, overlays: overlays);
@@ -122,7 +124,11 @@ extension _Drawing on InkTileCache {
           ..save()
           ..clipRect(view.toDevice(rect));
       }
+      // As the tile was drawn at its zoom: what was added since its image
+      // beneath and over it.
+      if (tile.underlay.isNotEmpty) _drawUnderlay(canvas, view, tile);
       _drawImage(canvas, image, view.toDevice(old.worldRectOf(index)), exact: false);
+      if (tile.overlay.isNotEmpty) _drawOverlay(canvas, view, tile);
       pool.touch(tile);
       lastPaint.images++;
     }

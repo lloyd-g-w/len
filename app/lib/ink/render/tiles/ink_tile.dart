@@ -56,6 +56,11 @@ class InkTile implements PooledTile {
   /// in until the tile is rendered again).
   bool stale = false;
 
+  /// Whether [image] (stale) may still show content an edit removed: it
+  /// stands in only where the edit's new images are awaited, never for
+  /// another zoom (see `InkTileCache`'s `_adopt`).
+  bool lingers = false;
+
   /// Whether the image was dropped by an edit since the tile was last
   /// rendered: until it is again, only vectors show it as it is.
   bool edited = false;
@@ -80,6 +85,7 @@ class InkTile implements PooledTile {
     version++;
     blank = null;
     stale = false;
+    lingers = false;
     overlay.clear();
     underlay.clear();
     _dropImage();
@@ -90,6 +96,7 @@ class InkTile implements PooledTile {
     dropParked();
     version++;
     stale = false;
+    lingers = false;
     overlay.clear();
     underlay.clear();
     _dropImage();
@@ -100,6 +107,7 @@ class InkTile implements PooledTile {
     image?.dispose();
     image = null;
     stale = false;
+    lingers = false;
     underlay.clear(); // Only ever drawn beneath an image.
     // An evicted tile with pending strokes is rendered in full next time.
   }

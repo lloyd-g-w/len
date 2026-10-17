@@ -19,10 +19,7 @@ extension _Invalidation on InkTileCache {
     _releaseAll(_old);
     _old = {
       for (final e in _tiles.entries)
-        if ((e.value.image != null || e.value.blank == true) &&
-            e.value.overlay.isEmpty &&
-            !e.value.stale)
-          e.key: e.value,
+        if ((e.value.image != null || e.value.blank == true) && !e.value.lingers) e.key: e.value,
     };
     _releaseAll({
       for (final e in _tiles.entries)
@@ -45,12 +42,16 @@ extension _Invalidation on InkTileCache {
       return;
     }
     final areas = change.areas ?? [for (final c in chunks) ChunkGrid.rectOf(c)];
-    // Tiles of the previous zoom no longer show the content.
-    for (final tile in _touching(_old, areas)) {
-      _old.remove(tile.index);
-      tile.release();
-    }
     final appended = change.appended;
+    if (appended == null || _space == null) {
+      // Tiles of the previous zoom no longer show the content. (Appends
+      // keep them: they stand in under the strokes' overlays, see
+      // [_paintTiles].)
+      for (final tile in _touching(_old, areas)) {
+        _old.remove(tile.index);
+        tile.release();
+      }
+    }
     if (appended != null && _space != null) {
       for (final stroke in appended) {
         final bounds = _clip == null ? stroke.bounds : stroke.bounds.intersect(_clip!);
@@ -176,6 +177,7 @@ extension _Invalidation on InkTileCache {
         ..dropParked()
         ..version += 1
         ..stale = true
+        ..lingers = tile.lingers || priority == 0
         // Strokes added since, unless erased or hidden by this change.
         ..overlay.removeWhere((s) => model.strokeById(s.id) != s || model.isHidden(s.id))
         ..underlay.removeWhere((s) => model.strokeById(s.id) != s || model.isHidden(s.id));

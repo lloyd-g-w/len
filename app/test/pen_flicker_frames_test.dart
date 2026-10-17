@@ -80,6 +80,61 @@ void main() {
     });
   });
 
+  testWidgets('pen-up while a zoom\'s new tiles are still rendering: nothing vanishes', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final batch = HeldBatch();
+      final scene = InkScene(background(), dpr: 2, batch: batch);
+      await scene.warm();
+      final f = framesOf(scene);
+      // Zoom in a little and let the new zoom be adopted, its tiles held
+      // back (a busy raster thread): the old ones stand in, scaled.
+      scene.viewport.zoomAt(const Offset(300, 200), 1.3);
+      await f.frame();
+      batch.hold = true;
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      final points = wave(x: 120, y: 140, length: 300);
+      final frames = [await f.frame(), ...await f.draw(points)];
+      expect(batch.waiting, greaterThan(0), reason: 'tiles still rendering');
+      f.lift(scene.model);
+      frames.add(await f.frame());
+      frames.add(await f.frame());
+      batch.release();
+      frames.addAll(await f.until(() => settledTiles(scene)));
+      await expectNoLostInk(frames, except: endOf(f, points));
+      scene.dispose();
+    });
+  });
+
+  testWidgets('zooming right after a stroke, before its tiles took it: nothing vanishes', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final batch = HeldBatch();
+      final scene = InkScene(background(), dpr: 2, batch: batch);
+      await scene.warm();
+      final f = framesOf(scene);
+      final points = wave(x: 120, y: 140, length: 300);
+      final frames = await f.draw(points);
+      batch.hold = true; // The stroke's tiles wait (or, on the web, the pen rests).
+      f.lift(scene.model);
+      frames.add(await f.frame());
+      await expectNoLostInk(frames, except: endOf(f, points));
+      scene.viewport.zoomAt(const Offset(300, 200), 1.3);
+      final zoomed = [await f.frame()];
+      // The new zoom is adopted; its tiles are held back too.
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      zoomed
+        ..add(await f.frame())
+        ..add(await f.frame());
+      batch.release();
+      zoomed.addAll(await f.until(() => settledTiles(scene)));
+      await expectNoLostInk(zoomed, what: 'zoomed frame');
+      scene.dispose();
+    });
+  });
+
   testWidgets('zoomed far out (level-of-detail rasters), over a text box\'s chunk: steady pen-up', (
     tester,
   ) async {
