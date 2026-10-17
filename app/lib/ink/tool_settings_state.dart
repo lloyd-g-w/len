@@ -68,7 +68,8 @@ abstract class _ToolState extends ChangeNotifier {
         }
       }
     }
-    if (data['version'] != ToolSettings.prefsVersion) _upgrade();
+    final version = data['version'];
+    if (version is! int || version < ToolSettings.prefsVersion) _upgrade();
     if (EraserConfig.fromJson(data['eraser']) case final eraser?) _eraser = eraser;
     if (RecentColors.parse(data['recent']) case final recent?) _recent = recent;
     _shape = ShapeKind.parse(data['shape']);
