@@ -419,8 +419,10 @@ async def type_text(page, text):
     await page.wait_for_function("document.activeElement && ['INPUT', 'TEXTAREA']"
                                  ".includes(document.activeElement.tagName)", timeout=15000)
     await page.keyboard.type(text, delay=20)
-    value = await page.evaluate('document.activeElement.value')
-    w.expect(value.endswith(text), f'typed {text!r}: field holds {value!r}')
+    value, focused = await page.evaluate('''() => { const e = document.activeElement;
+      return [e && typeof e.value === 'string' ? e.value : null, e ? e.tagName : null]; }''')
+    w.expect(value is not None and value.endswith(text),
+             f'typed {text!r}: field holds {value!r}' + ('' if value is not None else f' (focus on {focused})'))
 
 
 async def go_to_page(page, number):
