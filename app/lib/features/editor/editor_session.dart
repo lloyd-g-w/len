@@ -145,6 +145,7 @@ class EditorSession with _EditorSessionZoom {
       events: input.events,
       laser: content.laser,
       surface: () => content.model.surfaceId,
+      locate: doc?.pagePointOf,
       send: (data) => services.sync.rooms.send(shared.id, data),
       presence: services.sync.rooms,
       anyoneThere: () => services.sync.rooms.othersIn(shared.id).isNotEmpty,

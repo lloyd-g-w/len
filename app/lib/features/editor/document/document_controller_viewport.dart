@@ -16,6 +16,19 @@ mixin _DocumentViewport on _DocumentState {
     input?.switchTo(activeModel, laserShift: shift);
   }
 
+  /// The page under [point] (in the active page's coordinates) or, in a
+  /// gap or outside every page, the nearest one, with [point] in its
+  /// coordinates (where another device draws a pointer there).
+  (String, Offset) pagePointOf(Offset point) {
+    final id = _pages[_active].id;
+    final active = _layout.frameOf(_active);
+    if (active == null) return (id, point);
+    final world = point + active.topLeft;
+    final index = _layout.pageAt(world) ?? _layout.nearestPage(world);
+    final frame = index == null ? null : _layout.frameOf(index);
+    return frame == null ? (id, point) : (_pages[index!].id, world - frame.topLeft);
+  }
+
   /// Where each laid-out page lies from the active page.
   Map<String, Offset> _placesFromActive() {
     final active = _layout.frameOf(_active);

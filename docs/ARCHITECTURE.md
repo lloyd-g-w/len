@@ -3897,6 +3897,10 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   `EditorSession`) shows where this editor points: `InkEvents.hovered` (the input's hover, in
   the active surface's coordinates; null on exit and on a pen or mouse press) and the laser's
   `LaserTrail` (pressed, hovering, dot, and the trail points added since — `LaserTrail.added`).
+  A hover (or a laser's dot without a trail) goes as the page under it: `locate`
+  (`DocumentController.pagePointOf`, through the layout; the nearest page in a gap) maps it from
+  the active page's coordinates; a laser trail stays on the page it began on (a press activates
+  that page), even beyond its edge, so it draws on unbroken.
   It hooks into both only while another device is in the room (it follows presence), so alone
   it costs nothing; then it sends what changed at most every 40 ms, a held laser again every
   second. `RemotePointers` (`ink/remote_pointers.dart`, one per `SharedNotebook`) keeps a

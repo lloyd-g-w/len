@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:fake_async/fake_async.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -240,6 +242,55 @@ void main() {
     expect(paint(tags: false), (plates: 0, dots: 2), reason: 'the dot stays');
   });
 
+  test('a hover goes as the page under it; a laser trail stays on the page it began on', () {
+    fakeAsync((async) {
+      final events = InkEvents();
+      final laser = LaserTrail();
+      final sent = <Map<String, Object?>>[];
+      // Pages p1 (active, 0..1000 down) and p2 below it (1000..2000).
+      final relay = PointerRelay(
+        events: events,
+        laser: laser,
+        surface: () => 'p1',
+        locate: (at) => at.dy < 1000 ? ('p1', at) : ('p2', at - const Offset(0, 1000)),
+        send: sent.add,
+        presence: ChangeNotifier(),
+        anyoneThere: () => true,
+      );
+      addTearDown(relay.dispose);
+      Map<String, Object?> last() {
+        async.elapse(const Duration(milliseconds: 50));
+        return sent.last;
+      }
+
+      Matcher points(String page, List<double> at) =>
+          allOf(containsPair('page', page), containsPair('at', at));
+
+      events.hovered!(const Offset(30, 400));
+      expect(last(), containsPair('page', 'p1'));
+      events.hovered!(const Offset(30, 1250));
+      expect(last(), points('p2', [30, 250]));
+      // A mouse's laser dot alone (no trail): the page under it too.
+      events.hovered!(null);
+      laser.hover(const Offset(40, 1100));
+      expect(last(), points('p2', [40, 100]));
+      laser.hover(null);
+      // A trail begun on p1 and drawn on into p2: all of it on p1.
+      laser
+        ..config = laser.config.copyWith(mode: LaserMode.trail)
+        ..down(const Offset(50, 900));
+      for (var y = 950.0; y <= 1200; y += 50) {
+        laser.move(Offset(50, y));
+        async.elapse(const Duration(milliseconds: 50));
+      }
+      final trail = sent.where((m) => m['laser'] is Map && (m['laser'] as Map)['down'] == true);
+      expect(trail.map((m) => m['page']).toSet(), {'p1'});
+      expect(trail.last['at'], [50.0, 1200.0], reason: 'beyond its edge');
+      laser.up();
+      expect(last()['page'], 'p1', reason: 'its trail still fades there');
+    });
+  });
+
   test('a snapped highlight\'s ink stays until every stroke it became arrived', () {
     final rooms = _rooms();
     final remote = RemoteInk(rooms, room: 'nb');
@@ -390,6 +441,42 @@ void main() {
     await tester.pump();
     expect(session.shared.remotePointers.isEmpty, isTrue);
     expect(session.input.events.hovered, isNull);
+    await closeEditor(tester);
+  });
+
+  testWidgets('in the editor: a mouse over another page than the active one points there', (
+    tester,
+  ) async {
+    final (s, nb) = await pumpEditor(tester);
+    final pages = s.pages.pagesOf(nb.id);
+    final session = zoomSession(tester);
+    final doc = session.doc!;
+    s.sync.rooms.receive(
+      LivePresence(nb.id, const [(connection: 'c9', deviceId: 'd9', name: 'Linux')]),
+    );
+    await tester.pump();
+    final relayed = session.input.events.hovered!;
+    final seen = <Offset?>[];
+    session.input.events.hovered = (world) {
+      seen.add(world);
+      relayed(world);
+    };
+    expect(doc.activePageData.id, pages[0].id);
+    final second = doc.layout.frameOf(1)!;
+    final screen = doc.viewport.toScreen(second.topLeft + const Offset(60, 40));
+    expect(screen.dy, lessThan(1300), reason: 'the second page shows');
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: screen - const Offset(0, 1));
+    await mouse.moveTo(screen);
+    await tester.pump();
+    expect(doc.activePageData.id, pages[0].id, reason: 'hovering activates nothing');
+    final (page, at) = doc.pagePointOf(seen.last!);
+    expect(page, pages[1].id);
+    expect((at - const Offset(60, 40)).distance, lessThan(0.01));
+    expect(session.pointerRelay.locate, isNotNull);
+    s.sync.rooms.receive(LivePresence(nb.id, const []));
+    await tester.pump();
     await closeEditor(tester);
   });
 

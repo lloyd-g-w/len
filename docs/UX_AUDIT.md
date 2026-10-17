@@ -141,11 +141,14 @@ announced: keep (it would interrupt writing).
   points; SYNC_PROTOCOL updated). ⬜ A device joining mid-stroke still sees
   that stroke only when its record lands (P3).
 
-**R25-16 P2 · (suspected) A hover or mouse laser over another page is sent as the active page's.** ⬜
+**R25-16 P2 · (suspected) A hover or mouse laser over another page is sent as the active page's.** ✅
 Hover maps through the active page's viewport (`ink_input_controller`), and
-`PointerRelay` sends the active page's id; the receiver draws it at that
+`PointerRelay` sent the active page's id; the receiver drew it at that
 page plus the offset, wrong when the two devices lay pages out differently.
-Map the point with `layout.pageAt` before sending (TODO "Next").
+- *Fix:* `PointerRelay.locate` (`DocumentController.pagePointOf`) sends a hover, or a
+  laser's dot alone, as the page under it (the nearest in a gap) in its coordinates. A laser
+  trail stays on the page it began on, even beyond its edge, so it draws on unbroken
+  (SYNC_PROTOCOL updated).
 
 **R25-17 P3 · The zoom window shows neither other devices' live ink nor their pointers.** ⬜
 `zoom_box_paper.dart` paints only local live ink; add the remote ink (and

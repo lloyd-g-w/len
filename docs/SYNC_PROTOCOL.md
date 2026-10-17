@@ -234,7 +234,10 @@ they arrived on a page still reloading), after 3 s of silence while written, or 
 leaves the room (or the receiver's connection drops).
 
 `{"k": "pointer", "page": "<surface id>", "at": [x, y], "laser": {…}}` tells where a device
-points, in `page`'s coordinates (to a hundredth of a world unit): `at` alone is a hovering pen or
+points, in `page`'s coordinates (to a hundredth of a world unit): `page` is the page under the
+pointer (or the nearest, in a gap), except that a laser trail stays on the page it began on (the
+dot and every trail point in that page's coordinates while the trail shows, even beyond its edge,
+so it draws on unbroken across pages). `at` alone is a hovering pen or
 mouse; with `laser` it is the laser's dot, and `laser` is `{"mode": "dot"|"trail", "color":
 <ARGB>, "size": <screen px>, "duration": <ms>, "fade": "stroke"|"pause", "hold": <ms>, "down":
 <bool>, "hover": true (a mouse pointing without pressing), "p": [x0, y0, pressure0, x1, …],
