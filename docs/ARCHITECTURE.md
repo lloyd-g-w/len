@@ -2127,10 +2127,14 @@ surface.
   id). Following: every selection edit goes through `_replace`, where
   `_SelectionConnectors._connect` gives each edited shape its old shape
   id (`_identified`; one moved to another page becomes a shape of its
-  own there) and adds the unselected lines attached to it (found near its
+  own there, and a selected line landing on that page with it is
+  attached to it under its new id) and adds the unselected lines attached to it (found near its
   bounds, and lying on this stroke of the shape: `Connectors.targetOf`)
   to the same `SelectionPlan` (`replaceUnselected`), their ends moved
-  onto the new outline by `ShapeDrags` (a bend keeps its place): one
+  onto the new outline by `ShapeDrags` (a bend keeps its place; a
+  circle or ellipse stretched gets new principal axes, so under a
+  selection transform its attachments are re-parametrised to the same
+  point, `_remapped`): one
   `InkEdit`, one undo step, synced as ordinary strokes (a remote device
   receives box and arrow together). While a
   target is dragged or reshaped, the followers are drawn as they will be

@@ -9,6 +9,7 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/ink/geometry/affine.dart';
 import 'package:len/ink/input/ink_input_controller.dart';
 import 'package:len/ink/input/live_ink.dart';
+import 'package:len/ink/selection/connectors.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
 import 'package:len/ink/shapes/shape_anchors.dart';
 import 'package:len/ink/shapes/shape_builder.dart';
@@ -267,6 +268,46 @@ void main() {
       expect(arrowNow().shape!.points, steps[1].$2.points);
       expectAttached();
     });
+
+    // A circle whose rim point is 30° round, an ellipse turned by 30°:
+    // stretched, they get new axes (and parameters).
+    const centre = Offset(200, 200);
+    final circle = ShapeGeometry(ShapeKind.circle, [
+      centre,
+      centre + Offset.fromDirection(math.pi / 6, 50),
+    ]);
+    final ellipse = ShapeGeometry(ShapeKind.ellipse, [
+      centre,
+      centre + Offset.fromDirection(math.pi / 6, 80),
+      centre + Offset.fromDirection(math.pi / 6 + math.pi / 2, 40),
+    ]);
+    for (final (shape, withArrow) in [
+      (circle, false),
+      (circle, true),
+      (ellipse, false),
+      (ellipse, true),
+    ]) {
+      final name = '${shape.kind.name}${withArrow ? ' and its arrow' : ''}';
+      test('a turned $name stretched: the arrow stays at the same point', () {
+        final squash = Affine.scaling(2, 1, anchor: centre);
+        final ring = seed(shape, 'ring');
+        final end = ShapeAnchors.pointAt(shape, 0.1);
+        seed(
+          ShapeGeometry(ShapeKind.arrow, [
+            Offset.zero,
+            end,
+          ], tip: const ShapeAttachment('ring', 0.1)),
+          'arrow',
+        );
+        content.selection.select([ring, if (withArrow) arrowNow()], const []);
+        transform(squash);
+        final a = arrowNow().shape!;
+        final r = stored((s) => s.shape!.kind != ShapeKind.arrow)!;
+        expect(a.tip?.id, 'ring');
+        expect(a.points[1], offsetMoreOrLessEquals(squash.apply(end), epsilon: 1e-3));
+        expect(Connectors.sits(a, 1, r.shape), isTrue);
+      });
+    }
 
     test('while the box is dragged, its arrow is shown following', () {
       box();
