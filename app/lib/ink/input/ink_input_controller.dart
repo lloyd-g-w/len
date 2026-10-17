@@ -141,6 +141,8 @@ class InkInputController {
 
   void handleDown(PointerDownEvent e) {
     _stylus.note(e);
+    // A pen or mouse pressing hovers no more (its ink or laser shows).
+    if (e.kind != PointerDeviceKind.touch) events.hovered?.call(null);
     kinetic?.begin();
     gestures?.down(e, navigates: tools.fingersNavigate);
     switch (e.kind) {
@@ -202,6 +204,7 @@ class InkInputController {
     if (isStylusKind(e.kind) && _draw.holdsErase) _draw.cancel();
     if (_draw.pointer != null) return; // Don't fight the active pointer.
     samples?.hover(e);
+    events.hovered?.call(viewport.toWorld(e.localPosition));
     _draw.showEraser(_wantsErase(e) ? e.localPosition : null);
     _draw.showPen(_previewsInk(e) ? e.localPosition : null);
     if (isStylusKind(e.kind)) live.expireCursorsSoon(); // It may leave unannounced.
@@ -216,6 +219,7 @@ class InkInputController {
   }
 
   void handleExit() {
+    events.hovered?.call(null);
     _draw.showEraser(null);
     _draw.showPen(null);
     content?.laser.hover(null);

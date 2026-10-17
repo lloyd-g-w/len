@@ -154,6 +154,14 @@ class LaserTrail extends ChangeNotifier {
 
   int _index(int i) => (_first + i) % capacity;
 
+  /// Whether the pointer is down ([down] until [up]).
+  bool get pressed => _pressed;
+
+  /// Trail points recorded ever (the newest [length] of them are kept):
+  /// what was added since an earlier count is the trail's tail.
+  int get added => _added;
+  int _added = 0;
+
   /// Whether a hovering mouse shows the dot ([hover]).
   bool get hovering => _hovering;
 
@@ -209,6 +217,7 @@ class LaserTrail extends ChangeNotifier {
     } else {
       k = _index(_length++);
     }
+    _added++;
     _x[k] = world.dx;
     _y[k] = world.dy;
     _t[k] = _pending;

@@ -7,6 +7,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/stroke_repository.dart';
 import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/ink/input/highlight_snap.dart';
 import 'package:len/ink/input/ink_input_controller.dart';
 import 'package:len/ink/input/live_ink.dart';
 import 'package:len/ink/surface_model.dart';
@@ -24,6 +25,23 @@ class _FakeClock extends Clock {
 }
 
 /// Builds pointer events for one pointer of a given kind.
+/// Snaps a highlight into two strokes (as over two lines of text).
+class _SplitSnap implements HighlightSnap {
+  @override
+  List<Stroke>? snap(Stroke stroke) => [
+    for (var i = 0; i < 2; i++)
+      Stroke(
+        id: '${stroke.id}-$i',
+        surfaceId: stroke.surfaceId,
+        tool: stroke.tool,
+        color: stroke.color,
+        width: stroke.width,
+        points: [for (final p in stroke.points) StrokePoint(p.x, p.y + i * 30, p.pressure)],
+        createdAt: stroke.createdAt,
+      ),
+  ];
+}
+
 class _Pointer {
   _Pointer(this.id, this.kind, {this.buttons = 0});
 
@@ -96,19 +114,52 @@ void main() {
 
   test('a live stroke tells when it begins and the stroke it ended as (live ink)', () {
     final began = <String>[];
-    final ended = <String?>[];
+    final ended = <List<String>>[];
     input.events
       ..inkBegan = began.add
       ..inkEnded = ended.add;
     drawLine(_Pointer(1, PointerDeviceKind.stylus), const Offset(10, 10), const Offset(100, 10));
     expect(began, ['s']);
     expect(ended, hasLength(1));
-    expect(model.strokeById(ended.single!), isNotNull, reason: 'the committed stroke');
+    expect(model.strokeById(ended.single.single), isNotNull, reason: 'the committed stroke');
     // Erasing is no live stroke.
     final eraser = _Pointer(2, PointerDeviceKind.invertedStylus);
     drawLine(eraser, const Offset(50, -20), const Offset(50, 40));
     expect(began, hasLength(1));
     expect(ended, hasLength(1));
+  });
+
+  test('a highlight snapped to text ends naming every stroke it became', () {
+    final ended = <List<String>>[];
+    input
+      ..events.inkEnded = ended.add
+      ..highlightSnap = _SplitSnap();
+    tools.tool = EditorTool.highlighter;
+    drawLine(_Pointer(1, PointerDeviceKind.stylus), const Offset(10, 10), const Offset(100, 10));
+    expect(ended.single, hasLength(2));
+    for (final id in ended.single) {
+      expect(model.strokeById(id), isNotNull, reason: 'a snapped part, committed');
+    }
+  });
+
+  test('a hovering pen or mouse tells where it hovers, until it presses or leaves', () {
+    final hovered = <Offset?>[];
+    input.events.hovered = hovered.add;
+    viewport.zoomAt(Offset.zero, 2);
+    input.handleHover(
+      const PointerHoverEvent(kind: PointerDeviceKind.mouse, position: Offset(40, 20)),
+    );
+    expect(hovered, [const Offset(20, 10)], reason: 'in world coordinates');
+    final pen = _Pointer(1, PointerDeviceKind.stylus);
+    input.handleDown(pen.down(const Offset(40, 20)));
+    expect(hovered.last, isNull, reason: 'pressing: its ink shows');
+    input
+      ..handleUp(pen.up(const Offset(40, 20)))
+      ..handleHover(
+        const PointerHoverEvent(kind: PointerDeviceKind.stylus, position: Offset(60, 20)),
+      )
+      ..handleExit();
+    expect(hovered.sublist(2), [const Offset(30, 10), null]);
   });
 
   test('S Pen side button (kPrimaryStylusButton) erases instead of drawing', () {
