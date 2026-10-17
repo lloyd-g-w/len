@@ -120,7 +120,7 @@ void main() {
         (
           6,
           'laser',
-          () => tools.laser = tools.laser.copyWith(size: 20, mode: LaserMode.dot),
+          () => tools.laser = tools.laser.copyWith(fade: LaserFade.pause, mode: LaserMode.dot),
           () => tools.laser,
           const LaserConfig(),
         ),

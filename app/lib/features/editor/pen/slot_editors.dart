@@ -22,15 +22,31 @@ Future<void> editColorSlot(
   required ToolSettings tools,
   required InkTool ink,
   required int index,
+}) => showColorSlotEditor(
+  anchor,
+  tools: tools,
+  colorOf: () => tools.configOf(ink).colors.elementAtOrNull(index),
+  builder: (_) => ColorSlotEditor(tools: tools, ink: ink, index: index),
+);
+
+/// Opens a quick colour slot's editor ([builder]) at [anchor], as
+/// [editColorSlot] does for any tool's slots: anchored on tablets and
+/// desktops, a compact sheet on phones. The slot's colour ([colorOf]; null
+/// once the slot is gone), when new, becomes a recent one as it closes.
+Future<void> showColorSlotEditor(
+  BuildContext anchor, {
+  required ToolSettings tools,
+  required int? Function() colorOf,
+  required WidgetBuilder builder,
 }) async {
-  final before = tools.configOf(ink).colors[index];
+  final before = colorOf();
   await showAdaptivePopover<void>(
     context: anchor,
     width: Targets.touchFirst ? toolOptionsTouchWidth : popoverWidth,
-    builder: (_) => ColorSlotEditor(tools: tools, ink: ink, index: index),
+    builder: builder,
   );
-  final colors = tools.configOf(ink).colors;
-  if (index < colors.length && colors[index] != before) tools.addRecentColor(colors[index]);
+  final after = colorOf();
+  if (after != null && after != before) tools.addRecentColor(after);
 }
 
 /// Opens the small editor of quick size [index] of [ink] at [anchor] (the

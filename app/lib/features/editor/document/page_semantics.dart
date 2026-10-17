@@ -1,0 +1,134 @@
+import 'package:flutter/semantics.dart';
+import 'package:flutter/widgets.dart';
+
+import '../../../data/search/surface_text.dart';
+import '../../../domain/notebook_page.dart';
+import '../../../ui/announce.dart';
+import 'document_controller.dart';
+
+/// Pages to a screen reader (the surface is painted): one node per page in
+/// view, named "Page 3 of 12, bookmarked", whose value is the page's text
+/// ([SurfaceText]: text boxes, recognised handwriting, the PDF's text);
+/// scrolling forward or back, or its Next page / Previous page actions, go
+/// to the next or previous page and say so. An infinite canvas is one
+/// "Canvas" node with its text.
+///
+/// Semantics only: the nodes take no pointers (ink and gestures go to the
+/// surface below), and nothing is built, listened to or read while no
+/// screen reader (or other semantics client) is on.
+class PageSemantics extends StatefulWidget {
+  /// The pages of [doc] in view.
+  const PageSemantics.document({
+    super.key,
+    required DocumentController this.doc,
+    required this.texts,
+  }) : canvasId = null;
+
+  /// The canvas [canvasId] as one node over the whole surface.
+  const PageSemantics.canvas({super.key, required String this.canvasId, required this.texts})
+    : doc = null;
+
+  final DocumentController? doc;
+  final String? canvasId;
+
+  /// Makes the text cache when semantics turn on (dropped when they go).
+  final SurfaceTextCache Function() texts;
+
+  /// The custom actions on a page's node.
+  static const next = CustomSemanticsAction(label: 'Next page');
+  static const previous = CustomSemanticsAction(label: 'Previous page');
+
+  /// What page [index] of [pages] is called.
+  static String labelOf(List<NotebookPage> pages, int index) =>
+      'Page ${index + 1} of ${pages.length}${pages[index].bookmarked ? ', bookmarked' : ''}';
+
+  @override
+  State<PageSemantics> createState() => _PageSemanticsState();
+}
+
+class _PageSemanticsState extends State<PageSemantics> {
+  SurfaceTextCache? _texts;
+
+  @override
+  void initState() {
+    super.initState();
+    SemanticsBinding.instance.addSemanticsEnabledListener(_onEnabled);
+    _onEnabled();
+  }
+
+  void _onEnabled() {
+    final enabled = SemanticsBinding.instance.semanticsEnabled;
+    if (enabled == (_texts != null)) return;
+    final texts = _texts;
+    _texts = enabled ? widget.texts() : null;
+    texts?.dispose();
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    SemanticsBinding.instance.removeSemanticsEnabledListener(_onEnabled);
+    _texts?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final texts = _texts;
+    if (texts == null) return const SizedBox.shrink();
+    final doc = widget.doc;
+    if (doc == null) {
+      return ListenableBuilder(
+        listenable: texts,
+        builder: (context, _) => Semantics(
+          container: true,
+          label: 'Canvas',
+          value: texts.of(widget.canvasId!),
+          child: const SizedBox.expand(),
+        ),
+      );
+    }
+    return ListenableBuilder(
+      listenable: Listenable.merge([doc, doc.viewport, texts]),
+      builder: (context, _) => Stack(children: _pages(context, doc, texts)),
+    );
+  }
+
+  /// A node per page in view, over its part of the screen.
+  List<Widget> _pages(BuildContext context, DocumentController doc, SurfaceTextCache texts) {
+    final view = doc.viewport;
+    if (view.size.isEmpty) return const [];
+    final screen = Offset.zero & view.size;
+    final pages = doc.pages;
+    final layout = doc.layout;
+    void go(int index) {
+      doc.scrollToPage(index);
+      announce(context, PageSemantics.labelOf(pages, index));
+    }
+
+    return [
+      for (final index in layout.visiblePages(view.visibleWorld))
+        if (layout.frameOf(index) case final frame?)
+          Positioned.fromRect(
+            key: ValueKey(pages[index].id),
+            rect: Rect.fromPoints(
+              view.toScreen(frame.topLeft),
+              view.toScreen(frame.bottomRight),
+            ).intersect(screen),
+            child: Semantics(
+              container: true,
+              label: PageSemantics.labelOf(pages, index),
+              value: texts.of(pages[index].id),
+              // Forward is the next page (content moving up), as in a list.
+              onScrollUp: index + 1 < pages.length ? () => go(index + 1) : null,
+              onScrollDown: index > 0 ? () => go(index - 1) : null,
+              customSemanticsActions: {
+                if (index + 1 < pages.length) PageSemantics.next: () => go(index + 1),
+                if (index > 0) PageSemantics.previous: () => go(index - 1),
+              },
+              child: const SizedBox.expand(),
+            ),
+          ),
+    ];
+  }
+}

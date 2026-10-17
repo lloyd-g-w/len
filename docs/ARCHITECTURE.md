@@ -424,6 +424,23 @@ names each page edited, undone or redone, and 600 ms after the last edit those p
 flushed to storage and re-recorded (`ThumbnailCache.changed`: only if shown, else forgotten);
 remote stroke changes refresh at once.
 
+**Pages to screen readers** (`document/page_semantics.dart`, UX_AUDIT R23-10): `EditorCanvas`
+lays `PageSemantics` over the surface, under the content layer (a text box's own node wins a
+touch). It is one node per page in view (`DocumentLayout.visiblePages` of the visible world, its
+frame on screen clipped to it; continuous and single-page flow alike), named "Page 3 of 12,
+bookmarked", whose value is the page's text: `SurfaceText` (`data/search/surface_text.dart`)
+reads the text boxes (`search_docs`, placed by `elements`) and recognised handwriting
+(`ink_text`) in reading order (top, then left), then the PDF page's extracted text
+(`search_docs` kind `pdf`; turning semantics on schedules `SearchService.indexPdfs` for PDFs not
+read yet). Scroll forward / back (`onScrollUp` / `onScrollDown`) and the custom actions *Next
+page* / *Previous page* call `scrollToPage` and announce the page's name. An infinite canvas is
+one "Canvas" node with its whole text. Cost: nothing while no semantics client is attached
+(`SemanticsBinding.semanticsEnabled`, listened to: the widget is an empty box, listens to
+nothing and makes no `SurfaceTextCache`); with one, a scroll frame rebuilds a few positioned
+nodes from `SurfaceTextCache`, which reads a surface's text once and drops it all when the
+database commits (an edit, undo, sync, recognition), so only the pages still shown are read
+again. Text being typed reads once its write lands. The nodes take no pointers.
+
 ## Editor screen (`features/editor/`)
 
 - **`EditorSession`** owns the engine side of one open notebook: `ToolSettings`, live ink,
@@ -660,7 +677,7 @@ remote stroke changes refresh at once.
   mostly sideways; event timestamps), or the wheel (one 50 px step turns one page,
   then it rests 300 ms so one flick turns one page). Zoomed in, they pan.
 - **Shortcuts** (`editor_shortcuts.dart`): Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y; tools
-  P / H / E / L / S / T / K; 1–5 quick colours, [ / ] width; F11 or Ctrl/⌘+. focus mode; F5 focus mode with the laser;
+  P / H / E / L / S / T / K; 1–5 quick colours, [ / ] width (of the pen, highlighter or laser in hand); F11 or Ctrl/⌘+. focus mode; F5 focus mode with the laser;
   M zoom window; Ctrl/⌘+E export, Ctrl/⌘+G go to page (paged), Ctrl+F search;
   Ctrl+Tab / Ctrl+Shift+Tab / Ctrl/⌘+W tabs. Canvases (`canvas/canvas_shortcuts.dart`):
   arrows move around (15 % of the screen, gliding), `+` / `-` (also with Ctrl/⌘),
@@ -2027,8 +2044,9 @@ surface.
   through the samples as two vertex meshes with per-vertex colours (`LaserRibbon`: a wide soft
   glow, a bright core whitened in the middle — lanes transparent at the edges, so no blur
   filter), narrowing and fading with age (smoothstep), plus a radial-gradient dot at the pointer.
-  `LaserConfig` (in `ToolSettings`, persisted): dot or trail mode, colour (six presets or
-  custom), size and when the trail fades (`LaserFade`): each point a set time after it was
+  `LaserConfig` (in `ToolSettings`, persisted): dot or trail mode, quick colours and quick
+  sizes like an ink's (1–5 each, one of each selected; red / green / blue and 4 / 6 / 10 px at
+  first; `LaserConfigJson` drops a malformed row to its defaults) and when the trail fades (`LaserFade`): each point a set time after it was
   drawn (0.3–3 s), or, *when I stop*, all of it together once `hold` (0.5–5 s, default 2 s)
   has passed since the last lift (`LaserTrail.holding`: the trail and dot stay in full while
   writing, a press within the hold keeps everything, then a 400-ms fade; frames during the hold
@@ -2194,7 +2212,8 @@ GoodNotes-style rich text inside a box.
   faded.
 - **Screen readers**: while semantics are on, `TextBoxSemantics` lays a node
   over each text box in view on the edited surface (its text, in reading
-  order; activating it edits the box).
+  order; activating it edits the box). The pages themselves are
+  `PageSemantics`' nodes (see *Paged notebooks*).
 - **Lasso**: *Style* (`selection_style_panel.dart`) changes font and size of the
   selected boxes and pen type / width of selected ink (`SelectionController
   .restyleText` / `restyleInk`, one undo step each); *Colour* recolours all text.
@@ -2289,8 +2308,9 @@ User customisation lives in `ToolSettings`, persisted as JSON in the local
 quick widths** (1–5 slots each, one of each selected) and feel settings
 (pressure sensitivity, stabiliser, ends, straight lines; opacity and snap
 to text for the highlighter — the pen is always opaque), plus eraser options,
-hold-to-straighten and the 8 **recent colours** (`RecentColors`: colours
-newly put into an ink's quick slots or given to text or the laser, noted when
+hold-to-straighten, the laser's `LaserConfig` (quick colours and sizes the
+same way) and the 8 **recent colours** (`RecentColors`: colours
+newly put into an ink's or the laser's quick slots or given to text, noted when
 the tool options popover closes, and colours picked with `pickColour`; shown in
 the popovers' colour block and in the selection's Style colours). Stroke
 widths are shown as millimetres on the page (`formatWidth`: world units are
@@ -2389,18 +2409,20 @@ with a template is "Add page after" held down in the page menu).
   controls, cross-fading as it changes: Pen and Highlighter, their **colour
   slots then width slots** (`pen/ink_strip.dart`; 3 + 3 by default, 1–5 each,
   independent); Eraser, three size slots; Shapes, the pen's slots (the kind
-  is picked in its options; the Shapes button shows it); Laser, three colour
-  slots (red, green, blue); Lasso and Text, none.
+  is picked in its options; the Shapes button shows it); Laser, its own colour
+  slots then size slots (`tools/laser_strip.dart`, `tools/laser_slots.dart`; 3 + 3, 1–5
+  each, as the inks'); Lasso and Text, none. The rows are the shared
+  `ColorSlotRow` / `SizeSlotRow` (`pen/quick_slots.dart`).
   Slots (`pen/slot_button.dart`) are 22-dp swatches or neutral dots at real
   size (4–20 dp) in 36-dp cells (44 on touch); the selected colour gets a
   2-px `onSurface` ring with a 2-px gap, the selected size (and eraser size)
   the neutral `Surfaces.pressed` plate, so the two never look alike. Tapping
-  the selected pen or highlighter slot, a long press or a right click edits
+  the selected pen, highlighter or laser slot, a long press or a right click edits
   that slot alone (`pen/slot_editors.dart`, anchored, a compact sheet on
-  phones): a colour slot the palette, Recent and Custom; a size slot a
-  logarithmic mm slider with a live preview. The ink's full options open
-  from its tool button only. (Eraser and laser slots still open their
-  tool's options.) Picking a quick colour or width from a tool that draws
+  phones; `showColorSlotEditor` notes a new colour as recent): a colour slot the
+  palette, Recent and Custom; a size slot a logarithmic mm slider with a live preview
+  (the laser's: whole on-screen pixels over its dark preview). The full options open
+  from the tool button only. (Eraser slots still open the eraser's options.) Picking a quick colour or width from a tool that draws
   no ink switches to the pen.
   Phones show the previous tool beside the switcher (`PreviousToolButton`,
   `ToolSettings.previousTool`, the eraser at first): one tap swaps them. When a
@@ -2458,8 +2480,10 @@ with a template is "Add page after" held down in the page menu).
   kinds in one row, the fill (`FillChoices`), and a caption pointing to hold to snap in Settings →
   Writing, or saying it is off there);
   `TextOptionsPanel`;
-  `LaserOptionsPanel` (`ToolSettings.laser`: dot / trail, colours, size,
-  trail length). `pickColour` (`tools/colour_sheet.dart`; text and
+  `LaserOptionsPanel` (`ToolSettings.laser`, laid out as the inks': title with
+  Reset — dot / trail and fading back to the defaults, the quick slots kept —, preview,
+  the slots in the phone sheet, dot / trail, the selected slots' colour and size, fade and
+  its duration, then the shared *Quick colours and sizes*, `QuickSlotCounts`). `pickColour` (`tools/colour_sheet.dart`; text and
   selection colours) is a popover too: no Apply, it previews live and
   closing it keeps the last colour picked.
 - **Where it goes** (`ToolbarDock`, decided by `ToolbarMeasure.dockFor` from
