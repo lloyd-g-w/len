@@ -54,9 +54,11 @@ class LocalBlobGc {
     final now = blobs.clock.nowMs();
     prune?.call();
     await tombstones?.purge(now);
-    return blobs.collectGarbage(
+    final deleted = await blobs.collectGarbage(
       () => references.kept(now),
       stillReferenced: (sha) => references.keeps(sha, now),
     );
+    if (deleted.isNotEmpty) references.links.prune();
+    return deleted;
   }
 }

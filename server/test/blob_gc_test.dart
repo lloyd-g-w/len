@@ -36,6 +36,15 @@ void main() {
     return sha;
   }
 
+  /// Stores a reference blob (`LR`, 1, zlib) of [text].
+  Future<String> reference(String text) async {
+    final bytes = [0x4C, 0x52, 1, ...zlib.encode(utf8.encode(text))];
+    final sha = sha256.convert(bytes).toString();
+    await blobs.put(sha, Stream.value(bytes), maxBytes: 1 << 20);
+    File(blobs.pathFor(sha)).setLastModifiedSync(t0.subtract(const Duration(days: 365)));
+    return sha;
+  }
+
   void put(String collection, String id, Map<String, Object?>? data) => records.push([
     SyncRecord(
       collection: collection,
@@ -64,6 +73,24 @@ void main() {
     put('future', 'f', {'note': 'ab${inLongerHex}cd'});
     expect(gc.referencedAmong(blobs.list().toSet()), {pdf, image, audio, inLongerHex});
     expect(gc.referencedAmong({orphan}), isEmpty);
+  });
+
+  test('reference blobs a live record reaches keep the blobs they name', () async {
+    final pack = await blob('pack');
+    final image = await blob('image');
+    final unreached = await blob('only named by an unreferenced table');
+    final nested = await reference('{"blobs": ["$image"]}');
+    final table = await reference('[{"ink": ["$pack"], "more": "$nested"}]');
+    final orphanTable = await reference('["$unreached"]');
+    final broken = await blob('LR\u0001 not zlib');
+    put('versions', 'v', {
+      'table': [table, broken],
+    });
+    expect(gc.referencedAmong(blobs.list().toSet()), {table, nested, pack, image, broken});
+    expect(gc.referencedAmong({unreached, orphanTable}), isEmpty);
+
+    put('versions', 'v', null);
+    expect(gc.referencedAmong({table, pack, image}), isEmpty, reason: 'the version deleted');
   });
 
   test('tombstoned records do not keep blobs; trashed (live) ones do', () async {

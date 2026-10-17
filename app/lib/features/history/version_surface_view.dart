@@ -29,17 +29,38 @@ class VersionSheets {
 
   final Versions versions;
   final Map<String, Future<VersionSheet?>> _loaded = {};
+  final Map<String, Future<VersionBody?>> _bodies = {};
 
-  /// Page [page] of [version] (null: its canvas), or null when its content
-  /// cannot be had (offline, not on the server).
-  Future<VersionSheet?> of(NotebookVersion version, VersionPage? page) {
-    final key = page == null
-        ? 'canvas:${version.canvas?.packs.join()}'
-        : '${page.id}:${page.content.packs.join()}:${page.fields}';
-    return _loaded[key] ??= _load(version, page).catchError((Object _) => null);
+  /// The body of [version] (its pages), or null when it cannot be had.
+  Future<VersionBody?> body(NotebookVersion version) => _bodies[version.id] ??= versions.content
+      .body(version)
+      .then<VersionBody?>((body) => body)
+      .catchError((Object _) => null);
+
+  /// Page [page] of [version] (null: its canvas, or the page it changed
+  /// first, else its first), or null when its content cannot be had
+  /// (offline, not on the server) or it has no page.
+  Future<VersionSheet?> of(NotebookVersion version, VersionPage? page) async {
+    if (page == null) {
+      final body = await this.body(version);
+      if (body == null) return null;
+      final canvas = body.canvas;
+      if (canvas == null) {
+        final first = body.page(version.summary.focus ?? '') ?? body.pages.firstOrNull;
+        return first == null ? null : of(version, first);
+      }
+      final key = 'canvas:${canvas.packs.join()}';
+      return _loaded[key] ??= _load(version, canvas, null).catchError((Object _) => null);
+    }
+    final key = '${page.id}:${page.content.packs.join()}:${page.fields}';
+    return _loaded[key] ??= _load(version, null, page).catchError((Object _) => null);
   }
 
-  Future<VersionSheet?> _load(NotebookVersion version, VersionPage? page) async {
+  Future<VersionSheet?> _load(
+    NotebookVersion version,
+    VersionSurface? canvas,
+    VersionPage? page,
+  ) async {
     final content = versions.content;
     if (page != null) {
       await content.ensure([page.content]);
@@ -51,7 +72,7 @@ class VersionSheets {
         origin: null,
       );
     }
-    final canvas = version.canvas ?? VersionSurface.empty;
+    canvas ??= VersionSurface.empty;
     await content.ensure([canvas]);
     final c = await content.load(canvas, version.notebookId);
     final frame = _frame([
@@ -115,7 +136,8 @@ class VersionSurfaceView extends StatefulWidget {
   final VersionSheets sheets;
   final NotebookVersion version;
 
-  /// The page shown; null for a canvas.
+  /// The page shown; null for a canvas, or the page a paged version
+  /// changed first (its thumbnail).
   final VersionPage? page;
   final ElementImages images;
 
@@ -176,28 +198,35 @@ class _VersionSurfaceViewState extends State<VersionSurfaceView> {
     return AspectRatio(
       aspectRatio: ratio,
       child: DecoratedBox(
-        decoration: BoxDecoration(boxShadow: Shadows.low(brightness)),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            CustomPaint(
-              painter: _SheetPainter(
-                sheet,
-                widget.images,
-                page == null ? null : widget.version,
-                page,
-              ),
-            ),
-            if (!_loading && sheet == null)
-              Center(
-                child: Icon(
-                  Symbols.cloud_off_sharp,
-                  size: Glyphs.menu,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  semanticLabel: 'Not on this device',
+        // The shadow outside the clip: paper keeps its edge on a light sheet.
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Radii.xs),
+          boxShadow: Shadows.low(brightness),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(Radii.xs),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CustomPaint(
+                painter: _SheetPainter(
+                  sheet,
+                  widget.images,
+                  page == null ? null : widget.version,
+                  page,
                 ),
               ),
-          ],
+              if (!_loading && sheet == null)
+                Center(
+                  child: Icon(
+                    Symbols.cloud_off_sharp,
+                    size: Glyphs.menu,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    semanticLabel: 'Not on this device',
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

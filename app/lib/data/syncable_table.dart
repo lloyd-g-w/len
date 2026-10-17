@@ -123,6 +123,30 @@ abstract class SyncableTable implements SyncableStore {
     ]);
   }
 
+  /// Writes row [id] with record [data] as a local edit (a version
+  /// restored): parsed as a pulled record would be (throws
+  /// [FormatException] when malformed, writing nothing).
+  void writeLocal(String id, Map<String, Object?> data) {
+    writeRemote(
+      SyncRecord(
+        collection: collection,
+        id: id,
+        updatedAt: nextVersion(id),
+        deviceId: deviceId,
+        deleted: false,
+        data: data,
+      ),
+    );
+    db.execute('UPDATE $table SET dirty = 1 WHERE id = ?', [id]);
+  }
+
+  /// Tombstones live row [id] as a local edit.
+  void tombstoneLocal(String id) => db.execute(
+    'UPDATE $table SET deleted = 1, dirty = 1, updated_at = ?, device_id = ? '
+    'WHERE id = ? AND deleted = 0',
+    [nextVersion(id), deviceId, id],
+  );
+
   @override
   List<SyncRecord> dirtyRecords(int limit, {String? after, bool? deleted}) => db
       .select(

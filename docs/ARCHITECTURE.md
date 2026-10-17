@@ -2990,24 +2990,49 @@ shares between versions (and between devices of one platform family).
   strokes, or the live elements, of one surface in paint order
   (`createdAt`, id), cut where the hash of an item's id says (content-defined:
   on average 32 items, at most 256), so writing on a page changes only its
-  last pack and erasing a stroke only the pack it was in. A pack is the
-  JSON `{"v": 1, "items": [[id, data], …]}` with each item's sync record
-  `data` (without `surfaceId`). Packing a surface is cached per surface by
-  its change mark (`version_packs` table, local), so a version of a large
-  notebook re-packs only the surfaces written since the last one.
+  last pack and erasing a stroke only the pack it was in. A pack is `LP`,
+  format byte 2, then the items `[[id, data], …]` (each item's sync record
+  `data` without `surfaceId`) as **canonical JSON** (`CanonicalJson`: keys
+  sorted, integral numbers without a fraction, the shortest round-trip form
+  otherwise, fixed string escapes) **deflated** by the archive package's
+  pure-Dart encoder (`ZLibEncoderWeb`, level 6) on every platform: native
+  zlib compresses differently, and the web wrote `1.0` as `1`, so before,
+  packs only deduped within one platform family. Now the same content makes
+  the same bytes on Android, desktop, dart2js and dart2wasm (a test pins a
+  pack's SHA-256, checked against both web compilers). Format 1 packs (JSON
+  text) still read. Packing a surface is cached per surface by its change
+  mark (`version_packs` table, local; emptied by migration 17 so surfaces
+  re-pack in format 2), so a version of a large notebook re-packs only the
+  surfaces written since the last one.
+- **Table blobs** (`VersionTable`, `application/x-len-table`): what a version
+  holds besides the notebook's settings — a *body* (`VersionBody`) of rows:
+  the canvas, or each page in order (its fields, the packs of its ink and
+  elements, the images they show, its recognised handwriting), then its
+  recordings and outline entries (record data whole). The rows are cut like
+  packs (by row id), so a version of a 1000-page notebook writes one or two
+  new table blobs after an edit of one page and its record stays a few KB
+  (it was ~100 KB with the pages inline). A table blob is a **reference
+  blob** (`LR`, 1, deflated canonical JSON): blob garbage collection follows
+  it, on the server by inflating and scanning it, on the device through
+  `blob_links` (`BlobLinks`, local: the blobs a table names, noted when it
+  is written or read here), which `BlobReferences.all` / `keeps` and the
+  push's hold-back (`BlobReferences.ofRecord`: a version waits for its
+  tables' packs too) join. Bodies are read with `VersionContent.body`
+  (fetched, inflated, checked, cached per version; long runs yield every
+  8 ms, `WorkSlices`, so a big notebook makes no long task on the web).
 - **A version** is a synced `versions` record (format in SYNC_PROTOCOL.md):
   who made it (device id and name), when, how (`auto`, `named`, `restore`),
   its name, a summary against the version before (pages added / removed /
-  edited, strokes added / removed), the notebook's settings and, in page
-  order, each page's fields with the packs of its ink and elements (a
-  canvas: one surface). Every blob it needs is named in the record itself
-  (packs, page backgrounds, and in `blobs` the images the packs' elements
-  show), so the server's and the device's blob garbage collection keep them
-  with no protocol change, and its push waits for their upload like any
-  record's. Packs are fetched lazily when a version is previewed or
-  restored (`SyncController.fetchBlob`), so another device's history shows at
-  once (times, devices, summaries) and its pages once fetched; offline,
-  versions made here always open.
+  edited, strokes added / removed), the notebook's settings and its `table`
+  (the table blobs, in order). Everything else it needs is named by those
+  blobs, so the blob garbage collection of both sides keeps it, and its push
+  waits for their upload like any record's. Table blobs and packs are
+  fetched lazily when a version is previewed or restored
+  (`SyncController.fetchBlob`), so another device's history shows at once
+  (times, devices, summaries) and its pages once fetched; offline, versions
+  made here always open. Records of format 1 (pages, canvas and `blobs`
+  inline, no recordings, outline or recognised text) still read and restore
+  (`NotebookVersion.inline`); renaming one keeps it in format 1.
 - **When** (`VersionRecorder`, `AppServices.versionRecorder`): an editor's
   edits (its undo history moving, `EditorSession._onEdited`) call
   `noteEdit`; a version is made 2 minutes after editing goes quiet, at most
@@ -3034,13 +3059,21 @@ shares between versions (and between devices of one platform family).
   rewritten, missing ones written back under their ids, others deleted with
   their content as `deletePage` does) and every surface's strokes and
   elements by id (those not in the version tombstoned, missing ones written
-  from the packs, changed elements rewritten). One page restores the same
-  way for that page alone (back where it was among the pages it followed).
-  "Copy as new notebook" writes the version as a new notebook under new ids
-  (links to its own pages, text flows and connectors follow the copies).
-  Open editors reload as after a sync (`SyncController.announce`).
-- **Not versioned:** recordings (audio is never rewritten), the outline
-  (it refers to pages by id, which restoring keeps), recognised text.
+  from the packs, changed elements rewritten), each surface's recognised
+  handwriting, and the recordings and outline entries by id (rewritten where
+  they differ — a trim, a title —, missing ones written back, newer ones
+  tombstoned; `VersionRecords`, through `SyncableTable.writeLocal`, which
+  parses them as pulled records). One page restores the same way for that
+  page alone, with its recognised text and the outline entries leading to
+  it (back where it was among the pages it followed). "Copy as new
+  notebook" writes the version as a new notebook under new ids (links to
+  its own pages, text flows and connectors follow the copies; recordings
+  copied with the same audio blobs, outline entries onto the copied pages;
+  recognised text is read again, as for a duplicated notebook). Open
+  editors reload as after a sync (`SyncController.announce`).
+- **Audio** is kept by blob reference: a version names a recording's parts
+  and waveform, so audio freed after a trim ("Free space") stays on the
+  server and devices until no version names it (thinned or deleted).
 - **UI** (`features/history/`): "Version history…" in the editor's ⋯ menu
   and the library's notebook menu opens `showVersionHistory`
   (`showDialogOrSheet` + `SheetHeader`): the versions newest first, grouped
@@ -3050,11 +3083,13 @@ shares between versions (and between devices of one platform family).
   Rename…, Delete version, Delete older versions…). A version opens
   `VersionPreview` (its pages as thumbnails, read-only; a page opens larger
   with Restore this page; a canvas shows whole), with Restore and Copy as
-  new notebook. `VersionSheets` loads (and fetches) what a version's
-  surfaces hold for `VersionSurfaceView`, which paints them with
+  new notebook. `VersionSheets` loads (and fetches) a version's body and
+  what its surfaces hold for `VersionSurfaceView`, which paints them with
   `paintWholePage`; a version whose packs can't be had shows its paper with
-  a "not on this device" glyph, and restoring it says so and changes
-  nothing.
+  a "not on this device" glyph (its pages, if its table can't be had, a
+  "not on this device" note), and restoring it says so and changes
+  nothing. Goldens: `version_history_golden_test` (history and preview,
+  light and dark, tablet and phone).
   Collaboration: each version names its device; per user once there are
   users.
 

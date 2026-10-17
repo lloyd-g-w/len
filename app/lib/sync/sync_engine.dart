@@ -327,7 +327,7 @@ class SyncEngine {
           ? rows
           : [
               for (final r in rows)
-                if (!BlobReferences.inValue(r.data).any(heldBack.contains)) r,
+                if (!blobReferences.ofRecord(r).any(heldBack.contains)) r,
             ];
       // Records the API could not send (too large, not encodable) stay dirty.
       final unsent = ready.isEmpty

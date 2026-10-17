@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'app_database.dart';
+import 'blob_links.dart';
 import 'blob_store.dart';
+import 'syncable.dart';
 import 'tombstone_payloads.dart';
 
 /// Which blobs the local data references: the reference graph behind blob
@@ -10,7 +12,9 @@ import 'tombstone_payloads.dart';
 ///
 /// A blob is referenced by every live (not tombstoned) page background,
 /// image template of a page, element, recording (audio parts and waveform) and user
-/// template, and every pack, background and image a live version names.
+/// template, and every blob a live version names: its table blobs, and
+/// through them ([BlobLinks]) the packs, backgrounds, images and audio of
+/// its rows (format 1: packs, backgrounds and images in the record).
 /// Pages, elements and recordings of notebooks in
 /// the trash are live rows, so the trash keeps its blobs; "delete forever"
 /// tombstones them and releases the blobs.
@@ -18,6 +22,8 @@ class BlobReferences {
   BlobReferences(this.database);
 
   final AppDatabase database;
+
+  late final BlobLinks links = BlobLinks(database.db);
 
   /// Ids of the blobs this device must keep at [nowMs] (ms): those live
   /// rows and recent tombstones reference ([all] with the tombstones kept
@@ -40,7 +46,10 @@ class BlobReferences {
           'OR EXISTS (SELECT 1 FROM recordings WHERE $kept AND '
           '(instr(audio, ?2) > 0 OR waveform = ?3)) '
           'OR EXISTS (SELECT 1 FROM templates WHERE deleted = 0 AND blob = ?3) '
-          'OR EXISTS (SELECT 1 FROM versions WHERE deleted = 0 AND instr(data, ?2) > 0) AS found',
+          'OR EXISTS (SELECT 1 FROM versions WHERE deleted = 0 AND instr(data, ?2) > 0) '
+          'OR EXISTS (SELECT 1 FROM blob_links l WHERE l.child = ?3 AND EXISTS ('
+          "  SELECT 1 FROM versions WHERE deleted = 0 AND instr(data, '\"' || l.parent || '\"') > 0"
+          ')) AS found',
           [since, quoted, sha],
         ).single['found'] ==
         1;
@@ -52,7 +61,15 @@ class BlobReferences {
   Set<String> all({int? tombstonesSince}) {
     final kept = tombstonesSince == null ? 'deleted = 0' : '(deleted = 0 OR updated_at >= ?)';
     final args = [?tombstonesSince];
+    // Versions: their table blobs (format 1: packs, page backgrounds and the
+    // images in the packs), and what the table blobs name.
+    final versions = {
+      for (final row in database.db.select('SELECT data FROM versions WHERE deleted = 0'))
+        ...inJson(row['data'] as String),
+    };
     return {
+      ...versions,
+      ...links.childrenOf(versions),
       for (final row in database.db.select(
         'SELECT background FROM pages WHERE $kept AND background IS NOT NULL',
         args,
@@ -76,9 +93,6 @@ class BlobReferences {
         row['waveform'] as String,
       for (final row in database.db.select('SELECT DISTINCT blob FROM templates WHERE deleted = 0'))
         row['blob'] as String,
-      // Versions: their packs, page backgrounds and the images in the packs.
-      for (final row in database.db.select('SELECT data FROM versions WHERE deleted = 0'))
-        ...inJson(row['data'] as String),
     };
   }
 
@@ -100,6 +114,14 @@ class BlobReferences {
     ))
       row['title'] as String,
   ];
+
+  /// The blobs record [record] needs on the server before it: those its
+  /// data names and, for a version, those its table blobs name.
+  Set<String> ofRecord(SyncRecord record) {
+    final named = inValue(record.data);
+    if (record.collection != 'versions' || named.isEmpty) return named;
+    return {...named, ...links.childrenOf(named)};
+  }
 
   /// The blob ids among the strings of a JSON document (malformed: none).
   static Set<String> inJson(String json) {
