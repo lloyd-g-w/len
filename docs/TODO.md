@@ -209,8 +209,16 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   reference-blob scheme the server GC follows would shrink them; device names are platform
   names (per user once there are users); no golden / screenshot of the history yet.
 
-- ⬜ **Len import keeps text flow links**: import gives elements new ids; check that text boxes
-  flowing across pages keep their links (remap them as strokes' are), with a test.
+- 🚧 (fix/import-flow) **Len import keeps text flow links**: import gave text boxes new ids but
+  left `TextFlow.from` at the file's ids, so imported chains broke apart. Now `LenRemap` maps
+  text boxes' ids and their flows, and the commit drops flows from boxes not imported; a
+  duplicated page's continuation (it still named the original's box before) and a version
+  copy's flow from a box not in it stand alone too (`TextFlowRelinks`, shared with the notebook
+  duplicator). Checked with a 3-page chain (`text_flow_copies_test`): page / notebook
+  duplicate, pages sent (all, the last two), Len import and restore, version copy; lasso
+  copy / paste takes the whole text already, restoring a page keeps ids. Other references in
+  element data were fine (link targets remapped when the file holds the page; images are
+  blob hashes; recordings follow ink by time, not id).
 
 - ⬜ **Version history follow-ups**: compress packs (and the same bytes on web and native, so
   they dedupe across platforms); version recordings, the outline and recognised handwriting
