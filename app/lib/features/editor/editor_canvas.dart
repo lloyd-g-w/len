@@ -56,6 +56,16 @@ class EditorCanvas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // One node that stays put around the surface's nodes (pages, text
+    // boxes, links), which move as the view scrolls: they reorder among
+    // themselves only. Among the editor's other nodes they would be sorted
+    // by where they are, and the web engine moves the elements it
+    // reorders, which in Firefox takes focus from a text field (the search
+    // field's, typing while a match scrolls the view).
+    return Semantics(container: true, explicitChildNodes: true, child: _layers(context));
+  }
+
+  Widget _layers(BuildContext context) {
     final doc = session.doc;
     return Stack(
       fit: StackFit.expand,

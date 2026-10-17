@@ -118,6 +118,40 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('the pages move inside one node that stays put among the editor\'s', (tester) async {
+    // On the web, nodes reordered among their siblings are moved in the
+    // DOM, and Firefox then takes focus from a field among them (the
+    // search field, typing while a match scrolls the view).
+    final semantics = tester.ensureSemantics();
+    await pumpEditor(tester);
+    final doc = _doc(tester);
+    List<SemanticsNode> path(SemanticsNode node) {
+      final nodes = <SemanticsNode>[];
+      for (SemanticsNode? n = node; n != null; n = n.parent) {
+        nodes.insert(0, n);
+      }
+      return nodes;
+    }
+
+    /// The page's ancestor among the chrome's (Back's) siblings, and where.
+    (int, Rect, Matrix4?) holder(String page) {
+      final pages = path(_node(page));
+      final chrome = path(tester.getSemantics(find.byTooltip('Back').first));
+      var i = 0;
+      while (pages[i] == chrome[i]) {
+        i++;
+      }
+      return (pages[i].id, pages[i].rect, pages[i].transform);
+    }
+
+    final before = holder('Page 1 of 3');
+    doc.scrollToPage(1);
+    await tester.pumpAndSettle();
+    expect(holder('Page 2 of 3'), before);
+    await closeEditor(tester);
+    semantics.dispose();
+  });
+
   testWidgets('single-page flow: one node, turned by its actions', (tester) async {
     final semantics = tester.ensureSemantics();
     await pumpEditor(tester, size: const Size(1280, 900));
