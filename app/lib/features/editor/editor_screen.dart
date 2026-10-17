@@ -7,7 +7,6 @@ import '../../app_services.dart';
 import '../../domain/notebook.dart';
 import '../../domain/paper.dart';
 import '../../domain/preferences.dart';
-import '../../domain/shape_kind.dart';
 import '../../ink/tool_settings.dart';
 import '../../platform/fullscreen.dart';
 import '../../ui/app_theme.dart';
