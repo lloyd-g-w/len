@@ -140,7 +140,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   over loopback); the stroke being written drawn live on the others (replaced by its record),
   presence plates in the editor bar; the event stream and the cycle as fallbacks. Cursors
   are not sent yet (the room data has room for them).
-- 🚧 (feat/pointer-tags) **Hide the name tags of other devices' pointers** (owner): a toggle for
+- ✅ **Hide the name tags of other devices' pointers** (owner): a toggle for
   the device initial plate drawn beside another device's pen / laser while it writes (⋯ → View
   and Settings), persisted; the pointer itself and presence in the bar stay. Done on the
   branch: `pointerTags` preference (`pointer_tags`, default on), ⋯ → View → *Name tags*
