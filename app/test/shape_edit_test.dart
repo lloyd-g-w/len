@@ -56,33 +56,183 @@ void main() {
       expect(back, rect);
     });
 
-    test('an ellipse is sized by its bounding corners', () {
+    test('a circle by its centre and radius, an ellipse by its centre and two radii', () {
+      final circle = ShapeBuilder.dragged(ShapeKind.ellipse, Offset.zero, const Offset(100, 100));
+      expect(circle.kind, ShapeKind.circle);
+      expect(
+        [for (final h in ShapeHandles.of(circle)) h.role],
+        [HandleRole.centre, HandleRole.radius],
+      );
+      // The centre moves it; the radius sizes it about the centre.
+      final moved = ShapeHandles.drag(circle, 0, const Offset(70, 50));
+      expect(moved.points, const [Offset(70, 50), Offset(120, 50)]);
+      final bigger = ShapeHandles.drag(circle, 1, const Offset(50, 130));
+      expect(bigger.points[0], const Offset(50, 50));
+      expect((bigger.points[1] - bigger.points[0]).distance, 80);
+      // Shift: along the radius only.
+      final along = ShapeHandles.drag(circle, 1, const Offset(150, 70), shift: true);
+      expect(along.points[1], const Offset(150, 50));
+
       final ellipse = ShapeBuilder.dragged(ShapeKind.ellipse, Offset.zero, const Offset(100, 60));
       final handles = ShapeHandles.of(ellipse);
-      expect(handles, const [Offset(0, 0), Offset(100, 0), Offset(100, 60), Offset(0, 60)]);
-      final bigger = ShapeHandles.drag(ellipse, 2, const Offset(200, 100));
-      expect(bigger, ShapeBuilder.dragged(ShapeKind.ellipse, Offset.zero, const Offset(200, 100)));
+      expect(
+        [for (final h in handles) h.at],
+        const [Offset(50, 30), Offset(100, 30), Offset(50, 60)],
+      );
+      // A radius changes one axis about the fixed centre, wherever the
+      // pointer goes sideways.
+      final wide = ShapeHandles.drag(ellipse, 1, const Offset(150, 45));
+      expect(wide.points, const [Offset(50, 30), Offset(150, 30), Offset(50, 60)]);
+      // Shift keeps the proportions.
+      final both = ShapeHandles.drag(ellipse, 1, const Offset(150, 30), shift: true);
+      expect(both.points, const [Offset(50, 30), Offset(150, 30), Offset(50, 90)]);
+      // Nearly equal radii snap equal.
+      final round = ShapeHandles.drag(ellipse, 1, const Offset(81, 30), snap: 8);
+      expect(round.points[1], const Offset(80, 30));
+      expect(ShapeHandles.drag(ellipse, 1, const Offset(81, 30)).points[1], const Offset(81, 30));
     });
 
-    test('a star turns and sizes by its points, and its inner radius by the dot', () {
+    test('a star sizes and turns by its point, its inner radius by the dot', () {
       final star = ShapeBuilder.dragged(ShapeKind.star, Offset.zero, const Offset(100, 100));
       final handles = ShapeHandles.of(star);
-      expect(handles, hasLength(6));
-      expect(ShapeHandles.isInner(star, 1), isTrue);
-      final c = star.points[0];
-      final top = handles[0];
-      // Drag the top point to the right of the centre, twice as far.
-      final turned = ShapeHandles.drag(star, 0, c + Offset((top - c).distance * 2, 0));
       expect(
-        ShapeHandles.of(turned)[0],
+        [for (final h in handles) h.role],
+        [HandleRole.centre, HandleRole.radius, HandleRole.inner],
+      );
+      final c = star.points[0];
+      final top = handles[1].at;
+      // Drag the top point to the right of the centre, twice as far.
+      final turned = ShapeHandles.drag(star, 1, c + Offset((top - c).distance * 2, 0));
+      expect(
+        ShapeHandles.of(turned)[1].at,
         offsetMoreOrLessEquals(c + Offset((top - c).distance * 2, 0)),
       );
       expect(turned.inner, star.inner);
       expect(turned.points[0], c);
+      // Turns near 15° steps snap; Shift keeps to them.
+      final near = c + Offset.fromDirection(-math.pi / 2 + 0.27, 50);
+      final snapped = ShapeHandles.of(ShapeHandles.drag(star, 1, near, snap: 4))[1].at - c;
+      expect(snapped.direction, closeTo(-math.pi / 2 + math.pi / 12, 1e-9));
+      final free = ShapeHandles.of(ShapeHandles.drag(star, 1, near))[1].at - c;
+      expect(free.direction, closeTo(-math.pi / 2 + 0.27, 1e-9));
       // The inner dot pulled out to 70 % of the outer radius.
-      final fat = ShapeHandles.drag(star, 1, Offset.lerp(c, handles[1], 0.7 / star.inner)!);
+      final fat = ShapeHandles.drag(star, 2, Offset.lerp(c, handles[2].at, 0.7 / star.inner)!);
       expect(fat.inner, closeTo(0.7, 1e-9));
-      expect(ShapeHandles.drag(star, 1, c).inner, ShapeGeometry.minInner);
+      expect(ShapeHandles.drag(star, 2, c).inner, ShapeGeometry.minInner);
+      // Near a regular star's, it snaps to it.
+      final regular = ShapeHandles.drag(
+        star,
+        2,
+        Offset.lerp(c, handles[2].at, 0.39 / star.inner)!,
+        snap: 4,
+      );
+      expect(regular.inner, closeTo(math.cos(0.4 * math.pi) / math.cos(0.2 * math.pi), 1e-9));
+      // The centre moves it.
+      expect(
+        ShapeHandles.drag(star, 0, c + const Offset(5, 5)),
+        star.map((p) => p + const Offset(5, 5)),
+      );
+    });
+
+    test('a star of other points', () {
+      final star = ShapeBuilder.dragged(
+        ShapeKind.star,
+        Offset.zero,
+        const Offset(100, 100),
+      ).withStar(tips: 7);
+      expect(ShapeBuilder.starVertices(star), hasLength(14));
+      expect(ShapeBuilder.outline(star), hasLength(15));
+    });
+
+    test('a rectangle side moves that side; Shift keeps proportions', () {
+      final rect = ShapeBuilder.dragged(ShapeKind.rectangle, Offset.zero, const Offset(100, 60));
+      final handles = ShapeHandles.of(rect);
+      expect(
+        [for (final h in handles.skip(4)) h.at],
+        const [Offset(50, 0), Offset(100, 30), Offset(50, 60), Offset(0, 30)],
+      );
+      expect(
+        [for (final h in handles) h.role],
+        [
+          for (var i = 0; i < 4; i++) HandleRole.vertex,
+          for (var i = 0; i < 4; i++) HandleRole.edge,
+        ],
+      );
+      // The right side, dragged out (and a bit down: only across counts).
+      expect(ShapeHandles.drag(rect, 5, const Offset(140, 50)).points, const [
+        Offset(0, 0),
+        Offset(140, 0),
+        Offset(140, 60),
+        Offset(0, 60),
+      ]);
+      // Nearly square snaps square.
+      expect(
+        ShapeHandles.drag(rect, 5, const Offset(62, 30), snap: 8).points[1],
+        const Offset(60, 0),
+      );
+      // Shift: twice as wide, twice as tall about the left side's middle.
+      expect(ShapeHandles.drag(rect, 5, const Offset(200, 30), shift: true).points, const [
+        Offset(0, -30),
+        Offset(200, -30),
+        Offset(200, 90),
+        Offset(0, 90),
+      ]);
+    });
+
+    test('a diamond keeps its axes: vertices along them, sides size it', () {
+      final diamond = ShapeBuilder.dragged(ShapeKind.diamond, Offset.zero, const Offset(100, 60));
+      // The top vertex up: the bottom one stays, the sides follow.
+      expect(ShapeHandles.drag(diamond, 0, const Offset(60, -40)).points, const [
+        Offset(50, -40),
+        Offset(100, 10),
+        Offset(50, 60),
+        Offset(0, 10),
+      ]);
+      // The middle of the top-right side out: the bottom-left side stays.
+      final mid = ShapeHandles.of(diamond)[4].at;
+      expect(mid, const Offset(75, 15));
+      final grown = ShapeHandles.drag(diamond, 4, mid + const Offset(30, -15));
+      expect(ShapeHandles.of(grown)[4].at, offsetMoreOrLessEquals(mid + const Offset(30, -15)));
+      expect(grown.points[2].dy, closeTo(60, 1e-9));
+      expect(grown.points[3].dx, closeTo(0, 1e-9));
+    });
+
+    test('a line bends by its middle, straight again near it, Shift: a symmetric arc', () {
+      final line = ShapeGeometry(ShapeKind.line, const [Offset.zero, Offset(100, 0)]);
+      expect(ShapeHandles.of(line)[2].at, const Offset(50, 0));
+      final bent = ShapeHandles.drag(line, 2, const Offset(60, 30));
+      expect(bent.isBent, isTrue);
+      expect(bent.points[2], const Offset(60, 30));
+      expect(
+        ShapeHandles.drag(line, 2, const Offset(60, 30), shift: true).points[2],
+        const Offset(50, 30),
+      );
+      expect(ShapeHandles.drag(bent, 2, const Offset(53, 4), snap: 8).isBent, isFalse);
+      // The outline passes through the bend.
+      final outline = ShapeBuilder.outline(bent);
+      expect(outline.any((p) => (p - const Offset(60, 30)).distance < 1), isTrue);
+      // Moving an end keeps the bend where it was on the curve.
+      final longer = ShapeHandles.drag(bent, 1, const Offset(200, 0));
+      expect(longer.points[2], offsetMoreOrLessEquals(const Offset(120, 60)));
+      // An end near a 15° step snaps there.
+      final end = ShapeHandles.drag(line, 1, Offset.fromDirection(0.27, 100), snap: 8).points[1];
+      expect(end.direction, closeTo(math.pi / 12, 1e-9));
+    });
+
+    test('vertices line up with the others; Shift keeps one to an axis', () {
+      final tri = ShapeGeometry(ShapeKind.triangle, const [
+        Offset(0, 0),
+        Offset(100, 10),
+        Offset(30, 80),
+      ]);
+      expect(
+        ShapeHandles.drag(tri, 2, const Offset(97, 83), snap: 5).points[2],
+        const Offset(100, 83),
+      );
+      expect(
+        ShapeHandles.drag(tri, 1, const Offset(150, 14), shift: true).points[1],
+        offsetMoreOrLessEquals(const Offset(150, 10)),
+      );
     });
 
     test('line ends and polygon vertices move freely', () {
@@ -274,7 +424,7 @@ void main() {
     );
     // Its inner radius, dragged in: one synced edit with the fill kept.
     final star = liveStrokes(services, nb.id).singleWhere((s) => s.shape?.kind == ShapeKind.star);
-    final dot = ShapeHandles.of(star.shape!)[1];
+    final dot = ShapeHandles.of(star.shape!)[2].at;
     final drag = await tester.startGesture(dot, kind: PointerDeviceKind.mouse);
     await drag.moveTo(Offset.lerp(dot, star.shape!.points[0], 0.5)!);
     await drag.up();
@@ -285,5 +435,15 @@ void main() {
     expect(thin.fill, star.fill);
     final pushed = services.strokes.dirtyRecords(100).where((r) => r.id == thin.id).single;
     expect((pushed.data!['style'] as Map)['sh'], thin.shape!.toJson());
+    // Style sets its points: one undoable edit each.
+    await tester.tap(find.byTooltip('Style'));
+    await tester.pumpAndSettle();
+    expect(find.text('Points'), findsOneWidget);
+    await tester.tap(find.byTooltip('More points'));
+    await tester.pumpAndSettle();
+    final six = liveStrokes(services, nb.id).singleWhere((s) => s.shape?.kind == ShapeKind.star);
+    expect(six.shape!.tips, 6);
+    expect(six.shape!.inner, thin.shape!.inner);
+    expect(ShapeBuilder.starVertices(six.shape!), hasLength(12));
   });
 }

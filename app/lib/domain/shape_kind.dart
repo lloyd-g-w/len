@@ -9,6 +9,13 @@ enum ShapeKind {
   diamond('Diamond'),
   star('Star'),
 
+  /// A cubic Bézier spline through anchors, open or closed.
+  curve('Curve'),
+
+  /// An ellipse drawn regular (Shift, or nearly round); not in the picker:
+  /// the Ellipse makes it.
+  circle('Circle'),
+
   /// Recognised only (an irregular closed polygon); not in the picker.
   polygon('Polygon');
 
@@ -27,8 +34,13 @@ enum ShapeKind {
     star,
   ];
 
-  /// Closed outlines (start where they end).
-  bool get isClosed => this != line && this != arrow;
+  /// Outlines that are always closed (start where they end). A curve may
+  /// be either (`ShapeGeometry.isClosed`).
+  bool get isClosed => this != line && this != arrow && this != curve;
+
+  /// Whether shapes of this kind can take a fill: the closed kinds, and
+  /// curves (once closed).
+  bool get mayFill => isClosed || this == curve;
 
   /// The Shape tool's kind named [value]; a rectangle for anything else
   /// (tool preferences).
