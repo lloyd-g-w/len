@@ -140,6 +140,8 @@ class EditorSession with _EditorSessionZoom {
       events: input.events,
       send: (data) => services.sync.rooms.send(shared.id, data),
       anyoneThere: () => services.sync.rooms.othersIn(shared.id).isNotEmpty,
+      presence: services.sync.rooms,
+      members: () => [for (final m in services.sync.rooms.othersIn(shared.id)) m.connection],
     );
     pointerRelay = PointerRelay(
       events: input.events,

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
+
 import '../../../domain/stroke.dart';
 import '../../../ink/input/ink_events.dart';
 import '../../../ink/input/live_ink.dart';
@@ -9,16 +11,22 @@ import '../../../ink/input/live_ink.dart';
 /// notebook's room as it grows (live ink, docs/SYNC_PROTOCOL.md "Room
 /// data"): its new points at most every [every], and its end with the ids
 /// of the strokes it became, so they draw it until those strokes arrive.
+/// A device joining the room mid-stroke gets the stroke again from its
+/// start, so it shows it live too.
 class LiveInkRelay {
   LiveInkRelay({
     required this.live,
     required InkEvents events,
     required this.send,
     required this.anyoneThere,
+    this.presence,
+    this.members,
     this.every = const Duration(milliseconds: 50),
   }) {
     attach(events);
     live.addListener(_changed);
+    _members = {...?members?.call()};
+    presence?.addListener(_presenceChanged);
   }
 
   final LiveInk live;
@@ -40,6 +48,12 @@ class LiveInkRelay {
   /// Whether another device is in the room (nothing is sent otherwise).
   final bool Function() anyoneThere;
 
+  /// Notifies when the room's members change; [members] are the other
+  /// devices' connections. A device joining mid-stroke gets it again from
+  /// its start.
+  final Listenable? presence;
+  final Iterable<String> Function()? members;
+
   /// The least time between two messages of a stroke.
   final Duration every;
 
@@ -55,27 +69,51 @@ class LiveInkRelay {
   static final _random = Random();
 
   String? _id;
-  String? _surface;
+  String? _surface; // Of the stroke being written (sent or not).
+  Set<String> _members = const {};
   int _sent = 0;
   int _generation = 0;
   Timer? _timer;
   Timer? _alive;
   bool _due = false;
 
+  /// Whether the stroke being written is shown to other devices.
+  bool get relaying => _id != null;
+
   void _began(String surfaceId) {
     _timer?.cancel();
     _timer = null;
     _alive?.cancel();
+    _surface = surfaceId;
     if (!anyoneThere()) {
       _id = null;
       return;
     }
-    _id =
-        '${_random.nextInt(1 << 30).toRadixString(36)}${_random.nextInt(1 << 30).toRadixString(36)}';
-    _surface = surfaceId;
+    _id = _newId();
     _sent = 0;
     _generation = live.generation;
     _flush();
+  }
+
+  static String _newId() =>
+      '${_random.nextInt(1 << 30).toRadixString(36)}${_random.nextInt(1 << 30).toRadixString(36)}';
+
+  /// Someone joined mid-stroke: the stroke goes again from its start (in
+  /// messages of [maxPoints], as a stroke replaced whole), so they show it
+  /// all; those who showed it already replace its points.
+  void _presenceChanged() {
+    final now = {...?members?.call()};
+    final joined = now.any((m) => !_members.contains(m));
+    _members = now;
+    if (!joined || _surface == null || !live.isDrawing || !anyoneThere()) return;
+    _id ??= _newId(); // Nobody was there when it began.
+    _sent = 0;
+    _generation = live.generation;
+    if (_timer != null) {
+      _due = true;
+    } else {
+      _flush();
+    }
   }
 
   void _changed() {
@@ -140,6 +178,7 @@ class LiveInkRelay {
   void _ended(List<String> strokeIds) {
     final id = _id;
     _id = null;
+    _surface = null;
     _timer?.cancel();
     _timer = null;
     _alive?.cancel();
@@ -149,6 +188,7 @@ class LiveInkRelay {
 
   void dispose() {
     live.removeListener(_changed);
+    presence?.removeListener(_presenceChanged);
     for (final events in _events) {
       if (events.inkBegan == _began) events.inkBegan = null;
       if (events.inkEnded == _ended) events.inkEnded = null;

@@ -133,13 +133,15 @@ fixed 24 × 24; they now grow to their text.
 repeated the label; it is excluded from semantics. Joins and leaves are not
 announced: keep (it would interrupt writing).
 
-**R25-15 P2 · Another device's live stroke vanished when its pen rested 3 s.** ✅ / ⬜
+**R25-15 P2 · Another device's live stroke vanished when its pen rested 3 s.** ✅
 - *What:* receivers drop a writer after 3 s of silence and the sender sent
   nothing while the pen rested, so the rest of the stroke was refused
   (`from` beyond what was kept) until its record came.
 - *Fix:* `LiveInkRelay` tells a resting stroke again every second (no new
-  points; SYNC_PROTOCOL updated). ⬜ A device joining mid-stroke still sees
-  that stroke only when its record lands (P3).
+  points; SYNC_PROTOCOL updated). A device joining mid-stroke saw that stroke
+  only when its record landed (P3): ✅ `LiveInkRelay` follows presence and sends
+  the stroke again from its start when someone joins (in messages of at most 300
+  points, as a stroke replaced whole), even one begun while nobody was there.
 
 **R25-16 P2 · (suspected) A hover or mouse laser over another page is sent as the active page's.** ✅
 Hover maps through the active page's viewport (`ink_input_controller`), and

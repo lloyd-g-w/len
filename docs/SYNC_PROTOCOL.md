@@ -223,7 +223,10 @@ world unit, pressure to a thousandth), sent only while someone else is in the ro
 `from` on (`from` > 0: only those after the points sent before; a stroke replaced whole, e.g.
 straightened or snapped, starts again at 0, and a receiver drops its points from `from` on). A
 receiver that missed points (`from` beyond what it has) waits for the next start. While the pen
-rests, the stroke is told again every second with no new points (`p` empty). Then `{"k":
+rests, the stroke is told again every second with no new points (`p` empty). When another device
+joins the room mid-stroke (or a stroke began while nobody else was there), the writer sends it
+again from 0 (as a stroke replaced whole: in messages of at most 300 points), so the newcomer
+shows it live; devices that showed it already replace its points. Then `{"k":
 "ink", "s": "<id>", "end": true, "strokes": ["<stroke id>", …]}` when it ends: `strokes` names the
 stroke records it became — one, or several for a highlight snapped to text (one per line it
 covers) — and is absent when it was dropped. Other devices draw it as provisional ink over the
