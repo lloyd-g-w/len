@@ -143,10 +143,24 @@ migrations needs no manual cleanup — but don't rely on it once we ship.
   `test/support/real_async.dart`, `settle` in `canvas_fixtures.dart`), use fake
   time (`tester.pump(duration)`, `fake_async`), and keep timing checks relative
   (best of interleaved batches, generous limits); benchmarks go in `test/perf/`.
+  The default tier runs a file per core beside other work, so it is always
+  a busy machine (verify fixes with `stress-ng --cpu 4` alongside):
+  - Real-async loops pump with `tester.pump(Duration.zero)` (as `pumpUntil`
+    does), never a bare `pump()`: app code yields with zero-delay timers
+    after a wall-clock slice, so only under load does it set one, and a bare
+    pump never fires it (the work stalls). Don't `expect` inside callbacks
+    the app calls during a pump; record and check afterwards.
+  - Absolute time limits are judged strictly only in the slow tier; in the
+    default tier relax them when the machine is detectably busy (Ink Lab:
+    `MachineLoad`, `judge.dart`), or keep only a blow-up bound.
+  - Heavy property tests run a share of their cases in the default tier and
+    the rest (other seeds) in a test tagged `slow`, with a generous
+    per-test `timeout`.
 - Two test tiers (`app/dart_test.yaml`): the **default** tier is everything
   not tagged `slow`; the **slow** tier is the benchmarks (`test/perf/`,
   `@Tags(['perf'])`) and the screenshot scenarios (`test/screenshots/`,
-  `@Tags(['screenshots'])`), both of which add `slow`. A new file in either
+  `@Tags(['screenshots'])`), both of which add `slow`, plus the extra cases of
+  heavy property tests (tagged `slow` themselves). A new file in either
   directory carries its tag (`@Tags([...])` + `library;` on top). CI runs the fast
   tier on every push (`App · analyze + test`); run the slow tier locally.
 - Run the full suite on a tree nothing changes meanwhile (no merge, checkout or

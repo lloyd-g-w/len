@@ -243,6 +243,28 @@ Future<String> _import(AppServices s, Uint8List bytes, {required bool ranged}) a
   return result.notebooks.single;
 }
 
+/// A library of random notebooks (from [seed]) backed up and restored into
+/// an empty one keeps its notebooks, their ids and their content.
+Future<void> _backupRestored(int seed) async {
+  final r = math.Random(seed);
+  final source = _services(), target = _services();
+  final notebooks = [for (var i = 1 + r.nextInt(3); i > 0; i--) await _notebook(source, r)];
+  final out = OutputMemoryStream();
+  await source.lenFiles.write(const LenScope.library(), out);
+  final bytes = out.getBytes();
+  final opened = await target.lenFiles.open(
+    r.nextBool() ? _ranged(bytes) : InputMemoryStream(bytes),
+  );
+  expect(opened.contents.notebooks.keys.toSet(), {for (final n in notebooks) n.id});
+  final result = await target.lenFiles.import(opened, keepIds: true);
+  expect(result.problems, isEmpty);
+  expect(result.notebooks.toSet(), {for (final n in notebooks) n.id});
+  for (final n in notebooks) {
+    expect(_ids(target, n.id), _ids(source, n.id));
+    expect(await _content(target, n.id), await _content(source, n.id));
+  }
+}
+
 void main() {
   test('a notebook exported and imported is the same notebook under new ids', () async {
     await forAll(Gens.intIn(0, 1 << 30), (seed) async {
@@ -270,32 +292,19 @@ void main() {
     }, runs: 40);
   });
 
-  test('a library backed up and restored into an empty one keeps its notebooks and ids', () async {
-    await forAll(
-      Gens.intIn(0, 1 << 30),
-      (seed) async {
-        final r = math.Random(seed);
-        final source = _services(), target = _services();
-        final notebooks = [for (var i = 1 + r.nextInt(3); i > 0; i--) await _notebook(source, r)];
-        final out = OutputMemoryStream();
-        await source.lenFiles.write(const LenScope.library(), out);
-        final bytes = out.getBytes();
-        final opened = await target.lenFiles.open(
-          r.nextBool() ? _ranged(bytes) : InputMemoryStream(bytes),
-        );
-        expect(opened.contents.notebooks.keys.toSet(), {for (final n in notebooks) n.id});
-        final result = await target.lenFiles.import(opened, keepIds: true);
-        expect(result.problems, isEmpty);
-        expect(result.notebooks.toSet(), {for (final n in notebooks) n.id});
-        for (final n in notebooks) {
-          expect(_ids(target, n.id), _ids(source, n.id));
-          expect(await _content(target, n.id), await _content(source, n.id));
-        }
-      },
-      runs: 150,
-      seed: 777,
-    );
-  });
+  // 150 libraries in all, ~0.1 s each (seconds under load): the default
+  // tier checks the first 40, the slow tier the other 110.
+  test(
+    'a library backed up and restored into an empty one keeps its notebooks and ids',
+    () => forAll(Gens.intIn(0, 1 << 30), _backupRestored, runs: 40, seed: 777),
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+  test(
+    'a library backed up and restored keeps its notebooks and ids (110 more libraries)',
+    () => forAll(Gens.intIn(0, 1 << 30), _backupRestored, runs: 110, seed: 777 + 40),
+    tags: ['slow'],
+    timeout: const Timeout(Duration(minutes: 5)),
+  );
 
   test('a file read in slices reads as the whole file, whatever the slices', () async {
     await forAll(Gens.intIn(0, 1 << 30), (seed) async {
