@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../domain/stroke.dart';
 import '../geometry/straighten.dart';
+import '../shapes/curve_recognizer.dart';
 import '../shapes/polyline.dart';
 import '../shapes/shape_builder.dart';
 import '../shapes/shape_recognizer.dart';
@@ -18,10 +19,12 @@ import 'live_ink.dart';
 ///    the line's end — and one ending in a head an arrow; both snap level,
 ///    upright or diagonal when nearly so ([ShapeSnap.lineEnd]);
 ///  * a closed stroke at least [minShape] across becomes a clean
-///    rectangle, ellipse, triangle, diamond or polygon (which then stays
-///    put until the pen lifts);
-///  * anything else (handwriting, a curve, a scribble, a small letter "o")
-///    is left alone.
+///    rectangle, circle, ellipse, triangle, diamond or polygon (which then
+///    stays put until the pen lifts);
+///  * a smooth stroke that is none of those, at least [minCurve] across,
+///    becomes a curve (a fitted spline, [CurveRecognizer]);
+///  * anything else (handwriting, a scribble, a small letter "o") is left
+///    alone.
 /// Only the clean shape is ever committed, so a single undo removes it.
 ///
 /// An ink with [PenConfig.straight] is straight from the start: [begin]
@@ -52,6 +55,10 @@ class HoldToStraighten {
   /// stay as written: letters and digits ("o", "0", "8").
   static const double minShape = 48;
 
+  /// Smooth strokes smaller than this (screen pixels, their longest side)
+  /// stay as written rather than becoming a curve: letters ("c", "s").
+  static const double minCurve = 128;
+
   /// The shortest open stroke (screen pixels) [wouldSnap] counts as a
   /// line someone might have wanted straight, and the smallest closed one.
   static const double hintLine = 120, hintShape = 48;
@@ -78,15 +85,15 @@ class HoldToStraighten {
 
   /// What [points] (world, at [scale]) snap to when the pen rests at
   /// their end: the recognised shape, unless the stroke is too short or a
-  /// closed one too small (a letter).
+  /// closed one too small (a letter); failing that, a smooth stroke at
+  /// least [minCurve] across becomes a curve ([CurveRecognizer]).
   static ShapeGeometry? snapOf(List<StrokePoint> points, double scale) {
     if (Straighten.pathLength(points) * scale < minLength) return null;
     final offsets = [for (final p in points) p.offset];
+    final size = Polyline.bounds(offsets).longestSide * scale;
     final shape = ShapeRecognizer.recognize(offsets);
-    if (shape == null) return null;
-    if (shape.kind.isClosed && Polyline.bounds(offsets).longestSide * scale < minShape) {
-      return null;
-    }
+    if (shape == null) return size >= minCurve ? CurveRecognizer.recognize(offsets) : null;
+    if (shape.kind.isClosed && size < minShape) return null;
     return shape;
   }
 

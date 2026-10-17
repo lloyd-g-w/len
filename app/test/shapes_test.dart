@@ -211,7 +211,7 @@ void main() {
         final h = HandShapes(seed);
         final tilt = seed.isEven ? 0.03 : 0.45;
         final cases = <(ShapeKind, List<Offset>)>[
-          (ShapeKind.ellipse, h.ellipse(c, 90, 88)),
+          (ShapeKind.circle, h.ellipse(c, 90, 88)),
           (ShapeKind.ellipse, h.ellipse(c, 120, 60, angle: tilt)),
           (
             ShapeKind.rectangle,
@@ -268,7 +268,7 @@ void main() {
         for (final word in HandShapes.writing(const Offset(100, 100), seed: seed)) {
           final shape = ShapeRecognizer.recognize(word);
           // Small closed letters ("o") are left to hold to snap's size rule.
-          if (shape?.kind == ShapeKind.ellipse) {
+          if (shape?.kind == ShapeKind.ellipse || shape?.kind == ShapeKind.circle) {
             expect(Polyline.bounds(word).longestSide, lessThan(HoldToStraighten.minShape));
             continue;
           }

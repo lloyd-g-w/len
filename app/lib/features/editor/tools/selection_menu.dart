@@ -76,7 +76,8 @@ class SelectionMenu extends StatelessWidget {
         final shape = selection.shape;
         final handles = [
           ...SelectionChrome.handles(frame, viewport, shape: shape).values,
-          if (shape != null) ...SelectionChrome.shapeHandles(shape, viewport),
+          if (shape != null)
+            for (final h in SelectionChrome.shapeHandles(shape, viewport)) h.at,
         ];
         final corners = frame.corners.map(viewport.toScreen);
         var box = Rect.fromPoints(corners.first, corners.first);

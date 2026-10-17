@@ -21,7 +21,8 @@ import 'polyline.dart';
 ///   dropped. 3 corners → triangle; 4 →
 ///   diamond with diagonals along the axes, rectangle when right-angled
 ///   (axis-aligned when nearly so); up to 8 → polygon. Nearly round
-///   ellipses become circles. Anything else (a scribble) is not recognised.
+///   ellipses become circles. Anything else (a scribble) is not recognised
+///   (smooth strokes may still be curves: `CurveRecognizer`).
 abstract final class ShapeRecognizer {
   /// Accepted mean fit error, relative to the bounding-box diagonal.
   static const double maxError = 0.035;
@@ -246,11 +247,13 @@ abstract final class ShapeRecognizer {
     const quarter = math.pi / 2;
     final snapped = (angle / quarter).round() * quarter;
     if ((angle - snapped).abs() < 8 * math.pi / 180) angle = snapped;
-    final shape = ShapeGeometry(ShapeKind.ellipse, [
-      centre,
-      centre + _rotate(Offset(rx, 0), angle),
-      centre + _rotate(Offset(0, ry), angle),
-    ]);
+    final shape = rx == ry
+        ? ShapeGeometry(ShapeKind.circle, [centre, centre + Offset(rx, 0)])
+        : ShapeGeometry(ShapeKind.ellipse, [
+            centre,
+            centre + _rotate(Offset(rx, 0), angle),
+            centre + _rotate(Offset(0, ry), angle),
+          ]);
     return (shape: shape, error: error);
   }
 

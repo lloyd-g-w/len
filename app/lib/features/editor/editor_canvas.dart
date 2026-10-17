@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../data/search/surface_text.dart';
 import '../../domain/paper.dart';
 import 'canvas/canvas_view.dart';
 import 'chrome/canvas_guard.dart';
 import 'document/add_page_footer.dart';
+import 'document/page_semantics.dart';
 import 'document/paged_document_view.dart';
 import 'editor_session.dart';
 import 'links/link_layer.dart';
@@ -56,6 +60,8 @@ class EditorCanvas extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         _surface(context),
+        // Under the content layer: a text box's own node wins a touch.
+        Positioned.fill(child: _pageSemantics()),
         Positioned.fill(child: LinkLayer(session: session)),
         if (doc != null)
           AddPageFooter(
@@ -69,6 +75,21 @@ class EditorCanvas extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// The pages (or the canvas) to screen readers.
+  Widget _pageSemantics() {
+    final services = session.services;
+    SurfaceTextCache texts() {
+      // PDFs imported before search existed get their text read now.
+      if (session.doc != null) unawaited(services.search.indexPdfs());
+      return SurfaceTextCache(SurfaceText(services.database));
+    }
+
+    final doc = session.doc;
+    return doc != null
+        ? PageSemantics.document(doc: doc, texts: texts)
+        : PageSemantics.canvas(canvasId: session.notebook.id, texts: texts);
   }
 
   Widget _surface(BuildContext context) {

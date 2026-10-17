@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../domain/stroke.dart';
@@ -25,7 +27,6 @@ class ShapeOptionsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     return ListenableBuilder(
       listenable: tools,
@@ -48,51 +49,22 @@ class ShapeOptionsPanel extends StatelessWidget {
           RovingGroup(
             axis: Axis.horizontal,
             single: true,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                for (final kind in ShapeKind.drawable)
-                  RovingItem(
-                    stop: tools.shape == kind,
-                    child: IconButton(
-                      key: ValueKey('shape-${kind.name}'),
-                      tooltip: kind.label,
-                      isSelected: tools.shape == kind,
-                      style: IconButton.styleFrom(
-                        backgroundColor: tools.shape == kind ? Surfaces.pressed(scheme) : null,
-                        foregroundColor: scheme.onSurfaceVariant,
-                        // Seven fit one row of the 320-dp popover, on touch too.
-                        fixedSize: const Size.square(Targets.bar),
-                        minimumSize: const Size.square(Targets.bar),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(Radii.xs),
-                        ),
-                      ),
-                      onPressed: () => tools.shape = kind,
-                      icon: ShapeGlyph(kind, size: Glyphs.bar),
-                      selectedIcon: IconTheme.merge(
-                        data: IconThemeData(color: scheme.onSurface),
-                        child: ShapeGlyph(kind, size: Glyphs.bar),
-                      ),
-                    ),
-                  ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) => _kinds(context, constraints.maxWidth),
             ),
           ),
           const SizedBox(height: Gaps.md),
-          // Lines and arrows have no inside: the row stays (no jump
-          // between kinds) but is dimmed and inert.
+          // Lines and arrows have no inside (curves do once closed): the
+          // row stays (no jump between kinds) but is dimmed and inert.
           IgnorePointer(
-            ignoring: !tools.shape.isClosed,
+            ignoring: !tools.shape.mayFill,
             child: ExcludeFocus(
-              excluding: !tools.shape.isClosed,
+              excluding: !tools.shape.mayFill,
               child: ExcludeSemantics(
-                excluding: !tools.shape.isClosed,
+                excluding: !tools.shape.mayFill,
                 child: AnimatedOpacity(
                   duration: Motion.fast,
-                  opacity: tools.shape.isClosed ? 1 : 0.38,
+                  opacity: tools.shape.mayFill ? 1 : 0.38,
                   child: FillChoices(
                     fill: tools.shapeFill,
                     ink: tools.configOf(InkTool.ballpoint).color,
@@ -104,7 +76,11 @@ class ShapeOptionsPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: Gaps.md),
-          Text('Drag to draw, tap a shape to edit it', style: text.bodySmall),
+          if (tools.shape == ShapeKind.curve) ...[
+            Text('Tap for corners, drag for smooth points', style: text.bodySmall),
+            Text('Tap the first point to close, tap twice to finish', style: text.bodySmall),
+          ] else
+            Text('Drag to draw, tap a shape to edit it', style: text.bodySmall),
           // Only a keyboard has Shift.
           if (!Targets.touchFirst)
             Text('Hold Shift for regular shapes and 15° lines', style: text.bodySmall),
@@ -117,6 +93,42 @@ class ShapeOptionsPanel extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// The row of kinds, each as wide as [width] allows up to a bar
+  /// button (eight fit the 320-dp popover at 36).
+  Widget _kinds(BuildContext context, double width) {
+    final scheme = Theme.of(context).colorScheme;
+    final side = math.min(Targets.bar, width / ShapeKind.drawable.length);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        for (final kind in ShapeKind.drawable)
+          RovingItem(
+            stop: tools.shape == kind,
+            child: IconButton(
+              key: ValueKey('shape-${kind.name}'),
+              tooltip: kind.label,
+              isSelected: tools.shape == kind,
+              style: IconButton.styleFrom(
+                backgroundColor: tools.shape == kind ? Surfaces.pressed(scheme) : null,
+                foregroundColor: scheme.onSurfaceVariant,
+                fixedSize: Size.square(side),
+                minimumSize: Size.square(side),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
+              ),
+              onPressed: () => tools.shape = kind,
+              icon: ShapeGlyph(kind, size: Glyphs.bar),
+              selectedIcon: IconTheme.merge(
+                data: IconThemeData(color: scheme.onSurface),
+                child: ShapeGlyph(kind, size: Glyphs.bar),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

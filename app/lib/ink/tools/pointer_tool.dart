@@ -2,7 +2,12 @@ import 'dart:ui';
 
 /// One pointer sample handed to a [PointerTool].
 class ToolPointer {
-  const ToolPointer({required this.screen, required this.world, this.pressure = 0.5});
+  const ToolPointer({
+    required this.screen,
+    required this.world,
+    this.pressure = 0.5,
+    this.kind = PointerDeviceKind.touch,
+  });
 
   /// Position in the surface widget (logical pixels).
   final Offset screen;
@@ -12,6 +17,9 @@ class ToolPointer {
 
   /// Normalised pressure (0.5 without a stylus).
   final double pressure;
+
+  /// What is pointing (a finger, pen or mouse): how far handles reach.
+  final PointerDeviceKind kind;
 }
 
 /// A tool driven by the drawing pointer (pen, mouse or drawing finger)
