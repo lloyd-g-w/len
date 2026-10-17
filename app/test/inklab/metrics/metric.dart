@@ -25,6 +25,17 @@ class Metric {
 
   String get group => id.split('.').first;
 
+  /// This metric held to [factor] × its limit, saying so in its note.
+  Metric relaxed(double factor, String why) => Metric(
+    id,
+    value,
+    limit: higherIsBetter ? limit / factor : limit * factor,
+    unit: unit,
+    higherIsBetter: higherIsBetter,
+    where: where,
+    note: '$note (limit ×$factor: $why)',
+  );
+
   bool get pass => value.isNaN || (higherIsBetter ? value >= limit : value <= limit);
 
   String get formatted => '${_fmt(value)}$unit (limit ${_fmt(limit)}$unit)';

@@ -90,6 +90,12 @@ Pen-engine work must pass that run too. Timing metrics only run on
 keeps its fastest live build and pen-up handling, so load on the machine
 does not tip `perf.flatness` (`perf_flatness_test.dart` checks that it
 still fails builders doing O(length) work per frame: 6–7× against 1.0×).
+The absolute ones (`perf.frameCost`, `perf.commit`) still grow on a machine
+busy all through (a full test run beside other work: `perf.commit` 9.5 ms
+against ≤ 4 alone), so where the timed replays waited for a CPU or the load
+average is high, the suite holds them to 3× their limits (`MachineLoad`,
+`judge.dart`); `test/perf/inklab_timing_perf_test.dart` (slow tier) judges
+every timing metric strictly.
 
 Flat pen ends (butt caps) have their own rules for the live tip, the
 committed ends and the overlay, so `flat_ends_suite_test.dart` (part of
