@@ -53,7 +53,8 @@ class PenDefaults {
     label: 'Pen',
     opacity: 1,
     thinning: 0.25,
-    streamline: 0,
+    // A light stabiliser: smooth ink (a mouse's above all) for ~10 px of lag.
+    streamline: 0.3,
     ends: PenEnds(),
     endStyles: [StrokeEnds.round, StrokeEnds.tapered, StrokeEnds.flat],
     minWidth: 0.5,
