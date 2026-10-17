@@ -82,15 +82,14 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   makes sense (editable quick colour slots and their count, quick sizes, pressure, stabiliser,
   ends, preview, Reset) on the highlighter and the laser pointer too; the laser's three fixed
   colours become editable slots, with quick sizes.
-- ⬜ **Better shape control points** (pen → shape and the Shape tool): handles by meaning,
-  not bounding-box corners: a circle / ellipse by centre (move) and radius (or two radii and a
-  rotation), rectangle corners + edge midpoints + rotation, line / arrow endpoints (and a bend),
-  polygon / triangle / diamond vertices, star centre + outer / inner radius + points; snapping
-  and Shift constraints while dragging; one undo step per drag; synced.
-- ⬜ **Arbitrary curves**: a Curve kind (cubic Bézier spline, open or closed) in the Shape
-  tool (tap / drag to place anchors and pull tangents) and from pen → shape (a held smooth
-  stroke that is no other shape snaps to a fitted spline); anchors and tangent handles
-  editable on selection, add / remove anchors; fill when closed.
+- ✅ **Better shape control points**: handles by meaning for drawn and snapped shapes (circle
+  centre + radius, ellipse centre + two radii, rectangle / diamond corners + sides, a line's
+  bend, star centre + point + inner radius and its points in Style) with snaps and Shift
+  constraints, one undo step per drag, synced in the shape geometry (circle kind, bends, `n`).
+- ✅ **Arbitrary curves**: a Curve kind (cubic Bézier spline, open or closed, filled when
+  closed) drawn anchor by anchor with the Shape tool or snapped from a held smooth stroke
+  (Schneider fit); anchors and tangents are editable, a tap on the line adds an anchor and a
+  double tap removes one.
 - ⬜ **The pen still flickers sometimes** (owner, again): keep hunting every cause on every
   platform (Linux, web, Android), with frame-by-frame tests.
 - ⬜ **Live sync, actually live**: edits show on other devices within a fraction of a second
