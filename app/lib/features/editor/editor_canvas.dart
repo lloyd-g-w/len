@@ -95,6 +95,9 @@ class EditorCanvas extends StatelessWidget {
                 final index = doc.pages.indexWhere((p) => p.id == id);
                 return index < 0 ? null : doc.layout.frameOf(index);
               },
+        paperOf: (id) =>
+            doc?.pages.where((p) => p.id == id).firstOrNull?.paperColor ??
+            session.notebook.paperColor,
       ),
     );
   }

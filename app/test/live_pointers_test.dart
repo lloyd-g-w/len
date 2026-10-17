@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:fake_async/fake_async.dart';
@@ -10,6 +11,7 @@ import 'package:len/data/stroke_reader.dart';
 import 'package:len/domain/chunk_digest.dart';
 import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/notebook.dart';
+import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/live_ink/pointer_relay.dart';
 import 'package:len/features/editor/live_ink/remote_pointers_overlay.dart';
@@ -207,8 +209,7 @@ void main() {
       },
       plate: const Color(0xFFEEEEEE),
       label: const TextStyle(fontSize: 12),
-      dot: const Color(0xFF000000),
-      halo: const Color(0xFFFFFFFF),
+      paperOf: (_) => PaperColor.white,
     );
     final recorder = ui.PictureRecorder();
     painter.paint(Canvas(recorder), const Size(800, 600));
@@ -234,14 +235,50 @@ void main() {
         tags: tags,
         plate: const Color(0xFFEEEEEE),
         label: const TextStyle(fontSize: 12),
-        dot: const Color(0xFF000000),
-        halo: const Color(0xFFFFFFFF),
+        paperOf: (_) => PaperColor.white,
       ).paint(canvas, const Size(800, 600));
       return (plates: canvas.rrects, dots: canvas.circles);
     }
 
     expect(paint(tags: true), (plates: 1, dots: 2));
     expect(paint(tags: false), (plates: 0, dots: 2), reason: 'the dot stays');
+  });
+
+  test('the hover dot takes its colours from the paper, not the theme', () {
+    final rooms = _rooms();
+    final pointers = RemotePointers(rooms, room: 'nb');
+    addTearDown(pointers.dispose);
+    for (final page in ['light', 'dark']) {
+      _say(rooms, {
+        'k': 'pointer',
+        'page': page,
+        'at': [5, 5],
+      }, from: 'c-$page');
+    }
+    final canvas = _CountingCanvas();
+    RemotePointersPainter(
+      pointers: pointers,
+      viewport: ViewportController(),
+      frameOf: (_) => const Rect.fromLTWH(0, 0, 800, 1000),
+      paperOf: (id) => id == 'dark' ? PaperColor.dark : PaperColor.cream,
+      tags: false,
+      plate: const Color(0xFFEEEEEE),
+      label: const TextStyle(fontSize: 12),
+    ).paint(canvas, const Size(800, 600));
+    final [lightHalo, lightDot, darkHalo, darkDot] = canvas.circleColours;
+    expect(
+      lightHalo.toARGB32(),
+      PaperColor.cream.paper.toARGB32(),
+      reason: 'ringed with the paper',
+    );
+    expect(darkHalo.toARGB32(), PaperColor.dark.paper.toARGB32());
+    double contrast(Color a, Color b) {
+      final (x, y) = (a.computeLuminance(), b.computeLuminance());
+      return (math.max(x, y) + 0.05) / (math.min(x, y) + 0.05);
+    }
+
+    expect(contrast(lightDot, PaperColor.cream.paper), greaterThan(7));
+    expect(contrast(darkDot, PaperColor.dark.paper), greaterThan(7));
   });
 
   test('a hover goes as the page under it; a laser trail stays on the page it began on', () {
@@ -436,6 +473,12 @@ void main() {
       );
     await tester.pump();
     expect(find.byType(RemotePointersOverlay), findsOneWidget);
+    // Its dot takes the colours of each page's paper (the third is dark).
+    final overlay = tester.widget<RemotePointersOverlay>(find.byType(RemotePointersOverlay));
+    expect(
+      [for (final p in s.pages.pagesOf(nb.id)) overlay.paperOf(p.id)],
+      [PaperColor.white, PaperColor.cream, PaperColor.dark],
+    );
     expect(session.shared.remotePointers.pointers.single.hover, const Offset(120, 80));
     expect(session.pointerRelay, isNotNull);
     expect(session.input.events.hovered, isNotNull, reason: 'someone is there: hooked in');
@@ -531,8 +574,7 @@ void main() {
       frameOf: overlay.frameOf,
       plate: const Color(0xFFEEEEEE),
       label: const TextStyle(fontSize: 12),
-      dot: const Color(0xFF000000),
-      halo: const Color(0xFFFFFFFF),
+      paperOf: (_) => PaperColor.white,
     ).paint(canvas, zoom.box);
     expect(canvas.circles, 2, reason: 'the hover dot and its halo');
     expect((Offset.zero & zoom.box).contains(zoom.view.toScreen(at)), isTrue);
@@ -582,11 +624,17 @@ class _CountingCanvas implements Canvas {
   int rrects = 0;
   int circles = 0;
 
+  /// The colours of the circles, in order.
+  final List<Color> circleColours = [];
+
   @override
   void drawRRect(RRect rrect, Paint paint) => rrects++;
 
   @override
-  void drawCircle(Offset c, double radius, Paint paint) => circles++;
+  void drawCircle(Offset c, double radius, Paint paint) {
+    circles++;
+    circleColours.add(paint.color);
+  }
 
   @override
   Object? noSuchMethod(Invocation invocation) => null;

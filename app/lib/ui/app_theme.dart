@@ -227,6 +227,13 @@ abstract final class Palette {
       ? const Color(0xFFFFFFFF).withValues(alpha: 0.7)
       : const Color(0xFF000000).withValues(alpha: 0.6);
 
+  /// Another device's hovering pointer on paper (paper keeps its colour in
+  /// both themes, so this is not themed): near-black on light paper,
+  /// near-white on dark; ringed with the paper's own colour, it reads over
+  /// ink too.
+  static Color pointerOn({required bool darkPaper}) =>
+      darkPaper ? const Color(0xFFF4F5F7) : const Color(0xFF16181D);
+
   /// Search matches: marker yellow (a warmer amber in dark mode); the
   /// current match is ringed in the light theme's ruling blue, as pages are
   /// light in both themes.

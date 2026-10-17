@@ -156,10 +156,12 @@ page plus the offset, wrong when the two devices lay pages out differently.
   a `RemotePointersOverlay` over its view of the frame's surface, each its own
   `RepaintBoundary` (nothing drawn while nobody else writes or points).
 
-**R25-18 P3 · In dark mode another device's hover dot is a hollow ring.** ⬜
-`remote_pointers_overlay.dart` takes dot and halo from the theme
-(onSurface light, surface dark) while paper stays light; take them from the
-paper, as ink does.
+**R25-18 P3 · In dark mode another device's hover dot is a hollow ring.** ✅
+`remote_pointers_overlay.dart` took dot and halo from the theme
+(onSurface light, surface dark) while paper stays light.
+- *Fix:* `RemotePointersPainter.paperOf`: the dot is `Palette.pointerOn` the page's paper
+  (near-black on light paper, near-white on dark), ringed with the paper's own colour, in
+  either theme.
 
 **R25-19 P3 · The pointer's name tag ignores the text scale.** Keep: it is
 a fixed plate on the paper, sized with the pointer.

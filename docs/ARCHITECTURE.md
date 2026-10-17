@@ -3909,7 +3909,8 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   `RemotePointer` per device — its hover position or a `LaserTrail` replaying its laser — hides
   it after 3 s without news and drops it when the device leaves. `RemotePointersOverlay` (in
   `EditorCanvas`, over the content layer; `RepaintBoundary`, ticking only while a laser fades)
-  paints them through `frameOf` (a page's frame, the canvas as is): a small dot for hovering,
+  paints them through `frameOf` (a page's frame, the canvas as is): a small dot for hovering
+  (`Palette.pointerOn` the page's paper, ringed with the paper: `paperOf`, not the theme),
   the laser as `LaserPaint` draws the local one, each labelled with the device's plate
   (`RoomPresence.initialOf`, the presence plate's colours) — its *name tag*, unless the local
   setting `pointer_tags` (`AppPreferences.pointerTags`, default on; "⋯" → View → *Name tags*

@@ -147,6 +147,7 @@ class _ZoomBoxPaperState extends State<ZoomBoxPaper> {
                 tags: session.services.preferences.pointerTags,
                 viewport: view,
                 frameOf: frameOf,
+                paperOf: _paperColour,
               ),
             ),
             Positioned(
