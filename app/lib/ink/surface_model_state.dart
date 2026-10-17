@@ -101,6 +101,10 @@ abstract class _SurfaceState extends ChangeNotifier {
 
   int _preparing = 0;
 
+  /// Ids of items edited here while a reload reads storage (null: none
+  /// running): the reload keeps them as they are in memory.
+  Set<String>? _reloadEdits;
+
   /// Ids removed while loads were being prepared: those loads must not
   /// bring them back.
   final Set<String> _removedWhilePreparing = {};
@@ -140,11 +144,19 @@ abstract class _SurfaceState extends ChangeNotifier {
     Set<ChunkKey> chunks, {
     List<Stroke>? appended,
     List<Stroke>? underlaid,
+    List<Stroke>? overlaid,
     bool loaded = false,
     List<Rect>? areas,
   }) {
     _changes.add(
-      SurfaceChange(chunks, appended: appended, underlaid: underlaid, loaded: loaded, areas: areas),
+      SurfaceChange(
+        chunks,
+        appended: appended,
+        underlaid: underlaid,
+        overlaid: overlaid,
+        loaded: loaded,
+        areas: areas,
+      ),
     );
     notifyListeners();
   }

@@ -19,10 +19,7 @@ extension _Invalidation on InkTileCache {
     _releaseAll(_old);
     _old = {
       for (final e in _tiles.entries)
-        if ((e.value.image != null || e.value.blank == true) &&
-            e.value.overlay.isEmpty &&
-            !e.value.stale)
-          e.key: e.value,
+        if ((e.value.image != null || e.value.blank == true) && !e.value.lingers) e.key: e.value,
     };
     _releaseAll({
       for (final e in _tiles.entries)
@@ -45,12 +42,16 @@ extension _Invalidation on InkTileCache {
       return;
     }
     final areas = change.areas ?? [for (final c in chunks) ChunkGrid.rectOf(c)];
-    // Tiles of the previous zoom no longer show the content.
-    for (final tile in _touching(_old, areas)) {
-      _old.remove(tile.index);
-      tile.release();
-    }
     final appended = change.appended;
+    if (appended == null || _space == null) {
+      // Tiles of the previous zoom no longer show the content. (Appends
+      // keep them: they stand in under the strokes' overlays, see
+      // [_paintTiles].)
+      for (final tile in _touching(_old, areas)) {
+        _old.remove(tile.index);
+        tile.release();
+      }
+    }
     if (appended != null && _space != null) {
       for (final stroke in appended) {
         final bounds = _clip == null ? stroke.bounds : stroke.bounds.intersect(_clip!);
@@ -69,6 +70,8 @@ extension _Invalidation on InkTileCache {
     }
     final underlaid = change.underlaid;
     if (underlaid != null && _space != null) return _underlay(underlaid, areas);
+    final overlaid = change.overlaid;
+    if (overlaid != null && _space != null) return _overlay(overlaid, areas);
     final hit = _touching(_tiles, areas);
     if (change.loaded) {
       // Stored content arrived: it was not on screen before, so nothing
@@ -112,6 +115,32 @@ extension _Invalidation on InkTileCache {
     }
   }
 
+  /// New strokes (or shown again) that are no append: tiles with an image
+  /// keep it, stale, with the pen strokes drawn over it and highlights
+  /// beneath it — as the live stroke or a selection drew them — until
+  /// rendered again (urgently); tiles without one show the content as it
+  /// now is from vectors. So the strokes never miss a frame at pen-up (or
+  /// when a selection is dropped), however many tiles they cross.
+  void _overlay(List<Stroke> strokes, List<ui.Rect> areas) {
+    for (final tile in _touching(_tiles, areas)) {
+      if (tile.image == null) {
+        tile
+          ..invalidate()
+          ..edited = true;
+        continue;
+      }
+      final rect = tile.space.worldRectOf(tile.index);
+      tile
+        ..dropParked()
+        ..version += 1
+        ..stale = true;
+      for (final s in strokes) {
+        if (s.bounds.overlaps(rect)) (s.tool.isHighlighter ? tile.underlay : tile.overlay).add(s);
+      }
+      if (_inUse) _request(tile.index, 0);
+    }
+  }
+
   /// Merges the strokes written into their tiles once the pen rests
   /// ([InkTileCache.mergeDelay]).
   void _scheduleMerge() {
@@ -151,6 +180,7 @@ extension _Invalidation on InkTileCache {
         ..dropParked()
         ..version += 1
         ..stale = true
+        ..lingers = tile.lingers || priority == 0
         // Strokes added since, unless erased or hidden by this change.
         ..overlay.removeWhere((s) => model.strokeById(s.id) != s || model.isHidden(s.id))
         ..underlay.removeWhere((s) => model.strokeById(s.id) != s || model.isHidden(s.id));

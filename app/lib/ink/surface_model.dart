@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:math' as math;
 import 'dart:ui';
@@ -35,6 +36,7 @@ export 'surface_change.dart';
 part 'surface_model_editing.dart';
 part 'surface_model_hiding.dart';
 part 'surface_model_loading.dart';
+part 'surface_model_reload.dart';
 part 'surface_model_state.dart';
 
 /// The in-memory working set of one drawing surface (a page or a canvas):
@@ -47,9 +49,11 @@ part 'surface_model_state.dart';
 ///
 /// The model's parts: [_SurfaceState] (what it holds), [_SurfaceHiding]
 /// (content shown elsewhere while selected or edited), [_SurfaceLoading]
-/// (the working set following the viewport) and [_SurfaceEditing]
+/// (the working set following the viewport), [_SurfaceReload] (taking in
+/// changes made beneath it) and [_SurfaceEditing]
 /// (undoable edits and their persistence).
-class SurfaceModel extends _SurfaceState with _SurfaceHiding, _SurfaceLoading, _SurfaceEditing {
+class SurfaceModel extends _SurfaceState
+    with _SurfaceHiding, _SurfaceLoading, _SurfaceReload, _SurfaceEditing {
   SurfaceModel({
     required super.surfaceId,
     required super.repository,

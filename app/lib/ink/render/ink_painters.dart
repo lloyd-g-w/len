@@ -17,12 +17,24 @@ import 'tiles/ink_tile_cache.dart';
 import 'tiles/tile_space.dart';
 
 /// Paints [tiles] in [view] onto [canvas] (logical pixels), drawing the
-/// areas without tile images from the chunk pictures.
-void paintTiled(Canvas canvas, InkTileCache tiles, TileView view, double devicePixelRatio) {
+/// areas without tile images from the chunk pictures — or, not rendered
+/// since a zoom (in from the level of detail), from the [rasters] there
+/// are.
+void paintTiled(
+  Canvas canvas,
+  InkTileCache tiles,
+  TileView view,
+  double devicePixelRatio, {
+  ChunkRasterCache? rasters,
+}) {
   canvas
     ..save()
     ..scale(1 / devicePixelRatio);
-  tiles.paint(canvas, view, (canvas, view, rects) {
+  final standIn = rasters == null
+      ? null
+      : (Canvas canvas, TileView view, List<Rect> world) =>
+            paintRasterStandIn(canvas, rasters, view, world);
+  tiles.paint(canvas, view, standIn: standIn, (canvas, view, rects) {
     final clip = Path();
     final chunks = <ChunkKey>{};
     for (final rect in rects) {
@@ -131,7 +143,7 @@ class CommittedInkPainter extends CustomPainter {
         tiles: tiles,
       );
     } else if (tiles != null) {
-      paintTiled(canvas, tiles!, view, devicePixelRatio);
+      paintTiled(canvas, tiles!, view, devicePixelRatio, rasters: rasters);
     } else {
       canvas
         ..save()
