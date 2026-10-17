@@ -3,7 +3,8 @@ part of 'ribbon_emitter.dart';
 /// Runs: one closed contour of fitted cubics with caps per run.
 extension _Runs on RibbonEmitter {
   /// One closed contour around samples [a]..[b] (within stretch [lo]..[hi]):
-  /// caps at both ends, or straight cuts where [startCut] / [endCut].
+  /// caps at both ends, or straight cuts where [startCut] / [endCut]; [first]
+  /// replaces the offset points of [a] (a join, see [RibbonJoin]).
   void _run(
     OutlineSink sink,
     int a,
@@ -12,8 +13,9 @@ extension _Runs on RibbonEmitter {
     int hi, {
     bool startCut = false,
     bool endCut = false,
+    _Offsets? first,
   }) {
-    final o = [for (var i = a; i <= b; i++) _offsets(i, lo, hi)];
+    final o = [for (var i = a; i <= b; i++) i == a && first != null ? first : _offsets(i, lo, hi)];
     final left = _Side(this, o, a, left: true);
     final right = _Side(this, o, a, left: false);
     final keysL = _keys(left, a, b), keysR = _keys(right, a, b);

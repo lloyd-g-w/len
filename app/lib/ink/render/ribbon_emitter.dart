@@ -45,6 +45,17 @@ class RibbonPrefix implements RibbonLine {
 /// a new run's cap.
 typedef RibbonCursor = ({int at, bool cut});
 
+/// Where an outline cut straight across a line ([RibbonEmitter.emitCut])
+/// meets the outline continuing it ([RibbonEmitter.emitJoined]): the
+/// sample and the offset points the cut runs between.
+class RibbonJoin {
+  RibbonJoin._(this.at, this._offsets);
+
+  /// The sample.
+  final int at;
+  final _Offsets _offsets;
+}
+
 /// Turns a centre line with radii into a filled outline made of few, smooth
 /// contours.
 ///
@@ -73,7 +84,9 @@ class RibbonEmitter {
     required this.width,
     required double step,
     double? tolerance,
-  }) : tolerance = tolerance ?? toleranceFor(width),
+    this.lookahead = 0,
+  }) : assert(lookahead == 0 || !flatCaps),
+       tolerance = tolerance ?? toleranceFor(width),
        block = math.max(16, (24 / step).ceil()),
        _endReach = endReachFor(width, step),
        _step = step;
@@ -81,6 +94,12 @@ class RibbonEmitter {
   final RibbonLine line;
   final bool flatCaps;
   final double width;
+
+  /// Samples past the line's end its tangent there is taken over (0 or 1;
+  /// round ends only): a [RibbonPrefix] whose next sample is final ends
+  /// with the offsets the whole line has there, so an outline cut there
+  /// ([emitCut]) and continued ([emitJoined]) is the whole line's.
+  final int lookahead;
 
   /// Largest distance between a fitted side and its offset points (world
   /// units). The cubic that reaches into a live stroke's not-yet-final tip
@@ -129,6 +148,42 @@ class RibbonEmitter {
   void emit(OutlineSink sink, {RibbonCursor from = (at: 0, cut: false)}) =>
       _walk(sink, from, null, ended: true);
 
+  /// The join at the line's last sample: where [emitCut] ends the outline
+  /// and [emitJoined] may continue a longer line's. Null when the line
+  /// does not end in a run there (it folds, or flat ends shape it).
+  RibbonJoin? endJoin() {
+    final n = line.length;
+    if (flatCaps || n < 2) return null;
+    final lo = line.corners.isEmpty ? 0 : line.corners.last;
+    if (lo >= n - 1 || _folded(n - 2, lo, n - 1)) return null;
+    return RibbonJoin._(n - 1, _offsets(n - 1, lo, n - 1));
+  }
+
+  /// [emit], but the line's end (its [endJoin], which must exist) is a
+  /// straight cut instead of a cap.
+  void emitCut(OutlineSink sink, {RibbonCursor from = (at: 0, cut: false)}) =>
+      _walk(sink, from, null, ended: true, cutEnd: true);
+
+  /// Whether this line goes on through [join] in a run (no corner and no
+  /// fold there), so [emitJoined] can continue an outline cut there.
+  bool continuesAt(RibbonJoin join) {
+    final i = join.at;
+    if (flatCaps || i <= 0 || i >= line.length - 1 || line.corners.contains(i)) return false;
+    final bounds = [0, ...line.corners, line.length - 1];
+    var b = 1;
+    while (bounds[b] <= i) {
+      b++;
+    }
+    return !_folded(i - 1, bounds[b - 1], bounds[b]) && !_folded(i, bounds[b - 1], bounds[b]);
+  }
+
+  /// The outline from [join] (where an [emitCut] outline of a prefix of
+  /// this line ended) to the end: it starts with a straight cut through
+  /// the join's own offset points, so the two meet edge to edge, as one
+  /// run would. Only where [continuesAt].
+  void emitJoined(OutlineSink sink, RibbonJoin join) =>
+      _walk(sink, (at: join.at, cut: true), null, ended: true, join: join);
+
   /// Emits the pieces from [from] whose geometry only depends on the first
   /// [finalCount] samples, each as its own contour; returns where the
   /// frozen part now ends. With [flatCaps], none that a flat end's zone at
@@ -140,7 +195,14 @@ class RibbonEmitter {
     return _walk(sink, from, limit, ended: false);
   }
 
-  RibbonCursor _walk(OutlineSink sink, RibbonCursor from, int? limit, {required bool ended}) {
+  RibbonCursor _walk(
+    OutlineSink sink,
+    RibbonCursor from,
+    int? limit, {
+    required bool ended,
+    bool cutEnd = false,
+    RibbonJoin? join,
+  }) {
     final n = line.length;
     final bounds = [0, ...line.corners, n - 1];
     final ends = _flatEnds(bounds, limit: limit, ended: ended);
@@ -197,7 +259,8 @@ class RibbonEmitter {
           lo,
           hi,
           startCut: zone || (p == i ? cut : true),
-          endCut: zone || q < j,
+          endCut: zone || q < j || (cutEnd && q == n - 1),
+          first: join != null && p == join.at ? join._offsets : null,
         );
         p = q;
       }

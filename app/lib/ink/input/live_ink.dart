@@ -35,6 +35,13 @@ class LiveInk extends ChangeNotifier {
   double penRadius = 0;
   Color penColor = const Color(0x00000000);
 
+  /// Whether the live stroke shows only the part of its outline that is
+  /// final, trailing the pen, as the stabiliser makes it: set for a mouse
+  /// with its stabiliser on (applied before the outline, which then has
+  /// none), so its ink does not settle at pen-up where it ended. Not
+  /// while [straightened].
+  bool trails = false;
+
   /// The provisional tip of a mouse stroke (world): where its ink runs on
   /// from the last point to the mouse, until the smoothing has the samples
   /// to place it for good (`MouseSmoother.tip`). Not part of the stroke;
@@ -68,7 +75,9 @@ class LiveInk extends ChangeNotifier {
     required int color,
     required double width,
     StrokeStyle? style,
+    bool trails = false,
   }) {
+    this.trails = trails;
     this.tool = tool;
     this.color = color;
     this.width = width;

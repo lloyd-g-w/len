@@ -13,11 +13,14 @@ extension _Inking on InkDrawing {
     _byMouse = e.kind == PointerDeviceKind.mouse;
     // Ink shows from the first sample, under the nib. The outline smooths
     // at the zoom it is written at (`StrokeStyle.unit`), known now.
+    // Its ink trails it then, by the smoothing's reach, as a stylus's
+    // does: the outline's own tip would settle when the mouse lifts.
     live.begin(
       tool: ink,
       color: config.color,
       width: config.width,
       style: style.copyWith(unit: 1 / viewport.scale, streamline: _byMouse ? 0 : null),
+      trails: _byMouse && style.streamline > 0,
     );
     _endFollowsSpeed = config.ends.endFollowsSpeed;
     live.add(_sampler.first(e));
