@@ -2146,9 +2146,14 @@ surface.
   `ShapeRenames`, `LenRemap`). Concurrent edits (one device moves the
   box, another recolours or draws its arrow) leave an end off its shape:
   `ConnectorRepair` (the `SyncEngine.afterApply` hook, after a pull and
-  after each live message, before the next push) looks at the surfaces
-  the changes touched (`StrokeQueries.connectorShapes`: nothing read
-  without an attached line) and replaces each line with an end off the
+  after each live message, before the next push) looks at what the
+  changes touched (`ConnectorQueries.touchedBy`, from the `strokes_shapes`
+  index of a surface's live shapes, never its ink): the changed lines and
+  those attached to a changed shape (by its identity, deleted strokes
+  too), with every stroke of the shapes they name; nothing is read when
+  no shape changed, and every line of a surface whose changes are not
+  named (too many); a line left off by a repair that never ran waits for
+  the next change to it or its shapes. It replaces each line with an end off the
   shape it names (`Connectors.targetOf`: the stroke of that shape it lies
   on, else the one of that very id, else the least id) by the line moved
   onto it, written as a local edit (synced; no undo step: nobody made it

@@ -14,7 +14,7 @@ abstract final class SchemaMigrations {
   /// compare with. `app_database_test` fails with the new value when a
   /// migration changes the schema.
   static const String shapeDigest =
-      'a40b0fab018d227e34c8af72b6807605b65842ea1d8c722315f0de01a1868d82';
+      '3613edbe02028af8747e423138522e8050bf1cf7bfbbe6c5e11f8b6f5d096099';
 
   /// Index i migrates from version i to i + 1.
   static final List<void Function(CommonDatabase)> all = [
@@ -36,7 +36,18 @@ abstract final class SchemaMigrations {
     _versions,
     _versionTables,
     _versionRuns,
+    _shapeStrokes,
   ];
+
+  /// Version 19: live shape strokes (a `sh` in their style) indexed per
+  /// surface, so what connectors need after a pull (`ConnectorQueries`) is
+  /// read from a surface's shapes, not from all its ink.
+  static void _shapeStrokes(CommonDatabase db) {
+    db.execute(
+      'CREATE INDEX strokes_shapes ON strokes(surface_id) '
+      "WHERE deleted = 0 AND style LIKE '%\"sh\"%'",
+    );
+  }
 
   /// Version 18: the packs made per run of a surface's items, by a key of
   /// what is in them (`PackRuns`, local), so a version repacks only the

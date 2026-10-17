@@ -1,5 +1,6 @@
 import 'package:uuid/uuid.dart';
 
+import '../../data/connector_queries.dart';
 import '../../data/stroke_repository.dart';
 import '../../domain/stroke.dart';
 import '../../sync/remote_changes.dart';
@@ -27,15 +28,26 @@ class ConnectorRepair {
 
   final StrokeRepository strokes;
 
+  late final ConnectorQueries _queries = ConnectorQueries(strokes.db);
+
   /// Repairs the lines on the surfaces whose strokes [changes] (applied
   /// from other devices) touched, adding what it changed to [changes]
   /// (open editors refresh it). Returns how many lines were repaired.
+  ///
+  /// Only the lines a change can have left off their shapes are read: the
+  /// changed ones and those attached to changed shapes
+  /// ([ConnectorQueries.touchedBy]; nothing when only ink changed). Where
+  /// the changes are not named (too many), every line on the surface.
   int repair(RemoteChanges changes) {
     if (changes.strokeSurfaces.isEmpty) return 0;
     SurfaceModel.flushAll(); // Reads must see every edit.
     var repaired = 0;
     for (final surface in changes.strokeSurfaces.toList()) {
-      final fixes = repairsOn(strokes.queries.connectorShapes(surface));
+      final ids = changes.itemsOf(surface);
+      final (:shapes, :lines) = ids == null
+          ? _queries.all(surface)
+          : _queries.touchedBy(surface, ids);
+      final fixes = repairsOn(shapes, lines: lines);
       if (fixes.isEmpty) continue;
       strokes.database.transaction(() {
         strokes.delete([for (final (line, _) in fixes) line.id]);
@@ -55,15 +67,16 @@ class ConnectorRepair {
     return repaired;
   }
 
-  /// The lines among the [shapes] of one surface with an end off the shape
-  /// it is attached to, each with its repair.
-  static List<(Stroke, Stroke)> repairsOn(List<Stroke> shapes) {
+  /// The [lines] (by default all of the [shapes] of one surface) with an
+  /// end off the shape it is attached to among [shapes], each with its
+  /// repair. [shapes] must hold every stroke of each shape the lines name.
+  static List<(Stroke, Stroke)> repairsOn(List<Stroke> shapes, {List<Stroke>? lines}) {
     final named = <String, List<Stroke>>{};
     for (final s in shapes) {
       (named[s.shapeId] ??= []).add(s);
     }
     final out = <(Stroke, Stroke)>[];
-    for (final line in shapes) {
+    for (final line in lines ?? shapes) {
       final shape = line.shape!;
       if (!shape.isAttached) continue;
       Stroke? target(int end) {

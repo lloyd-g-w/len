@@ -249,10 +249,10 @@ void main() {
     final repair = engine.afterApply;
     engine.afterApply = null;
     await a.sync();
-    await b.sync();
+    final missed = await b.sync();
     engine.afterApply = repair;
     await a.sync(); // a repairs b's arrow and pushes it.
-    final mine = ConnectorRepair(b.s.strokes).repair(RemoteChanges()..addItem(b.page, 'x'));
+    final mine = ConnectorRepair(b.s.strokes).repair(missed);
     expect(mine, 1); // b repairs it too, the same way.
     await b.sync();
     await a.sync();

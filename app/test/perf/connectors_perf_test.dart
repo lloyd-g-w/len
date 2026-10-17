@@ -64,7 +64,7 @@ void main() {
     // Another device moved one box without its arrows (theirs were edited
     // meanwhile here): its arrows are brought back onto it.
     final moved = <int>[];
-    for (var i = 0; i < 8; i++) {
+    for (var i = 0; i < 20; i++) {
       final old = boxes[(i * 61 + 26) % boxes.length];
       final now = Stroke(
         id: 'moved$i',
@@ -93,7 +93,7 @@ void main() {
 
     // Many changes (more than are named): the whole surface is looked at.
     final many = RemoteChanges()..reloadSurface(surface);
-    final whole = bestUs(() => repair.repair(many), runs: 3);
+    final whole = bestUs(() => repair.repair(many), runs: 10);
 
     report(
       'CONNECTORS repair, ${diagram.length} shapes + ${ink.length} strokes: '

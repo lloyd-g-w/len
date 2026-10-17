@@ -189,24 +189,6 @@ class StrokeQueries implements StrokeReader {
       ).first['found'] ==
       1;
 
-  /// The live shape strokes on [surfaceId] (drawn with the Shape tool or
-  /// snapped) — none when no line there is attached to a shape (a quick
-  /// test first): what connectors are made of.
-  List<Stroke> connectorShapes(String surfaceId) {
-    const shapes = "surface_id = ? AND deleted = 0 AND style LIKE '%\"sh\"%'";
-    final attached = _db.select(
-      "SELECT EXISTS (SELECT 1 FROM strokes WHERE $shapes AND style LIKE '%\"a\":%') AS found",
-      [surfaceId],
-    );
-    if (attached.first['found'] != 1) return const [];
-    return _db
-        .select('SELECT * FROM strokes WHERE $shapes', [surfaceId])
-        .map(rowToStroke)
-        .nonNulls
-        .where((s) => s.shape != null)
-        .toList();
-  }
-
   /// Whether a stroke [id] was ever stored here (live or deleted).
   bool knowsStroke(String id) => _db.select('SELECT 1 FROM strokes WHERE id = ?', [id]).isNotEmpty;
 
