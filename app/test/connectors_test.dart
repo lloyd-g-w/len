@@ -39,6 +39,17 @@ Future<List<int>> _alpha(Picture picture) async {
   return [for (var i = 3; i < bytes.lengthInBytes; i += 4) bytes.getUint8(i)];
 }
 
+/// Expects pixels [a] and [b] (alphas) to show the same ink.
+void _expectAlike(List<int> a, List<int> b) {
+  var inked = 0, differ = 0;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] > 0 || b[i] > 0) inked++;
+    if ((a[i] - b[i]).abs() > 96) differ++;
+  }
+  expect(inked, greaterThan(300));
+  expect(differ / inked, lessThan(0.03), reason: '$differ of $inked pixels');
+}
+
 void main() {
   group('geometry', () {
     final arrow = ShapeGeometry(ShapeKind.arrow, const [
@@ -340,13 +351,21 @@ void main() {
       final recorder = PictureRecorder();
       StrokeRenderer.draw(Canvas(recorder), arrowNow());
       final committed = await _alpha(recorder.endRecording());
-      var inked = 0, differ = 0;
-      for (var i = 0; i < shown.length; i++) {
-        if (shown[i] > 0 || committed[i] > 0) inked++;
-        if ((shown[i] - committed[i]).abs() > 96) differ++;
-      }
-      expect(inked, greaterThan(300));
-      expect(differ / inked, lessThan(0.03), reason: '$differ of $inked pixels');
+      _expectAlike(shown, committed);
+    });
+
+    test('a box reshaped by a handle is shown as it looks once committed', () async {
+      box();
+      final s = content.selection..select([boxNow()], const []);
+      final shape = s.shape!;
+      s.reshape(ShapeHandles.drag(shape, 2, shape.points[2] + const Offset(60, 45)));
+      final shown = await _alpha(s.picture!);
+      s.commitReshape();
+      final recorder = PictureRecorder();
+      StrokeRenderer.draw(Canvas(recorder), boxNow());
+      final committed = await _alpha(recorder.endRecording());
+      expect(boxNow().shape!.points[2], const Offset(460, 345));
+      _expectAlike(shown, committed);
     });
 
     test('moved with its box the arrow stays attached; moved alone it lets go', () {

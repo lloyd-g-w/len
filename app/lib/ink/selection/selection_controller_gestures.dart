@@ -40,7 +40,7 @@ mixin _SelectionGestures on _SelectionCore {
     if (stroke == null) return;
     final reshaped = _reshaped = ShapeBuilder.reshaped(stroke, shape, id: stroke.id);
     _picture?.dispose();
-    _picture = _record([reshaped]);
+    _picture = _recordSketch([reshaped]);
     _previewFrame = _frameAround([reshaped], const []);
     _previewFollowers(ShapeAnchors.isTarget(shape) ? {stroke.shapeId: reshaped} : const {});
     notifyListeners();

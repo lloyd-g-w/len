@@ -163,7 +163,7 @@ extension _SelectionConnectors on _SelectionCore {
     _followers?.dispose();
     _followers = lines.isEmpty
         ? null
-        : _recordFollowers([
+        : _recordSketch([
             for (final (_, line, shape) in lines) Connectors.rebuilt(line, shape, id: line.id),
           ]);
     final ids = {for (final (_, line, _) in lines) line.id};
@@ -171,20 +171,6 @@ extension _SelectionConnectors on _SelectionCore {
       _followerIds = ids;
       _hide();
     }
-  }
-
-  /// [lines] (followers, recorded anew on every move) drawn as even lines
-  /// along their points ([StrokeRenderer.drawSketch]): a shape's outline is
-  /// an even line with round ends, so this is how it looks, without
-  /// building outlines (most of a move's time with many followers). The
-  /// commit builds them once.
-  ui.Picture _recordFollowers(List<Stroke> lines) {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    for (final s in [...lines]..sort(Stroke.drawOrder)) {
-      StrokeRenderer.drawSketch(canvas, s);
-    }
-    return recorder.endRecording();
   }
 
   /// The selected shapes as [t] would move them (their geometry only), by
