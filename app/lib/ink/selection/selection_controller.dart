@@ -13,10 +13,12 @@ import '../elements/text_flow_chains.dart';
 import '../elements/text_layout.dart';
 import '../geometry/affine.dart';
 import '../render/content_painter.dart';
+import '../shapes/shape_anchors.dart';
 import '../shapes/shape_builder.dart';
 import '../shapes/shape_handles.dart';
 import '../surface_model.dart';
 import '../undo_history.dart';
+import 'connectors.dart';
 import 'ink_clipboard.dart';
 import 'lasso.dart';
 import 'selection_frame.dart';
@@ -27,6 +29,7 @@ import 'stroke_order.dart';
 import 'transform_items.dart';
 
 part 'selection_controller_commits.dart';
+part 'selection_controller_connectors.dart';
 part 'selection_controller_framing.dart';
 part 'selection_controller_actions.dart';
 part 'selection_controller_gestures.dart';
@@ -128,6 +131,23 @@ abstract class _SelectionCore extends ChangeNotifier {
   /// [shapeStroke] reshaped by the drag in progress.
   Stroke? _reshaped;
 
+  /// Unselected lines attached to shapes a gesture is moving or
+  /// reshaping, drawn as they will follow (this surface's coordinates);
+  /// their stored selves are hidden meanwhile.
+  ui.Picture? get followers => _followers;
+  ui.Picture? _followers;
+  Set<String> _followerIds = const {};
+
+  /// The shape a line's end being dragged (a handle, the Shape tool)
+  /// would attach to, shown with the selection's chrome.
+  AttachHint? get attachHint => _attachHint;
+  AttachHint? _attachHint;
+  set attachHint(AttachHint? hint) {
+    if (hint?.target.id == _attachHint?.target.id && hint?.at == _attachHint?.at) return;
+    _attachHint = hint;
+    notifyListeners();
+  }
+
   /// Selects [strokes] and [elements] (replacing any previous selection).
   /// Items stored on other surfaces are given in this surface's
   /// coordinates, with their [sources] (by id).
@@ -148,6 +168,9 @@ abstract class _SelectionCore extends ChangeNotifier {
     _reshaped = null;
     _picture?.dispose();
     _picture = null;
+    _followers?.dispose();
+    _followers = null;
+    _followerIds = const {};
     _frame = isEmpty ? null : frame ?? _frameAround(_strokes, _elements);
     if (!isEmpty) _picture = _record(_strokes);
     _hide();
@@ -171,6 +194,7 @@ abstract class _SelectionCore extends ChangeNotifier {
       ..transform(_preview.matrix4)
       ..drawPicture(picture)
       ..restore();
+    if (_followers case final followers?) canvas.drawPicture(followers);
   }
 
   @override
@@ -191,7 +215,7 @@ abstract class _SelectionCore extends ChangeNotifier {
   void _hide() => _others = SelectionReach.hide(
     owner: this,
     model: _model,
-    ids: [for (final s in _strokes) s.id, for (final e in _elements) e.id],
+    ids: [for (final s in _strokes) s.id, for (final e in _elements) e.id, ..._followerIds],
     sources: _sources,
     before: _others,
     onChanged: _onModelChanged,
@@ -231,6 +255,7 @@ abstract class _SelectionCore extends ChangeNotifier {
     }
     unawaited(_imageChanges?.cancel());
     _picture?.dispose();
+    _followers?.dispose();
     super.dispose();
   }
 }

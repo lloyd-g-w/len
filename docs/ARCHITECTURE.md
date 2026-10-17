@@ -2054,6 +2054,43 @@ surface.
   look and fill) as the selection's picture; the release commits it as one
   `InkEdit` (remove + add, so it syncs), keeping it selected. During moves
   and rotations the handles follow the preview transform.
+- **Connectors** (arrows that stay attached; `selection/connectors.dart`,
+  `shapes/shape_anchors.dart`): a line's or arrow's end (bent ones too)
+  dropped within `LassoTool.attachReach` (12 px) of a closed shape's
+  outline, or inside it, attaches: `ShapeGeometry.tail` / `tip` hold a
+  `ShapeAttachment` (the target stroke's id and `at`, a parameter once
+  round the outline in the shape's own terms — side and fraction for
+  polygons and stars, the angle of `centre + u·cos t + v·sin t` for
+  circles and ellipses, segment and Bézier `t` for closed curves — so any
+  affine map or reshape keeps the point's place, `ShapeAnchors.pointAt`).
+  Inside a shape, the end goes where the outline faces the line's other
+  end (`ShapeAnchors.facing`). `Connectors.find` picks the target on the
+  line's own surface only (no attaching across pages): the nearest outline
+  within reach, else the topmost shape containing the point; the line
+  itself and hidden strokes are skipped. Ends attach when dragged
+  (`LassoTool._reshaped`) and when drawn with the Shape tool (start and
+  end, `ShapeTool._connected`); meanwhile `SelectionController.attachHint`
+  makes `SelectionPainter` outline the target in the accent with a solid
+  dot at the attach point. Following: strokes are immutable, so an edited
+  shape gets a new id; every selection edit goes through `_replace`, where
+  `_SelectionConnectors._connect` pairs each replaced target with its new
+  stroke (when it stays on its surface) and adds the unselected lines
+  attached to it (found near its bounds) to the same `SelectionPlan`
+  (`replaceUnselected`), their ends moved onto the new outline by
+  `ShapeDrags` (a bend keeps its place) and re-pointed at the new id: one
+  `InkEdit`, one undo step, synced as ordinary strokes (a remote device
+  receives box and arrow together; nothing is recomputed on load). While a
+  target is dragged or reshaped, the followers are drawn as they will be
+  (`SelectionController.followers`, their stored strokes hidden). Selected
+  lines keep an end attached to a shape edited with them (re-pointed: moved
+  together they move rigidly) or to an unselected one they still sit on
+  (recoloured, bent); a line moved without its target lets go of it, as in
+  Excalidraw (`Connectors.sits`). Pasted and duplicated copies attach to
+  the copies of their targets, else let go. A reference to a stroke not on
+  the line's surface (deleted, erased, moved to another page, a copied
+  page's ids) is ignored and the end stays put; undoing a deletion
+  restores the attachment. Only closed shapes are targets, so connectors
+  never chain.
 - **Selections across pages** (paged notebooks, continuous flow): the
   selection stays bound to the active page's surface, but
   `SelectionController.surfaces` (a `SelectionSurfaces`, given by

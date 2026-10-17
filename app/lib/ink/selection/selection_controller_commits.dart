@@ -13,10 +13,10 @@ extension _SelectionCommits on _SelectionCore {
       top: _model.topZ,
       topBelowInk: _model.topBelowInkZ,
     );
-    final newStrokes = [
+    final newStrokes = _SelectionConnectors._pastedConnectors(ordered, [
       for (var i = 0; i < ordered.length; i++)
         _onSurface(TransformItems.stroke(ordered[i], t, id: clock.newId()), now + i),
-    ];
+    ]);
     final newElements = [
       for (var i = 0; i < orderedElements.length; i++)
         TransformItems.element(
@@ -69,9 +69,14 @@ extension _SelectionCommits on _SelectionCore {
       same ? plan.keepStroke(_strokes[i], source) : plan.removeStroke(_strokes[i], source);
     }
     if (!same) {
-      for (var i = 0; i < strokes.length; i++) {
-        final from = i < _strokes.length ? _sources[_strokes[i].id] : null;
-        plan.addStroke(strokes[i], to: _target(strokes[i].bounds.center, from, transfer: transfer));
+      ShiftedSurface? to(int i) => _target(
+        strokes[i].bounds.center,
+        i < _strokes.length ? _sources[_strokes[i].id] : null,
+        transfer: transfer,
+      );
+      final connected = _connect(strokes, plan, (i) => to(i)?.model ?? _model);
+      for (var i = 0; i < connected.length; i++) {
+        plan.addStroke(connected[i], to: to(i));
       }
     }
     for (final e in _elements) {

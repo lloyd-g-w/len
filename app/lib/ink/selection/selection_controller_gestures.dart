@@ -8,6 +8,7 @@ mixin _SelectionGestures on _SelectionCore {
   void setPreview(Affine t, SelectionFrame frame) {
     _preview = t;
     _previewFrame = frame;
+    _previewFollowers(_moved(t));
     notifyListeners();
   }
 
@@ -28,6 +29,7 @@ mixin _SelectionGestures on _SelectionCore {
     if (_previewFrame == null && _preview.isIdentity) return;
     _preview = Affine.identity;
     _previewFrame = null;
+    _previewFollowers(const {});
     notifyListeners();
   }
 
@@ -40,6 +42,7 @@ mixin _SelectionGestures on _SelectionCore {
     _picture?.dispose();
     _picture = _record([reshaped]);
     _previewFrame = _frameAround([reshaped], const []);
+    _previewFollowers(ShapeAnchors.isTarget(shape) ? {stroke.id: reshaped} : const {});
     notifyListeners();
   }
 
@@ -66,6 +69,7 @@ mixin _SelectionGestures on _SelectionCore {
     _picture?.dispose();
     _picture = _record(_strokes);
     _previewFrame = null;
+    _previewFollowers(const {});
     notifyListeners();
   }
 }

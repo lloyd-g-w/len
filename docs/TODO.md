@@ -144,11 +144,15 @@ From the reports; the owner picks. Status as above.
   (cached until the next commit); scroll forward / back and Next / Previous page turn and
   announce it, continuous and single-page; a canvas is one "Canvas" node; nothing built while
   semantics are off.
-- ⬜ **Arrows that stay attached** (UX_AUDIT R21-6): an arrow or line end dropped on a
-  shape's outline remembers the shape (a synced reference in `ShapeGeometry`); moving,
-  resizing or reshaping the shape moves the end (one undo step with it). None of GoodNotes,
-  Notability or Samsung Notes has connectors; whiteboard apps do. Large: geometry format,
-  `TransformItems`, selection plans across pages, sync, undo.
+- 🚧 **Arrows that stay attached** (UX_AUDIT R21-6, feat/connectors): a line's or arrow's
+  end (bent too) dropped on a closed shape's outline, or inside it (where it faces the other
+  end), attaches — by handle drag or drawn so with the Shape tool; the target's outline and
+  a snap dot show meanwhile. `ShapeGeometry.tail` / `tip` (synced `sh.a`, optional) keep the
+  shape's stroke id and a point on its outline in the shape's own terms. Moving, resizing,
+  rotating or reshaping the shape moves the ends live and in the same undo step (the
+  selection's `_replace` re-points and rebuilds the lines); remote devices get both. Moved
+  together they move rigidly; a line moved alone lets go (Excalidraw); copies attach to
+  copied targets; a deleted target leaves the line where it is; never across pages.
 - ✅ **Eyedropper** (UX_AUDIT R21-7): "Pick from page" next to Custom in every editor colour
   block (quick slots, tool options, shape fill, Style, text colour): the picker steps aside,
   "Tap a colour on the page" shows, and the next press on the page (a loupe while it rests

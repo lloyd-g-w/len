@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../core/clock.dart';
 import '../../domain/stroke.dart';
 import '../input/live_ink.dart';
+import '../selection/connectors.dart';
 import '../selection/selection_controller.dart';
 import '../shapes/shape_builder.dart';
 import '../shapes/shape_snap.dart';
@@ -13,6 +14,7 @@ import '../tool_settings.dart';
 import '../viewport.dart';
 import 'content_hit_test.dart';
 import 'curve_drawing.dart';
+import 'lasso_tool.dart';
 import 'pointer_tool.dart';
 
 /// Draws the selected [ShapeKind] by dragging out its bounding box (or,
@@ -151,8 +153,26 @@ class ShapeTool implements PointerTool {
     final end = HardwareKeyboard.instance.isShiftPressed
         ? constrain(kind, start, _end)
         : ShapeSnap.dragEnd(kind, start, _end);
-    final shape = live.shape = _shape = ShapeBuilder.dragged(kind, start, end);
+    final shape = live.shape = _shape = kind == ShapeKind.line || kind == ShapeKind.arrow
+        ? _connected(kind, start, end)
+        : ShapeBuilder.dragged(kind, start, end);
     live.replaceAll(ShapeBuilder.pointsOf(shape, spacing: 2 / viewport.scale));
+  }
+
+  /// The line or arrow from [start] to [end], its ends attached to the
+  /// shapes they start or end on (or in), shown with the selection's
+  /// chrome ([Connectors]).
+  ShapeGeometry _connected(ShapeKind kind, Offset start, Offset end) {
+    final m = model(), reach = LassoTool.attachReach / viewport.scale;
+    final from = Connectors.find(m, start, reach: reach, towards: end);
+    final to = Connectors.find(m, _end, reach: reach, towards: start);
+    selection?.attachHint = to ?? from;
+    return ShapeGeometry(
+      kind,
+      [from?.point ?? start, to?.point ?? end],
+      tail: from?.attachment,
+      tip: to?.attachment,
+    );
   }
 
   @override
@@ -164,6 +184,7 @@ class ShapeTool implements PointerTool {
     }
     if (curve.active) return curve.up();
     _stopKeys();
+    selection?.attachHint = null;
     final shape = _shape;
     final points = live.finish();
     if (_dragged && shape != null && points.length > 1) {
@@ -193,6 +214,7 @@ class ShapeTool implements PointerTool {
     _onShape = null;
     if (curve.active) return curve.cancelGesture();
     _stopKeys();
+    selection?.attachHint = null;
     if (_start != null) live.finish();
     _start = null;
     _shape = null;

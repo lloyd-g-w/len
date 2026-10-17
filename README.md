@@ -19,7 +19,8 @@ optional sync through a tiny server you host yourself.
 - **Shapes**: draw and hold to snap (a smooth stroke becomes a curve), or the Shape tool
   (Shift for regular shapes; curves anchor by anchor); drag a selected shape's handles —
   corners, sides, centre, radii, a line's bend, a curve's anchors and tangents — to reshape
-  it, with snapping; closed shapes take a fill.
+  it, with snapping; closed shapes take a fill. Line and arrow ends dropped on a shape stay
+  attached (connectors): they follow it when it moves, turns or is reshaped.
 - **Lasso**: freehand or rectangle; select what it touches, mostly or wholly encloses,
   and which items (ink, highlighter, text, images).
 - **Laser pointer**: fades per stroke, or holds everything until you stop writing; quick
