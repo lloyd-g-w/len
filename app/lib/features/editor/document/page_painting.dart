@@ -17,7 +17,9 @@ import 'document_painters.dart';
 /// unit. Used for thumbnails and raster export. Images are drawn from
 /// [images] as far as they are decoded (placeholders otherwise). With
 /// [worldOrigin], the page is the part of an infinite canvas whose top-left
-/// is there, and the pattern is aligned as on the canvas.
+/// is there, and the pattern is aligned as on the canvas. With [sketchThin],
+/// ink thinner than a hairline at [scale] is drawn as plain lines
+/// (`ContentPainter`).
 void paintWholePage(
   Canvas canvas,
   NotebookPage page, {
@@ -30,6 +32,7 @@ void paintWholePage(
   bool miniature = false,
   bool showBookmark = false,
   Offset? worldOrigin,
+  bool sketchThin = false,
 }) {
   final rect = Offset.zero & page.size;
   canvas
@@ -67,7 +70,14 @@ void paintWholePage(
     );
   }
   if (showBookmark && page.bookmarked) paintBookmark(canvas, page.size);
-  ContentPainter.paint(canvas, strokes, elements, images: images, pixelScale: scale);
+  ContentPainter.paint(
+    canvas,
+    strokes,
+    elements,
+    images: images,
+    pixelScale: scale,
+    sketchThin: sketchThin,
+  );
   canvas.restore();
 }
 

@@ -40,7 +40,8 @@ class VersionSnapshots {
   /// How this device names itself (`Android`).
   final String deviceName;
 
-  /// Whether to pause making a version (a pointer is down: writing).
+  /// Whether to pause making an automatic version (a pointer is down:
+  /// writing).
   final bool Function()? hold;
 
   final SurfacePacker _packer;
@@ -88,7 +89,9 @@ class VersionSnapshots {
     final pages = <VersionPage>[];
     VersionSurface? canvasSurface;
     final counts = <String, int>{};
-    final slices = WorkSlices(hold: hold);
+    // Automatic versions wait while a pointer is down; one asked for (a
+    // named one, the one before a restore) is made at once.
+    final slices = WorkSlices(hold: kind == VersionKind.auto ? hold : null);
     for (final row in pageRows) {
       await slices.yieldIfDue();
       final id = row['id'] as String;
