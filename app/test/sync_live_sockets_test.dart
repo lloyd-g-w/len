@@ -3,6 +3,7 @@ import 'package:len/app_services.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/templates/paper_style.dart';
+import 'package:len/ink/remote_ink.dart';
 import 'package:len/sync/sync_engine.dart';
 
 import 'support/socket_server.dart';
@@ -73,5 +74,30 @@ void main() {
     expect(a.sync.livePushes, greaterThanOrEqualTo(2)); // The stroke, its deletion.
     expect(b.sync.liveApplied, greaterThanOrEqualTo(2));
     expect(server.live.connections, 2);
+  });
+
+  test('rooms: presence and live ink travel between the devices', () async {
+    a.sync.rooms.join('nb');
+    b.sync.rooms.join('nb');
+    await waitFor(
+      () => a.sync.rooms.othersIn('nb').isNotEmpty && b.sync.rooms.othersIn('nb').isNotEmpty,
+    );
+    expect(b.sync.rooms.othersIn('nb').single.deviceId, a.settings.deviceId());
+    final remote = RemoteInk(b.sync.rooms, room: 'nb');
+    addTearDown(remote.dispose);
+    a.sync.rooms.send('nb', {
+      'k': 'ink',
+      's': 'x',
+      'page': 'p1',
+      'tool': 'ballpoint',
+      'color': 0xFF000000,
+      'width': 2,
+      'from': 0,
+      'p': [0, 0, 0.5, 10, 10, 0.5],
+    });
+    await waitFor(() => remote.strokesOn('p1').isNotEmpty);
+    // The writer closes the notebook: its ink goes with it.
+    a.sync.rooms.leave('nb');
+    await waitFor(() => remote.strokesOn('p1').isEmpty && b.sync.rooms.othersIn('nb').isEmpty);
   });
 }

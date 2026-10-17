@@ -7,6 +7,7 @@ mixin _EditorSessionZoom {
   SharedNotebook get shared;
   ToolSettings get tools;
   LiveInk get live;
+  LiveInkRelay get relay;
   DocumentController? get doc;
   DocumentCommands? get commands;
   ViewportAnimator? get docAnimator;
@@ -102,9 +103,13 @@ mixin _EditorSessionZoom {
 
   /// The zoom window's input: the editor's tools and live ink, seen through
   /// the box (its own palm rejection, no canvas gestures or pointer tools).
-  InkInputController _zoomInput(SurfaceModel model, ZoomBoxViewport view) => _zoomInk(model, view)
-    // Highlights over PDF text snap to it there too.
-    ..highlightSnap = doc == null ? null : PdfHighlightSnap(doc: doc!, info: shared.pdfInfo);
+  InkInputController _zoomInput(SurfaceModel model, ZoomBoxViewport view) {
+    final input = _zoomInk(model, view)
+      // Highlights over PDF text snap to it there too.
+      ..highlightSnap = doc == null ? null : PdfHighlightSnap(doc: doc!, info: shared.pdfInfo);
+    relay.attach(input.events); // Other devices see it written there too.
+    return input;
+  }
 
   InkInputController _zoomInk(SurfaceModel model, ZoomBoxViewport view) => InkInputController(
     model: model,
