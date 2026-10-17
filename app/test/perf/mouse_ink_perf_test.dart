@@ -30,6 +30,9 @@ import 'support/frame_counts.dart';
 /// smoother, sampler, live ink) plus the live outline as the painter
 /// builds it each frame, and in the editor (widgets rebuilt, paints).
 void main() {
+  // Strokes are written after the frame (`SurfaceModel.writeBehind`).
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   /// Whole-pixel mouse positions, one a millisecond: cursive loops moving
   /// on along a line (~3 px a move).
   Offset at(int i) => Offset(
@@ -122,18 +125,30 @@ void main() {
         await moves(200, 1200, 'early');
         await moves(1200, 19000);
         await moves(19000, 20000, 'late');
-        final points = p.live.points.length;
-        final w = Stopwatch()..start();
-        p.input.handleUp(
-          PointerUpEvent(
-            kind: PointerDeviceKind.mouse,
-            position: at(20000),
-            timeStamp: const Duration(milliseconds: 20000),
-          ),
-        );
-        keep('pen-up', w.elapsedMicroseconds / 1000);
-        keep('points', points.toDouble());
+        keep('points', p.live.points.length.toDouble());
+        final (up, write) = p.up(at(20000), 20000);
+        keep('pen-up', up);
+        keep('write', write);
         p.dispose();
+
+        // Pen-up after a short stroke, for comparison.
+        final short = _Pipeline(stabiliser);
+        short.input.handleDown(
+          PointerDownEvent(kind: PointerDeviceKind.mouse, position: at(0), buttons: kPrimaryButton),
+        );
+        for (var i = 1; i < 1200; i++) {
+          short.input.handleMove(
+            PointerMoveEvent(
+              kind: PointerDeviceKind.mouse,
+              position: at(i),
+              timeStamp: Duration(milliseconds: i),
+              buttons: kPrimaryButton,
+            ),
+          );
+          if (i % 8 == 0) LiveStrokeBuilder.livePath(short.live).combined;
+        }
+        keep('short pen-up', short.up(at(1200), 1200).$1);
+        short.dispose();
       }
       String f(String k) =>
           '${best['$k early']!.toStringAsFixed(2)} → '
@@ -143,8 +158,14 @@ void main() {
         'points at the end), moves 200–1,200 → 19,000–20,000: input ${f('input')} µs/move, '
         'live outline ${f('build')} µs/move, in one path (`LiveOutline.combined`) ${f('one')} '
         'µs/move (appended into a new path: ${f('copy')}); rasterising it ${f('raster')} ms; '
-        'pen-up ${best['pen-up']!.toStringAsFixed(1)} ms',
+        'pen-up ${best['pen-up']!.toStringAsFixed(1)} ms (after 1,200 moves: '
+        '${best['short pen-up']!.toStringAsFixed(1)}), written after the frame '
+        '${best['write']!.toStringAsFixed(1)} ms',
       );
+      // Pen-up costs about the same whatever the stroke's length: its
+      // outline continues the live one, its chunks were traced as it was
+      // drawn and it is written after the frame.
+      expect(best['pen-up']!, lessThan(best['short pen-up']! * 3 + 5));
       // The outline filled in one path copies its frozen part each frame
       // (`LiveOutline.combined`): linear by design, reported above.
       for (final k in ['input', 'build']) {
@@ -204,14 +225,34 @@ class _Pipeline {
   }
 
   final db = AppDatabase.inMemory();
+
+  /// Written after the frame, as in the editor.
   late final model = SurfaceModel(
     surfaceId: 's',
     repository: StrokeRepository(db, deviceId: 'd'),
+    writeBehind: true,
   );
   final viewport = ViewportController()..setSize(const Size(1280, 800));
   final tools = ToolSettings(stylusOnly: false);
   final live = LiveInk();
   late final input = InkInputController(model: model, viewport: viewport, tools: tools, live: live);
+
+  /// Lifts the mouse at [position] at [ms]: milliseconds the pen-up took
+  /// and the write after the frame.
+  (double, double) up(Offset position, int ms) {
+    final w = Stopwatch()..start();
+    input.handleUp(
+      PointerUpEvent(
+        kind: PointerDeviceKind.mouse,
+        position: position,
+        timeStamp: Duration(milliseconds: ms),
+      ),
+    );
+    final up = w.elapsedMicroseconds / 1000;
+    w.reset();
+    model.flush();
+    return (up, w.elapsedMicroseconds / 1000);
+  }
 
   void dispose() {
     model.dispose();

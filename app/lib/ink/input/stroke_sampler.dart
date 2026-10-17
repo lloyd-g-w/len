@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 
 import '../../domain/stroke.dart';
@@ -84,12 +86,21 @@ class StrokeSampler {
     return (p - (a + ab * t)).distance;
   }
 
-  /// Keeps the stroke's last samples from swelling into an end blob.
+  /// Keeps the stroke's last samples from swelling into an end blob: settles
+  /// the pressures of the last few [points] in place; returns [points].
   static List<StrokePoint> settleEnd(List<StrokePoint> points) {
-    final settled = PressureFilter.settleEnd([for (final p in points) p.pressure]);
-    return [
-      for (var i = 0; i < points.length; i++) StrokePoint(points[i].x, points[i].y, settled[i]),
-    ];
+    const count = 3;
+    // The tail and the point before it, whose pressure caps it.
+    final from = math.max(0, points.length - count - 1);
+    final settled = PressureFilter.settleEnd([
+      for (var i = from; i < points.length; i++) points[i].pressure,
+    ], count: count);
+    for (var i = from; i < points.length; i++) {
+      final p = points[i];
+      final pressure = settled[i - from];
+      if (pressure != p.pressure) points[i] = StrokePoint(p.x, p.y, pressure);
+    }
+    return points;
   }
 
   /// [time] in whole milliseconds (as Android's `MotionEvent` times).

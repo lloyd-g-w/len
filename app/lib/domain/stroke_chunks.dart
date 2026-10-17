@@ -41,94 +41,12 @@ abstract final class StrokeChunks {
   );
 
   /// The chunks touched by ink of width [width] drawn through [points].
-  static Set<ChunkKey> along(List<StrokePoint> points, double width) {
-    final pad = width; // Same generous padding as [Stroke.computeBounds].
-    final keys = <ChunkKey>{};
-    // Never more than the bounding box (which old index rows used).
-    final bounds = Stroke.computeBounds(points, width);
-    if (points.length == 1) {
-      final p = points.single.offset;
-      keys.addAll(ChunkGrid.rangeFor(Rect.fromCircle(center: p, radius: pad)).keys);
-      return keys;
-    }
-    // Within one chunk (most handwriting): that chunk, without measuring
-    // every segment (loading a page indexes thousands of strokes at once).
-    final range = ChunkGrid.rangeFor(bounds);
-    if (range.count == 1) return {(x: range.minX, y: range.minY)};
-    // A pathological stroke (very long zigzags) would take too many
-    // pieces; its bounding box is always a valid (if coarser) answer.
-    // Measures how far along the stroke each sample lies on the way.
-    final along = Float64List(points.length);
-    var pieces = 0.0;
-    for (var i = 0; i + 1 < points.length && pieces <= _maxPieces; i++) {
-      final dx = points[i + 1].x - points[i].x, dy = points[i + 1].y - points[i].y;
-      final length = math.sqrt(dx * dx + dy * dy);
-      along[i + 1] = along[i] + length;
-      pieces += length / _piece + 1;
-    }
-    if (pieces > _maxPieces) return ChunkGrid.rangeFor(bounds).keys.toSet();
-    // In plain doubles (no offsets, rects or ranges per piece: a commit of
-    // many long lines spent most of its time here), skipping a piece in the
-    // chunks of the one before it and stopping once every chunk of the
-    // bounds is in.
-    const size = ChunkGrid.size;
-    final (left, top, right, bottom) = (bounds.left, bounds.top, bounds.right, bounds.bottom);
-    var last = (minX: 0, minY: 0, maxX: -1, maxY: -1);
-    for (var i = 0; i + 1 < points.length && keys.length < range.count; i++) {
-      final ax = points[i].x, ay = points[i].y;
-      final bx = points[i + 1].x, by = points[i + 1].y;
-      // The samples around lie no further from the segment than along the
-      // stroke from its start: when even that reach adds no chunk, the
-      // segment adds none (most of a long stroke's segments).
-      final around = math.max(
-        along[i] - along[math.max(0, i - _window)],
-        along[math.min(points.length - 1, i + 1 + _window)] - along[i],
-      );
-      final most = pad + around * 1.25 + 2; // 1 more than the reach: rounding.
-      if (_allIn(
-        keys,
-        (math.max(math.min(ax, bx) - most, left) / size).floor(),
-        (math.max(math.min(ay, by) - most, top) / size).floor(),
-        (math.min(math.max(ax, bx) + most, right) / size).floor(),
-        (math.min(math.max(ay, by) + most, bottom) / size).floor(),
-      )) {
-        continue;
-      }
-      final reach = pad + _stray(points, i, ax, ay, bx, by) * 1.25 + 1;
-      final dx = bx - ax, dy = by - ay;
-      final pieces = math.max(1, (math.sqrt(dx * dx + dy * dy) / _piece).ceil());
-      for (var k = 0; k < pieces; k++) {
-        // As Offset.lerp, Rect.fromPoints, inflate and intersect would.
-        final t0 = k / pieces, t1 = (k + 1) / pieces;
-        final px = ax * (1.0 - t0) + bx * t0, py = ay * (1.0 - t0) + by * t0;
-        final qx = ax * (1.0 - t1) + bx * t1, qy = ay * (1.0 - t1) + by * t1;
-        final minX = (math.max(math.min(px, qx) - reach, left) / size).floor();
-        final minY = (math.max(math.min(py, qy) - reach, top) / size).floor();
-        final maxX = (math.min(math.max(px, qx) + reach, right) / size).floor();
-        final maxY = (math.min(math.max(py, qy) + reach, bottom) / size).floor();
-        if (minX == last.minX && minY == last.minY && maxX == last.maxX && maxY == last.maxY) {
-          continue;
-        }
-        last = (minX: minX, minY: minY, maxX: maxX, maxY: maxY);
-        for (var y = minY; y <= maxY; y++) {
-          for (var x = minX; x <= maxX; x++) {
-            keys.add((x: x, y: y));
-          }
-        }
-      }
-    }
-    return keys;
-  }
+  static Set<ChunkKey> along(List<StrokePoint> points, double width) =>
+      StrokeChunkTrace(width, bounds: Stroke.computeBounds(points, width)).finish(points);
 
-  /// Whether [keys] holds every chunk from ([minX], [minY]) to ([maxX], [maxY]).
-  static bool _allIn(Set<ChunkKey> keys, int minX, int minY, int maxX, int maxY) {
-    for (var y = minY; y <= maxY; y++) {
-      for (var x = minX; x <= maxX; x++) {
-        if (!keys.contains((x: x, y: y))) return false;
-      }
-    }
-    return true;
-  }
+  /// Records [keys] as the chunks of [stroke] (as [of] would find them,
+  /// e.g. traced while it was drawn, [StrokeChunkTrace]).
+  static void adopt(Stroke stroke, Set<ChunkKey> keys) => _memo[stroke] = Set.unmodifiable(keys);
 
   /// How far the samples around segment [i] (from a to b) lie from it
   /// (they pull the smoothed curve sideways by at most this much).
@@ -157,6 +75,208 @@ abstract final class StrokeChunks {
       stray = math.max(stray, math.sqrt(dx * dx + dy * dy));
     }
     return stray;
+  }
+}
+
+/// [StrokeChunks.along] built as a stroke's points arrive: each segment is
+/// traced once the samples that can pull it sideways are known, so the
+/// chunks of a long stroke are ready at pen-up (only its last segments are
+/// left). Gives exactly what [StrokeChunks.along] gives for the final
+/// points, as long as the points [add]ed are a prefix of them.
+class StrokeChunkTrace {
+  /// Traces ink of [width]; [bounds] are the stroke's final bounds
+  /// ([Stroke.computeBounds]), when known up front.
+  StrokeChunkTrace(this.width, {Rect? bounds}) : _final = bounds;
+
+  /// The ink's width.
+  final double width;
+
+  /// The stroke's bounds, if known up front.
+  final Rect? _final;
+
+  final Set<ChunkKey> _keys = {};
+
+  /// Pieces whose chunks may still grow with the stroke's bounds (before
+  /// clipping to them).
+  final List<Rect> _pending = [];
+
+  /// Points seen (their bounds are in [_minX]…), segments traced.
+  int _seen = 0, _traced = 0;
+  Offset? _last;
+  double _minX = double.infinity, _minY = double.infinity;
+  double _maxX = double.negativeInfinity, _maxY = double.negativeInfinity;
+
+  /// Pieces counted as [StrokeChunks.along] counts them; past its limit
+  /// the stroke is indexed by its bounding box.
+  double _pieces = 0;
+  ({int minX, int minY, int maxX, int maxY}) _lastRange = (minX: 0, minY: 0, maxX: -1, maxY: -1);
+
+  /// How far along the stroke each point lies, when the bounds are known.
+  Float64List? _along;
+
+  /// Traces the segments of [points] (the stroke so far, the points added
+  /// before unchanged) whose neighbourhood is complete.
+  void add(List<StrokePoint> points) {
+    _see(points);
+    _trace(points, points.length - 1 - StrokeChunks._window);
+  }
+
+  /// Whether [points] may [finish] this trace: they begin with the points
+  /// [add]ed (checked by their count and last position).
+  bool follows(List<StrokePoint> points) =>
+      points.length >= _seen && (_last == null || points[_seen - 1].offset == _last);
+
+  /// The chunks of the stroke whose points are [points] (the points
+  /// [add]ed, plus any more; pressures may differ, positions not).
+  Set<ChunkKey> finish(List<StrokePoint> points) {
+    if (!follows(points)) throw StateError('Not the points traced');
+    _see(points);
+    final bounds = _bounds;
+    if (points.length == 1) {
+      final p = points.single.offset;
+      return ChunkGrid.rangeFor(Rect.fromCircle(center: p, radius: width)).keys.toSet();
+    }
+    // Within one chunk (most handwriting): that chunk.
+    final range = ChunkGrid.rangeFor(bounds);
+    if (range.count == 1) return {(x: range.minX, y: range.minY)};
+    _trace(points, points.length - 1);
+    // A pathological stroke (very long zigzags) would take too many
+    // pieces; its bounding box is always a valid (if coarser) answer.
+    if (_pieces > StrokeChunks._maxPieces) return range.keys.toSet();
+    for (final piece in _pending) {
+      _addRange(ChunkGrid.rangeFor(piece.intersect(bounds)));
+    }
+    _pending.clear();
+    return _keys;
+  }
+
+  /// The bounds of the points seen ([Stroke.computeBounds]): the
+  /// stroke's, once [finish]ed.
+  Rect get bounds => _bounds;
+  Rect get _bounds =>
+      _final ?? Rect.fromLTRB(_minX - width, _minY - width, _maxX + width, _maxY + width);
+
+  void _see(List<StrokePoint> points) {
+    for (var i = _final == null ? _seen : points.length; i < points.length; i++) {
+      final p = points[i];
+      if (p.x < _minX) _minX = p.x;
+      if (p.y < _minY) _minY = p.y;
+      if (p.x > _maxX) _maxX = p.x;
+      if (p.y > _maxY) _maxY = p.y;
+    }
+    _seen = points.length;
+    if (_seen > 0) _last = points[_seen - 1].offset;
+  }
+
+  /// Traces segments up to (not including) [end].
+  ///
+  /// In plain doubles (no offsets, rects or ranges per piece: a commit of
+  /// many long lines spent most of its time here). With the final bounds
+  /// known, a segment that cannot add a chunk is skipped, and tracing stops
+  /// once every chunk of the bounds is in.
+  void _trace(List<StrokePoint> points, int end) {
+    if (_traced >= end) return;
+    const size = ChunkGrid.size;
+    final pad = width;
+    final bounds = _bounds;
+    final (left, top, right, bottom) = (bounds.left, bounds.top, bounds.right, bounds.bottom);
+    final known = _final != null;
+    final all = known ? ChunkGrid.rangeFor(bounds).count : 0;
+    final along = known ? _measure(points) : null;
+    for (var i = _traced; i < end; i++) {
+      final ax = points[i].x, ay = points[i].y;
+      final bx = points[i + 1].x, by = points[i + 1].y;
+      final dx = bx - ax, dy = by - ay;
+      final length = math.sqrt(dx * dx + dy * dy);
+      _pieces += length / StrokeChunks._piece + 1;
+      if (_pieces > StrokeChunks._maxPieces) break;
+      if (along != null) {
+        if (_keys.length >= all) break;
+        // The samples around lie no further from the segment than along
+        // the stroke from its start: when even that reach adds no chunk,
+        // the segment adds none (most of a long stroke's segments).
+        const window = StrokeChunks._window;
+        final around = math.max(
+          along[i] - along[math.max(0, i - window)],
+          along[math.min(points.length - 1, i + 1 + window)] - along[i],
+        );
+        final most = pad + around * 1.25 + 2; // 1 more than the reach: rounding.
+        if (_allIn(
+          (math.max(math.min(ax, bx) - most, left) / size).floor(),
+          (math.max(math.min(ay, by) - most, top) / size).floor(),
+          (math.min(math.max(ax, bx) + most, right) / size).floor(),
+          (math.min(math.max(ay, by) + most, bottom) / size).floor(),
+        )) {
+          continue;
+        }
+      }
+      final reach = pad + StrokeChunks._stray(points, i, ax, ay, bx, by) * 1.25 + 1;
+      final pieces = math.max(1, (length / StrokeChunks._piece).ceil());
+      for (var k = 0; k < pieces; k++) {
+        // As Offset.lerp, Rect.fromPoints, inflate and intersect would.
+        final t0 = k / pieces, t1 = (k + 1) / pieces;
+        final px = ax * (1.0 - t0) + bx * t0, py = ay * (1.0 - t0) + by * t0;
+        final qx = ax * (1.0 - t1) + bx * t1, qy = ay * (1.0 - t1) + by * t1;
+        final l = math.min(px, qx) - reach, t = math.min(py, qy) - reach;
+        final r = math.max(px, qx) + reach, b = math.max(py, qy) + reach;
+        final minX = (math.max(l, left) / size).floor();
+        final minY = (math.max(t, top) / size).floor();
+        final maxX = (math.min(r, right) / size).floor();
+        final maxY = (math.min(b, bottom) / size).floor();
+        _add(minX, minY, maxX, maxY);
+        if (!known) _hold(Rect.fromLTRB(l, t, r, b), ChunkRange(minX, minY, maxX, maxY));
+      }
+    }
+    _traced = end;
+  }
+
+  /// How far along the stroke each of [points] lies (kept as they arrive).
+  Float64List _measure(List<StrokePoint> points) {
+    final old = _along;
+    if (old != null && old.length >= points.length) return old;
+    final along = Float64List(points.length);
+    final from = old == null ? 1 : old.length;
+    if (old != null) along.setRange(0, old.length, old);
+    for (var i = from; i < points.length; i++) {
+      final dx = points[i].x - points[i - 1].x, dy = points[i].y - points[i - 1].y;
+      along[i] = along[i - 1] + math.sqrt(dx * dx + dy * dy);
+    }
+    return _along = along;
+  }
+
+  /// Whether every chunk from ([minX], [minY]) to ([maxX], [maxY]) is in.
+  bool _allIn(int minX, int minY, int maxX, int maxY) {
+    for (var y = minY; y <= maxY; y++) {
+      for (var x = minX; x <= maxX; x++) {
+        if (!_keys.contains((x: x, y: y))) return false;
+      }
+    }
+    return true;
+  }
+
+  /// Keeps [piece] for [finish] if the stroke's bounds, clipping it to
+  /// [clipped] so far, may still grow to let it reach chunks not found yet.
+  void _hold(Rect piece, ChunkRange clipped) {
+    final whole = ChunkGrid.rangeFor(piece);
+    if (whole == clipped) return;
+    for (var y = whole.minY; y <= whole.maxY; y++) {
+      for (var x = whole.minX; x <= whole.maxX; x++) {
+        if (!_keys.contains((x: x, y: y))) return _pending.add(piece);
+      }
+    }
+  }
+
+  void _addRange(ChunkRange range) => _add(range.minX, range.minY, range.maxX, range.maxY);
+
+  void _add(int minX, int minY, int maxX, int maxY) {
+    final last = _lastRange;
+    if (minX == last.minX && minY == last.minY && maxX == last.maxX && maxY == last.maxY) return;
+    _lastRange = (minX: minX, minY: minY, maxX: maxX, maxY: maxY);
+    for (var y = minY; y <= maxY; y++) {
+      for (var x = minX; x <= maxX; x++) {
+        _keys.add((x: x, y: y));
+      }
+    }
   }
 }
 
