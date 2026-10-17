@@ -89,7 +89,7 @@ class EditorSession with _EditorSessionZoom {
         // Pinches ending near 100 % snap to it.
         kinetic: KineticPan(nav.animator, settle: (f, {required zoomed}) => zoomed && zoom.snap(f)),
       );
-      undo = EditingUndo(SurfaceUndo(model), content.text);
+      undo = EditingUndo(SurfaceUndo(model), content.text, curve: content.shape.curve);
       zoom = DoubleTapZoom(viewport: viewport, animator: nav.animator, home: () => 1);
     } else {
       final doc = this.doc = _openDocument(current, initialView);
@@ -124,7 +124,7 @@ class EditorSession with _EditorSessionZoom {
       )..highlightSnap = PdfHighlightSnap(doc: doc, info: shared.pdfInfo);
       // Paste onto the page in the middle of the screen.
       content.beforePasteAtCentre = () => doc.activateAt(doc.viewport.size.center(Offset.zero));
-      undo = EditingUndo(doc.surfaces, content.text);
+      undo = EditingUndo(doc.surfaces, content.text, curve: content.shape.curve);
       zoom = DoubleTapZoom(
         viewport: doc.viewport,
         animator: animator,

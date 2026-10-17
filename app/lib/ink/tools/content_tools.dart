@@ -182,6 +182,13 @@ class ContentTools {
   /// live: pressing on it moves or resizes it with the
   /// lasso, pressing elsewhere drops it and uses [tool] again.
   PointerTool? toolAt(EditorTool tool, Offset screen, {bool lasso = false}) {
+    final picked = _toolAt(tool, screen, lasso: lasso);
+    // Redo brings back an undone curve only until something else is done.
+    if (!identical(picked, shape)) shape.curve.forget();
+    return picked;
+  }
+
+  PointerTool? _toolAt(EditorTool tool, Offset screen, {required bool lasso}) {
     if (lasso) return this.lasso;
     if (tool != EditorTool.lasso && !selection.isEmpty) {
       if (holds(screen)) return this.lasso;
@@ -281,6 +288,7 @@ class ContentTools {
     viewport.removeListener(_onViewport);
     text.removeListener(_onTextChanged);
     text.end();
+    shape.curve.dispose();
     selection.dispose();
     text.dispose();
     lassoPath.dispose();

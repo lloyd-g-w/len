@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
+
 import '../../core/clock.dart';
 import '../../domain/stroke.dart';
 import '../input/live_ink.dart';
@@ -18,7 +20,14 @@ import 'pointer_tool.dart';
 /// curve so far is the live stroke between gestures; it is committed as
 /// one stroke (one undo step), closed ones with the [fill] given at the
 /// start.
-class CurveDrawing {
+///
+/// Until then the curve has a history of its own, which the editor's undo
+/// and redo act on while it is drawn ([canUndo], [undo], [redo]): undo
+/// takes back the last anchor placed (the one being placed, mid-gesture),
+/// redo puts it back; undoing the first anchor drops the curve, and redo
+/// brings it back as long as nothing else was drawn ([forget]). Listeners
+/// hear when that history changes.
+class CurveDrawing extends ChangeNotifier {
   CurveDrawing({required this.live, required this.viewport, this.clock = const Clock()});
 
   final LiveInk live;
@@ -43,7 +52,16 @@ class CurveDrawing {
 
   /// The state before the gesture in progress, to go back to if it is
   /// abandoned.
-  ({List<Offset> points, Offset lastOut, Offset? firstIn})? _before;
+  _Spline? _before;
+
+  /// The states before each anchor placed after the first (undo), and
+  /// those undone (redo).
+  final List<_Spline> _placed = [], _undone = [];
+
+  /// The curve whose first anchor was undone, for redo to bring back.
+  _Dropped? _dropped;
+
+  void Function()? _begin;
 
   Offset _pressScreen = Offset.zero;
   bool _dragged = false;
@@ -70,18 +88,17 @@ class CurveDrawing {
     _dragged = false;
     _closing = _finishing = false;
     if (!active) {
+      _dropped = null;
       _model = model;
       _fill = fill;
       _startedAt = clock.nowMs();
-      begin();
+      (_begin = begin)();
       _before = null;
-      _points = [p.world];
-      _lastOut = p.world;
-      _firstIn = null;
-      _show();
+      _restore((points: [p.world], lastOut: p.world, firstIn: null));
+      notifyListeners();
       return;
     }
-    _before = (points: [..._points], lastOut: _lastOut, firstIn: _firstIn);
+    _before = _state;
     final reach = SelectionChrome.shapeHitRadius(p.kind);
     final last = viewport.toScreen(_points.last), first = viewport.toScreen(_points.first);
     if ((p.screen - last).distance <= reach && clock.nowMs() - _lastUp <= doubleTapMs) {
@@ -131,7 +148,81 @@ class CurveDrawing {
       _commit(closed: true);
     } else if (_finishing) {
       _commit(closed: false);
+    } else if (_before case final before?) {
+      _placed.add(before);
+      _undone.clear();
+      notifyListeners();
     }
+  }
+
+  /// Whether [undo] has anything to take back: a curve is being drawn.
+  bool get canUndo => active;
+
+  /// Whether [redo] has an anchor (or a dropped curve) to put back.
+  bool get canRedo => active ? _undone.isNotEmpty : _dropped != null;
+
+  /// Takes back the last anchor placed (the one being placed, if pressed);
+  /// the first one drops the curve. False when no curve is drawn.
+  bool undo() {
+    if (!active) return false;
+    if (_pressed) {
+      cancelGesture();
+    } else if (_placed.isEmpty) {
+      final dropped = (
+        model: _model!,
+        fill: _fill,
+        startedAt: _startedAt,
+        spline: _state,
+        undone: [..._undone],
+      );
+      cancel();
+      _dropped = dropped;
+    } else {
+      _undone.add(_state);
+      _restore(_placed.removeLast());
+    }
+    _lastUp = -doubleTapMs - 1; // A tap on the last anchor now isn't a double tap.
+    notifyListeners();
+    return true;
+  }
+
+  /// Puts back the last anchor undone (or the curve dropped); false when
+  /// there is none.
+  bool redo() {
+    if (!canRedo) return false;
+    if (_dropped case final dropped?) {
+      _dropped = null;
+      _model = dropped.model;
+      _fill = dropped.fill;
+      _startedAt = dropped.startedAt;
+      _begin?.call();
+      _undone.addAll(dropped.undone);
+      _restore(dropped.spline);
+    } else {
+      _placed.add(_state);
+      _restore(_undone.removeLast());
+    }
+    _lastUp = -doubleTapMs - 1;
+    notifyListeners();
+    return true;
+  }
+
+  /// Forgets a dropped curve (something else was drawn or undone): redo no
+  /// longer brings it back.
+  void forget() {
+    if (_dropped == null) return;
+    _dropped = null;
+    notifyListeners();
+  }
+
+  _Spline get _state => (points: [..._points], lastOut: _lastOut, firstIn: _firstIn);
+
+  /// Shows [spline] as the curve so far.
+  void _restore(_Spline spline) {
+    _points = spline.points;
+    _lastOut = spline.lastOut;
+    _firstIn = spline.firstIn;
+    _show();
   }
 
   /// The gesture was abandoned (it became a pinch): the curve is as it was
@@ -139,19 +230,18 @@ class CurveDrawing {
   void cancelGesture() {
     if (!_pressed) return;
     _pressed = false;
+    _closing = _finishing = false;
     final before = _before;
     if (before == null) {
       cancel();
       return;
     }
-    _points = before.points;
-    _lastOut = before.lastOut;
-    _firstIn = before.firstIn;
-    _show();
+    _restore(before);
   }
 
   /// Commits the curve drawn so far (open); false when none was drawn.
   bool finish() {
+    forget();
     if (!active) return false;
     _commit(closed: false);
     return true;
@@ -159,11 +249,20 @@ class CurveDrawing {
 
   /// Drops the curve drawn so far; false when none was drawn.
   bool cancel() {
+    forget();
     if (!active) return false;
     live.finish();
+    _end();
+    return true;
+  }
+
+  /// No curve is drawn any more.
+  void _end() {
     _model = null;
     _pressed = false;
-    return true;
+    _placed.clear();
+    _undone.clear();
+    notifyListeners();
   }
 
   /// The curve as drawn so far, closed or not; null with one anchor.
@@ -193,7 +292,7 @@ class CurveDrawing {
         : ShapeBuilder.pointsOf(shape, spacing: 2 / viewport.scale);
     final tool = live.tool, color = live.color, width = live.width;
     live.finish();
-    _model = null;
+    _end();
     if (shape == null || _tiny(shape)) return;
     model.addStroke(
       Stroke(
@@ -219,3 +318,15 @@ class CurveDrawing {
     return r.longestSide * viewport.scale < slop;
   }
 }
+
+/// A curve's control points so far (see [CurveDrawing]).
+typedef _Spline = ({List<Offset> points, Offset lastOut, Offset? firstIn});
+
+/// A curve whose first anchor was undone.
+typedef _Dropped = ({
+  SurfaceModel model,
+  int? fill,
+  int startedAt,
+  _Spline spline,
+  List<_Spline> undone,
+});
