@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import '../../domain/shaped.dart';
 import '../../domain/stroke.dart';
 import '../shapes/shape_anchors.dart';
 import '../shapes/shape_builder.dart';
@@ -101,10 +102,10 @@ abstract final class Connectors {
   /// ([sits]) if any, else the stroke of that very id, else the one of
   /// the least id — the same pick on every device. Null when detached or
   /// none is a target.
-  static Stroke? targetOf(ShapeGeometry line, int index, Iterable<Stroke> named) {
+  static T? targetOf<T extends Shaped>(ShapeGeometry line, int index, Iterable<T> named) {
     final a = line.attachmentOf(index);
     if (a == null) return null;
-    Stroke? pick;
+    T? pick;
     for (final s in named) {
       if (s.shapeId != a.id || !ShapeAnchors.isTarget(s.shape)) continue;
       if (sits(line, index, s.shape)) return s;

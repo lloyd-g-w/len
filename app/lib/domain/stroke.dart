@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'shape_geometry.dart';
+import 'shaped.dart';
 import 'stroke_style.dart';
 
 export 'shape_geometry.dart';
@@ -52,7 +53,7 @@ class StrokePoint {
 /// Strokes are never edited after creation; they are only added or removed.
 /// This keeps sync conflicts trivial and caches (paths, chunk pictures)
 /// valid for the lifetime of the object.
-class Stroke {
+class Stroke implements Shaped {
   Stroke({
     required this.id,
     required this.surfaceId,
@@ -68,6 +69,7 @@ class Stroke {
        points = List.unmodifiable(points),
        bounds = computeBounds(points, width);
 
+  @override
   final String id;
 
   /// The page id (paged notebooks) or notebook id (canvas) this stroke is on.
@@ -96,11 +98,13 @@ class Stroke {
   /// The geometry of a shape (drawn with the Shape tool or snapped), whose
   /// outline [points] trace; null for free-hand ink. Edits that move the
   /// points without keeping the shape (the pixel eraser) drop it.
+  @override
   final ShapeGeometry? shape;
 
   /// The shape's identity across edits, which connectors attach to
   /// ([ShapeAttachment.id]): its [ShapeGeometry.origin], else this
   /// stroke's own id (a shape never edited, free-hand ink).
+  @override
   String get shapeId => shape?.origin ?? id;
 
   /// The bounding box of [points] inflated by half the maximum line width.

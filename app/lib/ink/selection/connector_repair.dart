@@ -2,6 +2,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../data/connector_queries.dart';
 import '../../data/stroke_repository.dart';
+import '../../domain/shaped.dart';
 import '../../domain/stroke.dart';
 import '../../sync/remote_changes.dart';
 import '../surface_model.dart';
@@ -47,7 +48,19 @@ class ConnectorRepair {
       final (:shapes, :lines) = ids == null
           ? _queries.all(surface)
           : _queries.touchedBy(surface, ids);
-      final fixes = repairsOn(shapes, lines: lines);
+      final found = fixesOn(shapes, lines: lines);
+      if (found.isEmpty) continue;
+      // Only the lines repaired are read whole (their points).
+      final read = {
+        for (final s in strokes.queries.strokesByIds(surface, [
+          for (final (line, _, _) in found) line.id,
+        ]))
+          s.id: s,
+      };
+      final fixes = [
+        for (final (line, shape, id) in found)
+          if (read[line.id] case final stroke?) (stroke, Connectors.rebuilt(stroke, shape, id: id)),
+      ];
       if (fixes.isEmpty) continue;
       strokes.database.transaction(() {
         strokes.delete([for (final (line, _) in fixes) line.id]);
@@ -70,22 +83,32 @@ class ConnectorRepair {
   /// The [lines] (by default all of the [shapes] of one surface) with an
   /// end off the shape it is attached to among [shapes], each with its
   /// repair. [shapes] must hold every stroke of each shape the lines name.
-  static List<(Stroke, Stroke)> repairsOn(List<Stroke> shapes, {List<Stroke>? lines}) {
-    final named = <String, List<Stroke>>{};
+  static List<(Stroke, Stroke)> repairsOn(List<Stroke> shapes, {List<Stroke>? lines}) => [
+    for (final (line, shape, id) in fixesOn(shapes, lines: lines))
+      (line, Connectors.rebuilt(line, shape, id: id)),
+  ];
+
+  /// What [repairsOn] finds, without rebuilding the lines: each line to
+  /// repair, the shape it is repaired to and the repair's id.
+  static List<(T, ShapeGeometry, String)> fixesOn<T extends Shaped>(
+    List<T> shapes, {
+    List<T>? lines,
+  }) {
+    final named = <String, List<T>>{};
     for (final s in shapes) {
       (named[s.shapeId] ??= []).add(s);
     }
-    final out = <(Stroke, Stroke)>[];
+    final out = <(T, ShapeGeometry, String)>[];
     for (final line in lines ?? shapes) {
       final shape = line.shape!;
       if (!shape.isAttached) continue;
-      Stroke? target(int end) {
+      T? target(int end) {
         final a = shape.attachmentOf(end);
         return a == null ? null : Connectors.targetOf(shape, end, named[a.id] ?? const []);
       }
 
       final tail = target(0), tip = target(1);
-      bool off(int end, Stroke? t) => t != null && !Connectors.sits(shape, end, t.shape);
+      bool off(int end, T? t) => t != null && !Connectors.sits(shape, end, t.shape);
       if (!off(0, tail) && !off(1, tip)) continue;
       // Each end onto the stroke picked for it (two ends on one shape
       // name the same pick).
@@ -95,7 +118,7 @@ class ConnectorRepair {
         final a = shape.attachmentOf(end)!;
         followed = Connectors.follow(followed, {a.id: t!.shape!});
       }
-      out.add((line, Connectors.rebuilt(line, followed, id: idOf(line, tail, tip))));
+      out.add((line, followed, idOf(line, tail, tip)));
     }
     return out;
   }
@@ -107,6 +130,6 @@ class ConnectorRepair {
 
   /// The id of [line] repaired onto [tail] and [tip] (the strokes its ends
   /// are attached to): the same on every device.
-  static String idOf(Stroke line, Stroke? tail, Stroke? tip) =>
+  static String idOf(Shaped line, Shaped? tail, Shaped? tip) =>
       _uuid.v5(_namespace, '${line.id}>${tail?.id ?? ''}|${tip?.id ?? ''}');
 }

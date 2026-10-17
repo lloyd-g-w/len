@@ -71,7 +71,7 @@ void main() {
   });
   tearDown(() => db.close());
 
-  Set<String> ids(Iterable<Stroke> s) => {for (final x in s) x.id};
+  Set<String> ids(Iterable<ShapeRow> s) => {for (final x in s) x.id};
 
   test('ink changed: nothing to look at', () {
     final read = queries.touchedBy('p', ['ink', 'unknown']);

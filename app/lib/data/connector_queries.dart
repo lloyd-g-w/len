@@ -2,14 +2,31 @@ import 'dart:convert';
 
 import 'package:sqlite3/common.dart';
 
-import '../domain/stroke.dart';
+import '../domain/shape_geometry.dart';
+import '../domain/shaped.dart';
 import 'stroke_queries.dart';
 import 'stroke_row.dart';
 
 /// The shape strokes a connector repair (`ConnectorRepair`) reads: the
 /// [lines] to check and the [shapes] their ends may be attached to (every
 /// stroke of each shape they name, the lines among them too).
-typedef ConnectorShapes = ({List<Stroke> shapes, List<Stroke> lines});
+typedef ConnectorShapes = ({List<ShapeRow> shapes, List<ShapeRow> lines});
+
+/// A live shape stroke as a connector repair reads it: its id and shape
+/// alone (its points, the most of a row to decode, are read only for the
+/// lines repaired).
+class ShapeRow implements Shaped {
+  const ShapeRow(this.id, this.shape);
+
+  @override
+  final String id;
+
+  @override
+  final ShapeGeometry shape;
+
+  @override
+  String get shapeId => shape.origin ?? id;
+}
 
 /// Reads the lines and shapes connectors are made of from the `strokes`
 /// table (attachments live in the `style` column, `sh.a`; a shape's
@@ -34,7 +51,7 @@ class ConnectorQueries {
   ConnectorShapes all(String surfaceId) {
     final attached = _db.select('SELECT EXISTS (SELECT 1 FROM $_attached) AS found', [surfaceId]);
     if (attached.first['found'] != 1) return (shapes: const [], lines: const []);
-    final shapes = _strokes('SELECT * FROM $_shapes', [surfaceId]);
+    final shapes = _rows('SELECT id, style FROM $_shapes', [surfaceId]);
     return (shapes: shapes, lines: shapes);
   }
 
@@ -65,8 +82,8 @@ class ConnectorQueries {
     if (names.length > maxNames) return all(surfaceId);
     final quoted = [for (final n in names) jsonEncode(n)];
     final attached = [
-      for (final s in _strokes(
-        'SELECT * FROM $_attached AND (id IN (${_marks(lines.length)})'
+      for (final s in _rows(
+        'SELECT id, style FROM $_attached AND (id IN (${_marks(lines.length)})'
         '${' OR instr(style, ?) > 0' * quoted.length})',
         [surfaceId, ...lines, ...quoted],
       ))
@@ -77,16 +94,16 @@ class ConnectorQueries {
     return (shapes: [...attached, ..._named(surfaceId, targets)], lines: attached);
   }
 
-  /// The live strokes on [surfaceId] of the shapes [names] ([Stroke.shapeId]).
-  List<Stroke> _named(String surfaceId, List<String> names) {
-    final out = <Stroke>[];
+  /// The live strokes on [surfaceId] of the shapes [names] ([Shaped.shapeId]).
+  List<ShapeRow> _named(String surfaceId, List<String> names) {
+    final out = <ShapeRow>[];
     final wanted = names.toSet();
     for (var i = 0; i < names.length; i += _batch) {
       final batch = names.sublist(i, (i + _batch).clamp(0, names.length));
       final origins = [for (final n in batch) '"o":${jsonEncode(n)}'];
       out.addAll(
-        _strokes(
-          'SELECT * FROM $_shapes AND (id IN (${_marks(batch.length)})'
+        _rows(
+          'SELECT id, style FROM $_shapes AND (id IN (${_marks(batch.length)})'
           '${' OR instr(style, ?) > 0' * origins.length})',
           [surfaceId, ...batch, ...origins],
         ).where((s) => wanted.contains(s.shapeId)),
@@ -96,17 +113,16 @@ class ConnectorQueries {
   }
 
   /// The shapes [line]'s ends are attached to.
-  static Iterable<String> _names(Stroke line) => [
-    if (line.shape?.tail case final a?) a.id,
-    if (line.shape?.tip case final a?) a.id,
+  static Iterable<String> _names(ShapeRow line) => [
+    if (line.shape.tail case final a?) a.id,
+    if (line.shape.tip case final a?) a.id,
   ];
 
-  List<Stroke> _strokes(String sql, List<Object?> args) => _db
-      .select(sql, args)
-      .map(StrokeQueries.rowToStroke)
-      .nonNulls
-      .where((s) => s.shape != null)
-      .toList();
+  /// The shapes of the rows (`id, style`) [sql] selects.
+  List<ShapeRow> _rows(String sql, List<Object?> args) => [
+    for (final r in _db.select(sql, args))
+      if (_shapeOf(r['style']) case final shape?) ShapeRow(r['id'] as String, shape),
+  ];
 
   static ShapeGeometry? _shapeOf(Object? style) {
     if (style is! String) return null;

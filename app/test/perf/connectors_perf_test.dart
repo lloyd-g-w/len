@@ -36,7 +36,7 @@ import 'support/frame_counts.dart';
 ///
 /// Run: `tool/heavy.sh nix develop .. -c flutter test test/perf/connectors_perf_test.dart`.
 void main() {
-  test('repair after a pull: 500 boxes, 1,000 arrows, 5,000 strokes', () {
+  test('repair after a pull: 500 boxes, 1,000 arrows, 5,000 strokes', () async {
     final db = AppDatabase.inMemory();
     final strokes = StrokeRepository(db, deviceId: 'd');
     const surface = 's';
@@ -64,6 +64,8 @@ void main() {
     // Another device moved one box without its arrows (theirs were edited
     // meanwhile here): its arrows are brought back onto it.
     final moved = <int>[];
+    final profile = const bool.fromEnvironment('PROFILE') ? await CpuProfile.connect() : null;
+    await profile?.start();
     for (var i = 0; i < 20; i++) {
       final old = boxes[(i * 61 + 26) % boxes.length];
       final now = Stroke(
@@ -90,9 +92,15 @@ void main() {
       expect(n, greaterThanOrEqualTo(2)); // Its arrows in and out.
       boxes[(i * 61 + 26) % boxes.length] = now;
     }
+    await profile?.dump('repair, a box moved', count: 45);
 
     // Many changes (more than are named): the whole surface is looked at.
     final many = RemoteChanges()..reloadSurface(surface);
+    await profile?.start();
+    for (var i = 0; i < 10; i++) {
+      repair.repair(many);
+    }
+    await profile?.dump('repair, surface reloaded', count: 45);
     final whole = bestUs(() => repair.repair(many), runs: 10);
 
     report(
@@ -148,13 +156,28 @@ void main() {
           move();
         }
       }, runs: 5);
-      expect(selection.followers, isNotNull);
-      final commit = Stopwatch()..start();
-      selection.commitPreview();
-      commit.stop();
+      // Each commit drops the box (and its arrows, as followers) where the
+      // drag left it; the next drag picks up the moved box.
+      final profile = const bool.fromEnvironment('PROFILE') ? await CpuProfile.connect() : null;
+      await profile?.start();
+      final commits = <int>[];
+      for (var k = 0; k < 5; k++) {
+        if (k > 0) {
+          final frame = selection.frame!;
+          for (var m = 0; m < 3; m++) {
+            selection.setPreview(Affine.translation(Offset(m * 2.0 - k, k * 1.5)), frame);
+          }
+        }
+        expect(selection.followers, isNotNull);
+        final commit = Stopwatch()..start();
+        selection.commitPreview();
+        commits.add(commit.elapsedMicroseconds);
+        expect(model.strokeById(selection.strokes.single.id)?.shapeId, 'hub');
+      }
+      await profile?.dump('commit $arrows', count: 60);
       report(
         'CONNECTORS drag, $arrows arrows: setPreview ${_ms(perMove ~/ 20)} a move '
-        '(best of 5 × 20); commit ${_ms(commit.elapsedMicroseconds)}',
+        '(best of 5 × 20); commit ${_stats(commits)} (5 drags)',
       );
       content.dispose();
       model.dispose();
