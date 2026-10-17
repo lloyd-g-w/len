@@ -224,6 +224,32 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   they dedupe across platforms); version recordings, the outline and recognised handwriting
   too; smaller version records for very long notebooks (pages' entries in shared blobs, with
   the blob clean-up following them); a golden of the history view.
+  **Done** (design: ARCHITECTURE "Version history", SYNC_PROTOCOL "Version history" and
+  "Reference blobs"): packs are format 2 — `LP`, 2, canonical JSON (`CanonicalJson`: sorted
+  keys, integral numbers as integers, fixed escapes) deflated by the archive package's pure-Dart
+  encoder on every platform; the same SHA-256 on the VM, dart2js and dart2wasm (checked under
+  Node, pinned in a test); format 1 packs still read; the pack cache is emptied once
+  (migration 17) so surfaces re-pack. A version record now names *table blobs* (`LR`, 1:
+  *reference blobs*) holding its rows — canvas or pages (fields, packs, images, recognised
+  text), recordings and outline entries — cut by row id like packs, so a 1000-page notebook's
+  record is ~2 KB and an edit of one page writes one or two new table blobs. Blob GC follows
+  reference blobs: the server inflates and scans those reached from live records
+  (`BlobGc.referencedAmong`); the device notes what a table blob names in `blob_links` when it
+  writes or reads one (`BlobLinks`), which `BlobReferences` (GC, uploads) and the push's
+  hold-back (`ofRecord`) join. Restore brings back recordings (trims, titles; newer ones
+  tombstoned, audio by blob reference), the outline and recognised text; one page its text and
+  its outline entries; a copy gets its own recordings and outline (pages remapped). Format 1
+  records still read and restore (leaving recordings, outline and text alone). Version builds
+  and table reads yield every 8 ms (`WorkSlices`); blobs ≤ 64 KB are hashed without an
+  isolate. Tests: `version_history_records_test` (canonical bytes, pinned pack, table
+  blobs, recordings / outline / text restore, page restore, copy, format 1, 1000 pages, uploads
+  and GC through tables), server `blob_gc_test` (reference blobs, nested, broken),
+  `version_history_golden_test` (history and preview, light / dark, tablet / phone).
+  **Left:** audio freed after a trim stays while a version names it; a device that never read
+  another device's table blob doesn't know what it names (it holds none of those packs
+  unless shared, which then may be collected locally and fetched again); the golden test reads
+  thumbnail readiness from a private painter field; the phone preview's title is cut by its
+  two buttons; device names are still platform names.
 
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
