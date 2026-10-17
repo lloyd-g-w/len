@@ -106,10 +106,7 @@ class VersionSheets {
     canvas ??= VersionSurface.empty;
     await content.ensure([canvas]);
     final c = await content.load(canvas, version.notebookId);
-    final frame = _frame([
-      for (final s in c.strokes) s.bounds,
-      for (final e in c.elements) e.bounds,
-    ]);
+    final frame = await _frame(c.strokes, c.elements);
     final origin = frame.topLeft;
     final paper = Paper.fromData(
       PaperStyle.parse(version.notebook['paper'] as String),
@@ -133,11 +130,27 @@ class VersionSheets {
     );
   }
 
-  /// Content bounds padded to a page-like shape, never smaller than a
-  /// readable minimum.
-  static Rect _frame(List<Rect> bounds) {
-    if (bounds.isEmpty) return const Rect.fromLTWH(0, 0, 480, 640);
-    final content = bounds.reduce((a, b) => a.expandToInclude(b));
+  /// The bounds of [strokes] and [elements] padded to a page-like shape,
+  /// never smaller than a readable minimum (strokes taken in slices).
+  Future<Rect> _frame(List<Stroke> strokes, List<SurfaceElement> elements) async {
+    var left = double.infinity, top = double.infinity;
+    var right = double.negativeInfinity, bottom = double.negativeInfinity;
+    void add(Rect r) {
+      if (r.left < left) left = r.left;
+      if (r.top < top) top = r.top;
+      if (r.right > right) right = r.right;
+      if (r.bottom > bottom) bottom = r.bottom;
+    }
+
+    for (var i = 0; i < strokes.length; i++) {
+      if (i % 2048 == 0) await _slices.yieldIfDue();
+      add(strokes[i].bounds);
+    }
+    for (final e in elements) {
+      add(e.bounds);
+    }
+    if (left > right) return const Rect.fromLTWH(0, 0, 480, 640);
+    final content = Rect.fromLTRB(left, top, right, bottom);
     const aspect = 0.75;
     var w = math.max(content.width * 1.1, 480.0);
     var h = math.max(content.height * 1.1, 480 / aspect);
