@@ -21,6 +21,7 @@ import 'package:len/ink/tools/content_tools.dart';
 import 'package:len/ink/viewport.dart';
 import 'package:len/sync/remote_changes.dart';
 import 'package:len/sync/sync_engine.dart';
+import 'package:uuid/uuid.dart';
 
 import 'support/fake_server.dart';
 
@@ -297,5 +298,7 @@ void main() {
     expect(line.id, 'off');
     expect(fixed.shape!.points[1], ShapeAnchors.pointAt(box.shape!, 0.875));
     expect(fixed.id, ConnectorRepair.idOf(off, null, box));
+    // A UUID v5 in a fixed namespace, as the uuid package makes them.
+    expect(fixed.id, const Uuid().v5('6f1c2b0e-4f5d-5c8a-9a37-2d8e1c4b7a10', 'off>|box'));
   });
 }

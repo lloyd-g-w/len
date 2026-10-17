@@ -66,7 +66,7 @@ void main() {
   setUp(() {
     db = AppDatabase.inMemory();
     strokes = StrokeRepository(db, deviceId: 'd');
-    queries = ConnectorQueries(strokes.db);
+    queries = ConnectorQueries(strokes.database);
     strokes.save([a, b, c, ab, bc, ca, ink]);
   });
   tearDown(() => db.close());

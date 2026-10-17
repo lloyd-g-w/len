@@ -62,11 +62,14 @@ void main() {
     }
 
     // Another device moved one box without its arrows (theirs were edited
-    // meanwhile here): its arrows are brought back onto it.
+    // meanwhile here): its arrows are brought back onto it. The first
+    // repair runs code for the first time (compiled then, in the debug
+    // JIT): reported apart, as the drag's warm-up moves are.
     final moved = <int>[];
+    var first = 0;
     final profile = const bool.fromEnvironment('PROFILE') ? await CpuProfile.connect() : null;
-    await profile?.start();
-    for (var i = 0; i < 20; i++) {
+    for (var i = 0; i <= 20; i++) {
+      if (i == 1) await profile?.start();
       final old = boxes[(i * 61 + 26) % boxes.length];
       final now = Stroke(
         id: 'moved$i',
@@ -88,7 +91,7 @@ void main() {
         ..addItem(surface, now.id);
       final w = Stopwatch()..start();
       final n = repair.repair(changes);
-      moved.add(w.elapsedMicroseconds);
+      i == 0 ? first = w.elapsedMicroseconds : moved.add(w.elapsedMicroseconds);
       expect(n, greaterThanOrEqualTo(2)); // Its arrows in and out.
       boxes[(i * 61 + 26) % boxes.length] = now;
     }
@@ -106,7 +109,7 @@ void main() {
     report(
       'CONNECTORS repair, ${diagram.length} shapes + ${ink.length} strokes: '
       'a stroke of ink pulled: ${_stats(idle)}; '
-      'a box moved: ${_stats(moved)}; '
+      'a box moved: first ${_ms(first)}, then ${_stats(moved)}; '
       'surface reloaded: best ${_ms(whole)}',
     );
     db.close();
