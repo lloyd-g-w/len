@@ -390,7 +390,12 @@ Strokes stay in **page-local** coordinates. The ink engine always works on one
 surface, so `PageViewport` adapts the document viewport to the active page
 (`world = document − page origin`) and forwards pans/zooms to the document;
 `PagedDocumentView` makes the page under the first pointer of a gesture (or
-under any stylus) active before handing the event to `InkInputController`.
+under any stylus) active before handing the event to `InkInputController`, except a press
+on the active page's selection (`ContentTools.holds`) and, while a curve is drawn there, a
+press that can only pan or zoom (`InkInputController.onlyNavigates`: a finger while fingers
+navigate, a mouse's other buttons; R25-29), which keep the page so the curve goes on. A press
+that draws on another page (a stylus) finishes the curve where it was drawn and starts
+there, as a tool change would: no anchor ever lands off the curve's page that way.
 Everything the engine draws or hit-tests therefore lands on the right page.
 
 `DocumentSurfaces` holds a `SurfaceModel` + `ChunkPictureCache` only for
@@ -456,7 +461,9 @@ bookmarked", whose value is the page's text: `SurfaceText` (`data/search/surface
 reads the text boxes (`search_docs`, placed by `elements`) and recognised handwriting
 (`ink_text`) in reading order (top, then left), then the PDF page's extracted text
 (`search_docs` kind `pdf`; turning semantics on schedules `SearchService.indexPdfs` for PDFs not
-read yet). Scroll forward / back (`onScrollUp` / `onScrollDown`) and the custom actions *Next
+read yet). The active page's text boxes in view are nodes of their own (`TextBoxSemantics`), so
+its value leaves them out (`TextBoxSemantics.shown`, R25-23: read once); other pages, and boxes
+out of view, stay in their page's value. Scroll forward / back (`onScrollUp` / `onScrollDown`) and the custom actions *Next
 page* / *Previous page* call `scrollToPage` and announce the page's name. An infinite canvas is
 one "Canvas" node with its whole text. Cost: nothing while no semantics client is attached
 (`SemanticsBinding.semanticsEnabled`, listened to: the widget is an empty box, listens to
@@ -521,7 +528,9 @@ again. Text being typed reads once its write lands. The nodes take no pointers.
   phrased for `PenButtonAction`), hold to snap (a hand-drawn line or shape,
   `HoldToStraighten.wouldSnap` via `InkEvents.shapeDrawn`; writing on puts it off to the
   next shape), the lasso (when picked; never over a selection, and a selection is the
-  tip done), scribble to erase (the eraser picked again). Each only while its setting
+  tip done), scribble to erase (the eraser picked again), curve points (a single curve
+  selected; gone with it), attaching ends (`SelectionController.attachHint` set by a
+  handle drag or the Shape tool; R25-30). Each only while its setting
   is on. `TipBanner` (`chrome/tip_banner.dart`) sits at the bottom above the toolbar,
   ignores all pointers (strokes go to the page), fades while the pen is down and hides
   behind snack bars; its 10 s stop meanwhile, and it counts as seen
@@ -2399,7 +2408,8 @@ GoodNotes-style rich text inside a box.
 - **Screen readers**: while semantics are on, `TextBoxSemantics` lays a node
   over each text box in view on the edited surface (its text, in reading
   order; activating it edits the box). The pages themselves are
-  `PageSemantics`' nodes (see *Paged notebooks*).
+  `PageSemantics`' nodes (see *Paged notebooks*), whose values leave these
+  boxes out.
 - **Lasso**: *Style* (`selection_style_panel.dart`) changes font and size of the
   selected boxes and pen type / width of selected ink (`SelectionController
   .restyleText` / `restyleInk`, one undo step each); *Colour* recolours all text.
@@ -3076,7 +3086,12 @@ shares between versions (and between devices of one platform family).
   its own pages, text flows and connectors follow the copies; recordings
   copied with the same audio blobs, outline entries onto the copied pages;
   recognised text is read again, as for a duplicated notebook). Open
-  editors reload as after a sync (`SyncController.announce`).
+  editors reload as after a sync (`SyncController.announce`), and drop the
+  undo and redo steps of the surfaces it rewrote (`RemoteChanges.rewrittenSurfaces`,
+  `PageModels.forget`; a whole-notebook restore its page-level steps too, R25-6):
+  undoing them would take out what is gone, redoing write back what was
+  replaced. A restore is not an `UndoHistory` step: its Undo is the snack bar's.
+  Steps on other surfaces (another notebook in split view) stay.
 - **Audio** is kept by blob reference: a version names a recording's parts
   and waveform, so audio freed after a trim ("Free space") stays on the
   server and devices until no version names it (thinned or deleted).

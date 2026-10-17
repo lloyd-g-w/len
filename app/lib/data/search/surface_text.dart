@@ -18,16 +18,21 @@ class SurfaceText {
   final AppDatabase database;
 
   /// The text of surface [surfaceId], one line per text box or handwritten
-  /// line, a blank line before the PDF text; '' when there is none.
-  String of(String surfaceId) {
+  /// line, a blank line before the PDF text; '' when there is none. Text
+  /// boxes named in [except] are left out (they are read on their own).
+  String of(String surfaceId, {Set<String> except = const {}}) =>
+      read(surfaceId).join(except: except);
+
+  /// The parts of surface [surfaceId]'s text (see [of]).
+  SurfaceTextParts read(String surfaceId) {
     final notes = database.select(
       '''
-      SELECT body FROM (
-        SELECT d.body AS body, e.y AS y, e.x AS x FROM search_docs d
+      SELECT box, body FROM (
+        SELECT e.id AS box, d.body AS body, e.y AS y, e.x AS x FROM search_docs d
         JOIN elements e ON e.id = d.ref_id
         WHERE d.kind = '${SearchSchema.text}' AND d.surface_id = ?1
         UNION ALL
-        SELECT text, y, x FROM ink_text WHERE surface_id = ?1 AND text <> ''
+        SELECT NULL, text, y, x FROM ink_text WHERE surface_id = ?1 AND text <> ''
       ) ORDER BY y, x''',
       [surfaceId],
     );
@@ -35,10 +40,32 @@ class SurfaceText {
       "SELECT body FROM search_docs WHERE kind = '${SearchSchema.pdf}' AND ref_id = ?",
       [surfaceId],
     );
-    final parts = [
-      if (notes.isNotEmpty) notes.map((r) => (r['body'] as String).trim()).join('\n'),
-      for (final r in pdf) (r['body'] as String).trim(),
+    return SurfaceTextParts(
+      notes: [
+        for (final r in notes) (box: r['box'] as String?, text: (r['body'] as String).trim()),
+      ],
+      pdf: [for (final r in pdf) (r['body'] as String).trim()],
+    );
+  }
+}
+
+/// A surface's text as read: its notes (text boxes, named by [box], and
+/// handwritten lines, unnamed) in reading order, then its PDF text.
+@immutable
+class SurfaceTextParts {
+  const SurfaceTextParts({required this.notes, required this.pdf});
+
+  final List<({String? box, String text})> notes;
+  final List<String> pdf;
+
+  /// One line per note but the text boxes in [except], a blank line before
+  /// the PDF text.
+  String join({Set<String> except = const {}}) {
+    final lines = [
+      for (final n in notes)
+        if (n.box == null || !except.contains(n.box)) n.text,
     ];
+    final parts = [if (lines.isNotEmpty) lines.join('\n'), ...pdf];
     return parts.where((p) => p.isNotEmpty).join('\n\n');
   }
 }
@@ -53,18 +80,20 @@ class SurfaceTextCache extends ChangeNotifier {
 
   final SurfaceText source;
   late final StreamSubscription<void> _commits;
-  final _texts = <String, String>{};
+  final _texts = <String, SurfaceTextParts>{};
 
   /// How many surfaces were read from the database (tests).
   @visibleForTesting
   int reads = 0;
 
-  /// The text of surface [surfaceId] (see [SurfaceText.of]).
-  String of(String surfaceId) => _texts[surfaceId] ??= _read(surfaceId);
+  /// The text of surface [surfaceId] but the text boxes in [except] (see
+  /// [SurfaceText.of]).
+  String of(String surfaceId, {Set<String> except = const {}}) =>
+      (_texts[surfaceId] ??= _read(surfaceId)).join(except: except);
 
-  String _read(String surfaceId) {
+  SurfaceTextParts _read(String surfaceId) {
     reads++;
-    return source.of(surfaceId);
+    return source.read(surfaceId);
   }
 
   void _invalidate() {

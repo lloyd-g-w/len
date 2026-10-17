@@ -102,6 +102,29 @@ class PageModels extends ChangeNotifier implements UndoTarget {
     _collect();
   }
 
+  /// Drops the undo and redo steps of the pages [pageIds] (a restore
+  /// rewrote them, R25-6); with [pageEdits], also those of page-level
+  /// changes (a whole-notebook restore rewrote the page list). Steps on
+  /// other pages stay.
+  void forget(Set<String> pageIds, {bool pageEdits = false}) {
+    bool gone(Object id) => id is String ? pageIds.contains(id) : pageEdits;
+    var changed = false;
+    for (final steps in [_undoPages, _redoPages]) {
+      for (final step in steps) {
+        final before = step.length;
+        step.removeWhere(gone);
+        changed |= step.length != before;
+      }
+      steps.removeWhere((step) => step.isEmpty);
+    }
+    for (final id in pageIds) {
+      _models[id]?.forgetHistory();
+    }
+    if (!changed) return;
+    _collect();
+    notifyListeners();
+  }
+
   /// Reloads a page whose content changed remotely.
   void reload(String pageId) => _models[pageId]?.reload();
 

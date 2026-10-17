@@ -211,6 +211,15 @@ class SurfaceModel extends _SurfaceState
     if (changed.isNotEmpty) _changed(changed, appended: appended ? added : null, areas: areas);
   }
 
+  /// Drops the undo and redo steps (a restore rewrote the surface beneath
+  /// them: undoing would take out what is gone, redoing write back what
+  /// was replaced).
+  void forgetHistory() {
+    if (_disposed || !(history.canUndo || history.canRedo)) return;
+    history.clear();
+    notifyListeners();
+  }
+
   /// [flush]es every surface, before code that reads or rewrites stored
   /// strokes directly (page copies and deletions, exports).
   static void flushAll() {

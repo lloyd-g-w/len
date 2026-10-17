@@ -82,7 +82,7 @@ a phone, within its cap; the library's notebook menu
 had only that row already); Save version… is the sheet's header button.
 There was no shortcut for either.
 
-**R25-6 P2 · After a restore, the editor's Ctrl+Z does nothing and Ctrl+Shift+Z partly undoes the restore.** ⬜
+**R25-6 P2 · After a restore, the editor's Ctrl+Z does nothing and Ctrl+Shift+Z partly undoes the restore.** ✅
 - *What:* a restore is not an `UndoHistory` step, but the editor's undo
   steps from before it survive the reload: undo "removes" a stroke the
   restore already removed (nothing visible), redo then writes it back onto
@@ -91,6 +91,11 @@ There was no shortcut for either.
   the surfaces a restore rewrote in open sessions (or make the restore one
   step). Needs a decision: CONVENTIONS wants every edit undoable through
   `UndoHistory` (TODO "Next").
+- *Fix (owner's decision):* the restore's Undo stays the snack bar's; open
+  editors drop the undo and redo steps of the surfaces it rewrote (a
+  whole-notebook restore its page-level steps too), as they reload them
+  (`RemoteChanges.rewrittenSurfaces`, `PageModels.forget`). Steps on other
+  surfaces (another notebook in split view) stay (`version_restore_undo_test`).
 
 **R25-7 P2 · The preview's title was cut on phones.** ✅
 "17 Oct 2026…" lost the time at 390 dp. The title is now the list's short
@@ -185,11 +190,13 @@ a fixed plate on the paper, sized with the pointer.
 **R25-22 P3 · In dot mode the feel was greyed with no reason while Fade was hidden.** ✅
 Feel is hidden for the dot, as Fade is.
 
-**R25-23 P3 · A page's text boxes are read twice.** ⬜ The page (or Canvas)
+**R25-23 P3 · A page's text boxes are read twice.** ✅ The page (or Canvas)
 node's value holds its text boxes, and the active surface's boxes have
 their own nodes too. Either is useful (an overview vs navigable boxes);
 dropping boxes of the active surface from the value is one line — owner's
-call (TODO "Next").
+call (TODO "Next"). *Fix (owner's decision):* the active surface's boxes
+that have nodes (those in view, `TextBoxSemantics.shown`) are left out of
+its value; other pages, and boxes out of view, keep theirs.
 
 **R25-24 P3 · The 30 % stabiliser upgrade also ran for settings saved by a later version.** ✅
 `version != prefsVersion` → older than it. A pen deliberately set to off
@@ -223,18 +230,25 @@ The box takes a new id on the new page and the attachment named the old
 one; cut and paste kept it. The attachment now follows the box's new id
 when the line lands on the same page (`selection_pages_test`).
 
-**R25-29 P2 · (suspected) A finger pan starting on another page finishes the curve being drawn.** ⬜
+**R25-29 P2 · (suspected) A finger pan starting on another page finishes the curve being drawn.** ✅
 The first pointer of any gesture activates the page under it, and the page
 switch finishes the curve (a one-anchor curve is dropped). `holds()` keeps
 the page for a selection, not for a curve in progress; counting an active
 curve there keeps it, but then a stylus press on another page would add an
-off-page anchor. Needs a check on the tablet (TODO "Next").
+off-page anchor. Needs a check on the tablet (TODO "Next"). *Fix:* confirmed in a
+widget test. While a curve is drawn, a press that can only pan or zoom (a
+finger while fingers navigate, a mouse's other buttons) keeps its page;
+a press that draws on another page (a stylus) still finishes the curve
+and starts one there, as a tool change does (`curve_pages_test`). With
+finger drawing, a finger there is a drawing press too (it may be a tap).
 
-**R25-30 P3 · Curve hints.** ✅ / ⬜ With Curve picked the keyboard line said
+**R25-30 P3 · Curve hints.** ✅ With Curve picked the keyboard line said
 "Hold Shift…" (Shift does nothing for curves); it now says "Enter finishes
-a curve, Esc drops it". ⬜ Editing a selected curve (tap the line to add an
+a curve, Esc drops it". ✅ Editing a selected curve (tap the line to add an
 anchor, double tap one to remove it) and Line / Arrow ends attaching to
-shapes are taught nowhere; a caption line each would fit.
+shapes were taught nowhere; each is now a one-time tip (`EditorTip.curve`,
+`EditorTip.attach`): on first selecting a curve, and when an end being
+dragged or drawn first finds a shape.
 
 **R25-31 P3 · A drawn arrow looks for its tip's target at the raw pointer, not the Shift- or snap-adjusted end.** ⬜
 (`shape_tool.dart` `_connected`); only one target is outlined while

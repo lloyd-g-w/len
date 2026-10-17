@@ -265,8 +265,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
-- 🚧 (fix/r25-followups) **Undo after a version restore** (UX_AUDIT R25-6): the editor's undo steps from before a
+- ✅ **Undo after a version restore** (UX_AUDIT R25-6): the editor's undo steps from before a
   restore survive it, so Ctrl+Z does nothing visible and Ctrl+Shift+Z writes an old stroke back
+<<<<<<< HEAD
   onto the restored page. Decide: drop the undo steps of the surfaces a restore rewrote (its Undo
   is the snack bar's), or make the restore one `UndoHistory` step.
 - ✅ **Remote pointers on other pages and in the zoom window** (UX_AUDIT R25-15–R25-18): done
@@ -276,16 +277,29 @@ From the reports; the owner picks. Status as above.
   (the same layers over its view); the hover dot takes its colours from the paper
   (`Palette.pointerOn`, ringed with the paper), not the theme; a device joining mid-stroke gets
   the stroke again from its start (SYNC_PROTOCOL updated).
-- 🚧 (fix/r25-followups) **Text boxes read twice** (UX_AUDIT R25-23): a page's screen-reader value holds its text
-  boxes, and the active page's boxes are nodes of their own too. Keep the overview, or leave the
-  active surface's boxes out of the value?
-- 🚧 (fix/r25-followups) **A curve in progress and a finger pan on another page** (UX_AUDIT R25-29, suspected): the
+=======
+  onto the restored page. Done: open editors drop the undo and redo steps of the surfaces a
+  restore rewrote (a whole-notebook restore its page-level steps too); its Undo is the snack
+  bar's; other surfaces keep theirs.
+- 🚧 (fix/remote-pointers) **Remote pointers on other pages and in the zoom window** (UX_AUDIT R25-16, R25-17): a hover
+  or mouse laser over a page that is not the active one is sent as the active page's (map it
+  with the layout first); the zoom window draws neither other devices' live ink nor their
+  pointers; their hover dot is a hollow ring on light paper in dark mode (R25-18).
+>>>>>>> fix/r25-followups
+- ✅ **Text boxes read twice** (UX_AUDIT R25-23): a page's screen-reader value holds its text
+  boxes, and the active page's boxes are nodes of their own too. Done: the active surface's
+  boxes in view (those with nodes) are left out of its value; other pages keep theirs.
+- ✅ **A curve in progress and a finger pan on another page** (UX_AUDIT R25-29, suspected): the
   pan's first touch activates that page, which finishes (or, with one anchor, drops) the curve.
-  Check on the tablet; keep the page while a curve is drawn, without letting a stylus add
-  off-page anchors.
-- 🚧 (fix/r25-followups) **Teach curve editing and attaching ends** (UX_AUDIT R25-30): no hint says a tap on a
+  Done: while a curve is drawn, a press that only pans or zooms (a finger while fingers
+  navigate) keeps its page; a stylus on another page finishes it and starts one there, as
+  before. Still worth a look on the tablet.
+- ✅ **Teach curve editing and attaching ends** (UX_AUDIT R25-30): no hint says a tap on a
   selected curve's line adds an anchor and a double tap removes one, or that line and arrow
-  ends attach to shapes.
+  ends attach to shapes. Done: two one-time tips on the tips budget — "Tap the curve to add a
+  point; double-tap a point to remove it" when a curve is first selected (gone if it is
+  deselected), and "Drop a line or arrow end on a shape to attach it" when a dragged or drawn
+  end first finds a shape (once the pen rests, when drawn).
 
 - ✅ **Pages to screen readers** (UX_AUDIT R23-10): `PageSemantics`, one node per page in view
   ("Page 3 of 12, bookmarked") valued with its text boxes, recognised handwriting and PDF text

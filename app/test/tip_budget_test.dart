@@ -41,6 +41,7 @@ class _Device {
   final pen = LiveInk();
   final lasso = LassoPath();
   final selected = ValueNotifier(false);
+  bool curve = false, attaching = false;
   PenButtonAction penButton = PenButtonAction.eraser;
 
   /// Opens a notebook: a new editor with its own controller.
@@ -56,6 +57,8 @@ class _Device {
         tools,
         selection: selected,
         selected: () => selected.value,
+        curveSelected: () => curve,
+        attaching: () => attaching,
         pen: pen,
         lasso: lasso,
         penButton: () => penButton,
@@ -411,6 +414,73 @@ void main() {
         async.flushMicrotasks();
         expect(tips.value, isNull);
         expect(d.seen, {EditorTip.lasso.name}, reason: 'the user did what it says');
+        tips.dispose();
+      });
+    });
+
+    test('a curve selected: adding and removing points (R25-30)', () {
+      fakeAsync((async) {
+        final d = _Device(async);
+        var tips = d.open();
+        d
+          ..curve = true
+          ..selected.value = true;
+        async.flushMicrotasks();
+        expect(tips.value?.tip, EditorTip.curve);
+        expect(tips.value?.text, 'Tap the curve to add a point; double-tap a point to remove it');
+        d
+          ..curve = false
+          ..selected.value = false;
+        expect(tips.value, isNull, reason: 'gone with the curve');
+        expect(d.seen, isEmpty, reason: 'too soon to count as seen');
+        tips.dispose();
+        async.elapse(TipsController.between);
+        tips = d.open();
+        d.selected.value = true;
+        async.flushMicrotasks();
+        expect(tips.value, isNull, reason: 'not a curve');
+        d
+          ..curve = true
+          ..selected.value = false
+          ..selected.value = true;
+        async.elapse(TipsController.seenAfter);
+        expect(d.seen, {EditorTip.curve.name});
+        tips.dispose();
+      });
+    });
+
+    test('a line end that would attach: ends attach to shapes (R25-30)', () {
+      fakeAsync((async) {
+        final d = _Device(async);
+        final tips = d.open();
+        d.selected.value = true;
+        async.flushMicrotasks();
+        expect(tips.value, isNull);
+        d
+          ..attaching = true
+          ..selected.value = false;
+        async.flushMicrotasks();
+        expect(tips.value?.tip, EditorTip.attach);
+        expect(tips.value?.text, 'Drop a line or arrow end on a shape to attach it');
+        tips.dispose();
+      });
+    });
+
+    test('drawing an arrow onto a shape: the attach tip once the pen rests', () {
+      fakeAsync((async) {
+        final d = _Device(async);
+        final tips = d.open();
+        d
+          ..penDown()
+          ..attaching = true;
+        d.selected.value = !d.selected.value;
+        async.elapse(rest);
+        expect(tips.value, isNull, reason: 'never mid-stroke');
+        d
+          ..attaching = false
+          ..penUp();
+        async.elapse(rest);
+        expect(tips.value?.tip, EditorTip.attach);
         tips.dispose();
       });
     });

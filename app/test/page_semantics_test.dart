@@ -71,8 +71,18 @@ void main() {
       'INSERT INTO search_docs (kind, ref_id, surface_id, body) VALUES (?, ?, ?, ?)',
       ['pdf', pages[0].id, pages[0].id, 'The PDF page'],
     );
+    s.elements.save([textBox('next', pages[1].id, 'On page 2', const Offset(100, 100))]);
+    for (final p in pages.take(2)) {
+      doc.surfaces.surfaceOf(p.id).model.reload(); // Saved beneath the views.
+    }
     await _committed(tester);
-    expect(_node('Page 1 of 3').value, 'First\nwritten between\nSecond\n\nThe PDF page');
+    // The active page's boxes in view are nodes of their own, read once
+    // (R25-23); another page's stay in its value.
+    expect(_node('Page 1 of 3').value, 'written between\n\nThe PDF page');
+    expect(_shown('First'), isTrue);
+    expect(_shown('Second'), isTrue);
+    expect(_node('Page 2 of 3').value, 'On page 2');
+    expect(_shown('On page 2'), isFalse);
 
     s.pages.setBookmarked(pages[1].id, true);
     doc.setPages(s.pages.pagesOf(nb.id));
@@ -137,10 +147,13 @@ void main() {
         textBox('a', nb.id, 'Above', const Offset(100, 100)),
       ]),
     );
-    expect(_node('Canvas').value, 'Above\nBelow\nFar away');
+    // The boxes in view are nodes of their own (R25-23); the far one is
+    // read with the canvas.
+    expect(_node('Canvas').value, 'Far away');
+    expect(_shown('Above'), isTrue);
     _handwriting(s, nb.id, 'scribbled', const Offset(0, 300));
     await _committed(tester);
-    expect(_node('Canvas').value, 'Above\nscribbled\nBelow\nFar away');
+    expect(_node('Canvas').value, 'scribbled\nFar away');
     semantics.dispose();
   });
 

@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../domain/surface_element.dart';
 import '../../../domain/text/text_data.dart';
+import '../../../ink/surface_model.dart';
 import '../../../ink/tools/content_tools.dart';
 import '../../../ink/viewport.dart';
 
@@ -14,6 +15,12 @@ class TextBoxSemantics extends StatefulWidget {
 
   final ContentTools content;
   final ViewportController viewport;
+
+  /// The text boxes of [model] in [view] that are nodes of their own (the
+  /// one being edited is read by its editor): the page's node leaves them
+  /// out of its text (R25-23).
+  static Iterable<SurfaceElement> shown(SurfaceModel model, ViewportController view) =>
+      model.elementsNear(view.visibleWorld).where((e) => e.type == ElementType.text.name);
 
   @override
   State<TextBoxSemantics> createState() => _TextBoxSemanticsState();
@@ -55,8 +62,8 @@ class _TextBoxSemanticsState extends State<TextBoxSemantics> {
         final view = widget.viewport;
         final editing = content.text.current?.id;
         final boxes = [
-          for (final e in model.elementsNear(view.visibleWorld))
-            if (e.type == ElementType.text.name && e.id != editing) e,
+          for (final e in TextBoxSemantics.shown(model, view))
+            if (e.id != editing) e,
         ]..sort(_readingOrder);
         return Stack(
           children: [

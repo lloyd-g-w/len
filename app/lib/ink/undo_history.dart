@@ -109,6 +109,13 @@ class UndoHistory {
     if (_undo.length > limit) _undo.removeAt(0);
   }
 
+  /// Forgets every undo and redo step (the content they changed was
+  /// rewritten beneath them, e.g. by a version restore).
+  void clear() {
+    _undo.clear();
+    _redo.clear();
+  }
+
   /// Pops the edit to undo; the caller applies its inverse.
   InkEdit? takeUndo() {
     if (_undo.isEmpty) return null;

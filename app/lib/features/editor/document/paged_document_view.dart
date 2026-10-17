@@ -154,8 +154,13 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with TickerProvid
     // (it cancels whatever a resting palm started anyway).
     final stylus = e.kind == PointerDeviceKind.stylus || e.kind == PointerDeviceKind.invertedStylus;
     // A press on the active page's selection (which may reach beyond the
-    // page) keeps that page.
-    final held = widget.input.content?.holds(e.localPosition) ?? false;
+    // page) keeps that page, as does one that only pans or zooms while a
+    // curve is drawn there (R25-29: switching would finish it). A press
+    // that draws elsewhere finishes the curve and starts there.
+    final content = widget.input.content;
+    final held =
+        (content?.holds(e.localPosition) ?? false) ||
+        ((content?.shape.curve.active ?? false) && widget.input.onlyNavigates(e));
     if ((_pointers.isEmpty || stylus) && !held) _doc.activateAt(e.localPosition);
     _pointers.add(e.pointer);
     widget.input.handleDown(e);
