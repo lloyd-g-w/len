@@ -109,7 +109,7 @@ void main() {
     Future<void> tapText(WidgetTester tester, String text) async {
       await tester.ensureVisible(find.text(text));
       await tester.tap(find.text(text));
-      await tester.pump();
+      await tester.pumpAndSettle();
     }
 
     Slider slider<T extends Widget>(WidgetTester tester) =>
@@ -117,6 +117,8 @@ void main() {
 
     testWidgets('shows the pen\'s feel and edits it live', (tester) async {
       final tools = await pumpPanel(tester);
+      expect(find.byType(PressureSlider), findsNothing, reason: 'collapsed, as the pen\'s');
+      await tapText(tester, 'Feel');
       expect(find.byType(PressureSlider), findsOneWidget);
       expect(find.byType(StabiliserSlider), findsOneWidget);
       expect(find.byType(PenEndsOptions), findsOneWidget);
@@ -144,21 +146,18 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the dot greys the feel out, as the highlighter its stabiliser', (tester) async {
+    testWidgets('the dot hides the feel, as it hides Fade', (tester) async {
       final tools = await pumpPanel(tester, feel);
+      await tapText(tester, 'Feel');
       expect(slider<PressureSlider>(tester).onChanged, isNotNull);
       await tapText(tester, 'Dot');
       expect(tools.laser.mode, LaserMode.dot);
-      expect(slider<PressureSlider>(tester).onChanged, isNull);
-      expect(slider<StabiliserSlider>(tester).onChanged, isNull);
-      expect(tester.widget<PenEndsOptions>(find.byType(PenEndsOptions)).onChanged, isNull);
-      final ends = tester.widget<SegmentedButton<StrokeEnds>>(
-        find.byType(SegmentedButton<StrokeEnds>),
-      );
-      expect(ends.onSelectionChanged, isNull);
-      await tapText(tester, 'Round');
-      expect(tools.laser.ends, feel.ends, reason: 'disabled');
-      expect(find.text('60%'), findsOneWidget, reason: 'the values still show');
+      for (final hidden in ['Feel', 'Fade', 'Pressure sensitivity', 'Stabiliser', 'Ends']) {
+        expect(find.text(hidden), findsNothing, reason: hidden);
+      }
+      await tapText(tester, 'Trail');
+      expect(find.byType(PressureSlider), findsOneWidget, reason: 'still open');
+      expect(tools.laser.ends, feel.ends);
     });
   });
 }

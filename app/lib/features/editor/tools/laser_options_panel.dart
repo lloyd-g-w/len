@@ -6,6 +6,7 @@ import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_picker/color_choices.dart';
 import '../../../ui/group_header.dart';
+import '../../../ui/option_disclosure.dart';
 import '../../../ui/roving_focus.dart';
 import '../pen/option_controls.dart';
 import '../pen/option_sections.dart';
@@ -17,15 +18,25 @@ import 'laser_slots.dart';
 /// (puts dot / trail, the trail's feel and the fading back to the defaults,
 /// keeping the quick slots), a live preview, (in the phone sheet, which
 /// covers the toolbar) the quick slots, then dot or trail, the colour and
-/// size of the selected quick slots, the pen's feel for the trail
-/// (pressure sensitivity, stabiliser, ends; greyed out for the dot), when
-/// the trail fades (each stroke on its own, or all of it once the writing
-/// stops) and how long it lasts, and, collapsed, how many quick colours and
-/// sizes the toolbar shows. Edits apply live.
-class LaserOptionsPanel extends StatelessWidget {
+/// size of the selected quick slots, for the trail when it fades (each
+/// stroke on its own, or all of it once the writing stops) and how long it
+/// lasts and, collapsed under "Feel" as the pen's, its pressure
+/// sensitivity, stabiliser and ends, and, collapsed, how many quick
+/// colours and sizes the toolbar shows. Edits apply live.
+class LaserOptionsPanel extends StatefulWidget {
   const LaserOptionsPanel({super.key, required this.tools});
 
   final ToolSettings tools;
+
+  @override
+  State<LaserOptionsPanel> createState() => _LaserOptionsPanelState();
+}
+
+class _LaserOptionsPanelState extends State<LaserOptionsPanel> {
+  /// Whether "Feel" is open (collapsed at first, as the pen's).
+  bool _feelOpen = false;
+
+  ToolSettings get tools => widget.tools;
 
   @override
   Widget build(BuildContext context) {
@@ -91,22 +102,6 @@ class LaserOptionsPanel extends StatelessWidget {
               value: laser.size,
               onChanged: (v) => update(laser.withSize(laser.sizeIndex, v)),
             ),
-            const OptionRule(),
-            // The pen's feel, for the trail: greyed out for the dot, which
-            // has no width to vary, no line to smooth and no ends.
-            PressureSlider(
-              value: laser.thinning,
-              onChanged: trail ? (v) => update(tools.laser.copyWith(thinning: v)) : null,
-            ),
-            StabiliserSlider(
-              value: laser.streamline,
-              onChanged: trail ? (v) => update(tools.laser.copyWith(streamline: v)) : null,
-            ),
-            PenEndsOptions(
-              ends: laser.ends,
-              styles: LaserConfig.endStyles,
-              onChanged: trail ? (ends) => update(tools.laser.copyWith(ends: ends)) : null,
-            ),
             if (trail) ...[
               const OptionRule(),
               const GroupHeader('Fade'),
@@ -140,6 +135,35 @@ class LaserOptionsPanel extends StatelessWidget {
                   max: LaserConfig.maxHold,
                   onChanged: (d) => update(tools.laser.copyWith(hold: d)),
                 ),
+              const SizedBox(height: Gaps.sm),
+              // The pen's feel, for the trail (the dot has no width to
+              // vary, no line to smooth and no ends: hidden, as Fade).
+              OptionDisclosure(
+                label: 'Feel',
+                open: _feelOpen,
+                onToggle: () => setState(() => _feelOpen = !_feelOpen),
+                child: EmbeddedOptions(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      PressureSlider(
+                        value: laser.thinning,
+                        onChanged: (v) => update(tools.laser.copyWith(thinning: v)),
+                      ),
+                      StabiliserSlider(
+                        value: laser.streamline,
+                        onChanged: (v) => update(tools.laser.copyWith(streamline: v)),
+                      ),
+                      PenEndsOptions(
+                        ends: laser.ends,
+                        styles: LaserConfig.endStyles,
+                        onChanged: (ends) => update(tools.laser.copyWith(ends: ends)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
             const SizedBox(height: Gaps.sm),
             QuickSlotCounts(
