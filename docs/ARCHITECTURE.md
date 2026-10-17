@@ -2058,7 +2058,7 @@ surface.
   `shapes/shape_anchors.dart`): a line's or arrow's end (bent ones too)
   dropped within `LassoTool.attachReach` (12 px) of a closed shape's
   outline, or inside it, attaches: `ShapeGeometry.tail` / `tip` hold a
-  `ShapeAttachment` (the target stroke's id and `at`, a parameter once
+  `ShapeAttachment` (the target's shape id, below, and `at`, a parameter once
   round the outline in the shape's own terms — side and fraction for
   polygons and stars, the angle of `centre + u·cos t + v·sin t` for
   circles and ellipses, segment and Bézier `t` for closed curves — so any
@@ -2071,26 +2071,45 @@ surface.
   (`LassoTool._reshaped`) and when drawn with the Shape tool (start and
   end, `ShapeTool._connected`); meanwhile `SelectionController.attachHint`
   makes `SelectionPainter` outline the target in the accent with a solid
-  dot at the attach point. Following: strokes are immutable, so an edited
-  shape gets a new id; every selection edit goes through `_replace`, where
-  `_SelectionConnectors._connect` pairs each replaced target with its new
-  stroke (when it stays on its surface) and adds the unselected lines
-  attached to it (found near its bounds) to the same `SelectionPlan`
-  (`replaceUnselected`), their ends moved onto the new outline by
-  `ShapeDrags` (a bend keeps its place) and re-pointed at the new id: one
+  dot at the attach point. Identity: strokes are immutable, so an edited
+  shape is a new stroke; attachments name the shape by its identity
+  across edits, `Stroke.shapeId` (`ShapeGeometry.origin`, synced `sh.o`:
+  the id of the stroke it was first drawn as; absent, the stroke's own
+  id). Following: every selection edit goes through `_replace`, where
+  `_SelectionConnectors._connect` gives each edited shape its old shape
+  id (`_identified`; one moved to another page becomes a shape of its
+  own there) and adds the unselected lines attached to it (found near its
+  bounds, and lying on this stroke of the shape: `Connectors.targetOf`)
+  to the same `SelectionPlan` (`replaceUnselected`), their ends moved
+  onto the new outline by `ShapeDrags` (a bend keeps its place): one
   `InkEdit`, one undo step, synced as ordinary strokes (a remote device
-  receives box and arrow together; nothing is recomputed on load). While a
+  receives box and arrow together). While a
   target is dragged or reshaped, the followers are drawn as they will be
   (`SelectionController.followers`, their stored strokes hidden). Selected
-  lines keep an end attached to a shape edited with them (re-pointed: moved
-  together they move rigidly) or to an unselected one they still sit on
+  lines keep an end attached to a shape edited with them (moved together
+  they move rigidly) or to an unselected one they still sit on
   (recoloured, bent); a line moved without its target lets go of it, as in
-  Excalidraw (`Connectors.sits`). Pasted and duplicated copies attach to
-  the copies of their targets, else let go. A reference to a stroke not on
-  the line's surface (deleted, erased, moved to another page, a copied
-  page's ids) is ignored and the end stays put; undoing a deletion
-  restores the attachment. Only closed shapes are targets, so connectors
-  never chain.
+  Excalidraw (`Connectors.sits`). Pasted and duplicated copies are shapes
+  of their own (origin dropped) and attach to the copies of their targets,
+  else let go; so do copied pages and notebooks, pages sent to another
+  notebook and imported Len files (`ShapeIds` maps origins and attachment
+  ids like the stroke ids: `SurfaceCopier`, `NotebookDuplicator` through
+  `ShapeRenames`, `LenRemap`). Concurrent edits (one device moves the
+  box, another recolours or draws its arrow) leave an end off its shape:
+  `ConnectorRepair` (the `SyncEngine.afterApply` hook, after a pull and
+  after each live message, before the next push) looks at the surfaces
+  the changes touched (`StrokeQueries.connectorShapes`: nothing read
+  without an attached line) and replaces each line with an end off the
+  shape it names (`Connectors.targetOf`: the stroke of that shape it lies
+  on, else the one of that very id, else the least id) by the line moved
+  onto it, written as a local edit (synced; no undo step: nobody made it
+  here) and added to the `RemoteChanges`, so open editors refresh. Its id
+  is a UUID v5 of the line's and the targets' ids and its geometry comes
+  from theirs, so two devices repairing at once write one record, and a
+  repaired line sits: no loop. A reference to a shape not on the line's
+  surface (deleted, erased, moved to another page) is ignored and the end
+  stays put; undoing a deletion restores the attachment. Only closed
+  shapes are targets, so connectors never chain.
 - **Selections across pages** (paged notebooks, continuous flow): the
   selection stays bound to the active page's surface, but
   `SelectionController.surfaces` (a `SelectionSurfaces`, given by
@@ -3480,7 +3499,10 @@ rows edited in place (text boxes, recordings, outline entries) and every
 deletion, so the pull can tell an edit and a deletion that did not know each
 other (`PullApplier`: the edit is kept, see "Deletion conflicts" below). Remote records are parsed strictly
 (`RecordFields`): every field of the collection's format is required, and a
-malformed record is skipped. Open screens subscribe to
+malformed record is skipped. Fix-ups derived from what was applied run
+right after it, before the next push (`SyncEngine.afterApply`: connectors left off
+their shapes by concurrent edits, `ConnectorRepair`, see "Editing tools"), and add
+what they wrote to the changes. Open screens subscribe to
 `SyncController.remoteChanges` and reload only the affected surfaces.
 
 Robustness (`SyncEngine`): rows are marked clean only for the exact version
