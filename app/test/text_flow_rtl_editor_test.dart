@@ -30,7 +30,10 @@ void main() {
     final o = c.plan.offsets;
     final top = doc(tester).pageViewport.toScreen(s.frames[1].topRight);
     final start = caretAt(tester, o.toDisplay(at));
-    expect(start.dy, closeTo(top.dy, 1));
+    // Within a pixel (the caret snaps to device pixels), plus up to half a
+    // device pixel the view's whole-pixel pan steps leave it off its exact
+    // offset (at 1x).
+    expect(start.dy, closeTo(top.dy, 1.5));
     expect(start.dx, closeTo(top.dx, 6));
 
     // ← is forwards in right-to-left text: from the end of page one it
@@ -39,7 +42,7 @@ void main() {
     await tester.pump();
     await key(tester, LogicalKeyboardKey.arrowLeft);
     expect(c.modelSelection.start, at);
-    expect(caretAt(tester, c.selection.extentOffset).dy, closeTo(top.dy, 1));
+    expect(caretAt(tester, c.selection.extentOffset).dy, closeTo(top.dy, 1.5));
     await key(tester, LogicalKeyboardKey.arrowRight);
     expect(c.modelSelection.start, at - 1);
 
@@ -91,7 +94,7 @@ void main() {
       final o = c.plan.offsets;
       final top = doc(tester).pageViewport.toScreen(s.frames[1].topRight);
       final start = caretAt(tester, o.toDisplay(b.at));
-      expect(start.dy, closeTo(top.dy, 1));
+      expect(start.dy, closeTo(top.dy, 1.5));
       expect(start.dx, closeTo(top.dx, 6));
 
       // Backspace at the next page's start deletes the character before it
