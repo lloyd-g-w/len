@@ -69,6 +69,7 @@ void main() {
   late _Clock clock;
   late AppServices s;
   Versions versions() => s.versions;
+  Future<VersionBody> body(NotebookVersion v) => s.versions.content.body(v);
 
   setUp(() {
     clock = _Clock();
@@ -133,6 +134,11 @@ void main() {
       expect(decoded.single.$1, 'a');
       expect(decoded.single.$2, {'x': 1});
       expect(VersionPacks.decode(Uint8List.fromList(utf8.encode('{"v": 2, "items": []}'))), isNull);
+      // Format 1 (JSON text) still reads.
+      final old = VersionPacks.decode(
+        Uint8List.fromList(utf8.encode('{"v": 1, "items": [["a", {"x": 1.5}]]}')),
+      )!;
+      expect(old.single.$2, {'x': 1.5});
       expect(VersionPacks.decode(Uint8List.fromList([0xff, 0x00])), isNull);
     });
   });
@@ -144,7 +150,8 @@ void main() {
       s.strokes.save([for (var i = 0; i < 40; i++) _ink('a$i', first, createdAt: i)]);
       s.strokes.save([_ink('b0', second)]);
       final v1 = (await versions().record(n.id))!;
-      expect(v1.pages, hasLength(2));
+      final b1 = await body(v1);
+      expect(b1.pages, hasLength(2));
       expect(v1.summary.pagesAdded, 2);
       expect(v1.summary.strokes, 41);
       expect(v1.kind, VersionKind.auto);
@@ -155,8 +162,9 @@ void main() {
 
       s.strokes.save([_ink('b1', second, createdAt: 9)]);
       final v2 = (await versions().record(n.id))!;
-      expect(v2.pages[0].content, v1.pages[0].content, reason: 'the same packs');
-      expect(v2.pages[1].content, isNot(v1.pages[1].content));
+      final b2 = await body(v2);
+      expect(b2.pages[0].content, b1.pages[0].content, reason: 'the same packs');
+      expect(b2.pages[1].content, isNot(b1.pages[1].content));
       expect(v2.summary.pagesEdited, 1);
       expect(v2.summary.strokesAdded, 1);
       expect(v2.summary.strokesRemoved, 0);
@@ -184,10 +192,11 @@ void main() {
       );
       s.strokes.save([_ink('c0', n.id), _ink('c1', n.id, x: 400)]);
       final v = (await versions().record(n.id))!;
-      expect(v.pages, isEmpty);
-      expect(v.canvas, isNotNull);
+      final b = await body(v);
+      expect(b.pages, isEmpty);
+      expect(b.canvas, isNotNull);
       expect(v.summary.strokesAdded, 2);
-      final content = await versions().content.load(v.canvas!, n.id);
+      final content = await versions().content.load(b.canvas!, n.id);
       expect({for (final st in content.strokes) st.id}, {'c0', 'c1'});
     });
 
@@ -420,7 +429,7 @@ void main() {
       s.strokes.save([_ink('a0', page)]);
       final v1 = (await versions().record(n.id))!;
       s.strokes.save([_ink('a1', page)]);
-      for (final sha in v1.packs) {
+      for (final sha in (await body(v1)).packs) {
         s.database.db.execute('DELETE FROM blobs WHERE sha256 = ?', [sha]);
         await s.blobs.backend.delete(sha);
       }
@@ -448,7 +457,9 @@ void main() {
       ]);
       s.strokes.save([_ink('a0', page)]);
       final v = (await versions().record(n.id))!;
-      expect(v.blobs, [image]);
+      final b = await body(v);
+      expect(b.pages.single.content.blobs, [image]);
+      final kept = [...b.packs, ...v.table, image];
       // The image and the ink go from the page; only the version keeps them.
       s.elements.delete(['img']);
       s.strokes.delete(['a0']);
@@ -457,7 +468,7 @@ void main() {
         await s.blobGc.run();
       }
       // The notebook's one version: thinning keeps it, so it still counts.
-      for (final sha in [...v.packs, image]) {
+      for (final sha in kept) {
         expect(await s.blobs.has(sha), isTrue, reason: sha);
       }
       versions().delete([v.id]);
@@ -465,7 +476,7 @@ void main() {
         clock.advance(const Duration(days: 8));
         await s.blobGc.run();
       }
-      for (final sha in [...v.packs, image]) {
+      for (final sha in kept) {
         expect(await s.blobs.has(sha), isFalse, reason: sha);
       }
     });

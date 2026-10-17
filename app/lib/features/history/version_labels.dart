@@ -50,7 +50,7 @@ abstract final class VersionLabels {
   static String summary(NotebookVersion v, {bool first = false}) {
     final s = v.summary;
     if (first) {
-      final parts = [if (v.canvas == null) _count(s.pages, 'page'), _count(s.strokes, 'stroke')];
+      final parts = [if (!v.isCanvas) _count(s.pages, 'page'), _count(s.strokes, 'stroke')];
       return parts.join(', ');
     }
     final parts = [

@@ -14,7 +14,7 @@ abstract final class SchemaMigrations {
   /// compare with. `app_database_test` fails with the new value when a
   /// migration changes the schema.
   static const String shapeDigest =
-      '76aa446e0d9251f4fc7ba9a65416a3604703b1ed2eb6578eb29143043768eeb9';
+      '370fed3aaeef016ea043375bebe829071c9945fa2037c0d16faea06016309eef';
 
   /// Index i migrates from version i to i + 1.
   static final List<void Function(CommonDatabase)> all = [
@@ -34,7 +34,24 @@ abstract final class SchemaMigrations {
     _textAlignStartEnd,
     _deletionBases,
     _versions,
+    _versionTables,
   ];
+
+  /// Version 17: version records name table blobs (docs/SYNC_PROTOCOL.md,
+  /// "Version history"). `blob_links` (local) notes the blobs a reference
+  /// blob names, so uploads and garbage collection follow them
+  /// (`BlobLinks`); the pack cache is emptied, so surfaces are packed again
+  /// in pack format 2.
+  static void _versionTables(CommonDatabase db) {
+    db.execute('''
+      CREATE TABLE blob_links (
+        parent TEXT NOT NULL,
+        child  TEXT NOT NULL,
+        PRIMARY KEY (parent, child)
+      ) WITHOUT ROWID''');
+    db.execute('CREATE INDEX blob_links_by_child ON blob_links(child)');
+    db.execute('DELETE FROM version_packs');
+  }
 
   /// Version 16: version history (docs/SYNC_PROTOCOL.md, "Version
   /// history"). `versions` holds the synced versions (the record `data`

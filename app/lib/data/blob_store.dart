@@ -71,14 +71,21 @@ class BlobStore with _BlobCleanup {
   String? localPath(String sha) => backend.localPath(_checked(sha));
 
   /// Stores [bytes] (a no-op if already present) and returns their id.
+  /// Small blobs (version packs and tables) are hashed here: quicker than
+  /// starting an isolate; large ones in one.
   Future<String> putBytes(Uint8List bytes, {required String mime}) async {
-    final sha = await compute(_sha256Hex, bytes);
+    final sha = bytes.length <= inlineHashBytes
+        ? _sha256Hex(bytes)
+        : await compute(_sha256Hex, bytes);
     return _exclusive(() async {
       if (!await has(sha)) await backend.write(sha, Stream.value(bytes));
       _record(sha, bytes.length, mime, uploaded: false);
       return sha;
     });
   }
+
+  /// Blobs up to this size are hashed without an isolate.
+  static const inlineHashBytes = 64 * 1024;
 
   /// Stores a copy of [source] (e.g. a picked file; streamed where the
   /// platform allows) and returns its id. A [cancel]led token stops it

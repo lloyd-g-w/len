@@ -90,7 +90,7 @@ extension LiveSyncEngine on SyncEngine {
             left = true;
             return out;
           }
-          if (pending.isNotEmpty && BlobReferences.inValue(r.data).any(pending.contains)) {
+          if (pending.isNotEmpty && blobReferences.ofRecord(r).any(pending.contains)) {
             left = true; // Its blob goes first, in a run.
             continue;
           }

@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'canonical_json.dart';
+
 /// An item of a pack: a stroke's or element's id and its record `data`
 /// (without `surfaceId`).
 typedef PackItem = (String id, Map<String, Object?> data);
@@ -13,26 +15,34 @@ abstract final class VersionPacks {
   /// The blob type of a pack.
   static const mime = 'application/x-len-pack';
 
-  /// The pack format written and read.
-  static const format = 1;
+  /// The pack format written: `LP`, 2, then the items as deflated
+  /// [CanonicalJson] (the same bytes on every platform). Format 1 (JSON
+  /// text `{"v": 1, "items": …}`) is still read.
+  static const format = 2;
+
+  static const magic = [0x4C, 0x50];
 
   /// A pack never holds more items than this.
   static const maxItems = 256;
 
   /// Cuts [items] (in paint order) into packs: after every item whose id
   /// hashes to a boundary (one in 32), and after [maxItems].
-  static List<List<PackItem>> cut(List<PackItem> items) {
-    final packs = <List<PackItem>>[];
-    var run = <PackItem>[];
+  static List<List<PackItem>> cut(List<PackItem> items) => cutBy(items, (item) => item.$1);
+
+  /// Cuts [items] into runs after every item whose id ([idOf]) hashes to
+  /// a boundary, and after [maxItems].
+  static List<List<T>> cutBy<T>(List<T> items, String Function(T) idOf) {
+    final runs = <List<T>>[];
+    var run = <T>[];
     for (final item in items) {
       run.add(item);
-      if (run.length >= maxItems || isBoundary(item.$1)) {
-        packs.add(run);
+      if (run.length >= maxItems || isBoundary(idOf(item))) {
+        runs.add(run);
         run = [];
       }
     }
-    if (run.isNotEmpty) packs.add(run);
-    return packs;
+    if (run.isNotEmpty) runs.add(run);
+    return runs;
   }
 
   /// Whether a pack ends after the item [id]: FNV-1a kept to 26 bits
@@ -49,31 +59,35 @@ abstract final class VersionPacks {
   static const _mask = 0x3ffffff;
 
   /// The bytes of a pack of [items].
-  static Uint8List encode(List<PackItem> items) => utf8.encode(
-    jsonEncode({
-      'v': format,
-      'items': [
-        for (final (id, data) in items) [id, data],
-      ],
-    }),
-  );
+  static Uint8List encode(List<PackItem> items) => DeflatedJson.encode(magic, format, [
+    for (final (id, data) in items) [id, data],
+  ]);
 
-  /// The items of pack [bytes]; null when they are no pack of [format].
-  /// Items that are not an id and an object are left out.
+  /// The items of pack [bytes]; null when they are no pack (of format 2,
+  /// or 1). Items that are not an id and an object are left out.
   static List<PackItem>? decode(Uint8List bytes) {
-    final Object? json;
+    final Object? items;
+    if (DeflatedJson.isOf(bytes, magic, format)) {
+      items = DeflatedJson.decode(bytes);
+    } else {
+      items = switch (_json(bytes)) {
+        {'v': 1, 'items': final List<Object?> items} => items,
+        _ => null,
+      };
+    }
+    if (items is! List<Object?>) return null;
+    return [
+      for (final item in items)
+        if (item case [final String id, final Map<String, Object?> data] when id.isNotEmpty)
+          (id, data),
+    ];
+  }
+
+  static Object? _json(Uint8List bytes) {
     try {
-      json = jsonDecode(utf8.decode(bytes));
+      return jsonDecode(utf8.decode(bytes));
     } on FormatException {
       return null;
     }
-    if (json case {'v': format, 'items': final List<Object?> items}) {
-      return [
-        for (final item in items)
-          if (item case [final String id, final Map<String, Object?> data] when id.isNotEmpty)
-            (id, data),
-      ];
-    }
-    return null;
   }
 }

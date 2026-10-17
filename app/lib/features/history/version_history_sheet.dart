@@ -214,9 +214,6 @@ class _VersionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final v = version;
-    final page = v.canvas != null
-        ? null
-        : v.pages.where((p) => p.id == v.summary.focus).firstOrNull ?? v.pages.firstOrNull;
     final device = VersionLabels.device(v, thisDevice: services.strokes.deviceId);
     final title = VersionLabels.title(v);
     final summary = VersionLabels.summary(v, first: first);
@@ -232,14 +229,13 @@ class _VersionRow extends StatelessWidget {
             children: [
               SizedBox(
                 width: 48,
-                child: v.canvas == null && page == null
+                child: !v.isCanvas && v.summary.pages == 0
                     ? const SizedBox.shrink()
                     : ClipRRect(
                         borderRadius: BorderRadius.circular(Radii.xs),
                         child: VersionSurfaceView(
                           sheets: sheets,
                           version: v,
-                          page: page,
                           images: services.images,
                         ),
                       ),
