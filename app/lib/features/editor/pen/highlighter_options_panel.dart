@@ -51,7 +51,7 @@ class HighlighterOptionsPanel extends StatelessWidget {
               onChanged: config.straight ? null : (v) => update((c) => c.copyWith(streamline: v)),
             ),
             PenEndsOptions(
-              config: config,
+              ends: config.ends,
               styles: PenDefaults.highlighter.endStyles,
               onChanged: (ends) => update((c) => c.copyWith(ends: ends)),
             ),
