@@ -3469,7 +3469,8 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   `EditorSession`, attached to the main input and the zoom window's) listens to `LiveInk` and
   sends the points not sent yet at most every 50 ms — nothing at all while nobody else is in
   the room, so the local pen pays one listener call and a null check per point; with someone
-  there, a list slice and a small JSON message 20 times a second, never per point. On the
+  there, a list slice and a small JSON message 20 times a second, never per point (about 0.15 µs a
+  point on average, `test/perf/live_ink_relay_perf_test.dart`). On the
   other side `RemoteInk` (`ink/remote_ink.dart`, one per `SharedNotebook`) keeps the strokes
   being written per writer connection, and `RemoteInkPainter` paints them in their own
   `RepaintBoundary` between the committed ink and the local `LiveInkPainter` (`InkSurface`
