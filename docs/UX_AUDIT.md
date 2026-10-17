@@ -150,9 +150,11 @@ page plus the offset, wrong when the two devices lay pages out differently.
   trail stays on the page it began on, even beyond its edge, so it draws on unbroken
   (SYNC_PROTOCOL updated).
 
-**R25-17 P3 · The zoom window shows neither other devices' live ink nor their pointers.** ⬜
-`zoom_box_paper.dart` paints only local live ink; add the remote ink (and
-pointer) layers (TODO "Next").
+**R25-17 P3 · The zoom window shows neither other devices' live ink nor their pointers.** ✅
+`zoom_box_paper.dart` painted only local live ink.
+- *Fix:* the box paints `RemoteInkPainter` (between the committed and the local live ink) and
+  a `RemotePointersOverlay` over its view of the frame's surface, each its own
+  `RepaintBoundary` (nothing drawn while nobody else writes or points).
 
 **R25-18 P3 · In dark mode another device's hover dot is a hollow ring.** ⬜
 `remote_pointers_overlay.dart` takes dot and halo from the theme

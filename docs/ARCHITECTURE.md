@@ -635,7 +635,8 @@ again. Text being typed reads once its write lands. The nodes take no pointers.
   through a magnifier. A `ZoomFrame` (surface id, origin, scale) marks a rectangle on a page
   (or the canvas) with the box's aspect; `ZoomBox`, docked above the bottom chrome
   (`ChromeLayout.zoomBox`, counted in `covered` so the page scrolls clear of it), shows it
-  magnified with the page's paper and ink. Pointers in the box go to the window's own
+  magnified with the page's paper and ink (other devices' live ink and pointers too, the main
+  view's layers over the box's viewport). Pointers in the box go to the window's own
   `InkInputController` over `ZoomBoxViewport` (a `ViewportController` the window sets; finger
   pans and pinches move or size the frame instead), so ink is smoothed, pressure-shaped,
   live and undoable exactly as on the page; the pen keeps its page width. `ZoomRules` is the
@@ -3880,7 +3881,8 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   other side `RemoteInk` (`ink/remote_ink.dart`, one per `SharedNotebook`) keeps the strokes
   being written per writer connection, and `RemoteInkPainter` paints them in their own
   `RepaintBoundary` between the committed ink and the local `LiveInkPainter` (`InkSurface`
-  for canvases; `PagedDocumentView` once for all pages, clipped to each page's frame), so a
+  for canvases; `PagedDocumentView` once for all pages, clipped to each page's frame; the zoom
+  window's `ZoomBoxPaper` for its frame's surface, with the pointers' overlay too), so a
   remote stroke growing repaints only that layer. It goes once every stroke it became is
   applied and drawn: `SharedNotebook._onRemoteChanges` refreshes the open surfaces first and
   then calls `RemoteInk.landed`, so the committed stroke and the provisional one swap in the

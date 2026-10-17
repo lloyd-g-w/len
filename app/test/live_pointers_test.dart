@@ -13,9 +13,11 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/live_ink/pointer_relay.dart';
 import 'package:len/features/editor/live_ink/remote_pointers_overlay.dart';
+import 'package:len/features/editor/zoom/zoom_box_paper.dart';
 import 'package:len/ink/input/ink_events.dart';
 import 'package:len/ink/remote_ink.dart';
 import 'package:len/ink/remote_pointers.dart';
+import 'package:len/ink/render/remote_ink_painter.dart';
 import 'package:len/ink/tools/laser.dart';
 import 'package:len/ink/viewport.dart';
 import 'package:len/sync/live_link.dart';
@@ -26,7 +28,7 @@ import 'package:len/sync/remote_changes.dart';
 import 'document_editor_test.dart' show pumpEditor, closeEditor;
 import 'split_view_test.dart' show pumpWorkspace;
 import 'support/live_devices.dart';
-import 'support/zoom_fixtures.dart' show zoomSession;
+import 'support/zoom_fixtures.dart' show openZoom, zoomSession;
 
 // Toward real-time collaboration: other devices' pointers (hover, laser)
 // shown live, and the provisional ink of their strokes handed over to the
@@ -475,6 +477,65 @@ void main() {
     expect(page, pages[1].id);
     expect((at - const Offset(60, 40)).distance, lessThan(0.01));
     expect(session.pointerRelay.locate, isNotNull);
+    s.sync.rooms.receive(LivePresence(nb.id, const []));
+    await tester.pump();
+    await closeEditor(tester);
+  });
+
+  testWidgets('in the zoom window: other devices\' live ink and pointers show there too', (
+    tester,
+  ) async {
+    final (s, nb) = await pumpEditor(tester);
+    final zoom = await openZoom(tester);
+    final frame = zoom.frame!;
+    final at = frame.origin + const Offset(20, 10);
+    void say(Map<String, Object?> data) =>
+        s.sync.rooms.receive(LiveEphemeral(room: nb.id, from: 'c9', deviceId: 'd9', data: data));
+    s.sync.rooms.receive(
+      LivePresence(nb.id, const [(connection: 'c9', deviceId: 'd9', name: 'Linux')]),
+    );
+    say({
+      'k': 'ink',
+      's': 'w',
+      'page': frame.surfaceId,
+      'tool': 'ballpoint',
+      'color': 0xFF112233,
+      'width': 3,
+      'from': 0,
+      'p': [at.dx, at.dy, 0.5, at.dx + 30, at.dy + 4, 0.5],
+    });
+    say({
+      'k': 'pointer',
+      'page': frame.surfaceId,
+      'at': [at.dx, at.dy],
+    });
+    await tester.pump();
+    final paper = find.byType(ZoomBoxPaper);
+    final ink = tester
+        .widgetList<CustomPaint>(find.descendant(of: paper, matching: find.byType(CustomPaint)))
+        .map((c) => c.painter)
+        .whereType<RemoteInkPainter>()
+        .single;
+    expect(ink.remote.strokesOn(frame.surfaceId), hasLength(1));
+    expect(ink.frameOf(frame.surfaceId), isNotNull, reason: 'the frame\'s page shows');
+    expect(ink.frameOf('another page'), isNull);
+    expect(ink.viewport, same(zoom.view));
+    final overlay = tester.widget<RemotePointersOverlay>(
+      find.descendant(of: paper, matching: find.byType(RemotePointersOverlay)),
+    );
+    expect(overlay.viewport, same(zoom.view));
+    final canvas = _CountingCanvas();
+    RemotePointersPainter(
+      pointers: overlay.pointers,
+      viewport: overlay.viewport,
+      frameOf: overlay.frameOf,
+      plate: const Color(0xFFEEEEEE),
+      label: const TextStyle(fontSize: 12),
+      dot: const Color(0xFF000000),
+      halo: const Color(0xFFFFFFFF),
+    ).paint(canvas, zoom.box);
+    expect(canvas.circles, 2, reason: 'the hover dot and its halo');
+    expect((Offset.zero & zoom.box).contains(zoom.view.toScreen(at)), isTrue);
     s.sync.rooms.receive(LivePresence(nb.id, const []));
     await tester.pump();
     await closeEditor(tester);

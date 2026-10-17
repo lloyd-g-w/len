@@ -3,16 +3,19 @@ import 'package:flutter/material.dart';
 import '../../../domain/paper.dart';
 import '../../../ink/render/chunk_picture_cache.dart';
 import '../../../ink/render/ink_painters.dart';
+import '../../../ink/render/remote_ink_painter.dart';
 import '../../../ink/render/tiles/ink_tile_cache.dart';
 import '../../../ink/surface_model.dart';
 import '../editor_session.dart';
+import '../live_ink/remote_pointers_overlay.dart';
 import 'zoom_box_grip.dart';
 import 'zoom_box_painters.dart';
 import 'zoom_window.dart';
 
 /// What the zoom box shows: the frame's paper, the advance zone, the ink
-/// (committed, and live while the frame's page takes the input) and the
-/// grip on its inner edge. Pointers are the box's.
+/// (committed, other devices' live ink, and this one's while the frame's
+/// page takes the input), other devices' pointers and the grip on its inner
+/// edge. Pointers are the box's.
 class ZoomBoxPaper extends StatefulWidget {
   const ZoomBoxPaper({
     super.key,
@@ -79,6 +82,11 @@ class _ZoomBoxPaperState extends State<ZoomBoxPaper> {
         final live = host.isActive(frame.surfaceId);
         final view = _zoom.view;
         final zone = _zoom.zoneStart;
+        // The frame's surface, in the box's view of it (a page clipped to
+        // its paper); other surfaces don't show here.
+        final shown = page ?? Rect.largest;
+        Rect? frameOf(String id) => id == frame.surfaceId ? shown : null;
+        final shared = session.shared;
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -117,12 +125,30 @@ class _ZoomBoxPaperState extends State<ZoomBoxPaper> {
                 ),
               ),
             ),
+            RepaintBoundary(
+              child: CustomPaint(
+                painter: RemoteInkPainter(
+                  remote: shared.remoteInk,
+                  viewport: view,
+                  frameOf: frameOf,
+                ),
+              ),
+            ),
             if (live)
               RepaintBoundary(
                 child: CustomPaint(
                   painter: LiveInkPainter(live: session.live, viewport: view, clip: page),
                 ),
               ),
+            ListenableBuilder(
+              listenable: session.services.preferences,
+              builder: (context, _) => RemotePointersOverlay(
+                pointers: shared.remotePointers,
+                tags: session.services.preferences.pointerTags,
+                viewport: view,
+                frameOf: frameOf,
+              ),
+            ),
             Positioned(
               left: 0,
               right: 0,
