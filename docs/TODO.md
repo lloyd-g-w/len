@@ -81,6 +81,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 - ✅ **Highlighter and laser customisation like the pen's**: the highlighter already had every
   pen option (now tested); the laser gets editable, persisted quick colour and size slots (1–5
   each, shared slot rows and editors, 1–9 and [ / ] too) and the pen's popover layout.
+- 🚧 (feat/laser-feel) **The laser's ends can't be changed** (owner, again): the laser has the
+  pen's slots but not its feel: ends (round / flat / tapered), pressure, stabiliser; the trail
+  drawn with the pen's outline engine.
 - 🚧 (feat/shape-handles) **Better shape control points** (pen → shape and the Shape tool): handles by meaning,
   not bounding-box corners: a circle / ellipse by centre (move) and radius (or two radii and a
   rotation), rectangle corners + edge midpoints + rotation, line / arrow endpoints (and a bend),
