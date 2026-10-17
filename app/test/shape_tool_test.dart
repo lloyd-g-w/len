@@ -156,9 +156,10 @@ void main() {
       draw(ShapeKind.ellipse, const Offset(100, 100), const Offset(300, 200)),
       ShapeBuilder.dragged(ShapeKind.ellipse, const Offset(100, 100), const Offset(300, 200)),
     );
+    // Away from those shapes (an end on one attaches there).
     expect(
-      draw(ShapeKind.arrow, const Offset(100, 100), const Offset(300, 160)),
-      ShapeBuilder.dragged(ShapeKind.arrow, const Offset(100, 100), const Offset(300, 160)),
+      draw(ShapeKind.arrow, const Offset(400, 300), const Offset(600, 360)),
+      ShapeBuilder.dragged(ShapeKind.arrow, const Offset(400, 300), const Offset(600, 360)),
     );
   });
 

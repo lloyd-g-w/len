@@ -13,10 +13,12 @@ import '../elements/text_flow_chains.dart';
 import '../elements/text_layout.dart';
 import '../geometry/affine.dart';
 import '../render/content_painter.dart';
+import '../shapes/shape_anchors.dart';
 import '../shapes/shape_builder.dart';
 import '../shapes/shape_handles.dart';
 import '../surface_model.dart';
 import '../undo_history.dart';
+import 'connectors.dart';
 import 'ink_clipboard.dart';
 import 'lasso.dart';
 import 'selection_frame.dart';
@@ -27,6 +29,7 @@ import 'stroke_order.dart';
 import 'transform_items.dart';
 
 part 'selection_controller_commits.dart';
+part 'selection_controller_connectors.dart';
 part 'selection_controller_framing.dart';
 part 'selection_controller_actions.dart';
 part 'selection_controller_gestures.dart';
@@ -127,6 +130,16 @@ abstract class _SelectionCore extends ChangeNotifier {
 
   /// [shapeStroke] reshaped by the drag in progress.
   Stroke? _reshaped;
+
+  /// The shape a line's end being dragged (a handle, the Shape tool)
+  /// would attach to, shown with the selection's chrome.
+  AttachHint? get attachHint => _attachHint;
+  AttachHint? _attachHint;
+  set attachHint(AttachHint? hint) {
+    if (hint?.target.id == _attachHint?.target.id && hint?.at == _attachHint?.at) return;
+    _attachHint = hint;
+    notifyListeners();
+  }
 
   /// Selects [strokes] and [elements] (replacing any previous selection).
   /// Items stored on other surfaces are given in this surface's

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
+import '../selection/connectors.dart';
 import '../selection/lasso.dart';
 import '../selection/lasso_config.dart';
 import '../selection/lasso_path.dart';
@@ -215,15 +216,7 @@ class LassoTool implements PointerTool {
         selection.setPreview(result.transform, result.frame);
         if (_handle == null) dragOut?.dragging(p.screen, _centreOnScreen);
       case _Mode.reshape:
-        selection.reshape(
-          ShapeHandles.drag(
-            _shape!,
-            _point,
-            p.world + _grab,
-            shift: HardwareKeyboard.instance.isShiftPressed,
-            snap: snapReach / viewport.scale,
-          ),
-        );
+        selection.reshape(_reshaped(p.world + _grab));
       case _Mode.idle:
         break;
     }
@@ -259,6 +252,7 @@ class LassoTool implements PointerTool {
           if (!_addAnchor(_lastWorld)) _tap(_lastWorld, keepSelection: true);
         }
       case _Mode.reshape:
+        selection.attachHint = null;
         if (_dragged) {
           selection.commitReshape();
         } else {
@@ -271,6 +265,33 @@ class LassoTool implements PointerTool {
     _mode = _Mode.idle;
     _shape = null;
   }
+
+  /// The selected shape with its handle [_point] dragged to [to]; a line's
+  /// or arrow's end attaches to a shape it is dropped on (or in), or lets
+  /// go ([Connectors]).
+  ShapeGeometry _reshaped(Offset to) {
+    final shape = _shape!;
+    final dragged = ShapeHandles.drag(
+      shape,
+      _point,
+      to,
+      shift: HardwareKeyboard.instance.isShiftPressed,
+      snap: snapReach / viewport.scale,
+    );
+    final line = shape.kind == ShapeKind.line || shape.kind == ShapeKind.arrow;
+    if (!line || _point > 1) return dragged;
+    final hint = selection.attachHint = Connectors.find(
+      selection.model,
+      to,
+      reach: attachReach / viewport.scale,
+      towards: shape.points[1 - _point],
+      exclude: {?selection.shapeStroke?.id},
+    );
+    return Connectors.attach(dragged, _point, hint, dragged.points[_point]);
+  }
+
+  /// How near (pixels) an outline a dragged line end attaches to it.
+  static const double attachReach = 12;
 
   /// Where the centre of the selection being moved is on screen.
   Offset get _centreOnScreen => viewport.toScreen(_startFrame!.center + (_lastWorld - _startWorld));
@@ -290,6 +311,7 @@ class LassoTool implements PointerTool {
     _longPressTimer?.cancel();
     path.clear();
     selection
+      ..attachHint = null
       ..cancelPreview()
       ..cancelReshape();
     _mode = _Mode.idle;

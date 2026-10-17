@@ -5,8 +5,10 @@ import 'package:flutter/rendering.dart';
 
 import '../../domain/shape_geometry.dart';
 import '../render/dashes.dart';
+import '../shapes/shape_builder.dart';
 import '../shapes/shape_handles.dart';
 import '../viewport.dart';
+import 'connectors.dart';
 import 'lasso_path.dart';
 import 'selection_chrome.dart';
 import 'selection_controller.dart';
@@ -52,6 +54,24 @@ class SelectionPainter extends CustomPainter {
     _paintLasso(canvas);
     final frame = selection.frame;
     if (frame != null && !selection.isEmpty) _paintFrame(canvas, frame);
+    if (selection.attachHint case final hint?) _paintAttachHint(canvas, hint);
+  }
+
+  /// The shape a line's end is about to attach to: its outline in the
+  /// accent (over a paper band), a solid dot where the end goes.
+  void _paintAttachHint(Canvas canvas, AttachHint hint) {
+    final outline = [
+      for (final p in ShapeBuilder.outline(hint.target.shape!)) viewport.toScreen(p),
+    ];
+    final line = Path()..addPolygon(outline, false);
+    canvas
+      ..drawPath(line, _halo..strokeWidth = 5)
+      ..drawPath(line, _outline..strokeWidth = 2.5);
+    final at = viewport.toScreen(hint.point);
+    canvas
+      ..drawCircle(at + const Offset(0, 1), 5.5 * handleScale, _shadow)
+      ..drawCircle(at, 5.5 * handleScale, Paint()..color = handleFill)
+      ..drawCircle(at, 4 * handleScale, Paint()..color = accent);
   }
 
   void _paintContent(Canvas canvas) {

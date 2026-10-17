@@ -73,6 +73,15 @@ class SelectionPlan {
     keepStroke(selected, target.model == primary ? null : SelectionSource(target, stored));
   }
 
+  /// Replaces stored stroke [old] on [model] with [stroke] (both in that
+  /// surface's coordinates) without selecting it: a connector following
+  /// the shape it is attached to.
+  void replaceUnselected(SurfaceModel model, Stroke old, Stroke stroke) {
+    final edit = _edit(_first, model);
+    edit.removed.add(old);
+    edit.added.add(stroke);
+  }
+
   /// Adds element [e] (selection coordinates) to surface [to] (default: the
   /// selection's own) and selects it. [from] is the surface it was stored
   /// on, if it replaces a stored element with the same id.

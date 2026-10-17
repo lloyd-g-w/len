@@ -3,8 +3,10 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
+import 'shape_attachment.dart';
 import 'shape_kind.dart';
 
+export 'shape_attachment.dart';
 export 'shape_kind.dart';
 
 /// The editable geometry of a shape stroke (drawn with the Shape tool or
@@ -40,8 +42,14 @@ class ShapeGeometry {
     List<Offset> points, {
     this.inner = defaultInner,
     this.tips = defaultTips,
+    this.tail,
+    this.tip,
   }) : points = List.unmodifiable(points),
-       assert(isValidCount(kind, points.length), 'Wrong number of points for $kind');
+       assert(isValidCount(kind, points.length), 'Wrong number of points for $kind'),
+       assert(
+         (tail == null && tip == null) || kind == ShapeKind.line || kind == ShapeKind.arrow,
+         'Only lines and arrows attach',
+       );
 
   /// The ellipse around [centre] with conjugate semi-axes [u] and [v] (any
   /// affine image of a circle), as its perpendicular semi-axes: the pair
@@ -59,6 +67,32 @@ class ShapeGeometry {
 
   /// How many points a star has.
   final int tips;
+
+  /// The shapes a line's or arrow's ends ([points] 0 and 1) are attached
+  /// to (connectors), if any; null for other kinds.
+  final ShapeAttachment? tail, tip;
+
+  /// The attachment of end [index] (0: tail, 1: tip).
+  ShapeAttachment? attachmentOf(int index) => index == 0 ? tail : tip;
+
+  /// Whether an end is attached to a shape.
+  bool get isAttached => tail != null || tip != null;
+
+  /// This line or arrow with end [index] (0: tail, 1: tip) attached to
+  /// [attachment] (null: detached).
+  ShapeGeometry withAttachment(int index, ShapeAttachment? attachment) => ShapeGeometry(
+    kind,
+    points,
+    tail: index == 0 ? attachment : tail,
+    tip: index == 1 ? attachment : tip,
+  );
+
+  /// This shape with its attachments changed by [f] (null: detached).
+  ShapeGeometry withAttachments(ShapeAttachment? Function(ShapeAttachment a) f) {
+    if (!isAttached) return this;
+    final a = tail == null ? null : f(tail!), b = tip == null ? null : f(tip!);
+    return a == tail && b == tip ? this : ShapeGeometry(kind, points, tail: a, tip: b);
+  }
 
   static const double defaultInner = 0.42;
   static const double minInner = 0.1, maxInner = 0.95;
@@ -109,16 +143,17 @@ class ShapeGeometry {
         final c2 = f(points[0]);
         return ShapeGeometry.ellipse(c2, f(points[1]) - c2, f(points[2]) - c2);
       default:
-        return ShapeGeometry(kind, [for (final p in points) f(p)], inner: inner, tips: tips);
+        return withPoints([for (final p in points) f(p)]);
     }
   }
 
   /// This shape with point [index] at [p].
   ShapeGeometry withPoint(int index, Offset p) => withPoints([...points]..[index] = p);
 
-  /// This shape (same kind, star parameters) with other [points].
+  /// This shape (same kind, star parameters, attachments) with other
+  /// [points].
   ShapeGeometry withPoints(List<Offset> points) =>
-      ShapeGeometry(kind, points, inner: inner, tips: tips);
+      ShapeGeometry(kind, points, inner: inner, tips: tips, tail: tail, tip: tip);
 
   /// This star with another [inner] radius or number of [tips].
   ShapeGeometry withStar({double? inner, int? tips}) =>
@@ -140,13 +175,15 @@ class ShapeGeometry {
 
   /// Compact JSON for storage and sync: `k` the kind, `p` the points as
   /// `[x0, y0, x1, y1, …]`, `i` a star's [inner] radius and `n` its
-  /// [tips] (stars only).
+  /// [tips] (stars only), `a` a line's or arrow's attachments `[tail, tip]`
+  /// (each `{id, t}` or null; absent when neither end is attached).
   Map<String, Object?> toJson() => {
     'k': kind.name,
     'p': [
       for (final p in points) ...[p.dx, p.dy],
     ],
     if (kind == ShapeKind.star) ...{'i': inner, 'n': tips},
+    if (isAttached) 'a': [tail?.toJson(), tip?.toJson()],
   };
 
   /// Parses [json] strictly (see [toJson]); throws [FormatException] when
@@ -182,6 +219,18 @@ class ShapeGeometry {
     if (inner != null || tips != null) {
       throw const FormatException('Malformed shape: i or n without a star');
     }
+    final a = json['a'];
+    if (a != null) {
+      if (kind != ShapeKind.line && kind != ShapeKind.arrow || a is! List || a.length != 2) {
+        throw const FormatException('Malformed shape: a');
+      }
+      return ShapeGeometry(
+        kind,
+        points,
+        tail: ShapeAttachment.fromJson(a[0]),
+        tip: ShapeAttachment.fromJson(a[1]),
+      );
+    }
     if (kind == ShapeKind.ellipse) {
       return ShapeGeometry.ellipse(points[0], points[1] - points[0], points[2] - points[0]);
     }
@@ -194,10 +243,12 @@ class ShapeGeometry {
       other.kind == kind &&
       other.inner == inner &&
       other.tips == tips &&
+      other.tail == tail &&
+      other.tip == tip &&
       listEquals(other.points, points);
 
   @override
-  int get hashCode => Object.hash(kind, inner, tips, Object.hashAll(points));
+  int get hashCode => Object.hash(kind, inner, tips, tail, tip, Object.hashAll(points));
 
   @override
   String toString() => 'ShapeGeometry(${toJson()})';
