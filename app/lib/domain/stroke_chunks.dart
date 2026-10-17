@@ -114,6 +114,9 @@ class StrokeChunkTrace {
   /// How far along the stroke each point lies, when the bounds are known.
   Float64List? _along;
 
+  /// The last box of chunks [_allIn] found all in.
+  ({int minX, int minY, int maxX, int maxY}) _allInBox = (minX: 0, minY: 0, maxX: -1, maxY: -1);
+
   /// Traces the segments of [points] (the stroke so far, the points added
   /// before unchanged) whose neighbourhood is complete.
   void add(List<StrokePoint> points) {
@@ -244,13 +247,19 @@ class StrokeChunkTrace {
     return _along = along;
   }
 
-  /// Whether every chunk from ([minX], [minY]) to ([maxX], [maxY]) is in.
+  /// Whether every chunk from ([minX], [minY]) to ([maxX], [maxY]) is in;
+  /// within the last such box (chunks are only ever added) without a look.
   bool _allIn(int minX, int minY, int maxX, int maxY) {
+    final known = _allInBox;
+    if (minX >= known.minX && minY >= known.minY && maxX <= known.maxX && maxY <= known.maxY) {
+      return true;
+    }
     for (var y = minY; y <= maxY; y++) {
       for (var x = minX; x <= maxX; x++) {
         if (!_keys.contains((x: x, y: y))) return false;
       }
     }
+    _allInBox = (minX: minX, minY: minY, maxX: maxX, maxY: maxY);
     return true;
   }
 
