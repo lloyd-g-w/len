@@ -474,7 +474,7 @@ selects the tint's shape instead.
 | A square / circle with the pen | Shift only (no Shift on a tablet) | GoodNotes: near-regular snaps; Samsung: the same | R21-2 ✅ |
 | Level axes and lines | Shift only; held lines keep the hand's angle | GoodNotes: lines snap level and upright | R21-1 ✅ |
 | Arrows | arrowhead 18 % of the length (≥ 12): a 400-pt axis gets a 72-pt head | heads of a constant size | R21-4 ✅ |
-| Arrows that stay attached to boxes | none: moving a box leaves its arrows | GoodNotes, Notability, Samsung: none either (whiteboards have connectors) | R21-6 ⬜ (Next) |
+| Arrows that stay attached to boxes | none: moving a box leaves its arrows | GoodNotes, Notability, Samsung: none either (whiteboards have connectors) | R21-6 🚧 |
 | Labels in boxes | text boxes or ink; a box drawn later sits over them | the same | Keep |
 | Fills | none, three tints of the ink, solid (any colour); a tint follows a recolour | GoodNotes: fill colour; Notability: fill | Keep |
 | Arranging | Bring to front / Send to back for images and text only | GoodNotes: arrange for elements; ink stacks by time | R21-3 ✅ |
@@ -534,13 +534,20 @@ selects the tint's shape instead.
 - *Fix:* ink hit by its line wins over a translucent fill that only
   contains the tap. Effort S.
 
-**R21-6 P3 · Arrows don't stay attached to boxes.** ⬜ (docs/TODO.md Next)
+**R21-6 P3 · Arrows don't stay attached to boxes.** 🚧 (feat/connectors)
 - *What:* moving a flowchart's box leaves its arrows behind; each arrow
   end must be dragged after it. None of the three references has
   connectors either; whiteboard apps do.
 - *Proposal:* an arrow or line end dropped on a shape's outline remembers
   the shape (a synced reference in the geometry); moving or reshaping the
   shape moves the end. Large: geometry format, transforms, sync, undo.
+- *Done:* an end of a line or arrow dropped on a closed shape's outline (or
+  inside it) attaches — dragging its handle or drawing it with the Shape
+  tool; the shape's outline lights up and a dot marks the spot meanwhile.
+  Moving, resizing, turning or reshaping the shape brings the end along
+  (live, one undo step, synced). Dragging the end away lets go; so does
+  moving the line without its shape (as in Excalidraw); moved together they
+  stay attached. Deleting the shape leaves the line where it is.
 
 **R21-7 P3 · No eyedropper.** ✅
 - *What:* matching a colour already on the page means finding it in the
