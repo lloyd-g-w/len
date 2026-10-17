@@ -139,6 +139,46 @@ void main() {
     });
   });
 
+  testWidgets('a stroke from another device of a later time beneath the pen: steady pen-up', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final scene = InkScene(background(), dpr: 2);
+      await scene.warm();
+      final f = framesOf(scene);
+      final points = wave();
+      final frames = await f.draw(
+        points,
+        between: (frame) async {
+          if (frame != 6) return;
+          // Synced in mid-stroke, stamped later than this pen-down (clocks
+          // differ): the new stroke is no append.
+          scene.model.commit(
+            InkEdit(
+              added: [
+                Stroke(
+                  id: 'remote',
+                  surfaceId: 's',
+                  tool: InkTool.ballpoint,
+                  color: 0xFF000000,
+                  width: 3,
+                  points: const [StrokePoint(40, 300, .5), StrokePoint(560, 320, .5)],
+                  createdAt: 1 << 42,
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      f.lift(scene.model);
+      frames
+        ..add(await f.frame())
+        ..addAll(await f.until(() => settledTiles(scene)));
+      await expectNoLostInk(frames, except: endOf(f, points));
+      scene.dispose();
+    });
+  });
+
   testWidgets('zoomed far out (level-of-detail rasters), over a text box\'s chunk: steady pen-up', (
     tester,
   ) async {
