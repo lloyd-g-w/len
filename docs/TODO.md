@@ -209,7 +209,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   reference-blob scheme the server GC follows would shrink them; device names are platform
   names (per user once there are users); no golden / screenshot of the history yet.
 
-- 🚧 (fix/import-flow) **Len import keeps text flow links**: import gave text boxes new ids but
+- ✅ **Len import keeps text flow links**: import gave text boxes new ids but
   left `TextFlow.from` at the file's ids, so imported chains broke apart. Now `LenRemap` maps
   text boxes' ids and their flows, and the commit drops flows from boxes not imported; a
   duplicated page's continuation (it still named the original's box before) and a version
