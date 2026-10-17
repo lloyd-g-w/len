@@ -9,10 +9,10 @@ import 'stroke_preview.dart';
 
 /// The highlighter's settings popover: a live preview, opacity, then the
 /// pen's engine settings that make sense for a marker — pressure
-/// sensitivity, stabiliser, ends (flat like a chisel tip, or round) — and
+/// sensitivity, stabiliser, ends (flat like a chisel tip, or round) — then
 /// straight lines (the stabiliser greyed out while every stroke is
-/// straight, as it does not apply). Edits apply live; Reset restores the
-/// feel defaults.
+/// straight, as it does not apply) and snapping to PDF text. Edits apply
+/// live; Reset restores the feel defaults.
 class HighlighterOptionsPanel extends StatelessWidget {
   const HighlighterOptionsPanel({super.key, required this.tools});
 
@@ -60,6 +60,12 @@ class HighlighterOptionsPanel extends StatelessWidget {
               subtitle: 'Every stroke is a straight line from where the pen went down',
               value: config.straight,
               onChanged: (v) => update((c) => c.copyWith(straight: v)),
+            ),
+            OptionSwitch(
+              label: 'Snap to text',
+              subtitle: 'Highlights over PDF text cover whole words',
+              value: config.snapToText,
+              onChanged: (v) => update((c) => c.copyWith(snapToText: v)),
             ),
           ],
         );

@@ -270,42 +270,49 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('in the zoom window\'s box it snaps the same', skip: pdfium == null, (
-      tester,
-    ) async {
-      final pdf = await openPdfEditor(tester, services, dir);
-      pdf.tools
-        ..stylusOnly = true
-        ..tool = EditorTool.highlighter;
-      final page = pdf.doc.pages.first;
-      final frame = pdf.doc.layout.frameOf(0)!;
-      Offset onPage(Offset screen) => pdf.doc.viewport.toWorld(screen) - frame.topLeft;
-      final from = onPage(pdfTextAt(pdf, 'Hello', i: 1));
-      final to = onPage(pdfTextAt(pdf, 'world', i: 3));
-      final zoom = zoomSession(tester).zoomWindow;
-      zoom.open(
-        at: ZoomFrame(surfaceId: page.id, origin: from - const Offset(20, 40), scale: 2),
+    for (final snap in [true, false]) {
+      testWidgets(
+        'in the zoom window\'s box it ${snap ? 'snaps the same' : 'stays as drawn with Snap to '
+                  'text off'}',
+        skip: pdfium == null,
+        (tester) async {
+          final pdf = await openPdfEditor(tester, services, dir);
+          pdf.tools
+            ..stylusOnly = true
+            ..tool = EditorTool.highlighter
+            ..updateConfig(InkTool.highlighter, (c) => c.copyWith(snapToText: snap));
+          final page = pdf.doc.pages.first;
+          final frame = pdf.doc.layout.frameOf(0)!;
+          Offset onPage(Offset screen) => pdf.doc.viewport.toWorld(screen) - frame.topLeft;
+          final from = onPage(pdfTextAt(pdf, 'Hello', i: 1));
+          final to = onPage(pdfTextAt(pdf, 'world', i: 3));
+          final zoom = zoomSession(tester).zoomWindow;
+          zoom.open(
+            at: ZoomFrame(surfaceId: page.id, origin: from - const Offset(20, 40), scale: 2),
+          );
+          await tester.pumpAndSettle();
+          final paper = boxPaper(tester);
+          Offset inBox(Offset p) => paper.topLeft + zoom.view.toScreen(p);
+          final pen = await tester.startGesture(inBox(from), kind: PointerDeviceKind.stylus);
+          for (var t = 0.05; t <= 1.0001; t += 0.05) {
+            await pen.moveTo(inBox(Offset.lerp(from, to, t)!) + Offset(0, t * 10 % 2 < 1 ? 2 : -2));
+            await tester.pump(const Duration(milliseconds: 8));
+          }
+          await pen.up();
+          await tester.pumpAndSettle();
+          final s = pdf.doc.surfaces
+              .surfaceOf(page.id)
+              .model
+              .strokesNear(Offset.zero & page.size)
+              .single;
+          final ys = s.points.map((p) => p.y);
+          final wobble = ys.reduce(math.max) - ys.reduce(math.min);
+          expect(wobble, snap ? lessThan(1e-6) : greaterThan(1), reason: 'straight iff snapped');
+          zoom.close();
+          await tester.pumpWidget(const SizedBox());
+        },
       );
-      await tester.pumpAndSettle();
-      final paper = boxPaper(tester);
-      Offset inBox(Offset p) => paper.topLeft + zoom.view.toScreen(p);
-      final pen = await tester.startGesture(inBox(from), kind: PointerDeviceKind.stylus);
-      for (var t = 0.05; t <= 1.0001; t += 0.05) {
-        await pen.moveTo(inBox(Offset.lerp(from, to, t)!) + Offset(0, t * 10 % 2 < 1 ? 2 : -2));
-        await tester.pump(const Duration(milliseconds: 8));
-      }
-      await pen.up();
-      await tester.pumpAndSettle();
-      final s = pdf.doc.surfaces
-          .surfaceOf(page.id)
-          .model
-          .strokesNear(Offset.zero & page.size)
-          .single;
-      final ys = s.points.map((p) => p.y);
-      expect(ys.reduce(math.max) - ys.reduce(math.min), lessThan(1e-6), reason: 'straight');
-      zoom.close();
-      await tester.pumpWidget(const SizedBox());
-    });
+    }
 
     testWidgets('with hold to snap off it snaps all the same', skip: pdfium == null, (
       tester,
@@ -319,6 +326,23 @@ void main() {
       final s = (await highlightAcross(tester, pdf)).single;
       final ys = s.points.map((p) => p.y);
       expect(ys.reduce(math.max) - ys.reduce(math.min), lessThan(1e-6), reason: 'straight');
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('with Snap to text off it stays exactly as drawn', skip: pdfium == null, (
+      tester,
+    ) async {
+      final pdf = await openPdfEditor(tester, services, dir);
+      pdf.tools
+        ..stylusOnly = true
+        ..tool = EditorTool.highlighter
+        ..updateConfig(InkTool.highlighter, (c) => c.copyWith(snapToText: false));
+      await tester.pumpAndSettle();
+      final s = (await highlightAcross(tester, pdf)).single;
+      // The drawn zigzag, not a clean line over the words.
+      final ys = s.points.map((p) => p.y);
+      expect(ys.reduce(math.max) - ys.reduce(math.min), greaterThan(1));
+      expect(s.points.length, greaterThan(2));
       await tester.pumpWidget(const SizedBox());
     });
   });

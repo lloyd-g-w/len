@@ -69,7 +69,10 @@ void main() {
         ..selectWidth(0)
         ..tool = EditorTool.highlighter
         ..updateConfig(InkTool.highlighter, (c) => c.copyWith(opacity: 0.5))
-        ..updateConfig(InkTool.highlighter, (c) => c.copyWith(streamline: 0.8, straight: true))
+        ..updateConfig(
+          InkTool.highlighter,
+          (c) => c.copyWith(streamline: 0.8, straight: true, snapToText: false),
+        )
         ..eraser = const EraserConfig(mode: EraserMode.pixel, radius: 20, highlighterOnly: true)
         ..addRecentColor(0xFF00AA00);
       a.dispose(); // flushes the debounced save
@@ -83,6 +86,7 @@ void main() {
       expect(highlighter.opacity, 0.5);
       expect(highlighter.streamline, 0.8);
       expect(highlighter.straight, isTrue);
+      expect(highlighter.snapToText, isFalse);
       expect(b.eraser.mode, EraserMode.pixel);
       expect(b.eraser.highlighterOnly, isTrue);
       expect(b.recentColors, [0xFF00AA00]);
@@ -142,6 +146,7 @@ void main() {
         ('thinning', 1.5),
         ('streamline', -0.1),
         ('straight', 1),
+        ('snapToText', 'no'),
       ]) {
         expect(PenConfig.fromJson({...json, key: bad}, tool: tool), isNull, reason: '$key $bad');
       }
