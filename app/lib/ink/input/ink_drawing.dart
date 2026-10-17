@@ -99,6 +99,9 @@ class InkDrawing {
   /// The stroke the contact just ended left, if any.
   Stroke? _committed;
 
+  /// The strokes a snapped highlight became (else [_committed] is the one).
+  List<String>? _committedIds;
+
   /// Whether this contact began a live stroke ([InkEvents.inkBegan]).
   bool _inkBegan = false;
 
@@ -254,7 +257,8 @@ class InkDrawing {
   void _reset() {
     _straighten.end();
     _scribble.end();
-    if (_inkBegan) events.inkEnded?.call(_committed?.id);
+    if (_inkBegan) events.inkEnded?.call(_committedIds ?? [?_committed?.id]);
+    _committedIds = null;
     _inkBegan = false;
     samples?.end(committed: _committed);
     _committed = null;
