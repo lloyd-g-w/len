@@ -66,7 +66,7 @@ void main() {
   /// A three-page notebook with a version yesterday, one this morning and
   /// one named "Before the exam" (real time: packs are hashed in an
   /// isolate).
-  Future<void> threeVersions(WidgetTester tester) async {
+  Future<void> threeVersions(WidgetTester tester, {String name = 'Before the exam'}) async {
     clock = _Clock();
     s = AppServices.create(AppDatabase.inMemory(), clock: clock);
     addTearDown(s.dispose);
@@ -110,7 +110,7 @@ void main() {
         ..._lines(pages[2], 'p2b', 130, top: 380, lines: 3),
       ]);
       clock.now = today - const Duration(hours: 2, minutes: 48).inMilliseconds;
-      named = (await s.versions.save(notebook.id, name: 'Before the exam'))!;
+      named = (await s.versions.save(notebook.id, name: name))!;
       clock.now = today;
     });
     expect(s.versions.of(notebook.id), hasLength(3));
@@ -119,25 +119,28 @@ void main() {
   /// Every version thumbnail on screen has its page loaded (not the blank
   /// sheet shown while loading, nor the cloud-off one).
   bool loaded({int? count}) {
-    final views = find.byType(VersionSurfaceView);
-    final paints = find
-        .descendant(of: views, matching: find.byType(CustomPaint))
-        .evaluate()
-        .map((e) => (e.widget as CustomPaint).painter)
-        .where((p) => p != null)
-        .toList();
-    return paints.isNotEmpty &&
-        (count == null || paints.length == count) &&
-        // ignore: avoid_dynamic_calls
-        paints.every((p) => (p as dynamic).sheet != null);
+    final views = [
+      for (final e in find.byType(VersionSurfaceView).evaluate())
+        (e as StatefulElement).state as VersionSurfaceViewState,
+    ];
+    return views.isNotEmpty &&
+        (count == null || views.length == count) &&
+        views.every((v) => v.loaded);
   }
 
-  Future<void> open(WidgetTester tester, {required Size size, required bool dark}) async {
+  Future<void> open(
+    WidgetTester tester, {
+    required Size size,
+    required bool dark,
+    double textScale = 1,
+  }) async {
     await loadFonts();
     tester.view
       ..physicalSize = size
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    tester.platformDispatcher.textScaleFactorTestValue = textScale;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await tester.pumpWidget(
       MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -160,38 +163,40 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  for (final (device, size) in [
-    ('tablet', const Size(1280, 800)),
-    ('phone', const Size(390, 844)),
+  const long = 'Before the exam on reaction mechanisms and stereochemistry';
+  for (final (name, size, dark, scale, version) in [
+    ('tablet', const Size(1280, 800), false, 1.0, 'Before the exam'),
+    ('tablet_dark', const Size(1280, 800), true, 1.0, 'Before the exam'),
+    ('phone', const Size(390, 844), false, 1.0, 'Before the exam'),
+    ('phone_dark', const Size(390, 844), true, 1.0, 'Before the exam'),
+    // A long name at a large text size (accessibility settings).
+    ('phone_long_1.3', const Size(390, 844), false, 1.3, long),
+    ('phone_long_2.0', const Size(390, 844), false, 2.0, long),
   ]) {
-    for (final dark in [false, true]) {
-      final name = '$device${dark ? '_dark' : ''}';
+    testWidgets('version history on a $name', (tester) async {
+      await threeVersions(tester, name: version);
+      await open(tester, size: size, dark: dark, textScale: scale);
+      expect(find.text(version), findsOneWidget);
+      expect(find.byIcon(Symbols.cloud_off_sharp), findsNothing);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/version_history_$name.png'),
+      );
+    });
 
-      testWidgets('version history on a $name', (tester) async {
-        await threeVersions(tester);
-        await open(tester, size: size, dark: dark);
-        expect(find.text('Before the exam'), findsOneWidget);
-        expect(find.byIcon(Symbols.cloud_off_sharp), findsNothing);
-        await expectLater(
-          find.byType(MaterialApp),
-          matchesGoldenFile('goldens/version_history_$name.png'),
-        );
-      });
-
-      testWidgets('version preview on a $name', (tester) async {
-        await threeVersions(tester);
-        await open(tester, size: size, dark: dark);
-        await tester.tap(find.byKey(ValueKey('version-${named.id}')));
-        await tester.pumpAndSettle();
-        expect(find.byKey(ValueKey('version-${named.id}')), findsNothing, reason: 'covered');
-        await pumpUntil(tester, () => loaded(count: 3), stable: 2, reason: 'the pages');
-        expect(find.byIcon(Symbols.cloud_off_sharp), findsNothing);
-        await tester.pumpAndSettle();
-        await expectLater(
-          find.byType(MaterialApp),
-          matchesGoldenFile('goldens/version_preview_$name.png'),
-        );
-      });
-    }
+    testWidgets('version preview on a $name', (tester) async {
+      await threeVersions(tester, name: version);
+      await open(tester, size: size, dark: dark, textScale: scale);
+      await tester.tap(find.byKey(ValueKey('version-${named.id}')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(ValueKey('version-${named.id}')), findsNothing, reason: 'covered');
+      await pumpUntil(tester, () => loaded(count: 3), stable: 2, reason: 'the pages');
+      expect(find.byIcon(Symbols.cloud_off_sharp), findsNothing);
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/version_preview_$name.png'),
+      );
+    });
   }
 }

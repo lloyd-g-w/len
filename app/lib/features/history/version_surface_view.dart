@@ -142,13 +142,19 @@ class VersionSurfaceView extends StatefulWidget {
   final ElementImages images;
 
   @override
-  State<VersionSurfaceView> createState() => _VersionSurfaceViewState();
+  State<VersionSurfaceView> createState() => VersionSurfaceViewState();
 }
 
-class _VersionSurfaceViewState extends State<VersionSurfaceView> {
+/// The state of a [VersionSurfaceView]; public so tests can tell when its
+/// picture has loaded ([loaded]).
+class VersionSurfaceViewState extends State<VersionSurfaceView> {
   VersionSheet? _sheet;
   bool _loading = true;
   StreamSubscription<String>? _images;
+
+  /// Whether the version's page is shown (not the blank sheet shown while
+  /// it loads, nor the one marked as not on this device).
+  bool get loaded => !_loading && _sheet != null;
 
   @override
   void initState() {
@@ -160,8 +166,9 @@ class _VersionSurfaceViewState extends State<VersionSurfaceView> {
   }
 
   @override
-  void didUpdateWidget(VersionSurfaceView old) {
-    super.didUpdateWidget(old);
+  void didUpdateWidget(VersionSurfaceView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final old = oldWidget;
     if (old.version.id != widget.version.id || old.page?.id != widget.page?.id) _load();
   }
 
