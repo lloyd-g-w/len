@@ -10,6 +10,14 @@ extension _InkCommit on InkDrawing {
     ShapeGeometry? shape,
   }) {
     if (kind == PointerDeviceKind.touch) events.fingerStroke?.call();
+    // Its chunks and bounds were traced as it was drawn.
+    final trace = _chunks;
+    final traced =
+        trace != null &&
+        _chunksGeneration == live.generation &&
+        trace.width == live.width &&
+        trace.follows(points);
+    final chunks = traced ? trace.finish(points) : null;
     final stroke = Stroke(
       id: clock.newId(),
       surfaceId: model.surfaceId,
@@ -22,6 +30,7 @@ extension _InkCommit on InkDrawing {
       points: points,
       createdAt: _drawStartedAt,
       shape: shape,
+      bounds: traced ? trace.bounds : null,
     );
     // Over PDF text, a highlight snaps to the words it covers (no hold
     // needed) unless the highlighter's Snap to text is off.
@@ -40,6 +49,7 @@ extension _InkCommit on InkDrawing {
       style: stroke.style,
     );
     if (path != null) StrokeRenderer.adopt(stroke, path);
+    if (chunks != null && stroke.fill == null) StrokeChunks.adopt(stroke, chunks);
     _committed = stroke;
     PerfProbe.lift(liftTime);
     developer.Timeline.timeSync('len.commitStroke', () => model.addStroke(stroke));
