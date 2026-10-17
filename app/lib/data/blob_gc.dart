@@ -15,6 +15,7 @@ class LocalBlobGc {
     required this.references,
     required this.settings,
     this.tombstones,
+    this.prune,
   });
 
   final BlobStore blobs;
@@ -23,6 +24,9 @@ class LocalBlobGc {
 
   /// Payloads of old tombstones are dropped first when set.
   final TombstonePayloads? tombstones;
+
+  /// Drops what no longer needs keeping (old versions) before a run.
+  final void Function()? prune;
 
   /// How long after launch the app first calls [runIfDue].
   static const startDelay = Duration(seconds: 20);
@@ -48,6 +52,7 @@ class LocalBlobGc {
   /// returns the deleted ids.
   Future<List<String>> run() async {
     final now = blobs.clock.nowMs();
+    prune?.call();
     await tombstones?.purge(now);
     return blobs.collectGarbage(
       () => references.kept(now),

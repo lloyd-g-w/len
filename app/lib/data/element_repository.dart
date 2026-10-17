@@ -168,7 +168,7 @@ class ElementRepository extends SyncableTable {
       return;
     }
     _upsert(
-      _elementFromRecord(record),
+      elementFromRecord(record),
       updatedAt: record.updatedAt,
       deviceId: record.deviceId,
       dirty: false,
@@ -176,7 +176,7 @@ class ElementRepository extends SyncableTable {
   }
 
   /// Parses a live record; throws [FormatException] when malformed.
-  static SurfaceElement _elementFromRecord(SyncRecord record) {
+  static SurfaceElement elementFromRecord(SyncRecord record) {
     final f = RecordFields(record);
     final type = f.string('type');
     if (type.isEmpty) f.invalid('type');

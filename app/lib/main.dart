@@ -95,6 +95,7 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
   }
   StartupTrace.mark('services');
   if (PerfProbe.requested) PerfProbe.start();
+  services.versionRecorder.enabled = true;
   runApp(LenApp(services: services));
   StartupTrace.mark('runApp');
   StartupTrace.watchTurns();

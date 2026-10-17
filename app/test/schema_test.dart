@@ -73,8 +73,10 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 15);
-    expect(AppDatabase.latestVersion, 15);
+    expect(schema['version'], 16);
+    expect(AppDatabase.latestVersion, 16);
+    // Version 16: version history.
+    expect(schema.keys, containsAll(['versions', 'version_packs']));
     // Version 7: a notebook's paper look.
     expect(schema['notebooks'], contains("paper_data TEXT 1 '{}' 0"));
     // Version 3: recording waveforms, stroke times per surface.
@@ -339,7 +341,7 @@ void main() {
   });
 }
 
-/// Back to before version 10 (the chunk indexes): undoes versions 10 to 15
+/// Back to before version 10 (the chunk indexes): undoes versions 10 to 16
 /// of a fresh database (14 only rewrites data).
 void _dropChunkDigests(CommonDatabase db) {
   for (final table in ['elements', 'recordings', 'outline']) {
@@ -355,4 +357,6 @@ void _dropChunkDigests(CommonDatabase db) {
   db.execute('DROP INDEX elements_tombstone_payloads');
   db.execute('DROP TABLE notebook_styles');
   db.execute('DROP TABLE freed_blobs');
+  db.execute('DROP TABLE versions');
+  db.execute('DROP TABLE version_packs');
 }

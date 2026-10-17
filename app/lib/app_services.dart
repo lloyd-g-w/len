@@ -28,6 +28,8 @@ import 'data/stroke_repository.dart';
 import 'data/sync_token_store.dart';
 import 'data/template_repository.dart';
 import 'data/tombstone_payloads.dart';
+import 'data/versions/version_recorder.dart';
+import 'data/versions/versions.dart';
 import 'data/write_back.dart';
 import 'features/audio/backends/audio_backends.dart';
 import 'features/audio/backends/platform_audio.dart';
@@ -313,12 +315,26 @@ class AppServices {
   );
 
   /// Deletes blobs nothing references anymore; started by the app at launch.
+  /// Thins version histories first (what they drop is collected later).
   late final LocalBlobGc blobGc = LocalBlobGc(
     blobs: blobs,
     references: BlobReferences(database),
     settings: settings,
     tombstones: TombstonePayloads(database: database, strokes: strokes, elements: elements),
+    prune: versions.maintain,
   );
+
+  /// Notebooks' version histories (docs/ARCHITECTURE.md, "Version history").
+  late final Versions versions = Versions(
+    repositories: sync.engine.repositories,
+    blobs: blobs,
+    deviceName: SyncController.deviceName,
+    fetch: sync.fetchBlob,
+  );
+
+  /// Makes automatic versions as notebooks are edited; [VersionRecorder.enabled]
+  /// by the app (tests that are not about it leave it off: no timers).
+  late final VersionRecorder versionRecorder = VersionRecorder(versions.record, clock: clock);
 
   /// Len files: notebooks, folders and library backups (see `LenFormat`).
   late final LenArchives lenFiles = LenArchives(
@@ -345,6 +361,7 @@ class AppServices {
   late final ElementImages images = ElementImages(read: blobs.read, fetch: sync.fetchBlob);
 
   void dispose() {
+    versionRecorder.dispose();
     sharedNotebooks.dispose();
     incomingFiles.dispose();
     images.dispose();

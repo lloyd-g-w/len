@@ -58,6 +58,13 @@ class RemoteChanges {
   /// Notebooks whose audio recordings changed.
   final Set<String> recordingsOfNotebooks = {};
 
+  /// Notebooks whose version history changed.
+  final Set<String> versionsOfNotebooks = {};
+
+  /// Notes that the content of [surface] changed whole (open views reload
+  /// it), as a restore does.
+  void reloadSurface(String surface) => _manyChanged(surface);
+
   /// Whether deleted content came back (see `DeletionConflicts`); it is
   /// local edits to push.
   bool revived = false;
@@ -111,6 +118,7 @@ class RemoteChanges {
     }
     outlineOfNotebooks.addAll(other.outlineOfNotebooks);
     recordingsOfNotebooks.addAll(other.recordingsOfNotebooks);
+    versionsOfNotebooks.addAll(other.versionsOfNotebooks);
   }
 
   bool get isEmpty =>
@@ -120,5 +128,6 @@ class RemoteChanges {
       pagesOfNotebooks.isEmpty &&
       strokeSurfaces.isEmpty &&
       recordingsOfNotebooks.isEmpty &&
-      outlineOfNotebooks.isEmpty;
+      outlineOfNotebooks.isEmpty &&
+      versionsOfNotebooks.isEmpty;
 }

@@ -10,7 +10,8 @@ import 'tombstone_payloads.dart';
 ///
 /// A blob is referenced by every live (not tombstoned) page background,
 /// image template of a page, element, recording (audio parts and waveform) and user
-/// template. Pages, elements and recordings of notebooks in
+/// template, and every pack, background and image a live version names.
+/// Pages, elements and recordings of notebooks in
 /// the trash are live rows, so the trash keeps its blobs; "delete forever"
 /// tombstones them and releases the blobs.
 class BlobReferences {
@@ -38,7 +39,8 @@ class BlobReferences {
           'OR EXISTS (SELECT 1 FROM elements WHERE $kept AND instr(data, ?2) > 0) '
           'OR EXISTS (SELECT 1 FROM recordings WHERE $kept AND '
           '(instr(audio, ?2) > 0 OR waveform = ?3)) '
-          'OR EXISTS (SELECT 1 FROM templates WHERE deleted = 0 AND blob = ?3) AS found',
+          'OR EXISTS (SELECT 1 FROM templates WHERE deleted = 0 AND blob = ?3) '
+          'OR EXISTS (SELECT 1 FROM versions WHERE deleted = 0 AND instr(data, ?2) > 0) AS found',
           [since, quoted, sha],
         ).single['found'] ==
         1;
@@ -74,6 +76,9 @@ class BlobReferences {
         row['waveform'] as String,
       for (final row in database.db.select('SELECT DISTINCT blob FROM templates WHERE deleted = 0'))
         row['blob'] as String,
+      // Versions: their packs, page backgrounds and the images in the packs.
+      for (final row in database.db.select('SELECT data FROM versions WHERE deleted = 0'))
+        ...inJson(row['data'] as String),
     };
   }
 

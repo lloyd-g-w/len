@@ -16,6 +16,7 @@ import '../data/stroke_repository.dart';
 import '../data/syncable.dart';
 import '../data/syncable_table.dart';
 import '../data/template_repository.dart';
+import '../data/versions/version_repository.dart';
 import 'pull_page.dart';
 import 'remote_changes.dart';
 
@@ -116,6 +117,7 @@ class PullApplier {
         ElementRepository() => r.elements.surfaceOf(record.id),
         RecordingRepository() => r.recordings.notebookOf(record.id),
         OutlineRepository() => r.outline.notebookOf(record.id),
+        VersionRepository() => r.versions.notebookOf(record.id),
         _ => null,
       };
       // A deleted notebook or page edited elsewhere: see DeletionConflicts.
@@ -147,6 +149,9 @@ class PullApplier {
         case RecordingRepository():
           _addKnown(changes.recordingsOfNotebooks, r.recordings.notebookOf(record.id));
           _addKnown(changes.recordingsOfNotebooks, previousOwner);
+        case VersionRepository():
+          _addKnown(changes.versionsOfNotebooks, r.versions.notebookOf(record.id));
+          _addKnown(changes.versionsOfNotebooks, previousOwner);
       }
     } on FormatException catch (e) {
       // Skip malformed records instead of blocking sync forever.

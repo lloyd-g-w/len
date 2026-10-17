@@ -33,6 +33,8 @@ class EditorMenuActions {
     this.onBackground,
     this.minimap,
     this.onMinimap,
+    this.onSaveVersion,
+    this.onVersionHistory,
     this.pointerTags = true,
     this.onPointerTags,
   });
@@ -91,6 +93,11 @@ class EditorMenuActions {
   /// Whether the minimap shows (null: not a canvas); [onMinimap] toggles it.
   final bool? minimap;
   final VoidCallback? onMinimap;
+
+  /// "Save version…" and "Version history…" (docs/ARCHITECTURE.md,
+  /// "Version history").
+  final VoidCallback? onSaveVersion;
+  final VoidCallback? onVersionHistory;
 
   /// Whether other devices' pointers carry their name tag; [onPointerTags]
   /// toggles it (null: not offered, nobody else is here).

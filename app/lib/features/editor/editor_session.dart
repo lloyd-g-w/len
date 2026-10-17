@@ -157,7 +157,12 @@ class EditorSession with _EditorSessionZoom {
     input.events.contact = reading.wrote;
     commands?.onBlankPage = reading.write;
     content.selection.addListener(_onSelection);
+    // Edits (the undo history moving) make versions (docs/ARCHITECTURE.md,
+    // "Version history").
+    undo.addListener(_onEdited);
   }
+
+  void _onEdited() => services.versionRecorder.noteEdit(shared.id);
 
   /// Something selected while reading (pasted, inserted, all selected)
   /// writes: a finger moves it rather than scrolling.
@@ -302,6 +307,7 @@ class EditorSession with _EditorSessionZoom {
     _disposed = true;
     reading.dispose();
     content.selection.removeListener(_onSelection);
+    undo.removeListener(_onEdited);
     input.cancelDraw(); // Stops a stroke's or tool's pending timers.
     relay.dispose();
     pointerRelay.dispose();

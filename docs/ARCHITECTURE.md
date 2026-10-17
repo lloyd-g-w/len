@@ -2938,6 +2938,91 @@ to the database, which is never backed up, holds the id; a database without
 a matching marker takes a new one and forgets its sync position, so it never
 writes as the device it came from.
 
+## Version history (`data/versions/`, `features/history/`)
+
+A notebook's (or canvas's) past states, to browse and restore (docs/TODO.md
+"Version history"). **Why packs, not row references.** Strokes are
+immutable (an edit tombstones the stroke and adds one under a new id), but
+elements, pages and the notebook row are edited in place, tombstones travel
+as `data: null` and drop their payload after 30 days
+(`TombstonePayloads`): a version that only listed row ids could not be
+restored on a device that never saw those rows live, nor bring back an old
+text box's words. So a version keeps its content itself, in
+content-addressed **packs**: blobs of record data that unchanged content
+shares between versions (and between devices of one platform family).
+
+- **Packs** (`VersionPacks`, blob type `application/x-len-pack`): the live
+  strokes, or the live elements, of one surface in paint order
+  (`createdAt`, id), cut where the hash of an item's id says (content-defined:
+  on average 32 items, at most 256), so writing on a page changes only its
+  last pack and erasing a stroke only the pack it was in. A pack is the
+  JSON `{"v": 1, "items": [[id, data], …]}` with each item's sync record
+  `data` (without `surfaceId`). Packing a surface is cached per surface by
+  its change mark (`version_packs` table, local), so a version of a large
+  notebook re-packs only the surfaces written since the last one.
+- **A version** is a synced `versions` record (format in SYNC_PROTOCOL.md):
+  who made it (device id and name), when, how (`auto`, `named`, `restore`),
+  its name, a summary against the version before (pages added / removed /
+  edited, strokes added / removed), the notebook's settings and, in page
+  order, each page's fields with the packs of its ink and elements (a
+  canvas: one surface). Every blob it needs is named in the record itself
+  (packs, page backgrounds, and in `blobs` the images the packs' elements
+  show), so the server's and the device's blob garbage collection keep them
+  with no protocol change, and its push waits for their upload like any
+  record's. Packs are fetched lazily when a version is previewed or
+  restored (`SyncController.fetchBlob`), so another device's history shows at
+  once (times, devices, summaries) and its pages once fetched; offline,
+  versions made here always open.
+- **When** (`VersionRecorder`, `AppServices.versionRecorder`): an editor's
+  edits (its undo history moving, `EditorSession._onEdited`) call
+  `noteEdit`; a version is made 2 minutes after editing goes quiet, at most
+  every 10 minutes while it goes on, and when the editor closes or the app
+  goes to the background (hidden / paused). One equal to the latest
+  version (same packs and fields) is not made. The app turns the recorder
+  on (`main.dart`); tests not about it leave it off, so edits start no
+  timers. "Save version…" (the editor's ⋯ menu, the history's header) makes
+  a `named` one at once.
+- **Thinning** (`VersionPolicy`, pure, deterministic): automatic versions
+  are kept all for the last day, then the newest per hour for a week, per
+  day for a month and per week after that (buckets aligned to the epoch, so
+  every device keeps the same ones and what a later clock keeps is a subset
+  of what an earlier one kept); named versions are kept until deleted. A
+  notebook's budget (200 automatic versions, 64 MB of packs they added)
+  drops its oldest automatic versions beyond it. Thinning runs after a
+  version is made and with blob garbage collection; removed versions are
+  tombstoned (synced). "Delete older versions…" in the history view removes
+  every version older than one (named too, after asking).
+- **Restoring** (`VersionRestorer`) first saves the current state as a
+  `restore` version ("Before restoring …"), so nothing is lost and Undo (the
+  snack bar's, or that version's Restore) goes back. Then, as local edits
+  that sync like any: the notebook's settings, its pages (kept ids are
+  rewritten, missing ones written back under their ids, others deleted with
+  their content as `deletePage` does) and every surface's strokes and
+  elements by id (those not in the version tombstoned, missing ones written
+  from the packs, changed elements rewritten). One page restores the same
+  way for that page alone (back where it was among the pages it followed).
+  "Copy as new notebook" writes the version as a new notebook under new ids
+  (links to its own pages, text flows and connectors follow the copies).
+  Open editors reload as after a sync (`SyncController.announce`).
+- **Not versioned:** recordings (audio is never rewritten), the outline
+  (it refers to pages by id, which restoring keeps), recognised text.
+- **UI** (`features/history/`): "Version history…" in the editor's ⋯ menu
+  and the library's notebook menu opens `showVersionHistory`
+  (`showDialogOrSheet` + `SheetHeader`): the versions newest first, grouped
+  by day (`SectionLabel`), each with a thumbnail (the first page it
+  changed), its name or what made it, the time, the device and what changed
+  (`VersionLabels`), and a ⋯ (`MenuRow`s: Restore…, Copy as new notebook,
+  Rename…, Delete version, Delete older versions…). A version opens
+  `VersionPreview` (its pages as thumbnails, read-only; a page opens larger
+  with Restore this page; a canvas shows whole), with Restore and Copy as
+  new notebook. `VersionSheets` loads (and fetches) what a version's
+  surfaces hold for `VersionSurfaceView`, which paints them with
+  `paintWholePage`; a version whose packs can't be had shows its paper with
+  a "not on this device" glyph, and restoring it says so and changes
+  nothing.
+  Collaboration: each version names its device; per user once there are
+  users.
+
 ## Platforms (`platform/`)
 
 Startup (`main.dart`) opens the database and blob store in a try: if either
