@@ -151,6 +151,11 @@ class SettingsRepository {
   bool get canvasMinimap => _get('canvas_minimap') == 'true';
   set canvasMinimap(bool value) => _set('canvas_minimap', '$value');
 
+  /// Whether other devices' pointers carry their device's name tag
+  /// (default on).
+  bool get pointerTags => _get('pointer_tags') != 'false';
+  set pointerTags(bool value) => _set('pointer_tags', '$value');
+
   /// Where the editor toolbar sits (default: docked).
   /// The zoom window's box docks at the top (left-handed writing).
   bool get zoomBoxAtTop => _get('zoom_box_top') == 'true';

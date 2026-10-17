@@ -63,6 +63,8 @@ EditorMenuActions editorMenuActions(
     onBackground: nav == null ? null : onBackground,
     minimap: nav == null ? null : prefs.canvasMinimap,
     onMinimap: nav == null ? null : () => prefs.canvasMinimap = !prefs.canvasMinimap,
+    pointerTags: prefs.pointerTags,
+    onPointerTags: () => prefs.pointerTags = !prefs.pointerTags,
   );
 }
 

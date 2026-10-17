@@ -33,6 +33,8 @@ class EditorMenuActions {
     this.onBackground,
     this.minimap,
     this.onMinimap,
+    this.pointerTags = true,
+    this.onPointerTags,
   });
 
   final VoidCallback onBack;
@@ -89,6 +91,11 @@ class EditorMenuActions {
   /// Whether the minimap shows (null: not a canvas); [onMinimap] toggles it.
   final bool? minimap;
   final VoidCallback? onMinimap;
+
+  /// Whether other devices' pointers carry their name tag; [onPointerTags]
+  /// toggles it (null: not offered).
+  final bool pointerTags;
+  final VoidCallback? onPointerTags;
 
   bool get isPaged => onPageCommand != null;
 }
