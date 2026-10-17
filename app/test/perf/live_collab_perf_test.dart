@@ -167,6 +167,12 @@ void main() {
         await tester.pump(const Duration(milliseconds: 16));
       }, 60)}',
     );
+    report(
+      'LIVE presence, a name changes: ${await countFrames((i) async {
+        rooms.receive(LivePresence(nb.id, [..._members(2), (connection: 'c2', deviceId: 'd2', name: i.isEven ? 'Phone' : 'Laptop')]));
+        await tester.pump(const Duration(milliseconds: 16));
+      }, 60)}',
+    );
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));
     services.dispose();

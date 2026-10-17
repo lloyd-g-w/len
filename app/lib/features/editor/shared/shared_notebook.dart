@@ -50,7 +50,16 @@ class SharedNotebook extends ChangeNotifier {
     services.sync.rooms.join(notebook.id);
     remoteInk = RemoteInk(services.sync.rooms, room: notebook.id)..shows = _shows;
     remotePointers = RemotePointers(services.sync.rooms, room: notebook.id);
+    services.sync.rooms.addListener(_presenceChanged);
+    _presenceChanged();
   }
+
+  /// Whether another device has this notebook open now (presence). What
+  /// the editors' chrome follows: it changes only when the first comes or
+  /// the last goes, not with every presence message (of any room).
+  final ValueNotifier<bool> othersHere = ValueNotifier(false);
+
+  void _presenceChanged() => othersHere.value = services.sync.rooms.othersIn(id).isNotEmpty;
 
   /// The pointers (hovering pens and mice, lasers) of other devices in
   /// this notebook right now.
@@ -271,7 +280,10 @@ class SharedNotebook extends ChangeNotifier {
     }
     remoteInk.dispose();
     remotePointers.dispose();
-    services.sync.rooms.leave(id);
+    services.sync.rooms
+      ..removeListener(_presenceChanged)
+      ..leave(id);
+    othersHere.dispose();
     for (final doc in [..._docs.keys]) {
       detachDocument(doc);
     }
