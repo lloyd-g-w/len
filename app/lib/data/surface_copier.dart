@@ -6,6 +6,7 @@ import '../domain/surface_element.dart';
 import 'element_repository.dart';
 import 'shape_renames.dart';
 import 'stroke_repository.dart';
+import 'text_flow_relinks.dart';
 
 /// Whole-surface content operations (strokes and, when [elements] is
 /// given, elements such as text boxes) used by page management, previews
@@ -34,7 +35,8 @@ class SurfaceCopier {
   /// Copies every live stroke (and element) of [from] onto surface [to]
   /// with new ids; returns the number of strokes copied. The copied shapes
   /// are shapes of their own, and connectors attach to the copies of their
-  /// targets ([ShapeIds]).
+  /// targets ([ShapeIds]). Text boxes flowing from another page stand
+  /// alone ([TextFlowRelinks]): a copy continues no box.
   ///
   /// Works on whole rows, so columns this class does not know about (e.g.
   /// added by later migrations) are copied too.
@@ -89,6 +91,10 @@ class SurfaceCopier {
       }
       db.execute('INSERT INTO $table SELECT * FROM temp.surface_copy');
       db.execute('DROP TABLE temp.surface_copy');
+      if (table == 'elements') {
+        final copied = copies.values.toSet();
+        TextFlowRelinks.apply(db, to, (from) => copies[from], only: copied);
+      }
       return ids.length;
     });
   }
