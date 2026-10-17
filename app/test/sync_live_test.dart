@@ -56,6 +56,13 @@ class _Live {
     return waited;
   }
 
+  /// Syncs [device] now (as Sync now does) and waits until the run ended.
+  void sync(FaultDevice device) {
+    var done = false;
+    device.s.sync.syncNow().whenComplete(() => done = true);
+    until(() => done, limit: const Duration(seconds: 1));
+  }
+
   void dispose() {
     for (final d in devices) {
       d.dispose();
@@ -197,6 +204,35 @@ void main() {
     l.until(() => b.s.folders.get(folder.id) != null, limit: const Duration(seconds: 80));
     expect(a.s.sync.state, SyncState.idle);
     expect(a.s.sync.live, isTrue);
+  });
+
+  _liveTest('a run that works ends the backoff of failed ones', (l) {
+    final a = l.device('a');
+    final b = l.device('b');
+    l.wait(const Duration(seconds: 3));
+    l.server
+      ..down = true
+      ..restart();
+    // Syncs failing in a row: the next is tried two minutes later.
+    for (var i = 0; i < 6; i++) {
+      for (final d in [a, b]) {
+        l.sync(d);
+        expect(d.s.sync.state, SyncState.error);
+      }
+    }
+    // The server is back; a run that works (a tap on Sync now, the
+    // fallback timer) says so.
+    l.server.down = false;
+    for (final d in [a, b]) {
+      l.sync(d);
+      expect(d.s.sync.state, SyncState.idle);
+    }
+    l.until(() => a.s.sync.live && b.s.sync.live, limit: const Duration(seconds: 20));
+
+    // B pushes once writing pauses, A pulls on its event: no backoff left.
+    final folder = b.s.folders.create(name: 'Back', color: 1);
+    final took = l.until(() => a.s.folders.get(folder.id) != null);
+    expect(took, lessThanOrEqualTo(const Duration(seconds: 5)));
   });
 
   _liveTest('the stream is closed in the background and opened on return', (l) {

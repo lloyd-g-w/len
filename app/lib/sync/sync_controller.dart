@@ -37,8 +37,9 @@ class SyncController extends ChangeNotifier with _SyncRequests {
     this.writeDelay = const Duration(seconds: 3),
     this.writeMaxDelay = const Duration(seconds: 10),
     this.remoteDelay = const Duration(seconds: 1),
-    this.apiFactory = _defaultApi,
+    this.apiFactory = defaultApi,
     this.clock = const Clock(),
+    this.jitter,
   }) {
     _state = isConfigured ? SyncState.idle : SyncState.disabled;
     if (settings.syncLastSuccess case final ms?) {
@@ -89,7 +90,11 @@ class SyncController extends ChangeNotifier with _SyncRequests {
   @override
   final SyncApi Function(String url, String token) apiFactory;
 
-  static SyncApi _defaultApi(String url, String token) => SyncApi(baseUrl: url, token: token);
+  /// The API client of a real server.
+  static SyncApi defaultApi(String url, String token) => SyncApi(baseUrl: url, token: token);
+
+  /// Spreads the event stream's reconnections ([LiveEvents]; tests seed it).
+  final Random? jitter;
 
   final _remoteChanges = StreamController<RemoteChanges>.broadcast();
   @override
@@ -109,6 +114,7 @@ class SyncController extends ChangeNotifier with _SyncRequests {
     onEvent: _onServerEvent,
     onConnected: _onLive,
     onRejected: () => unawaited(syncInBackground()),
+    random: jitter,
   );
 
   /// Whether the app is in the foreground (the event stream is open only
