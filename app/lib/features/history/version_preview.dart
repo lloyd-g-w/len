@@ -42,7 +42,12 @@ class VersionPreview extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(VersionLabels.when(v), style: theme.textTheme.titleLarge),
+            Text(
+              VersionLabels.at(v, now: services.clock.nowDate()),
+              style: theme.textTheme.titleLarge,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             Text(
               '${VersionLabels.title(v)} '
               '${VersionLabels.madeOn(v, thisDevice: services.strokes.deviceId)}',
@@ -171,19 +176,24 @@ class _PageTile extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     button: true,
     label: 'Page ${index + 1} of $count',
+    onTap: onTap,
     excludeSemantics: true,
-    child: GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Expanded(child: Center(child: child)),
-          const SizedBox(height: Gaps.xs),
-          Text(
-            '${index + 1}',
-            style: Theme.of(context).textTheme.bodySmall
-                ?.copyWith(fontFeatures: AppTheme.tabularFigures),
-          ),
-        ],
+    child: FocusableActionDetector(
+      mouseCursor: SystemMouseCursors.click,
+      actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => onTap())},
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          children: [
+            Expanded(child: Center(child: child)),
+            const SizedBox(height: Gaps.xs),
+            Text(
+              '${index + 1}',
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(fontFeatures: AppTheme.tabularFigures),
+            ),
+          ],
+        ),
       ),
     ),
   );

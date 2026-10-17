@@ -80,6 +80,14 @@ class Versions extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Brings back [deleted] versions (Undo after [delete]): their rows
+  /// again, as a newer edit than the deletion. Their packs are still here
+  /// unless blob clean-up ran in between.
+  void undelete(Iterable<NotebookVersion> deleted) {
+    store.database.transaction(() => deleted.forEach(store.save));
+    notifyListeners();
+  }
+
   /// The versions of [version]'s notebook older than it.
   List<NotebookVersion> olderThan(NotebookVersion version) => [
     for (final v in of(version.notebookId))

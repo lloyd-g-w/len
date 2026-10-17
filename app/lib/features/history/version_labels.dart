@@ -25,6 +25,10 @@ abstract final class VersionLabels {
   static String when(NotebookVersion v) =>
       '${formatDay(DateTime.fromMillisecondsSinceEpoch(v.createdAt))}, ${time(v)}';
 
+  /// The day and time, short: `Today, 14:02`, `13 Oct 2026, 14:02`.
+  static String at(NotebookVersion v, {required DateTime now}) =>
+      '${day(v.createdAt, now: now)}, ${time(v)}';
+
   /// What the row says first: its name, or what made it.
   static String title(NotebookVersion v) => switch (v) {
     NotebookVersion(:final name?) => name,

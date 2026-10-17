@@ -156,7 +156,7 @@ void main() {
     await open(tester);
     await tester.tap(find.byKey(ValueKey('version-${old.id}')));
     await tester.pumpAndSettle();
-    expect(find.text('30 Sep 2026, 14:02'), findsOneWidget);
+    expect(find.text('Yesterday, 14:02'), findsOneWidget);
     expect(find.byKey(ValueKey('version-page-${pages.first}')), findsOneWidget);
     expect(find.byKey(ValueKey('version-page-${pages.last}')), findsOneWidget);
 
