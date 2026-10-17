@@ -3,17 +3,16 @@ import 'package:flutter/material.dart';
 import '../../../domain/stroke.dart';
 import '../../../domain/templates/paper_look.dart';
 import '../../../ink/tool_settings.dart';
-import '../../../ui/color_picker/color_names.dart';
-import '../toolbar/toolbar_metrics.dart';
-import 'slot_button.dart';
+import 'quick_slots.dart';
 import 'slot_editors.dart';
 
 /// Opens something anchored to a slot (see [SlotButton.onEdit]).
 typedef SlotEdit = void Function(BuildContext anchor);
 
-/// An ink's quick colours: tap to use one; tap the selected one again (or
-/// long-press / right-click any) to change that slot's colour
-/// ([editColorSlot]). The ink's other options open from its tool button.
+/// An ink's quick colours ([ColorSlotRow]): tap to use one; tap the
+/// selected one again (or long-press / right-click any) to change that
+/// slot's colour ([editColorSlot]). The ink's other options open from its
+/// tool button.
 class ColorSlots extends StatelessWidget {
   const ColorSlots({super.key, required this.tools, required this.ink, this.editable = true});
 
@@ -28,28 +27,13 @@ class ColorSlots extends StatelessWidget {
   Widget build(BuildContext context) {
     final config = tools.configOf(ink);
     final active = !editable || (tools.tool.usesInk && !tools.reading);
-    return Flex(
-      direction: ToolbarAxis.of(context),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < config.colors.length; i++)
-          SlotButton(
-            key: ValueKey('color-$i'),
-            selected: active && i == config.colorIndex,
-            tabStop: i == (active ? config.colorIndex : 0),
-            tooltip: i < 9 ? 'Colour ${i + 1} (${i + 1})' : 'Colour ${i + 1}',
-            semanticLabel: 'Colour ${i + 1}, ${colorName(config.colors[i])}',
-            editHint: 'Double tap to change this colour',
-            onSelect: () => _select(i),
-            onEdit: editable
-                ? (anchor) {
-                    _select(i);
-                    editColorSlot(anchor, tools: tools, ink: ink, index: i);
-                  }
-                : null,
-            child: SlotSwatch(color: config.colors[i]),
-          ),
-      ],
+    return ColorSlotRow(
+      colors: config.colors,
+      selected: active ? config.colorIndex : null,
+      onSelect: _select,
+      onEdit: editable
+          ? (anchor, i) => editColorSlot(anchor, tools: tools, ink: ink, index: i)
+          : null,
     );
   }
 
@@ -62,9 +46,9 @@ class ColorSlots extends StatelessWidget {
   }
 }
 
-/// An ink's quick sizes (stroke widths), shown as neutral dots at (scaled)
-/// real size on a plate when selected. Tap the selected one again (or
-/// long-press / right-click any) to change that size ([editWidthSlot]).
+/// An ink's quick sizes (stroke widths, [SizeSlotRow]), shown as neutral
+/// dots at (scaled) real size. Tap the selected one again (or long-press /
+/// right-click any) to change that size ([editWidthSlot]).
 class WidthSlots extends StatelessWidget {
   const WidthSlots({super.key, required this.tools, required this.ink, this.editable = true});
 
@@ -82,32 +66,14 @@ class WidthSlots extends StatelessWidget {
   Widget build(BuildContext context) {
     final config = tools.configOf(ink);
     final active = !editable || (tools.tool.usesInk && !tools.reading);
-    return Flex(
-      direction: ToolbarAxis.of(context),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < config.widths.length; i++)
-          SlotButton(
-            key: ValueKey('width-$i'),
-            selected: active && i == config.widthIndex,
-            tabStop: i == (active ? config.widthIndex : 0),
-            tooltip: 'Size ${formatWidth(config.widths[i])}',
-            semanticLabel: 'Size ${i + 1}, ${formatWidth(config.widths[i])}',
-            editHint: 'Double tap to change this size',
-            plate: true,
-            onSelect: () => _select(i),
-            onEdit: editable
-                ? (anchor) {
-                    _select(i);
-                    editWidthSlot(anchor, tools: tools, ink: ink, index: i);
-                  }
-                : null,
-            child: SlotDot(
-              diameter: dotSize(ink, config.widths[i]),
-              selected: active && i == config.widthIndex,
-            ),
-          ),
-      ],
+    return SizeSlotRow(
+      diameters: [for (final w in config.widths) dotSize(ink, w)],
+      selected: active ? config.widthIndex : null,
+      describe: (i) => formatWidth(config.widths[i]),
+      onSelect: _select,
+      onEdit: editable
+          ? (anchor, i) => editWidthSlot(anchor, tools: tools, ink: ink, index: i)
+          : null,
     );
   }
 

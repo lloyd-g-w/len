@@ -47,9 +47,8 @@ class InkOptions extends StatefulWidget {
 }
 
 class _InkOptionsState extends State<InkOptions> {
-  /// Whether Feel and Quick colours and sizes are open; remembered while the app runs.
+  /// Whether Feel is open; remembered while the app runs.
   static bool _feelOpen = false;
-  static bool _slotsOpen = false;
 
   ToolSettings get tools => widget.tools;
   InkTool get ink => widget.ink;
@@ -113,31 +112,15 @@ class _InkOptionsState extends State<InkOptions> {
               onToggle: () => setState(() => _feelOpen = !_feelOpen),
               child: EmbeddedOptions(child: widget.feel),
             ),
-            OptionDisclosure(
-              label: 'Quick colours and sizes',
-              summary: '${config.colors.length} and ${config.widths.length}',
-              open: _slotsOpen,
-              onToggle: () => setState(() => _slotsOpen = !_slotsOpen),
-              child: Column(
-                children: [
-                  SlotCountRow(
-                    noun: 'colours',
-                    count: config.colors.length,
-                    min: PenConfig.minSlots,
-                    max: PenConfig.maxSlots,
-                    onAdd: () => _update((c) => c.addColor(_unusedColor(c.colors))),
-                    onRemove: () => _update((c) => c.removeColor(c.colors.length - 1)),
-                  ),
-                  SlotCountRow(
-                    noun: 'sizes',
-                    count: config.widths.length,
-                    min: PenConfig.minSlots,
-                    max: PenConfig.maxSlots,
-                    onAdd: () => _update((c) => c.addWidth(_newWidth(c))),
-                    onRemove: () => _update((c) => c.removeWidth(c.widths.length - 1)),
-                  ),
-                ],
-              ),
+            QuickSlotCounts(
+              colors: config.colors.length,
+              sizes: config.widths.length,
+              min: PenConfig.minSlots,
+              max: PenConfig.maxSlots,
+              onAddColor: () => _update((c) => c.addColor(_unusedColor(c.colors))),
+              onRemoveColor: () => _update((c) => c.removeColor(c.colors.length - 1)),
+              onAddSize: () => _update((c) => c.addWidth(_newWidth(c))),
+              onRemoveSize: () => _update((c) => c.removeWidth(c.widths.length - 1)),
             ),
           ],
         );

@@ -168,8 +168,8 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
       shortLabel: 'Laser',
       shortcut: 'K',
       inkColor: () => tools.laser.color,
-      strip: (_, open) => LaserStrip(tools: tools, onEdit: open),
-      stripWidth: LaserStrip.widthFor,
+      strip: (_, _) => LaserStrip(tools: tools),
+      stripWidth: (slot) => LaserStrip.widthFor(tools.laser, slot),
       options: (_) => LaserOptionsPanel(tools: tools),
     ),
   ];
