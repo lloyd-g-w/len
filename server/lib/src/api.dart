@@ -12,14 +12,14 @@ import 'blob_api.dart';
 import 'blob_store.dart';
 import 'change_events.dart';
 import 'cors.dart';
-import 'record.dart';
+import 'live_api.dart';
+import 'live_hub.dart';
+import 'live_tickets.dart';
+import 'push_request.dart';
 import 'record_store.dart';
 
 /// Protocol version reported by `/v1/health`.
 const protocolVersion = 1;
-
-/// Maximum number of records per push.
-const maxPushRecords = 1000;
 
 /// Maximum push body size in bytes (32 MiB).
 const maxPushBytes = 32 * 1024 * 1024;
@@ -28,8 +28,9 @@ const maxPushBytes = 32 * 1024 * 1024;
 const defaultPullLimit = 500;
 const maxPullLimit = 1000;
 
-/// Paths reachable without a bearer token.
-const _publicPaths = {'v1/health'};
+/// Paths reachable without a bearer token (`/v1/live` checks the token or
+/// a ticket itself).
+const _publicPaths = {'v1/health', 'v1/live'};
 
 /// Builds the complete request handler: CORS middleware ([cors], outermost,
 /// so preflights and auth errors are covered), then auth, then the protocol
@@ -39,8 +40,8 @@ const _publicPaths = {'v1/health'};
 /// ([maxPushBytes]) does not apply to them, and an upload pausing longer
 /// than [blobIdleTimeout] is abandoned.
 ///
-/// `GET /v1/events` streams through [events] (a new set if not given; the
-/// caller closes it at shutdown).
+/// `GET /v1/events` streams through [events], `GET /v1/live` connects to
+/// [live] (new ones if not given; the caller closes them at shutdown).
 Handler buildHandler({
   required RecordStore store,
   required BlobStore blobs,
@@ -49,22 +50,107 @@ Handler buildHandler({
   Duration blobIdleTimeout = defaultBlobIdleTimeout,
   CorsPolicy cors = const CorsPolicy.any(),
   ChangeEvents? events,
+  LiveHub? live,
+  LiveTickets? tickets,
 }) {
-  final changes = events ?? ChangeEvents();
+  final feed = _Feed(store, events ?? ChangeEvents(), live ?? LiveHub());
+  final liveTickets = tickets ?? LiveTickets();
   final router = Router(notFoundHandler: _notFound)
     ..get('/v1/health', (Request request) => _health(store, maxBlobBytes))
-    ..post('/v1/push', (Request request) => _push(request, store, changes))
-    ..get('/v1/pull', (Request request) => _pull(request, store, changes))
+    ..post('/v1/push', (Request request) => _push(request, feed))
+    ..get('/v1/pull', (Request request) => _pull(request, feed))
     ..get(
       '/v1/events',
-      (Request request) => changes.subscribe(seq: store.currentSeq(), serverId: store.serverId),
-    );
+      (Request request) => feed.events.subscribe(seq: store.currentSeq(), serverId: store.serverId),
+    )
+    ..get(
+      '/v1/live',
+      (Request request) => upgradeLive(
+        request,
+        hub: feed.live,
+        tickets: liveTickets,
+        authorized: (header) => _authorized(header, utf8.encode(token)),
+        cors: cors,
+      ),
+    )
+    ..post('/v1/live/ticket', (Request request) => issueTicket(liveTickets));
   addBlobRoutes(router, blobs, maxBytes: maxBlobBytes, idleTimeout: blobIdleTimeout);
   return const Pipeline()
       .addMiddleware(corsMiddleware(cors))
       .addMiddleware(_internalErrors)
       .addMiddleware(bearerAuth(token, publicPaths: _publicPaths))
       .addHandler(router.call);
+}
+
+/// The store with whoever hears of its changes: event streams and live
+/// connections.
+class _Feed {
+  _Feed(this.store, this.events, this.live) {
+    live
+      ..feed = (() => (seq: store.currentSeq(), serverId: store.serverId))
+      ..onPush = _livePush;
+  }
+
+  final RecordStore store;
+  final ChangeEvents events;
+  final LiveHub live;
+
+  /// Applies [request] and tells everyone but [from] (a live pusher) what
+  /// it stored. Throws [HistoryLostException] (after telling everyone).
+  PushResult push(PushRequest request, {LiveConnection? from}) {
+    final PushResult result;
+    try {
+      result = store.push(request.records, since: request.since);
+    } on HistoryLostException {
+      historyLost();
+      rethrow;
+    }
+    if (result.applied > 0) {
+      live.publishRecords(result.stored, except: from);
+      events.publish(seq: result.serverSeq, serverId: store.serverId);
+    }
+    return result;
+  }
+
+  /// The server took a new id: every client resets.
+  void historyLost() {
+    events.publish(seq: store.currentSeq(), serverId: store.serverId);
+    live.publishResync();
+  }
+
+  /// A live connection's `push`: like `POST /v1/push`, and with
+  /// `"current": true` applied only if the client has every change up to
+  /// the newest seq (else answered `stale`: it applies what is on its way
+  /// and pushes again), so rows edited in place and deletions are judged
+  /// by a client that saw what they race (docs/SYNC_PROTOCOL.md).
+  Map<String, Object?> _livePush(Map<String, Object?> message, LiveConnection from) {
+    final id = message['id'];
+    try {
+      final request = parsePush(message);
+      final seq = store.currentSeq();
+      if (message['current'] == true && request.since < seq) {
+        return {'type': 'pushed', 'id': ?id, 'stale': true, 'serverSeq': seq};
+      }
+      final result = push(request, from: from);
+      return {
+        'type': 'pushed',
+        'id': ?id,
+        'applied': result.applied,
+        'ignored': result.ignored,
+        'serverSeq': result.serverSeq,
+      };
+    } on PushRejected catch (e) {
+      return {
+        'type': 'error',
+        'id': ?id,
+        'status': e.status,
+        'error': e.message,
+        'index': ?e.index,
+      };
+    } on HistoryLostException {
+      return {'type': 'error', 'id': ?id, 'status': HttpStatus.conflict, 'error': _historyLostText};
+    }
+  }
 }
 
 /// Turns unexpected exceptions into a JSON 500 (inside the CORS middleware,
@@ -112,13 +198,18 @@ Middleware bearerAuth(String token, {Set<String> publicPaths = const {}}) {
   return (Handler inner) {
     return (Request request) {
       if (publicPaths.contains(request.url.path)) return inner(request);
-      final presented = _bearerToken(request.headers['authorization']);
-      if (presented == null || !constantTimeEquals(utf8.encode(presented), expected)) {
+      if (!_authorized(request.headers['authorization'], expected)) {
         return _json(HttpStatus.unauthorized, {'error': 'unauthorized'});
       }
       return inner(request);
     };
   };
+}
+
+/// Whether the `Authorization` [header] carries the token ([expected]).
+bool _authorized(String? header, List<int> expected) {
+  final presented = _bearerToken(header);
+  return presented != null && constantTimeEquals(utf8.encode(presented), expected);
 }
 
 /// Compares two byte sequences in time depending only on their lengths,
@@ -157,7 +248,7 @@ Response _health(RecordStore store, int maxBlobBytes) => _json(HttpStatus.ok, {
 Response _notFound(Request request) => _json(HttpStatus.notFound, {'error': 'not found'});
 
 /// `POST /v1/push`: validates every record, then applies all atomically.
-Future<Response> _push(Request request, RecordStore store, ChangeEvents events) async {
+Future<Response> _push(Request request, _Feed feed) async {
   final Object? body;
   try {
     body = await _readJsonBody(request, maxPushBytes);
@@ -166,39 +257,14 @@ Future<Response> _push(Request request, RecordStore store, ChangeEvents events) 
   } on FormatException {
     return _badRequest('body must be valid UTF-8 JSON');
   }
-
-  if (body is! Map<String, Object?>) {
-    return _badRequest('body must be a JSON object');
-  }
-  final rawRecords = body['records'];
-  if (rawRecords is! List<Object?>) {
-    return _badRequest('records must be an array');
-  }
-  final since = body['since'] ?? 0;
-  if (since is! int || since < 0) {
-    return _badRequest('since must be a non-negative integer');
-  }
-  if (rawRecords.length > maxPushRecords) {
-    return _tooLarge('at most $maxPushRecords records per push');
-  }
-
-  final records = <SyncRecord>[];
-  for (var i = 0; i < rawRecords.length; i++) {
-    try {
-      records.add(SyncRecord.fromJson(rawRecords[i]));
-    } on RecordValidationException catch (e) {
-      // `index` lets the client skip just this record and push the rest.
-      return _json(HttpStatus.badRequest, {'error': 'records[$i]: ${e.message}', 'index': i});
-    }
-  }
-
   final PushResult result;
   try {
-    result = store.push(records, since: since);
+    result = feed.push(parsePush(body));
+  } on PushRejected catch (e) {
+    return _json(e.status, {'error': e.message, 'index': ?e.index});
   } on HistoryLostException {
-    return _historyLost(store, events);
+    return _historyLost();
   }
-  if (result.applied > 0) events.publish(seq: result.serverSeq, serverId: store.serverId);
   return _json(HttpStatus.ok, {
     'applied': result.applied,
     'ignored': result.ignored,
@@ -207,7 +273,7 @@ Future<Response> _push(Request request, RecordStore store, ChangeEvents events) 
 }
 
 /// `GET /v1/pull?since=&limit=`: one page of the change feed.
-Response _pull(Request request, RecordStore store, ChangeEvents events) {
+Response _pull(Request request, _Feed feed) {
   final params = request.url.queryParameters;
   final since = _intParam(params['since'], fallback: 0);
   final limit = _intParam(params['limit'], fallback: defaultPullLimit);
@@ -220,9 +286,10 @@ Response _pull(Request request, RecordStore store, ChangeEvents events) {
 
   final PullResult page;
   try {
-    page = store.pull(since: since, limit: limit > maxPullLimit ? maxPullLimit : limit);
+    page = feed.store.pull(since: since, limit: limit > maxPullLimit ? maxPullLimit : limit);
   } on HistoryLostException {
-    return _historyLost(store, events);
+    feed.historyLost();
+    return _historyLost();
   }
   return _json(HttpStatus.ok, {
     'records': [for (final r in page.records) r.toJson()],
@@ -259,14 +326,12 @@ Future<Object?> _readJsonBody(Request request, int maxBytes) async {
   return jsonDecode(text);
 }
 
-/// 409: the client has seen changes this server no longer has. The server
-/// took a new id: open event streams hear of it, so every client resets.
-Response _historyLost(RecordStore store, ChangeEvents events) {
-  events.publish(seq: store.currentSeq(), serverId: store.serverId);
-  return _json(HttpStatus.conflict, {
-    'error': 'history lost: the server was restored or replaced; upload everything again',
-  });
-}
+/// 409: the client has seen changes this server no longer has. (The server
+/// took a new id; event streams and live connections heard of it.)
+Response _historyLost() => _json(HttpStatus.conflict, {'error': _historyLostText});
+
+const _historyLostText =
+    'history lost: the server was restored or replaced; upload everything again';
 
 Response _badRequest(String message) => _json(HttpStatus.badRequest, {'error': message});
 

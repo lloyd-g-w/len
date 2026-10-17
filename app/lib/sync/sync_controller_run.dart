@@ -3,7 +3,10 @@ part of 'sync_controller.dart';
 /// One sync run and how its outcome is reported.
 extension _SyncRun on SyncController {
   Future<void> _run() async {
+    await _liveIdle();
+    if (_disposed) return;
     await tokens.retryIfDue();
+    if (_disposed) return;
     if (!isConfigured) {
       _setState(SyncState.disabled);
       return;

@@ -96,6 +96,7 @@ class FaultDevice {
         token: token,
         client: network.clientFor(onKill: kill, killed: gone),
       ),
+      syncLiveConnector: (api) => network.connectLive(api.token, killed: gone),
     );
     alive = true;
   }

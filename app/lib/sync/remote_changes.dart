@@ -23,6 +23,35 @@ class RemoteChanges {
   /// Surfaces (pages / canvases) whose content (strokes or elements) changed.
   final Set<String> strokeSurfaces = {};
 
+  /// Per surface of [strokeSurfaces], the strokes and elements that changed
+  /// (see [itemsOf]).
+  final Map<String, Set<String>> _items = {};
+
+  /// Surfaces where more items changed than are worth naming, or where
+  /// which ones is not known.
+  final Set<String> _manyItems = {};
+
+  /// Items named per surface at most; beyond, open views reload it.
+  static const maxItems = 500;
+
+  /// Notes that stroke or element [id] on [surface] changed.
+  void addItem(String surface, String id) {
+    strokeSurfaces.add(surface);
+    if (_manyItems.contains(surface)) return;
+    final ids = _items.putIfAbsent(surface, () => {})..add(id);
+    if (ids.length > maxItems) _manyChanged(surface);
+  }
+
+  /// The strokes and elements on [surface] that changed, or null when that
+  /// is not known or too many (reload the surface).
+  Set<String>? itemsOf(String surface) => _manyItems.contains(surface) ? null : _items[surface];
+
+  void _manyChanged(String surface) {
+    strokeSurfaces.add(surface);
+    _items.remove(surface);
+    _manyItems.add(surface);
+  }
+
   /// Notebooks whose own outline changed.
   final Set<String> outlineOfNotebooks = {};
 
@@ -47,7 +76,7 @@ class RemoteChanges {
     pagesOfNotebooks.addAll(revival.notebooks);
     recordingsOfNotebooks.addAll(revival.notebooks);
     outlineOfNotebooks.addAll(revival.notebooks);
-    strokeSurfaces.addAll(revival.surfaces);
+    revival.surfaces.forEach(_manyChanged);
     undoneNotebooks.addAll(revival.undoneNotebooks);
     _addPages(revival.undonePages);
   }
@@ -70,7 +99,16 @@ class RemoteChanges {
     undoneNotebooks.addAll(other.undoneNotebooks);
     _addPages(other.undonePages);
     pagesOfNotebooks.addAll(other.pagesOfNotebooks);
-    strokeSurfaces.addAll(other.strokeSurfaces);
+    for (final surface in other.strokeSurfaces) {
+      final ids = other.itemsOf(surface);
+      if (ids == null) {
+        _manyChanged(surface);
+      } else {
+        for (final id in ids) {
+          addItem(surface, id);
+        }
+      }
+    }
     outlineOfNotebooks.addAll(other.outlineOfNotebooks);
     recordingsOfNotebooks.addAll(other.recordingsOfNotebooks);
   }

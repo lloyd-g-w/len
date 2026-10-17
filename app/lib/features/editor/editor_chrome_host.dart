@@ -17,6 +17,7 @@ import 'document/document_layout.dart';
 import 'editor_actions.dart';
 import 'editor_session.dart';
 import 'editor_toolbar.dart';
+import 'live_ink/room_presence.dart';
 import 'pen/ink_paper.dart';
 import 'shared/recording_elsewhere_notice.dart';
 import 'split/parked_pane_notice.dart';
@@ -210,10 +211,16 @@ class EditorChromeHost extends StatelessWidget {
             undo: session.undo,
             tabs: tabs,
             audio: AudioBarButton(audio: audio),
-            status: SyncAlertButton(
-              sync: session.services.sync,
-              button: (tooltip, icon, color, onPressed) =>
-                  BarButton(tooltip: tooltip, icon: icon, color: color, onPressed: onPressed),
+            status: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RoomPresence(rooms: session.services.sync.rooms, room: session.shared.id),
+                SyncAlertButton(
+                  sync: session.services.sync,
+                  button: (tooltip, icon, color, onPressed) =>
+                      BarButton(tooltip: tooltip, icon: icon, color: color, onPressed: onPressed),
+                ),
+              ],
             ),
             compactMenuItems: audioMenuItems(context, audio),
             toolbar: inBar ? toolbar : null,

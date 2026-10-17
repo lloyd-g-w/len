@@ -47,9 +47,11 @@ import 'ink/selection/ink_clipboard.dart';
 import 'platform/camera_capture.dart';
 import 'platform/handwriting_recognizer.dart';
 import 'platform/len_file_io.dart';
+import 'platform/live_socket.dart';
 import 'platform/pull_worker.dart';
 import 'platform/secure_store.dart';
 import 'platform/stroke_reader.dart';
+import 'sync/live_channel.dart';
 import 'sync/sync_api.dart';
 import 'sync/sync_controller.dart';
 import 'sync/sync_engine.dart';
@@ -89,7 +91,8 @@ class AppServices {
   });
 
   /// Wires up all services on [database]. [syncApiFactory] lets tests
-  /// substitute the sync transport. Blobs (PDFs) are kept in [blobBackend]
+  /// substitute the sync transport, [syncLiveConnector] the live
+  /// connection (none if only the former is given). Blobs (PDFs) are kept in [blobBackend]
   /// (in memory if omitted, e.g. in tests). [audio] replaces the
   /// recorder and player (tests use fakes). [incomingFiles] are files
   /// handed to the app from outside, [incomingLinks] links it was opened
@@ -105,6 +108,7 @@ class AppServices {
     BlobBackend? blobBackend,
     AudioBackends? audio,
     SyncApi Function(String url, String token)? syncApiFactory,
+    Future<LiveChannel> Function(SyncApi api)? syncLiveConnector,
     HandwritingRecognizer? recognizer,
     Stream<List<XFile>>? incomingFiles,
     Stream<String>? incomingLinks,
@@ -172,6 +176,10 @@ class AppServices {
         settings: settings,
         tokens: tokens,
         apiFactory: syncApiFactory ?? SyncController.defaultApi,
+        // A substitute transport has no live connection unless given one.
+        liveConnector:
+            syncLiveConnector ??
+            (syncApiFactory == null ? connectLive : (_) => Future.error(SyncException.noLive)),
         clock: clock,
         jitter: syncJitter,
       ),

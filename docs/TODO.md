@@ -103,6 +103,12 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   round trip), built as the foundation for real-time collaboration: a WebSocket channel with
   rooms per notebook, ephemeral messages (in-progress strokes, presence / cursors) next to
   records; documented in SYNC_PROTOCOL.md; falls back to today's pull when the channel is down.
+  Ready to merge: `GET /v1/live` (pushes and fan-out on one WebSocket,
+  rooms per notebook with presence and relayed ephemeral messages, tickets for browsers,
+  bounded outboxes); edits pushed a frame after they are committed (~25 ms to another device
+  over loopback); the stroke being written drawn live on the others (replaced by its record),
+  presence plates in the editor bar; the event stream and the cycle as fallbacks. Cursors
+  are not sent yet (the room data has room for them).
 - ✅ **`flutter run --release -d linux` fails to link** (owner): it builds and runs inside
   `nix develop`; a Flutter from outside the dev shell lacks its toolchain and libraries. The
   repo has an `.envrc` (direnv: `use flake`) and the README says so.

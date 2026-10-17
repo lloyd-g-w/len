@@ -4,10 +4,15 @@ part of 'sync_controller.dart';
 /// server says another device pushed ([LiveEvents]), retries backing off
 /// after failures. (State lives in [SyncController].)
 extension _LiveSync on SyncController {
-  /// Whether the event stream should be open: started, configured, not
-  /// waiting for a new token, and the app in the foreground.
+  /// Whether the live connection should be open: started, configured, not
+  /// waiting for a new token, and the app in the foreground. The event
+  /// stream opens too while live connections fail (a proxy that does not
+  /// pass WebSockets on).
   void _updateLive() {
-    _live.run = _started && !_disposed && _foreground && isConfigured && !waitsForSettings;
+    final on = _started && !_disposed && _foreground && isConfigured && !waitsForSettings;
+    _socket.run = on;
+    _live.run = on && _socket.failures >= SyncController.eventsAfterFailures;
+    if (!_socket.healthy) rooms.disconnected();
   }
 
   /// The database committed: if rows were marked for upload since, push
@@ -18,6 +23,13 @@ extension _LiveSync on SyncController {
     final count = engine.dirtyWrites.count;
     if (count == _t.seenWrites) return;
     _t.seenWrites = count;
+    _pushSoon();
+  }
+
+  /// Local writes wait for upload: over the live connection a moment from
+  /// now ([now]: at once), else with a run once writing pauses.
+  void _pushSoon({bool now = false}) {
+    if (_scheduleLivePush(now: now)) return;
     _t.writeTimer?.cancel();
     _t.writeTimer = Timer(writeDelay, _writesDue);
     _t.writeDeadline ??= Timer(writeMaxDelay, _writesDue);
@@ -149,9 +161,10 @@ extension _LiveSync on SyncController {
   }
 
   /// The fallback timer ticked: a run every [SyncController.interval], or
-  /// every [SyncController.liveInterval] while the event stream is healthy.
+  /// every [SyncController.liveInterval] while the live connection (or the
+  /// event stream) is healthy.
   void _tick() {
-    if (_live.healthy &&
+    if (live &&
         _state != SyncState.error &&
         ++_t.quietTicks * interval.inMilliseconds < liveInterval.inMilliseconds) {
       return;

@@ -13,13 +13,16 @@ import '../data/syncable_table.dart';
 import '../platform/pull_decoder.dart';
 import 'blob_sync.dart';
 import 'freed_files.dart';
+import 'live_messages.dart';
 import 'pull_applier.dart';
 import 'pull_worker.dart';
 import 'remote_changes.dart';
 import 'sync_api.dart';
 
+export 'live_messages.dart';
 export 'remote_changes.dart';
 
+part 'sync_engine_live.dart';
 part 'sync_engine_pull.dart';
 
 /// Returns true once a running sync should stop without persisting more

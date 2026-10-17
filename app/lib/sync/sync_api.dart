@@ -235,6 +235,20 @@ class SyncApi {
     return parseServerEvents(response.stream);
   }
 
+  /// The address of the server's live connection (`/v1/live`): `ws:` or
+  /// `wss:` like the server's `http:` or `https:`.
+  Uri get liveUri {
+    final uri = baseUri.resolve('v1/live');
+    return uri.replace(scheme: uri.isScheme('https') ? 'wss' : 'ws');
+  }
+
+  /// A one-time ticket opening a live connection (`POST /v1/live/ticket`),
+  /// for clients that cannot send the token on a WebSocket (browsers).
+  Future<String> liveTicket() async {
+    final json = await _send(() => _client.post(_uri('v1/live/ticket'), headers: _headers));
+    return json['ticket'] as String? ?? (throw SyncException.notLen);
+  }
+
   // ---------------------------------------------------------------------------
   // Blobs (docs/SYNC_PROTOCOL.md, "Blobs")
 
