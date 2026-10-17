@@ -116,7 +116,19 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   touch-first devices, desktop cursors over handles / frame / body, a curve's anchors and
   tangents shown while it is drawn.
 - 🚧 (fix/pen-flicker-3) **The pen still flickers sometimes** (owner, again): keep hunting every cause on every
-  platform (Linux, web, Android), with frame-by-frame tests.
+  platform (Linux, web, Android), with frame-by-frame tests. Causes found and fixed: a pen-up
+  over a text box's or image's chunk (no append) left tiles on their old images or, zoomed far
+  out, on vectors (the stroke vanished for frames); a stroke written while a zoom's tiles
+  rendered, or a zoom within the web's 1.2 s merge, released the old zoom's stand-ins; a sync
+  reload dropped the surface and read it again (blank page for frames, mid-stroke too: it now
+  keeps what is shown and swaps in what differs); dropping a selection over many tiles hid its
+  ink for a frame or two; on Android a quick next stroke's armed contact was never confirmed by
+  `begin` and dropped after 1 s; zooming across the level of detail showed nothing where
+  the new images were not made yet (old rasters / stale tiles now stand in); after a pan, the
+  pen-up shifted the stroke by a fraction of a device pixel (tiles now aligned to their pixels,
+  views pan in whole device pixels). Frame-by-frame tests cover the live stroke (stabiliser,
+  ends, zooms, pixel ratios), the composited editor, erasing, undo / redo, selections, mid-stroke
+  syncs and the web's merged atlases.
 - ✅ **Live sync, actually live**: edits show on other devices within a fraction of a second
   (push on pen-up, server fans the records out over one long-lived connection, no pull
   round trip), built as the foundation for real-time collaboration: a WebSocket channel with

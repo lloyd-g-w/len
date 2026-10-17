@@ -181,6 +181,14 @@ draws a few dozen images, however much ink is on screen.
   of a frame of vectors (`test/pen_up_frames_test.dart` checks every frame
   around pen-up, pen and highlighter, on a canvas at 50–200 % and 1×/2×,
   and on a continuous notebook's page from tiles and from rasters).
+- **Pen-up under something** (`SurfaceChange.overlaid`):
+  a pen stroke that is no append because something in its chunks paints
+  over it (a text box or image above the ink, a stroke of a later paint
+  order synced from another device) keeps the tiles' images, stale, with
+  the stroke drawn over them — as the live stroke was — until they are
+  re-rendered (urgently); the level-of-detail rasters do the same. Before,
+  it vanished for a frame or two over more than two tiles, and zoomed far
+  out (more than eight chunks fell back to vectors) showed nothing.
 - **Loads** (`SurfaceChange.loaded`: stored content arriving) keep the
   images of the tiles they touch as stale stand-ins until re-rendered (that
   content was not on screen yet), so a loading canvas never drops to
@@ -197,7 +205,19 @@ draws a few dozen images, however much ink is on screen.
   shows at once); larger edits (undoing a lasso move) keep the old images
   until the new ones, all rendered at once, replace them together — a
   frame or two late, but never frames of vectors over the whole screen and
-  never half done.
+  never half done. Such stale images may show ink the edit removed
+  (`InkTile.lingers`): they stand in only until the edit's own renders
+  land, never for another zoom. Erasing (whole strokes, the pixel eraser
+  across many strokes), undo / redo of a long stroke and undo of a moved
+  selection are checked frame by frame: no ink but the edited strokes'
+  is lost (`test/pen_flicker_edits_test.dart`).
+- **Sync reloads** (`SurfaceModel.reload`, `surface_model_reload.dart`):
+  remote changes no longer drop what is in memory and read it again
+  (the page went blank for the frames the worker's read took, mid-stroke
+  too). What is shown stays; storage is read for the ranges the views
+  hold and only the items that differ are swapped in, in one change, keeping
+  items edited here meanwhile (`_reloadEdits`), so the tiles see an
+  ordinary edit. Live sync's `refreshItems` falls back to it.
 - **Idle caches**: a cache not painted for 500 ms (its view zoomed out to
   level-of-detail images, say) renders nothing on edits; appended strokes
   wait as overlays until it is painted again, so it never takes raster
@@ -262,7 +282,11 @@ draws a few dozen images, however much ink is on screen.
   `ChunkRasterCache` images are drawn instead (see *Level of detail* above); on an
   append they too keep their (stale) images with the new strokes drawn
   over them until re-rasterised. Crossing into LOD, the tiles stand in
-  until the rasters are made (`InkTileCache.paintStandIn`) — stale ones
+  until the rasters are made (`InkTileCache.paintStandIn`) — appended
+  strokes no longer release the previous zoom's tiles nor keep a zoom's
+  new tiles from being adopted: the old images stand in with the strokes
+  drawn over them (a stroke written while a zoom's tiles render, or a zoom
+  within the web's 1.2 s merge, blanked the tiles it crossed) — stale ones
   too, with the highlights and strokes added since beneath and over them
   (not those that may show ink an edit removed): a highlight lifted just
   before zooming out blanked every tile it crossed until then.
