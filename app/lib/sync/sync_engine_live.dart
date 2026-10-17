@@ -64,7 +64,9 @@ extension LiveSyncEngine on SyncEngine {
         return !cancelled() && !database.isClosed;
       },
     );
-    return applied == page.records.length ? changes : null;
+    if (applied != page.records.length) return null;
+    afterApply?.call(changes);
+    return changes;
   }
 
   /// Pushes dirty rows over a live connection ([send]): live rows parents
