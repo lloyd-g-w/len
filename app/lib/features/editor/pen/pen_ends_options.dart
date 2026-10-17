@@ -7,20 +7,22 @@ import '../../../ui/group_header.dart';
 import '../../../ui/roving_focus.dart';
 import 'option_controls.dart';
 
-/// Per-ink cap shape, among [styles] (`PenDefaults.endStyles`). The
-/// preview above this control renders the selected style using the same
-/// outline builder as saved strokes.
+/// Per-ink cap shape, among [styles] (`PenDefaults.endStyles`; the laser's
+/// trail offers the pen's). The preview above this control renders the
+/// selected style using the same outline engine as saved strokes.
 class PenEndsOptions extends StatelessWidget {
   const PenEndsOptions({
     super.key,
-    required this.config,
+    required this.ends,
     required this.styles,
     required this.onChanged,
   });
 
-  final PenConfig config;
+  final PenEnds ends;
   final List<StrokeEnds> styles;
-  final ValueChanged<PenEnds> onChanged;
+
+  /// Null greys the control out (ends that don't apply, as the laser's dot).
+  final ValueChanged<PenEnds>? onChanged;
 
   static String _label(StrokeEnds style) => switch (style) {
     StrokeEnds.round => 'Round',
@@ -30,13 +32,14 @@ class PenEndsOptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ends = config.ends;
+    final onChanged = this.onChanged;
+    final enabled = onChanged != null;
     return Padding(
       padding: const EdgeInsets.only(top: Gaps.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const GroupHeader('Ends'),
+          GroupHeader('Ends', enabled: enabled),
           const SizedBox(height: Gaps.xs),
           RovingSegments(
             SegmentedButton<StrokeEnds>(
@@ -45,7 +48,9 @@ class PenEndsOptions extends StatelessWidget {
                 for (final style in styles) ButtonSegment(value: style, label: Text(_label(style))),
               ],
               selected: {ends.style},
-              onSelectionChanged: (selected) => onChanged(ends.copyWith(style: selected.single)),
+              onSelectionChanged: enabled
+                  ? (selected) => onChanged(ends.copyWith(style: selected.single))
+                  : null,
             ),
           ),
           if (ends.style == StrokeEnds.tapered) ...[
@@ -59,8 +64,9 @@ class PenEndsOptions extends StatelessWidget {
                   ButtonSegment(value: TaperAt.both, label: Text('Both')),
                 ],
                 selected: {ends.taperAt},
-                onSelectionChanged: (selected) =>
-                    onChanged(ends.copyWith(taperAt: selected.single)),
+                onSelectionChanged: enabled
+                    ? (selected) => onChanged(ends.copyWith(taperAt: selected.single))
+                    : null,
               ),
             ),
             OptionSlider(
@@ -69,7 +75,7 @@ class PenEndsOptions extends StatelessWidget {
               min: PenEnds.minTaperLength,
               max: PenEnds.maxTaperLength,
               display: (value) => '${value.toStringAsFixed(1)}× width',
-              onChanged: (value) => onChanged(ends.copyWith(taperLength: value)),
+              onChanged: enabled ? (value) => onChanged(ends.copyWith(taperLength: value)) : null,
             ),
           ],
         ],

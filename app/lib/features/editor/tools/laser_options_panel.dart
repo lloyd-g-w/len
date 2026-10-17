@@ -9,16 +9,19 @@ import '../../../ui/group_header.dart';
 import '../../../ui/roving_focus.dart';
 import '../pen/option_controls.dart';
 import '../pen/option_sections.dart';
+import '../pen/pen_ends_options.dart';
 import 'laser_preview.dart';
 import 'laser_slots.dart';
 
 /// The laser pointer's settings, laid out as the pen's: a title with Reset
-/// (puts dot / trail and the fading back to the defaults, keeping the quick
-/// slots), a live preview, (in the phone sheet, which covers the toolbar)
-/// the quick slots, then dot or trail, the colour and size of the selected
-/// quick slots, when the trail fades (each stroke on its own, or all of it
-/// once the writing stops) and how long it lasts, and, collapsed, how many
-/// quick colours and sizes the toolbar shows. Edits apply live.
+/// (puts dot / trail, the trail's feel and the fading back to the defaults,
+/// keeping the quick slots), a live preview, (in the phone sheet, which
+/// covers the toolbar) the quick slots, then dot or trail, the colour and
+/// size of the selected quick slots, the pen's feel for the trail
+/// (pressure sensitivity, stabiliser, ends; greyed out for the dot), when
+/// the trail fades (each stroke on its own, or all of it once the writing
+/// stops) and how long it lasts, and, collapsed, how many quick colours and
+/// sizes the toolbar shows. Edits apply live.
 class LaserOptionsPanel extends StatelessWidget {
   const LaserOptionsPanel({super.key, required this.tools});
 
@@ -31,6 +34,7 @@ class LaserOptionsPanel extends StatelessWidget {
       builder: (context, _) {
         final laser = tools.laser;
         void update(LaserConfig config) => tools.laser = config;
+        final trail = laser.mode == LaserMode.trail;
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -87,7 +91,23 @@ class LaserOptionsPanel extends StatelessWidget {
               value: laser.size,
               onChanged: (v) => update(laser.withSize(laser.sizeIndex, v)),
             ),
-            if (laser.mode == LaserMode.trail) ...[
+            const OptionRule(),
+            // The pen's feel, for the trail: greyed out for the dot, which
+            // has no width to vary, no line to smooth and no ends.
+            PressureSlider(
+              value: laser.thinning,
+              onChanged: trail ? (v) => update(tools.laser.copyWith(thinning: v)) : null,
+            ),
+            StabiliserSlider(
+              value: laser.streamline,
+              onChanged: trail ? (v) => update(tools.laser.copyWith(streamline: v)) : null,
+            ),
+            PenEndsOptions(
+              ends: laser.ends,
+              styles: LaserConfig.endStyles,
+              onChanged: trail ? (ends) => update(tools.laser.copyWith(ends: ends)) : null,
+            ),
+            if (trail) ...[
               const OptionRule(),
               const GroupHeader('Fade'),
               const SizedBox(height: Gaps.xs),

@@ -2069,23 +2069,43 @@ surface.
   wraps identically while edited and once committed. The whole session is
   one undoable edit (an emptied box is deleted). See *Text boxes*.
 - **Laser pointer** (`tools/laser.dart`, `render/laser_painter.dart`,
-  `render/laser_ribbon.dart`, `features/editor/tools/laser_overlay.dart`): `LaserTrail` keeps
-  the samples (at least 1.5 px apart on screen; the dot follows every one) in a fixed-size ring
-  buffer of typed arrays, stamped with frame time; `LaserOverlay` owns a `RepaintBoundary`, a
+  `render/laser_strokes.dart`, `render/laser_stroke.dart`, `render/laser_ribbon.dart`,
+  `features/editor/tools/laser_overlay.dart`): `LaserTrail` keeps
+  the samples (at least 1.5 px apart on screen; the dot follows every one) with their pressure
+  in a fixed-size ring buffer of typed arrays, stamped with frame time (each point has an id
+  that stays with it as older ones expire; `revision` changes when points move or go
+  otherwise); `LaserOverlay` owns a `RepaintBoundary`, a
   `CustomPaint` repainting from the trail (no widget rebuilds) and a ticker that runs only while
-  something is visible. `LaserPainter` draws, in screen space, a centripetal Catmull-Rom curve
-  through the samples as two vertex meshes with per-vertex colours (`LaserRibbon`: a wide soft
+  something is visible. Each stroke of the trail is shaped by the pen's engine
+  (`LaserStroke`: a `StrokeShaper` fed in world units, as wide as the laser's size on screen
+  whatever the zoom — sampling, pen-down hook, smoothing with the stabiliser, radii from
+  pressure, start and end tapers; live strokes show what live ink shows, `liveLength`, so the
+  stabiliser trails the pointer as the pen's ink does; no pen-up hook trim, a laser keeps
+  nothing). `LaserStrokes` keeps the strokes between frames and feeds them only new points (a
+  frame that only fades recomputes nothing but opacities; a stroke is rebuilt when the size,
+  pressure sensitivity, stabiliser or ends change); a long press rebuilds its shaper from the
+  samples still showing (`_rebase`, with the old samples' phase), so memory stays bounded.
+  `LaserPainter` draws, in screen space, the strokes' centre lines (every 4 px, every 1 px
+  where the width changes: tapers, pressure) as two vertex meshes with per-vertex colours
+  (`LaserRibbon`: a wide soft
   glow, a bright core whitened in the middle — lanes transparent at the edges, so no blur
-  filter), narrowing and fading with age (smoothstep), plus a radial-gradient dot at the pointer.
+  filter; per-point widths; round ends add a half disc of rings, flat ends are cut square),
+  narrowing and fading with age (smoothstep), plus a radial-gradient dot at the pointer.
   `LaserConfig` (in `ToolSettings`, persisted): dot or trail mode, quick colours and quick
   sizes like an ink's (1–5 each, one of each selected; red / green / blue and 4 / 6 / 10 px at
-  first; `LaserConfigJson` drops a malformed row to its defaults) and when the trail fades (`LaserFade`): each point a set time after it was
+  first; `LaserConfigJson` drops a malformed row to its defaults), the pen's feel for the trail
+  (pressure sensitivity and stabiliser 0–1, default off; ends round / tapered / flat as
+  `PenEnds`, default flat — the trail as it always looked; a missing or malformed value loads
+  its default, so settings saved before load unchanged; Reset restores them) and when the trail fades (`LaserFade`): each point a set time after it was
   drawn (0.3–3 s), or, *when I stop*, all of it together once `hold` (0.5–5 s, default 2 s)
   has passed since the last lift (`LaserTrail.holding`: the trail and dot stay in full while
   writing, a press within the hold keeps everything, then a 400-ms fade; frames during the hold
   repaint nothing, and a hovering mouse doesn't stop the countdown; the same with a mouse,
   pen or finger and presenting with F5, `test/laser_hold_input_test.dart`). Set in the tool's options
-  popup (`LaserOptionsPanel`, with a live preview). The old painter drew two lines per sample, one
+  popup (`LaserOptionsPanel`, with a live preview: a finished stroke through `LaserStroke`, so
+  ends, pressure and stabiliser show; the pen's `PressureSlider`, `StabiliserSlider` and
+  `PenEndsOptions`, greyed out for the dot as the highlighter greys its stabiliser for straight
+  lines; `test/laser_feel_test.dart`, `test/laser_trail_shape_test.dart`). The old painter drew two lines per sample, one
   with a blur mask filter — hundreds of blurs per frame; `test/perf/laser_perf_test.dart`
   measures a move (0 rebuilds, 1 paint) and a full trail against it.
 

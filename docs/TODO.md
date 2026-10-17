@@ -88,9 +88,16 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 - ✅ **Highlighter and laser customisation like the pen's**: the highlighter already had every
   pen option (now tested); the laser gets editable, persisted quick colour and size slots (1–5
   each, shared slot rows and editors, 1–9 and [ / ] too) and the pen's popover layout.
-- 🚧 (feat/laser-feel) **The laser's ends can't be changed** (owner, again): the laser has the
+- ✅ **The laser's ends can't be changed** (owner, again): the laser has the
   pen's slots but not its feel: ends (round / flat / tapered), pressure, stabiliser; the trail
-  drawn with the pen's outline engine.
+  drawn with the pen's outline engine. Done: the laser popover has the pen's Pressure
+  sensitivity, Stabiliser and Ends controls (round / tapered with start / end / both and
+  length / flat), greyed out in dot mode; persisted (old settings load as before: flat, off,
+  off), Reset restores them. Each trail stroke is shaped by the pen's `StrokeShaper`
+  (sampling, smoothing, stabiliser, pressure radii, tapers) incrementally, then drawn as the
+  laser's glow and core with the fade (round ends add a soft half disc); the preview shows a
+  finished stroke. Defaults look as before; frame cost about as before
+  (`test/perf/laser_perf_test.dart`).
 - ✅ **Better shape control points**: handles by meaning for drawn and snapped shapes (circle
   centre + radius, ellipse centre + two radii, rectangle / diamond corners + sides, a line's
   bend, star centre + point + inner radius and its points in Style) with snaps and Shift
@@ -99,7 +106,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   closed) drawn anchor by anchor with the Shape tool or snapped from a held smooth stroke
   (Schneider fit); anchors and tangents are editable, a tap on the line adds an anchor and a
   double tap removes one.
-- ⬜ **Shape follow-ups** (from the shape-handles review): undo while a curve is being drawn
+- 🚧 (feat/shape-followups) **Shape follow-ups** (from the shape-handles review): undo while a curve is being drawn
   takes back its last anchor (today it undoes earlier strokes); a circle can be squashed into
   an ellipse from a handle; with Curve picked a tap on a shape selects it rather than placing an
   anchor (or the hint says how).
@@ -116,7 +123,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   over loopback); the stroke being written drawn live on the others (replaced by its record),
   presence plates in the editor bar; the event stream and the cycle as fallbacks. Cursors
   are not sent yet (the room data has room for them).
-- ⬜ **Live sync follow-ups**: cursors / pointers of other devices (the laser too); no gap
+- 🚧 (feat/live-sync-3) **Live sync follow-ups**: cursors / pointers of other devices (the laser too); no gap
   between another device's live stroke and its record when the page reloads fully (500+
   changes, a selection in the way) or for a highlight snapped to text (it ends without a stroke
   id); an e2e run with two real app instances over the live channel.

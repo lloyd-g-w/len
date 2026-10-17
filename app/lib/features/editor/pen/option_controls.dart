@@ -161,7 +161,10 @@ class PressureSlider extends StatelessWidget {
   const PressureSlider({super.key, required this.value, required this.onChanged});
 
   final double value;
-  final ValueChanged<double> onChanged;
+
+  /// Null disables the slider (e.g. for the laser's dot, which has no width
+  /// to vary).
+  final ValueChanged<double>? onChanged;
 
   @override
   Widget build(BuildContext context) => OptionSlider(

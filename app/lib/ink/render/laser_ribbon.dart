@@ -5,8 +5,10 @@ import 'dart:ui';
 /// A soft ribbon along polylines, drawn as one triangle mesh with
 /// per-vertex colours: across the ribbon, lanes at fixed fractions of the
 /// half-width carry their own colour and opacity (transparent at the edges,
-/// so the ribbon is soft without a blur), and along it every point has an
-/// opacity (the trail's fade) that also narrows it.
+/// so the ribbon is soft without a blur), and along it every point has a
+/// half-width (the pen engine's radii: pressure, tapers) and an opacity (the
+/// trail's fade) that also narrows it. Ends are cut square, or rounded
+/// ([add]'s caps: a half disc of rings narrowing to the tip).
 ///
 /// Buffers are typed and kept between frames: reuse one ribbon per layer
 /// and [draw] it every frame.
@@ -63,17 +65,32 @@ class LaserRibbon {
     }
   }
 
-  /// Adds a ribbon along ([xs], [ys]) with [halfWidth] at full opacity;
-  /// [alphas] (0 … 1) fades and narrows each point.
-  void add(List<double> xs, List<double> ys, List<double> alphas, double halfWidth) {
+  /// Adds a ribbon along ([xs], [ys]) with [halfWidths] × [scale] at full
+  /// opacity; [alphas] (0 … 1) fades and narrows each point. [capStart] and
+  /// [capEnd] round those ends (a half disc of the end's width beyond it).
+  void add(
+    List<double> xs,
+    List<double> ys,
+    List<double> alphas,
+    List<double> halfWidths, {
+    double scale = 1,
+    bool capStart = false,
+    bool capEnd = false,
+  }) {
     final n = xs.length;
     if (n < 2) return;
+    if (capStart || capEnd) {
+      final c = _capped(xs, ys, alphas, halfWidths, scale, capStart, capEnd);
+      return add(c.x, c.y, c.a, c.w, scale: scale);
+    }
     final most = _maxVertices ~/ _lanes;
     if (n > most) {
       // Too long for one mesh: two overlapping halves.
       final k = n ~/ 2;
-      add(xs.sublist(0, k + 1), ys.sublist(0, k + 1), alphas.sublist(0, k + 1), halfWidth);
-      add(xs.sublist(k), ys.sublist(k), alphas.sublist(k), halfWidth);
+      List<double> head(List<double> l) => l.sublist(0, k + 1);
+      List<double> tail(List<double> l) => l.sublist(k);
+      add(head(xs), head(ys), head(alphas), head(halfWidths), scale: scale);
+      add(tail(xs), tail(ys), tail(alphas), tail(halfWidths), scale: scale);
       return;
     }
     if (_vertices + n * _lanes > _maxVertices) _flush();
@@ -89,7 +106,7 @@ class LaserRibbon {
         ny = tx / len;
       }
       final alpha = _ease(alphas[i]);
-      final w = halfWidth * (0.35 + 0.65 * alpha);
+      final w = halfWidths[i] * scale * (0.35 + 0.65 * alpha);
       final base = _vertices;
       for (var l = 0; l < lanes; l++) {
         final o = w * _offsets[l];
@@ -110,6 +127,51 @@ class LaserRibbon {
         _indices[_indexCount++] = base + l;
       }
     }
+  }
+
+  /// Rings of a round cap beyond an end.
+  static const int _capRings = 5;
+
+  /// How much a point of opacity [alpha] is narrowed (as [add] does).
+  static double widthFactor(double alpha) => 0.35 + 0.65 * _ease(alpha);
+
+  /// The line with round caps: rings beyond the chosen ends along the end's
+  /// direction, `r sin θ` out and `r cos θ` wide (a half disc of the end's
+  /// half-width r, as drawn), at the end's opacity.
+  static ({List<double> x, List<double> y, List<double> a, List<double> w}) _capped(
+    List<double> xs,
+    List<double> ys,
+    List<double> alphas,
+    List<double> halfWidths,
+    double scale,
+    bool capStart,
+    bool capEnd,
+  ) {
+    final x = <double>[], y = <double>[], a = <double>[], w = <double>[];
+    void cap(int end, int inner, bool outward) {
+      final dx = xs[end] - xs[inner], dy = ys[end] - ys[inner];
+      final len = math.sqrt(dx * dx + dy * dy);
+      if (len < 1e-9) return;
+      final r = halfWidths[end] * scale * widthFactor(alphas[end]);
+      for (var k = 1; k <= _capRings; k++) {
+        final m = outward ? k : _capRings + 1 - k;
+        final theta = m / _capRings * math.pi / 2;
+        final d = r * math.sin(theta) / len;
+        x.add(xs[end] + dx * d);
+        y.add(ys[end] + dy * d);
+        a.add(alphas[end]);
+        w.add(halfWidths[end] * math.cos(theta));
+      }
+    }
+
+    final n = xs.length;
+    if (capStart) cap(0, 1, false);
+    x.addAll(xs);
+    y.addAll(ys);
+    a.addAll(alphas);
+    w.addAll(halfWidths);
+    if (capEnd) cap(n - 1, n - 2, true);
+    return (x: x, y: y, a: a, w: w);
   }
 
   /// Makes room for [n] more points.
