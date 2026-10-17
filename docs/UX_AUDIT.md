@@ -1,5 +1,238 @@
 # Len — UX/UI audit
 
+## Round 25 audit — the last day's features together (`audit/r13`)
+
+Lens: do the features merged in one day feel finished and consistent with
+the rest of Len (copy, tokens, menus, popovers, phone layouts, dark mode,
+keyboard and screen reader), and do they break at the edges (undo / redo,
+multi-page, canvas vs paged, split view, zoom window, phone, web, offline,
+very large notebooks)? Features: shape handles by meaning and Curve shapes,
+circle squash and tiny-shape spread handles, desktop cursors; connectors
+(attached ends, shape identity, repair after remote edits); the laser's pen
+feel and quick slots; mouse ink smoothing and the 30 % stabiliser; live
+sync (presence plates, remote live ink, pointers and lasers, Name tags);
+version history; pages to screen readers. Read the code, probed each
+suspicion with a widget or unit test (throwaway probes, the fixes' tests
+kept), rendered the history (sheet, menu, preview, page view, confirm;
+phone and tablet, light, dark, 2× text, canvas), the editor bar with 0, 1
+and 6 devices present (phone, 320 dp, sideways 640–740, tablet, large
+text), remote pointers on light and dark, the laser popover beside the
+pen's (phone and tablet, trail, dot, tapered), and all screenshot suites,
+and looked at them. Paths are under `app/lib/`. ⬜ open, ✅ fixed on this
+branch.
+
+Summary: the engines are sound — undo through curve anchors, curve and
+page reloads, connector copies and repairs, mouse smoothing (mouse only,
+the stroke's own stabiliser, not smoothed twice), page nodes (cheap at 500
+pages, none built while semantics are off, no duplicates from a parked
+pane), restores (deleted or moved pages come back, offline refuses
+cleanly), presence when devices leave or the connection drops. What was
+unfinished was the surface: the history showed PDF and scanned pages as
+blank paper and could not be used with a screen reader or, for its pages,
+the keyboard; its messages hid under the phone sheet; the presence plates
+pushed All pages off a sideways phone's bar; the laser popover was the
+pen's controls laid open, not the pen's layout, and scrolled on a tablet.
+Two connector cases lost their attachment, and other devices' live ink
+vanished when the writer's pen rested 3 s. 32 findings: 4 P1, 12 P2, 16 P3;
+all P1, 9 P2 and 8 P3 fixed (some in part), with tests.
+
+### Version history
+
+**R25-1 P1 · The preview drew PDF and scanned pages as blank paper.** ✅
+- *What:* `VersionSurfaceView`'s painter called `paintWholePage` without a
+  background: history thumbnails, the preview grid and the page view of a
+  PDF notebook showed only the ink, unreadable for the commonest use
+  (annotating PDFs).
+- *Fix:* `VersionSheets` owns a `NotebookBackgrounds` (PDF pages, scans;
+  disposed with the history) and the painter draws the background (or the
+  missing-file placeholder) as `PageThumbnail` does
+  (`version_history_access_test`: a red scan shows in the preview).
+
+**R25-2 P1 · Screen readers could not open a version, its ⋯ or a page; the keyboard could not reach the preview's pages.** ✅
+- *What:* the row's `Semantics(excludeSemantics)` wrapped the whole row,
+  ⋯ included, with no tap action; the preview's page tiles likewise, and
+  were bare `GestureDetector`s (Tab never reached them).
+- *Fix:* the row's label and tap are on its main area, ⋯ stands beside it;
+  tiles have a tap action and a `FocusableActionDetector` (Enter opens the
+  page), as the page overview's.
+
+**R25-3 P2 · On a phone, what the history did was said under its sheet.** ✅
+Save version…, Copy as new notebook and Delete version showed their snack
+bars on the editor or library behind the modal sheet, so nothing showed
+until it closed. The sheet now has its own messenger on phones (restores,
+which close the history, still speak on the screen behind).
+
+**R25-4 P2 · A second tap on Copy made a second notebook.** ✅ Copy and
+Restore had no busy state; on a large notebook a double tap copied twice
+(and a restore confirmed twice saved two "Before restoring" versions). One
+copy or restore runs at a time; taps meanwhile are ignored.
+
+**R25-5 P2 · Delete version deleted at once, named versions too, with no way back.** ✅
+It now says "Version deleted" with Undo (`Versions.undelete` writes the
+row back as a newer edit; its packs are still here).
+
+**R25-6 P2 · After a restore, the editor's Ctrl+Z does nothing and Ctrl+Shift+Z partly undoes the restore.** ⬜
+- *What:* a restore is not an `UndoHistory` step, but the editor's undo
+  steps from before it survive the reload: undo "removes" a stroke the
+  restore already removed (nothing visible), redo then writes it back onto
+  the restored page.
+- *Proposal:* the restore's Undo is the snack bar's; drop the undo steps of
+  the surfaces a restore rewrote in open sessions (or make the restore one
+  step). Needs a decision: CONVENTIONS wants every edit undoable through
+  `UndoHistory` (TODO "Next").
+
+**R25-7 P2 · The preview's title was cut on phones.** ✅ / ⬜
+"17 Oct 2026…" lost the time at 390 dp. The title is now the list's short
+form ("Today, 14:02") on one line. ⬜ At 2× text the page view's "Page 1 of
+2" still vanishes beside Restore this page; a compact layout would move
+the actions under the title.
+
+**R25-8 P3 · Escape does not close the preview or its page view.** ⬜ Keep
+for now: the page overview and Settings don't either. A route-wide rule
+(Escape pops full-screen routes) would fix all three at once.
+
+**R25-9 P3 · Multi-sentence messages lacked their full stop.** ✅ The empty
+history, both restore confirmations and "not on this device yet" end with
+one, as other multi-sentence copy does.
+
+**R25-10 P3 · Rename… cannot clear a version's name.** ⬜ The shared
+`showTextPrompt` disables its button on an empty field but Enter submits
+it; `renameVersionFlow` treats empty as "no name". Make the two agree in
+`ui/text_prompt.dart`, and decide whether clearing a name is wanted.
+
+**R25-11 P3 · The preview sits on Board, not Desk.** Keep: so does the page
+overview, its model.
+
+### Live sync
+
+**R25-12 P1 · Presence plates pushed All pages off a sideways phone's bar.** ✅
+- *What:* `_slim` budgets three bar buttons for the actions but the status
+  (plates + sync alert) sits there too: with 2 others at 640–667 × 360 the
+  bar overflowed, with 3 the All pages button could not be tapped; at 320 dp
+  the phone bar overflowed after an undo.
+- *Fix:* `RoomPresence.compact` (phones and short windows): one plate, the
+  other device's initial or the count of others ("+4"); the tooltip and
+  screen reader still name them all.
+
+**R25-13 P2 · "+12" was clipped to "+1" at large text.** ✅ Plates were
+fixed 24 × 24; they now grow to their text.
+
+**R25-14 P2 · Screen readers heard who is here twice.** ✅ The tooltip
+repeated the label; it is excluded from semantics. Joins and leaves are not
+announced: keep (it would interrupt writing).
+
+**R25-15 P2 · Another device's live stroke vanished when its pen rested 3 s.** ✅ / ⬜
+- *What:* receivers drop a writer after 3 s of silence and the sender sent
+  nothing while the pen rested, so the rest of the stroke was refused
+  (`from` beyond what was kept) until its record came.
+- *Fix:* `LiveInkRelay` tells a resting stroke again every second (no new
+  points; SYNC_PROTOCOL updated). ⬜ A device joining mid-stroke still sees
+  that stroke only when its record lands (P3).
+
+**R25-16 P2 · (suspected) A hover or mouse laser over another page is sent as the active page's.** ⬜
+Hover maps through the active page's viewport (`ink_input_controller`), and
+`PointerRelay` sends the active page's id; the receiver draws it at that
+page plus the offset, wrong when the two devices lay pages out differently.
+Map the point with `layout.pageAt` before sending (TODO "Next").
+
+**R25-17 P3 · The zoom window shows neither other devices' live ink nor their pointers.** ⬜
+`zoom_box_paper.dart` paints only local live ink; add the remote ink (and
+pointer) layers (TODO "Next").
+
+**R25-18 P3 · In dark mode another device's hover dot is a hollow ring.** ⬜
+`remote_pointers_overlay.dart` takes dot and halo from the theme
+(onSurface light, surface dark) while paper stays light; take them from the
+paper, as ink does.
+
+**R25-19 P3 · The pointer's name tag ignores the text scale.** Keep: it is
+a fixed plate on the paper, sized with the pointer.
+
+**R25-20 P3 · Wrong doc comment on the plate ("a hairline around it").** ✅
+
+### Laser, mouse ink, pages to screen readers
+
+**R25-21 P1 · The laser popover was not laid out as the pen's.** ✅
+- *What:* the pen and highlighter keep their feel under a collapsed "Feel";
+  the laser showed Pressure sensitivity, Stabiliser (with its caption) and
+  Ends open, then Fade: on a 1280 × 800 tablet Fade, Trail lasts and the
+  quick slot counts were below the fold, on a phone the sheet took the
+  whole height. The round promised "the pen's popover layout".
+- *Fix:* Dot / Trail, colour, size, then for the trail Fade and its time,
+  then Feel (collapsed), then the quick slot counts (`laser_feel_test`,
+  `goldens/laser.png`).
+
+**R25-22 P3 · In dot mode the feel was greyed with no reason while Fade was hidden.** ✅
+Feel is hidden for the dot, as Fade is.
+
+**R25-23 P3 · A page's text boxes are read twice.** ⬜ The page (or Canvas)
+node's value holds its text boxes, and the active surface's boxes have
+their own nodes too. Either is useful (an overview vs navigable boxes);
+dropping boxes of the active surface from the value is one line — owner's
+call (TODO "Next").
+
+**R25-24 P3 · The 30 % stabiliser upgrade also ran for settings saved by a later version.** ✅
+`version != prefsVersion` → older than it. A pen deliberately set to off
+before versioned settings is still raised to 30 % (indistinguishable from
+the old default): keep.
+
+**R25-25 P3 · Laser size slots said only "Size 2".** ✅ They say the size as
+the slider does ("Size 2, 40%"); pen slots say "0.65 mm".
+
+**R25-26 P3 · TODO and a test said "1–9" for the laser's slot keys.** ✅
+There are at most five slots; 1–5 (the shortcut sheet already said so).
+
+Mouse ink: sound (only `PointerDeviceKind.mouse`, the stroke's own
+stabiliser, a straightened highlighter 0, the outline not smoothing again,
+tapers from lift speed on the smoothed points, canvas and zoom window
+alike).
+
+### Shapes and connectors
+
+**R25-27 P2 · Stretching a turned circle or ellipse made its arrows jump.** ✅
+- *What:* a stretched circle or ellipse becomes an ellipse on new principal
+  axes, moving the outline parameter an attachment names: an arrow outside
+  the selection jumped up to 52 units along a 50-unit circle; one inside it
+  kept a stale attachment that jumped at the next move or remote repair.
+- *Fix:* attachments to a circle or ellipse the selection transforms are
+  re-parametrised to the new axes (nearest point to where the old point
+  went), for selected lines, followers and the live preview.
+
+**R25-28 P2 · Moving a box and its arrow together onto another page detached the arrow.** ✅
+The box takes a new id on the new page and the attachment named the old
+one; cut and paste kept it. The attachment now follows the box's new id
+when the line lands on the same page (`selection_pages_test`).
+
+**R25-29 P2 · (suspected) A finger pan starting on another page finishes the curve being drawn.** ⬜
+The first pointer of any gesture activates the page under it, and the page
+switch finishes the curve (a one-anchor curve is dropped). `holds()` keeps
+the page for a selection, not for a curve in progress; counting an active
+curve there keeps it, but then a stylus press on another page would add an
+off-page anchor. Needs a check on the tablet (TODO "Next").
+
+**R25-30 P3 · Curve hints.** ✅ / ⬜ With Curve picked the keyboard line said
+"Hold Shift…" (Shift does nothing for curves); it now says "Enter finishes
+a curve, Esc drops it". ⬜ Editing a selected curve (tap the line to add an
+anchor, double tap one to remove it) and Line / Arrow ends attaching to
+shapes are taught nowhere; a caption line each would fit.
+
+**R25-31 P3 · A drawn arrow looks for its tip's target at the raw pointer, not the Shift- or snap-adjusted end.** ⬜
+(`shape_tool.dart` `_connected`); only one target is outlined while
+drawing.
+
+**R25-32 P3 · An ellipse dragged into a circle whose second axis ran the other way reverses its parameter.** ⬜
+An attached end would jump; rare.
+
+Checked and sound: curve drawing (undo / redo through anchors, Enter,
+Escape, a tool change finishes, a page added or deleted elsewhere
+mid-curve), squash handles keep the axis order, resizes cannot mirror
+shapes, handle colours on dark paper (accent on paper with a halo) and
+touch sizes, connector copies and repairs, version data (thinning,
+dedupe, restores of deleted or moved pages, offline, web: no `dart:io`),
+lazy history list and preview grid, presence in split view (one room, one
+`RemotePointers`), Name tags rows (⋯ → View only while others are present;
+Settings → Sync), laser Reset (keeps slots, Undo), 1–5 and [ ] only while
+not typing.
+
 ## Round 24 audit — calm and consistent (`review/round24`)
 
 Lens: round 9's and round 12's question once more, after two days that

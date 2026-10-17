@@ -118,7 +118,7 @@ void main() {
   });
 
   group('ToolSettings and the laser', () {
-    test('while the laser is the tool, 1–9 pick its colours and [ ] its sizes', () {
+    test('while the laser is the tool, 1–5 pick its colours and [ ] its sizes', () {
       final tools = ToolSettings()..tool = EditorTool.laser;
       addTearDown(tools.dispose);
       tools.selectColor(2);
