@@ -44,6 +44,7 @@ class ShapeGeometry {
     this.tips = defaultTips,
     this.tail,
     this.tip,
+    this.origin,
   }) : points = List.unmodifiable(points),
        assert(isValidCount(kind, points.length), 'Wrong number of points for $kind'),
        assert(
@@ -54,9 +55,9 @@ class ShapeGeometry {
   /// The ellipse around [centre] with conjugate semi-axes [u] and [v] (any
   /// affine image of a circle), as its perpendicular semi-axes: the pair
   /// nearest [u] and [v].
-  factory ShapeGeometry.ellipse(Offset centre, Offset u, Offset v) {
+  factory ShapeGeometry.ellipse(Offset centre, Offset u, Offset v, {String? origin}) {
     final (a, b) = principalAxes(u, v);
-    return ShapeGeometry(ShapeKind.ellipse, [centre, centre + a, centre + b]);
+    return ShapeGeometry(ShapeKind.ellipse, [centre, centre + a, centre + b], origin: origin);
   }
 
   final ShapeKind kind;
@@ -72,6 +73,19 @@ class ShapeGeometry {
   /// to (connectors), if any; null for other kinds.
   final ShapeAttachment? tail, tip;
 
+  /// The shape's identity across edits: the id of the stroke it was first
+  /// drawn as, which every edit (a new stroke) keeps; null for a shape
+  /// never edited, whose identity is its stroke's own id
+  /// ([Stroke.shapeId]). Connectors refer to it ([ShapeAttachment.id]), so
+  /// an edit of the shape on one device and of its arrow on another still
+  /// meet.
+  final String? origin;
+
+  /// This shape with identity [origin] (see [ShapeGeometry.origin]).
+  ShapeGeometry withOrigin(String? origin) => origin == this.origin
+      ? this
+      : ShapeGeometry(kind, points, inner: inner, tips: tips, tail: tail, tip: tip, origin: origin);
+
   /// The attachment of end [index] (0: tail, 1: tip).
   ShapeAttachment? attachmentOf(int index) => index == 0 ? tail : tip;
 
@@ -85,13 +99,16 @@ class ShapeGeometry {
     points,
     tail: index == 0 ? attachment : tail,
     tip: index == 1 ? attachment : tip,
+    origin: origin,
   );
 
   /// This shape with its attachments changed by [f] (null: detached).
   ShapeGeometry withAttachments(ShapeAttachment? Function(ShapeAttachment a) f) {
     if (!isAttached) return this;
     final a = tail == null ? null : f(tail!), b = tip == null ? null : f(tip!);
-    return a == tail && b == tip ? this : ShapeGeometry(kind, points, tail: a, tip: b);
+    return a == tail && b == tip
+        ? this
+        : ShapeGeometry(kind, points, tail: a, tip: b, origin: origin);
   }
 
   static const double defaultInner = 0.42;
@@ -138,10 +155,12 @@ class ShapeGeometry {
         final round =
             (u2.distance - v2.distance).abs() <= 1e-9 * (u2.distance + v2.distance) &&
             (u2.dx * v2.dx + u2.dy * v2.dy).abs() <= 1e-9 * u2.distanceSquared;
-        return round ? ShapeGeometry(kind, [c2, c2 + u2]) : ShapeGeometry.ellipse(c2, u2, v2);
+        return round
+            ? ShapeGeometry(kind, [c2, c2 + u2], origin: origin)
+            : ShapeGeometry.ellipse(c2, u2, v2, origin: origin);
       case ShapeKind.ellipse:
         final c2 = f(points[0]);
-        return ShapeGeometry.ellipse(c2, f(points[1]) - c2, f(points[2]) - c2);
+        return ShapeGeometry.ellipse(c2, f(points[1]) - c2, f(points[2]) - c2, origin: origin);
       default:
         return withPoints([for (final p in points) f(p)]);
     }
@@ -150,14 +169,19 @@ class ShapeGeometry {
   /// This shape with point [index] at [p].
   ShapeGeometry withPoint(int index, Offset p) => withPoints([...points]..[index] = p);
 
-  /// This shape (same kind, star parameters, attachments) with other
-  /// [points].
+  /// This shape (same kind, star parameters, attachments, origin) with
+  /// other [points].
   ShapeGeometry withPoints(List<Offset> points) =>
-      ShapeGeometry(kind, points, inner: inner, tips: tips, tail: tail, tip: tip);
+      ShapeGeometry(kind, points, inner: inner, tips: tips, tail: tail, tip: tip, origin: origin);
 
   /// This star with another [inner] radius or number of [tips].
-  ShapeGeometry withStar({double? inner, int? tips}) =>
-      ShapeGeometry(kind, points, inner: inner ?? this.inner, tips: tips ?? this.tips);
+  ShapeGeometry withStar({double? inner, int? tips}) => ShapeGeometry(
+    kind,
+    points,
+    inner: inner ?? this.inner,
+    tips: tips ?? this.tips,
+    origin: origin,
+  );
 
   /// The perpendicular semi-axes of the ellipse `u·cos t + v·sin t`: the
   /// pair at the parameter nearest 0 (so already perpendicular axes stay
@@ -176,7 +200,8 @@ class ShapeGeometry {
   /// Compact JSON for storage and sync: `k` the kind, `p` the points as
   /// `[x0, y0, x1, y1, …]`, `i` a star's [inner] radius and `n` its
   /// [tips] (stars only), `a` a line's or arrow's attachments `[tail, tip]`
-  /// (each `{id, t}` or null; absent when neither end is attached).
+  /// (each `{id, t}` or null; absent when neither end is attached), `o`
+  /// the [origin] (absent when null).
   Map<String, Object?> toJson() => {
     'k': kind.name,
     'p': [
@@ -184,6 +209,7 @@ class ShapeGeometry {
     ],
     if (kind == ShapeKind.star) ...{'i': inner, 'n': tips},
     if (isAttached) 'a': [tail?.toJson(), tip?.toJson()],
+    'o': ?origin,
   };
 
   /// Parses [json] strictly (see [toJson]); throws [FormatException] when
@@ -191,6 +217,14 @@ class ShapeGeometry {
   /// without `n` has five points.
   static ShapeGeometry fromJson(Object? json) {
     if (json is! Map) throw const FormatException('Malformed shape');
+    final origin = json['o'];
+    if (origin != null && (origin is! String || origin.isEmpty)) {
+      throw const FormatException('Malformed shape: o');
+    }
+    return _fromJson(json).withOrigin(origin as String?);
+  }
+
+  static ShapeGeometry _fromJson(Map<Object?, Object?> json) {
     final kind = ShapeKind.strict(json['k']);
     final p = json['p'];
     if (p is! List || p.length.isOdd || !isValidCount(kind, p.length ~/ 2)) {
@@ -245,10 +279,11 @@ class ShapeGeometry {
       other.tips == tips &&
       other.tail == tail &&
       other.tip == tip &&
+      other.origin == origin &&
       listEquals(other.points, points);
 
   @override
-  int get hashCode => Object.hash(kind, inner, tips, tail, tip, Object.hashAll(points));
+  int get hashCode => Object.hash(kind, inner, tips, tail, tip, origin, Object.hashAll(points));
 
   @override
   String toString() => 'ShapeGeometry(${toJson()})';

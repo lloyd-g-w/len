@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 /// Where the end of a line or arrow is attached to another shape (a
-/// connector): the shape stroke's [id] and the [at] point on its outline,
+/// connector): the shape's [id] (its identity across edits,
+/// `Stroke.shapeId`) and the [at] point on its outline,
 /// a parameter in 0..1 along the outline in the shape's own terms, so the
 /// end follows the shape when it moves, turns, resizes or is reshaped:
 ///  * rectangle, triangle, diamond, polygon, star: `at · n` is `i + f` for
@@ -11,14 +12,15 @@ import 'package:flutter/foundation.dart';
 ///  * closed curve: `at · n` is `i + f` for `n` anchors, the Bézier
 ///    parameter `f` of the segment from anchor `i`.
 ///
-/// Only closed shapes are targets. A reference to a stroke that is not on
-/// the line's own surface (deleted, replaced without it, another page) is
-/// ignored: the end stays where it is.
+/// Only closed shapes are targets. A reference to a shape that is not on
+/// the line's own surface (deleted, another page) is ignored: the end
+/// stays where it is.
 @immutable
 class ShapeAttachment {
   const ShapeAttachment(this.id, this.at);
 
-  /// The target shape stroke's id.
+  /// The target's shape id (`Stroke.shapeId`: the id of the stroke it was
+  /// first drawn as).
   final String id;
 
   /// The point on its outline, 0 ≤ at < 1.

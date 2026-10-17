@@ -98,6 +98,11 @@ class Stroke {
   /// points without keeping the shape (the pixel eraser) drop it.
   final ShapeGeometry? shape;
 
+  /// The shape's identity across edits, which connectors attach to
+  /// ([ShapeAttachment.id]): its [ShapeGeometry.origin], else this
+  /// stroke's own id (a shape never edited, free-hand ink).
+  String get shapeId => shape?.origin ?? id;
+
   /// The bounding box of [points] inflated by half the maximum line width.
   static Rect computeBounds(List<StrokePoint> points, double width) {
     var minX = double.infinity, minY = double.infinity;
