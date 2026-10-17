@@ -36,6 +36,7 @@ class ContentTools {
   }) : selection = SelectionController(model: model, clipboard: clipboard, clock: clock),
        text = TextEditSession(model: model, clock: clock) {
     lasso.onEditText = editText;
+    _lastTool = tools.tool;
     tools.addListener(_onToolChanged);
     text.addListener(_onTextChanged);
     viewport.addListener(_onViewport);
@@ -67,6 +68,7 @@ class ContentTools {
     viewport: viewport,
     path: lassoPath,
     config: () => tools.lasso,
+    nowMs: clock.nowMs,
   );
   late final ShapeTool shape = ShapeTool(
     model: () => model,
@@ -79,7 +81,7 @@ class ContentTools {
   late final TextTool textTool = TextTool(session: text, tools: tools, viewport: viewport);
   late final LaserTool laserTool = LaserTool(laser, config: () => tools.laser);
 
-  EditorTool _lastTool = EditorTool.pen;
+  late EditorTool _lastTool;
 
   /// The tool to go back to when a text edit started from another tool
   /// ([editText]) ends; null once the user picks a tool themselves.
@@ -147,10 +149,11 @@ class ContentTools {
   SurfaceModel get model => selection.model;
 
   /// Switches surface (page turn): the selection is dropped and a text
-  /// edit in progress is committed to the surface it belongs to. The laser
+  /// edit (or a curve) in progress is committed to the surface it belongs to. The laser
   /// goes too, unless [laserShift] moves it into the new surface's
   /// coordinates (both pages in view: it keeps showing where it was).
   void switchTo(SurfaceModel value, {Offset? laserShift}) {
+    shape.finishCurve(); // On the surface it was drawn on.
     text.model = value;
     selection.model = value;
     lassoPath.clear();
@@ -260,6 +263,7 @@ class ContentTools {
   void _onToolChanged() {
     final tool = tools.tool;
     if (tool == _lastTool) return;
+    if (_lastTool == EditorTool.shape) shape.finishCurve();
     // The lasso's selection goes with it; a live one (under another tool)
     // goes with any tool but the lasso, which takes it over.
     if (_lastTool == EditorTool.lasso || tool != EditorTool.lasso) selection.clear();

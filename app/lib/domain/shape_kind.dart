@@ -32,6 +32,7 @@ enum ShapeKind {
     triangle,
     diamond,
     star,
+    curve,
   ];
 
   /// Outlines that are always closed (start where they end). A curve may

@@ -76,7 +76,11 @@ class ShapeOptionsPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: Gaps.md),
-          Text('Drag to draw, tap a shape to edit it', style: text.bodySmall),
+          if (tools.shape == ShapeKind.curve) ...[
+            Text('Tap for corners, drag for smooth points', style: text.bodySmall),
+            Text('Tap the first point to close, tap twice to finish', style: text.bodySmall),
+          ] else
+            Text('Drag to draw, tap a shape to edit it', style: text.bodySmall),
           // Only a keyboard has Shift.
           if (!Targets.touchFirst)
             Text('Hold Shift for regular shapes and 15° lines', style: text.bodySmall),
