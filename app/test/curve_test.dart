@@ -11,6 +11,7 @@ import 'package:len/ink/input/hold_to_straighten.dart';
 import 'package:len/ink/input/ink_input_controller.dart';
 import 'package:len/ink/input/live_ink.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
+import 'package:len/ink/selection/selection_chrome.dart';
 import 'package:len/ink/shapes/bezier.dart';
 import 'package:len/ink/shapes/curve_fit.dart';
 import 'package:len/ink/shapes/curve_recognizer.dart';
@@ -530,6 +531,46 @@ void main() {
       model.undo();
       model.undo();
       expect(model.strokesNear(const Rect.fromLTWH(0, 0, 800, 600)).single.shape, shape);
+    });
+
+    test('a corner\'s tangents show beside it and pull out from it, one undo step', () {
+      // Three anchors placed by taps: corners, every tangent on its anchor.
+      const a = Offset(100, 300), b = Offset(250, 200), c = Offset(400, 300);
+      final shape = ShapeGeometry(ShapeKind.curve, const [a, a, b, b, b, c, c]);
+      model.addStroke(
+        Stroke(
+          id: 'c',
+          surfaceId: 's',
+          tool: InkTool.ballpoint,
+          color: 0xFF000000,
+          width: 2,
+          points: ShapeBuilder.pointsOf(shape),
+          createdAt: 1,
+          style: ShapeBuilder.styleFor(const StrokeStyle(unit: 1)),
+          shape: shape,
+        ),
+      );
+      model.history.takeUndo();
+      tap((a + b) / 2);
+      expect(content.selection.shape, shape);
+      final shown = {for (final h in SelectionChrome.shapeHandles(shape, viewport)) h.index: h.at};
+      // Every tangent, a fingertip from its anchor along its segment.
+      expect(shown.keys, [0, 1, 2, 3, 4, 5, 6]);
+      final out = shown[4]!;
+      expect((out - b).distance, closeTo(SelectionChrome.crowd, 1e-9));
+      expect((out - b).direction, closeTo((c - b).direction, 1e-9));
+      // Pulled out from where it shows: it grows from its anchor, no jump.
+      final id = ++pointer;
+      const k = PointerDeviceKind.mouse;
+      input.handleDown(PointerDownEvent(pointer: id, kind: k, position: out));
+      input.handleMove(PointerMoveEvent(pointer: id, kind: k, position: out + const Offset(40, 0)));
+      input.handleMove(PointerMoveEvent(pointer: id, kind: k, position: out + const Offset(60, 0)));
+      input.handleUp(PointerUpEvent(pointer: id, kind: k, position: out + const Offset(60, 0)));
+      final pulled = content.selection.shape!;
+      expect(pulled.points[4], offsetMoreOrLessEquals(b + const Offset(60, 0)));
+      expect(pulled.points[2], b); // the other tangent stays (a corner)
+      expect(model.history.takeUndo()!.added.single.shape, pulled);
+      expect(model.history.canUndo, isFalse);
     });
   });
 }

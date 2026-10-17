@@ -89,8 +89,11 @@ abstract final class SelectionChrome {
   /// [shape]'s handles as shown ([ShapeHandles.of]): their index, role
   /// and screen position. Secondary handles (sides, centres, bends,
   /// tangents) step aside where they would crowd a primary one (within
-  /// [crowd] pixels: a small shape shows its corners or radii only), and a
-  /// tangent with no length (a corner anchor) is not shown.
+  /// [crowd] pixels: a small shape shows its corners or radii only). A
+  /// tangent shorter than [crowd] on screen (none at all: a corner anchor)
+  /// is shown [crowd] from its anchor, along itself or else along its
+  /// segment ([ShapeHandles.tangentTowards]), so it can still be pulled
+  /// out; it steps aside where that spot crowds another primary handle.
   static List<({int index, ShapeHandle handle, Offset at})> shapeHandles(
     ShapeGeometry shape,
     ViewportController viewport,
@@ -101,18 +104,26 @@ abstract final class SelectionChrome {
       for (final (i, h) in all.indexed)
         if (h.role.isPrimary) screen[i],
     ];
-    bool crowded(int i) {
+    bool crowds(Offset at, [Offset? own]) =>
+        primary.any((p) => p != own && (p - at).distance < crowd);
+    Offset? place(int i) {
       final h = all[i];
-      if (h.role.isPrimary) return false;
-      if (h.anchor case final anchor?) {
-        return (viewport.toScreen(anchor) - screen[i]).distance < crowd / 2;
-      }
-      return primary.any((p) => (p - screen[i]).distance < crowd);
+      if (h.role.isPrimary) return screen[i];
+      final anchor = h.anchor;
+      if (anchor == null) return crowds(screen[i]) ? null : screen[i];
+      final from = viewport.toScreen(anchor), arm = screen[i] - from;
+      if (arm.distance >= crowd) return screen[i];
+      final towards = arm.distance >= 1
+          ? arm
+          : viewport.toScreen(ShapeHandles.tangentTowards(shape, i)) - from;
+      if (towards.distance < 1) return null;
+      final at = from + towards / towards.distance * crowd;
+      return crowds(at, from) ? null : at;
     }
 
     return [
       for (final (i, h) in all.indexed)
-        if (!crowded(i)) (index: i, handle: h, at: screen[i]),
+        if (place(i) case final at?) (index: i, handle: h, at: at),
     ];
   }
 

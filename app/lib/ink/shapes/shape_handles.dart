@@ -109,6 +109,13 @@ abstract final class ShapeHandles {
     _ => (index + 1) % curve.points.length,
   };
 
+  /// Where curve tangent [index] would point with no length of its own:
+  /// along its segment (the segment's other control point).
+  static Offset tangentTowards(ShapeGeometry curve, int index) {
+    final p = curve.points;
+    return index % 3 == 1 ? p[index + 1] : p[index - 1];
+  }
+
   /// How far [shape] is turned (radians): the direction of a rectangle's
   /// first side, a diamond's left-to-right diagonal, an ellipse's or
   /// star's first axis; 0 for the others, which have no sides of their own
