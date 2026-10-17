@@ -24,6 +24,12 @@ how long the UI thread is held, `bestMs`, `report`).
 | `zoom_window_perf_test.dart` | three full ruled pages: a frame of the page view scrolling with the zoom window open and closed; 60 words written in the box against 60 on the page |
 | `ink_render_perf_test.dart` | (with the Ink Lab cases) 2,000 overlapping shapes outlined and filled: first screen of tiles, pan frames |
 | `scan_perf_test.dart` | a synthetic 12-MP photo: detection, preview, page render and JPEG; the longest UI stretch of the web's banded path |
+| `version_history_perf_test.dart` | making a version of a 1,000-page PDF and of a 50k-stroke canvas: first, after one stroke, unchanged (total, UI turns, peak RSS, blobs written) |
+| `version_history_view_perf_test.dart` | the history view of 200 versions of a 100-page notebook and of 12 versions of a 50k-stroke canvas: open, thumbnails, scroll to the oldest |
+| `connectors_perf_test.dart` | connector repair after a pull (500 boxes, 1,000 arrows, 5,000 strokes); dragging a box with 50 / 200 arrows (per move, editor frame) |
+| `shapes_perf_test.dart` | hold to snap at the end of 2k–10k-point strokes; a curve of 20 / 64 anchors among 2,000 shapes: handle hit test, hover, handle drag |
+| `live_collab_perf_test.dart` | live push tick; remote ink by length; editor frames with three other devices writing and pointing; presence changes |
+| `mouse_ink_perf_test.dart` | mouse ink early and late in a 20,000-move stroke at stabiliser 0 / 30 % / 1: smoother, pipeline, live outline, one path; editor frames |
 
 Run one file with `tool/light.sh flutter test test/perf/<file>`. The widget
 benchmarks run in debug JIT inside the test harness: compare numbers with each
@@ -349,6 +355,81 @@ restore and `open_big` alone (`LEN_EXPLORE_BACKUP`). Read-backs count / ms:
   waited under software GL) and WebGL context creation at start are the
   largest remaining JavaScript long tasks; on a real GPU and with the
   browser's shader cache they are milliseconds.
+
+## The last day's features (branch perf/r13, Oct 2026)
+
+Version history, its view, connectors, shape handles, live collaboration
+and mouse ink, each with a new slow-tier benchmark (`-t slow`, table
+above). Debug JIT in the harness on the shared 6-core machine: the
+"after" run had load average 4–6 at its start, the "before" runs (the
+benchmark at its own commit, before the fix) 1.6–2.1; trust ratios and
+counts, not small differences. Where no before run was made, the before
+is from the fix's commit message.
+
+| Scenario | Before | After |
+|---|---|---|
+| Version, 50k-stroke canvas, first | 4.6 s, longest turn 1,293 ms, peak RSS +125 MB | 5.6 s in 902 turns, longest 25 ms, +22 MB |
+| Version, 50k-stroke canvas, after one stroke | 3.85 s, longest turn 1,189 ms | 245 ms, longest 13 ms, 2 blobs |
+| Version, 50k-stroke canvas, unchanged | 68 ms | 23 ms |
+| Version, 1,000 PDF pages, first | 2.1 s, 207 turns, longest 53 ms | 4.4 s, 1,001 turns (p99 12 ms), longest 59 ms |
+| Version, 1,000 PDF pages, after one stroke / unchanged | 339 / 306 ms, longest 28 / 35 ms | 351 / 295 ms, longest 20 / 32 ms |
+| History view, 50k canvas × 12 versions: thumbnails | 16.5 s in one turn, RSS +1,073 MB; first frame 13.0 s | 1.9 s in 239 turns (max 50 ms), +70 MB; first frame 100 ms |
+| History view, 50k canvas: scrolling | max frame 122 s | median 7 ms, max 622 ms |
+| History view, 100 pages × 200 versions: thumbnails / scroll | 178 ms in one turn; scroll median 405 ms, max 664 ms | 138 ms in 12 turns; median 94 ms, max 202 ms |
+| Connectors, repair after a pull (1,500 shapes, 5,000 strokes): a stroke / a box moved | 25 / 25 ms | 0.04 / 6.6 ms (median 8.6, max 39); full reload 35 ms |
+| Connectors, dragging a box with 200 arrows | 566 ms a move | 4.9 ms (50 arrows 1.8 ms); commit ~50–58 ms |
+| Connectors, drag frame in the editor (50 / 200 arrows) | 3.6 rebuilds, 34.4 paints | 0.6 rebuilds, 2.0 paints; 5.7 / 7.3 ms |
+| Shapes, a handle of a 20-anchor curve dragged | 13.5 ms a move | 0.15–0.19 ms (64 anchors 0.18–0.20) |
+| Shapes, hold to snap at 2k–10k points | (new) | 0.4–5.0 ms, flat with length |
+| Live push tick (a 600-point stroke) | 1.9 ms | 1.1–1.5 ms |
+| Remote ink, a message + a paint at 120 / 600 / 2,400 points | 6.3 / 25.9 / 101.5 ms | 1.0 / 1.0 / 2.1 ms |
+| Editor frame, 3 remote writers / local pen + 3 writers | 13.2 / 6.0 ms | 3.0 / 3.2 ms |
+| Presence join / leave, a frame | 376.5 rebuilds, 497.5 paints, 19.8 ms | 11.5 rebuilds, 497.5 paints, 10.3 ms |
+| Presence, a name changes | (new) | 13 rebuilds, 500 paints, 8.1 ms |
+| Mouse ink, live ink in one path at 58k samples (stabiliser 0) | 651–656 µs a frame (appended verb by verb) | 146–166 µs (a block copy; 30 %: 105, 1: 85) |
+| Mouse ink, a move early → late (input / live outline) | (new) | 38 → 54 / 111 → 126 µs; editor 0.0–0.2 rebuilds, 2 paints a frame |
+
+- **Version history** packs only runs whose content key changed
+  (`version_runs`), reads stroke ids in slices with a mark check, reuses
+  table runs and encodes large ones off the UI thread, links blobs in one
+  statement, and waits while a pointer is down. A first version takes
+  longer in total (sliced into many short turns) but no turn is long; the
+  version after one stroke of a big canvas is 16× cheaper.
+- **History view** loads thumbnails one after another in slices, shares
+  decoded tables and strokes between versions, doesn't copy canvas
+  content, sketches thin ink and paints each thumbnail once.
+- **Connectors**: lines following a dragged shape are drawn as even lines
+  (no outlines per move) and copies near their ends found in one query;
+  repair after a pull reads only changed lines and lines attached to
+  changed shapes, from a new index of live shape strokes (schema 19). The
+  selection's menu and text-box semantics follow a settled listenable, not
+  every move of a gesture.
+- **Shapes**: a handle drag previews the reshaped shape as an even line.
+- **Live collaboration**: remote ink outlines are built as points arrive
+  (`LiveStrokeBuilder`); the editor chrome follows
+  `SharedNotebook.othersHere`, not every presence message; the live push
+  goes through cached prepared statements.
+- **Mouse ink**: the live outline clones its frozen part and appends the
+  tail instead of appending the frozen part verb by verb (pixels
+  unchanged).
+
+What remains:
+
+- **History view of a big canvas**: opening still has one 2.2 s frame
+  (8 thumbnails built of 50k strokes; RSS +183 MB) and a 622 ms frame
+  scrolling; the 100-page notebook scrolls at median 94 ms a frame.
+- **Presence join / leave and a name change** still repaint ~500 render
+  objects a frame (the chrome's layer); the rebuilds are gone, the paints
+  are not.
+- **Live ink in one path** is linear by design (a copy of the frozen part
+  each frame): 7 → 166 µs from early to 58k samples; pen-up after 20,000
+  moves 68–72 ms. Remote ink at 2,400 points (2.1 ms) is twice 600.
+- **Connectors**: a moved box's repair has a 39 ms worst case, a full
+  reload 35 ms; committing a drag ~50–58 ms.
+- A first version of a 1,000-page PDF takes twice as long in total
+  (4.4 s; its longest turn 59 ms, as before).
+
+All 20 slow tests of the six files pass.
 
 ## Current numbers (debug, harness)
 
