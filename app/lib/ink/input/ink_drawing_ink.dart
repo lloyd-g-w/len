@@ -7,20 +7,23 @@ extension _Inking on InkDrawing {
   void _beginInk(PointerDownEvent e) {
     final ink = tools.activeInk;
     final config = tools.configOf(ink);
+    final style = tools.styleFor(ink);
+    // A mouse's stabiliser smooths its path on the screen ([MouseSmoother]),
+    // so the outline adds none.
+    _byMouse = e.kind == PointerDeviceKind.mouse;
     // Ink shows from the first sample, under the nib. The outline smooths
     // at the zoom it is written at (`StrokeStyle.unit`), known now.
     live.begin(
       tool: ink,
       color: config.color,
       width: config.width,
-      style: tools.styleFor(ink).copyWith(unit: 1 / viewport.scale),
+      style: style.copyWith(unit: 1 / viewport.scale, streamline: _byMouse ? 0 : null),
     );
     _endFollowsSpeed = config.ends.endFollowsSpeed;
     live.add(_sampler.first(e));
-    _byMouse = e.kind == PointerDeviceKind.mouse;
     if (_byMouse) {
       final ms = StrokeSampler.msOf(e.timeStamp);
-      _mouse.begin(e.localPosition, ms, width: config.width * viewport.scale);
+      _mouse.begin(e.localPosition, ms, stabiliser: style.streamline);
     }
     _liftSpeed.add(e.localPosition, StrokeSampler.msOf(e.timeStamp));
     _scribble.begin(model, e.localPosition, StrokeSampler.msOf(e.timeStamp));
