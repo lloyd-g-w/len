@@ -19,6 +19,7 @@ import '../documents/export/print_flow.dart';
 import '../documents/pdf/pdf_import_flow.dart';
 import '../documents/scan/scan_flow.dart';
 import '../editor/tabs/editor_workspace.dart' as editor;
+import '../history/version_history_sheet.dart';
 import 'cover_locator.dart';
 import 'library_controller.dart';
 import 'library_dialogs.dart';

@@ -361,6 +361,12 @@ class SyncController extends ChangeNotifier with _SyncRequests {
   @visibleForTesting
   void debugAnnounce(RemoteChanges changes) => _remoteChanges.add(changes);
 
+  /// Tells open screens of changes made here outside them (a version
+  /// restored), as a sync would: they reload what [changes] names.
+  void announce(RemoteChanges changes) {
+    if (!changes.isEmpty && !_remoteChanges.isClosed) _remoteChanges.add(changes);
+  }
+
   /// Starts syncing on its own (see [SyncController]) and syncs once right
   /// away.
   void start() {

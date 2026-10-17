@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../documents/export/export_flow.dart';
 import '../documents/export/print_flow.dart';
+import '../history/version_flows.dart';
+import '../history/version_history_sheet.dart';
 import 'chrome/editor_menu_actions.dart';
 import 'document/document_layout.dart';
 import 'editor_session.dart';
@@ -63,6 +65,8 @@ EditorMenuActions editorMenuActions(
     onBackground: nav == null ? null : onBackground,
     minimap: nav == null ? null : prefs.canvasMinimap,
     onMinimap: nav == null ? null : () => prefs.canvasMinimap = !prefs.canvasMinimap,
+    onSaveVersion: () => saveVersionFlow(context, session.services, session.notebook.id),
+    onVersionHistory: () => showVersionHistory(context, session.services, session.notebook.id),
   );
 }
 

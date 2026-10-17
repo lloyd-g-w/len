@@ -33,6 +33,8 @@ class EditorMenuActions {
     this.onBackground,
     this.minimap,
     this.onMinimap,
+    this.onSaveVersion,
+    this.onVersionHistory,
   });
 
   final VoidCallback onBack;
@@ -89,6 +91,11 @@ class EditorMenuActions {
   /// Whether the minimap shows (null: not a canvas); [onMinimap] toggles it.
   final bool? minimap;
   final VoidCallback? onMinimap;
+
+  /// "Save version…" and "Version history…" (docs/ARCHITECTURE.md,
+  /// "Version history").
+  final VoidCallback? onSaveVersion;
+  final VoidCallback? onVersionHistory;
 
   bool get isPaged => onPageCommand != null;
 }
