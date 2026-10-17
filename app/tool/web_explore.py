@@ -912,7 +912,9 @@ class Walk:
         await page.screenshot(path=os.path.join(OUT, f'{self.name}-{self.n:02}-phone-library.png'))
         await tap(page, 'Explore', exact=False)
         await page.get_by_role('button', name='Back', exact=True).wait_for(timeout=30000)
-        await page.wait_for_timeout(800)
+        # Painted: in a WebAssembly build its first frame may show up to a
+        # second after its nodes (Skwasm rasterises off the main thread).
+        await page.wait_for_timeout(1500)
         await page.screenshot(path=os.path.join(OUT, f'{self.name}-{self.n:02}-phone-editor.png'))
         await page.set_viewport_size({'width': 844, 'height': 390})
         await page.wait_for_timeout(800)
