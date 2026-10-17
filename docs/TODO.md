@@ -220,7 +220,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   element data were fine (link targets remapped when the file holds the page; images are
   blob hashes; recordings follow ink by time, not id).
 
-- ⬜ **Version history follow-ups**: compress packs (and the same bytes on web and native, so
+- 🚧 (feat/version-history-2) **Version history follow-ups**: compress packs (and the same bytes on web and native, so
   they dedupe across platforms); version recordings, the outline and recognised handwriting
   too; smaller version records for very long notebooks (pages' entries in shared blobs, with
   the blob clean-up following them); a golden of the history view.
