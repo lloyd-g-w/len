@@ -198,28 +198,35 @@ class _VersionSurfaceViewState extends State<VersionSurfaceView> {
     return AspectRatio(
       aspectRatio: ratio,
       child: DecoratedBox(
-        decoration: BoxDecoration(boxShadow: Shadows.low(brightness)),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            CustomPaint(
-              painter: _SheetPainter(
-                sheet,
-                widget.images,
-                page == null ? null : widget.version,
-                page,
-              ),
-            ),
-            if (!_loading && sheet == null)
-              Center(
-                child: Icon(
-                  Symbols.cloud_off_sharp,
-                  size: Glyphs.menu,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  semanticLabel: 'Not on this device',
+        // The shadow outside the clip: paper keeps its edge on a light sheet.
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Radii.xs),
+          boxShadow: Shadows.low(brightness),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(Radii.xs),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CustomPaint(
+                painter: _SheetPainter(
+                  sheet,
+                  widget.images,
+                  page == null ? null : widget.version,
+                  page,
                 ),
               ),
-          ],
+              if (!_loading && sheet == null)
+                Center(
+                  child: Icon(
+                    Symbols.cloud_off_sharp,
+                    size: Glyphs.menu,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    semanticLabel: 'Not on this device',
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

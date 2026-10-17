@@ -231,14 +231,7 @@ class _VersionRow extends StatelessWidget {
                 width: 48,
                 child: !v.isCanvas && v.summary.pages == 0
                     ? const SizedBox.shrink()
-                    : ClipRRect(
-                        borderRadius: BorderRadius.circular(Radii.xs),
-                        child: VersionSurfaceView(
-                          sheets: sheets,
-                          version: v,
-                          images: services.images,
-                        ),
-                      ),
+                    : VersionSurfaceView(sheets: sheets, version: v, images: services.images),
               ),
               const SizedBox(width: Gaps.md),
               Expanded(
