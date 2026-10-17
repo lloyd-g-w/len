@@ -221,12 +221,17 @@ The box takes a new id on the new page and the attachment named the old
 one; cut and paste kept it. The attachment now follows the box's new id
 when the line lands on the same page (`selection_pages_test`).
 
-**R25-29 P2 · (suspected) A finger pan starting on another page finishes the curve being drawn.** ⬜
+**R25-29 P2 · (suspected) A finger pan starting on another page finishes the curve being drawn.** ✅
 The first pointer of any gesture activates the page under it, and the page
 switch finishes the curve (a one-anchor curve is dropped). `holds()` keeps
 the page for a selection, not for a curve in progress; counting an active
 curve there keeps it, but then a stylus press on another page would add an
-off-page anchor. Needs a check on the tablet (TODO "Next").
+off-page anchor. Needs a check on the tablet (TODO "Next"). *Fix:* confirmed in a
+widget test. While a curve is drawn, a press that can only pan or zoom (a
+finger while fingers navigate, a mouse's other buttons) keeps its page;
+a press that draws on another page (a stylus) still finishes the curve
+and starts one there, as a tool change does (`curve_pages_test`). With
+finger drawing, a finger there is a drawing press too (it may be a tap).
 
 **R25-30 P3 · Curve hints.** ✅ / ⬜ With Curve picked the keyboard line said
 "Hold Shift…" (Shift does nothing for curves); it now says "Enter finishes

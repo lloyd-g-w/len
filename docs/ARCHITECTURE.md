@@ -390,7 +390,12 @@ Strokes stay in **page-local** coordinates. The ink engine always works on one
 surface, so `PageViewport` adapts the document viewport to the active page
 (`world = document − page origin`) and forwards pans/zooms to the document;
 `PagedDocumentView` makes the page under the first pointer of a gesture (or
-under any stylus) active before handing the event to `InkInputController`.
+under any stylus) active before handing the event to `InkInputController`, except a press
+on the active page's selection (`ContentTools.holds`) and, while a curve is drawn there, a
+press that can only pan or zoom (`InkInputController.onlyNavigates`: a finger while fingers
+navigate, a mouse's other buttons; R25-29), which keep the page so the curve goes on. A press
+that draws on another page (a stylus) finishes the curve where it was drawn and starts
+there, as a tool change would: no anchor ever lands off the curve's page that way.
 Everything the engine draws or hit-tests therefore lands on the right page.
 
 `DocumentSurfaces` holds a `SurfaceModel` + `ChunkPictureCache` only for

@@ -279,8 +279,9 @@ From the reports; the owner picks. Status as above.
   boxes in view (those with nodes) are left out of its value; other pages keep theirs.
 - 🚧 (fix/r25-followups) **A curve in progress and a finger pan on another page** (UX_AUDIT R25-29, suspected): the
   pan's first touch activates that page, which finishes (or, with one anchor, drops) the curve.
-  Check on the tablet; keep the page while a curve is drawn, without letting a stylus add
-  off-page anchors.
+  Done: while a curve is drawn, a press that only pans or zooms (a finger while fingers
+  navigate) keeps its page; a stylus on another page finishes it and starts one there, as
+  before. Still worth a look on the tablet.
 - 🚧 (fix/r25-followups) **Teach curve editing and attaching ends** (UX_AUDIT R25-30): no hint says a tap on a
   selected curve's line adds an anchor and a double tap removes one, or that line and arrow
   ends attach to shapes.
