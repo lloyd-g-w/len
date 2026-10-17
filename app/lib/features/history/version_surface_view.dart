@@ -62,6 +62,10 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
   /// it loads, nor the one marked as not on this device).
   bool get loaded => !_loading && _sheet != null && !_inkPending;
 
+  /// Whether its ink is drawn from a rendered image ([VersionInkImages]).
+  @visibleForTesting
+  bool get showsInkImage => _ink != null;
+
   @override
   void initState() {
     super.initState();
