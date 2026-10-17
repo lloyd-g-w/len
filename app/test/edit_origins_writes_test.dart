@@ -51,18 +51,14 @@ SurfaceElement _text(String id, String surface) => SurfaceElement(
   data: TextData(text: 'words').toJson(),
 );
 
-/// The origin and base columns of row [id] of [table], with its version.
-Map<String, Object?> _bookkeeping(AppServices s, String table, String id) => {
-  ...s.database.db.select(
-    'SELECT updated_at, device_id, deleted, base_at, base_device, origin_at, '
-    'origin_device, origin_for FROM $table WHERE id = ?',
-    [id],
-  ).single,
+/// Every column of row [id] of [table].
+Map<String, Object?> _row(AppServices s, String table, String id) => {
+  ...s.database.db.select('SELECT * FROM $table WHERE id = ?', [id]).single,
 };
 
 void main() {
-  test('a cancelled restore leaves the tombstones of a notebook deleted here knowing what the '
-      'deletion knew, not the restore', () async {
+  test('a cancelled restore puts back the tombstones of a notebook deleted here as they were: '
+      'what the deletion knew and the content it kept, not the restore', () async {
     final s = _services();
     addTearDown(s.dispose);
     final nb = s.notebooks.create(
@@ -77,8 +73,11 @@ void main() {
     final out = OutputMemoryStream();
     await s.lenFiles.write(const LenScope.library(), out);
     final bytes = out.getBytes();
-    s.notebooks.delete(nb.id); // Deleted forever since the backup.
-    final before = [_bookkeeping(s, 'elements', 'box'), _bookkeeping(s, 'outline', entry.id)];
+    // Edited, then deleted forever since the backup: the tombstones keep
+    // content the backup does not hold.
+    s.elements.save([_text('box', page).copyWith(data: TextData(text: 'later words').toJson())]);
+    s.notebooks.delete(nb.id);
+    final before = [_row(s, 'elements', 'box'), _row(s, 'outline', entry.id)];
     expect(before.first['base_at'], isNotNull);
 
     final from = await s.lenFiles.open(InputMemoryStream(bytes));
@@ -94,22 +93,46 @@ void main() {
       ),
       throwsA(isA<Cancelled>()),
     );
-    final after = [_bookkeeping(s, 'elements', 'box'), _bookkeeping(s, 'outline', entry.id)];
-    for (final (i, row) in after.indexed) {
-      expect(row['deleted'], 1);
-      expect(
-        (row['updated_at'], row['device_id']),
-        (before[i]['updated_at'], before[i]['device_id']),
-      );
-      // What the deletion knew, or nothing (unknown); never the restore's own
-      // version, later than every edit it never saw.
-      if (row['base_at'] != null) {
-        expect(
-          (row['base_at'], row['base_device']),
-          (before[i]['base_at'], before[i]['base_device']),
-        );
-      }
-    }
+    // Never the restore's own version as what the deletion knew (later
+    // than every edit it never saw), nor unknown: another device holding
+    // this very version of the tombstone must hold the same.
+    expect([_row(s, 'elements', 'box'), _row(s, 'outline', entry.id)], before);
+  });
+
+  test('a cancelled restore leaves no tombstone of a row edited in place that was not here: '
+      'its deletion may know what this device cannot tell', () async {
+    final s = _services();
+    addTearDown(s.dispose);
+    final nb = s.notebooks.create(
+      title: 'Diary',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    final page = s.pages.pagesOf(nb.id).single.id;
+    s.elements.save([_text('box', page)]);
+    final out = OutputMemoryStream();
+    await s.lenFiles.write(const LenScope.library(), out);
+    final bytes = out.getBytes();
+    s.notebooks.delete(nb.id);
+    // As on a device that pulled the notebook's deletion but not yet the
+    // text box's tombstone (another page of the feed).
+    s.database.db.execute("DELETE FROM elements WHERE id = 'box'");
+
+    final from = await s.lenFiles.open(InputMemoryStream(bytes));
+    final cancel = CancellationToken();
+    await expectLater(
+      s.lenFiles.import(
+        from,
+        keepIds: true,
+        cancel: cancel,
+        onProgress: (done) {
+          if (done == 1) cancel.cancel();
+        },
+      ),
+      throwsA(isA<Cancelled>()),
+    );
+    expect(s.database.db.select("SELECT * FROM elements WHERE id = 'box'"), isEmpty);
   });
 
   test('copies of rows holding an older edit are edits of their own: duplicated notebooks, '
