@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -6,14 +7,19 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../app_services.dart';
 import '../../data/versions/versions.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/dialog_actions.dart';
 import 'version_flows.dart';
 import 'version_labels.dart';
 import 'version_surface_view.dart';
 
+part 'version_preview_parts.dart';
+
 /// A version shown read-only: its pages as thumbnails (a page opens
 /// larger) or its canvas, with Restore and Copy as new notebook; a page
 /// opened offers Restore this page. [onRestored] runs after a restore
-/// (the history closes, to show the notebook).
+/// (the history closes, to show the notebook). On phones the title has the
+/// bar to itself (the version's name heads the pages, in full) and the
+/// commands sit in a bar at the bottom.
 class VersionPreview extends StatelessWidget {
   const VersionPreview({
     super.key,
@@ -35,78 +41,102 @@ class VersionPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final v = version;
-    final theme = Theme.of(context);
     final compact = MediaQuery.sizeOf(context).width < Breakpoints.medium;
+    final copy = TextButton(
+      onPressed: () => unawaited(copyVersionFlow(message, services, v)),
+      child: const Text('Copy as new notebook'),
+    );
+    final restore = FilledButton(
+      onPressed: () => unawaited(_restore(context)),
+      child: const Text('Restore'),
+    );
+    final heading = _Heading(v, madeOn: VersionLabels.madeOn(v, thisDevice: _thisDevice));
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(VersionLabels.when(v), style: theme.textTheme.titleLarge),
-            Text(
-              '${VersionLabels.title(v)} '
-              '${VersionLabels.madeOn(v, thisDevice: services.strokes.deviceId)}',
-              style: theme.textTheme.bodySmall,
+      appBar: compact
+          ? _CompactBar(context, title: VersionLabels.when(v))
+          : AppBar(
+              title: _Title(v, madeOn: VersionLabels.madeOn(v, thisDevice: _thisDevice)),
+              actions: [
+                copy,
+                const SizedBox(width: Gaps.xs),
+                restore,
+                const SizedBox(width: Gaps.lg),
+              ],
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => unawaited(copyVersionFlow(message, services, v)),
-            child: Text(compact ? 'Copy' : 'Copy as new notebook'),
-          ),
-          const SizedBox(width: Gaps.xs),
-          FilledButton(onPressed: () => unawaited(_restore(context)), child: const Text('Restore')),
-          const SizedBox(width: Gaps.lg),
-        ],
-      ),
-      body: v.isCanvas
-          ? Padding(
-              padding: const EdgeInsets.all(Gaps.xl),
-              child: Center(
-                child: InteractiveViewer(
-                  maxScale: 8,
-                  child: VersionSurfaceView(sheets: sheets, version: v, images: services.images),
-                ),
-              ),
-            )
-          : FutureBuilder<VersionBody?>(
-              future: sheets.body(v),
-              builder: (context, snapshot) {
-                final body = snapshot.data;
-                if (body == null) {
-                  return snapshot.connectionState == ConnectionState.done
-                      ? const _Unavailable()
-                      : const SizedBox.shrink();
-                }
-                final pages = body.pages;
-                return GridView.builder(
-                  padding: EdgeInsets.all(compact ? Gaps.lg : Gaps.xxl),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 180,
-                    mainAxisSpacing: Gaps.lg,
-                    crossAxisSpacing: Gaps.lg,
-                    childAspectRatio: 0.62,
-                  ),
-                  itemCount: pages.length,
-                  itemBuilder: (context, i) => _PageTile(
-                    key: ValueKey('version-page-${pages[i].id}'),
-                    index: i,
-                    count: pages.length,
-                    onTap: () => unawaited(_openPage(context, pages[i], i, pages.length)),
-                    child: VersionSurfaceView(
-                      sheets: sheets,
-                      version: v,
-                      page: pages[i],
-                      images: services.images,
-                    ),
-                  ),
-                );
-              },
-            ),
+      bottomNavigationBar: compact ? _ActionBar(children: [copy, restore]) : null,
+      body: v.isCanvas ? _canvas(compact ? heading : null) : _pages(compact ? heading : null),
     );
   }
+
+  String get _thisDevice => services.strokes.deviceId;
+
+  /// A canvas version, under [heading] (phones).
+  Widget _canvas(Widget? heading) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      ?heading,
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.all(Gaps.xl),
+          child: Center(
+            child: InteractiveViewer(
+              maxScale: 8,
+              child: VersionSurfaceView(sheets: sheets, version: version, images: services.images),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+
+  /// A paged version's pages, under [heading] (phones).
+  Widget _pages(Widget? heading) => FutureBuilder<VersionBody?>(
+    future: sheets.body(version),
+    builder: (context, snapshot) {
+      final body = snapshot.data;
+      if (body == null) {
+        return snapshot.connectionState == ConnectionState.done
+            ? Column(
+                children: [
+                  ?heading,
+                  const Expanded(child: _Unavailable()),
+                ],
+              )
+            : const SizedBox.shrink();
+      }
+      final pages = body.pages;
+      final pad = heading == null ? Gaps.xxl : Gaps.lg;
+      return CustomScrollView(
+        slivers: [
+          if (heading != null) SliverToBoxAdapter(child: heading),
+          SliverPadding(
+            padding: EdgeInsets.all(pad),
+            sliver: SliverGrid.builder(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 180,
+                mainAxisSpacing: Gaps.lg,
+                crossAxisSpacing: Gaps.lg,
+                childAspectRatio: 0.62,
+              ),
+              itemCount: pages.length,
+              itemBuilder: (context, i) => _PageTile(
+                key: ValueKey('version-page-${pages[i].id}'),
+                index: i,
+                count: pages.length,
+                onTap: () => unawaited(_openPage(context, pages[i], i, pages.length)),
+                child: VersionSurfaceView(
+                  sheets: sheets,
+                  version: version,
+                  page: pages[i],
+                  images: services.images,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
 
   Future<void> _restore(BuildContext context) async {
     if (!await restoreVersionFlow(context, services, version, message: message)) return;
@@ -117,120 +147,55 @@ class VersionPreview extends StatelessWidget {
   Future<void> _openPage(BuildContext context, VersionPage page, int index, int count) =>
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (pageContext) => Scaffold(
-            appBar: AppBar(
-              title: Text(
-                'Page ${index + 1} of $count',
-                style: Theme.of(pageContext).textTheme.titleMedium,
-              ),
-              actions: [
-                FilledButton(
-                  onPressed: () async {
-                    if (!await restorePageFlow(
-                      pageContext,
-                      services,
-                      version,
-                      page.id,
-                      message: message,
-                    )) {
-                      return;
-                    }
-                    if (!pageContext.mounted) return;
-                    Navigator.of(pageContext)
-                      ..pop()
-                      ..pop();
-                    onRestored?.call();
-                  },
-                  child: const Text('Restore this page'),
-                ),
-                const SizedBox(width: Gaps.lg),
-              ],
-            ),
-            body: Padding(
-              padding: const EdgeInsets.all(Gaps.xl),
-              child: Center(
-                child: InteractiveViewer(
-                  maxScale: 8,
-                  child: VersionSurfaceView(
-                    sheets: sheets,
-                    version: version,
-                    page: page,
-                    images: services.images,
+          builder: (pageContext) {
+            final compact = MediaQuery.sizeOf(pageContext).width < Breakpoints.medium;
+            final title = 'Page ${index + 1} of $count';
+            final restore = FilledButton(
+              onPressed: () async {
+                if (!await restorePageFlow(
+                  pageContext,
+                  services,
+                  version,
+                  page.id,
+                  message: message,
+                )) {
+                  return;
+                }
+                if (!pageContext.mounted) return;
+                Navigator.of(pageContext)
+                  ..pop()
+                  ..pop();
+                onRestored?.call();
+              },
+              child: const Text('Restore this page'),
+            );
+            return Scaffold(
+              appBar: compact
+                  ? _CompactBar(pageContext, title: title)
+                  : AppBar(
+                      title: Text(title, style: Theme.of(pageContext).textTheme.titleMedium),
+                      actions: [
+                        restore,
+                        const SizedBox(width: Gaps.lg),
+                      ],
+                    ),
+              bottomNavigationBar: compact ? _ActionBar(children: [restore]) : null,
+              body: Padding(
+                padding: const EdgeInsets.all(Gaps.xl),
+                child: Center(
+                  child: InteractiveViewer(
+                    maxScale: 8,
+                    child: VersionSurfaceView(
+                      sheets: sheets,
+                      version: version,
+                      page: page,
+                      images: services.images,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       );
-}
-
-/// What a preview shows when the version's pages can't be had.
-class _Unavailable extends StatelessWidget {
-  const _Unavailable();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(Gaps.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Symbols.cloud_off_sharp,
-              size: Glyphs.empty,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: Gaps.md),
-            Text(
-              'This version is not on this device. Connect to sync to see it',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// A page's thumbnail with its number under it.
-class _PageTile extends StatelessWidget {
-  const _PageTile({
-    super.key,
-    required this.index,
-    required this.count,
-    required this.onTap,
-    required this.child,
-  });
-
-  final int index;
-  final int count;
-  final VoidCallback onTap;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: 'Page ${index + 1} of $count',
-    excludeSemantics: true,
-    child: GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Expanded(child: Center(child: child)),
-          const SizedBox(height: Gaps.xs),
-          Text(
-            '${index + 1}',
-            style: Theme.of(context).textTheme.bodySmall
-                ?.copyWith(fontFeatures: AppTheme.tabularFigures),
-          ),
-        ],
-      ),
-    ),
-  );
 }
