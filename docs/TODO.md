@@ -228,6 +228,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
+- ⬜ **⋯ past its cap** (UX_AUDIT R25-33): Save version… and Version history… took ⋯ to 10 rows
+  on a tablet and 12 on a phone (round 24's cap: 8 / 11, merge before adding). Proposal: keep
+  only Version history… (its sheet has Save version… in the header).
 - ⬜ **Undo after a version restore** (UX_AUDIT R25-6): the editor's undo steps from before a
   restore survive it, so Ctrl+Z does nothing visible and Ctrl+Shift+Z writes an old stroke back
   onto the restored page. Decide: drop the undo steps of the surfaces a restore rewrote (its Undo

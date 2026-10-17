@@ -33,7 +33,8 @@ the keyboard; its messages hid under the phone sheet; the presence plates
 pushed All pages off a sideways phone's bar; the laser popover was the
 pen's controls laid open, not the pen's layout, and scrolled on a tablet.
 Two connector cases lost their attachment, and other devices' live ink
-vanished when the writer's pen rested 3 s. 32 findings: 4 P1, 12 P2, 16 P3;
+vanished when the writer's pen rested 3 s, and ⋯ grew past its cap. 33
+findings: 4 P1, 13 P2, 16 P3;
 all P1, 9 P2 and 8 P3 fixed (some in part), with tests.
 
 ### Version history
@@ -70,6 +71,13 @@ copy or restore runs at a time; taps meanwhile are ignored.
 **R25-5 P2 · Delete version deleted at once, named versions too, with no way back.** ✅
 It now says "Version deleted" with Undo (`Versions.undelete` writes the
 row back as a newer edit; its packs are still here).
+
+**R25-33 P2 · ⋯ passed its cap by two rows.** ⬜ Round 24 left ⋯ at 8 rows
+on a tablet and up to 11 on a phone, "the next command merges before it
+adds"; version history added Save version… and Version history… (10 and
+12, `editor_phone_more_menu.png`). *Proposal:* one row, Version history…;
+its sheet's header already has Save version…. Owner's call, as the two
+rows were asked for (TODO "Next").
 
 **R25-6 P2 · After a restore, the editor's Ctrl+Z does nothing and Ctrl+Shift+Z partly undoes the restore.** ⬜
 - *What:* a restore is not an `UndoHistory` step, but the editor's undo
