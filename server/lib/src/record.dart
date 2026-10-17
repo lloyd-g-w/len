@@ -99,6 +99,18 @@ class SyncRecord {
     return this.deviceId.compareTo(deviceId) > 0;
   }
 
+  /// This record as stored at [seq].
+  SyncRecord withSeq(int seq) => SyncRecord(
+    collection: collection,
+    id: id,
+    updatedAt: updatedAt,
+    deviceId: deviceId,
+    deleted: deleted,
+    data: data,
+    base: base,
+    seq: seq,
+  );
+
   /// JSON representation; includes `seq` when known.
   Map<String, Object?> toJson() => {
     'collection': collection,
