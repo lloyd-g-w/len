@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../../app_services.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/recording.dart';
+import '../../../ink/remote_ink.dart';
 import '../../../ink/surface_model.dart';
 import '../../../sync/sync_engine.dart';
 import '../../audio/notebook_audio.dart';
@@ -43,7 +44,14 @@ class SharedNotebook extends ChangeNotifier {
     this._stoppedInBackground,
   }) : _notebook = notebook {
     _remote = services.sync.remoteChanges.listen(_onRemoteChanges);
+    // In the notebook's room: other devices here show in presence, and
+    // their strokes as they are written.
+    services.sync.rooms.join(notebook.id);
+    remoteInk = RemoteInk(services.sync.rooms, room: notebook.id);
   }
+
+  /// The strokes other devices are writing in this notebook right now.
+  late final RemoteInk remoteInk;
 
   final AppServices services;
   final String? Function()? _microphoneBusy;
@@ -200,6 +208,8 @@ class SharedNotebook extends ChangeNotifier {
         _pages?.refresh(surface, ids);
       }
     }
+    // Live ink whose stroke is drawn now goes (after: no frame without it).
+    remoteInk.landed(changes);
   }
 
   /// Called by `SharedNotebooks` when the last editor let go: saves a
@@ -207,6 +217,8 @@ class SharedNotebook extends ChangeNotifier {
   @override
   void dispose() {
     unawaited(_remote.cancel());
+    remoteInk.dispose();
+    services.sync.rooms.leave(id);
     for (final doc in [..._docs.keys]) {
       detachDocument(doc);
     }

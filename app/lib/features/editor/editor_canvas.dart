@@ -84,6 +84,7 @@ class EditorCanvas extends StatelessWidget {
             controller: doc,
             input: session.input,
             live: session.live,
+            remote: session.shared.remoteInk,
             backgrounds: session.backgrounds,
           )
         : CanvasView(
@@ -91,6 +92,7 @@ class EditorCanvas extends StatelessWidget {
             navigation: session.canvasNav!,
             input: session.input,
             live: session.live,
+            remote: session.shared.remoteInk,
             paper: paper,
             paperColor: paperColor,
             insets: chromeInsets,
