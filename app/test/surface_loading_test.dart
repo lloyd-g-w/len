@@ -179,6 +179,40 @@ void main() {
       model.dispose();
     });
 
+    test('reload keeps what is shown until storage answers, then swaps in what differs', () async {
+      repo.save([_stroke('a', const Offset(10, 10)), _stroke('b', const Offset(10, 40))]);
+      final reader = _ManualReader(repo);
+      final model = SurfaceModel(surfaceId: 's', repository: repo, reader: reader)
+        ..ensureLoaded(const Rect.fromLTWH(0, 0, 100, 100));
+      await reader.answer(0);
+      final changes = <SurfaceChange>[];
+      model.changes.listen(changes.add);
+      // Another device erased b and wrote c (a sync wrote it to storage).
+      repo
+        ..delete(['b'])
+        ..save([_stroke('c', const Offset(60, 60))]);
+      model.reload();
+      expect(model.isLoading, isTrue);
+      expect([model.strokeById('a'), model.strokeById('b')], everyElement(isNotNull));
+      // Written here while the read runs: kept, though the read predates it.
+      final local = _stroke('d', const Offset(30, 80));
+      final stale = repo.read('s', reader.calls[1].range);
+      model.addStroke(local);
+      changes.clear();
+      reader.calls[1].done.complete(stale);
+      await Future<void>.delayed(Duration.zero);
+      expect(model.isLoading, isFalse);
+      expect(model.strokeById('a'), isNotNull);
+      expect(model.strokeById('b'), isNull);
+      expect(model.strokeById('c'), isNotNull);
+      expect(model.strokeById('d'), same(local));
+      // One change, of what differs: no "everything" change.
+      expect(changes, hasLength(1));
+      expect(changes.single.chunks, isNotNull);
+      expect(changes.single.areas, hasLength(2));
+      model.dispose();
+    });
+
     test('elements load through the reader; one moved during a read keeps its new place', () async {
       final elements = ElementRepository(db, deviceId: 'd');
       elements.save([textBox('t', const Offset(10, 10)), textBox('far', const Offset(9e5, 0))]);

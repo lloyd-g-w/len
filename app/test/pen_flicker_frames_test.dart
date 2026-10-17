@@ -3,9 +3,13 @@
 // while a stroke is written, at its pen-up and while the ink re-renders —
 // whatever the tile caches are doing meanwhile (renders pending, a zoom
 // being adopted, a text box above the ink, zoomed far out).
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/data/stroke_reader.dart';
+import 'package:len/domain/chunk_digest.dart';
+import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
@@ -169,4 +173,84 @@ void main() {
       scene.dispose();
     });
   });
+
+  testWidgets('a sync bringing a change to the surface (reload) blanks nothing while writing', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final ink = background();
+      // Storage read on a worker (asynchronously), as natively.
+      final reader = LaterReader(MemoryStrokeReader(ink));
+      final scene = InkScene(ink, dpr: 2, reader: reader);
+      await scene.model.loaded;
+      await scene.warm();
+      final f = framesOf(scene);
+      final points = wave();
+      Rect? removed;
+      final frames = await f.draw(
+        points,
+        between: (frame) async {
+          if (frame != 10) return;
+          // Another device removed a stroke and added one, far from here.
+          final gone = ink.first;
+          reader.inner = MemoryStrokeReader([
+            ...ink.skip(1),
+            Stroke(
+              id: 'remote',
+              surfaceId: 's',
+              tool: InkTool.ballpoint,
+              color: 0xFF000000,
+              width: 3,
+              points: const [StrokePoint(500, 40, .5), StrokePoint(560, 50, .5)],
+              createdAt: 7,
+            ),
+          ]);
+          scene.model.reload();
+          removed = gone.bounds;
+        },
+      );
+      f.lift(scene.model);
+      frames
+        ..add(await f.frame())
+        ..addAll(await f.until(() => settledTiles(scene) && !scene.model.isLoading));
+      final gone = removed!.inflate(4);
+      await expectNoLostInk(
+        frames,
+        except: [
+          ...endOf(f, points),
+          // The stroke the other device erased goes.
+          (gone.topLeft * 2) & (gone.size * 2),
+        ],
+      );
+      expect(scene.model.strokeById('remote'), isNotNull);
+      expect(scene.model.strokeById(ink.first.id), isNull);
+      scene.dispose();
+    });
+  });
+}
+
+/// Reads through [inner] a little later, as a worker isolate does.
+class LaterReader implements StrokeReader {
+  LaterReader(this.inner);
+  StrokeReader inner;
+
+  Future<T> _later<T>(FutureOr<T> Function() read) async {
+    await Future<void>.delayed(const Duration(milliseconds: 15));
+    return read();
+  }
+
+  @override
+  Future<ChunkLoad> read(String surfaceId, ChunkRange range, {Set<ChunkKey> skip = const {}}) =>
+      _later(() => inner.read(surfaceId, range, skip: skip));
+
+  @override
+  Future<Map<ChunkKey, ChunkDigest>> chunkDigests(String surfaceId, ChunkRange range) =>
+      _later(() => inner.chunkDigests(surfaceId, range));
+
+  @override
+  Future<Map<ChunkKey, int>> chunkDensity(String surfaceId) =>
+      _later(() => inner.chunkDensity(surfaceId));
+
+  @override
+  Future<Rect?> contentBounds(String surfaceId) => _later(() => inner.contentBounds(surfaceId));
 }

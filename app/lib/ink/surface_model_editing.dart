@@ -124,6 +124,13 @@ mixin _SurfaceEditing on _SurfaceState {
         _write(edit);
       }
     }
+    if (_reloadEdits case final edits?) {
+      edits
+        ..addAll(edit.added.map((s) => s.id))
+        ..addAll(edit.removed.map((s) => s.id))
+        ..addAll(edit.addedElements.map((e) => e.id))
+        ..addAll(edit.removedElements.map((e) => e.id));
+    }
     if (_preparing > 0) {
       _removedWhilePreparing
         ..addAll(edit.removed.map((s) => s.id))

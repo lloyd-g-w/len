@@ -46,8 +46,8 @@ class Frame {
 /// Pixels of [a] that are ink (darker than [ink]) where [b] is at least
 /// [by] lighter, in the pixel and every pixel within [near] of it: ink
 /// that frame [b] lost (a resampled or sharper rendering of the same ink
-/// moves edges by a pixel, which is no loss). Pixels within [except]
-/// (device pixels) are not counted.
+/// moves edges by a pixel, which is no loss). Only pixels [within] (if
+/// given) and not within [except] (device pixels) are counted.
 int lostInk(
   Frame a,
   Frame b, {
@@ -55,6 +55,7 @@ int lostInk(
   int by = 64,
   int near = 1,
   List<Rect> except = const [],
+  Rect? within,
 }) {
   var lost = 0;
   final w = a.width, h = a.height;
@@ -73,6 +74,7 @@ int lostInk(
     final da = a.darkness(i);
     if (da < ink || da - b.darkness(i) < by) continue;
     final x = i % w, y = i ~/ w;
+    if (within != null && !within.contains(Offset(x + 0.5, y + 0.5))) continue;
     if (kept(x, y, da)) continue;
     if (except.isNotEmpty && except.any((r) => r.contains(Offset(x + 0.5, y + 0.5)))) continue;
     lost++;

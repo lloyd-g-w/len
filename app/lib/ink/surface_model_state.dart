@@ -101,6 +101,10 @@ abstract class _SurfaceState extends ChangeNotifier {
 
   int _preparing = 0;
 
+  /// Ids of items edited here while a reload reads storage (null: none
+  /// running): the reload keeps them as they are in memory.
+  Set<String>? _reloadEdits;
+
   /// Ids removed while loads were being prepared: those loads must not
   /// bring them back.
   final Set<String> _removedWhilePreparing = {};

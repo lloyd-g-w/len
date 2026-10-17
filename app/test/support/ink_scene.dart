@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/stroke_reader.dart';
 import 'package:len/data/stroke_repository.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/ink/render/chunk_picture_cache.dart';
@@ -52,11 +53,12 @@ class InkScene {
     Duration batchBudget = const Duration(milliseconds: 4),
     RasterBatch? batch,
     OutlinePreparer? outlines,
+    StrokeReader? reader,
   }) {
     model = SurfaceModel(
       surfaceId: 's',
       repository: StrokeRepository(db, deviceId: 'd'),
-      reader: MemoryStrokeReader(strokes),
+      reader: reader ?? MemoryStrokeReader(strokes),
       maxLoadedChunks: 1 << 20,
       outlines: outlines,
     );

@@ -210,32 +210,18 @@ mixin _SurfaceLoading on _SurfaceState {
     if (_loaded.length > maxLoadedChunks) _evictOutside();
   }
 
-  /// Drops everything in memory and reloads from storage (e.g. after a sync
-  /// brought in remote changes).
-  void reload() {
-    flush();
-    _generation++;
-    _strokes.clear();
-    _elements.clear();
-    _loaded.clear();
-    _arriving.clear();
-    _views.clear();
-    _loading.reset();
-    _changes.add(const SurfaceChange(null));
-    final ranges = _views.loadedRanges;
-    if (ranges.isNotEmpty) _request(ranges.first);
-    notifyListeners();
-  }
-
   /// Unloads every chunk away from the views. An item stays in memory while any
   /// loaded chunk still needs it. Only the affected chunks are invalidated,
   /// so cached pictures of what is on screen survive.
-  void _evictOutside() {
+  void _evictOutside() => _evictWhere((key) => !_views.keeps(key));
+
+  /// Unloads the loaded chunks [drop] picks (see [_evictOutside]).
+  void _evictWhere(bool Function(ChunkKey key) drop) {
     final evicted = <ChunkKey>{};
     final strokes = <Stroke>{};
     final elements = <SurfaceElement>{};
     _loaded.removeWhere((key) {
-      if (_views.keeps(key)) return false;
+      if (!drop(key)) return false;
       evicted.add(key);
       strokes.addAll(_strokes.inChunk(key));
       elements.addAll(_elements.inChunk(key));
