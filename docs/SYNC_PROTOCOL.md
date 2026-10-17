@@ -223,12 +223,28 @@ world unit, pressure to a thousandth), sent only while someone else is in the ro
 `from` on (`from` > 0: only those after the points sent before; a stroke replaced whole, e.g.
 straightened or snapped, starts again at 0, and a receiver drops its points from `from` on). A
 receiver that missed points (`from` beyond what it has) waits for the next start. Then `{"k":
-"ink", "s": "<id>", "end": true, "stroke": "<stroke id>"}` when it ends: `stroke` names the
-stroke record it became (absent when it was dropped, or committed in another form, e.g. a
-highlight snapped to text). Other devices draw it as provisional ink over the page until that
-stroke's record arrives (at once if it came first), without `stroke` at once, and drop it after
-2 s waiting for the record, after 3 s of silence while written, or when its writer leaves the
-room (or the receiver's connection drops).
+"ink", "s": "<id>", "end": true, "strokes": ["<stroke id>", …]}` when it ends: `strokes` names the
+stroke records it became — one, or several for a highlight snapped to text (one per line it
+covers) — and is absent when it was dropped. Other devices draw it as provisional ink over the
+page until every one of those records arrived and shows (at once if they came first; a page
+reloading whole, as for 500+ changes or a selection in the way, first finishes loading them),
+without `strokes` at once, and drop it after 2 s waiting for the records (counted afresh once
+they arrived on a page still reloading), after 3 s of silence while written, or when its writer
+leaves the room (or the receiver's connection drops).
+
+`{"k": "pointer", "page": "<surface id>", "at": [x, y], "laser": {…}}` tells where a device
+points, in `page`'s coordinates (to a hundredth of a world unit): `at` alone is a hovering pen or
+mouse; with `laser` it is the laser's dot, and `laser` is `{"mode": "dot"|"trail", "color":
+<ARGB>, "size": <screen px>, "duration": <ms>, "fade": "stroke"|"pause", "hold": <ms>, "down":
+<bool>, "hover": true (a mouse pointing without pressing), "p": [x0, y0, x1, …], "starts": [i,
+…]}` (how it looks, as the tool settings say; whether it is pressed; the trail points recorded
+since the previous message, at most 200; `starts`: the indices of the points in `p` that begin a
+new trail stroke). Without `at` the device points nowhere any more (left the surface, pressed to
+write, the laser lifted: a laser fades on its own). Sent only while someone else is in the room,
+when something changed, at most every 40 ms (25 a second); a laser held down or hovering is told
+again every second. A receiver replays the laser as the sender shows it, drops what it showed
+when `page` changes (another page's coordinates), hides a pointer it has not heard of for 3 s (a
+mouse at rest), and every pointer of a device that leaves the room.
 
 **Client use (Len).** One live connection while the app is in the foreground (the same rules as
 the event stream: closed in the background, and on Android while the screen is off; reconnecting

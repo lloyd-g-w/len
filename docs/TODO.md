@@ -109,10 +109,18 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   over loopback); the stroke being written drawn live on the others (replaced by its record),
   presence plates in the editor bar; the event stream and the cycle as fallbacks. Cursors
   are not sent yet (the room data has room for them).
-- ⬜ **Live sync follow-ups**: cursors / pointers of other devices (the laser too); no gap
-  between another device's live stroke and its record when the page reloads fully (500+
-  changes, a selection in the way) or for a highlight snapped to text (it ends without a stroke
-  id); an e2e run with two real app instances over the live channel.
+- ⬜ **Live sync follow-ups** (feat/live-sync-3): cursors / pointers of other devices (the laser
+  too); no gap between another device's live stroke and its record when the page reloads fully
+  (500+ changes, a selection in the way) or for a highlight snapped to text (it ends without a
+  stroke id); an e2e run with two real app instances over the live channel. Done: other
+  devices' hovering pen or mouse (a dot) and laser (dot and trail, replayed as they show it)
+  drawn live on the right page or the canvas, labelled with their presence plate, sent at most
+  25 times a second and only while someone else is in the room (`PointerRelay` hooks in only
+  then), hidden after 3 s at rest or when they leave (`"k": "pointer"` messages); a live
+  stroke's end names every stroke it became (`strokes`: a snapped highlight's lines too), and
+  its ink stays on a surface reloading whole until the reload brings the stroke in;
+  `integration_test/live_test.dart` runs two app instances at once (`LEN_E2E_PHASES=live
+  tool/e2e.sh`): B sees A's pointer, live stroke and record with no pull.
 - ✅ **`flutter run --release -d linux` fails to link** (owner): it builds and runs inside
   `nix develop`; a Flutter from outside the dev shell lacks its toolchain and libraries. The
   repo has an `.envrc` (direnv: `use flake`) and the README says so.
