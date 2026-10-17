@@ -4,7 +4,9 @@ import 'laser_config.dart';
 /// default. The quick colours go with their selection (a list of
 /// [LaserConfig.minSlots]..[LaserConfig.maxSlots] opaque colours and an
 /// index into it), as do the sizes (in [LaserConfig.minSize]..
-/// [LaserConfig.maxSize]); durations are clamped to their ranges.
+/// [LaserConfig.maxSize]); durations are clamped to their ranges. Settings
+/// saved before the trail had the pen's feel (no pressure sensitivity,
+/// stabiliser or ends) load with today's look.
 abstract final class LaserConfigJson {
   static LaserConfig parse(Object? json) {
     if (json is! Map) return const LaserConfig();
@@ -19,6 +21,7 @@ abstract final class LaserConfigJson {
     final sizesOk = sizes != null && sizeIndex != null;
     final duration = json['duration'];
     final hold = json['hold'];
+    final ends = PenEnds.fromJson(json['ends']);
     return LaserConfig(
       mode: LaserMode.parse(json['mode']),
       colors: colorsOk ? colors : LaserConfig.defaultColors,
@@ -32,8 +35,16 @@ abstract final class LaserConfigJson {
       hold: hold is int
           ? _clamp(hold, LaserConfig.minHold, LaserConfig.maxHold)
           : LaserConfig.defaultHold,
+      thinning: _unit(json['thinning']),
+      streamline: _unit(json['streamline']),
+      ends: ends != null && LaserConfig.endStyles.contains(ends.style)
+          ? ends
+          : LaserConfig.defaultEnds,
     );
   }
+
+  /// A fraction 0..1, else 0 (off).
+  static double _unit(Object? raw) => raw is num && raw >= 0 && raw <= 1 ? raw.toDouble() : 0;
 
   static Duration _clamp(int ms, Duration min, Duration max) =>
       Duration(milliseconds: ms.clamp(min.inMilliseconds, max.inMilliseconds));
