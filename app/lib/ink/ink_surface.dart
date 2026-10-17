@@ -126,9 +126,11 @@ class _InkSurfaceState extends State<InkSurface> {
     return LayoutBuilder(
       builder: (context, constraints) {
         _onLayout(constraints.biggest);
-        return MouseRegion(
-          cursor: SystemMouseCursors.precise,
-          onExit: (_) => input.handleExit(),
+        // What a press would do to the selection, else drawing.
+        return ValueListenableBuilder<MouseCursor>(
+          valueListenable: input.cursor,
+          builder: (context, cursor, child) =>
+              MouseRegion(cursor: cursor, onExit: (_) => input.handleExit(), child: child),
           child: Listener(
             behavior: HitTestBehavior.opaque,
             onPointerDown: input.handleDown,

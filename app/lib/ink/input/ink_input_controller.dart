@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/clock.dart';
 import '../../domain/preferences.dart';
@@ -130,6 +132,14 @@ class InkInputController {
 
   bool _stylusSeen = false;
 
+  /// The mouse cursor over the surface: what a press there would do to the
+  /// selection or a curve being drawn (`ContentTools.cursorAt`), else the
+  /// drawing crosshair. Held while a press drags (a grab turns grabbing).
+  final ValueNotifier<MouseCursor> cursor = ValueNotifier(SystemMouseCursors.precise);
+
+  void _pointAt(Offset screen) =>
+      cursor.value = content?.cursorAt(tools.tool, screen) ?? SystemMouseCursors.precise;
+
   /// Touches landing this soon after the pen was touching or hovering are
   /// taken for the writing hand's palm: they neither navigate nor draw.
   static const Duration palmQuiet = Duration(milliseconds: 300);
@@ -148,6 +158,7 @@ class InkInputController {
         _stylusDown(e);
       case PointerDeviceKind.mouse:
         if (e.buttons & kPrimaryMouseButton != 0 && _draw.pointer == null) {
+          if (cursor.value == SystemMouseCursors.grab) cursor.value = SystemMouseCursors.grabbing;
           _draw.start(e, erase: tools.tool == EditorTool.eraser);
         } else {
           _nav.add(e.pointer, e.localPosition);
@@ -176,6 +187,7 @@ class InkInputController {
     if (e.pointer == _draw.pointer) _draw.up(e);
     _nav.up(e);
     gestures?.up(e);
+    if (e.kind == PointerDeviceKind.mouse) _pointAt(e.localPosition);
   }
 
   /// The platform took the pointer back (the window lost focus, rotated, a
@@ -201,6 +213,7 @@ class InkInputController {
     // the pen hovers.
     if (isStylusKind(e.kind) && _draw.holdsErase) _draw.cancel();
     if (_draw.pointer != null) return; // Don't fight the active pointer.
+    if (e.kind == PointerDeviceKind.mouse) _pointAt(e.localPosition);
     samples?.hover(e);
     _draw.showEraser(_wantsErase(e) ? e.localPosition : null);
     _draw.showPen(_previewsInk(e) ? e.localPosition : null);
