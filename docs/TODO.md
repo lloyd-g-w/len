@@ -170,6 +170,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   every device sees the same history; storage budget and "Delete older versions"; works on the
   web and offline. Designed with live collaboration in mind (who changed what).
 
+- ⬜ **Len import keeps text flow links**: import gives elements new ids; check that text boxes
+  flowing across pages keep their links (remap them as strokes' are), with a test.
+
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
