@@ -9,7 +9,7 @@ import '../../domain/stroke.dart';
 /// and the eraser cursor. Kept separate from [SurfaceModel] so that only the
 /// lightweight live layer repaints on every pointer move.
 class LiveInk extends ChangeNotifier {
-  final List<StrokePoint> _points = [];
+  List<StrokePoint> _points = [];
   int _revision = 0;
 
   InkTool tool = InkTool.ballpoint;
@@ -116,10 +116,11 @@ class LiveInk extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Ends the live stroke and returns its points.
+  /// Ends the live stroke and returns its points (handed over, not
+  /// copied: a long stroke's are many).
   List<StrokePoint> finish() {
-    final points = List<StrokePoint>.of(_points);
-    _points.clear();
+    final points = _points;
+    _points = [];
     _tip = const [];
     straightened = false;
     shape = null;

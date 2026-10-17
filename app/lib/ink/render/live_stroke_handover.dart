@@ -42,10 +42,10 @@ class _Shown {
 
 /// The hand-over at pen-up with the stabiliser on.
 extension _Handover on LiveStrokeBuilder {
-  /// Writes the committed outline of the ended line into [out] as the
-  /// last frame [shown] drew it, and the rest of the line from where that
-  /// frame's line ended; false (nothing written) when the line changed
-  /// there (an end taper reaching back into it, changed input).
+  /// The committed outline of the ended line as the last frame [shown]
+  /// drew it, and the rest of the line from where that frame's line ended;
+  /// null when the line changed there (an end taper reaching back into
+  /// it, changed input).
   ///
   /// The outline is the same area as rebuilt, but every edge the last
   /// frame drew is drawn again, the same curves. Rebuilt, the cubics
@@ -53,10 +53,10 @@ extension _Handover on LiveStrokeBuilder {
   /// frame fitted them up to where its line ended), and an outline of the
   /// same area but other curves is rasterised a little differently: edge
   /// pixels there changed shade at pen-up (by up to a quarter, at 110 %).
-  bool _handOver(_Shown? shown, Path out) {
-    if (shown == null) return false;
+  Path? _handOver(_Shown? shown) {
+    if (shown == null) return null;
     final end = shown.end;
-    if (_shaper.taperedFrom <= end + 1 || !shown.agrees(_shaper)) return false;
+    if (_shaper.taperedFrom <= end + 1 || !shown.agrees(_shaper)) return null;
     final prefix = RibbonEmitter(
       RibbonPrefix(_shaper, end + 1),
       flatCaps: false,
@@ -65,7 +65,9 @@ extension _Handover on LiveStrokeBuilder {
       lookahead: 1,
     );
     final join = prefix.endJoin();
-    final sink = PathSink(out..addPath(shown.frozen, Offset.zero));
+    // The frozen part copied (a block copy), the rest after it.
+    final out = Path.from(shown.frozen);
+    final sink = PathSink(out);
     if (join != null && _emitter.continuesAt(join)) {
       // Cut where it ended, and continued edge to edge from the cut.
       prefix.emitCut(sink, from: (at: shown.from, cut: false));
@@ -77,7 +79,7 @@ extension _Handover on LiveStrokeBuilder {
       prefix.emit(sink, from: (at: shown.from, cut: false));
       _emitter.emit(sink, from: (at: end, cut: false));
     }
-    return true;
+    return out;
   }
 }
 

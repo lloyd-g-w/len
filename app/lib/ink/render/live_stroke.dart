@@ -178,16 +178,17 @@ class LiveStrokeBuilder {
         _shaper
           ..taperEnd = spec.taperEnd
           ..update(ended: true, keep: keep);
-        final out = Path();
         if (StrokeOutline.isDot(_shaper)) {
+          final out = Path();
           StrokeOutline.dot(PathSink(out), _shaper, spec);
           return out;
         }
-        if (_handOver(shown, out)) return out;
+        if (_handOver(shown) case final out?) return out;
         // The end taper's pieces, and a flat end's (cut off at the end).
         final redo = math.min(_shaper.taperedFrom, _emitter.endZoneFrom());
         if (!_unfreeze(redo)) return StrokeOutline.build(points, spec);
-        out.addPath(_frozen, Offset.zero);
+        // The frozen part copied (a block copy) and the rest after it.
+        final out = Path.from(_frozen);
         _emitter.emit(PathSink(out), from: _cursor);
         return out;
       }

@@ -63,10 +63,11 @@ class Stroke {
     required this.createdAt,
     StrokeStyle? style,
     this.shape,
+    Rect? bounds,
   }) : assert(points.isNotEmpty, 'A stroke needs at least one point'),
        style = style ?? StrokeStyle.defaultsFor(tool),
        points = List.unmodifiable(points),
-       bounds = computeBounds(points, width);
+       bounds = bounds ?? computeBounds(points, width);
 
   final String id;
 
@@ -90,7 +91,8 @@ class Stroke {
   /// strokes are painted in this order and audio replay shows them from it.
   final int createdAt;
 
-  /// Conservative world-space bounds including the stroke's thickness.
+  /// Conservative world-space bounds including the stroke's thickness
+  /// ([computeBounds]; passed to the constructor when already known).
   final Rect bounds;
 
   /// The geometry of a shape (drawn with the Shape tool or snapped), whose
