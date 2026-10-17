@@ -99,6 +99,9 @@ class InkDrawing {
   /// The stroke the contact just ended left, if any.
   Stroke? _committed;
 
+  /// Whether this contact began a live stroke ([InkEvents.inkBegan]).
+  bool _inkBegan = false;
+
   int? _drawPointer;
   PointerDeviceKind? _drawKind;
   Duration _drawStartTime = Duration.zero;
@@ -251,6 +254,8 @@ class InkDrawing {
   void _reset() {
     _straighten.end();
     _scribble.end();
+    if (_inkBegan) events.inkEnded?.call(_committed?.id);
+    _inkBegan = false;
     samples?.end(committed: _committed);
     _committed = null;
     _drawPointer = null;
@@ -292,5 +297,6 @@ class InkDrawing {
     screen: e.localPosition,
     world: viewport.toWorld(e.localPosition),
     pressure: StrokeSampler.pressureOf(e),
+    kind: e.kind,
   );
 }

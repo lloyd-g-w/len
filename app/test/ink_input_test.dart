@@ -94,6 +94,23 @@ void main() {
     expect(live.isDrawing, isFalse);
   });
 
+  test('a live stroke tells when it begins and the stroke it ended as (live ink)', () {
+    final began = <String>[];
+    final ended = <String?>[];
+    input.events
+      ..inkBegan = began.add
+      ..inkEnded = ended.add;
+    drawLine(_Pointer(1, PointerDeviceKind.stylus), const Offset(10, 10), const Offset(100, 10));
+    expect(began, ['s']);
+    expect(ended, hasLength(1));
+    expect(model.strokeById(ended.single!), isNotNull, reason: 'the committed stroke');
+    // Erasing is no live stroke.
+    final eraser = _Pointer(2, PointerDeviceKind.invertedStylus);
+    drawLine(eraser, const Offset(50, -20), const Offset(50, 40));
+    expect(began, hasLength(1));
+    expect(ended, hasLength(1));
+  });
+
   test('S Pen side button (kPrimaryStylusButton) erases instead of drawing', () {
     drawLine(_Pointer(1, PointerDeviceKind.stylus), const Offset(10, 10), const Offset(100, 10));
     final button = _Pointer(2, PointerDeviceKind.stylus, buttons: kPrimaryStylusButton);

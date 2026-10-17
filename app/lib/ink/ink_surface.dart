@@ -5,10 +5,12 @@ import '../domain/chunk_grid.dart';
 import '../domain/paper.dart';
 import 'input/ink_input_controller.dart';
 import 'input/live_ink.dart';
+import 'remote_ink.dart';
 import 'render/chunk_picture_cache.dart';
 import 'render/chunk_raster_cache.dart';
 import 'render/ink_painters.dart';
 import 'render/paper_painter.dart';
+import 'render/remote_ink_painter.dart';
 import 'render/stored_rasters.dart';
 import 'render/tiles/ink_tile_cache.dart';
 import 'surface_model.dart';
@@ -24,6 +26,7 @@ class InkSurface extends StatefulWidget {
     required this.viewport,
     required this.input,
     required this.live,
+    this.remote,
     required this.paper,
     this.paperColor = PaperColor.white,
     this.page,
@@ -33,6 +36,9 @@ class InkSurface extends StatefulWidget {
   final ViewportController viewport;
   final InkInputController input;
   final LiveInk live;
+
+  /// Strokes other devices are writing here right now (live sync).
+  final RemoteInk? remote;
   final Paper paper;
   final PaperColor paperColor;
 
@@ -182,6 +188,16 @@ class _InkSurfaceState extends State<InkSurface> {
                     ),
                   ),
                 ),
+                if (widget.remote case final remote?)
+                  RepaintBoundary(
+                    child: CustomPaint(
+                      painter: RemoteInkPainter(
+                        remote: remote,
+                        viewport: widget.viewport,
+                        frameOf: (id) => id == widget.model.surfaceId ? Rect.largest : null,
+                      ),
+                    ),
+                  ),
                 RepaintBoundary(
                   child: CustomPaint(
                     painter: LiveInkPainter(

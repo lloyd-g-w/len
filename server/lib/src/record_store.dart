@@ -10,7 +10,12 @@ import 'record.dart';
 
 /// Outcome of [RecordStore.push].
 class PushResult {
-  const PushResult({required this.applied, required this.ignored, required this.serverSeq});
+  const PushResult({
+    required this.applied,
+    required this.ignored,
+    required this.serverSeq,
+    this.stored = const [],
+  });
 
   /// Number of records that were stored or replaced.
   final int applied;
@@ -20,6 +25,10 @@ class PushResult {
 
   /// Current maximum seq after the push.
   final int serverSeq;
+
+  /// The records stored or replaced, with their new seqs (ascending and
+  /// consecutive, the last one [serverSeq]): what live connections are sent.
+  final List<SyncRecord> stored;
 }
 
 /// One page of the change feed returned by [RecordStore.pull].
@@ -154,7 +163,7 @@ class RecordStore {
     _checkSince(since);
     return _transaction(() {
       var seq = currentSeq();
-      var applied = 0;
+      final applied = <SyncRecord>[];
       final lookup = _db.prepare(
         'SELECT updated_at, device_id FROM records '
         'WHERE collection = ? AND id = ?',
@@ -183,7 +192,7 @@ class RecordStore {
               );
           if (!wins) continue;
           seq++;
-          applied++;
+          applied.add(record.withSeq(seq));
           upsert.execute([
             record.collection,
             record.id,
@@ -200,7 +209,12 @@ class RecordStore {
         lookup.close();
         upsert.close();
       }
-      return PushResult(applied: applied, ignored: records.length - applied, serverSeq: seq);
+      return PushResult(
+        applied: applied.length,
+        ignored: records.length - applied.length,
+        serverSeq: seq,
+        stored: applied,
+      );
     });
   }
 

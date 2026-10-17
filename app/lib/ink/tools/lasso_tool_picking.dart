@@ -1,44 +1,37 @@
 part of 'lasso_tool.dart';
 
 /// What a press, tap or loop of the lasso picks: hit tests by the gesture's
-/// [LassoConfig], taps (a second one on a text box edits it), loops, and
-/// where a dragged shape point goes.
+/// [LassoConfig], taps (a second one on a text box edits it, on a curve's
+/// anchor removes it; one on a curve's line adds an anchor), and loops.
 extension _LassoPicking on LassoTool {
-  /// Where a dragged shape point goes for the pointer at [world]. With
-  /// Shift, a line's or arrow's end keeps to 15° steps around the other,
-  /// and a rectangle's or ellipse's corner to its diagonal (proportions
-  /// kept); without, they snap when nearly level or square ([ShapeSnap]).
-  Offset _reshapeTarget(Offset world) {
-    final shape = _shape!;
-    if (!HardwareKeyboard.instance.isShiftPressed) return _snapTarget(shape, world);
-    switch (shape.kind) {
-      case ShapeKind.line || ShapeKind.arrow:
-        return ShapeTool.constrain(shape.kind, shape.points[1 - _point], world);
-      case ShapeKind.rectangle || ShapeKind.ellipse:
-        final corners = ShapeHandles.of(shape);
-        final opposite = corners[(_point + 2) % 4], diagonal = corners[_point] - opposite;
-        final d = world - opposite;
-        final t = (d.dx * diagonal.dx + d.dy * diagonal.dy) / diagonal.distanceSquared;
-        return diagonal == Offset.zero ? world : opposite + diagonal * t;
-      case ShapeKind.triangle || ShapeKind.diamond || ShapeKind.polygon || ShapeKind.star:
-        return world;
-    }
+  /// A tap on handle [_point] of [_shape]: the second of a double tap on a
+  /// curve's anchor removes it (a curve keeps two at least).
+  void _tapHandle() {
+    final shape = _shape!, now = _now();
+    final last = _lastHandleTap;
+    _lastHandleTap = (point: _point, time: now);
+    if (shape.kind != ShapeKind.curve || _point % 3 != 0 || shape.anchorCount <= 2) return;
+    if (last == null || last.point != _point || now - last.time > LassoTool.doubleTapMs) return;
+    _lastHandleTap = null;
+    final closed = shape.isClosed;
+    selection
+      ..reshape(shape.withPoints(Bezier.removeAnchor(shape.points, _point ~/ 3, closed: closed)))
+      ..commitReshape();
   }
 
-  /// [world] snapped for a dragged point of [shape] without Shift: a
-  /// line's end nearly level, upright or diagonal, a rectangle's or
-  /// ellipse's corner nearly square.
-  Offset _snapTarget(ShapeGeometry shape, Offset world) {
-    switch (shape.kind) {
-      case ShapeKind.line || ShapeKind.arrow:
-        return ShapeSnap.lineEnd(shape.points[1 - _point], world);
-      case ShapeKind.rectangle || ShapeKind.ellipse:
-        if (_point > 3) return world;
-        final opposite = ShapeHandles.of(shape)[(_point + 2) % 4];
-        return ShapeSnap.squareCorner(opposite, world, ShapeHandles.angleOf(shape));
-      case ShapeKind.triangle || ShapeKind.diamond || ShapeKind.polygon || ShapeKind.star:
-        return world;
-    }
+  /// A tap at [world] on the line of a selected curve adds an anchor there
+  /// (the outline stays as it was). Returns whether it did.
+  bool _addAnchor(Offset world) {
+    final shape = selection.shape;
+    if (shape == null || shape.kind != ShapeKind.curve) return false;
+    if (shape.anchorCount >= ShapeGeometry.maxAnchors) return false;
+    final closed = shape.isClosed;
+    final hit = Bezier.nearest(shape.points, world, closed: closed);
+    if (hit.distance * viewport.scale > SelectionChrome.hitRadius) return false;
+    selection
+      ..reshape(shape.withPoints(Bezier.split(shape.points, hit.segment, hit.t, closed: closed)))
+      ..commitReshape();
+    return true;
   }
 
   /// Whether ink or an element the lasso takes lies under [world].

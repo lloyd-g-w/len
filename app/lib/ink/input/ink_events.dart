@@ -15,4 +15,13 @@ class InkEvents {
   /// A scribble to erase over text boxes or images, with no ink under it,
   /// was dropped.
   void Function()? scribbleMissed;
+
+  /// A live stroke began on surface [surfaceId] (its points grow in
+  /// `LiveInk`); live sync shows it to other devices as it is written.
+  void Function(String surfaceId)? inkBegan;
+
+  /// The live stroke [inkBegan] told of ended: committed as stroke
+  /// [strokeId], or (null) dropped, or committed otherwise (a snapped
+  /// highlight).
+  void Function(String? strokeId)? inkEnded;
 }

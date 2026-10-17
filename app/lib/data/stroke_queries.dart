@@ -60,6 +60,23 @@ class StrokeQueries implements StrokeReader {
     return byId.values.toList();
   }
 
+  /// The live strokes among [ids] that are on [surfaceId].
+  List<Stroke> strokesByIds(String surfaceId, List<String> ids) =>
+      _byIds('strokes', surfaceId, ids).map(rowToStroke).nonNulls.toList();
+
+  /// The live elements among [ids] that are on [surfaceId].
+  List<SurfaceElement> elementsByIds(String surfaceId, List<String> ids) =>
+      _byIds('elements', surfaceId, ids).map(rowToElement).nonNulls.toList();
+
+  List<Row> _byIds(String table, String surfaceId, List<String> ids) => [
+    for (var i = 0; i < ids.length; i += _batch)
+      ..._db.select(
+        'SELECT * FROM $table WHERE surface_id = ? AND deleted = 0 AND id IN '
+        '(${List.filled(((i + _batch).clamp(0, ids.length)) - i, '?').join(', ')})',
+        [surfaceId, ...ids.sublist(i, (i + _batch).clamp(0, ids.length))],
+      ),
+  ];
+
   /// Chunks within [range] that contain at least one live element.
   List<ChunkKey> populatedElementChunks(String surfaceId, ChunkRange range) => _db
       .select(

@@ -148,6 +148,69 @@ class SurfaceModel extends _SurfaceState
     return top;
   }
 
+  /// Most items [refreshItems] takes on; more reload the surface.
+  static const maxRefreshItems = 500;
+
+  /// Brings in what sync changed of the strokes and elements [ids] (on this
+  /// surface, or moved away from it) without reloading the rest, so a
+  /// stroke written on another device appears on its own, with nothing
+  /// else redrawn (live sync). Reloads instead when that cannot be told
+  /// apart from what the surface does meanwhile: many items, a load under
+  /// way, or one of them hidden (selected, being edited).
+  void refreshItems(Set<String> ids) {
+    if (_disposed || ids.isEmpty) return;
+    if (ids.length > maxRefreshItems ||
+        isLoading ||
+        (_hidden.isNotEmpty && ids.any(_hidden.contains))) {
+      reload();
+      return;
+    }
+    flush();
+    final list = ids.toList();
+    final strokes = _repository.queries.strokesByIds(surfaceId, list);
+    final elements = _elementRepository == null
+        ? const <SurfaceElement>[]
+        : _repository.queries.elementsByIds(surfaceId, list);
+    bool shown(Iterable<ChunkKey> keys) => keys.any((k) => _loaded.contains(k) || _views.keeps(k));
+    final added = [
+      for (final s in strokes)
+        if (shown(StrokeChunks.of(s))) s,
+    ];
+    final addedElements = [
+      for (final e in elements)
+        if (shown(ElementChunks.of(e))) e,
+    ];
+    final changed = <ChunkKey>{};
+    final areas = <Rect>[];
+    var removed = false;
+    for (final id in ids) {
+      if (_strokes[id] case final old?) {
+        _removeStroke(old);
+        changed.addAll(StrokeChunks.of(old));
+        areas.add(old.bounds);
+        removed = true;
+      }
+      if (_elements[id] case final old?) {
+        _removeElement(old);
+        changed.addAll(ElementChunks.of(old));
+        areas.add(old.bounds);
+        removed = true;
+      }
+    }
+    final appended = !removed && _isAppend(InkEdit(added: added, addedElements: addedElements));
+    for (final s in added) {
+      _strokes.insert(s);
+      changed.addAll(StrokeChunks.of(s));
+      areas.add(s.bounds);
+    }
+    for (final e in addedElements) {
+      _elements.insert(e);
+      changed.addAll(ElementChunks.of(e));
+      areas.add(e.bounds);
+    }
+    if (changed.isNotEmpty) _changed(changed, appended: appended ? added : null, areas: areas);
+  }
+
   /// [flush]es every surface, before code that reads or rewrites stored
   /// strokes directly (page copies and deletions, exports).
   static void flushAll() {

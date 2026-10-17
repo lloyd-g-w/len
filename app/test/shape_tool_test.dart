@@ -89,7 +89,8 @@ void main() {
       test('every shape at ${scale}x with a ${kind.name}: live preview, then exactly that', () {
         viewport.setView(scale: scale, offset: const Offset(30, -20));
         var pointer = 1;
-        for (final shapeKind in ShapeKind.drawable) {
+        // Curves are drawn anchor by anchor (curve_test.dart).
+        for (final shapeKind in ShapeKind.drawable.where((k) => k != ShapeKind.curve)) {
           tools.shape = shapeKind;
           final id = pointer++;
           const from = Offset(200, 150);
@@ -234,7 +235,9 @@ void main() {
     final (services, nb) = await pumpEditor(tester, size: const Size(1000, 1300));
     final page = services.pages.pagesOf(nb.id).first;
     var i = 0;
-    for (final kind in ShapeKind.drawable) {
+    // Dragged out (curves are drawn anchor by anchor: curve_ui_test.dart).
+    final dragged = ShapeKind.drawable.where((k) => k != ShapeKind.curve).toSet();
+    for (final kind in dragged) {
       // Pick it in the Shapes options (the second tap on the tool opens them).
       if (find.byKey(ValueKey('shape-${kind.name}')).evaluate().isEmpty) {
         await tester.tap(find.byTooltip('Shapes (S)'));
@@ -265,7 +268,7 @@ void main() {
         ])
         .where((s) => s.shape != null)
         .toList();
-    expect(shapes.map((s) => s.shape!.kind).toSet(), ShapeKind.drawable.toSet());
+    expect(shapes.map((s) => s.shape!.kind).toSet(), dragged);
     final sizes = {for (final s in shapes) Polyline.bounds(ShapeBuilder.outline(s.shape!)).size};
     // All dragged alike: one size on the page (whatever its zoom), the outline their points.
     expect(sizes.map((s) => (s.width / s.height * 100).round()).toSet(), {67});

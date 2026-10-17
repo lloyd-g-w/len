@@ -17,6 +17,8 @@ extension _Inking on InkDrawing {
     );
     _endFollowsSpeed = config.ends.endFollowsSpeed;
     live.add(_sampler.first(e));
+    _inkBegan = true;
+    events.inkBegan?.call(model.surfaceId);
     _byMouse = e.kind == PointerDeviceKind.mouse;
     if (_byMouse) {
       final ms = StrokeSampler.msOf(e.timeStamp);

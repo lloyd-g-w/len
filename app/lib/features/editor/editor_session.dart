@@ -27,6 +27,7 @@ import 'double_tap_zoom.dart';
 import 'finger_reading.dart';
 import 'images/editor_images.dart';
 import 'links/editor_links.dart';
+import 'live_ink/live_ink_relay.dart';
 import 'pdf/pdf_highlight_snap.dart';
 import 'pdf/pdf_interaction.dart';
 import 'shared/shared_notebook.dart';
@@ -133,7 +134,13 @@ class EditorSession with _EditorSessionZoom {
       );
     }
     gestures.onDoubleTap = zoom.toggle;
-    if (initialZoom != null) _restoreZoom(initialZoom);
+    relay = LiveInkRelay(
+      live: live,
+      events: input.events,
+      send: (data) => services.sync.rooms.send(shared.id, data),
+      anyoneThere: () => services.sync.rooms.othersIn(shared.id).isNotEmpty,
+    );
+    if (initialZoom != null) _restoreZoom(initialZoom); // Attaches to [relay].
     content.text
       ..undo = undo.undo
       ..redo = undo.redo;
@@ -169,6 +176,10 @@ class EditorSession with _EditorSessionZoom {
   late final FingerReading reading;
 
   late final InkInputController input;
+
+  /// Shows the stroke being written here to other devices in the notebook.
+  @override
+  late final LiveInkRelay relay;
   late final ContentTools content;
   late final EditingUndo undo;
 
@@ -280,6 +291,7 @@ class EditorSession with _EditorSessionZoom {
     reading.dispose();
     content.selection.removeListener(_onSelection);
     input.cancelDraw(); // Stops a stroke's or tool's pending timers.
+    relay.dispose();
     if (_zoomCreated) zoomWindow.dispose();
     images.dispose();
     undo.dispose();

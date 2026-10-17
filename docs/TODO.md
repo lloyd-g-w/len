@@ -81,22 +81,38 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 - ✅ **Highlighter and laser customisation like the pen's**: the highlighter already had every
   pen option (now tested); the laser gets editable, persisted quick colour and size slots (1–5
   each, shared slot rows and editors, 1–9 and [ / ] too) and the pen's popover layout.
-- 🚧 (feat/shape-handles) **Better shape control points** (pen → shape and the Shape tool): handles by meaning,
-  not bounding-box corners: a circle / ellipse by centre (move) and radius (or two radii and a
-  rotation), rectangle corners + edge midpoints + rotation, line / arrow endpoints (and a bend),
-  polygon / triangle / diamond vertices, star centre + outer / inner radius + points; snapping
-  and Shift constraints while dragging; one undo step per drag; synced.
-- 🚧 (feat/shape-handles) **Arbitrary curves**: a Curve kind (cubic Bézier spline, open or closed) in the Shape
-  tool (tap / drag to place anchors and pull tangents) and from pen → shape (a held smooth
-  stroke that is no other shape snaps to a fitted spline); anchors and tangent handles
-  editable on selection, add / remove anchors; fill when closed.
+- 🚧 (feat/laser-feel) **The laser's ends can't be changed** (owner, again): the laser has the
+  pen's slots but not its feel: ends (round / flat / tapered), pressure, stabiliser; the trail
+  drawn with the pen's outline engine.
+- ✅ **Better shape control points**: handles by meaning for drawn and snapped shapes (circle
+  centre + radius, ellipse centre + two radii, rectangle / diamond corners + sides, a line's
+  bend, star centre + point + inner radius and its points in Style) with snaps and Shift
+  constraints, one undo step per drag, synced in the shape geometry (circle kind, bends, `n`).
+- ✅ **Arbitrary curves**: a Curve kind (cubic Bézier spline, open or closed, filled when
+  closed) drawn anchor by anchor with the Shape tool or snapped from a held smooth stroke
+  (Schneider fit); anchors and tangents are editable, a tap on the line adds an anchor and a
+  double tap removes one.
+- ⬜ **Shape follow-ups** (from the shape-handles review): undo while a curve is being drawn
+  takes back its last anchor (today it undoes earlier strokes); a circle can be squashed into
+  an ellipse from a handle; with Curve picked a tap on a shape selects it rather than placing an
+  anchor (or the hint says how).
 - 🚧 (fix/pen-flicker-3) **The pen still flickers sometimes** (owner, again): keep hunting every cause on every
   platform (Linux, web, Android), with frame-by-frame tests.
-- 🚧 (feat/live-sync-2) **Live sync, actually live**: edits show on other devices within a fraction of a second
+- ✅ **Live sync, actually live**: edits show on other devices within a fraction of a second
   (push on pen-up, server fans the records out over one long-lived connection, no pull
   round trip), built as the foundation for real-time collaboration: a WebSocket channel with
   rooms per notebook, ephemeral messages (in-progress strokes, presence / cursors) next to
   records; documented in SYNC_PROTOCOL.md; falls back to today's pull when the channel is down.
+  `GET /v1/live` (pushes and fan-out on one WebSocket,
+  rooms per notebook with presence and relayed ephemeral messages, tickets for browsers,
+  bounded outboxes); edits pushed a frame after they are committed (~25 ms to another device
+  over loopback); the stroke being written drawn live on the others (replaced by its record),
+  presence plates in the editor bar; the event stream and the cycle as fallbacks. Cursors
+  are not sent yet (the room data has room for them).
+- ⬜ **Live sync follow-ups**: cursors / pointers of other devices (the laser too); no gap
+  between another device's live stroke and its record when the page reloads fully (500+
+  changes, a selection in the way) or for a highlight snapped to text (it ends without a stroke
+  id); an e2e run with two real app instances over the live channel.
 - ✅ **`flutter run --release -d linux` fails to link** (owner): it builds and runs inside
   `nix develop`; a Flutter from outside the dev shell lacks its toolchain and libraries. The
   repo has an `.envrc` (direnv: `use flake`) and the README says so.

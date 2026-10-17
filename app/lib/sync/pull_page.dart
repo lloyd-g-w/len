@@ -66,7 +66,7 @@ PullPage? decodePullPage(Uint8List body, {required int since}) {
       malformed++;
       continue;
     }
-    records.add(_prepare(record));
+    records.add(prepareRecord(record));
   }
   return PullPage(
     records: records,
@@ -77,7 +77,9 @@ PullPage? decodePullPage(Uint8List body, {required int since}) {
   );
 }
 
-SyncRecord _prepare(SyncRecord record) {
+/// [record], a live stroke parsed into its row ([SyncRecord.prepared];
+/// its bulky payload dropped), so applying it only writes.
+SyncRecord prepareRecord(SyncRecord record) {
   if (record.deleted || record.collection != 'strokes') return record;
   try {
     final row = StrokeRow.fromRecord(record.id, record.data!);

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../domain/stroke.dart';
+import 'bezier.dart';
+import 'polyline.dart';
 
 /// Builds clean shapes. A shape is an ordinary stroke whose points trace
 /// the outline of its [ShapeGeometry] at constant pressure, so it renders,
@@ -9,18 +11,29 @@ import '../../domain/stroke.dart';
 /// ([Stroke.shape]) makes it editable.
 abstract final class ShapeBuilder {
   /// The geometry of [kind] dragged from [start] to [end]: the corners of
-  /// its bounding box; for lines and arrows, the two ends.
+  /// its bounding box; for lines and arrows, the two ends; a square box
+  /// makes an ellipse a circle; a curve is an S from end to end.
   static ShapeGeometry dragged(ShapeKind kind, Offset start, Offset end) {
     final r = Rect.fromPoints(start, end);
     return switch (kind) {
       ShapeKind.line || ShapeKind.arrow => ShapeGeometry(kind, [start, end]),
+      ShapeKind.circle || ShapeKind.ellipse when r.width == r.height => ShapeGeometry(
+        ShapeKind.circle,
+        [r.center, r.centerRight],
+      ),
+      ShapeKind.curve => ShapeGeometry(kind, [
+        start,
+        start + Offset((end.dx - start.dx) * 0.75, 0),
+        end - Offset((end.dx - start.dx) * 0.75, 0),
+        end,
+      ]),
       ShapeKind.rectangle || ShapeKind.polygon => ShapeGeometry(kind, [
         r.topLeft,
         r.topRight,
         r.bottomRight,
         r.bottomLeft,
       ]),
-      ShapeKind.ellipse => ShapeGeometry(kind, [
+      ShapeKind.circle || ShapeKind.ellipse => ShapeGeometry(ShapeKind.ellipse, [
         r.center,
         r.center + Offset(r.width / 2, 0),
         r.center + Offset(0, r.height / 2),
@@ -36,19 +49,24 @@ abstract final class ShapeBuilder {
     };
   }
 
-  /// The outline vertices of [shape]; closed outlines repeat their first
-  /// vertex at the end.
-  static List<Offset> outline(ShapeGeometry shape) {
+  /// The outline vertices of [shape], fine enough to read as curves at
+  /// [spacing] (world units); closed outlines repeat their first vertex at
+  /// the end.
+  static List<Offset> outline(ShapeGeometry shape, {double spacing = 2}) {
     final p = shape.points;
     return switch (shape.kind) {
+      ShapeKind.line when shape.isBent => Bezier.quadThrough(p[0], p[2], p[1], spacing: spacing),
       ShapeKind.line => [p[0], p[1]],
+      ShapeKind.arrow when shape.isBent => _bentArrow(p[0], p[2], p[1], spacing),
       ShapeKind.arrow => arrow(p[0], p[1]),
       ShapeKind.rectangle ||
       ShapeKind.triangle ||
       ShapeKind.diamond ||
       ShapeKind.polygon => [...p, p.first],
+      ShapeKind.circle => ellipse(p[0], p[1] - p[0], Offset(p[0].dy - p[1].dy, p[1].dx - p[0].dx)),
       ShapeKind.ellipse => ellipse(p[0], p[1] - p[0], p[2] - p[0]),
       ShapeKind.star => [...starVertices(shape), starVertices(shape).first],
+      ShapeKind.curve => Bezier.flatten(p, closed: shape.isClosed, spacing: spacing),
     };
   }
 
@@ -58,7 +76,26 @@ abstract final class ShapeBuilder {
     ShapeGeometry shape, {
     double spacing = 2,
     double pressure = 0.5,
-  }) => points(outline(shape), spacing: spacing, pressure: pressure);
+  }) => points(
+    outline(shape, spacing: spacing),
+    spacing: spacing,
+    pressure: pressure,
+  );
+
+  /// A bent arrow: the curve from [tail] through [mid] to [tip], its head
+  /// along the curve's direction at the tip.
+  static List<Offset> _bentArrow(Offset tail, Offset mid, Offset tip, double spacing) {
+    final shaft = Bezier.quadThrough(tail, mid, tip, spacing: spacing);
+    final control = Bezier.quadControl(tail, mid, tip);
+    final head = arrow(control == tip ? tail : control, tip);
+    // The straight arrow's head from its tip on, scaled to the curve's
+    // length rather than the tangent's.
+    final length = Polyline.length(shaft);
+    final size = math.min(length * 0.4, (length * 0.18).clamp(minHead, maxHead));
+    final back = head[2] - tip;
+    final scale = back.distance == 0 ? 0.0 : size / back.distance;
+    return [...shaft, tip + (head[2] - tip) * scale, tip, tip + (head[4] - tip) * scale];
+  }
 
   /// The bounds of an arrowhead's wing length (world units): 18 % of the
   /// arrow within them, and never more than 40 % of it.
@@ -89,39 +126,43 @@ abstract final class ShapeBuilder {
     ];
   }
 
-  static const int starPoints = 5;
+  /// The angle (in its frame) of vertex [i] of a star with [tips] points:
+  /// even ones are the outer points, from the top, odd ones the inner
+  /// points between them.
+  static double starAngle(int i, [int tips = ShapeGeometry.defaultTips]) =>
+      -math.pi / 2 + math.pi * i / tips;
 
-  /// The angle (in its frame) of a star's vertex [i]: even ones are the
-  /// outer points, from the top, odd ones the inner points between them.
-  static double starAngle(int i) => -math.pi / 2 + math.pi * i / starPoints;
-
-  /// A star's ten vertices (outer points at even indices), not closed.
+  /// A star's vertices (outer points at even indices), not closed.
   static List<Offset> starVertices(ShapeGeometry star) {
     final c = star.points[0], u = star.points[1] - c, v = star.points[2] - c;
-    return [
-      for (var i = 0; i < 2 * starPoints; i++)
-        c +
-            u * ((i.isEven ? 1.0 : star.inner) * math.cos(starAngle(i))) +
-            v * ((i.isEven ? 1.0 : star.inner) * math.sin(starAngle(i))),
-    ];
+    return [for (final w in unitStar(star.tips, star.inner)) c + u * w.dx + v * w.dy];
   }
+
+  /// The vertices of a star with [tips] points and [inner] radius in its
+  /// frame (outer radius 1).
+  static List<Offset> unitStar(int tips, double inner) => [
+    for (var i = 0; i < 2 * tips; i++)
+      Offset.fromDirection(starAngle(i, tips), i.isEven ? 1.0 : inner),
+  ];
 
   /// Width over height of the box around [kind] when regular: a circle,
   /// square, equilateral triangle or regular star (Shift while dragging).
   static double regularAspect(ShapeKind kind) => switch (kind) {
     ShapeKind.triangle => 2 / math.sqrt(3),
-    ShapeKind.star => 2 * math.sin(2 * math.pi / 5) / (1 + math.cos(math.pi / 5)),
+    ShapeKind.star => _unitStarBox.width / _unitStarBox.height,
     _ => 1,
   };
 
-  /// A five-pointed star stretched to fill [r]: its frame maps the unit
-  /// star's bounding box onto [r].
+  static final Rect _unitStarBox = Polyline.bounds(
+    unitStar(ShapeGeometry.defaultTips, ShapeGeometry.defaultInner),
+  );
+
+  /// A star stretched to fill [r]: its frame maps the unit star's bounding
+  /// box onto [r].
   static ShapeGeometry _starIn(Rect r) {
-    // The unit star spans x ±sin 72°, y from −1 to cos 36°.
-    final halfWidth = math.sin(2 * math.pi / 5);
-    final bottom = math.cos(math.pi / 5);
-    final sx = r.width / (2 * halfWidth), sy = r.height / (1 + bottom);
-    final c = Offset(r.center.dx, r.top + sy);
+    final box = _unitStarBox;
+    final sx = r.width / box.width, sy = r.height / box.height;
+    final c = Offset(r.left - box.left * sx, r.top - box.top * sy);
     return ShapeGeometry(ShapeKind.star, [c, c + Offset(sx, 0), c + Offset(0, sy)]);
   }
 

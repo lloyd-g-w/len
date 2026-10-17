@@ -105,6 +105,10 @@ class PageModels extends ChangeNotifier implements UndoTarget {
   /// Reloads a page whose content changed remotely.
   void reload(String pageId) => _models[pageId]?.reload();
 
+  /// Brings in what sync changed of items [ids] on page [pageId] (see
+  /// [SurfaceModel.refreshItems]).
+  void refresh(String pageId, Set<String> ids) => _models[pageId]?.refreshItems(ids);
+
   bool _reachable(String id) =>
       _undoPages.any((step) => step.contains(id)) || _redoPages.any((step) => step.contains(id));
 

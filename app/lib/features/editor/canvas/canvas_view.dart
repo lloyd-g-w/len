@@ -4,6 +4,7 @@ import '../../../domain/paper.dart';
 import '../../../ink/ink_surface.dart';
 import '../../../ink/input/ink_input_controller.dart';
 import '../../../ink/input/live_ink.dart';
+import '../../../ink/remote_ink.dart';
 import '../../../ink/surface_model.dart';
 import '../../../ui/app_theme.dart';
 import 'canvas_navigation.dart';
@@ -18,6 +19,7 @@ class CanvasView extends StatelessWidget {
     required this.navigation,
     required this.input,
     required this.live,
+    this.remote,
     required this.paper,
     required this.paperColor,
     this.insets = EdgeInsets.zero,
@@ -27,6 +29,9 @@ class CanvasView extends StatelessWidget {
   final CanvasNavigation navigation;
   final InkInputController input;
   final LiveInk live;
+
+  /// Strokes other devices are writing here right now.
+  final RemoteInk? remote;
   final Paper paper;
   final PaperColor paperColor;
 
@@ -45,6 +50,7 @@ class CanvasView extends StatelessWidget {
             viewport: nav.viewport,
             input: input,
             live: live,
+            remote: remote,
             paper: paper,
             paperColor: paperColor,
           ),
