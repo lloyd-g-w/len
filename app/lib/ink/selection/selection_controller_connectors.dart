@@ -75,9 +75,11 @@ extension _SelectionConnectors on _SelectionCore {
     final shape = now.shape;
     if (shape == null || old.shape == null || now.id == old.id) return now;
     final origin = to == _sourceOf(old).model ? old.shapeId : null;
-    return shape.origin == origin
-        ? now
-        : now.withPoints(now.points, shape: shape.withOrigin(origin));
+    if (shape.origin == origin) return now;
+    final named = now.withPoints(now.points, shape: shape.withOrigin(origin));
+    // The same points and style: the same outline, if built.
+    if (StrokeRenderer.hasPath(now)) StrokeRenderer.adopt(named, StrokeRenderer.pathOf(now));
+    return named;
   }
 
   ShiftedSurface _sourceOf(Stroke s) =>
