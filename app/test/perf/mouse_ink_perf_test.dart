@@ -98,8 +98,8 @@ void main() {
             build.start();
             outline = LiveStrokeBuilder.livePath(p.live);
             build.stop();
-            // Filled as `LiveInkPainter` does: one path near the tail
-            // (before: the whole outline copied into one path).
+            // Filled in one path, as `LiveInkPainter` does (before: the
+            // frozen part appended into a new path, verb by verb).
             one.start();
             outline.combined;
             one.stop();
