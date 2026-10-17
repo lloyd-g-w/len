@@ -11,6 +11,7 @@ import 'recording_repository.dart';
 import 'stroke_repository.dart';
 import 'syncable.dart';
 import 'template_repository.dart';
+import 'versions/version_repository.dart';
 
 /// The synced repositories over one connection, wired to each other: the
 /// app's (see `AppServices`), or a worker's over its own connection to the
@@ -48,6 +49,7 @@ class Repositories {
       folders: FolderRepository(database, deviceId: deviceId, clock: clock),
       templates: TemplateRepository(database, deviceId: deviceId, clock: clock),
       notebookStyles: NotebookStyleRepository(database, deviceId: deviceId, clock: clock),
+      versions: VersionRepository(database, deviceId: deviceId, clock: clock),
     );
   }
 
@@ -62,6 +64,7 @@ class Repositories {
     required this.folders,
     required this.templates,
     required this.notebookStyles,
+    required this.versions,
   });
 
   final StrokeRepository strokes;
@@ -74,6 +77,10 @@ class Repositories {
   final FolderRepository folders;
   final TemplateRepository templates;
   final NotebookStyleRepository notebookStyles;
+
+  /// Version history (after the content it holds, so its packs' blobs
+  /// went up first).
+  final VersionRepository versions;
 
   /// The synced stores by collection, in push order (parents first).
   late final Map<String, SyncableStore> byCollection = {
@@ -88,6 +95,7 @@ class Repositories {
       elements,
       recordings,
       recognisedText,
+      versions,
     ])
       s.collection: s,
   };

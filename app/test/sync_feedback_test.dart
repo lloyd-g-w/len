@@ -209,6 +209,11 @@ void main() {
       expect(find.text('http://sync.test'), findsOneWidget);
       expect(find.text('Server URL'), findsNothing);
       expect(find.text('How to run a server'), findsNothing, reason: 'only while setting up');
+      // Name tags on other devices' pointers (live sync), on by default.
+      expect(s.preferences.pointerTags, isTrue);
+      await tester.tap(find.text('Name tags'));
+      await tester.pump();
+      expect(s.settings.pointerTags, isFalse);
       await tester.tap(find.text('Turn off sync…'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Turn off'));
@@ -216,6 +221,7 @@ void main() {
       expect(s.sync.isConfigured, isFalse);
       expect(s.sync.state, SyncState.disabled);
       expect(find.text('Server URL'), findsOneWidget);
+      expect(find.text('Name tags'), findsNothing, reason: 'only while connected');
       // What "your own Len server" is (R14-9).
       expect(find.text('How to run a server'), findsOneWidget);
       expect(SyncSettings.serverGuide.path, endsWith('server/README.md'));

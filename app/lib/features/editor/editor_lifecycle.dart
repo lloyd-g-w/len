@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
@@ -152,5 +153,6 @@ class EditorLifecycle {
   void finish({required bool edited}) {
     if (!edited) return;
     services.notebooks.touch(_notebook.id);
+    unawaited(services.versionRecorder.flush(_notebook.id));
   }
 }

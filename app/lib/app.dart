@@ -97,6 +97,10 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed || state == AppLifecycleState.paused) {
       unawaited(sync.syncInBackground());
     }
+    // Edits waiting for a version get one before the app may be stopped.
+    if (state == AppLifecycleState.hidden || state == AppLifecycleState.paused) {
+      unawaited(widget.services.versionRecorder.flush());
+    }
   }
 
   static bool _inForeground(AppLifecycleState? state) =>

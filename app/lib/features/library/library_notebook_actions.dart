@@ -67,6 +67,8 @@ mixin _NotebookActions {
           // A fresh copy holds nothing of the user's: no trip to the trash.
           () => controller.deleteForever([copy.id]),
         );
+      case NotebookAction.history:
+        await showVersionHistory(context, controller.services, notebook.id);
       case NotebookAction.move:
         final target = await showMoveDialog(
           context,

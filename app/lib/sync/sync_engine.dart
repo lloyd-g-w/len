@@ -89,6 +89,13 @@ class SyncEngine {
   /// and what the pull changed so far.
   void Function(PullProgress progress)? onPullProgress;
 
+  /// Called once other devices' changes are applied (a pull, a live
+  /// message), before this device pushes again: local fix-ups derived from
+  /// them (connectors brought back onto their shapes, `ConnectorRepair`),
+  /// which add what they write to the changes. Their writes are ordinary
+  /// local edits, pushed with the rest.
+  void Function(RemoteChanges changes)? afterApply;
+
   /// Blobs whose upload failed in the last sync (they are retried).
   int failedBlobUploads = 0;
 
@@ -243,7 +250,8 @@ class SyncEngine {
     await _push(api, cancelled, beforePull: !pushAll);
     if (pushAll && !cancelled()) settings.syncPushAllFirst = false;
     final changes = await _pull(api, cancelled);
-    // The rest, with what deletion conflicts brought back.
+    if (!cancelled()) afterApply?.call(changes);
+    // The rest, with what deletion conflicts and fix-ups brought back.
     if (!cancelled()) await _push(api, cancelled);
     return changes;
   }

@@ -14,6 +14,7 @@ enum NotebookAction {
   rename,
   favorite,
   duplicate,
+  history,
   move,
   cover,
   export,
@@ -54,6 +55,11 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
       value: NotebookAction.duplicate,
       icon: Symbols.library_add_sharp,
       label: 'Duplicate',
+    ),
+    const MenuRow(
+      value: NotebookAction.history,
+      icon: Symbols.history_sharp,
+      label: 'Version history…',
     ),
     const MenuRow(
       value: NotebookAction.move,

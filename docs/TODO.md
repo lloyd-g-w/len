@@ -146,9 +146,13 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   over loopback); the stroke being written drawn live on the others (replaced by its record),
   presence plates in the editor bar; the event stream and the cycle as fallbacks. Cursors
   are not sent yet (the room data has room for them).
-- 🚧 (feat/pointer-tags) **Hide the name tags of other devices' pointers** (owner): a toggle for
+- ✅ **Hide the name tags of other devices' pointers** (owner): a toggle for
   the device initial plate drawn beside another device's pen / laser while it writes (⋯ → View
-  and Settings), persisted; the pointer itself and presence in the bar stay.
+  and Settings), persisted; the pointer itself and presence in the bar stay. Done on the
+  branch: `pointerTags` preference (`pointer_tags`, default on), ⋯ → View → *Name tags*
+  (paged notebooks and canvases, while another device is in the notebook) and a *Name tags* switch in Settings → Sync
+  while connected; `RemotePointersPainter.tags` skips the plates, repainting at once. Remote
+  live ink draws no tag, so nothing to hide there.
 - ✅ **Live sync follow-ups**: cursors / pointers of other devices (the laser
   too); no gap between another device's live stroke and its record when the page reloads fully
   (500+ changes, a selection in the way) or for a highlight snapped to text (it ends without a
@@ -165,7 +169,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   `nix develop`; a Flutter from outside the dev shell lacks its toolchain and libraries. The
   repo has an `.envrc` (direnv: `use flake`) and the README says so.
 
-- 🚧 (feat/version-history) **Version history** (owner): a notebook's (and canvas's) history to
+- ✅ **Version history** (owner): a notebook's (and canvas's) history to
   browse and restore: versions kept automatically (after a stretch of editing goes quiet, and at
   most every few minutes while editing; thinned over time: all of today, hourly for a week,
   daily for a month, …) and named ones saved by hand ("Save version…"); a timeline with
@@ -175,6 +179,43 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   content shared between versions (records and blobs by reference, not copies); synced, so
   every device sees the same history; storage budget and "Delete older versions"; works on the
   web and offline. Designed with live collaboration in mind (who changed what).
+  **Done** (design: ARCHITECTURE "Version history", SYNC_PROTOCOL "Version history"): a
+  version is a synced `versions` record (old clients skip the unknown collection) naming
+  content-addressed *packs* (blobs of a surface's stroke / element record data, cut where ids
+  hash to a boundary, so unchanged runs are shared between versions; re-packed only for
+  surfaces whose change mark moved). Row references were not enough: elements, pages and the
+  notebook are edited in place and tombstones sync without payload. Every blob a version needs
+  is named in its record, so server and device blob GC keep it (no server change), and its push
+  waits for the packs' upload. `VersionRecorder`: 2 min after editing goes quiet, at most every
+  10 min, on editor close / app background; skipped when equal to the newest. `VersionPolicy`:
+  all of the last day, newest per hour for a week, per day for a month, per week after
+  (epoch-aligned nested buckets: every device thins the same, later clocks keep a subset),
+  budget 200 automatic versions / 64 MB per notebook; named kept; thinning on record and with
+  GC; versions of notebooks deleted forever go after 30 days. `VersionRestorer`: whole notebook
+  (settings, pages by id in order, strokes / elements by id), one page (back after its
+  predecessor), copy as new notebook (new ids, own links / flows / connectors follow); a
+  `restore` version is saved first and the snack bar's Undo restores it; open editors reload
+  (`SyncController.announce`). UI: editor ⋯ "Save version…" / "Version history…", library
+  notebook menu "Version history…"; history sheet (day groups, thumbnail of the first changed
+  page, time, device, summary; ⋯ Restore…, Copy as new notebook, Rename…, Delete version,
+  Delete older versions…), preview route (page grid, page view with Restore this page; canvas
+  view). Tests: `version_history_test` (packs, snapshots / dedupe, thinning with fake clock,
+  restore whole / page / copy / undo, offline refusal, GC), `version_history_sync_test` (two
+  devices, lazy pack fetch, restore and delete across devices, malformed record skipped),
+  `version_history_ui_test`.
+  **Left:** recordings and the outline are not versioned; packs are not compressed and only
+  dedupe across devices of one platform family (doubles print differently on the web);
+  version records grow with page count (a 1000-page PDF notebook: ~100 KB a version) — a
+  reference-blob scheme the server GC follows would shrink them; device names are platform
+  names (per user once there are users); no golden / screenshot of the history yet.
+
+- ⬜ **Len import keeps text flow links**: import gives elements new ids; check that text boxes
+  flowing across pages keep their links (remap them as strokes' are), with a test.
+
+- ⬜ **Version history follow-ups**: compress packs (and the same bytes on web and native, so
+  they dedupe across platforms); version recordings, the outline and recognised handwriting
+  too; smaller version records for very long notebooks (pages' entries in shared blobs, with
+  the blob clean-up following them); a golden of the history view.
 
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
@@ -188,15 +229,23 @@ From the reports; the owner picks. Status as above.
   end (bent too) dropped on a closed shape's outline, or inside it (where it faces the other
   end), attaches — by handle drag or drawn so with the Shape tool; the target's outline and
   a snap dot show meanwhile. `ShapeGeometry.tail` / `tip` (synced `sh.a`, optional) keep the
-  shape's stroke id and a point on its outline in the shape's own terms. Moving, resizing,
+  shape's id (its identity across edits, `sh.o`) and a point on its outline in the shape's own terms. Moving, resizing,
   rotating or reshaping the shape moves the ends live and in the same undo step (the
-  selection's `_replace` re-points and rebuilds the lines); remote devices get both. Moved
+  selection's `_replace` rebuilds the lines); remote devices get both. Moved
   together they move rigidly; a line moved alone lets go (Excalidraw); copies attach to
   copied targets; a deleted target leaves the line where it is; never across pages.
-- 🚧 (fix/connector-ids) **Connector follow-ups**: a duplicated page's (or notebook's) arrows
-  stay attached to the copies (`surface_copier` remaps `sh.a`); references that survive
-  concurrent edits (an edit replaces the stroke id, so two devices editing at once can leave an
-  arrow pointing at a gone id): resolve to the stroke that replaced it, or give shapes a stable id.
+- ✅ **Connector follow-ups**: shapes keep an identity across edits
+  (`sh.o`, the id of the stroke first drawn; `Stroke.shapeId`) and attachments name it, so an
+  edit no longer re-points arrows. Duplicated pages and notebooks, pages sent to another
+  notebook and imported Len files map origins and attachment ids with the stroke ids
+  (`ShapeIds`), so copied arrows attach to the copied boxes. Concurrent edits (box moved on one
+  device, arrow recoloured or drawn on another) are repaired by every device applying the
+  other's changes (`ConnectorRepair`, `SyncEngine.afterApply`): the line is replaced by one on
+  the shape, with a deterministic id (UUID v5 of line and target ids) so devices repairing at
+  once write one record; synced, no undo step, no loop. Tests: `connector_copies_test`,
+  `connector_sync_test`. Still open: the duplicate arrows any two concurrent edits of one
+  stroke leave (both edits survive), and a stale end restored by undo waits for the next sync
+  touching its page.
 - ✅ **Eyedropper** (UX_AUDIT R21-7): "Pick from page" next to Custom in every editor colour
   block (quick slots, tool options, shape fill, Style, text colour): the picker steps aside,
   "Tap a colour on the page" shows, and the next press on the page (a loupe while it rests

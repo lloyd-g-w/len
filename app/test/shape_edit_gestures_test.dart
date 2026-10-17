@@ -224,7 +224,11 @@ void main() {
     expect(content.selection.strokes.single.id, small.id);
     // A press 12 px in from a corner moves the small rectangle, not that corner.
     drag([const Offset(512, 112), const Offset(532, 112), const Offset(552, 112)]);
-    expect(content.selection.shape, small.shape!.map((p) => p + const Offset(40, 0)));
+    // The same shape, moved (a new stroke keeping its identity).
+    expect(
+      content.selection.shape,
+      small.shape!.map((p) => p + const Offset(40, 0)).withOrigin(small.id),
+    );
   });
 
   test('a line moves from near it only; elsewhere in its box a press lassos', () {
@@ -235,6 +239,9 @@ void main() {
     expect(content.holds(const Offset(205, 175)), isTrue);
     // Not by its middle: that bends it.
     drag([const Offset(205, 175), const Offset(225, 175), const Offset(245, 175)]);
-    expect(content.selection.shape, line.shape!.map((p) => p + const Offset(40, 0)));
+    expect(
+      content.selection.shape,
+      line.shape!.map((p) => p + const Offset(40, 0)).withOrigin(line.id),
+    );
   });
 }

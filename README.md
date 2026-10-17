@@ -31,6 +31,9 @@ optional sync through a tiny server you host yourself.
 - **Minimap** on infinite canvases: see where content is, tap or drag to move.
 - **Pages**: templates, planners, PDFs to annotate, document scan (edge detection,
   colour / greyscale / B&W clean-up), saved notebook styles with a default.
+- **Version history**: versions of a notebook or canvas kept as you write (thinned over
+  time) and saved by hand; browse them with thumbnails, devices and what changed, then
+  restore the whole notebook, one page, or a copy. Synced, shared between versions, undoable.
 - **More**: text boxes, images, audio recordings with ink replay, search (handwriting on
   Android), split view, tabs, PDF / PNG export, Len files and backups.
 - **Keyboard access**: shortcuts (Ctrl/⌘+/ lists them), arrow keys within every group,

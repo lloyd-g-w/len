@@ -14,7 +14,7 @@ abstract final class SchemaMigrations {
   /// compare with. `app_database_test` fails with the new value when a
   /// migration changes the schema.
   static const String shapeDigest =
-      'ed2b4c3c1013202fc806f275afcc0876fc888beb1bf291772c7fea416429fc3a';
+      '76aa446e0d9251f4fc7ba9a65416a3604703b1ed2eb6578eb29143043768eeb9';
 
   /// Index i migrates from version i to i + 1.
   static final List<void Function(CommonDatabase)> all = [
@@ -33,7 +33,41 @@ abstract final class SchemaMigrations {
     _freedBlobs,
     _textAlignStartEnd,
     _deletionBases,
+    _versions,
   ];
+
+  /// Version 16: version history (docs/SYNC_PROTOCOL.md, "Version
+  /// history"). `versions` holds the synced versions (the record `data`
+  /// whole, with the columns queries need); `version_packs` (local, never
+  /// synced) remembers each surface's packs by its change mark, so a new
+  /// version re-packs only surfaces written since.
+  static void _versions(CommonDatabase db) {
+    db.execute('''
+      CREATE TABLE versions (
+        id          TEXT PRIMARY KEY NOT NULL,
+        notebook_id TEXT NOT NULL,
+        created_at  INTEGER NOT NULL,
+        kind        TEXT NOT NULL,
+        name        TEXT,
+        size        INTEGER NOT NULL,
+        data        TEXT NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+    db.execute('CREATE INDEX versions_by_notebook ON versions(notebook_id, created_at)');
+    db.execute('''
+      CREATE TABLE version_packs (
+        surface_id TEXT PRIMARY KEY NOT NULL,
+        mark       TEXT NOT NULL,
+        ink        TEXT NOT NULL,
+        items      TEXT NOT NULL,
+        blobs      TEXT NOT NULL,
+        strokes    INTEGER NOT NULL,
+        size       INTEGER NOT NULL
+      ) WITHOUT ROWID''');
+  }
 
   /// Version 15: which edit the content of a row edited in place comes
   /// from, and what its deletion knew (see `SyncableTable.editedInPlace`;

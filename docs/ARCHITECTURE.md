@@ -2107,7 +2107,7 @@ surface.
   `shapes/shape_anchors.dart`): a line's or arrow's end (bent ones too)
   dropped within `LassoTool.attachReach` (12 px) of a closed shape's
   outline, or inside it, attaches: `ShapeGeometry.tail` / `tip` hold a
-  `ShapeAttachment` (the target stroke's id and `at`, a parameter once
+  `ShapeAttachment` (the target's shape id, below, and `at`, a parameter once
   round the outline in the shape's own terms — side and fraction for
   polygons and stars, the angle of `centre + u·cos t + v·sin t` for
   circles and ellipses, segment and Bézier `t` for closed curves — so any
@@ -2120,26 +2120,45 @@ surface.
   (`LassoTool._reshaped`) and when drawn with the Shape tool (start and
   end, `ShapeTool._connected`); meanwhile `SelectionController.attachHint`
   makes `SelectionPainter` outline the target in the accent with a solid
-  dot at the attach point. Following: strokes are immutable, so an edited
-  shape gets a new id; every selection edit goes through `_replace`, where
-  `_SelectionConnectors._connect` pairs each replaced target with its new
-  stroke (when it stays on its surface) and adds the unselected lines
-  attached to it (found near its bounds) to the same `SelectionPlan`
-  (`replaceUnselected`), their ends moved onto the new outline by
-  `ShapeDrags` (a bend keeps its place) and re-pointed at the new id: one
+  dot at the attach point. Identity: strokes are immutable, so an edited
+  shape is a new stroke; attachments name the shape by its identity
+  across edits, `Stroke.shapeId` (`ShapeGeometry.origin`, synced `sh.o`:
+  the id of the stroke it was first drawn as; absent, the stroke's own
+  id). Following: every selection edit goes through `_replace`, where
+  `_SelectionConnectors._connect` gives each edited shape its old shape
+  id (`_identified`; one moved to another page becomes a shape of its
+  own there) and adds the unselected lines attached to it (found near its
+  bounds, and lying on this stroke of the shape: `Connectors.targetOf`)
+  to the same `SelectionPlan` (`replaceUnselected`), their ends moved
+  onto the new outline by `ShapeDrags` (a bend keeps its place): one
   `InkEdit`, one undo step, synced as ordinary strokes (a remote device
-  receives box and arrow together; nothing is recomputed on load). While a
+  receives box and arrow together). While a
   target is dragged or reshaped, the followers are drawn as they will be
   (`SelectionController.followers`, their stored strokes hidden). Selected
-  lines keep an end attached to a shape edited with them (re-pointed: moved
-  together they move rigidly) or to an unselected one they still sit on
+  lines keep an end attached to a shape edited with them (moved together
+  they move rigidly) or to an unselected one they still sit on
   (recoloured, bent); a line moved without its target lets go of it, as in
-  Excalidraw (`Connectors.sits`). Pasted and duplicated copies attach to
-  the copies of their targets, else let go. A reference to a stroke not on
-  the line's surface (deleted, erased, moved to another page, a copied
-  page's ids) is ignored and the end stays put; undoing a deletion
-  restores the attachment. Only closed shapes are targets, so connectors
-  never chain.
+  Excalidraw (`Connectors.sits`). Pasted and duplicated copies are shapes
+  of their own (origin dropped) and attach to the copies of their targets,
+  else let go; so do copied pages and notebooks, pages sent to another
+  notebook and imported Len files (`ShapeIds` maps origins and attachment
+  ids like the stroke ids: `SurfaceCopier`, `NotebookDuplicator` through
+  `ShapeRenames`, `LenRemap`). Concurrent edits (one device moves the
+  box, another recolours or draws its arrow) leave an end off its shape:
+  `ConnectorRepair` (the `SyncEngine.afterApply` hook, after a pull and
+  after each live message, before the next push) looks at the surfaces
+  the changes touched (`StrokeQueries.connectorShapes`: nothing read
+  without an attached line) and replaces each line with an end off the
+  shape it names (`Connectors.targetOf`: the stroke of that shape it lies
+  on, else the one of that very id, else the least id) by the line moved
+  onto it, written as a local edit (synced; no undo step: nobody made it
+  here) and added to the `RemoteChanges`, so open editors refresh. Its id
+  is a UUID v5 of the line's and the targets' ids and its geometry comes
+  from theirs, so two devices repairing at once write one record, and a
+  repaired line sits: no loop. A reference to a shape not on the line's
+  surface (deleted, erased, moved to another page) is ignored and the end
+  stays put; undoing a deletion restores the attachment. Only closed
+  shapes are targets, so connectors never chain.
 - **Selections across pages** (paged notebooks, continuous flow): the
   selection stays bound to the active page's surface, but
   `SelectionController.surfaces` (a `SelectionSurfaces`, given by
@@ -2916,7 +2935,11 @@ manifest and, for a backup, the folders and notebooks it holds), stages
 everything, remaps ids (`LenRemap`), checks each blob's hash and commits in
 one transaction (`LenImportCommit`). Damage (a blob, a line, a part) is
 left out and reported, the rest imported; an error or Cancel leaves nothing
-behind. What the file is decides where it goes (`importLenFlow`): a
+behind (a restore that wrote over the tombstones of a notebook deleted here
+puts those of its text boxes, recordings and outline entries back as they
+were, what their deletion knew included, and removes such rows it added:
+the same version must say the same on every device, as last-write-wins
+never replaces an equal one). What the file is decides where it goes (`importLenFlow`): a
 notebook or folder into the library's open folder (`LenArchives.openFolder`)
 wherever the import started; a backup, after a confirmation that offers to
 skip notebooks already here, at the top level as it was into an empty
@@ -2944,6 +2967,91 @@ transfers also copy them). `InstallIdentity` gives a database restored there
 to the database, which is never backed up, holds the id; a database without
 a matching marker takes a new one and forgets its sync position, so it never
 writes as the device it came from.
+
+## Version history (`data/versions/`, `features/history/`)
+
+A notebook's (or canvas's) past states, to browse and restore (docs/TODO.md
+"Version history"). **Why packs, not row references.** Strokes are
+immutable (an edit tombstones the stroke and adds one under a new id), but
+elements, pages and the notebook row are edited in place, tombstones travel
+as `data: null` and drop their payload after 30 days
+(`TombstonePayloads`): a version that only listed row ids could not be
+restored on a device that never saw those rows live, nor bring back an old
+text box's words. So a version keeps its content itself, in
+content-addressed **packs**: blobs of record data that unchanged content
+shares between versions (and between devices of one platform family).
+
+- **Packs** (`VersionPacks`, blob type `application/x-len-pack`): the live
+  strokes, or the live elements, of one surface in paint order
+  (`createdAt`, id), cut where the hash of an item's id says (content-defined:
+  on average 32 items, at most 256), so writing on a page changes only its
+  last pack and erasing a stroke only the pack it was in. A pack is the
+  JSON `{"v": 1, "items": [[id, data], …]}` with each item's sync record
+  `data` (without `surfaceId`). Packing a surface is cached per surface by
+  its change mark (`version_packs` table, local), so a version of a large
+  notebook re-packs only the surfaces written since the last one.
+- **A version** is a synced `versions` record (format in SYNC_PROTOCOL.md):
+  who made it (device id and name), when, how (`auto`, `named`, `restore`),
+  its name, a summary against the version before (pages added / removed /
+  edited, strokes added / removed), the notebook's settings and, in page
+  order, each page's fields with the packs of its ink and elements (a
+  canvas: one surface). Every blob it needs is named in the record itself
+  (packs, page backgrounds, and in `blobs` the images the packs' elements
+  show), so the server's and the device's blob garbage collection keep them
+  with no protocol change, and its push waits for their upload like any
+  record's. Packs are fetched lazily when a version is previewed or
+  restored (`SyncController.fetchBlob`), so another device's history shows at
+  once (times, devices, summaries) and its pages once fetched; offline,
+  versions made here always open.
+- **When** (`VersionRecorder`, `AppServices.versionRecorder`): an editor's
+  edits (its undo history moving, `EditorSession._onEdited`) call
+  `noteEdit`; a version is made 2 minutes after editing goes quiet, at most
+  every 10 minutes while it goes on, and when the editor closes or the app
+  goes to the background (hidden / paused). One equal to the latest
+  version (same packs and fields) is not made. The app turns the recorder
+  on (`main.dart`); tests not about it leave it off, so edits start no
+  timers. "Save version…" (the editor's ⋯ menu, the history's header) makes
+  a `named` one at once.
+- **Thinning** (`VersionPolicy`, pure, deterministic): automatic versions
+  are kept all for the last day, then the newest per hour for a week, per
+  day for a month and per week after that (buckets aligned to the epoch, so
+  every device keeps the same ones and what a later clock keeps is a subset
+  of what an earlier one kept); named versions are kept until deleted. A
+  notebook's budget (200 automatic versions, 64 MB of packs they added)
+  drops its oldest automatic versions beyond it. Thinning runs after a
+  version is made and with blob garbage collection; removed versions are
+  tombstoned (synced). "Delete older versions…" in the history view removes
+  every version older than one (named too, after asking).
+- **Restoring** (`VersionRestorer`) first saves the current state as a
+  `restore` version ("Before restoring …"), so nothing is lost and Undo (the
+  snack bar's, or that version's Restore) goes back. Then, as local edits
+  that sync like any: the notebook's settings, its pages (kept ids are
+  rewritten, missing ones written back under their ids, others deleted with
+  their content as `deletePage` does) and every surface's strokes and
+  elements by id (those not in the version tombstoned, missing ones written
+  from the packs, changed elements rewritten). One page restores the same
+  way for that page alone (back where it was among the pages it followed).
+  "Copy as new notebook" writes the version as a new notebook under new ids
+  (links to its own pages, text flows and connectors follow the copies).
+  Open editors reload as after a sync (`SyncController.announce`).
+- **Not versioned:** recordings (audio is never rewritten), the outline
+  (it refers to pages by id, which restoring keeps), recognised text.
+- **UI** (`features/history/`): "Version history…" in the editor's ⋯ menu
+  and the library's notebook menu opens `showVersionHistory`
+  (`showDialogOrSheet` + `SheetHeader`): the versions newest first, grouped
+  by day (`SectionLabel`), each with a thumbnail (the first page it
+  changed), its name or what made it, the time, the device and what changed
+  (`VersionLabels`), and a ⋯ (`MenuRow`s: Restore…, Copy as new notebook,
+  Rename…, Delete version, Delete older versions…). A version opens
+  `VersionPreview` (its pages as thumbnails, read-only; a page opens larger
+  with Restore this page; a canvas shows whole), with Restore and Copy as
+  new notebook. `VersionSheets` loads (and fetches) what a version's
+  surfaces hold for `VersionSurfaceView`, which paints them with
+  `paintWholePage`; a version whose packs can't be had shows its paper with
+  a "not on this device" glyph, and restoring it says so and changes
+  nothing.
+  Collaboration: each version names its device; per user once there are
+  users.
 
 ## Platforms (`platform/`)
 
@@ -3554,7 +3662,10 @@ rows edited in place (text boxes, recordings, outline entries) and every
 deletion, so the pull can tell an edit and a deletion that did not know each
 other (`PullApplier`: the edit is kept, see "Deletion conflicts" below). Remote records are parsed strictly
 (`RecordFields`): every field of the collection's format is required, and a
-malformed record is skipped. Open screens subscribe to
+malformed record is skipped. Fix-ups derived from what was applied run
+right after it, before the next push (`SyncEngine.afterApply`: connectors left off
+their shapes by concurrent edits, `ConnectorRepair`, see "Editing tools"), and add
+what they wrote to the changes. Open screens subscribe to
 `SyncController.remoteChanges` and reload only the affected surfaces.
 
 Robustness (`SyncEngine`): rows are marked clean only for the exact version
@@ -3749,7 +3860,12 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   `EditorCanvas`, over the content layer; `RepaintBoundary`, ticking only while a laser fades)
   paints them through `frameOf` (a page's frame, the canvas as is): a small dot for hovering,
   the laser as `LaserPaint` draws the local one, each labelled with the device's plate
-  (`RoomPresence.initialOf`, the presence plate's colours).
+  (`RoomPresence.initialOf`, the presence plate's colours) — its *name tag*, unless the local
+  setting `pointer_tags` (`AppPreferences.pointerTags`, default on; "⋯" → View → *Name tags*
+  in pages and canvases while another device is in the notebook — the chrome rebuilds on
+  presence — and Settings → Sync once connected) is off: then only the dot or laser
+  shows (the overlay rebuilds on the preference, `RemotePointersPainter.tags`). Presence in
+  the bar and remote live ink (which carries no tag) are unaffected.
 - **End to end**: `integration_test/live_test.dart` runs two app instances at once
   (`tool/e2e.sh`'s `live` phase, `LEN_E2E_ROLE` a and b, talking through files): B sees A's
   pointer, its stroke as written, then the record, with no sync run in between.
