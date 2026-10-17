@@ -204,7 +204,7 @@ void main() {
   });
 
   testWidgets('⋯ → Print… on a canvas prints its whole drawing (R22-8)', (tester) async {
-    final printed = <(String, int)>[];
+    final printed = <(String, String, int)>[];
     final (_, nb) = await openCanvas(
       tester,
       seed: (s, nb) =>
@@ -221,8 +221,8 @@ void main() {
       context,
       notebook: nb,
       printer: (bytes, {required name, required pages}) async {
-        expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
-        printed.add((name, pages));
+        // Checked below: this runs inside a pump, where expect may not.
+        printed.add((String.fromCharCodes(bytes.take(5)), name, pages));
         return PrintHandoff.viewer;
       },
     );
@@ -233,7 +233,7 @@ void main() {
     await pumpUntil(tester, () => printed.isNotEmpty, reason: 'the print');
     await tester.pumpAndSettle();
     await done;
-    expect(printed.single, ('Board.pdf', 1));
+    expect(printed.single, ('%PDF-', 'Board.pdf', 1));
     expect(find.text('Opened “Board.pdf” in your PDF viewer to print'), findsOneWidget);
   });
 

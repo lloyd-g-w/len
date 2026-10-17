@@ -4,7 +4,11 @@ import 'package:len/features/editor/editor_canvas.dart';
 /// Pumps frames while real asynchronous work runs (PDFium's worker, image
 /// decoding, files, isolates), until [done] holds after [stable] frames in a
 /// row. Waits on the condition, not for a fixed time, so a busy machine only
-/// makes it slower; fails after [timeout] of real time.
+/// makes it slower; fails after [timeout] of real time. Each frame elapses
+/// zero fake time, so the work's zero-delay timers (`Future.delayed(
+/// Duration.zero)`, the yields of sliced work) fire: a bare `pump()` never
+/// runs them, and work that yields only after a wall-clock slice (as
+/// [PdfExporter]'s ink does) would stall on a busy machine alone.
 Future<void> pumpUntil(
   WidgetTester tester,
   bool Function() done, {
@@ -17,7 +21,7 @@ Future<void> pumpUntil(
   while (held < stable) {
     if (watch.elapsed > timeout) fail('timed out after $timeout waiting for $reason');
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
-    await tester.pump();
+    await tester.pump(Duration.zero);
     held = done() ? held + 1 : 0;
   }
 }
