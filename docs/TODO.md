@@ -220,7 +220,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   element data were fine (link targets remapped when the file holds the page; images are
   blob hashes; recordings follow ink by time, not id).
 
-- 🚧 (feat/version-history-2) **Version history follow-ups**: compress packs (and the same bytes on web and native, so
+- ✅ **Version history follow-ups**: compress packs (and the same bytes on web and native, so
   they dedupe across platforms); version recordings, the outline and recognised handwriting
   too; smaller version records for very long notebooks (pages' entries in shared blobs, with
   the blob clean-up following them); a golden of the history view.
@@ -250,6 +250,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   unless shared, which then may be collected locally and fetched again); the golden test reads
   thumbnail readiness from a private painter field; the phone preview's title is cut by its
   two buttons; device names are still platform names.
+
+- ⬜ **Version history on phones**: the preview's title is cut off by its two buttons; the
+  golden test knows a thumbnail loaded by a private painter field (give it a public signal).
 
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
