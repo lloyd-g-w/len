@@ -5,6 +5,8 @@ import 'package:len/data/app_database.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/tabs/open_notebooks.dart';
 import 'package:len/features/editor/tabs/workspace_memory.dart';
+import 'package:len/features/library/launch_routes.dart';
+import 'package:len/features/library/notebook_card.dart';
 import 'package:len/features/library/recent_row.dart';
 
 import 'library_ui_test.dart' show addNotebook, pumpSeeded;
@@ -102,6 +104,37 @@ void main() {
     expect(find.byType(EditorScreen), findsNothing);
     expect(s.settings.workspace, isNull);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the kept workspace is the first frame; the library under it renders nothing', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(1280, 800)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final s = AppServices.create(AppDatabase.inMemory());
+    addTearDown(s.dispose);
+    final a = addNotebook(s, 'Algebra');
+    addNotebook(s, 'Biology');
+    keepWorkspace(s, [a.id], active: a.id);
+    await tester.pumpWidget(
+      AppScope(
+        services: s,
+        child: MaterialApp(
+          onGenerateInitialRoutes: (_) => launchRoutes(s),
+          onGenerateRoute: namedRoute,
+        ),
+      ),
+    );
+    expect(find.byType(EditorScreen), findsOneWidget);
+    expect(find.byType(NotebookCard, skipOffstage: false), findsNothing);
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.byType(EditorScreen), findsNothing);
+    expect(find.byType(NotebookCard), findsNWidgets(2));
+    expect(s.settings.workspace, isNull);
   });
 
   testWidgets('a Recent tile names its own folder, the path in its tooltip (R16-3)', (

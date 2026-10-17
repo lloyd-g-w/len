@@ -11,7 +11,7 @@ import 'package:len/domain/surface_element.dart';
 import 'package:len/features/camera/camera_purpose.dart';
 import 'package:len/features/documents/scan/scan_screen.dart';
 import 'package:len/features/editor/editor_screen.dart';
-import 'package:len/features/library/library_screen.dart';
+import 'package:len/features/library/launch_routes.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'content_tools_ui_test.dart' show liveElements;
@@ -31,7 +31,11 @@ Future<AppServices> pumpLibrary(WidgetTester tester, {required AppServices servi
   await tester.pumpWidget(
     AppScope(
       services: services,
-      child: MaterialApp(theme: AppTheme.light(), home: const LibraryScreen()),
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        onGenerateInitialRoutes: (_) => launchRoutes(services),
+        onGenerateRoute: namedRoute,
+      ),
     ),
   );
   for (var i = 0; i < 5; i++) {

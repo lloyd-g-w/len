@@ -9,6 +9,13 @@ import 'search/ink_text_schema.dart';
 /// ([InitialSchema]). Future schema changes **append** a migration; never
 /// edit one that has shipped.
 abstract final class SchemaMigrations {
+  /// The digest of the schema [all] produce (`SchemaCheck.digestOf`): a
+  /// database found in it is checked without building a fresh schema to
+  /// compare with. `app_database_test` fails with the new value when a
+  /// migration changes the schema.
+  static const String shapeDigest =
+      'ed2b4c3c1013202fc806f275afcc0876fc888beb1bf291772c7fea416429fc3a';
+
   /// Index i migrates from version i to i + 1.
   static final List<void Function(CommonDatabase)> all = [
     InitialSchema.create,

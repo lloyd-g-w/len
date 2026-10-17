@@ -194,6 +194,27 @@ void main() {
     final page = doc.layout.frameOf(2)!;
     expect(doc.viewport.visibleWorld.overlaps(page), isTrue);
   });
+
+  testWidgets('a page turned before the answer comes stays (R16-4)', (tester) async {
+    late String third;
+    await pump(tester, (s) {
+      final nb = s.notebooks.create(
+        title: 'Lecture',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.collegeRuled,
+        coverColor: 0,
+      );
+      s.pages.addPage(nb.id, template: const PageTemplate());
+      third = s.pages.addPage(nb.id, template: const PageTemplate()).id;
+      return nb;
+    });
+    final doc = tester.widget<PagedDocumentView>(find.byType(PagedDocumentView)).controller;
+    doc.goToPage(1);
+    doc.resumeAt(third, from: 0);
+    expect(doc.currentPage, 1);
+    doc.resumeAt(third, from: 1);
+    expect(doc.currentPage, 2);
+  });
 }
 
 Future<void> open(WidgetTester tester, AppServices services, Notebook notebook) async {

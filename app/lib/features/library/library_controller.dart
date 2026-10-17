@@ -27,13 +27,20 @@ enum LibrarySection { library, favorites, trash }
 /// repositories on [reload]; libraries are small, so filtering and sorting
 /// happen in memory.
 class LibraryController extends _LibraryState with _LibraryOperations, _LibraryView {
-  LibraryController(super.services) {
+  /// [purgeAfter]: when the expired trash is purged (tests: at once).
+  LibraryController(super.services, {Duration purgeAfter = trashPurgeDelay}) {
     reload();
-    unawaited(_purgeTrash());
+    _purge = Timer(purgeAfter, () => unawaited(_purgeTrash()));
   }
 
+  /// How long after launch the expired trash is purged: not while the
+  /// first screens load (each step holds the UI thread for a while).
+  static const Duration trashPurgeDelay = Duration(seconds: 15);
+
+  late final Timer _purge;
+
   /// Deletes for good the notebooks trashed more than 30 days ago: after
-  /// the first frame, one notebook per event-loop turn (one may hold
+  /// [trashPurgeDelay], one notebook per event-loop turn (one may hold
   /// thousands of strokes).
   Future<void> _purgeTrash() async {
     final expired = services.notebooks.expiredTrash();
@@ -52,6 +59,7 @@ class LibraryController extends _LibraryState with _LibraryOperations, _LibraryV
   @override
   void dispose() {
     _disposed = true;
+    _purge.cancel();
     super.dispose();
   }
 

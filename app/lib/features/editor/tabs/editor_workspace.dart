@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app_services.dart';
+import '../../../core/startup_trace.dart';
 import '../../../domain/notebook.dart';
 import '../../../ui/app_theme.dart';
 import '../editor_screen.dart';
@@ -37,14 +38,28 @@ Future<void> openNotebook(
     from?.dispose?.call();
     return;
   }
-  await Navigator.of(context).push(
+  await Navigator.of(context)
+      .push(editorRoute(origin: from, reduceMotion: MediaQuery.disableAnimationsOf(context)));
+}
+
+/// The editor's route, opening out of [origin] if given ([NotebookOpenRoute]).
+Route<void> editorRoute({NotebookOpenOrigin? origin, required bool reduceMotion}) =>
     NotebookOpenRoute<void>(
       settings: const RouteSettings(name: EditorWorkspace.routeName),
-      origin: from,
-      reduceMotion: MediaQuery.disableAnimationsOf(context),
+      origin: origin,
+      reduceMotion: reduceMotion,
       builder: (_) => const EditorWorkspace(),
-    ),
-  );
+    );
+
+/// Opens the tabs of the workspace kept when Len last went away from the
+/// editor (killed in the background, a window closed; UX_AUDIT R7-7) and
+/// returns the editor's route to launch with, over the library, or null
+/// (the library is shown). Called before the first frame, so a relaunch
+/// shows the notebook at once instead of the library first.
+Route<void>? restoreWorkspace(AppServices services) {
+  if (services.workspace.restore(services.notebooks.get) == null) return null;
+  final features = WidgetsBinding.instance.platformDispatcher.accessibilityFeatures;
+  return editorRoute(reduceMotion: features.disableAnimations);
 }
 
 /// The editor route: shows the active tab's notebook and swaps editors as
@@ -76,6 +91,7 @@ class _EditorWorkspaceState extends State<EditorWorkspace> {
     super.initState();
     _tabs.addListener(_onTabs);
     _services.workspace.shown = true; // Reopened at the next launch.
+    StartupTrace.markAfterFrame('editor');
   }
 
   @override

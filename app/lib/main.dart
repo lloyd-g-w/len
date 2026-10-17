@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'app_services.dart';
 import 'core/font_licenses.dart';
+import 'core/startup_trace.dart';
 import 'data/app_database.dart';
 import 'data/blob_gc.dart';
 import 'data/install_identity.dart';
@@ -26,7 +27,9 @@ import 'ui/open_elsewhere.dart';
 import 'ui/startup_error.dart';
 
 Future<void> main(List<String> args) async {
+  StartupTrace.begin();
   WidgetsFlutterBinding.ensureInitialized();
+  StartupTrace.watchFrames();
   registerFontLicenses();
   // Web: one tab at a time owns the database; another can take it over.
   final tabs = openTabHandover();
@@ -50,10 +53,14 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
   final writes = StorageWrites();
   tabs?.onHandOver = () => _handOver(writes);
   watchPageLifecycle(writes);
+  // Asked for alongside the database (Android answers through the
+  // platform thread, busy while the app starts).
+  final rasterStore = openRasterStore(format: StoredRasters.format);
   try {
     // Natively: files in the app-support directory. Web: IndexedDB.
     dir = await appDataDirectory();
     database = await AppDatabase.openDefault(dir, writes: writes);
+    StartupTrace.mark('database');
     _checkInstallation(dir, database);
     final blobs = await openBlobBackend(dir, writes: writes);
     services = AppServices.create(
@@ -67,7 +74,7 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
       outlines: createOutlinePreparer(),
       writes: writes,
       // Canvases far zoomed out reopen from stored rasters.
-      rasterStore: await openRasterStore(format: StoredRasters.format),
+      rasterStore: await rasterStore,
       // The sync token: Android Keystore, Secret Service, DPAPI.
       secureStore: platformSecureStore(),
     );
@@ -86,11 +93,19 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
     );
     return;
   }
-  // Sync starts once the token is read from the secure store (which may
-  // ask to unlock a keyring, so the app doesn't wait for it).
-  unawaited(services.sync.tokens.load().whenComplete(services.sync.start));
+  StartupTrace.mark('services');
   if (PerfProbe.requested) PerfProbe.start();
   runApp(LenApp(services: services));
+  StartupTrace.mark('runApp');
+  StartupTrace.watchTurns();
+  final firstFrame = WidgetsBinding.instance.waitUntilFirstFrameRasterized;
+  unawaited(firstFrame.then((_) => StartupTrace.mark('first frame')));
+  // Sync starts once the token is read from the secure store (which may
+  // ask to unlock a keyring, so the app doesn't wait for it) and the first
+  // frame is up (what a sync brings in is no part of it).
+  unawaited(
+    Future.wait([services.sync.tokens.load(), firstFrame]).whenComplete(services.sync.start),
+  );
   // Throttled to once a day; deletes blobs unreferenced for a week. Its
   // scans run on this thread: later, not while the first frames build.
   unawaited(Future<void>.delayed(LocalBlobGc.startDelay, services.blobGc.runIfDue));

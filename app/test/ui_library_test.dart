@@ -7,6 +7,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/features/library/launch_routes.dart';
 import 'package:len/features/library/library_screen.dart';
 import 'package:len/features/library/new_notebook_sheet.dart';
 import 'package:len/sync/sync_api.dart';
@@ -28,21 +29,22 @@ Future<AppServices> pumpLibrary(
     ..physicalSize = size
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  services ??= AppServices.create(AppDatabase.inMemory());
-  addTearDown(services.dispose);
+  final s = services ?? AppServices.create(AppDatabase.inMemory());
+  addTearDown(s.dispose);
   await tester.pumpWidget(
     AppScope(
-      services: services,
+      services: s,
       child: MaterialApp(
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: themeMode,
-        home: const LibraryScreen(),
+        onGenerateInitialRoutes: (_) => launchRoutes(s),
+        onGenerateRoute: namedRoute,
       ),
     ),
   );
   await tester.pumpAndSettle();
-  return services;
+  return s;
 }
 
 /// Creates a notebook through the "New" sheet; ends inside the editor.
