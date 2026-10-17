@@ -93,6 +93,29 @@ void main() {
       b.dispose();
     });
 
+    test('the pen stabilises 30 % by default; a pen saved at the old default (off) gets it', () {
+      final pen = PenConfig.defaultsFor(InkTool.ballpoint);
+      expect(pen.streamline, 0.3);
+      Map<String, Object?> saved(double streamline, {int? version}) => {
+        'version': ?version,
+        'pens': {
+          'ballpoint': pen.copyWith(streamline: streamline).toJson(),
+          'highlighter': PenConfig.defaultsFor(InkTool.highlighter)
+              .copyWith(streamline: 0)
+              .toJson(),
+        },
+      };
+      // Saved before the version: off was the default, so it is upgraded;
+      // another value was a choice and is kept; the highlighter is untouched.
+      expect(restored(saved(0)).configOf(InkTool.ballpoint).streamline, 0.3);
+      expect(restored(saved(0)).configOf(InkTool.highlighter).streamline, 0);
+      expect(restored(saved(0.6)).configOf(InkTool.ballpoint).streamline, 0.6);
+      // Saved since: off is a choice.
+      final current = saved(0, version: ToolSettings.prefsVersion);
+      expect(restored(current).configOf(InkTool.ballpoint).streamline, 0);
+      expect(restored(current).toJson()['version'], ToolSettings.prefsVersion);
+    });
+
     test('corrupt stored prefs fall back to defaults', () {
       final t = restored({
         'pens': {

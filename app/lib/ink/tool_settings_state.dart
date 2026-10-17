@@ -41,6 +41,7 @@ abstract class _ToolState extends ChangeNotifier {
 
   /// The persisted customisation.
   Map<String, Object?> toJson() => {
+    'version': ToolSettings.prefsVersion,
     'pens': {for (final e in _configs.entries) e.key.name: e.value.toJson()},
     'eraser': _eraser.toJson(),
     'recent': _recent,
@@ -67,6 +68,7 @@ abstract class _ToolState extends ChangeNotifier {
         }
       }
     }
+    if (data['version'] != ToolSettings.prefsVersion) _upgrade();
     if (EraserConfig.fromJson(data['eraser']) case final eraser?) _eraser = eraser;
     if (RecentColors.parse(data['recent']) case final recent?) _recent = recent;
     _shape = ShapeKind.parse(data['shape']);
@@ -74,6 +76,17 @@ abstract class _ToolState extends ChangeNotifier {
     _laser = LaserConfig.fromJson(data['laser']);
     _lasso = LassoConfig.fromJson(data['lasso']);
     if (data['text'] case final Map<String, Object?> text) _text = TextData.fromJson(text);
+  }
+
+  /// Settings saved before [ToolSettings.prefsVersion] 2 had the pen's
+  /// stabiliser off by default: a pen still off then gets the new default
+  /// (any other stabiliser is kept; saved again, the settings are current).
+  void _upgrade() {
+    const pen = InkTool.ballpoint;
+    final config = _configs[pen]!;
+    if (config.streamline == 0) {
+      _configs[pen] = config.copyWith(streamline: PenDefaults.pen.streamline);
+    }
   }
 
   /// The customisation changed: an option chosen (a quick slot, a size, a

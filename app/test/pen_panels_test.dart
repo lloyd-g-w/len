@@ -49,9 +49,14 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('pen: stabiliser off at 0 and up to 100 %; Reset restores the feel', (tester) async {
+  testWidgets('pen: stabiliser 30 % by default, off at 0, up to 100 %; Reset restores the feel', (
+    tester,
+  ) async {
     await pump(tester, PenOptionsPanel(tools: tools));
-    expect(find.text('Off'), findsOneWidget, reason: 'the pen has no stabiliser by default');
+    expect(find.text('30%'), findsOneWidget, reason: 'the pen\'s default stabiliser');
+    await drag(tester, 'Stabiliser', -400);
+    expect(tools.configOf(InkTool.ballpoint).streamline, 0);
+    expect(find.text('Off'), findsOneWidget);
     expect(find.text('Smooths shaky lines; the ink trails the pen a little'), findsOneWidget);
     await drag(tester, 'Stabiliser', 400);
     expect(tools.configOf(InkTool.ballpoint).streamline, 1);
