@@ -57,9 +57,10 @@ class SelectionMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // The view only matters while something is selected: no rebuild per
-    // pan frame otherwise (it would lay out and repaint the editor).
+    // pan frame otherwise (it would lay out and repaint the editor), nor
+    // per move of a gesture (the menu is hidden meanwhile).
     return ListenableBuilder(
-      listenable: selection,
+      listenable: selection.settled,
       builder: (context, _) => selection.isEmpty ? const SizedBox.shrink() : _menu(context),
     );
   }
@@ -67,7 +68,7 @@ class SelectionMenu extends StatelessWidget {
   Widget _menu(BuildContext context) {
     final dialogOpen = AppScope.of(context).routeOwners.dialogOpen;
     return ListenableBuilder(
-      listenable: Listenable.merge([selection, viewport, selection.clipboard, dialogOpen]),
+      listenable: Listenable.merge([selection.settled, viewport, selection.clipboard, dialogOpen]),
       builder: (context, _) {
         final frame = selection.frame;
         if (frame == null || selection.isEmpty || selection.isChanging) {

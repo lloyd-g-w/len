@@ -21,11 +21,13 @@ export 'version_restorer.dart' show Restored;
 /// its listeners when versions made or deleted here change a notebook's
 /// history (pulled ones come with `RemoteChanges.versionsOfNotebooks`).
 class Versions extends ChangeNotifier {
+  /// While [hold] says so (a pointer is down), versions being made wait.
   Versions({
     required this.repositories,
     required BlobStore blobs,
     required String deviceName,
     Future<bool> Function(String sha)? fetch,
+    bool Function()? hold,
   }) : content = VersionContent(
          blobs: blobs,
          fetch: fetch,
@@ -36,6 +38,7 @@ class Versions extends ChangeNotifier {
       blobs: blobs,
       content: content,
       deviceName: deviceName,
+      hold: hold,
     );
   }
 

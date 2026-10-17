@@ -335,6 +335,47 @@ void main() {
     expect(shown, ['p1']);
   });
 
+  test('remote ink outlines grow with each message and start again when replaced', () {
+    final rooms = LiveRooms(LiveLink(connect: () => throw UnimplementedError(), onMessage: (_) {}))
+      ..join('nb');
+    final remote = RemoteInk(rooms, room: 'nb');
+    addTearDown(remote.dispose);
+    void say(int from, Iterable<StrokePoint> points) => rooms.receive(
+      LiveEphemeral(
+        room: 'nb',
+        from: 'c2',
+        deviceId: 'd',
+        data: {
+          'k': 'ink',
+          's': 'x',
+          'page': 'p1',
+          'tool': 'ballpoint',
+          'color': 0xFF000000,
+          'width': 4,
+          'from': from,
+          'p': [
+            for (final p in points) ...[p.x, p.y, p.pressure],
+          ],
+        },
+      ),
+    );
+    final line = [for (var i = 0; i < 120; i++) StrokePoint(10.0 + i * 2, 50.0 + (i % 5), 0.5)];
+    for (var from = 0; from < line.length; from += 12) {
+      say(from, line.sublist(from, from + 12));
+    }
+    Rect bounds() => remote.outlinesOn('p1').single.$1.getBounds();
+    final grown = bounds();
+    expect(grown.left, lessThan(12));
+    expect(grown.right, greaterThan(240));
+    // Its points from 60 on replaced (snapped) by more: the old tail goes.
+    say(60, [for (var j = 0; j < 80; j++) StrokePoint(130.0 - j, 50.0 + j * 3, 0.5)]);
+    expect(bounds().right, lessThan(140), reason: 'built again from the points kept');
+    expect(bounds().bottom, greaterThan(280));
+    // Straightened by its writer: replaced from 0 with a short line.
+    say(0, [const StrokePoint(10, 50, 0.5), const StrokePoint(60, 50, 0.5)]);
+    expect(bounds().right, lessThan(70), reason: 'built again, not extended');
+  });
+
   testWidgets('presence shows the other devices in the bar', (tester) async {
     final rooms = LiveRooms(LiveLink(connect: () => throw UnimplementedError(), onMessage: (_) {}))
       ..join('nb');

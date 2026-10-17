@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
 import '../domain/stroke.dart';
 import '../sync/live_rooms.dart';
 import '../sync/remote_changes.dart';
+import 'render/live_stroke.dart';
+import 'render/stroke_renderer.dart';
 
 /// Strokes other devices in a notebook's room are writing right now (live
 /// ink, docs/SYNC_PROTOCOL.md "Room data"), drawn as provisional ink until
@@ -44,6 +47,15 @@ class RemoteInk extends ChangeNotifier {
   List<Stroke> strokesOn(String surfaceId) => [
     for (final w in _writing.values)
       if (w.surface == surfaceId && w.points.length > 1) w.stroke,
+  ];
+
+  /// The outlines of the strokes being written on [surfaceId] with their
+  /// paints, in the order they began: built as their points come (what a
+  /// message adds, as the writer's own live ink is), not whole again.
+  List<(Path, Paint)> outlinesOn(String surfaceId) => [
+    for (final w in _writing.values)
+      if (w.surface == surfaceId && w.points.length > 1)
+        (w.outline, StrokeRenderer.paintFor(w.color, w.style)),
   ];
 
   /// The surfaces showing remote ink now.
@@ -87,7 +99,10 @@ class RemoteInk extends ChangeNotifier {
     final from = data['from'];
     final p = data['p'];
     if (from is! int || p is! List || from > w.points.length) return; // Missed some: wait.
-    if (from < w.points.length) w.points.removeRange(from, w.points.length);
+    if (from < w.points.length) {
+      w.points.removeRange(from, w.points.length);
+      w.builder = null; // Replaced: its outline starts again.
+    }
     for (var i = 0; i + 2 < p.length; i += 3) {
       final (x, y, pressure) = (p[i], p[i + 1], p[i + 2]);
       if (x is! num || y is! num || pressure is! num) return;
@@ -215,6 +230,21 @@ class _Writing {
 
   Stroke? _stroke;
   int _built = -1;
+
+  /// The outline as of [revision], and the builder extending it.
+  LiveStrokeBuilder? builder;
+  Path? _outline;
+  int _outlined = -1;
+
+  Path get outline {
+    if (_outlined != revision) {
+      _outlined = revision;
+      final built = LiveStrokeBuilder.build(builder, points, width: width, style: style);
+      builder = built.builder;
+      _outline = built.path.combined;
+    }
+    return _outline!;
+  }
 
   Stroke get stroke {
     if (_built != revision) {

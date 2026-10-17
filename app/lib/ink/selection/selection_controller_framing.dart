@@ -21,8 +21,19 @@ extension _SelectionFraming on _SelectionCore {
     return recorder.endRecording();
   }
 
-  /// [strokes] alone (no elements).
-  ui.Picture _recordStrokes(List<Stroke> strokes) => _record(strokes, const []);
+  /// [strokes] (shapes, recorded anew on every move of a gesture: a handle
+  /// dragged, lines following a shape) drawn as even lines along their
+  /// points ([StrokeRenderer.drawSketch]): a shape's outline is an even
+  /// line with round ends, so this is how it looks, without building
+  /// outlines (nearly all of a move's time). The commit builds them once.
+  ui.Picture _recordSketch(List<Stroke> strokes) {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    for (final s in [...strokes]..sort(Stroke.drawOrder)) {
+      StrokeRenderer.drawSketch(canvas, s);
+    }
+    return recorder.endRecording();
+  }
 
   /// A new selection's frame: around a single element it follows the
   /// element's rotation (so handles sit on its edges), otherwise it is the

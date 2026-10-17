@@ -135,8 +135,8 @@ extension _SelectionConnectors on _SelectionCore {
   /// where they are stored, and their geometry following the shapes (in
   /// that surface's coordinates). With [homeOnly], only lines on this
   /// surface. A line attached to another stroke of the same shape (a copy
-  /// left by edits on two devices at once) stays. [moved]: the transform
-  /// that made the shapes, if one did ([_remapped]).
+  /// left by edits on two devices at once, near its end) stays. [moved]:
+  /// the transform that made the shapes, if one did ([_remapped]).
   List<(SurfaceModel, Stroke, ShapeGeometry)> _followersOf(
     Map<String, Stroke> replaced, {
     bool homeOnly = false,
@@ -150,22 +150,50 @@ extension _SelectionConnectors on _SelectionCore {
       if (homeOnly && surface.model != _model) continue;
       final stored = (_sources[old.id]?.original as Stroke?) ?? old;
       final target = {id: now.shape!.map((p) => p - surface.shift)};
+      final attached = [
+        for (final s in surface.model.strokesNear(stored.bounds))
+          if (!selected.contains(s.id) && _attachedTo(s.shape, id)) s,
+      ];
+      if (attached.isEmpty) continue;
+      final copies = _copiesNear(surface.model, stored, attached);
       bool follows(ShapeGeometry line, int end) {
         if (line.attachmentOf(end)?.id != id) return false;
         final near = Rect.fromCircle(center: line.points[end], radius: 1);
-        final named = [stored, ...surface.model.strokesNear(near)];
+        final named = [stored, ...copies.where((c) => c.bounds.overlaps(near))];
         return Connectors.targetOf(line, end, named)?.id == stored.id;
       }
 
-      for (final s in surface.model.strokesNear(stored.bounds)) {
-        final shape = lines[s.id]?.$3 ?? s.shape;
-        if (shape == null || selected.contains(s.id) || !shape.isAttached) continue;
+      for (final s in attached) {
+        final shape = lines[s.id]?.$3 ?? s.shape!;
         if (!follows(s.shape!, 0) && !follows(s.shape!, 1)) continue;
         final kept = shape.withAttachments((a) => a.id == id ? _remapped(a, now, moved) : a);
         lines[s.id] = (surface.model, s, Connectors.follow(kept, target));
       }
     }
     return lines.values.toList();
+  }
+
+  /// Whether an end of [line] is attached to shape [id].
+  static bool _attachedTo(ShapeGeometry? line, String id) =>
+      line != null && (line.tail?.id == id || line.tip?.id == id);
+
+  /// The other strokes of [shape]'s shape id on [model] near the ends of
+  /// [lines] attached to it: one query for all of them (a query per end
+  /// was most of a move's time with many lines).
+  static List<Stroke> _copiesNear(SurfaceModel model, Stroke shape, List<Stroke> lines) {
+    final id = shape.shapeId;
+    Rect? ends;
+    for (final line in lines) {
+      for (final end in [0, 1]) {
+        if (line.shape!.attachmentOf(end)?.id != id) continue;
+        final near = Rect.fromCircle(center: line.shape!.points[end], radius: 1);
+        ends = ends?.expandToInclude(near) ?? near;
+      }
+    }
+    return [
+      for (final s in model.strokesNear(ends!))
+        if (s.shapeId == id && s.id != shape.id) s,
+    ];
   }
 
   /// Shows the unselected lines attached to [replaced] shapes (selected
@@ -179,7 +207,7 @@ extension _SelectionConnectors on _SelectionCore {
     _followers?.dispose();
     _followers = lines.isEmpty
         ? null
-        : _recordStrokes([
+        : _recordSketch([
             for (final (_, line, shape) in lines) Connectors.rebuilt(line, shape, id: line.id),
           ]);
     final ids = {for (final (_, line, _) in lines) line.id};

@@ -5,18 +5,20 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../data/versions/versions.dart';
+import '../../data/versions/work_slices.dart';
 import '../../domain/notebook_page.dart';
 import '../../domain/paper.dart';
 import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
 import '../../ink/images/element_images.dart';
+import '../../ink/render/content_painter.dart';
 import '../../ui/app_theme.dart';
 import '../editor/document/missing_pdf_painter.dart';
 import '../editor/document/page_backgrounds.dart';
 import '../editor/document/page_painting.dart';
 
 /// A surface of a version ready to paint: its page (for a canvas, the
-/// frame around its content, content moved to start at the origin).
+/// frame around its content, which starts at [origin] on the canvas).
 typedef VersionSheet = ({
   NotebookPage page,
   List<Stroke> strokes,
@@ -39,11 +41,26 @@ class VersionSheets {
   final Map<String, Future<VersionSheet?>> _loaded = {};
   final Map<String, Future<VersionBody?>> _bodies = {};
 
+  /// The load running last: loads run one after the other, so their
+  /// slices ([WorkSlices]) are short turns rather than a dozen thumbnails'
+  /// slices in each, with a turn between loads once one is due.
+  Future<void> _queue = Future<void>.value();
+  final WorkSlices _slices = WorkSlices();
+
+  Future<T> _inTurn<T>(Future<T> Function() load) {
+    final next = _queue.then((_) async {
+      await _slices.yieldIfDue();
+      return load();
+    });
+    _queue = next.then<void>((_) {}, onError: (Object _) {});
+    return next;
+  }
+
   /// The body of [version] (its pages), or null when it cannot be had.
-  Future<VersionBody?> body(NotebookVersion version) => _bodies[version.id] ??= versions.content
-      .body(version)
-      .then<VersionBody?>((body) => body)
-      .catchError((Object _) => null);
+  Future<VersionBody?> body(NotebookVersion version) =>
+      _bodies[version.id] ??= _inTurn(() => versions.content.body(version))
+          .then<VersionBody?>((body) => body)
+          .catchError((Object _) => null);
 
   /// Page [page] of [version] (null: its canvas, or the page it changed
   /// first, else its first), or null when its content cannot be had
@@ -58,10 +75,12 @@ class VersionSheets {
         return first == null ? null : of(version, first);
       }
       final key = 'canvas:${canvas.packs.join()}';
-      return _loaded[key] ??= _load(version, canvas, null).catchError((Object _) => null);
+      return _loaded[key] ??= _inTurn(() => _load(version, canvas, null))
+          .catchError((Object _) => null);
     }
     final key = '${page.id}:${page.content.packs.join()}:${page.fields}';
-    return _loaded[key] ??= _load(version, null, page).catchError((Object _) => null);
+    return _loaded[key] ??= _inTurn(() => _load(version, null, page))
+        .catchError((Object _) => null);
   }
 
   Future<VersionSheet?> _load(
@@ -102,13 +121,10 @@ class VersionSheets {
         paper: paper ?? Paper.blank,
         paperColor: PaperColor.parse(version.notebook['paperColor'] as String?),
       ),
-      strokes: [
-        for (final s in c.strokes)
-          s.withPoints([
-            for (final p in s.points) StrokePoint(p.x - origin.dx, p.y - origin.dy, p.pressure),
-          ]),
-      ],
-      elements: [for (final e in c.elements) e.copyWith(rect: e.rect.shift(-origin))],
+      // Where they are on the canvas (shared with the other versions'
+      // sheets), painted moved by [origin].
+      strokes: c.strokes,
+      elements: c.elements,
       origin: origin,
     );
   }
@@ -160,6 +176,9 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
   bool _loading = true;
   StreamSubscription<String>? _images;
 
+  /// Counts images loaded meanwhile (the picture repaints for them).
+  var _imagesShown = 0;
+
   /// Whether the version's page is shown (not the blank sheet shown while
   /// it loads, nor the one marked as not on this device).
   bool get loaded => !_loading && _sheet != null;
@@ -169,7 +188,7 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
     super.initState();
     _load();
     _images = widget.images.changes.listen((_) {
-      if (mounted) setState(() {});
+      if (mounted) setState(() => _imagesShown++);
     });
   }
 
@@ -223,14 +242,19 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              CustomPaint(
-                painter: _SheetPainter(
-                  sheet,
-                  widget.images,
-                  page == null ? null : widget.version,
-                  page,
-                  widget.sheets.backgrounds,
-                  MediaQuery.devicePixelRatioOf(context),
+              // Painted once (a canvas's thousands of strokes too), not with
+              // every frame of the list around it.
+              RepaintBoundary(
+                child: CustomPaint(
+                  painter: _SheetPainter(
+                    sheet,
+                    widget.images,
+                    page == null ? null : widget.version,
+                    page,
+                    widget.sheets.backgrounds,
+                    MediaQuery.devicePixelRatioOf(context),
+                    _imagesShown,
+                  ),
                 ),
               ),
               if (!_loading && sheet == null)
@@ -251,8 +275,15 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
 }
 
 class _SheetPainter extends CustomPainter {
-  _SheetPainter(this.sheet, this.images, this.version, this.page, this.backgrounds, this.dpr)
-    : super(repaint: backgrounds);
+  _SheetPainter(
+    this.sheet,
+    this.images,
+    this.version,
+    this.page,
+    this.backgrounds,
+    this.dpr,
+    this.imagesShown,
+  ) : super(repaint: backgrounds);
 
   final VersionSheet? sheet;
   final ElementImages images;
@@ -260,6 +291,10 @@ class _SheetPainter extends CustomPainter {
   final VersionPage? page;
   final PageBackgrounds? backgrounds;
   final double dpr;
+  final int imagesShown;
+
+  /// Pictures up to this wide are thumbnails (the history's rows).
+  static const thumbnailWidth = 96.0;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -273,6 +308,10 @@ class _SheetPainter extends CustomPainter {
       return;
     }
     final scale = size.width / page.width;
+    final origin = sheet?.origin;
+    // In a thumbnail, ink too thin to show as more than a line is drawn as
+    // one: outlines take ~0.3 ms a stroke to build, on this thread.
+    final thumbnail = size.width <= thumbnailWidth;
     final bg = page.background;
     final image = bg == null ? null : backgrounds?.imageFor(bg, size.width * dpr);
     canvas
@@ -281,14 +320,31 @@ class _SheetPainter extends CustomPainter {
     paintWholePage(
       canvas,
       page,
-      strokes: sheet?.strokes ?? const [],
-      elements: sheet?.elements ?? const [],
+      strokes: origin == null ? sheet?.strokes ?? const [] : const [],
+      elements: origin == null ? sheet?.elements ?? const [] : const [],
       scale: scale,
       background: image,
       images: images,
       miniature: true,
-      worldOrigin: sheet?.origin,
+      worldOrigin: origin,
+      sketchThin: thumbnail,
     );
+    if (sheet != null && origin != null) {
+      // A canvas: its content where it is, moved into the frame.
+      canvas
+        ..save()
+        ..clipRect(Offset.zero & page.size)
+        ..translate(-origin.dx, -origin.dy);
+      ContentPainter.paint(
+        canvas,
+        sheet.strokes,
+        sheet.elements,
+        images: images,
+        pixelScale: scale,
+        sketchThin: thumbnail,
+      );
+      canvas.restore();
+    }
     if (bg != null && image == null && (backgrounds?.isMissing(bg) ?? false)) {
       paintMissingPdf(canvas, page.size, scan: !bg.isPdf);
     }
@@ -296,5 +352,11 @@ class _SheetPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SheetPainter old) => true;
+  bool shouldRepaint(_SheetPainter old) =>
+      !identical(old.sheet, sheet) ||
+      old.version?.id != version?.id ||
+      old.page != page ||
+      old.backgrounds != backgrounds ||
+      old.dpr != dpr ||
+      old.imagesShown != imagesShown;
 }

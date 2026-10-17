@@ -56,6 +56,19 @@ class VersionContent {
   final Map<String, List<PackItem>> _packs = {};
   static const _cachedPacks = 128;
 
+  /// Decoded table blobs, most recently used last: versions next to each
+  /// other share all but one or two (the history's thumbnails read many).
+  final Map<String, List<Map<String, Object?>>> _tables = {};
+  static const _cachedTables = 256;
+
+  /// The strokes of packs as a surface's (`surfaceId:sha`), most recently
+  /// used last, kept up to [_cachedStrokes] strokes: the versions of a
+  /// canvas share almost all of their packs, so their thumbnails share the
+  /// strokes too instead of decoding the canvas again for each.
+  final Map<String, List<Stroke>> _strokes = {};
+  var _strokesKept = 0;
+  static const _cachedStrokes = 100000;
+
   /// [page] of [version] as a page of its notebook (a version's pages are
   /// valid: they were checked when the record was read).
   static NotebookPage pageOf(NotebookVersion version, VersionPage page, {double sortKey = 0}) =>
@@ -123,12 +136,17 @@ class VersionContent {
   /// The rows of table blob [sha] (fetched if not here), noting the blobs
   /// they name; null when it can't be had or is no table blob.
   Future<List<Map<String, Object?>>?> _tableRows(String sha) async {
+    if (_tables.remove(sha) case final rows?) return _tables[sha] = rows;
     var bytes = await blobs.read(sha);
     if (bytes == null && (await fetch?.call(sha) ?? false)) bytes = await blobs.read(sha);
     if (bytes == null) return null;
     final rows = VersionTable.decode(Uint8List.fromList(bytes));
     if (rows != null && links != null && !links!.knows(sha)) {
       links!.add(sha, BlobReferences.inValue(rows));
+    }
+    if (rows != null) {
+      _tables[sha] = rows;
+      if (_tables.length > _cachedTables) _tables.remove(_tables.keys.first);
     }
     return rows;
   }
@@ -167,16 +185,25 @@ class VersionContent {
     final elements = <SurfaceElement>[];
     String rename(String id) => renamed?[id] ?? id;
     final shapeIdOf = renamed == null ? null : ShapeIds.mapper(renamed, newId ?? () => '');
-    for (final (id, data) in await _itemsOf(surface.ink, strict: strict)) {
-      try {
-        final style = shapeIdOf == null ? null : ShapeIds.remapStyle(data['style'], shapeIdOf);
-        final record = style == null ? data : {...data, 'style': style};
-        strokes.add(StrokeRow.strokeFromRecord(rename(id), {...record, 'surfaceId': surfaceId}));
-      } on FormatException {
-        // Left out (docs/SYNC_PROTOCOL.md, "Version history").
+    final slices = WorkSlices();
+    if (renamed == null) {
+      for (final sha in surface.ink) {
+        await slices.yieldIfDue();
+        strokes.addAll(await _strokesOf(sha, surfaceId, strict: strict, slices: slices));
+      }
+    } else {
+      for (final (id, data) in await _itemsOf(surface.ink, strict: strict, slices: slices)) {
+        await slices.yieldIfDue();
+        try {
+          final style = shapeIdOf == null ? null : ShapeIds.remapStyle(data['style'], shapeIdOf);
+          final record = style == null ? data : {...data, 'style': style};
+          strokes.add(StrokeRow.strokeFromRecord(rename(id), {...record, 'surfaceId': surfaceId}));
+        } on FormatException {
+          // Left out (docs/SYNC_PROTOCOL.md, "Version history").
+        }
       }
     }
-    for (final (id, data) in await _itemsOf(surface.items, strict: strict)) {
+    for (final (id, data) in await _itemsOf(surface.items, strict: strict, slices: slices)) {
       try {
         elements.add(
           ElementRepository.elementFromRecord(
@@ -233,9 +260,46 @@ class VersionContent {
       'flow': {...data['flow']! as Map<String, Object?>, 'from': rename(from)},
   };
 
-  Future<List<PackItem>> _itemsOf(List<String> packs, {required bool strict}) async {
+  /// The strokes of pack [sha] as surface [surfaceId]'s (from the cache;
+  /// none when the pack can't be had, unless [strict]).
+  Future<List<Stroke>> _strokesOf(
+    String sha,
+    String surfaceId, {
+    required bool strict,
+    required WorkSlices slices,
+  }) async {
+    final key = '$surfaceId:$sha';
+    if (_strokes.remove(key) case final strokes?) return _strokes[key] = strokes;
+    final items = await _pack(sha);
+    if (items == null) {
+      if (strict) throw const VersionUnavailable(1);
+      return const [];
+    }
+    final strokes = <Stroke>[];
+    for (final (id, data) in items) {
+      try {
+        strokes.add(StrokeRow.strokeFromRecord(id, {...data, 'surfaceId': surfaceId}));
+      } on FormatException {
+        // Left out (docs/SYNC_PROTOCOL.md, "Version history").
+      }
+    }
+    _strokes[key] = strokes;
+    _strokesKept += strokes.length;
+    while (_strokesKept > _cachedStrokes && _strokes.length > 1) {
+      final oldest = _strokes.keys.first;
+      _strokesKept -= _strokes.remove(oldest)!.length;
+    }
+    return strokes;
+  }
+
+  Future<List<PackItem>> _itemsOf(
+    List<String> packs, {
+    required bool strict,
+    WorkSlices? slices,
+  }) async {
     final items = <PackItem>[];
     for (final sha in packs) {
+      await slices?.yieldIfDue();
       final pack = await _pack(sha);
       if (pack == null && strict) throw const VersionUnavailable(1);
       items.addAll(pack ?? const []);

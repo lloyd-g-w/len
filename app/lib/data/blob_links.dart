@@ -13,16 +13,15 @@ class BlobLinks {
 
   final CommonDatabase db;
 
-  /// Notes that blob [parent] names [children].
+  /// Notes that blob [parent] names [children] (one statement: a canvas's
+  /// table names a pack per 32 strokes).
   void add(String parent, Iterable<String> children) {
-    final insert = db.prepare('INSERT OR IGNORE INTO blob_links (parent, child) VALUES (?, ?)');
-    try {
-      for (final child in children) {
-        insert.execute([parent, child]);
-      }
-    } finally {
-      insert.close();
-    }
+    final list = children.toList();
+    if (list.isEmpty) return;
+    db.execute(
+      'INSERT OR IGNORE INTO blob_links (parent, child) SELECT ?, value FROM json_each(?)',
+      [parent, jsonEncode(list)],
+    );
   }
 
   /// Whether the blobs [parent] names are noted.

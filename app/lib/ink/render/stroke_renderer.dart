@@ -120,8 +120,9 @@ abstract final class StrokeRenderer {
 
   /// Paints [stroke] as a plain line along its points, [stroke.width]
   /// wide, unless its outline is already built: for ink far too small to
-  /// show its shape (a library preview), where building outlines would
-  /// cost most of the time.
+  /// show its shape (a library preview), or a shape's preview redrawn on
+  /// every move (an even line with round ends, as its outline is), where
+  /// building outlines would cost most of the time.
   static void drawSketch(Canvas canvas, Stroke stroke) {
     if (hasPath(stroke) || stroke.points.length < 2) return draw(canvas, stroke);
     drawFill(canvas, stroke);

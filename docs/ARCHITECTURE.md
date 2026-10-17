@@ -2160,9 +2160,14 @@ surface.
   `ShapeRenames`, `LenRemap`). Concurrent edits (one device moves the
   box, another recolours or draws its arrow) leave an end off its shape:
   `ConnectorRepair` (the `SyncEngine.afterApply` hook, after a pull and
-  after each live message, before the next push) looks at the surfaces
-  the changes touched (`StrokeQueries.connectorShapes`: nothing read
-  without an attached line) and replaces each line with an end off the
+  after each live message, before the next push) looks at what the
+  changes touched (`ConnectorQueries.touchedBy`, from the `strokes_shapes`
+  index of a surface's live shapes, never its ink): the changed lines and
+  those attached to a changed shape (by its identity, deleted strokes
+  too), with every stroke of the shapes they name; nothing is read when
+  no shape changed, and every line of a surface whose changes are not
+  named (too many); a line left off by a repair that never ran waits for
+  the next change to it or its shapes. It replaces each line with an end off the
   shape it names (`Connectors.targetOf`: the stroke of that shape it lies
   on, else the one of that very id, else the least id) by the line moved
   onto it, written as a local edit (synced; no undo step: nobody made it
@@ -3884,6 +3889,9 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   `LiveLink` after a reconnect). Presence lists the other devices there; `RoomPresence`
   (`features/editor/live_ink/`) shows a plate with each one's initial before the sync alert in
   the editor's bar. A dropped connection empties every room's presence (`disconnected`).
+  The editor's chrome (View → Name tags) and `PointerRelay` follow
+  `SharedNotebook.othersHere` (whether anyone else is there), which changes only when the first
+  device comes or the last goes, so other presence messages (any room's) rebuild just the plates.
 - **Live ink** ([Room data](SYNC_PROTOCOL.md#get-v1live)): `InkDrawing` tells
   `InkEvents.inkBegan` (surface id) when a pen or highlighter contact starts live ink and
   `inkEnded` (the ids of the strokes it was committed as: one, or one per line of a highlight
@@ -3896,7 +3904,9 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   a device joining mid-stroke (another view opening the notebook, a reconnect) gets the stroke
   again from its start, in messages of at most 300 points, even one begun while nobody was there. On the
   other side `RemoteInk` (`ink/remote_ink.dart`, one per `SharedNotebook`) keeps the strokes
-  being written per writer connection, and `RemoteInkPainter` paints them in their own
+  being written per writer connection, each with a `LiveStrokeBuilder` that extends its outline
+  by the points a message adds (as the writer's own live ink is built; whole again only when
+  points are replaced), and `RemoteInkPainter` paints them in their own
   `RepaintBoundary` between the committed ink and the local `LiveInkPainter` (`InkSurface`
   for canvases; `PagedDocumentView` once for all pages, clipped to each page's frame; the zoom
   window's `ZoomBoxPaper` for its frame's surface, with the pointers' overlay too), so a

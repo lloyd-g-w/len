@@ -14,7 +14,7 @@ abstract final class SchemaMigrations {
   /// compare with. `app_database_test` fails with the new value when a
   /// migration changes the schema.
   static const String shapeDigest =
-      '370fed3aaeef016ea043375bebe829071c9945fa2037c0d16faea06016309eef';
+      '3613edbe02028af8747e423138522e8050bf1cf7bfbbe6c5e11f8b6f5d096099';
 
   /// Index i migrates from version i to i + 1.
   static final List<void Function(CommonDatabase)> all = [
@@ -35,7 +35,33 @@ abstract final class SchemaMigrations {
     _deletionBases,
     _versions,
     _versionTables,
+    _versionRuns,
+    _shapeStrokes,
   ];
+
+  /// Version 19: live shape strokes (a `sh` in their style) indexed per
+  /// surface, so what connectors need after a pull (`ConnectorQueries`) is
+  /// read from a surface's shapes, not from all its ink.
+  static void _shapeStrokes(CommonDatabase db) {
+    db.execute(
+      'CREATE INDEX strokes_shapes ON strokes(surface_id) '
+      "WHERE deleted = 0 AND style LIKE '%\"sh\"%'",
+    );
+  }
+
+  /// Version 18: the packs made per run of a surface's items, by a key of
+  /// what is in them (`PackRuns`, local), so a version repacks only the
+  /// runs that changed; strokes' versions in their surface index, so a
+  /// surface's change mark (`MAX(updated_at)`) reads the index alone.
+  static void _versionRuns(CommonDatabase db) {
+    db.execute('''
+      CREATE TABLE version_runs (
+        key TEXT PRIMARY KEY NOT NULL,
+        sha TEXT NOT NULL
+      ) WITHOUT ROWID''');
+    db.execute('DROP INDEX strokes_by_surface');
+    db.execute('CREATE INDEX strokes_by_surface ON strokes(surface_id, created_at, updated_at)');
+  }
 
   /// Version 17: version records name table blobs (docs/SYNC_PROTOCOL.md,
   /// "Version history"). `blob_links` (local) notes the blobs a reference

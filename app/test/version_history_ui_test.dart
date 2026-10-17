@@ -191,6 +191,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Restore page'));
     await pumpUntil(tester, () => find.textContaining('Page restored').evaluate().isNotEmpty);
+    // The version saved before restoring gets its thumbnail (loads take turns).
+    await tester.pumpAndSettle();
     expect(strokesOn(pages.last), isEmpty);
     expect(strokesOn(pages.first), {'a'});
   });
