@@ -403,6 +403,23 @@ names each page edited, undone or redone, and 600 ms after the last edit those p
 flushed to storage and re-recorded (`ThumbnailCache.changed`: only if shown, else forgotten);
 remote stroke changes refresh at once.
 
+**Pages to screen readers** (`document/page_semantics.dart`, UX_AUDIT R23-10): `EditorCanvas`
+lays `PageSemantics` over the surface, under the content layer (a text box's own node wins a
+touch). It is one node per page in view (`DocumentLayout.visiblePages` of the visible world, its
+frame on screen clipped to it; continuous and single-page flow alike), named "Page 3 of 12,
+bookmarked", whose value is the page's text: `SurfaceText` (`data/search/surface_text.dart`)
+reads the text boxes (`search_docs`, placed by `elements`) and recognised handwriting
+(`ink_text`) in reading order (top, then left), then the PDF page's extracted text
+(`search_docs` kind `pdf`; turning semantics on schedules `SearchService.indexPdfs` for PDFs not
+read yet). Scroll forward / back (`onScrollUp` / `onScrollDown`) and the custom actions *Next
+page* / *Previous page* call `scrollToPage` and announce the page's name. An infinite canvas is
+one "Canvas" node with its whole text. Cost: nothing while no semantics client is attached
+(`SemanticsBinding.semanticsEnabled`, listened to: the widget is an empty box, listens to
+nothing and makes no `SurfaceTextCache`); with one, a scroll frame rebuilds a few positioned
+nodes from `SurfaceTextCache`, which reads a surface's text once and drops it all when the
+database commits (an edit, undo, sync, recognition), so only the pages still shown are read
+again. Text being typed reads once its write lands. The nodes take no pointers.
+
 ## Editor screen (`features/editor/`)
 
 - **`EditorSession`** owns the engine side of one open notebook: `ToolSettings`, live ink,
@@ -2171,7 +2188,8 @@ GoodNotes-style rich text inside a box.
   faded.
 - **Screen readers**: while semantics are on, `TextBoxSemantics` lays a node
   over each text box in view on the edited surface (its text, in reading
-  order; activating it edits the box).
+  order; activating it edits the box). The pages themselves are
+  `PageSemantics`' nodes (see *Paged notebooks*).
 - **Lasso**: *Style* (`selection_style_panel.dart`) changes font and size of the
   selected boxes and pen type / width of selected ink (`SelectionController
   .restyleText` / `restyleInk`, one undo step each); *Colour* recolours all text.
