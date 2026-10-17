@@ -269,7 +269,7 @@ From the reports; the owner picks. Status as above.
   restore survive it, so Ctrl+Z does nothing visible and Ctrl+Shift+Z writes an old stroke back
   onto the restored page. Decide: drop the undo steps of the surfaces a restore rewrote (its Undo
   is the snack bar's), or make the restore one `UndoHistory` step.
-- 🚧 (fix/remote-pointers) **Remote pointers on other pages and in the zoom window** (UX_AUDIT R25-15–R25-18): done
+- ✅ **Remote pointers on other pages and in the zoom window** (UX_AUDIT R25-15–R25-18): done
   on the branch: a hover (or a mouse laser's dot) goes as the page under it, through the layout
   (`DocumentController.pagePointOf`), while a laser trail stays on the page it began on, in its
   coordinates even beyond its edge; the zoom window draws other devices' live ink and pointers
