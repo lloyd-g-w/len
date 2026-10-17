@@ -166,8 +166,9 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
   }
 
   @override
-  void didUpdateWidget(VersionSurfaceView old) {
-    super.didUpdateWidget(old);
+  void didUpdateWidget(VersionSurfaceView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final old = oldWidget;
     if (old.version.id != widget.version.id || old.page?.id != widget.page?.id) _load();
   }
 
