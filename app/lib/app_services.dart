@@ -330,6 +330,7 @@ class AppServices {
     blobs: blobs,
     deviceName: SyncController.deviceName,
     fetch: sync.fetchBlob,
+    hold: () => pointerActivity.isActive,
   );
 
   /// Makes automatic versions as notebooks are edited; [VersionRecorder.enabled]
