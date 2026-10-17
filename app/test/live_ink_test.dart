@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
@@ -199,6 +200,81 @@ void main() {
     expect(remote.strokesOn('page-1'), hasLength(1));
     live.finish();
     events.inkEnded?.call(const []);
+  });
+
+  liveTest('a device joining mid-stroke sees all of it, live', (l) {
+    final a = l.device('a');
+    final b = l.device('b');
+    final c = l.device('c');
+    l.wait(const Duration(seconds: 3));
+    a.s.sync.rooms.join('nb');
+    l.wait(const Duration(milliseconds: 100));
+    final live = LiveInk();
+    final events = InkEvents();
+    final rooms = a.s.sync.rooms;
+    final relay = LiveInkRelay(
+      live: live,
+      events: events,
+      send: (data) => rooms.send('nb', data),
+      anyoneThere: () => rooms.othersIn('nb').isNotEmpty,
+      presence: rooms,
+      members: () => [for (final m in rooms.othersIn('nb')) m.connection],
+    );
+    addTearDown(relay.dispose);
+    RemoteInk watch(FaultDevice d) {
+      final remote = RemoteInk(d.s.sync.rooms, room: 'nb');
+      addTearDown(remote.dispose);
+      d.s.sync.rooms.join('nb');
+      l.wait(const Duration(milliseconds: 400));
+      return remote;
+    }
+
+    // Begun alone: nothing sent, until b opens the notebook.
+    _write(l, live, events, 'page-1', points: 50, end: false);
+    expect(relay.relaying, isFalse);
+    final atB = watch(b);
+    expect(relay.relaying, isTrue);
+    expect(atB.strokesOn('page-1').single.points, hasLength(live.points.length));
+    // It grows on there; then longer than one message (300 points) when c
+    // comes: c gets all of it, b keeps it once (replaced, not doubled).
+    // (In batches: the test server's rate limit runs on real time.)
+    for (var i = 50; i < 420; i += 37) {
+      live.addAll([for (var j = i; j < i + 37; j++) StrokePoint(j * 2.0, j * 1.0, 0.5)]);
+      l.wait(const Duration(milliseconds: 100));
+    }
+    l.wait(const Duration(milliseconds: 200));
+    final all = live.points.length;
+    expect(all, greaterThan(LiveInkRelay.maxPoints));
+    expect(atB.strokesOn('page-1').single.points, hasLength(all));
+    final atC = watch(c);
+    expect(atC.strokesOn('page-1').single.points, hasLength(all));
+    expect(atB.strokesOn('page-1').single.points, hasLength(all));
+    expect(atC.strokesOn('page-1').single.points.last.x, closeTo(live.points.last.x, 0.01));
+    // Ends as s1: shown at both until it lands.
+    live.finish();
+    events.inkEnded?.call(const ['s1']);
+    l.wait(const Duration(milliseconds: 100));
+    for (final remote in [atB, atC]) {
+      expect(remote.strokesOn('page-1'), hasLength(1));
+      remote.landed(RemoteChanges()..addItem('page-1', 's1'));
+      expect(remote.strokesOn('page-1'), isEmpty);
+    }
+    // A device joining between strokes gets nothing.
+    var sent = 0;
+    final quiet = LiveInkRelay(
+      live: LiveInk(),
+      events: InkEvents(),
+      send: (_) => sent++,
+      anyoneThere: () => true,
+      presence: rooms,
+      members: () => [for (final m in rooms.othersIn('nb')) m.connection],
+    );
+    addTearDown(quiet.dispose);
+    b.s.sync.rooms.leave('nb');
+    l.wait(const Duration(milliseconds: 100));
+    b.s.sync.rooms.join('nb');
+    l.wait(const Duration(milliseconds: 100));
+    expect(sent, 0);
   });
 
   liveTest('nothing is sent while nobody else is in the room', (l) {
@@ -427,6 +503,30 @@ void main() {
     await tester.pump();
     expect(remote.strokesOn(page.id), isEmpty);
     expect(session.doc!.surfaces.models.peek(page.id)?.strokeById('st1'), isNotNull);
+    await closeEditor(tester);
+  });
+
+  testWidgets('in the editor: someone opening the notebook mid-stroke gets that stroke', (
+    tester,
+  ) async {
+    final (s, nb) = await pumpEditor(tester);
+    final session = zoomSession(tester);
+    final pen = await tester.startGesture(const Offset(300, 400), kind: PointerDeviceKind.stylus);
+    for (var i = 1; i <= 6; i++) {
+      await pen.moveBy(const Offset(10, 3));
+      await tester.pump();
+    }
+    expect(session.live.isDrawing, isTrue);
+    expect(session.relay.relaying, isFalse, reason: 'alone: nothing sent');
+    s.sync.rooms.receive(
+      LivePresence(nb.id, const [(connection: 'c9', deviceId: 'd9', name: 'Android')]),
+    );
+    await tester.pump();
+    expect(session.relay.relaying, isTrue, reason: 'sent again from its start');
+    await pen.up();
+    await tester.pump();
+    expect(session.relay.relaying, isFalse);
+    s.sync.rooms.receive(LivePresence(nb.id, const []));
     await closeEditor(tester);
   });
 }

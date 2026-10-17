@@ -17,6 +17,7 @@ class PointerRelay {
     required this.events,
     required this.laser,
     required this.surface,
+    this.locate,
     required this.send,
     required this.presence,
     required this.anyoneThere,
@@ -34,6 +35,11 @@ class PointerRelay {
 
   /// The surface (page or canvas) the input and the laser are on now.
   final String Function() surface;
+
+  /// The surface under a point of [surface]'s coordinates, and the point in
+  /// its coordinates (a hover over another page than the active one); null:
+  /// [surface] itself (a canvas).
+  final (String, Offset) Function(Offset point)? locate;
 
   /// Sends a message to the room (dropped while not connected).
   final void Function(Map<String, Object?> data) send;
@@ -139,7 +145,14 @@ class PointerRelay {
   Map<String, Object?> _message() {
     final laserShows = laser.pressed || laser.hovering || _points.isNotEmpty;
     final head = laser.head;
-    final at = laserShows ? head : _hover;
+    var at = laserShows ? head : _hover;
+    var page = surface();
+    // A laser trail stays on the page it started on (the active one: a
+    // press activates the page under it), in its coordinates even beyond
+    // its edge, so it draws on unbroken; a hover (or a laser's dot alone)
+    // goes as the page under it.
+    final trail = laser.pressed || laser.length > 0 || _points.isNotEmpty;
+    if (at != null && !trail && locate != null) (page, at) = locate!(at);
     final Map<String, Object?>? laserData;
     if (laserShows) {
       final c = laser.config;
@@ -174,7 +187,7 @@ class PointerRelay {
     }
     return {
       'k': 'pointer',
-      'page': surface(),
+      'page': page,
       if (at != null) 'at': [_round(at.dx), _round(at.dy)],
       'laser': ?laserData,
     };

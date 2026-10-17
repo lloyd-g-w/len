@@ -635,7 +635,8 @@ again. Text being typed reads once its write lands. The nodes take no pointers.
   through a magnifier. A `ZoomFrame` (surface id, origin, scale) marks a rectangle on a page
   (or the canvas) with the box's aspect; `ZoomBox`, docked above the bottom chrome
   (`ChromeLayout.zoomBox`, counted in `covered` so the page scrolls clear of it), shows it
-  magnified with the page's paper and ink. Pointers in the box go to the window's own
+  magnified with the page's paper and ink (other devices' live ink and pointers too, the main
+  view's layers over the box's viewport). Pointers in the box go to the window's own
   `InkInputController` over `ZoomBoxViewport` (a `ViewportController` the window sets; finger
   pans and pinches move or size the frame instead), so ink is smoothed, pressure-shaped,
   live and undoable exactly as on the page; the pen keeps its page width. `ZoomRules` is the
@@ -3876,11 +3877,14 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   sends the points not sent yet at most every 50 ms — nothing at all while nobody else is in
   the room, so the local pen pays one listener call and a null check per point; with someone
   there, a list slice and a small JSON message 20 times a second, never per point (about 0.15 µs a
-  point on average, `test/perf/live_ink_relay_perf_test.dart`). On the
+  point on average, `test/perf/live_ink_relay_perf_test.dart`). It follows the room's presence too:
+  a device joining mid-stroke (another view opening the notebook, a reconnect) gets the stroke
+  again from its start, in messages of at most 300 points, even one begun while nobody was there. On the
   other side `RemoteInk` (`ink/remote_ink.dart`, one per `SharedNotebook`) keeps the strokes
   being written per writer connection, and `RemoteInkPainter` paints them in their own
   `RepaintBoundary` between the committed ink and the local `LiveInkPainter` (`InkSurface`
-  for canvases; `PagedDocumentView` once for all pages, clipped to each page's frame), so a
+  for canvases; `PagedDocumentView` once for all pages, clipped to each page's frame; the zoom
+  window's `ZoomBoxPaper` for its frame's surface, with the pointers' overlay too), so a
   remote stroke growing repaints only that layer. It goes once every stroke it became is
   applied and drawn: `SharedNotebook._onRemoteChanges` refreshes the open surfaces first and
   then calls `RemoteInk.landed`, so the committed stroke and the provisional one swap in the
@@ -3897,13 +3901,18 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   `EditorSession`) shows where this editor points: `InkEvents.hovered` (the input's hover, in
   the active surface's coordinates; null on exit and on a pen or mouse press) and the laser's
   `LaserTrail` (pressed, hovering, dot, and the trail points added since — `LaserTrail.added`).
+  A hover (or a laser's dot without a trail) goes as the page under it: `locate`
+  (`DocumentController.pagePointOf`, through the layout; the nearest page in a gap) maps it from
+  the active page's coordinates; a laser trail stays on the page it began on (a press activates
+  that page), even beyond its edge, so it draws on unbroken.
   It hooks into both only while another device is in the room (it follows presence), so alone
   it costs nothing; then it sends what changed at most every 40 ms, a held laser again every
   second. `RemotePointers` (`ink/remote_pointers.dart`, one per `SharedNotebook`) keeps a
   `RemotePointer` per device — its hover position or a `LaserTrail` replaying its laser — hides
   it after 3 s without news and drops it when the device leaves. `RemotePointersOverlay` (in
   `EditorCanvas`, over the content layer; `RepaintBoundary`, ticking only while a laser fades)
-  paints them through `frameOf` (a page's frame, the canvas as is): a small dot for hovering,
+  paints them through `frameOf` (a page's frame, the canvas as is): a small dot for hovering
+  (`Palette.pointerOn` the page's paper, ringed with the paper: `paperOf`, not the theme),
   the laser as `LaserPaint` draws the local one, each labelled with the device's plate
   (`RoomPresence.initialOf`, the presence plate's colours) — its *name tag*, unless the local
   setting `pointer_tags` (`AppPreferences.pointerTags`, default on; "⋯" → View → *Name tags*

@@ -133,28 +133,37 @@ fixed 24 × 24; they now grow to their text.
 repeated the label; it is excluded from semantics. Joins and leaves are not
 announced: keep (it would interrupt writing).
 
-**R25-15 P2 · Another device's live stroke vanished when its pen rested 3 s.** ✅ / ⬜
+**R25-15 P2 · Another device's live stroke vanished when its pen rested 3 s.** ✅
 - *What:* receivers drop a writer after 3 s of silence and the sender sent
   nothing while the pen rested, so the rest of the stroke was refused
   (`from` beyond what was kept) until its record came.
 - *Fix:* `LiveInkRelay` tells a resting stroke again every second (no new
-  points; SYNC_PROTOCOL updated). ⬜ A device joining mid-stroke still sees
-  that stroke only when its record lands (P3).
+  points; SYNC_PROTOCOL updated). A device joining mid-stroke saw that stroke
+  only when its record landed (P3): ✅ `LiveInkRelay` follows presence and sends
+  the stroke again from its start when someone joins (in messages of at most 300
+  points, as a stroke replaced whole), even one begun while nobody was there.
 
-**R25-16 P2 · (suspected) A hover or mouse laser over another page is sent as the active page's.** ⬜
+**R25-16 P2 · (suspected) A hover or mouse laser over another page is sent as the active page's.** ✅
 Hover maps through the active page's viewport (`ink_input_controller`), and
-`PointerRelay` sends the active page's id; the receiver draws it at that
+`PointerRelay` sent the active page's id; the receiver drew it at that
 page plus the offset, wrong when the two devices lay pages out differently.
-Map the point with `layout.pageAt` before sending (TODO "Next").
+- *Fix:* `PointerRelay.locate` (`DocumentController.pagePointOf`) sends a hover, or a
+  laser's dot alone, as the page under it (the nearest in a gap) in its coordinates. A laser
+  trail stays on the page it began on, even beyond its edge, so it draws on unbroken
+  (SYNC_PROTOCOL updated).
 
-**R25-17 P3 · The zoom window shows neither other devices' live ink nor their pointers.** ⬜
-`zoom_box_paper.dart` paints only local live ink; add the remote ink (and
-pointer) layers (TODO "Next").
+**R25-17 P3 · The zoom window shows neither other devices' live ink nor their pointers.** ✅
+`zoom_box_paper.dart` painted only local live ink.
+- *Fix:* the box paints `RemoteInkPainter` (between the committed and the local live ink) and
+  a `RemotePointersOverlay` over its view of the frame's surface, each its own
+  `RepaintBoundary` (nothing drawn while nobody else writes or points).
 
-**R25-18 P3 · In dark mode another device's hover dot is a hollow ring.** ⬜
-`remote_pointers_overlay.dart` takes dot and halo from the theme
-(onSurface light, surface dark) while paper stays light; take them from the
-paper, as ink does.
+**R25-18 P3 · In dark mode another device's hover dot is a hollow ring.** ✅
+`remote_pointers_overlay.dart` took dot and halo from the theme
+(onSurface light, surface dark) while paper stays light.
+- *Fix:* `RemotePointersPainter.paperOf`: the dot is `Palette.pointerOn` the page's paper
+  (near-black on light paper, near-white on dark), ringed with the paper's own colour, in
+  either theme.
 
 **R25-19 P3 · The pointer's name tag ignores the text scale.** Keep: it is
 a fixed plate on the paper, sized with the pointer.
