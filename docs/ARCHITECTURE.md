@@ -1710,8 +1710,11 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
 - **Pen-down**: while the S Pen hovers over a surface with the pen tool,
   Dart sends `arm` (how a stroke starting now would look, re-sent every
   150 ms), so the overlay draws from the first sample; `begin` (sent when
-  the input controller starts the live stroke) confirms or restyles it,
-  `skip` takes it back (a down that is not ink — another tool, a
+  the input controller starts the live stroke) confirms or restyles it —
+  also when a quick next stroke (a dot, then the next letter) touched
+  down before a busy UI thread answered (before, that armed contact
+  stayed provisional and went 1 s after its pen-down, shown by Flutter or
+  not) —, `skip` takes it back (a down that is not ink — another tool, a
   selection, a menu over the canvas: a global pointer route answers every
   stylus down no surface took). Unanswered after 1 s, it is dropped
   (after 150 ms it was, and a UI thread busy at pen-down made the first
