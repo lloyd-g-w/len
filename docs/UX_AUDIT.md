@@ -184,7 +184,7 @@ Large text breaks in two places: the scan screen's title disappears at
 2×, and a sideways phone's library cuts titles to three letters. The
 page overview's filter and its ⋯, and the audio player's scrubber, speed
 and Trim were under 48 dp on touch; selection lines lose contrast on dark
-paper. Pages themselves are silent to a screen reader (R23-10, Next).
+paper. Pages were silent to a screen reader (R23-10 ✅: now one node each).
 
 | Area | Len | Verdict |
 |---|---|---|
@@ -199,7 +199,7 @@ paper. Pages themselves are silent to a screen reader (R23-10, Next).
 | Large text 1.5× / 2× | reflows; scan title lost at 2×; sideways library titles cut; a hint and a date ellipsized | R23-2 ✅, R23-5 ✅, R23-7 ✅ |
 | Reduced motion | Flutter cuts its own animations to 5 %; Len's page travel, zooms and scrolls to a control still glided | R23-4 ✅ |
 | Announcements | progress dialogs, notices, page moves, snack bars; nothing on record / pause / resume or Sync now | R23-3 ✅ |
-| Pages to a screen reader | no node: the page, its typed text and recognised handwriting are silent | R23-10 ⬜ (Next) |
+| Pages to a screen reader | one node per page in view with its typed, recognised and PDF text; scroll to turn | R23-10 ✅ |
 | Focus after dialogs and sheets | the route below gets its focused control back (Flutter's scope); popovers return focus to their opener | Keep |
 
 ### Prioritised items
@@ -281,7 +281,7 @@ paper. Pages themselves are silent to a screen reader (R23-10, Next).
 - *Fix:* the hint shrinks to fit its one line (the footer is placed by its
   height); the date wraps to a second line.
 
-**R23-10 P2 · Pages say nothing to a screen reader.** ⬜ (docs/TODO.md Next)
+**R23-10 P2 · Pages say nothing to a screen reader.** ✅
 - *What:* the editor's chrome is fully named, but a page is a painted
   surface with no semantics node: TalkBack swipes from the top bar to the
   toolbar, never hearing "Page 3 of 12", the typed text in its boxes or
@@ -293,6 +293,13 @@ paper. Pages themselves are silent to a screen reader (R23-10, Next).
   that go to the next or previous page and announce it. Medium–large:
   paged and continuous views, PDFs' own text, keeping the tree cheap while
   scrolling.
+- *Fix:* `PageSemantics` lays one node per page in view ("Page 3 of 12,
+  bookmarked"), its value the text boxes and recognised handwriting in
+  reading order, then the PDF page's text (`SurfaceText`, from the search
+  index, cached until the next commit); scroll forward / back and *Next
+  page* / *Previous page* turn the page and announce it, in continuous and
+  single-page flow; a canvas is one "Canvas" node with its text. Nothing is
+  built or read while no screen reader is on; the nodes take no pointers.
 
 ## Round 22 audit — exporting and sharing (`review/round22`)
 

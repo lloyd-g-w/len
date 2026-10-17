@@ -31,6 +31,9 @@ optional sync through a tiny server you host yourself.
   Android), split view, tabs, PDF / PNG export, Len files and backups.
 - **Keyboard access**: shortcuts (Ctrl/⌘+/ lists them), arrow keys within every group,
   context menus with the Menu key or Shift+F10.
+- **Screen readers**: every control is named; pages read as "Page 3 of 12, bookmarked"
+  with their typed text, recognised handwriting and PDF text, and scroll to the next or
+  previous page.
 
 ## Install
 
