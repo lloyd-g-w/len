@@ -119,17 +119,13 @@ void main() {
   /// Every version thumbnail on screen has its page loaded (not the blank
   /// sheet shown while loading, nor the cloud-off one).
   bool loaded({int? count}) {
-    final views = find.byType(VersionSurfaceView);
-    final paints = find
-        .descendant(of: views, matching: find.byType(CustomPaint))
-        .evaluate()
-        .map((e) => (e.widget as CustomPaint).painter)
-        .where((p) => p != null)
-        .toList();
-    return paints.isNotEmpty &&
-        (count == null || paints.length == count) &&
-        // ignore: avoid_dynamic_calls
-        paints.every((p) => (p as dynamic).sheet != null);
+    final views = [
+      for (final e in find.byType(VersionSurfaceView).evaluate())
+        (e as StatefulElement).state as VersionSurfaceViewState,
+    ];
+    return views.isNotEmpty &&
+        (count == null || views.length == count) &&
+        views.every((v) => v.loaded);
   }
 
   Future<void> open(WidgetTester tester, {required Size size, required bool dark}) async {
