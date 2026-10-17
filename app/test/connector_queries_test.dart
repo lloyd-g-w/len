@@ -66,12 +66,12 @@ void main() {
   setUp(() {
     db = AppDatabase.inMemory();
     strokes = StrokeRepository(db, deviceId: 'd');
-    queries = ConnectorQueries(strokes.db);
+    queries = ConnectorQueries(strokes.database);
     strokes.save([a, b, c, ab, bc, ca, ink]);
   });
   tearDown(() => db.close());
 
-  Set<String> ids(Iterable<Stroke> s) => {for (final x in s) x.id};
+  Set<String> ids(Iterable<ShapeRow> s) => {for (final x in s) x.id};
 
   test('ink changed: nothing to look at', () {
     final read = queries.touchedBy('p', ['ink', 'unknown']);

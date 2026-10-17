@@ -139,6 +139,10 @@ abstract class _SelectionCore extends ChangeNotifier {
   ui.Picture? _followers;
   Set<String> _followerIds = const {};
 
+  /// The lines [followers] shows, by the id of the line each follows (a
+  /// commit of the same move takes them instead of building them again).
+  Map<String, Stroke> _followerStrokes = const {};
+
   /// The shape a line's end being dragged (a handle, the Shape tool)
   /// would attach to, shown with the selection's chrome.
   AttachHint? get attachHint => _attachHint;
@@ -172,6 +176,7 @@ abstract class _SelectionCore extends ChangeNotifier {
     _followers?.dispose();
     _followers = null;
     _followerIds = const {};
+    _followerStrokes = const {};
     _frame = isEmpty ? null : frame ?? _frameAround(_strokes, _elements);
     if (!isEmpty) _picture = _record(_strokes);
     _hide();

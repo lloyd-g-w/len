@@ -232,13 +232,16 @@ mixin _SurfaceEditing on _SurfaceState {
     if (_unsaved.isEmpty) return;
     final edits = List.of(_unsaved);
     _unsaved.clear();
-    edits.forEach(_write);
+    _repository.database.transaction(() => edits.forEach(_write));
   }
 
+  /// Writes [edit]'s strokes, in one transaction.
   void _write(InkEdit edit) {
     developer.Timeline.startSync('len.persistStrokes');
-    if (edit.removed.isNotEmpty) _repository.delete(edit.removed.map((s) => s.id));
-    if (edit.added.isNotEmpty) _repository.save(edit.added);
+    _repository.database.transaction(() {
+      if (edit.removed.isNotEmpty) _repository.delete(edit.removed.map((s) => s.id));
+      if (edit.added.isNotEmpty) _repository.save(edit.added);
+    });
     developer.Timeline.finishSync();
   }
 

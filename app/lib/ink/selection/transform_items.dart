@@ -6,6 +6,7 @@ import '../../domain/surface_element.dart';
 import '../../domain/text/text_data.dart';
 import '../elements/text_layout.dart';
 import '../geometry/affine.dart';
+import '../render/stroke_renderer.dart';
 import '../shapes/shape_builder.dart';
 
 /// Applies selection transforms to immutable strokes and elements.
@@ -16,7 +17,18 @@ abstract final class TransformItems {
   /// [stroke] moved by [t], as a new stroke with id [id]. The line width
   /// scales with the transform's mean scale. Paint order ([Stroke.createdAt])
   /// is kept, so moved ink stays above/below what it was above/below.
+  /// Moved without turning or scaling, it takes [stroke]'s outline (if
+  /// built) shifted along: the outline of points shifted is the outline
+  /// shifted, and building it is most of a selection's commit.
   static Stroke stroke(Stroke stroke, Affine t, {required String id}) {
+    final moved = _transformed(stroke, t, id: id);
+    if (t.isTranslation && StrokeRenderer.hasPath(stroke)) {
+      StrokeRenderer.adopt(moved, StrokeRenderer.pathOf(stroke).shift(Offset(t.tx, t.ty)));
+    }
+    return moved;
+  }
+
+  static Stroke _transformed(Stroke stroke, Affine t, {required String id}) {
     final points = [
       for (final p in stroke.points)
         () {

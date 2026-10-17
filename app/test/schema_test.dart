@@ -73,8 +73,16 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 19);
-    expect(AppDatabase.latestVersion, 19);
+    expect(schema['version'], 20);
+    expect(AppDatabase.latestVersion, 20);
+    // Version 20: shape strokes indexed by attachments and identity.
+    expect(
+      fresh.db.select(
+        'SELECT 1 FROM sqlite_master WHERE name IN '
+        "('strokes_shape_tails', 'strokes_shape_tips', 'strokes_shape_origins')",
+      ),
+      hasLength(3),
+    );
     // Version 19: shape strokes indexed per surface.
     expect(
       fresh.db.select("SELECT 1 FROM sqlite_master WHERE name = 'strokes_shapes'"),
@@ -350,7 +358,7 @@ void main() {
   });
 }
 
-/// Back to before version 10 (the chunk indexes): undoes versions 10 to 19
+/// Back to before version 10 (the chunk indexes): undoes versions 10 to 20
 /// of a fresh database (14 only rewrites data).
 void _dropChunkDigests(CommonDatabase db) {
   for (final table in ['elements', 'recordings', 'outline']) {
@@ -373,4 +381,7 @@ void _dropChunkDigests(CommonDatabase db) {
   db.execute('DROP INDEX strokes_by_surface');
   db.execute('CREATE INDEX strokes_by_surface ON strokes(surface_id, created_at)');
   db.execute('DROP INDEX strokes_shapes');
+  for (final index in ['tails', 'tips', 'origins']) {
+    db.execute('DROP INDEX strokes_shape_$index');
+  }
 }

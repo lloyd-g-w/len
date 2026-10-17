@@ -36,7 +36,7 @@ import 'support/frame_counts.dart';
 ///
 /// Run: `tool/heavy.sh nix develop .. -c flutter test test/perf/connectors_perf_test.dart`.
 void main() {
-  test('repair after a pull: 500 boxes, 1,000 arrows, 5,000 strokes', () {
+  test('repair after a pull: 500 boxes, 1,000 arrows, 5,000 strokes', () async {
     final db = AppDatabase.inMemory();
     final strokes = StrokeRepository(db, deviceId: 'd');
     const surface = 's';
@@ -62,9 +62,14 @@ void main() {
     }
 
     // Another device moved one box without its arrows (theirs were edited
-    // meanwhile here): its arrows are brought back onto it.
+    // meanwhile here): its arrows are brought back onto it. The first
+    // repair runs code for the first time (compiled then, in the debug
+    // JIT): reported apart, as the drag's warm-up moves are.
     final moved = <int>[];
-    for (var i = 0; i < 20; i++) {
+    var first = 0;
+    final profile = const bool.fromEnvironment('PROFILE') ? await CpuProfile.connect() : null;
+    for (var i = 0; i <= 20; i++) {
+      if (i == 1) await profile?.start();
       final old = boxes[(i * 61 + 26) % boxes.length];
       final now = Stroke(
         id: 'moved$i',
@@ -86,19 +91,25 @@ void main() {
         ..addItem(surface, now.id);
       final w = Stopwatch()..start();
       final n = repair.repair(changes);
-      moved.add(w.elapsedMicroseconds);
+      i == 0 ? first = w.elapsedMicroseconds : moved.add(w.elapsedMicroseconds);
       expect(n, greaterThanOrEqualTo(2)); // Its arrows in and out.
       boxes[(i * 61 + 26) % boxes.length] = now;
     }
+    await profile?.dump('repair, a box moved', count: 45);
 
     // Many changes (more than are named): the whole surface is looked at.
     final many = RemoteChanges()..reloadSurface(surface);
+    await profile?.start();
+    for (var i = 0; i < 10; i++) {
+      repair.repair(many);
+    }
+    await profile?.dump('repair, surface reloaded', count: 45);
     final whole = bestUs(() => repair.repair(many), runs: 10);
 
     report(
       'CONNECTORS repair, ${diagram.length} shapes + ${ink.length} strokes: '
       'a stroke of ink pulled: ${_stats(idle)}; '
-      'a box moved: ${_stats(moved)}; '
+      'a box moved: first ${_ms(first)}, then ${_stats(moved)}; '
       'surface reloaded: best ${_ms(whole)}',
     );
     db.close();
@@ -108,7 +119,9 @@ void main() {
     test('drag one box with $arrows arrows: followers per move', () async {
       final db = AppDatabase.inMemory();
       final repository = StrokeRepository(db, deviceId: 'd');
-      final model = SurfaceModel(surfaceId: 's', repository: repository);
+      // Edits written after the frame showing them, as in the editor
+      // (`EditorSession`): the commit, then the write, timed apart.
+      final model = SurfaceModel(surfaceId: 's', repository: repository, writeBehind: true);
       final hub = _hub('s', arrows);
       repository.save([
         ...hub,
@@ -148,13 +161,36 @@ void main() {
           move();
         }
       }, runs: 5);
-      expect(selection.followers, isNotNull);
-      final commit = Stopwatch()..start();
-      selection.commitPreview();
-      commit.stop();
+      // Each commit drops the box (and its arrows, as followers) where the
+      // drag left it; the next drag picks up the moved box.
+      // Profiled: the last drag's commit and write, sampled every 100 µs.
+      final profile = const bool.fromEnvironment('PROFILE') ? await CpuProfile.connect() : null;
+      final commits = <int>[], writes = <int>[];
+      for (var k = 0; k < 5; k++) {
+        if (k > 0) {
+          final frame = selection.frame!;
+          for (var m = 0; m < 3; m++) {
+            selection.setPreview(Affine.translation(Offset(m * 2.0 - k, k * 1.5)), frame);
+          }
+        }
+        expect(selection.followers, isNotNull);
+        final last = k == 4 ? profile : null;
+        await last?.start(period: 100);
+        final commit = Stopwatch()..start();
+        selection.commitPreview();
+        commits.add(commit.elapsedMicroseconds);
+        await last?.dump('commit $arrows', count: 70);
+        await last?.start(period: 100);
+        final write = Stopwatch()..start();
+        model.flush();
+        writes.add(write.elapsedMicroseconds);
+        await last?.dump('write $arrows', count: 40);
+        expect(model.strokeById(selection.strokes.single.id)?.shapeId, 'hub');
+      }
       report(
         'CONNECTORS drag, $arrows arrows: setPreview ${_ms(perMove ~/ 20)} a move '
-        '(best of 5 × 20); commit ${_ms(commit.elapsedMicroseconds)}',
+        '(best of 5 × 20); commit ${_stats(commits)}, written after the frame '
+        '${_stats(writes)} (5 drags)',
       );
       content.dispose();
       model.dispose();
