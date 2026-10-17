@@ -8,6 +8,13 @@ import 'package:flutter/foundation.dart';
 ///
 /// When [contentBounds] is set (a page), panning and zooming are constrained
 /// so the content cannot be lost off-screen.
+///
+/// With a [devicePixelRatio], the view moves in whole device pixels while
+/// the zoom stays the same (from where the last zoom left it): the ink's
+/// tiles, rendered on whole device pixels of the view a zoom left, then
+/// stay exactly where the vectors would be drawn. Otherwise they are drawn
+/// aligned to their pixels (`TileView.alignedTo`), up to half a device
+/// pixel off the live stroke, which shifted at pen-up after a pan.
 class ViewportController extends ChangeNotifier {
   ViewportController({this.minScale = 0.05, this.maxScale = 16, this._contentBounds});
 
@@ -21,13 +28,33 @@ class ViewportController extends ChangeNotifier {
   set contentBounds(Rect? value) {
     if (value == _contentBounds) return;
     _contentBounds = value;
-    _constrain();
+    _moved();
     notifyListeners();
   }
 
   double _scale = 1;
   Offset _offset = Offset.zero;
   Size _size = Size.zero;
+
+  /// Where the view would be without [devicePixelRatio]'s steps (pans
+  /// smaller than a pixel add up).
+  Offset _exact = Offset.zero;
+
+  /// The offset the zoom was last changed at: the view moves in whole
+  /// device pixels from it.
+  Offset? _anchor;
+
+  double? _devicePixelRatio;
+
+  /// Device pixels per screen pixel, if the view should move in whole
+  /// device pixels (see the class doc); null: it moves freely.
+  double? get devicePixelRatio => _devicePixelRatio;
+  set devicePixelRatio(double? value) {
+    if (value == _devicePixelRatio) return;
+    _devicePixelRatio = value;
+    _anchor = value == null ? null : _offset;
+    _exact = _offset;
+  }
 
   double get scale => _scale;
   Offset get offset => _offset;
@@ -47,7 +74,7 @@ class ViewportController extends ChangeNotifier {
   void setSize(Size size) {
     if (size == _size) return;
     _size = size;
-    _constrain();
+    _moved();
     notifyListeners();
   }
 
@@ -55,8 +82,8 @@ class ViewportController extends ChangeNotifier {
   /// bad wheel or trackpad event cannot break the viewport).
   void panBy(Offset screenDelta) {
     if (screenDelta == Offset.zero || !screenDelta.isFinite) return;
-    _offset += screenDelta;
-    _constrain();
+    _exact += screenDelta;
+    _moved();
     notifyListeners();
   }
 
@@ -67,8 +94,8 @@ class ViewportController extends ChangeNotifier {
     if (newScale == _scale) return;
     final world = toWorld(focal);
     _scale = newScale;
-    _offset = focal - world * _scale;
-    _constrain();
+    _exact = focal - world * _scale;
+    _zoomed();
     notifyListeners();
   }
 
@@ -89,8 +116,8 @@ class ViewportController extends ChangeNotifier {
     if (shown == _scale) return;
     final world = toWorld(focal);
     _scale = shown;
-    _offset = focal - world * _scale;
-    _constrain();
+    _exact = focal - world * _scale;
+    _zoomed();
     notifyListeners();
   }
 
@@ -134,10 +161,11 @@ class ViewportController extends ChangeNotifier {
     if (!scale.isFinite || scale <= 0 || !offset.isFinite) return;
     final give = stretched ? stretch : 1.0;
     final clamped = scale.clamp(minScale / give, maxScale * give);
-    if (clamped == _scale && offset == _offset) return;
+    if (clamped == _scale && (offset == _exact || offset == _offset)) return;
+    final zoomed = clamped != _scale;
     _scale = clamped;
-    _offset = offset;
-    _constrain();
+    _exact = offset;
+    zoomed ? _zoomed() : _moved();
     notifyListeners();
   }
 
@@ -161,22 +189,44 @@ class ViewportController extends ChangeNotifier {
     final content = contentBounds;
     if (content == null || _size.isEmpty) return;
     _scale = ((_size.width - 2 * padding) / content.width).clamp(minScale, maxScale);
-    _offset = Offset(
+    _exact = Offset(
       (_size.width - content.width * _scale) / 2 - content.left * _scale,
       padding - content.top * _scale,
     );
-    _constrain();
+    _zoomed();
     notifyListeners();
   }
 
-  /// Keeps bounded content reachable: centred along an axis when it fits,
-  /// otherwise never scrolled further than [overscroll] past its edges.
-  void _constrain() {
+  /// The zoom changed: the view moves in whole device pixels from here.
+  void _zoomed() {
+    _exact = _constrained(_exact);
+    _offset = _exact;
+    _anchor = _devicePixelRatio == null ? null : _offset;
+  }
+
+  /// The view moved at the same zoom: by whole device pixels from
+  /// [_anchor] (see [devicePixelRatio]).
+  void _moved() {
+    _exact = _constrained(_exact);
+    final dpr = _devicePixelRatio;
+    if (dpr == null) {
+      _offset = _exact;
+      return;
+    }
+    final anchor = _anchor ??= _exact;
+    final d = (_exact - anchor) * dpr;
+    _offset = anchor + Offset(d.dx.roundToDouble(), d.dy.roundToDouble()) / dpr;
+  }
+
+  /// [offset] keeping bounded content reachable: centred along an axis
+  /// when it fits, otherwise never scrolled further than [overscroll] past
+  /// its edges.
+  Offset _constrained(Offset offset) {
     final content = contentBounds;
-    if (content == null || _size.isEmpty) return;
-    _offset = Offset(
-      _constrainAxis(_offset.dx, content.left, content.right, _size.width),
-      _constrainAxis(_offset.dy, content.top, content.bottom, _size.height),
+    if (content == null || _size.isEmpty) return offset;
+    return Offset(
+      _constrainAxis(offset.dx, content.left, content.right, _size.width),
+      _constrainAxis(offset.dy, content.top, content.bottom, _size.height),
     );
   }
 

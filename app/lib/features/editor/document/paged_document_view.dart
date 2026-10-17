@@ -196,6 +196,8 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with TickerProvid
     final desk = Surfaces.canvasBackdrop(brightness);
     final shadows = Shadows.low(brightness);
     final dpr = MediaQuery.devicePixelRatioOf(context);
+    // Pans in whole device pixels: the tiles stay where the live ink is.
+    _doc.viewport.devicePixelRatio = dpr;
     return LayoutBuilder(
       builder: (context, constraints) {
         _onLayout(constraints.biggest);

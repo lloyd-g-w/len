@@ -122,6 +122,8 @@ class _InkSurfaceState extends State<InkSurface> {
   @override
   Widget build(BuildContext context) {
     _devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    // Pans in whole device pixels: the tiles stay where the live ink is.
+    widget.viewport.devicePixelRatio = _devicePixelRatio;
     final input = widget.input;
     return LayoutBuilder(
       builder: (context, constraints) {

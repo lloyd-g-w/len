@@ -1,12 +1,14 @@
-// The pen never flickers around zooms either: rendered frame by frame,
-// crossing between the level-of-detail rasters (zoomed far out) and the
-// tiles never shows the ink missing for a frame, whatever is rendered yet.
+// The pen never flickers around zooms and pans either: rendered frame by
+// frame, crossing between the level-of-detail rasters (zoomed far out) and
+// the tiles never shows the ink missing for a frame, whatever is rendered
+// yet; and after pans by fractions of a pixel the stroke stays exactly
+// where it was drawn live at pen-up.
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
 
-import 'pen_flicker_frames_test.dart' show framesOf;
+import 'pen_flicker_frames_test.dart' show background, endOf, framesOf, settledTiles, wave;
 import 'support/canvas_fixtures.dart';
 import 'support/ink_frames.dart';
 import 'support/ink_scene.dart';
@@ -110,5 +112,49 @@ void main() {
         });
       },
     );
+  }
+
+  for (final dpr in [2.0, 2.625]) {
+    testWidgets('pans by fractions of a pixel, then a stroke (${dpr}x): it stays put at pen-up', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        final scene = InkScene(background(), dpr: dpr);
+        scene.viewport.devicePixelRatio = dpr; // As the editors set it.
+        await scene.warm();
+        final f = framesOf(scene);
+        // Pans, a zoom (the tiles' new pixels), pans again: none in whole
+        // device pixels.
+        for (final pan in const [Offset(13.37, -7.21), Offset(0.3, 0.45), Offset(-5.08, 2.9)]) {
+          scene.viewport.panBy(pan);
+          await f.frame();
+        }
+        scene.viewport.zoomAt(const Offset(201.3, 99.7), 1.1);
+        await scene.warm();
+        for (final pan in const [Offset(0.21, 0.33), Offset(7.77, -3.14), Offset(0.4, 0.1)]) {
+          scene.viewport.panBy(pan);
+          await f.frame();
+        }
+        await scene.warm();
+        final points = wave(x: 120, y: 140, length: 300);
+        final frames = await f.draw(points);
+        f.lift(scene.model);
+        frames
+          ..add(await f.frame())
+          ..addAll(await f.until(() => settledTiles(scene)));
+        // Not a pixel's shade changes: no shift by a fraction of a pixel.
+        for (var k = frames.length - 3; k < frames.length; k++) {
+          final shifted = lostInk(
+            frames[k - 1],
+            frames[k],
+            near: 0,
+            by: 40,
+            except: endOf(f, points),
+          );
+          expect(shifted, 0, reason: 'frame $k shifted $shifted px of ink');
+        }
+        scene.dispose();
+      });
+    });
   }
 }

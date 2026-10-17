@@ -205,7 +205,14 @@ draws a few dozen images, however much ink is on screen.
 - **Pan**: panning keeps the space and its tiles, by fractions of a pixel
   too: the view is aligned to the tiles (`TileView.alignedTo`, committed
   ink off by under half a device pixel) rather than every tile re-rendered
-  when a scroll stops; the ring renders while panning.
+  when a scroll stops; the ring renders while panning. The editors' views
+  (`ViewportController.devicePixelRatio`, set by `InkSurface` and
+  `PagedDocumentView`) therefore pan in whole device pixels from where the
+  last zoom left them (pans under a pixel add up; glides and page edges
+  step too): the tiles then sit exactly where the vectors are, and the
+  live stroke drawn at the true view no longer shifted by a fraction of a
+  pixel at pen-up after a pan (hundreds of edge pixels changing shade:
+  a shimmer of the whole stroke).
 - **Zoom**: the current tiles are drawn transformed (`FilterQuality.medium`)
   while the gesture lasts, rendering only those missing on screen (and the
   ring when zooming out); zooming out more than 1.5× from the tiles adopts
