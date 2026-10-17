@@ -78,10 +78,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   every zoom): a fixed page width matching PDF export, at least about a pixel.
 
 ## Owner asks (round 13)
-- ⬜ **Highlighter and laser customisation like the pen's**: every option the pen has that
-  makes sense (editable quick colour slots and their count, quick sizes, pressure, stabiliser,
-  ends, preview, Reset) on the highlighter and the laser pointer too; the laser's three fixed
-  colours become editable slots, with quick sizes.
+- ✅ **Highlighter and laser customisation like the pen's**: the highlighter already had every
+  pen option (now tested); the laser gets editable, persisted quick colour and size slots (1–5
+  each, shared slot rows and editors, 1–9 and [ / ] too) and the pen's popover layout.
 - ✅ **Better shape control points**: handles by meaning for drawn and snapped shapes (circle
   centre + radius, ellipse centre + two radii, rectangle / diamond corners + sides, a line's
   bend, star centre + point + inner radius and its points in Style) with snaps and Shift
@@ -90,13 +89,16 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   closed) drawn anchor by anchor with the Shape tool or snapped from a held smooth stroke
   (Schneider fit); anchors and tangents are editable, a tap on the line adds an anchor and a
   double tap removes one.
-- ⬜ **The pen still flickers sometimes** (owner, again): keep hunting every cause on every
+- 🚧 (fix/pen-flicker-3) **The pen still flickers sometimes** (owner, again): keep hunting every cause on every
   platform (Linux, web, Android), with frame-by-frame tests.
-- ⬜ **Live sync, actually live**: edits show on other devices within a fraction of a second
+- 🚧 (feat/live-sync-2) **Live sync, actually live**: edits show on other devices within a fraction of a second
   (push on pen-up, server fans the records out over one long-lived connection, no pull
   round trip), built as the foundation for real-time collaboration: a WebSocket channel with
   rooms per notebook, ephemeral messages (in-progress strokes, presence / cursors) next to
   records; documented in SYNC_PROTOCOL.md; falls back to today's pull when the channel is down.
+- ✅ **`flutter run --release -d linux` fails to link** (owner): it builds and runs inside
+  `nix develop`; a Flutter from outside the dev shell lacks its toolchain and libraries. The
+  repo has an `.envrc` (direnv: `use flake`) and the README says so.
 
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
