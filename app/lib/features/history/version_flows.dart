@@ -24,7 +24,7 @@ Future<void> saveVersionFlow(BuildContext context, AppServices services, String 
 
 /// Says that [version]'s content is not on this device.
 void _unavailable(BuildContext context) =>
-    showMessage(context, 'This version isn’t on this device yet. Connect to sync and try again');
+    showMessage(context, 'This version isn’t on this device yet. Connect to sync and try again.');
 
 /// Tells open editors what a restore rewrote.
 void _announce(AppServices services, String notebookId, Restored done) {
@@ -50,7 +50,7 @@ Future<bool> restoreVersionFlow(
     title: 'Restore this version?',
     message:
         'The notebook goes back to how it was on $when. How it is now is kept as a '
-        'version, so you can go back to it',
+        'version, so you can go back to it.',
     confirmLabel: 'Restore',
   );
   if (!ok || !context.mounted) return false;
@@ -71,7 +71,7 @@ Future<bool> restorePageFlow(
     title: 'Restore this page?',
     message:
         'The page goes back to how it was on $when; the other pages stay as they are. How '
-        'the notebook is now is kept as a version',
+        'the notebook is now is kept as a version.',
     confirmLabel: 'Restore page',
   );
   if (!ok || !context.mounted) return false;
