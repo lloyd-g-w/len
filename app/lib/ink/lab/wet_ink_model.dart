@@ -262,10 +262,11 @@ class WetInkModel with _WetInkRadii, _WetInkSegments {
   /// How far (arc length) behind its newest input Flutter's live ink ends
   /// at most with the stabiliser on: the resampling's last final segments
   /// (three points, see [_back]), the corner test, the kernel and the tip
-  /// rules.
+  /// rules, and the sample round ends stop short of the final line
+  /// (`StrokeOutline.shownOf`).
   double get _lagReach {
     final p = shape;
-    return (p.kernel.length ~/ 2 + p.cornerK + p.lag + 2) * p.step;
+    return (p.kernel.length ~/ 2 + p.cornerK + p.lag + (p.flat ? 2 : 3)) * p.step;
   }
 
   /// The point [reach] (arc length) and three more points before point [i].

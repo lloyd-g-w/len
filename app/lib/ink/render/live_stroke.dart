@@ -98,7 +98,7 @@ class LiveStrokeBuilder {
     }
     // With the stabiliser on, the live line ends before its newest samples
     // (where its end's tangent is known, see [_handOver]).
-    final shown = StrokeOutline.shownOf(_liveLength, _shaper.length);
+    final shown = StrokeOutline.shownOf(_liveLength, _shaper.length, flat: spec.flatCaps);
     final trailing = shown < _liveLength;
     final piece = Path();
     _cursor = _emitter.freeze(PathSink(piece), _cursor, _shaper.finalCount, shown: shown);
@@ -119,11 +119,11 @@ class LiveStrokeBuilder {
             flatCaps: spec.flatCaps,
             width: spec.width,
             step: _shaper.p.step,
-            lookahead: trailing && !spec.flatCaps ? 1 : 0,
+            lookahead: trailing ? 1 : 0,
           )
         : _emitter;
     emitter.emit(PathSink(tail), from: (at: _cursor.at, cut: false));
-    if (trailing && !spec.flatCaps) {
+    if (trailing) {
       _shown = _Shown(_frozen, _cursor.at, shown - 1, _shaper);
     }
     return LiveOutline(_frozen, tail);

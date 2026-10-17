@@ -297,6 +297,12 @@ class WetInkModel(
         }
     }
 
+    /** The samples of a line [length] long Flutter's live ink draws when it
+     *  may show [live] (`StrokeOutline.shownOf`): round ends one less, where
+     *  the end's tangent is known. */
+    private fun shownOf(live: Int, length: Int): Int =
+        if (!shape.flat && live < length && live > 2) live - 1 else live
+
     /**
      * Index of the first point shown at [nowMs], given the progress reported
      * two messages before the latest ([shownUpToMs]) and, after `end`, when
@@ -312,8 +318,10 @@ class WetInkModel(
         if (from == samples.size) return from
         from = max(0, from - 1)
         // Stabiliser on: Flutter's ink ends further back than its newest
-        // input; flat ends: its end's zone has less ink than the line will.
-        val lagReach = if (shape.lag > 0) (shape.kernelK + shape.cornerK + shape.lag + 2) * shape.step else 0.0
+        // input (round ends a sample more: shownOf); flat ends: its end's
+        // zone has less ink than the line will.
+        val lagSamples = shape.kernelK + shape.cornerK + shape.lag + (if (shape.flat) 2 else 3)
+        val lagReach = if (shape.lag > 0) lagSamples * shape.step else 0.0
         val reach = lagReach + (if (shape.flat) shape.flatReach * shape.step else 0.0)
         if (reach > 0) from = back(from, reach)
         return from
@@ -389,11 +397,12 @@ class WetInkModel(
         }
         val first = max(0, floor(skip / step).toInt() - 1)
         // Stabiliser on: as far as Flutter's live ink reaches (its final
-        // line); until the pen-down hook is decided, its first point.
+        // line, round ends a sample short: shownOf); until the pen-down
+        // hook is decided, its first point.
         val n = when {
             shape.lag == 0 || ended -> shaper.length
             this.start < 0 -> min(1, shaper.length)
-            else -> min(shaper.length, max(1, shaper.finalCount))
+            else -> shownOf(min(shaper.length, max(1, shaper.finalCount)), shaper.length)
         }
         if (n == 0) return DoubleArray(0)
         val rr = tapered(shaper, arc0, arc1, ended)
