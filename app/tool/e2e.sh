@@ -8,6 +8,9 @@
 #   2. device_b_test   a second device syncs it down, adds a stroke (data dir B)
 #   3. relaunch_test   device A restarted: everything persisted, B's stroke
 #                      syncs in                               (data dir A)
+#   4. live_test       two instances at once (fresh data dirs): A points and
+#                      writes, B shows the pointer, the live stroke and then
+#                      its record, over the live connection without a pull
 #
 # Run from app/ inside the dev shell (on a shared machine through
 # tool/heavy.sh: it builds the Linux app). Needs xvfb-run and Mesa (taken
@@ -46,7 +49,7 @@ mkdir -p "$out"
 server_pid=
 cleanup() {
   [ -n "$server_pid" ] && kill "$server_pid" 2>/dev/null || true
-  rm -rf "$work/a" "$work/b" "$work/server"
+  rm -rf "$work/a" "$work/b" "$work/live-a" "$work/live-b" "$work/server"
   # Put pubspec back as it was (see below).
   if [ -f "$work/pubspec.yaml" ]; then
     cp "$work/pubspec.yaml" pubspec.yaml && cp "$work/pubspec.lock" pubspec.lock
@@ -77,28 +80,59 @@ done
 curl -fsS "$url/v1/health" >/dev/null || { cat "$out/server.log"; exit 1; }
 
 # --- The phases: each one a fresh app process. ----------------------------
-phase() { # <test file> <data dir>
-  local name=$1 data=$2 log="$out/$1.log" status=0
+run_app() { # <test file> <data dir> <log> <role> [flutter test args…]
+  local name=$1 data=$2 log=$3 role=$4 status=0
   mkdir -p "$data"
-  echo "e2e: $name ($data)"
-  XDG_DATA_HOME="$data" XDG_CONFIG_HOME="$data/config" XDG_CACHE_HOME="$data/cache" \
-    xvfb-run "$xvfb_display" -s '-screen 0 1600x1000x24' \
+  LEN_E2E_ROLE="$role" XDG_DATA_HOME="$data" XDG_CONFIG_HOME="$data/config" \
+    XDG_CACHE_HOME="$data/cache" xvfb-run "$xvfb_display" -s '-screen 0 1600x1000x24' \
     flutter test "integration_test/$name.dart" -d linux \
     --dart-define=E2E_SERVER="$url" --dart-define=E2E_TOKEN="$token" \
-    --dart-define=E2E_OUT="$out" "${@:3}" 2>&1 | tee "$log" || status=$?
+    --dart-define=E2E_OUT="$out" "${@:5}" >"$log" 2>&1 || status=$?
   # Errors the tests cannot see (native side, other isolates, after the end).
   if grep -nE 'EXCEPTION CAUGHT|Unhandled [Ee]xception|PlatformDispatcher error|\[ERROR:' "$log"; then
-    echo "e2e: $name logged errors (above)" >&2
+    echo "e2e: $name ($role) logged errors (above)" >&2
     status=1
   fi
+  return "$status"
+}
+
+phase() { # <test file> <data dir>
+  local name=$1 data=$2 log="$out/$1.log" status=0
+  echo "e2e: $name ($data)"
+  run_app "$name" "$data" "$log" - "${@:3}" || status=$?
+  cat "$log"
   [ "$status" -eq 0 ] || { echo "e2e: $name failed; logs in $out" >&2; exit "$status"; }
 }
 
-# LEN_E2E_PHASES="a" runs only the first phase (while working on it).
-phases="${LEN_E2E_PHASES:-a b relaunch}"
+# Two instances at once. B is built and started once A runs (one build of
+# the same app at a time), and both must pass.
+live_phase() {
+  local a=0 b=0
+  echo "e2e: live_test (two instances)"
+  rm -rf "$out/live"
+  run_app live_test "$work/live-a" "$out/live_test-a.log" a "$@" &
+  local pid=$!
+  for _ in $(seq 1 600); do
+    [ -e "$out/live/a-started" ] || ! kill -0 "$pid" 2>/dev/null && break
+    sleep 1
+  done
+  run_app live_test "$work/live-b" "$out/live_test-b.log" b "$@" || b=$?
+  wait "$pid" || a=$?
+  sed 's/^/[a] /' "$out/live_test-a.log"
+  sed 's/^/[b] /' "$out/live_test-b.log"
+  if [ "$a" -ne 0 ] || [ "$b" -ne 0 ]; then
+    echo "e2e: live_test failed (a: $a, b: $b); logs in $out" >&2
+    exit 1
+  fi
+}
+
+# LEN_E2E_PHASES="a" runs only the first phase, "live" only the live one
+# (while working on them).
+phases="${LEN_E2E_PHASES:-a b relaunch live}"
 [[ " $phases " == *" a "* ]] && phase device_a_test "$work/a" "$@"
 [[ " $phases " == *" b "* ]] && phase device_b_test "$work/b" "$@"
 [[ " $phases " == *" relaunch "* ]] && phase relaunch_test "$work/a" "$@"
+[[ " $phases " == *" live "* ]] && live_phase "$@"
 # The server stops cleanly (as on `docker stop`).
 kill -TERM "$server_pid"
 server_status=0

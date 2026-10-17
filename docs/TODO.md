@@ -115,8 +115,20 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   primary handles spread apart (others hidden) so each can be grabbed, handles drawn larger on
   touch-first devices, desktop cursors over handles / frame / body, a curve's anchors and
   tangents shown while it is drawn.
-- 🚧 (fix/pen-flicker-3) **The pen still flickers sometimes** (owner, again): keep hunting every cause on every
-  platform (Linux, web, Android), with frame-by-frame tests.
+- 🚧 (round 3 merged; fix/pen-flicker-4) **The pen still flickers sometimes** (owner, again): keep hunting every cause on every
+  platform (Linux, web, Android), with frame-by-frame tests. Causes found and fixed: a pen-up
+  over a text box's or image's chunk (no append) left tiles on their old images or, zoomed far
+  out, on vectors (the stroke vanished for frames); a stroke written while a zoom's tiles
+  rendered, or a zoom within the web's 1.2 s merge, released the old zoom's stand-ins; a sync
+  reload dropped the surface and read it again (blank page for frames, mid-stroke too: it now
+  keeps what is shown and swaps in what differs); dropping a selection over many tiles hid its
+  ink for a frame or two; on Android a quick next stroke's armed contact was never confirmed by
+  `begin` and dropped after 1 s; zooming across the level of detail showed nothing where
+  the new images were not made yet (old rasters / stale tiles now stand in); after a pan, the
+  pen-up shifted the stroke by a fraction of a device pixel (tiles now aligned to their pixels,
+  views pan in whole device pixels). Frame-by-frame tests cover the live stroke (stabiliser,
+  ends, zooms, pixel ratios), the composited editor, erasing, undo / redo, selections, mid-stroke
+  syncs and the web's merged atlases.
 - ✅ **Live sync, actually live**: edits show on other devices within a fraction of a second
   (push on pen-up, server fans the records out over one long-lived connection, no pull
   round trip), built as the foundation for real-time collaboration: a WebSocket channel with
@@ -128,10 +140,18 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   over loopback); the stroke being written drawn live on the others (replaced by its record),
   presence plates in the editor bar; the event stream and the cycle as fallbacks. Cursors
   are not sent yet (the room data has room for them).
-- 🚧 (feat/live-sync-3) **Live sync follow-ups**: cursors / pointers of other devices (the laser too); no gap
-  between another device's live stroke and its record when the page reloads fully (500+
-  changes, a selection in the way) or for a highlight snapped to text (it ends without a stroke
-  id); an e2e run with two real app instances over the live channel.
+- ✅ **Live sync follow-ups**: cursors / pointers of other devices (the laser
+  too); no gap between another device's live stroke and its record when the page reloads fully
+  (500+ changes, a selection in the way) or for a highlight snapped to text (it ends without a
+  stroke id); an e2e run with two real app instances over the live channel. Done: other
+  devices' hovering pen or mouse (a dot) and laser (dot and trail, replayed as they show it)
+  drawn live on the right page or the canvas, labelled with their presence plate, sent at most
+  25 times a second and only while someone else is in the room (`PointerRelay` hooks in only
+  then), hidden after 3 s at rest or when they leave (`"k": "pointer"` messages); a live
+  stroke's end names every stroke it became (`strokes`: a snapped highlight's lines too), and
+  its ink stays on a surface reloading whole until the reload brings the stroke in;
+  `integration_test/live_test.dart` runs two app instances at once (`LEN_E2E_PHASES=live
+  tool/e2e.sh`): B sees A's pointer, live stroke and record with no pull.
 - ✅ **`flutter run --release -d linux` fails to link** (owner): it builds and runs inside
   `nix develop`; a Flutter from outside the dev shell lacks its toolchain and libraries. The
   repo has an `.envrc` (direnv: `use flake`) and the README says so.

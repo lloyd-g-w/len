@@ -607,6 +607,32 @@ void main() {
       await b.expectNothingMore();
     });
 
+    test('a pointer streamed at 30 a second gets through the default rate whole', () async {
+      final a = await member('n1');
+      final b = await member('n1');
+      await a.expectNext('presence');
+      await a.expectNext('presence');
+      await b.expectNext('presence');
+      // Longer than the burst lasts: 90 messages over 3 s.
+      for (var i = 0; i < 90; i++) {
+        a.send({
+          'type': 'ephemeral',
+          'room': 'n1',
+          'data': {
+            'k': 'pointer',
+            'page': 'p1',
+            'at': [i, 2.5],
+          },
+        });
+        await Future<void>.delayed(const Duration(milliseconds: 33));
+      }
+      for (var i = 0; i < 90; i++) {
+        final m = await b.expectNext('ephemeral');
+        expect((m['data'] as Map)['at'], [i, 2.5]);
+      }
+      await a.expectNothingMore();
+    });
+
     test('ephemeral messages are limited in size and rate', () async {
       await hub.close();
       await server.close(force: true);

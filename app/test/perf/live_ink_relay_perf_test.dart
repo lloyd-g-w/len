@@ -49,7 +49,7 @@ void main() {
           }
           watch.start();
           live.finish();
-          events.inkEnded?.call('s$s');
+          events.inkEnded?.call(['s$s']);
           watch.stop();
         }
         micros = watch.elapsedMicroseconds;

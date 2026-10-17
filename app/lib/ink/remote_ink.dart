@@ -8,8 +8,8 @@ import '../sync/remote_changes.dart';
 
 /// Strokes other devices in a notebook's room are writing right now (live
 /// ink, docs/SYNC_PROTOCOL.md "Room data"), drawn as provisional ink until
-/// the stroke's record arrives ([landed]), the writer says it ended
-/// without one, leaves the room (or this device's connection drops), or it
+/// the records of the strokes it became arrive and show ([landed]), the
+/// writer says it ended without any, leaves the room (or this device's connection drops), or it
 /// goes quiet.
 class RemoteInk extends ChangeNotifier {
   RemoteInk(this.rooms, {required this.room}) {
@@ -49,6 +49,18 @@ class RemoteInk extends ChangeNotifier {
   /// The surfaces showing remote ink now.
   Iterable<String> get surfaces => _writing.values.map((w) => w.surface).toSet();
 
+  /// Whether surface [surface] shows stroke [strokeId] now that its record
+  /// arrived; false while the surface reloads whole (many changes, a
+  /// selection in the way): the provisional ink stays until it does
+  /// (call [recheck] when it may). Unset: always.
+  bool Function(String surface, String strokeId)? shows;
+
+  /// The surfaces whose remote ink waits for their reload ([shows]).
+  Set<String> get reloading => {
+    for (final w in _writing.values)
+      if (w.ended && w.waiting.isEmpty) w.surface,
+  };
+
   /// Takes a message of the room.
   void receive(RoomMessage message) {
     final data = message.data;
@@ -57,13 +69,14 @@ class RemoteInk extends ChangeNotifier {
     if (data['end'] == true) {
       final w = _writing[key];
       if (w == null) return;
-      final stroke = data['stroke'];
-      if (stroke is String && !_landed.containsKey(stroke)) {
-        w
-          ..ended = true
-          ..strokeId = stroke
-          ..heard = _now;
-      } else {
+      final strokes = data['strokes'];
+      final ids = strokes is List ? strokes.whereType<String>().toSet() : const <String>{};
+      w
+        ..ended = true
+        ..heard = _now
+        ..waiting.addAll(ids.where((id) => !_landed.containsKey(id)))
+        ..arrived.addAll(ids.where(_landed.containsKey));
+      if (ids.isEmpty || _done(w)) {
         _writing.remove(key);
         notifyListeners();
       }
@@ -103,8 +116,8 @@ class RemoteInk extends ChangeNotifier {
       ..heard = _now;
   }
 
-  /// A sync brought [changes]: remote ink whose stroke arrived goes (the
-  /// stroke is drawn as committed ink now).
+  /// A sync brought [changes]: remote ink whose strokes arrived goes (they
+  /// are drawn as committed ink now), once its surface [shows] them.
   void landed(RemoteChanges changes) {
     if (_writing.isEmpty) return;
     for (final surface in surfaces) {
@@ -112,15 +125,29 @@ class RemoteInk extends ChangeNotifier {
         _landed[id] = _now;
       }
     }
-    final before = _writing.length;
-    _writing.removeWhere((_, w) {
-      final id = w.strokeId;
-      if (id == null || !changes.strokeSurfaces.contains(w.surface)) return false;
-      final items = changes.itemsOf(w.surface);
-      return items == null || items.contains(id);
-    });
-    if (_writing.length != before) notifyListeners();
+    for (final w in _writing.values) {
+      if (!w.ended || !changes.strokeSurfaces.contains(w.surface)) continue;
+      final items = changes.itemsOf(w.surface); // Null: reloaded whole.
+      final came = items == null ? {...w.waiting} : w.waiting.intersection(items);
+      if (came.isEmpty) continue;
+      w
+        ..waiting.removeAll(came)
+        ..arrived.addAll(came)
+        ..heard = _now; // Waits for a reload afresh.
+    }
+    recheck();
   }
+
+  /// Drops the remote ink whose strokes are all shown now ([shows]).
+  void recheck() {
+    final before = _writing.length;
+    _writing.removeWhere((_, w) => w.ended && _done(w));
+    _changed(before);
+  }
+
+  /// Whether every stroke [w] became arrived and is shown.
+  bool _done(_Writing w) =>
+      w.waiting.isEmpty && w.arrived.every((id) => shows?.call(w.surface, id) ?? true);
 
   void _expire() {
     _now++;
@@ -177,11 +204,14 @@ class _Writing {
   /// Bumped with every change ([stroke] is rebuilt then).
   int revision = 0;
 
-  /// When it was last heard of (in sweeps), whether it ended, and the id
-  /// of the stroke it became.
+  /// When it was last heard of (in sweeps), and whether it ended.
   int heard = 0;
   bool ended = false;
-  String? strokeId;
+
+  /// Once [ended]: the strokes it became whose records did not arrive yet,
+  /// and those that did.
+  final Set<String> waiting = {};
+  final Set<String> arrived = {};
 
   Stroke? _stroke;
   int _built = -1;

@@ -26,6 +26,11 @@ part 'ink_tile_cache_rendering.dart';
 /// to them), where no tile image can stand in yet.
 typedef VectorFallback = void Function(ui.Canvas canvas, TileView view, List<ui.Rect> world);
 
+/// Draws stand-ins for the ink in the given world rectangles (clipped to
+/// them) where no tile is rendered since a zoom; returns the parts it
+/// could not cover.
+typedef StandIn = List<ui.Rect> Function(ui.Canvas canvas, TileView view, List<ui.Rect> world);
+
 /// A raster cache of a surface's committed ink: the screen is split into
 /// [TileSpace.size]² device-pixel tiles rendered to GPU images at the
 /// current zoom, so a frame draws a few dozen images instead of replaying
@@ -185,8 +190,9 @@ class InkTileCache extends ChangeNotifier {
   }
 
   /// Paints the ink in [view] onto [canvas], which must be in device
-  /// pixels (the view's origin relative to it).
-  void paint(ui.Canvas canvas, TileView view, VectorFallback fallback) {
+  /// pixels (the view's origin relative to it). Where no tile is rendered
+  /// since a zoom, [standIn] (if given) may draw what it has.
+  void paint(ui.Canvas canvas, TileView view, VectorFallback fallback, {StandIn? standIn}) {
     lastPaint.reset();
     _sincePaint
       ..reset()
@@ -215,7 +221,9 @@ class InkTileCache extends ChangeNotifier {
     // stay: they may be on screen again soon).
     final ring = area.inflate(TileSpace.size / space.k);
     _requests.removeWhere((index, p) => p > 0 && !space.worldRectOf(index).overlaps(ring));
-    final (:missing, :overlays) = _paintTiles(canvas, view, space, area, same: same);
+    final (:missing, :blank, :overlays) = _paintTiles(canvas, view, space, area, same: same);
+    final empty = blank.isEmpty || standIn == null ? blank : standIn(canvas, view, blank);
+    lastPaint.blankPixels = _pixels(empty, view);
     if (missing.isNotEmpty) {
       lastPaint
         ..vectorTiles = missing.length
@@ -240,8 +248,9 @@ class InkTileCache extends ChangeNotifier {
     PerfProbe.count('tileOverlays', lastPaint.overlayStrokes);
   }
 
-  /// Draws, scaled into [view], what the tiles hold of [world] that is up
-  /// to date (images of this or the previous zoom; no stale ones), as a
+  /// Draws, scaled into [view], what the tiles hold of [world] as they
+  /// showed it (images of this or the previous zoom, with the strokes
+  /// added since; none that may show content an edit removed), as a
   /// stand-in while zoomed out to level-of-detail rasters that are not
   /// made yet. Renders and requests nothing; returns the parts of [world]
   /// not covered.

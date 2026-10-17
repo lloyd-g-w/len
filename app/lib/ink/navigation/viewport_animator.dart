@@ -52,8 +52,9 @@ class ViewportAnimator {
       final before = viewport.offset;
       viewport.panBy(step);
       travelled = distance;
-      // Done when slow enough, or blocked (a page edge).
-      final blocked = step.distance > 0.5 && viewport.offset == before;
+      // Done when slow enough, or blocked (a page edge). A step under a
+      // pixel may not move a view that moves in whole device pixels.
+      final blocked = step.distance > 1 && viewport.offset == before;
       if (sim.isDone(t) || blocked) stop();
     });
   }

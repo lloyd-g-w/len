@@ -124,6 +124,13 @@ mixin _SurfaceEditing on _SurfaceState {
         _write(edit);
       }
     }
+    if (_reloadEdits case final edits?) {
+      edits
+        ..addAll(edit.added.map((s) => s.id))
+        ..addAll(edit.removed.map((s) => s.id))
+        ..addAll(edit.addedElements.map((e) => e.id))
+        ..addAll(edit.removedElements.map((e) => e.id));
+    }
     if (_preparing > 0) {
       _removedWhilePreparing
         ..addAll(edit.removed.map((s) => s.id))
@@ -138,6 +145,7 @@ mixin _SurfaceEditing on _SurfaceState {
     }
     final appended = _isAppend(edit);
     final underlaid = !appended && _isUnderlay(edit);
+    final overlaid = !appended && !underlaid && _isOverlay(edit);
     for (final s in edit.added) {
       _strokes.insert(s);
       changed.addAll(StrokeChunks.of(s));
@@ -172,6 +180,7 @@ mixin _SurfaceEditing on _SurfaceState {
       changed,
       appended: appended ? edit.added : null,
       underlaid: underlaid ? edit.added : null,
+      overlaid: overlaid ? edit.added : null,
       areas: areas,
     );
   }
@@ -185,6 +194,14 @@ mixin _SurfaceEditing on _SurfaceState {
     return edit.added.every(
       (s) => s.tool.isHighlighter && !_strokes.containsId(s.id) && !_hidden.contains(s.id),
     );
+  }
+
+  /// Whether [edit] only adds new strokes (that are no append or underlay,
+  /// see [SurfaceChange.overlaid]). Checked before they are inserted.
+  bool _isOverlay(InkEdit edit) {
+    if (edit.added.isEmpty || edit.removed.isNotEmpty) return false;
+    if (edit.addedElements.isNotEmpty || edit.removedElements.isNotEmpty) return false;
+    return edit.added.every((s) => !_strokes.containsId(s.id) && !_hidden.contains(s.id));
   }
 
   /// Whether [edit] only adds pen strokes painted over everything already

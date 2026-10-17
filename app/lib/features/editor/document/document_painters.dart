@@ -198,7 +198,7 @@ class DocumentInkPainter extends CustomPainter {
       if (surface.model.chunksIn(ChunkGrid.rangeFor(view.visible)).isNotEmpty) {
         surface.cache.setScale(scale); // Image resolution.
         if (level == null) {
-          paintTiled(canvas, surface.tiles, view, devicePixelRatio);
+          paintTiled(canvas, surface.tiles, view, devicePixelRatio, rasters: surface.rasters);
         } else {
           paintLod(
             canvas,

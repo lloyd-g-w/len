@@ -22,6 +22,11 @@ mixin _SurfaceHiding on _SurfaceState {
     if (setEquals(hidden, _hidden)) return;
     final changed = <ChunkKey>{};
     final areas = <Rect>[];
+    // Strokes only shown again (a selection dropped): their owner drew
+    // them over the ink, so drawn over the images from before (see
+    // [SurfaceChange.overlaid]) they never miss a frame.
+    final shown = <Stroke>[];
+    var onlyShown = true;
     for (final id in {..._hidden, ...hidden}) {
       if (_hidden.contains(id) && hidden.contains(id)) continue;
       final stroke = _strokes[id];
@@ -29,14 +34,18 @@ mixin _SurfaceHiding on _SurfaceState {
       if (stroke != null) {
         changed.addAll(StrokeChunks.of(stroke));
         areas.add(stroke.bounds);
+        if (hidden.contains(id)) onlyShown = false;
+        shown.add(stroke);
       }
       if (element != null) {
         changed.addAll(ElementChunks.of(element));
         areas.add(element.bounds);
+        onlyShown = false;
       }
     }
     _hidden = Set.unmodifiable(hidden);
-    _changed(changed, areas: areas);
+    shown.sort(Stroke.drawOrder);
+    _changed(changed, areas: areas, overlaid: onlyShown && shown.isNotEmpty ? shown : null);
   }
 
   /// Notifies when lifted content appears, changes or goes.

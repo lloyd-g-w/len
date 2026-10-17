@@ -181,17 +181,43 @@ draws a few dozen images, however much ink is on screen.
   of a frame of vectors (`test/pen_up_frames_test.dart` checks every frame
   around pen-up, pen and highlighter, on a canvas at 50–200 % and 1×/2×,
   and on a continuous notebook's page from tiles and from rasters).
+- **Pen-up under something** (`SurfaceChange.overlaid`):
+  a pen stroke that is no append because something in its chunks paints
+  over it (a text box or image above the ink, a stroke of a later paint
+  order synced from another device) keeps the tiles' images, stale, with
+  the stroke drawn over them — as the live stroke was — until they are
+  re-rendered (urgently); the level-of-detail rasters do the same. Before,
+  it vanished for a frame or two over more than two tiles, and zoomed far
+  out (more than eight chunks fell back to vectors) showed nothing.
 - **Loads** (`SurfaceChange.loaded`: stored content arriving) keep the
   images of the tiles they touch as stale stand-ins until re-rendered (that
   content was not on screen yet), so a loading canvas never drops to
   vectors.
+- **Shown again** (`SurfaceChange.overlaid` from `setHidden`): a lasso
+  selection hides the strokes it lifts and draws them over the ink itself;
+  dropping it (pen-down elsewhere) only shows them again, so the tiles
+  keep their images, stale, with those pen strokes drawn over them and
+  highlights beneath them until re-rendered. Before, a selection over
+  more than two tiles vanished for a frame or two when dropped.
 - **Other edits** (erase, undo, lasso) touch only the tiles under the edited
   items' bounds (`SurfaceChange.areas`, not whole chunks). Up to two tiles
   are dropped and drawn from vectors for a frame or two (an eraser stroke
   shows at once); larger edits (undoing a lasso move) keep the old images
   until the new ones, all rendered at once, replace them together — a
   frame or two late, but never frames of vectors over the whole screen and
-  never half done.
+  never half done. Such stale images may show ink the edit removed
+  (`InkTile.lingers`): they stand in only until the edit's own renders
+  land, never for another zoom. Erasing (whole strokes, the pixel eraser
+  across many strokes), undo / redo of a long stroke and undo of a moved
+  selection are checked frame by frame: no ink but the edited strokes'
+  is lost (`test/pen_flicker_edits_test.dart`).
+- **Sync reloads** (`SurfaceModel.reload`, `surface_model_reload.dart`):
+  remote changes no longer drop what is in memory and read it again
+  (the page went blank for the frames the worker's read took, mid-stroke
+  too). What is shown stays; storage is read for the ranges the views
+  hold and only the items that differ are swapped in, in one change, keeping
+  items edited here meanwhile (`_reloadEdits`), so the tiles see an
+  ordinary edit. Live sync's `refreshItems` falls back to it.
 - **Idle caches**: a cache not painted for 500 ms (its view zoomed out to
   level-of-detail images, say) renders nothing on edits; appended strokes
   wait as overlays until it is painted again, so it never takes raster
@@ -199,7 +225,14 @@ draws a few dozen images, however much ink is on screen.
 - **Pan**: panning keeps the space and its tiles, by fractions of a pixel
   too: the view is aligned to the tiles (`TileView.alignedTo`, committed
   ink off by under half a device pixel) rather than every tile re-rendered
-  when a scroll stops; the ring renders while panning.
+  when a scroll stops; the ring renders while panning. The editors' views
+  (`ViewportController.devicePixelRatio`, set by `InkSurface` and
+  `PagedDocumentView`) therefore pan in whole device pixels from where the
+  last zoom left them (pans under a pixel add up; glides and page edges
+  step too): the tiles then sit exactly where the vectors are, and the
+  live stroke drawn at the true view no longer shifted by a fraction of a
+  pixel at pen-up after a pan (hundreds of edge pixels changing shade:
+  a shimmer of the whole stroke).
 - **Zoom**: the current tiles are drawn transformed (`FilterQuality.medium`)
   while the gesture lasts, rendering only those missing on screen (and the
   ring when zooming out); zooming out more than 1.5× from the tiles adopts
@@ -210,6 +243,11 @@ draws a few dozen images, however much ink is on screen.
   render, rather than being drawn from vectors every frame meanwhile —
   which cost as much as rendering them, per frame. Tiles dropped by an
   edit (`InkTile.edited`) and a cache's first show still draw vectors.
+  Zooming in out of the level of detail, the chunk rasters it showed a
+  frame ago stand in there (`paintRasterStandIn`, the finest level cached,
+  with the strokes added since; nothing is asked for): before, all but
+  the pre-zoom-out tiles' area went blank for the frames the new tiles
+  took (`test/pen_flicker_zoom_test.dart`).
 - **Memory**: tile images live in one `TilePool` (LRU by bytes, 160 MB =
   160 tiles of 1 MB) shared by every surface and view; evicted tiles are
   re-rendered when needed. Beyond 256 tiles known per cache, those without
@@ -244,7 +282,14 @@ draws a few dozen images, however much ink is on screen.
   `ChunkRasterCache` images are drawn instead (see *Level of detail* above); on an
   append they too keep their (stale) images with the new strokes drawn
   over them until re-rasterised. Crossing into LOD, the tiles stand in
-  until the rasters are made (`InkTileCache.paintStandIn`).
+  until the rasters are made (`InkTileCache.paintStandIn`) — appended
+  strokes no longer release the previous zoom's tiles nor keep a zoom's
+  new tiles from being adopted: the old images stand in with the strokes
+  drawn over them (a stroke written while a zoom's tiles render, or a zoom
+  within the web's 1.2 s merge, blanked the tiles it crossed) — stale ones
+  too, with the highlights and strokes added since beneath and over them
+  (not those that may show ink an edit removed): a highlight lifted just
+  before zooming out blanked every tile it crossed until then.
 
 Two more things keep pen-up and first show off the frame:
 
@@ -1721,8 +1766,11 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
 - **Pen-down**: while the S Pen hovers over a surface with the pen tool,
   Dart sends `arm` (how a stroke starting now would look, re-sent every
   150 ms), so the overlay draws from the first sample; `begin` (sent when
-  the input controller starts the live stroke) confirms or restyles it,
-  `skip` takes it back (a down that is not ink — another tool, a
+  the input controller starts the live stroke) confirms or restyles it —
+  also when a quick next stroke (a dot, then the next letter) touched
+  down before a busy UI thread answered (before, that armed contact
+  stayed provisional and went 1 s after its pen-down, shown by Flutter or
+  not) —, `skip` takes it back (a down that is not ink — another tool, a
   selection, a menu over the canvas: a global pointer route answers every
   stylus down no surface took). Unanswered after 1 s, it is dropped
   (after 150 ms it was, and a UI thread busy at pen-down made the first
@@ -3662,7 +3710,8 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   the editor's bar. A dropped connection empties every room's presence (`disconnected`).
 - **Live ink** ([Room data](SYNC_PROTOCOL.md#get-v1live)): `InkDrawing` tells
   `InkEvents.inkBegan` (surface id) when a pen or highlighter contact starts live ink and
-  `inkEnded` (the committed stroke's id, or null) when it ends. `LiveInkRelay` (one per
+  `inkEnded` (the ids of the strokes it was committed as: one, or one per line of a highlight
+  snapped to text; none when dropped) when it ends. `LiveInkRelay` (one per
   `EditorSession`, attached to the main input and the zoom window's) listens to `LiveInk` and
   sends the points not sent yet at most every 50 ms — nothing at all while nobody else is in
   the room, so the local pen pays one listener call and a null check per point; with someone
@@ -3672,15 +3721,34 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   being written per writer connection, and `RemoteInkPainter` paints them in their own
   `RepaintBoundary` between the committed ink and the local `LiveInkPainter` (`InkSurface`
   for canvases; `PagedDocumentView` once for all pages, clipped to each page's frame), so a
-  remote stroke growing repaints only that layer. It goes when the stroke's record is applied:
-  `SharedNotebook._onRemoteChanges` refreshes the open surfaces first and then calls
-  `RemoteInk.landed`, so the committed stroke and the provisional one swap in the same frame
-  (no flicker, no double ink; a surface reloaded whole instead — many items, a selection — may
-  show neither for the moment its load takes); a record that overtakes its `end` is remembered
-  for 2 s. It also
-  goes on `end` without a stroke, 2 s after `end` without the record, 3 s after the last
-  points, or when the writer is no longer in the room's presence (left, or this device's
-  connection dropped).
+  remote stroke growing repaints only that layer. It goes once every stroke it became is
+  applied and drawn: `SharedNotebook._onRemoteChanges` refreshes the open surfaces first and
+  then calls `RemoteInk.landed`, so the committed stroke and the provisional one swap in the
+  same frame (no flicker, no double ink). A surface reloaded whole instead (many items, a
+  selection in the way) has not drawn the stroke yet: `RemoteInk.shows` (the surface's model
+  holds the stroke, or is not loading) keeps the ink, and `SharedNotebook` follows that model's
+  loads (`SurfaceChange.loaded`) to `recheck` it, so it goes in the frame the reload brings the
+  stroke in (`test/live_pointers_test.dart` checks every frame on a canvas whose reads answer
+  late). A record that overtakes its `end` is remembered for 2 s. It also
+  goes on `end` without strokes, 2 s after `end` without the records (afresh once they arrived
+  on a surface still reloading), 3 s after the last points, or when the writer is no longer in
+  the room's presence (left, or this device's connection dropped).
+- **Pointers** (same section): `PointerRelay` (`features/editor/live_ink/`, one per
+  `EditorSession`) shows where this editor points: `InkEvents.hovered` (the input's hover, in
+  the active surface's coordinates; null on exit and on a pen or mouse press) and the laser's
+  `LaserTrail` (pressed, hovering, dot, and the trail points added since — `LaserTrail.added`).
+  It hooks into both only while another device is in the room (it follows presence), so alone
+  it costs nothing; then it sends what changed at most every 40 ms, a held laser again every
+  second. `RemotePointers` (`ink/remote_pointers.dart`, one per `SharedNotebook`) keeps a
+  `RemotePointer` per device — its hover position or a `LaserTrail` replaying its laser — hides
+  it after 3 s without news and drops it when the device leaves. `RemotePointersOverlay` (in
+  `EditorCanvas`, over the content layer; `RepaintBoundary`, ticking only while a laser fades)
+  paints them through `frameOf` (a page's frame, the canvas as is): a small dot for hovering,
+  the laser as `LaserPaint` draws the local one, each labelled with the device's plate
+  (`RoomPresence.initialOf`, the presence plate's colours).
+- **End to end**: `integration_test/live_test.dart` runs two app instances at once
+  (`tool/e2e.sh`'s `live` phase, `LEN_E2E_ROLE` a and b, talking through files): B sees A's
+  pointer, its stroke as written, then the record, with no sync run in between.
 - **Failures.** After a failed run, runs the controller starts on its own
   wait 5 s, doubling up to 2 min (what that run was to push is still due); the
   live connection or event stream connecting again retries at once.

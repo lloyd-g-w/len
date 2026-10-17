@@ -38,7 +38,7 @@ class RoomPresence extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               spacing: Gaps.xs,
               children: [
-                for (final name in names.take(shown)) _Plate(text: _initial(name)),
+                for (final name in names.take(shown)) _Plate(text: initialOf(name)),
                 if (others.length > shown) _Plate(text: '+${others.length - shown}'),
               ],
             ),
@@ -48,7 +48,8 @@ class RoomPresence extends StatelessWidget {
     },
   );
 
-  static String _initial(String name) =>
+  /// The letter a device [name] shows as (its plate, its pointer's label).
+  static String initialOf(String name) =>
       name.trim().isEmpty ? '?' : name.trim().characters.first.toUpperCase();
 
   static String _list(List<String> names) => names.length == 1

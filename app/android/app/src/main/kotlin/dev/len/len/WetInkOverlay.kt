@@ -165,8 +165,13 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                 armedAtMs = now
             }
             "begin" -> {
-                val contact = latest ?: return
-                if (!contact.matches(message[1], message[2])) return
+                // The newest contact, or one drawn from `arm` that a quick
+                // next stroke (a dot, then the next letter) followed before
+                // a busy UI thread answered it: Dart's look replaces the
+                // armed one there too, rather than only at the hand-over.
+                val contact = latest?.takeIf { it.matches(message[1], message[2]) }
+                    ?: contacts.find { it.matches(message[1], message[2]) }
+                    ?: return
                 if (contact.began && contact.provisionalSinceMs < 0) return
                 val style = Style.of(message, 3) ?: return
                 contact.begin(style.color, WetInkModel(style.radii, style.shape, frameMs()), style.clip)

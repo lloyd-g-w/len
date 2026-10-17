@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 /// Moments of ink input the editor may react to: teaching a gesture once,
 /// or saying why one did nothing. Unset callbacks cost nothing.
 class InkEvents {
@@ -20,8 +22,13 @@ class InkEvents {
   /// `LiveInk`); live sync shows it to other devices as it is written.
   void Function(String surfaceId)? inkBegan;
 
-  /// The live stroke [inkBegan] told of ended: committed as stroke
-  /// [strokeId], or (null) dropped, or committed otherwise (a snapped
-  /// highlight).
-  void Function(String? strokeId)? inkEnded;
+  /// The live stroke [inkBegan] told of ended: committed as the strokes
+  /// [strokeIds] (one, or a highlight snapped to text: one per line it
+  /// covers), or (none) dropped.
+  void Function(List<String> strokeIds)? inkEnded;
+
+  /// A mouse or a stylus hovers at [world] (the active surface's
+  /// coordinates) with nothing pressed, or (null) left or pressed; live
+  /// sync shows it to other devices. Only told while set.
+  void Function(Offset? world)? hovered;
 }

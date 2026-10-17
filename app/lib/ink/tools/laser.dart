@@ -183,6 +183,10 @@ class LaserTrail extends ChangeNotifier {
 
   int _index(int i) => (_first + i) % capacity;
 
+  /// Trail points recorded ever (the newest [length] of them are kept):
+  /// what was added since an earlier count is the trail's tail.
+  int get added => _pushed;
+
   /// Whether a hovering mouse shows the dot ([hover]).
   bool get hovering => _hovering;
 

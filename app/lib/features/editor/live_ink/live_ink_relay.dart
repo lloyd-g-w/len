@@ -7,8 +7,8 @@ import '../../../ink/input/live_ink.dart';
 
 /// Sends the stroke this editor is writing to the other devices in its
 /// notebook's room as it grows (live ink, docs/SYNC_PROTOCOL.md "Room
-/// data"): its new points at most every [every], and its end with the id
-/// of the stroke it became, so they draw it until that stroke arrives.
+/// data"): its new points at most every [every], and its end with the ids
+/// of the strokes it became, so they draw it until those strokes arrive.
 class LiveInkRelay {
   LiveInkRelay({
     required this.live,
@@ -120,13 +120,13 @@ class LiveInkRelay {
     (p.pressure * 1000).round() / 1000,
   ];
 
-  void _ended(String? strokeId) {
+  void _ended(List<String> strokeIds) {
     final id = _id;
     _id = null;
     _timer?.cancel();
     _timer = null;
     if (id == null) return;
-    send({'k': 'ink', 's': id, 'end': true, 'stroke': ?strokeId});
+    send({'k': 'ink', 's': id, 'end': true, if (strokeIds.isNotEmpty) 'strokes': strokeIds});
   }
 
   void dispose() {

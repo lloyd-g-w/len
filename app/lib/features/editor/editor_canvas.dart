@@ -12,6 +12,7 @@ import 'document/paged_document_view.dart';
 import 'editor_session.dart';
 import 'links/link_layer.dart';
 import 'links/link_taps.dart';
+import 'live_ink/remote_pointers_overlay.dart';
 import 'tools/content_layer.dart';
 import 'tools/selection_menu.dart';
 
@@ -73,7 +74,23 @@ class EditorCanvas extends StatelessWidget {
           data: MediaQuery.of(context).copyWith(padding: chromeInsets),
           child: _contentLayer(),
         ),
+        Positioned.fill(child: _remotePointers()),
       ],
+    );
+  }
+
+  /// Other devices' pointers, over everything on the pages (or canvas).
+  Widget _remotePointers() {
+    final doc = session.doc;
+    return RemotePointersOverlay(
+      pointers: session.shared.remotePointers,
+      viewport: doc?.viewport ?? session.canvasViewport!,
+      frameOf: doc == null
+          ? (id) => id == session.canvas!.surfaceId ? Rect.largest : null
+          : (id) {
+              final index = doc.pages.indexWhere((p) => p.id == id);
+              return index < 0 ? null : doc.layout.frameOf(index);
+            },
     );
   }
 

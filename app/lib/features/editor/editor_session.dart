@@ -28,6 +28,7 @@ import 'finger_reading.dart';
 import 'images/editor_images.dart';
 import 'links/editor_links.dart';
 import 'live_ink/live_ink_relay.dart';
+import 'live_ink/pointer_relay.dart';
 import 'pdf/pdf_highlight_snap.dart';
 import 'pdf/pdf_interaction.dart';
 import 'shared/shared_notebook.dart';
@@ -140,6 +141,14 @@ class EditorSession with _EditorSessionZoom {
       send: (data) => services.sync.rooms.send(shared.id, data),
       anyoneThere: () => services.sync.rooms.othersIn(shared.id).isNotEmpty,
     );
+    pointerRelay = PointerRelay(
+      events: input.events,
+      laser: content.laser,
+      surface: () => content.model.surfaceId,
+      send: (data) => services.sync.rooms.send(shared.id, data),
+      presence: services.sync.rooms,
+      anyoneThere: () => services.sync.rooms.othersIn(shared.id).isNotEmpty,
+    );
     if (initialZoom != null) _restoreZoom(initialZoom); // Attaches to [relay].
     content.text
       ..undo = undo.undo
@@ -180,6 +189,9 @@ class EditorSession with _EditorSessionZoom {
   /// Shows the stroke being written here to other devices in the notebook.
   @override
   late final LiveInkRelay relay;
+
+  /// Shows where this editor points (hover, laser) to other devices.
+  late final PointerRelay pointerRelay;
   late final ContentTools content;
   late final EditingUndo undo;
 
@@ -292,6 +304,7 @@ class EditorSession with _EditorSessionZoom {
     content.selection.removeListener(_onSelection);
     input.cancelDraw(); // Stops a stroke's or tool's pending timers.
     relay.dispose();
+    pointerRelay.dispose();
     if (_zoomCreated) zoomWindow.dispose();
     images.dispose();
     undo.dispose();
