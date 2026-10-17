@@ -199,6 +199,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   reference-blob scheme the server GC follows would shrink them; device names are platform
   names (per user once there are users); no golden / screenshot of the history yet.
 
+- ⬜ **Len import keeps text flow links**: import gives elements new ids; check that text boxes
+  flowing across pages keep their links (remap them as strokes' are), with a test.
+
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
