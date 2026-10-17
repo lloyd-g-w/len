@@ -19,7 +19,7 @@ Future<void> saveVersionFlow(BuildContext context, AppServices services, String 
   if (name == null || !context.mounted) return;
   final saved = await services.versions.save(notebookId, name: name);
   if (!context.mounted) return;
-  showMessage(context, saved == null ? 'Could not save a version' : 'Version saved');
+  showMessage(context, saved == null ? 'Couldn’t save a version' : 'Version saved');
 }
 
 /// Says that [version]'s content is not on this device.
@@ -133,7 +133,7 @@ Future<void> copyVersionFlow(
     final copy = await services.versions.copy(version, title: title);
     services.sync.announce(RemoteChanges()..notebooks = true);
     if (!context.mounted) return;
-    showMessage(context, copy == null ? 'Could not copy this version' : 'Copied as “$title”');
+    showMessage(context, copy == null ? 'Couldn’t copy this version' : 'Copied as “$title”');
   } on VersionUnavailable {
     if (context.mounted) _unavailable(context);
   }

@@ -143,7 +143,7 @@ class _VersionHistoryState extends State<VersionHistory> {
       padding: const EdgeInsets.all(Gaps.xl),
       child: Text(
         'No versions yet. Len keeps one when you pause writing, and you can save one '
-        'yourself with Save version…',
+        'yourself at any time',
         textAlign: TextAlign.center,
         style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
       ),
