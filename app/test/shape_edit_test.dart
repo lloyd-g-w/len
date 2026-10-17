@@ -345,6 +345,57 @@ void main() {
       });
     }
 
+    // Every kind, every handle it shows: a drag is one undo step, the shape
+    // keeps its kind (and look) and stays selected.
+    for (final shape in [
+      ShapeGeometry(ShapeKind.line, const [Offset(150, 150), Offset(450, 200)]),
+      ShapeGeometry(ShapeKind.arrow, const [Offset(150, 150), Offset(450, 200), Offset(280, 100)]),
+      for (final kind in ShapeKind.drawable.skip(2))
+        ShapeBuilder.dragged(kind, const Offset(150, 120), const Offset(450, 360)),
+      ShapeBuilder.dragged(ShapeKind.ellipse, const Offset(150, 120), const Offset(390, 360)),
+      ShapeGeometry(ShapeKind.polygon, const [
+        Offset(150, 150),
+        Offset(400, 130),
+        Offset(450, 300),
+        Offset(300, 380),
+        Offset(160, 320),
+      ]),
+      ShapeGeometry(ShapeKind.curve, const [
+        Offset(150, 250),
+        Offset(200, 100),
+        Offset(350, 100),
+        Offset(400, 250),
+        Offset(450, 400),
+        Offset(100, 400),
+      ]),
+    ]) {
+      test('a ${shape.kind.name}: each handle drag is one undo step', () {
+        model.addStroke(shapeStroke(shape, fill: shape.isClosed ? 0x401C7ED6 : null));
+        model.history.takeUndo();
+        drag([ShapeBuilder.outline(shape).first]);
+        expect(content.selection.shape, shape);
+        final count = SelectionChrome.shapeHandles(shape, viewport).length;
+        expect(count, ShapeHandles.of(shape).length, reason: 'none crowded at this size');
+        for (var i = 0; i < count; i++) {
+          final before = content.selection.strokes.single;
+          final at = SelectionChrome.shapeHandles(
+            before.shape!,
+            viewport,
+          ).singleWhere((h) => h.index == i).at;
+          drag([at, at + const Offset(12, 4), at + const Offset(23, 17)]);
+          final edit = model.history.takeUndo();
+          expect(edit, isNotNull, reason: 'handle $i');
+          expect(model.history.canUndo, isFalse, reason: 'handle $i: one step');
+          expect(edit!.removed.single.id, before.id);
+          final after = edit.added.single;
+          expect(after.shape, isNot(before.shape), reason: 'handle $i');
+          expect(after.shape!.kind, shape.kind);
+          expect(after.fill, before.fill);
+          expect(content.selection.strokes.single.id, after.id);
+        }
+      });
+    }
+
     test('arrow keys wait while a handle or the selection is dragged', () {
       final rect = shapeStroke(
         ShapeBuilder.dragged(ShapeKind.rectangle, const Offset(50, 50), const Offset(150, 110)),
