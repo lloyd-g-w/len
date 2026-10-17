@@ -115,7 +115,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   primary handles spread apart (others hidden) so each can be grabbed, handles drawn larger on
   touch-first devices, desktop cursors over handles / frame / body, a curve's anchors and
   tangents shown while it is drawn.
-- 🚧 (fix/pen-flicker-3) **The pen still flickers sometimes** (owner, again): keep hunting every cause on every
+- 🚧 (round 3 merged; fix/pen-flicker-4) **The pen still flickers sometimes** (owner, again): keep hunting every cause on every
   platform (Linux, web, Android), with frame-by-frame tests. Causes found and fixed: a pen-up
   over a text box's or image's chunk (no append) left tiles on their old images or, zoomed far
   out, on vectors (the stroke vanished for frames); a stroke written while a zoom's tiles
