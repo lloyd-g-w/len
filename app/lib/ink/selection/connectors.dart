@@ -18,7 +18,7 @@ class AttachHint {
   /// The point on its outline ([ShapeAttachment.at]).
   final double at;
 
-  ShapeAttachment get attachment => ShapeAttachment(target.id, at);
+  ShapeAttachment get attachment => ShapeAttachment(target.shapeId, at);
 
   /// Where the end goes.
   Offset get point => ShapeAnchors.pointAt(target.shape!, at);
@@ -26,9 +26,11 @@ class AttachHint {
 
 /// Lines and arrows whose ends stay attached to shapes (connectors): an
 /// end dropped on a closed shape's outline, or inside it, remembers the
-/// shape ([ShapeGeometry.tail], [ShapeGeometry.tip]); when the shape is
-/// edited, the ends attached to it follow in the same edit
-/// (`SelectionController`). A line moved without its target lets go.
+/// shape ([ShapeGeometry.tail], [ShapeGeometry.tip]) by its identity
+/// across edits ([Stroke.shapeId]); when the shape is edited, the ends
+/// attached to it follow in the same edit (`SelectionController`), and
+/// after a sync ends left behind by edits on two devices are brought onto
+/// it ([ConnectorRepair]). A line moved without its target lets go.
 abstract final class Connectors {
   /// The shape on [model] an end at [p] attaches to: the nearest closed
   /// outline within [reach] (world units), else the topmost closed shape
@@ -72,17 +74,15 @@ abstract final class Connectors {
   static ShapeGeometry _moveEnd(ShapeGeometry line, int index, Offset to) =>
       line.points[index] == to ? line : ShapeDrags(line).drag(index, to);
 
-  /// [line] with its ends attached to [targets] (by old id: the new id
-  /// and shape) moved onto the targets' new outlines and attached to their
-  /// new ids.
-  static ShapeGeometry follow(ShapeGeometry line, Map<String, Followed> targets) {
+  /// [line] with its ends attached to [targets] (by shape id: their
+  /// shapes now) moved onto the targets' outlines.
+  static ShapeGeometry follow(ShapeGeometry line, Map<String, ShapeGeometry> targets) {
     var out = line;
     for (final index in [0, 1]) {
       final a = line.attachmentOf(index);
       final target = a == null ? null : targets[a.id];
       if (target == null) continue;
-      out = _moveEnd(out, index, ShapeAnchors.pointAt(target.shape, a!.at));
-      out = out.withAttachment(index, a.withId(target.id));
+      out = _moveEnd(out, index, ShapeAnchors.pointAt(target, a!.at));
     }
     return out;
   }
@@ -95,10 +95,27 @@ abstract final class Connectors {
     return (ShapeAnchors.pointAt(shape!, a.at) - line.points[index]).distance <= tolerance;
   }
 
+  /// The shape end [index] of [line] is attached to, among the strokes
+  /// [named] by its attachment (those with its shape id: one, or more
+  /// after edits of the shape on two devices at once): one it sits on
+  /// ([sits]) if any, else the stroke of that very id, else the one of
+  /// the least id — the same pick on every device. Null when detached or
+  /// none is a target.
+  static Stroke? targetOf(ShapeGeometry line, int index, Iterable<Stroke> named) {
+    final a = line.attachmentOf(index);
+    if (a == null) return null;
+    Stroke? pick;
+    for (final s in named) {
+      if (s.shapeId != a.id || !ShapeAnchors.isTarget(s.shape)) continue;
+      if (sits(line, index, s.shape)) return s;
+      if (pick == null || s.id == a.id || (pick.id != a.id && s.id.compareTo(pick.id) < 0)) {
+        pick = s;
+      }
+    }
+    return pick;
+  }
+
   /// [line] stroke rebuilt as [shape], with id [id].
   static Stroke rebuilt(Stroke line, ShapeGeometry shape, {required String id}) =>
       ShapeBuilder.reshaped(line, shape, id: id);
 }
-
-/// A target shape as edited: its new stroke [id] and [shape].
-typedef Followed = ({String id, ShapeGeometry shape});

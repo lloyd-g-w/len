@@ -42,7 +42,7 @@ mixin _SelectionGestures on _SelectionCore {
     _picture?.dispose();
     _picture = _record([reshaped]);
     _previewFrame = _frameAround([reshaped], const []);
-    _previewFollowers(ShapeAnchors.isTarget(shape) ? {stroke.id: reshaped} : const {});
+    _previewFollowers(ShapeAnchors.isTarget(shape) ? {stroke.shapeId: reshaped} : const {});
     notifyListeners();
   }
 

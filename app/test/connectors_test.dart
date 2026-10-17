@@ -54,6 +54,24 @@ void main() {
       expect(arrow.withPoint(2, const Offset(50, 40)).tail, arrow.tail);
     });
 
+    test('a shape\'s identity (origin) round-trips and survives its edits', () {
+      final box = ShapeGeometry(ShapeKind.rectangle, const [
+        Offset(0, 0),
+        Offset(10, 0),
+        Offset(10, 10),
+        Offset(0, 10),
+      ]);
+      expect(box.toJson().containsKey('o'), isFalse);
+      final edited = box.withOrigin('first');
+      expect(edited.toJson()['o'], 'first');
+      expect(ShapeGeometry.fromJson(edited.toJson()), edited);
+      expect(edited.map((p) => p * 2).origin, 'first');
+      final circle = ShapeGeometry(ShapeKind.circle, const [Offset.zero, Offset(5, 0)]);
+      expect(circle.withOrigin('c').map((p) => Offset(p.dx * 2, p.dy)).origin, 'c');
+      expect(() => ShapeGeometry.fromJson({...box.toJson(), 'o': ''}), throwsFormatException);
+      expect(() => ShapeGeometry.fromJson({...box.toJson(), 'o': 3}), throwsFormatException);
+    });
+
     test('malformed attachments make the shape malformed', () {
       for (final a in [
         [null],
@@ -198,7 +216,7 @@ void main() {
 
     void expectAttached() {
       final a = arrowNow(), b = boxNow();
-      expect(a.shape!.tip!.id, b.id);
+      expect(a.shape!.tip!.id, b.shapeId);
       expect(
         a.shape!.points[1],
         offsetMoreOrLessEquals(ShapeAnchors.pointAt(b.shape!, a.shape!.tip!.at), epsilon: 1e-6),
@@ -231,6 +249,10 @@ void main() {
         content.selection.select([boxNow()], const []);
         edit();
         expectAttached();
+        // A new stroke, the same shape: the arrow still names it as before.
+        expect(boxNow().id, isNot('box'));
+        expect(boxNow().shapeId, 'box');
+        expect(arrowNow().shape!.tip!.id, 'box');
         expect(arrowNow().shape!.points[0], const Offset(100, 250)); // the tail stays
         steps.add((boxNow().shape!, arrowNow().shape!));
       }
@@ -321,6 +343,8 @@ void main() {
     test('a pasted copy of box and arrow is attached to its own box', () {
       box();
       attachedArrow();
+      content.selection.select([boxNow()], const []);
+      transform(Affine.translation(const Offset(0, 10))); // an edited box: origin 'box'
       content.selection
         ..select([boxNow(), arrowNow()], const [])
         ..duplicate();
@@ -328,9 +352,12 @@ void main() {
       final copyBox = copies.firstWhere((s) => s.shape!.kind == ShapeKind.rectangle);
       final copyArrow = copies.firstWhere((s) => s.shape!.kind == ShapeKind.arrow);
       expect(copyArrow.shape!.tip!.id, copyBox.id);
+      expect(copyBox.shapeId, copyBox.id); // a shape of its own
       // Only the arrow copied: it lets go.
       content.selection
-        ..select([model.strokeById('arrow')!], const [])
+        ..select([
+          stored((s) => s.shape!.kind == ShapeKind.arrow && s.id != copyArrow.id)!,
+        ], const [])
         ..duplicate();
       expect(content.selection.strokes.single.shape!.tip, isNull);
     });
@@ -418,7 +445,7 @@ void main() {
       final b = strokes.firstWhere((s) => s.shape!.kind == ShapeKind.rectangle);
       final a = strokes.firstWhere((s) => s.shape!.kind == ShapeKind.arrow);
       expect(b.shape, boxNow().shape);
-      expect(a.shape!.tip!.id, b.id);
+      expect(a.shape!.tip!.id, b.shapeId);
       expect(a.shape!.points[1], arrowNow().shape!.points[1]);
     });
   });

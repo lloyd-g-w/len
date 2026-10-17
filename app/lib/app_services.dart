@@ -43,6 +43,7 @@ import 'ink/input/palm_guard.dart';
 import 'ink/recognition/handwriting_recognizer.dart';
 import 'ink/recognition/recognition_service.dart';
 import 'ink/render/outline_preparer.dart';
+import 'ink/selection/connector_repair.dart';
 import 'ink/selection/ink_clipboard.dart';
 import 'platform/camera_capture.dart';
 import 'platform/handwriting_recognizer.dart';
@@ -145,7 +146,7 @@ class AppServices {
       pullWorker: database.path == null
           ? null
           : () => startPullWorker(database, deviceId: deviceId, clock: clock),
-    );
+    )..afterApply = ConnectorRepair(strokes).repair;
     final search = SearchService(database, readBlob: blobs.read);
     final pointerActivity = PointerActivity();
     final recognition = RecognitionService(
