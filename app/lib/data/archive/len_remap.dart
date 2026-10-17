@@ -9,7 +9,8 @@ import '../syncable.dart';
 ///
 /// Folders, templates, notebooks, pages, outline entries and recordings
 /// keep a mapping (others refer to them), and so do shapes (connectors
-/// name them, [ShapeIds]: an imported arrow attaches to the imported box);
+/// name them, [ShapeIds]: an imported arrow attaches to the imported box)
+/// and text boxes (the boxes flowing on from them name them, `TextFlow`);
 /// other strokes and elements just get fresh ids. References to rows that are not in the file are mapped too
 /// (nothing then shows them), except links to pages: those lead to the
 /// copy only when the file holds the page, else stay as they are (to a
@@ -101,9 +102,12 @@ class LenRemap {
       case 'strokes' || 'elements':
         final style = copy['style'];
         final shape = record.collection == 'strokes' && style is Map && style['sh'] != null;
-        id = kept ? record.id : (shape ? idOf(record.id) : clock.newId());
+        // Text boxes are named by the boxes continuing them (`TextFlow.from`).
+        final text = record.collection == 'elements' && copy['type'] == 'text';
+        id = kept ? record.id : (shape || text ? idOf(record.id) : clock.newId());
         ref('surfaceId', into: surfaces);
         if (record.collection == 'elements') _relink(copy);
+        if (text && !kept) _rechain(copy);
         if (shape && !kept) copy['style'] = ShapeIds.remapStyle(style, idOf) ?? style;
       default:
         return null;
@@ -116,6 +120,22 @@ class LenRemap {
       deleted: false,
       data: copy,
     );
+  }
+
+  /// Points a text box flowing across pages at the copy of the box it
+  /// continues (one not in the file is dropped at the end of the import,
+  /// `LenImportCommit`).
+  void _rechain(Map<String, Object?> element) {
+    final data = element['data'];
+    if (data is! Map<String, Object?>) return;
+    final flow = data['flow'];
+    if (flow is! Map<String, Object?>) return;
+    final from = flow['from'];
+    if (from is! String) return;
+    element['data'] = {
+      ...data,
+      'flow': {...flow, 'from': idOf(from)},
+    };
   }
 
   /// Points a link element's page target at the copy of the page, when

@@ -6,6 +6,7 @@ import 'package:sqlite3/common.dart';
 import '../../domain/notebook_style.dart';
 import '../syncable.dart';
 import '../syncable_table.dart';
+import '../text_flow_relinks.dart';
 import 'len_remap.dart';
 import 'len_stores.dart';
 
@@ -132,9 +133,21 @@ class LenImportCommit {
           skipped++;
         }
       }
+      _dropBrokenFlows();
       _markDirty();
     });
     return (notebooks: notebooks, folders: folders, folder: top, skipped: skipped);
+  }
+
+  /// Text boxes continuing a box the file did not hold (or that was
+  /// malformed) stand alone, their flow dropped, rather than continue a
+  /// box that isn't there.
+  void _dropBrokenFlows() {
+    bool here(String id) =>
+        _db.select('SELECT 1 FROM elements WHERE id = ? AND deleted = 0', [id]).isNotEmpty;
+    for (final surface in remap.surfaces) {
+      TextFlowRelinks.apply(_db, surface, (from) => here(from) ? from : null);
+    }
   }
 
   /// Adds the notebook styles but those already here (same name and

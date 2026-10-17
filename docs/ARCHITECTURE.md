@@ -2378,8 +2378,11 @@ GoodNotes-style rich text inside a box.
   page its first line lands on; pasted on a page it flows; on a canvas it is one tall box). Ctrl+V
   of plain text on a page flows too (from no higher than the top margin). **Broken chains**: a continuation whose box before is gone or not on the page
   before (pages deleted, moved or copied alone) stands alone, drawn as it was; edited, it
-  becomes a box of its own (its flow dropped); the chain before it simply ends. Duplicating a
-  notebook relinks its chains to the copies. Infinite canvases have no pages: boxes grow there.
+  becomes a box of its own (its flow dropped); the chain before it simply ends. Copies relink
+  their chains to the copied boxes (`TextFlowRelinks`: a notebook duplicated, pages sent to
+  another notebook, a Len import, a version copied as a new notebook); a copied box whose box
+  before was not copied (a duplicated page, the later pages sent alone, a box missing from the
+  file) stands alone, its flow dropped. Infinite canvases have no pages: boxes grow there.
   The data of text elements from sync and Len files is parsed strictly
   (`TextRecord`; a malformed box is skipped).
 - **Size**: new boxes are **auto-width** (as wide as their text, growing up to
@@ -2932,7 +2935,9 @@ inflater in Dart took seconds of it), and records are parsed and written in
 (`LenArchiveReader.sliceBudget`). An
 import opens the file (`LenSource`: the
 manifest and, for a backup, the folders and notebooks it holds), stages
-everything, remaps ids (`LenRemap`), checks each blob's hash and commits in
+everything, remaps ids (`LenRemap`: the references among the records follow, connectors'
+shapes, links to pages the file holds and text flows, a flow from a box not imported being
+dropped), checks each blob's hash and commits in
 one transaction (`LenImportCommit`). Damage (a blob, a line, a part) is
 left out and reported, the rest imported; an error or Cancel leaves nothing
 behind (a restore that wrote over the tombstones of a notebook deleted here

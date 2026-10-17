@@ -160,19 +160,21 @@ class VersionContent {
   };
 
   /// Element [data] with the ids it refers to renamed: a link's page (and
-  /// notebook), a text flow's box before.
+  /// notebook), a text flow's box before (a flow from a box not in the
+  /// copy is dropped: the box stands alone).
   static Map<String, Object?> _renamedElementData(
     Map<String, Object?> data,
     String Function(String) rename,
   ) => {
-    ...data,
+    for (final MapEntry(:key, :value) in data.entries)
+      if (key != 'flow') key: value,
     if (data['target'] case {'notebook': final String notebook, 'page': final String page})
       'target': {
         ...data['target']! as Map<String, Object?>,
         'notebook': rename(notebook),
         'page': rename(page),
       },
-    if (data['flow'] case {'from': final String from})
+    if (data['flow'] case {'from': final String from} when rename(from) != from)
       'flow': {...data['flow']! as Map<String, Object?>, 'from': rename(from)},
   };
 

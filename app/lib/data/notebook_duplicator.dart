@@ -6,12 +6,12 @@ import '../domain/notebook.dart';
 import '../domain/recording.dart';
 import '../domain/shape_ids.dart';
 import '../domain/surface_element.dart';
-import '../domain/text/text_data.dart';
 import 'notebook_repository.dart';
 import 'page_order.dart';
 import 'row_copier.dart';
 import 'shape_renames.dart';
 import 'stroke_queries.dart';
+import 'text_flow_relinks.dart';
 
 /// Deep-copies a notebook: its row, its pages, every live stroke and
 /// element (with their chunk indexes) and its audio recordings, all under
@@ -213,32 +213,8 @@ class NotebookDuplicator {
   /// the boxes they continued ([elements]: old id → copy's id); one whose
   /// box before was not copied stands alone.
   void _rechain(Iterable<String> surfaces, Map<String, String> elements) {
-    final db = _notebooks.db;
     for (final copied in surfaces) {
-      final rows = db.select(
-        'SELECT id, data FROM elements WHERE surface_id = ? AND type = ? AND deleted = 0 '
-        "AND data LIKE '%\"flow\"%'",
-        [copied, ElementType.text.name],
-      );
-      for (final row in rows) {
-        final data = StrokeQueries.decodeElementData(row['data'] as String);
-        final flow = TextFlow.fromJson(data?['flow']);
-        if (data == null || flow == null) continue;
-        final from = elements[flow.from];
-        final next = {...data}..remove('flow');
-        if (from != null) {
-          next['flow'] = flow.withFrom(from).toJson();
-        }
-        db.execute('UPDATE elements SET data = ? WHERE id = ?', [jsonEncode(next), row['id']]);
-        final element = StrokeQueries.rowToElement(
-          db.select('SELECT * FROM elements WHERE id = ?', [row['id']]).first,
-        );
-        if (element == null) continue;
-        db.execute('UPDATE element_chunks SET digest = ? WHERE element_id = ?', [
-          ChunkDigest.ofElement(element),
-          row['id'],
-        ]);
-      }
+      TextFlowRelinks.apply(_notebooks.db, copied, (from) => elements[from]);
     }
   }
 
