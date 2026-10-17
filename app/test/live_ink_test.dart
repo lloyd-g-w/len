@@ -289,6 +289,61 @@ void main() {
     expect(find.byType(Text), findsNothing);
   });
 
+  testWidgets('compact presence is one plate, read once, never clipped', (tester) async {
+    final handle = tester.ensureSemantics();
+    final rooms = LiveRooms(LiveLink(connect: () => throw UnimplementedError(), onMessage: (_) {}))
+      ..join('nb');
+    Future<void> show({required bool compact, double scale = 1}) => tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+          child: Scaffold(
+            body: Center(
+              child: RoomPresence(rooms: rooms, room: 'nb', compact: compact),
+            ),
+          ),
+        ),
+      ),
+    );
+    rooms.receive(
+      LivePresence('nb', [
+        for (var i = 0; i < 14; i++) (connection: 'c$i', deviceId: 'd$i', name: 'Windows'),
+      ]),
+    );
+    await show(compact: true);
+    expect(find.text('+14'), findsOneWidget);
+    expect(find.text('W'), findsNothing);
+    final label = 'Also open on ${List.filled(13, 'Windows').join(', ')} and Windows';
+    expect(find.bySemanticsLabel(label), findsOneWidget);
+    expect(
+      tester.getSemantics(find.byType(RoomPresence)),
+      isNot(containsSemantics(tooltip: label)),
+      reason: 'the tooltip repeats the label',
+    );
+    await show(compact: false, scale: 2);
+    final plus = find.text('+12');
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getSize(find.ancestor(of: plus, matching: find.byType(Container)).first).width,
+      greaterThanOrEqualTo(tester.getSize(plus).width),
+    );
+    handle.dispose();
+  });
+
+  testWidgets('a short window’s bar keeps All pages with others present', (tester) async {
+    final (s, nb) = await pumpEditor(tester, size: const Size(640, 360));
+    s.sync.rooms.receive(
+      LivePresence(nb.id, [
+        for (var i = 0; i < 4; i++) (connection: 'c$i', deviceId: 'd$i', name: 'Linux'),
+      ]),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('+4'), findsOneWidget);
+    expect(find.byTooltip('All pages').hitTestable(), findsOneWidget);
+  });
+
   testWidgets('in the editor: presence in the bar, remote ink on its page until its stroke', (
     tester,
   ) async {
