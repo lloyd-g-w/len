@@ -69,6 +69,18 @@ class Stroke implements Shaped {
        points = List.unmodifiable(points),
        bounds = computeBounds(points, width);
 
+  /// [source] under id [id], sharing its points and bounds.
+  Stroke._renamed(Stroke source, this.id)
+    : surfaceId = source.surfaceId,
+      tool = source.tool,
+      color = source.color,
+      width = source.width,
+      style = source.style,
+      points = source.points,
+      createdAt = source.createdAt,
+      bounds = source.bounds,
+      shape = source.shape;
+
   @override
   final String id;
 
@@ -139,6 +151,9 @@ class Stroke implements Shaped {
   /// The fill colour painted beneath the outline, if any: only a closed
   /// stroke ([isClosed]) shows its [StrokeStyle.fill].
   int? get fill => isClosed ? style.fill : null;
+
+  /// This stroke under id [id] (its points shared, not copied).
+  Stroke withId(String id) => Stroke._renamed(this, id);
 
   /// A stroke like this one but with other [points] (and optionally [id] /
   /// [style]); used to split strokes (pixel eraser) or reshape them. It is

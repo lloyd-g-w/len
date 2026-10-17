@@ -177,7 +177,7 @@ void main() {
         commits.add(commit.elapsedMicroseconds);
         expect(model.strokeById(selection.strokes.single.id)?.shapeId, 'hub');
       }
-      await profile?.dump('commit $arrows', count: 60);
+      await profile?.dump('commit $arrows', count: 90);
       report(
         'CONNECTORS drag, $arrows arrows: setPreview ${_ms(perMove ~/ 20)} a move '
         '(best of 5 × 20); commit ${_stats(commits)} (5 drags)',

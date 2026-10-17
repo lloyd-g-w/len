@@ -129,7 +129,15 @@ extension _SelectionConnectors on _SelectionCore {
   /// following them ([moved]: the transform that made them, if one did).
   void _follow(SelectionPlan plan, Map<String, Stroke> replaced, Affine? moved) {
     for (final (model, line, shape) in _followersOf(replaced, moved: moved)) {
-      plan.replaceUnselected(model, line, Connectors.rebuilt(line, shape, id: clock.newId()));
+      // As the gesture showed it (built for its last move), under a new id.
+      final shown = model == _model ? _followerStrokes[line.id] : null;
+      plan.replaceUnselected(
+        model,
+        line,
+        shown != null && shown.shape == shape
+            ? shown.withId(clock.newId())
+            : Connectors.rebuilt(line, shape, id: clock.newId()),
+      );
     }
   }
 
@@ -207,11 +215,10 @@ extension _SelectionConnectors on _SelectionCore {
         : _followersOf(replaced, homeOnly: true, moved: moved);
     if (lines.isEmpty && _followers == null) return;
     _followers?.dispose();
-    _followers = lines.isEmpty
-        ? null
-        : _recordSketch([
-            for (final (_, line, shape) in lines) Connectors.rebuilt(line, shape, id: line.id),
-          ]);
+    _followerStrokes = {
+      for (final (_, line, shape) in lines) line.id: Connectors.rebuilt(line, shape, id: line.id),
+    };
+    _followers = lines.isEmpty ? null : _recordSketch(_followerStrokes.values.toList());
     final ids = {for (final (_, line, _) in lines) line.id};
     if (!setEquals(ids, _followerIds)) {
       _followerIds = ids;
