@@ -98,17 +98,21 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   anchor (or the hint says how).
 - 🚧 (fix/pen-flicker-3) **The pen still flickers sometimes** (owner, again): keep hunting every cause on every
   platform (Linux, web, Android), with frame-by-frame tests.
-- 🚧 (feat/live-sync-2) **Live sync, actually live**: edits show on other devices within a fraction of a second
+- ✅ **Live sync, actually live**: edits show on other devices within a fraction of a second
   (push on pen-up, server fans the records out over one long-lived connection, no pull
   round trip), built as the foundation for real-time collaboration: a WebSocket channel with
   rooms per notebook, ephemeral messages (in-progress strokes, presence / cursors) next to
   records; documented in SYNC_PROTOCOL.md; falls back to today's pull when the channel is down.
-  Ready to merge: `GET /v1/live` (pushes and fan-out on one WebSocket,
+  `GET /v1/live` (pushes and fan-out on one WebSocket,
   rooms per notebook with presence and relayed ephemeral messages, tickets for browsers,
   bounded outboxes); edits pushed a frame after they are committed (~25 ms to another device
   over loopback); the stroke being written drawn live on the others (replaced by its record),
   presence plates in the editor bar; the event stream and the cycle as fallbacks. Cursors
   are not sent yet (the room data has room for them).
+- ⬜ **Live sync follow-ups**: cursors / pointers of other devices (the laser too); no gap
+  between another device's live stroke and its record when the page reloads fully (500+
+  changes, a selection in the way) or for a highlight snapped to text (it ends without a stroke
+  id); an e2e run with two real app instances over the live channel.
 - ✅ **`flutter run --release -d linux` fails to link** (owner): it builds and runs inside
   `nix develop`; a Flutter from outside the dev shell lacks its toolchain and libraries. The
   repo has an `.envrc` (direnv: `use flake`) and the README says so.
