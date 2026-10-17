@@ -26,6 +26,15 @@ class LenImportCommit {
   /// The folder [finish] made to hold the import, if any.
   String? _holder;
 
+  /// Tombstones of rows edited in place that the import wrote over (a
+  /// restore keeping the ids of a notebook deleted here), as they were:
+  /// table → their rows. [discard] puts them back.
+  final Map<String, List<Row>> _overwritten = {};
+
+  /// Rows edited in place that the import wrote where there were none
+  /// (table → ids, of restores keeping ids only), which [discard] removes.
+  final Map<String, List<String>> _added = {};
+
   CommonDatabase get _db => stores.any.db;
 
   /// Writes (or keeps for [finish]) [record], given new ids; false if it is
@@ -46,6 +55,8 @@ class LenImportCommit {
       case 'notebook_styles':
         _styles.add(copy);
       default:
+        // Only a restore keeping ids writes over rows here.
+        if (copy.id == record.id) _noteOverwritten(copy);
         return _write(copy);
     }
     return true;
@@ -174,6 +185,7 @@ class LenImportCommit {
   void discard() {
     stores.any.database.transaction(() {
       _withIds(() {
+        _putBackOverwritten();
         _retombstone();
         for (final table in ['stroke_chunks', 'element_chunks']) {
           _db.execute('DELETE FROM $table WHERE surface_id IN $_surfaces');
@@ -188,12 +200,69 @@ class LenImportCommit {
     });
   }
 
+  /// Keeps the tombstone [record] (a row edited in place, keeping its id)
+  /// is about to be written over, or that there is no row yet, for
+  /// [discard].
+  void _noteOverwritten(SyncRecord record) {
+    final table = stores.maybeOf(record.collection);
+    if (table == null || !table.editedInPlace) return;
+    final rows = _db.select('SELECT * FROM ${table.table} WHERE id = ?', [record.id]);
+    if (rows.isEmpty) {
+      (_added[table.table] ??= []).add(record.id);
+    } else if (rows.single['deleted'] == 1) {
+      (_overwritten[table.table] ??= []).add(rows.single);
+    }
+  }
+
+  /// Puts back the tombstones of rows edited in place that the import
+  /// wrote over, exactly as they were (version, content, what their
+  /// deletion knew, the origin of what they kept), and removes those it
+  /// wrote where there were none: a version must say the same everywhere,
+  /// or this device would differ from the server for good (last-write-wins
+  /// never replaces an equal version), so none may become a tombstone at
+  /// the version of a deletion that its device may have pushed with
+  /// another base ([_retombstone]). Rows changed since the import wrote
+  /// them (a pull) are left alone.
+  void _putBackOverwritten() {
+    _added.forEach((table, ids) {
+      for (final id in ids) {
+        _db.execute(
+          'DELETE FROM $table WHERE id = ? AND deleted = 0 AND updated_at = ? AND device_id = ?',
+          [id, remap.version, remap.deviceId],
+        );
+      }
+    });
+    _overwritten.forEach((table, rows) {
+      for (final row in rows) {
+        final columns = [
+          for (final c in row.keys)
+            if (c != 'id') c,
+        ];
+        _db.execute(
+          'UPDATE $table SET ${columns.map((c) => '$c = ?').join(', ')} '
+          'WHERE id = ? AND deleted = 0 AND updated_at = ? AND device_id = ?',
+          [for (final c in columns) row[c], row['id'], remap.version, remap.deviceId],
+        );
+        if (_db.updatedRows == 0) continue;
+        // The deletion trigger noted the restore's version as what was
+        // deleted: what the tombstone said instead.
+        const noted = ['base_at', 'base_device', 'origin_at', 'origin_device', 'origin_for'];
+        _db.execute('UPDATE $table SET ${noted.map((c) => '$c = ?').join(', ')} WHERE id = ?', [
+          for (final c in noted) row[c],
+          row['id'],
+        ]);
+      }
+    });
+  }
+
   /// A restore keeping the ids of notebooks deleted here wrote over their
   /// tombstones, whose deletion may not have synced yet: they become
   /// tombstones again, as the deletion left them (its device and version,
-  /// see `DeletionConflicts`), rather than being removed. What those
-  /// deletions knew was written over: the rows edited in place forget it
-  /// (unknown, see `EditOrigins`) rather than claim the restore's version.
+  /// see `DeletionConflicts`), rather than being removed. Rows edited in
+  /// place are put back as they were first ([_putBackOverwritten]); where
+  /// the restore wrote over one that was live here (content a pull brought
+  /// that the deletion did not know), what the deletion knew is unknown
+  /// (see `EditOrigins`) rather than the restore's version.
   void _retombstone() {
     final deleted = _db.select(
       'SELECT id, device_id, updated_at FROM notebooks '

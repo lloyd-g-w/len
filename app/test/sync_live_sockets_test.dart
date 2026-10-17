@@ -4,6 +4,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/templates/paper_style.dart';
 import 'package:len/ink/remote_ink.dart';
+import 'package:len/sync/sync_controller.dart';
 import 'package:len/sync/sync_engine.dart';
 
 import 'support/socket_server.dart';
@@ -31,13 +32,16 @@ void main() {
     server = await SocketServer.start();
     a = await server.device();
     b = await server.device();
-    await waitFor(
-      () =>
-          a.sync.connected &&
-          b.sync.connected &&
-          a.sync.engine.liveReady(server.store.serverId) &&
-          b.sync.engine.liveReady(server.store.serverId),
-    );
+    // Connected, and the runs the app started with over, with nothing
+    // left for another (a run carries the edits made while it runs, which
+    // then never go over the connection: a busy machine's runs are slow).
+    bool settled(AppServices s) =>
+        s.sync.connected &&
+        s.sync.engine.liveReady(server.store.serverId) &&
+        s.sync.state == SyncState.idle &&
+        s.sync.engine.knownSeq == server.store.currentSeq() &&
+        !s.sync.engine.hasDirtyRows();
+    await waitFor(() => settled(a) && settled(b));
   });
 
   tearDown(() async {
@@ -71,8 +75,9 @@ void main() {
 
     a.strokes.delete([stroke.id]);
     await waitFor(() => !arrived());
-    expect(a.sync.livePushes, greaterThanOrEqualTo(2)); // The stroke, its deletion.
-    expect(b.sync.liveApplied, greaterThanOrEqualTo(2));
+    // The notebook, the stroke, its deletion. (A push counts once its
+    // answer is back, which may be after the other device applied it.)
+    await waitFor(() => a.sync.livePushes >= 3 && b.sync.liveApplied >= 3);
     expect(server.live.connections, 2);
   });
 
