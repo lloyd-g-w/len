@@ -78,10 +78,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   every zoom): a fixed page width matching PDF export, at least about a pixel.
 
 ## Owner asks (round 13)
-- ⬜ **Highlighter and laser customisation like the pen's**: every option the pen has that
-  makes sense (editable quick colour slots and their count, quick sizes, pressure, stabiliser,
-  ends, preview, Reset) on the highlighter and the laser pointer too; the laser's three fixed
-  colours become editable slots, with quick sizes.
+- ✅ **Highlighter and laser customisation like the pen's**: the highlighter already had every
+  pen option (now tested); the laser gets editable, persisted quick colour and size slots (1–5
+  each, shared slot rows and editors, 1–9 and [ / ] too) and the pen's popover layout.
 - ⬜ **Better shape control points** (pen → shape and the Shape tool): handles by meaning,
   not bounding-box corners: a circle / ellipse by centre (move) and radius (or two radii and a
   rotation), rectangle corners + edge midpoints + rotation, line / arrow endpoints (and a bend),
