@@ -3401,41 +3401,100 @@ app starts on its own (below) skip while `waitsForSettings` (the server
 rejected the token: retrying can't help); saving settings or Sync now tries
 again.
 
-Scheduling (`SyncController`, `sync_controller_live.dart`, `LiveEvents`):
-sync is near-live without polling hard. Never more than one run at a time
-(`syncNow` queues one follow-up).
+Scheduling (`SyncController`, `sync_controller_live.dart`, `sync_controller_socket.dart`,
+`LiveLink`, `LiveEvents`): sync is live while the app is in the foreground, without polling.
+Never more than one run at a time (`syncNow` queues one follow-up).
+- **The live connection.** `LiveLink` keeps one WebSocket to the server's `/v1/live`
+  (`platform/live_socket.dart`: natively `IOWebSocketChannel` with the token in a header; in a
+  browser a one-time ticket from `POST /v1/live/ticket` in the URL, as browsers cannot set
+  headers on a WebSocket) while the app is in the foreground (`App` sets
+  `SyncController.foreground` from the lifecycle: open when resumed or inactive, closed when
+  hidden or paused, which on Android includes the screen going off), sync is configured and
+  the token not refused. It reconnects after 1, 2, 4 … s up to a minute (+ up to 20 % jitter),
+  takes 50 s without a message (heartbeats come every 20 s) or a push unanswered for 15 s for a
+  dead connection, matches push answers to requests by id, and joins its rooms again after
+  reconnecting. Messages are parsed into `LiveMessage`s (`live_messages.dart`).
 - **Local writes.** `DirtyWrites` (`data/`) installs temporary triggers on the
   UI connection's syncable tables that count rows written with `dirty = 1`
   (local edits, imports, revivals; not pulled records, search indexing or
   settings; a pull worker's own connection has no triggers). The controller
-  looks at the count on every `AppDatabase.commits` event and, when it moved,
-  schedules a run 3 s after writing pauses (at the latest 10 s after the
-  first unpushed write), and only if rows are still dirty then and were
-  dirtied since the last run began (rows that stay dirty, such as one held
-  back for its file, don't make runs of their own). No UI code asks for
-  syncs after edits.
-- **Other devices' changes.** `LiveEvents` keeps one connection to the
-  server's `/v1/events` (Server-Sent Events, `SyncApi.events`,
-  `parseServerEvents`) while the app is in the foreground (`App` sets
-  `SyncController.foreground` from the lifecycle: open when resumed or
-  inactive, closed when hidden or paused, which on Android includes the
-  screen going off), sync is configured and the token not refused; it
-  reconnects after 1, 2, 4 … s up to a minute (+ up to 20 % jitter), takes
-  50 s without a byte (heartbeats come every 20 s) for a dead connection, and
-  waits 10 minutes before asking a server that isn't one again. An event with
-  another server id or a seq beyond `SyncEngine.knownSeq` (the pulled
-  position, or what this device's own pushes stored right after it, so its
-  own pushes wake nobody here) makes a run a second later. The same code
-  runs on the web: `package:http`'s `BrowserClient` streams `fetch` bodies, and
-  unlike `EventSource` it sends the `Authorization` header.
+  looks at the count on every `AppDatabase.commits` event and, when it moved and the connection
+  is up and greeted by the server this device is up to date with (`SyncEngine.liveReady`: not
+  before the first run with a server pushed everything), pushes over it a frame (16 ms) later,
+  at most once per 150 ms (`livePushDelay`; writes meanwhile make the next push).
+  `LiveSyncEngine.pushLive` (`sync_engine_live.dart`) sends live rows of collections not edited
+  in place (parents first), then rows edited in place and tombstones (children first) as
+  `current` pushes, which the server applies only while this device has every change — the
+  live form of "after the pull" ([Deletion conflicts](SYNC_PROTOCOL.md#deletion-conflicts)); a
+  `stale` answer waits for the records on their way and pushes again. Rows referencing a blob
+  not uploaded yet, more than 200 rows, a refused record or a failed push go to a run instead.
+  While the connection is down, a run is scheduled 3 s after writing pauses (at the latest 10 s
+  after the first unpushed write), only if rows are still dirty then and were dirtied since the
+  last run began (rows that stay dirty, such as one held back for its file, don't make runs of
+  their own). No UI code asks for syncs after edits.
+- **Other devices' changes.** A `records` message (what another device's push just stored) is
+  queued and applied between runs (`LiveSyncEngine.applyLive`): through the same `PullApplier`
+  as a pulled page (LWW, deletion conflicts, malformed records skipped), moving the feed
+  position to its seq in the last slice, but only if it follows on what this device knows
+  (`SyncEngine.knownSeq`: the pulled position, or what its own pushes stored right after it).
+  A gap, a `resync`, a new server id or `hello` telling of a newer seq is handled like a
+  server event: a run a second later. A run waits for live work in progress (`_liveIdle`); live
+  work waits for the run and goes on after it. What a live message changed goes out as
+  `RemoteChanges` with the ids of the strokes and elements per surface (`itemsOf`), so an open
+  editor takes in just those (`SurfaceModel.refreshItems`: read by id, drawn as appended ink
+  when it paints over everything there) instead of reloading the surface; many items, a load
+  under way or a selected item reload as before. Referenced blobs are fetched lazily when shown,
+  as after a pull.
+- **Fallback: the event stream.** While two live connections in a row failed before `hello`
+  (a proxy that does not pass WebSockets on) and until one works, `LiveEvents` also keeps the
+  server's `/v1/events` (Server-Sent Events, `SyncApi.events`, `parseServerEvents`) open: an
+  event with another server id or a seq beyond `knownSeq` makes a run a second later. It
+  reconnects like the live connection and waits 10 minutes before asking a server that isn't
+  one again. The same code runs on the web: `package:http`'s `BrowserClient` streams `fetch`
+  bodies, and unlike `EventSource` it sends the `Authorization` header.
+- **Rooms and presence** (`LiveRooms`, `SyncController.rooms`): `SharedNotebook` joins the
+  room of its notebook (counted: two views, one join; left on dispose; joined again by
+  `LiveLink` after a reconnect). Presence lists the other devices there; `RoomPresence`
+  (`features/editor/live_ink/`) shows a plate with each one's initial before the sync alert in
+  the editor's bar. A dropped connection empties every room's presence (`disconnected`).
+- **Live ink** ([Room data](SYNC_PROTOCOL.md#get-v1live)): `InkDrawing` tells
+  `InkEvents.inkBegan` (surface id) when a pen or highlighter contact starts live ink and
+  `inkEnded` (the committed stroke's id, or null) when it ends. `LiveInkRelay` (one per
+  `EditorSession`, attached to the main input and the zoom window's) listens to `LiveInk` and
+  sends the points not sent yet at most every 50 ms — nothing at all while nobody else is in
+  the room, so the local pen pays one listener call and a null check per point; with someone
+  there, a list slice and a small JSON message 20 times a second, never per point. On the
+  other side `RemoteInk` (`ink/remote_ink.dart`, one per `SharedNotebook`) keeps the strokes
+  being written per writer connection, and `RemoteInkPainter` paints them in their own
+  `RepaintBoundary` between the committed ink and the local `LiveInkPainter` (`InkSurface`
+  for canvases; `PagedDocumentView` once for all pages, clipped to each page's frame), so a
+  remote stroke growing repaints only that layer. It goes when the stroke's record is applied:
+  `SharedNotebook._onRemoteChanges` refreshes the open surfaces first and then calls
+  `RemoteInk.landed`, so the committed stroke and the provisional one swap in the same frame
+  (no flicker, no double ink; a surface reloaded whole instead — many items, a selection — may
+  show neither for the moment its load takes); a record that overtakes its `end` is remembered
+  for 2 s. It also
+  goes on `end` without a stroke, 2 s after `end` without the record, 3 s after the last
+  points, or when the writer is no longer in the room's presence (left, or this device's
+  connection dropped).
 - **Failures.** After a failed run, runs the controller starts on its own
   wait 5 s, doubling up to 2 min (what that run was to push is still due); the
-  event stream connecting again retries at once.
-- **Fallback.** A timer every 45 s, stretched to every 2 minutes (three
-  ticks) while the event stream is healthy and the last run worked, and a
-  run when the app goes to the background (to upload) or returns.
+  live connection or event stream connecting again retries at once.
+- **Fallback timer.** Every 45 s, stretched to every 2 minutes (three
+  ticks) while the live connection (or the event stream) is healthy and the last run worked,
+  and a run when the app goes to the background (to upload) or returns.
 
-Why SSE rather than long-polling `/v1/pull?wait=…`: one request per change
+Why a WebSocket next to the cycle rather than replacing it: records flow both ways on one
+connection without a request per edit (an edit reaches the others in a frame plus a round trip:
+25 ms median over loopback, `test/perf/live_sync_latency_test.dart`), and rooms with ephemeral
+messages need a channel in both directions anyway; the cycle stays the one way to catch up
+(after a gap, a first sync, blobs), so the live path only ever does the easy, common case. The
+server (`server/lib/src/live_hub.dart`) fans a push's records out once encoded to every other
+connection; it upgrades the socket itself (`live_api.dart`, not `shelf_web_socket`, whose channel
+writes without backpressure), so a client that does not read is seen (the socket's `addStream`
+pauses) and bounded: past 1 MiB waiting, its records become one `resync`.
+
+Why SSE (as the fallback) rather than long-polling `/v1/pull?wait=…`: one request per change
 instead of one per change and per timeout, an event costs a few bytes on an
 open connection, the shelf server streams it with a `StreamController` (no
 waiting handlers holding database state), and a connection's first event

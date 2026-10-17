@@ -82,26 +82,51 @@ content-addressed files in a blob directory next to it.
    Then in the Len app, enter `https://sync.example.com` and the token from
    `.env`.
 
-   **Live updates through the proxy.** Devices keep a Server-Sent Events
-   stream open (`GET /v1/events`) to hear of other devices' changes within
-   seconds. A proxy must pass it on unbuffered and keep it open:
+   **Live sync through the proxy.** Devices keep a WebSocket open (`GET /v1/live`) over
+   which edits reach the other devices within a fraction of a second. A proxy must pass the
+   WebSocket upgrade on and keep the connection open:
 
-   - **Caddy**: nothing to do (it flushes `text/event-stream` responses at
-     once).
-   - **nginx**: the server sends `X-Accel-Buffering: no`, which turns
-     response buffering off for the stream; `proxy_buffering off;` in its
-     `location` does the same if your setup ignores that header. Keep
-     `proxy_read_timeout` above the 20 s heartbeat (the default 60 s is
-     fine) and don't `gzip` `text/event-stream`. With HTTP/1.1 upstreams
-     set `proxy_http_version 1.1;`.
-   - **Apache** (`mod_proxy`): `ProxyPass / http://127.0.0.1:8080/
-     flushpackets=on`, and no `mod_deflate` for `text/event-stream`.
-   - **Cloudflare** and similar CDNs pass `text/event-stream` through; their
-     idle timeout (100 s) is well above the heartbeat.
+   - **Caddy**: nothing to do (`reverse_proxy` passes WebSockets on).
+   - **nginx**: pass the upgrade headers and keep the read timeout above the 20 s heartbeat
+     (the default 60 s is fine):
 
-   A proxy that buffers anyway costs nothing but speed: devices still sync
-   every couple of minutes and whenever they write, leave or return to the
-   app.
+     ```nginx
+     location / {
+         proxy_pass http://127.0.0.1:8080;
+         proxy_http_version 1.1;
+         proxy_set_header Upgrade $http_upgrade;
+         proxy_set_header Connection $connection_upgrade;
+         proxy_set_header Host $host;
+         proxy_read_timeout 120s;
+         client_max_body_size 200m;
+     }
+     ```
+
+     with, in the `http` block,
+     `map $http_upgrade $connection_upgrade { default upgrade; '' close; }`.
+   - **Apache** (`mod_proxy_wstunnel`): `RewriteEngine on`,
+     `RewriteCond %{HTTP:Upgrade} websocket [NC]`,
+     `RewriteRule ^/v1/live$ ws://127.0.0.1:8080/v1/live [P,L]` before the `ProxyPass`.
+   - **Cloudflare** and similar CDNs pass WebSockets on (enable *WebSockets* in the dashboard
+     where it is a setting); their idle timeout (100 s) is well above the heartbeat.
+
+   Where WebSockets don't get through, devices fall back to a Server-Sent Events stream
+   (`GET /v1/events`), which tells them within seconds that something changed. A proxy must
+   pass it on unbuffered and keep it open:
+
+   - **Caddy**: nothing to do (it flushes `text/event-stream` responses at once).
+   - **nginx**: the server sends `X-Accel-Buffering: no`, which turns response buffering off
+     for the stream; `proxy_buffering off;` in its `location` does the same if your setup
+     ignores that header. Don't `gzip` `text/event-stream`.
+   - **Apache** (`mod_proxy`): `ProxyPass / http://127.0.0.1:8080/ flushpackets=on`, and no
+     `mod_deflate` for `text/event-stream`.
+
+   A proxy that passes neither costs nothing but speed: devices still sync every couple of
+   minutes and a few seconds after they write, leave or return to the app.
+
+   Browsers (the Len web app) open the WebSocket with a one-time ticket in the URL
+   (`/v1/live?ticket=…`, valid for 30 s and one connection), as they cannot send the token in
+   a header there; the token itself never appears in a URL or a proxy's access log.
 
 ## Configuration
 
@@ -159,11 +184,18 @@ has, but only if that device syncs before others have written as much.)
 The same happens automatically when the address leads to a new, empty
 server: devices recognise it by its id and upload everything.
 
+**Live connections** (`/v1/live`): at most 1000 at a time (`503` beyond),
+messages up to 4 MiB, rooms (one per open notebook) up to 8 per connection,
+relayed messages (live ink) up to 16 KiB and 40 a second per connection.
+Nothing sent in rooms is stored. A device that does not read (a stalled
+network) gets at most 1 MiB queued, then one "resync" that makes it pull.
+
 **Durability:** the database runs in WAL mode with `synchronous = FULL`, so a
 push the server has answered survives a crash or power loss.
 
 **Stopping:** on SIGTERM or SIGINT (`docker stop`) the server stops accepting
-connections, ends the open event streams (devices reconnect once it is back),
+connections, ends the open event streams and closes the live connections
+(WebSocket close `1001`; devices reconnect once it is back),
 lets requests in flight finish for up to 8 s (within Docker's default 10 s
 stop timeout), then closes the database.
 
@@ -217,6 +249,10 @@ Layout: `bin/server.dart` (wiring), `lib/src/config.dart` (env config),
 (SQLite/LWW), `lib/src/api.dart` (routes, auth), `lib/src/cors.dart`
 (CORS middleware), `lib/src/blob_store.dart` (content-addressed files),
 `lib/src/blob_api.dart` (blob routes), `lib/src/change_events.dart`
-(`/v1/events`), `lib/src/blob_gc.dart` (blob garbage
+(`/v1/events`), `lib/src/live_api.dart` (`/v1/live`: tickets, the WebSocket
+upgrade), `lib/src/live_hub.dart` (live connections, fan-out, rooms),
+`lib/src/live_connection.dart` (one connection: messages, bounded outbox,
+limits), `lib/src/live_tickets.dart`, `lib/src/push_request.dart` (a push's
+validation, shared by HTTP and live pushes), `lib/src/blob_gc.dart` (blob garbage
 collection), `lib/src/gc_command.dart` with `bin/gc.dart` (its admin
 command) and `lib/src/new_id_command.dart` (`server new-id`).

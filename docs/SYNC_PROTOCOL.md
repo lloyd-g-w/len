@@ -100,8 +100,9 @@ far a long pull is (a new device's first sync).
 ### `GET /v1/events`
 A [Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html) stream
 telling clients that the change feed moved on, so they can pull within seconds instead of
-polling. Servers must support it; clients may use it (they must still sync on their own now and
-then: an event can be missed while a connection is down). Needs the bearer token like every other
+polling: the fallback of the [live connection](#get-v1live) for networks that do not pass
+WebSockets on. Servers must support it; clients may use it (they must still sync on their own now
+and then: an event can be missed while a connection is down). Needs the bearer token like every other
 endpoint (`401` otherwise), so browsers read it with `fetch` streaming rather than `EventSource`,
 which cannot send the header (and the token never goes into a URL).
 
@@ -124,7 +125,8 @@ ends by itself. It carries:
 A server with too many open streams (default 1000) answers `503` with `Retry-After`. Streams end
 when the server shuts down; clients reconnect with backoff.
 
-**Client use (Len).** A client keeps one stream open while the app is in the foreground (closed in
+**Client use (Len).** While two live connections in a row failed (before `hello`) and until one
+works again, a client keeps one stream open while the app is in the foreground (closed in
 the background, and on Android while the screen is off), reconnecting after 1, 2, 4 … s up to a
 minute (a fifth more at random, so clients of a restarted server spread out). On an event whose
 `serverId` differs from the one it synced with, or whose `seq` is newer than what it knows, it
@@ -133,10 +135,134 @@ knows the seqs its own pushes stored right after what it pulled (a push answered
 `serverSeq` *s* stored seqs *s − n + 1 … s*). A connection's first event also tells a client that
 returns to the foreground whether it missed anything.
 
+### `GET /v1/live`
+A **live connection**: a [WebSocket](https://www.rfc-editor.org/rfc/rfc6455) carrying the change
+feed as it happens and pushes in both directions, so an edit reaches the other connected devices
+within a fraction of a second, with no pull round trip; and **rooms** (one per open notebook) with
+**presence** and **ephemeral messages** (relayed, never stored), the base of real-time
+collaboration. Servers must support it; clients should use it while in the foreground and keep
+[`/v1/events`](#get-v1events) and the cycle as fallbacks (they must still sync on their own now
+and then: nothing sent while a connection is down is sent again).
+
+**Opening.** `GET /v1/live` with the WebSocket upgrade headers and either
+`Authorization: Bearer <token>` (native clients) or `?ticket=<ticket>`. Browsers cannot set headers
+on a WebSocket, and the long-lived token never goes into a URL, so they first ask
+`POST /v1/live/ticket` (bearer token; empty body) for a ticket: `200 {"ticket": "…",
+"expiresIn": 30}` — random, valid for one connection within `expiresIn` seconds. Answers before the
+upgrade: `401` (no or wrong token, unknown, used or expired ticket), `403` (an `Origin` outside a
+`LEN_CORS_ORIGINS` allow-list), `503` with `Retry-After` (too many live connections, default
+1000), `426` (not a WebSocket upgrade). The server pings at the WebSocket level every 30 s and
+drops connections that stop answering.
+
+**Messages** are UTF-8 JSON objects in text frames (binary frames close the connection, `1003`),
+each with a `type`; unknown types are answered with `error` (by the server) or ignored (by
+clients), unknown fields ignored. A client message larger than 4 MiB closes the connection
+(`1009`).
+
+Server → client:
+
+- `{"type": "hello", "protocol": 1, "serverId": "9f…", "seq": 4711, "connection": "c12",
+  "heartbeat": 20}` — first, at once: the server's id and newest seq (as an [event](#get-v1events)
+  tells), and this connection's id (how other members of a room see it).
+- `{"type": "records", "prevSeq": 4709, "seq": 4711, "records": [Record+seq, …]}` — what a push
+  (over HTTP or a live connection) just stored, in seq order, sent right after it was stored to
+  every live connection **except the pusher's** (it knows them: its answer says `applied` and
+  `serverSeq`). A push's records have consecutive seqs, `prevSeq + 1 … seq`. Messages of one
+  connection come in seq order, but a connection only hears of other connections' pushes, so
+  seqs between messages may be the client's own. A push storing nothing sends nothing; records
+  whose message would exceed 1 MiB are announced with `resync` instead.
+- `{"type": "resync", "seq": 4711, "serverId": "9f…"}` — the feed moved on in a way the
+  connection does not carry: records too large for a message, records dropped for a client that
+  did not keep up (below), a new `serverId` ([Server identity](#server-identity)). Pull (from the
+  cursor; a new id resets as usual).
+- `{"type": "pushed", "id": 7, "applied": 12, "ignored": 3, "serverSeq": 4711}` — the answer to a
+  `push` (as `POST /v1/push` answers), or `{"type": "pushed", "id": 7, "stale": true,
+  "serverSeq": 4712}` for a `current` push of a client lacking changes (below).
+- `{"type": "error", "id": 7, "error": "records[3]: …", "status": 400, "index": 3}` — a request
+  that failed; `id` names it (if it had one), `status` is what HTTP would answer (`400` with
+  `index`, `413`, `409` history lost: the server took a new id, and every connection, this one
+  included, gets a `resync` first).
+- `{"type": "presence", "room": "<id>", "members": [{"connection": "c12", "deviceId": "a1…",
+  "name": "Android"}, …]}` — everyone in a room (this connection too), sent to its members
+  whenever someone joins, leaves (or disconnects) or says who they are.
+- `{"type": "ephemeral", "room": "<id>", "from": "c12", "deviceId": "a1…", "data": {…}}` — a
+  message another member sent to the room.
+- `{"type": "heartbeat"}` every 20 s, and `{"type": "pong", "id": …}` answering `ping`.
+
+Client → server:
+
+- `{"type": "hello", "deviceId": "a1…", "name": "Android"}` — who this client is in rooms
+  (`deviceId` 1..64 characters, `name` at most 64; both optional). Send it first.
+- `{"type": "push", "id": 7, "since": 4711, "current": false, "records": [Record, …]}` — like
+  [`POST /v1/push`](#post-v1push) (same validation, limits, LWW, atomicity, `409` for a `since`
+  beyond the newest seq), answered with `pushed` or `error` carrying the same `id` (any JSON
+  value; a number by convention). With `"current": true` the push is applied only if `since` is
+  at least the server's newest seq — the client has every change there is — and answered
+  `stale` otherwise, applying nothing.
+- `{"type": "join", "room": "<id>"}` / `{"type": "leave", "room": "<id>"}` — rooms are any
+  1..64-character strings (Len: notebook ids); at most 8 per connection; left on disconnect.
+- `{"type": "ephemeral", "room": "<id>", "data": {…}}` — relayed to the room's other members
+  (never stored, never sent back); only into a joined room, at most 16 KiB as relayed, at most
+  40 a second on average (bursts of 80); messages beyond the rate are dropped silently (they are
+  live state, replaced by the next).
+- `{"type": "ping", "id": …}`.
+
+**Slow consumers.** The server never buffers without bound for a client: once 1 MiB waits for a
+connection that does not read (the socket's buffers full), its waiting `records` and `ephemeral`
+messages are dropped and replaced by one `resync` (written when it is finally sent, so its seq
+covers everything dropped), keeping replies and the newest `presence` of each room. A connection
+that reads nothing for 30 s while messages wait is dropped. On shutdown every connection is closed
+with `1001` (going away).
+
+**Room data (Len).** Ephemeral `data` Len sends: `{"k": "ink", "s": "<id>", "page": "<surface
+id>", "tool": "ballpoint"|"highlighter", "color": <ARGB>, "width": <world units>, "style": {…},
+"from": <index>, "p": [x0, y0, pressure0, x1, …]}` — the points of a stroke being written (`s` a
+random id of this writing, `style` as on [strokes](#collections), positions to a hundredth of a
+world unit, pressure to a thousandth), sent only while someone else is in the room, at most every
+50 ms while the pen is down and at most 300 points a message: `p` holds the points from index
+`from` on (`from` > 0: only those after the points sent before; a stroke replaced whole, e.g.
+straightened or snapped, starts again at 0, and a receiver drops its points from `from` on). A
+receiver that missed points (`from` beyond what it has) waits for the next start. Then `{"k":
+"ink", "s": "<id>", "end": true, "stroke": "<stroke id>"}` when it ends: `stroke` names the
+stroke record it became (absent when it was dropped, or committed in another form, e.g. a
+highlight snapped to text). Other devices draw it as provisional ink over the page until that
+stroke's record arrives (at once if it came first), without `stroke` at once, and drop it after
+2 s waiting for the record, after 3 s of silence while written, or when its writer leaves the
+room (or the receiver's connection drops).
+
+**Client use (Len).** One live connection while the app is in the foreground (the same rules as
+the event stream: closed in the background, and on Android while the screen is off; reconnecting
+after 1, 2, 4 … s up to a minute plus up to a fifth at random; 50 s of silence is a dead
+connection; a push unanswered for 15 s too). After `hello`:
+
+- **Pushing.** Local writes go out a frame (16 ms) after they are committed, at most one push per
+  150 ms (writes meanwhile make the next), as `push` messages of at most 200 records / ~512 KB:
+  live rows of collections not edited in place (parents first) as plain pushes, then live rows of
+  `elements`, `recordings` and `outline` and every tombstone (children first) as `current`
+  pushes. A `current` push replaces the cycle's "after the pull" rule: the server applies it only
+  while the client has every change, so the client judged what it races
+  ([Deletion conflicts](#deletion-conflicts)) as a pull would; when `stale`, the client applies
+  the `records` on their way (they come before the answer) and pushes again (a run after five
+  stale answers in a row). Records referencing a blob not uploaded yet, more than a push carries,
+  a refused record or a failed push are left to a cycle, which uploads blobs first. `since` is the
+  newest seq the client knows all changes up to (pulled, or its own pushes right after); an
+  answer's `applied` *n* and `serverSeq` *s* mean the client's records hold seqs *s − n + 1 … s*.
+  Nothing is pushed live before the first cycle with a server finished (every row pushed) or
+  while `hello`'s `serverId` is not the one synced with.
+- **Applying.** A `records` message whose `prevSeq` is at most what the client knows is applied
+  exactly as a pulled page (LWW, malformed records skipped, [deletion conflicts](#deletion-conflicts)
+  resolved after it, referenced blobs fetched lazily when shown) and moves the cursor to its
+  `seq` in the same transaction; one with an earlier `seq` is ignored. A gap (`prevSeq` beyond
+  what the client knows), `resync`, a new `serverId`, or `hello`'s `seq` beyond what the client
+  knows makes a cycle (a pull) instead. Messages are applied between cycles, never during one.
+- **Rooms.** Len joins the room of every open notebook (once, however many views show it), and
+  sends `hello` with its device id and platform name; presence shows the others.
+
 ### Errors
 `401` missing/bad token, `400` malformed request (body `{"error": "…"}`, plus `index` for an
 invalid pushed record), `409` the client is
-ahead of the server (lost history), `413` too large, `404` unknown route. A request whose body
+ahead of the server (lost history), `413` too large, `404` unknown route, `426` a request to
+`/v1/live` that is no WebSocket upgrade. A request whose body
 breaks off (the client hung up, or its connection dropped) applies and stores nothing; the server
 answers `400` (if anyone still listens) and logs one line, as it is no server error.
 
@@ -220,7 +346,8 @@ stored, `404` (empty body) if not.
   error status, or a connection breaking during a long upload) does not stop the other blobs; the
   blob stays pending and is retried on the next sync, and the cycle is reported as failed after
   pushing and pulling everything else. Records referencing a blob that is still pending are held
-  back (stay dirty), so a record does not reach the server before its blob — but only for three
+  back (stay dirty), so a record does not reach the server before its blob (live pushes leave
+  every record referencing a blob not uploaded yet to a cycle) — but only for three
   consecutive failed attempts, after which they are pushed anyway, so one blob that can never be
   uploaded cannot keep its records from syncing.
 - When the `serverId` changes, the "uploaded" and "too large" marks are reset along with
@@ -293,14 +420,19 @@ again lazily if a record referencing it arrives later.
 
 Records echoed back from the client's own push are harmless (LWW makes them no-ops).
 
-**When to sync (Len).** A cycle runs when the app starts; about 3 s after local writes pause (at
+**When to sync (Len).** While the [live connection](#get-v1live) is up, local writes go over it a
+frame after they are committed (at most a push per 150 ms) and other devices' records are applied
+as they arrive, between cycles; a cycle runs for what it cannot carry (blobs to upload first, too
+many rows, a gap in the feed, a `resync`, `hello` telling of news). A cycle runs when the app
+starts; while the live connection is down, about 3 s after local writes pause (at
 the latest 10 s after the first of them while writing goes on; only writes that mark rows for
-upload count); about a second after a server event with news ([`/v1/events`](#get-v1events));
+upload count); about a second after a server event with news ([`/v1/events`](#get-v1events), or
+the live connection's `hello`, `resync` or a gap);
 when the app goes to the background or returns; and on a fallback timer every 45 s (every
-2 minutes while the event stream is healthy). Never more than one at a time (a run asked for
+2 minutes while the live connection or the event stream is healthy). Never more than one at a time (a run asked for
 while one runs follows it once). After a failed cycle, cycles the app started on its own wait 5 s,
-then 10, 20 … up to 2 minutes (the fallback timer goes on); an event stream connecting again
-retries at once.
+then 10, 20 … up to 2 minutes (the fallback timer goes on); a live connection or event stream
+connecting again retries at once.
 
 ### Deletion conflicts
 
