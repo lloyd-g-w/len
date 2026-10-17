@@ -4,6 +4,7 @@ import 'package:len/ink/pen/pen_ends.dart';
 
 import 'contacts.dart';
 import 'edge_metrics.dart';
+import 'machine_load.dart';
 import 'metric.dart';
 import 'overlay_metrics.dart';
 import 'performance_metrics.dart';
@@ -14,7 +15,7 @@ import 'truth.dart';
 
 /// A recording replayed with one pen setting, and what it should look like.
 class Subject {
-  Subject(this.name, this.replay, this.truths);
+  Subject(this.name, this.replay, this.truths, {this.busy = false});
 
   /// Replays [recording] (with [pen], default: as recorded; with [ends],
   /// default: the pen's round ends). Without
@@ -22,7 +23,8 @@ class Subject {
   ///
   /// With [timed], the replay runs three times and each frame keeps its
   /// fastest live build and pen-up handling (the first run also warms up),
-  /// so a busy machine does not skew the timing metrics.
+  /// so a busy machine does not skew the timing metrics; [busy] tells
+  /// whether it was busy all the same ([MachineLoad]).
   factory Subject.of(
     String name,
     InputRecording recording, {
@@ -31,13 +33,24 @@ class Subject {
     PenEnds? ends,
     bool timed = false,
   }) {
-    final replay = ReplayResult.run(recording, pen: pen, ends: ends, timingRepeats: timed ? 3 : 1);
-    return Subject(name, replay, truths ?? rawTruths(recording));
+    final (replay, waited) = MachineLoad.waitShare(
+      () => ReplayResult.run(recording, pen: pen, ends: ends, timingRepeats: timed ? 3 : 1),
+    );
+    return Subject(
+      name,
+      replay,
+      truths ?? rawTruths(recording),
+      busy: timed && (waited > MachineLoad.busyWaitShare || MachineLoad.loadAverageHigh),
+    );
   }
 
   final String name;
   final ReplayResult replay;
   final List<Truth> truths;
+
+  /// Whether the machine was busy while the timed replays ran: other work
+  /// waited this thread for a CPU, or the load average was high.
+  final bool busy;
 
   double get streamline => replay.pen.streamline;
 }
