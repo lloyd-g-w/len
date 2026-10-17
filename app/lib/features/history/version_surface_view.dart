@@ -1,150 +1,23 @@
 import 'dart:async';
-import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../data/versions/versions.dart';
-import '../../data/versions/work_slices.dart';
-import '../../domain/notebook_page.dart';
 import '../../domain/paper.dart';
-import '../../domain/stroke.dart';
-import '../../domain/surface_element.dart';
 import '../../ink/images/element_images.dart';
 import '../../ink/render/content_painter.dart';
 import '../../ui/app_theme.dart';
 import '../editor/document/missing_pdf_painter.dart';
 import '../editor/document/page_backgrounds.dart';
 import '../editor/document/page_painting.dart';
+import 'version_ink_images.dart';
+import 'version_sheets.dart';
 
-/// A surface of a version ready to paint: its page (for a canvas, the
-/// frame around its content, which starts at [origin] on the canvas).
-typedef VersionSheet = ({
-  NotebookPage page,
-  List<Stroke> strokes,
-  List<SurfaceElement> elements,
-  Offset? origin,
-});
+export 'version_sheets.dart';
 
-/// Loads and keeps what version surfaces hold, for the history's
-/// thumbnails and previews (packs fetched when not on this device).
-class VersionSheets {
-  VersionSheets(this.versions, {this.backgrounds});
-
-  final Versions versions;
-
-  /// Page backgrounds (PDF pages, scans) drawn beneath the ink; owned:
-  /// disposed with this.
-  final PageBackgrounds? backgrounds;
-
-  void dispose() => backgrounds?.dispose();
-  final Map<String, Future<VersionSheet?>> _loaded = {};
-  final Map<String, Future<VersionBody?>> _bodies = {};
-
-  /// The load running last: loads run one after the other, so their
-  /// slices ([WorkSlices]) are short turns rather than a dozen thumbnails'
-  /// slices in each, with a turn between loads once one is due.
-  Future<void> _queue = Future<void>.value();
-  final WorkSlices _slices = WorkSlices();
-
-  Future<T> _inTurn<T>(Future<T> Function() load) {
-    final next = _queue.then((_) async {
-      await _slices.yieldIfDue();
-      return load();
-    });
-    _queue = next.then<void>((_) {}, onError: (Object _) {});
-    return next;
-  }
-
-  /// The body of [version] (its pages), or null when it cannot be had.
-  Future<VersionBody?> body(NotebookVersion version) =>
-      _bodies[version.id] ??= _inTurn(() => versions.content.body(version))
-          .then<VersionBody?>((body) => body)
-          .catchError((Object _) => null);
-
-  /// Page [page] of [version] (null: its canvas, or the page it changed
-  /// first, else its first), or null when its content cannot be had
-  /// (offline, not on the server) or it has no page.
-  Future<VersionSheet?> of(NotebookVersion version, VersionPage? page) async {
-    if (page == null) {
-      final body = await this.body(version);
-      if (body == null) return null;
-      final canvas = body.canvas;
-      if (canvas == null) {
-        final first = body.page(version.summary.focus ?? '') ?? body.pages.firstOrNull;
-        return first == null ? null : of(version, first);
-      }
-      final key = 'canvas:${canvas.packs.join()}';
-      return _loaded[key] ??= _inTurn(() => _load(version, canvas, null))
-          .catchError((Object _) => null);
-    }
-    final key = '${page.id}:${page.content.packs.join()}:${page.fields}';
-    return _loaded[key] ??= _inTurn(() => _load(version, null, page))
-        .catchError((Object _) => null);
-  }
-
-  Future<VersionSheet?> _load(
-    NotebookVersion version,
-    VersionSurface? canvas,
-    VersionPage? page,
-  ) async {
-    final content = versions.content;
-    if (page != null) {
-      await content.ensure([page.content]);
-      final c = await content.load(page.content, page.id);
-      return (
-        page: VersionContent.pageOf(version, page),
-        strokes: c.strokes,
-        elements: c.elements,
-        origin: null,
-      );
-    }
-    canvas ??= VersionSurface.empty;
-    await content.ensure([canvas]);
-    final c = await content.load(canvas, version.notebookId);
-    final frame = _frame([
-      for (final s in c.strokes) s.bounds,
-      for (final e in c.elements) e.bounds,
-    ]);
-    final origin = frame.topLeft;
-    final paper = Paper.fromData(
-      PaperStyle.parse(version.notebook['paper'] as String),
-      version.notebook['paperData'] as Map<String, Object?>,
-    );
-    return (
-      page: NotebookPage(
-        id: version.notebookId,
-        notebookId: version.notebookId,
-        sortKey: 0,
-        width: frame.width,
-        height: frame.height,
-        paper: paper ?? Paper.blank,
-        paperColor: PaperColor.parse(version.notebook['paperColor'] as String?),
-      ),
-      // Where they are on the canvas (shared with the other versions'
-      // sheets), painted moved by [origin].
-      strokes: c.strokes,
-      elements: c.elements,
-      origin: origin,
-    );
-  }
-
-  /// Content bounds padded to a page-like shape, never smaller than a
-  /// readable minimum.
-  static Rect _frame(List<Rect> bounds) {
-    if (bounds.isEmpty) return const Rect.fromLTWH(0, 0, 480, 640);
-    final content = bounds.reduce((a, b) => a.expandToInclude(b));
-    const aspect = 0.75;
-    var w = math.max(content.width * 1.1, 480.0);
-    var h = math.max(content.height * 1.1, 480 / aspect);
-    if (w / h > aspect) {
-      h = w / aspect;
-    } else {
-      w = h * aspect;
-    }
-    return Rect.fromCenter(center: content.center, width: w, height: h);
-  }
-}
+part 'version_sheet_painter.dart';
 
 /// A read-only picture of a version's page (or canvas): paper, ink and
 /// elements, as a piece of paper resting on the desk.
@@ -179,9 +52,15 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
   /// Counts images loaded meanwhile (the picture repaints for them).
   var _imagesShown = 0;
 
+  /// The ink of a large sheet's thumbnail, rendered ([VersionInkImages]),
+  /// and what it was asked for.
+  ui.Image? _ink;
+  InkImageKey? _inkKey;
+  var _inkPending = false;
+
   /// Whether the version's page is shown (not the blank sheet shown while
   /// it loads, nor the one marked as not on this device).
-  bool get loaded => !_loading && _sheet != null;
+  bool get loaded => !_loading && _sheet != null && !_inkPending;
 
   @override
   void initState() {
@@ -213,9 +92,44 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
     );
   }
 
+  /// The ink image a thumbnail of [sheet] [size] logical pixels large
+  /// draws, or null when it paints its strokes (small content, a preview).
+  InkImageKey? _inkFor(VersionSheet sheet, Size size, double dpr) {
+    if (size.width > _SheetPainter.thumbnailWidth || size.isEmpty) return null;
+    if (sheet.strokes.length < VersionInkImages.minStrokes) return null;
+    return (
+      strokes: sheet.strokes,
+      frame: (sheet.origin ?? Offset.zero) & sheet.page.size,
+      width: (size.width * dpr).ceil(),
+      height: (size.height * dpr).ceil(),
+    );
+  }
+
+  /// Asks for [key]'s image (at layout, as the thumbnail comes into view).
+  void _askInk(InkImageKey? key) {
+    if (key == _inkKey) return;
+    _inkKey = key;
+    _inkPending = key != null;
+    if (key == null) return;
+    unawaited(
+      widget.sheets.inkImages.image(key, wanted: () => mounted && _inkKey == key).then((image) {
+        if (!mounted || _inkKey != key) {
+          image?.dispose();
+          return;
+        }
+        setState(() {
+          _ink?.dispose();
+          _ink = image;
+          _inkPending = false;
+        });
+      }),
+    );
+  }
+
   @override
   void dispose() {
     unawaited(_images?.cancel());
+    _ink?.dispose();
     super.dispose();
   }
 
@@ -244,18 +158,26 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
             children: [
               // Painted once (a canvas's thousands of strokes too), not with
               // every frame of the list around it.
-              RepaintBoundary(
-                child: CustomPaint(
-                  painter: _SheetPainter(
-                    sheet,
-                    widget.images,
-                    page == null ? null : widget.version,
-                    page,
-                    widget.sheets.backgrounds,
-                    MediaQuery.devicePixelRatioOf(context),
-                    _imagesShown,
-                  ),
-                ),
+              LayoutBuilder(
+                builder: (context, box) {
+                  final dpr = MediaQuery.devicePixelRatioOf(context);
+                  final key = sheet == null ? null : _inkFor(sheet, box.biggest, dpr);
+                  _askInk(key);
+                  return RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _SheetPainter(
+                        sheet,
+                        widget.images,
+                        page == null ? null : widget.version,
+                        page,
+                        widget.sheets.backgrounds,
+                        dpr,
+                        _imagesShown,
+                        ink: key == null ? null : (image: _ink, key: key),
+                      ),
+                    ),
+                  );
+                },
               ),
               if (!_loading && sheet == null)
                 Center(
@@ -272,91 +194,4 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
       ),
     );
   }
-}
-
-class _SheetPainter extends CustomPainter {
-  _SheetPainter(
-    this.sheet,
-    this.images,
-    this.version,
-    this.page,
-    this.backgrounds,
-    this.dpr,
-    this.imagesShown,
-  ) : super(repaint: backgrounds);
-
-  final VersionSheet? sheet;
-  final ElementImages images;
-  final NotebookVersion? version;
-  final VersionPage? page;
-  final PageBackgrounds? backgrounds;
-  final double dpr;
-  final int imagesShown;
-
-  /// Pictures up to this wide are thumbnails (the history's rows).
-  static const thumbnailWidth = 96.0;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final sheet = this.sheet;
-    final version = this.version;
-    final page =
-        sheet?.page ??
-        (version != null && this.page != null ? VersionContent.pageOf(version, this.page!) : null);
-    if (page == null) {
-      canvas.drawRect(Offset.zero & size, Paint()..color = PaperColor.white.paper);
-      return;
-    }
-    final scale = size.width / page.width;
-    final origin = sheet?.origin;
-    // In a thumbnail, ink too thin to show as more than a line is drawn as
-    // one: outlines take ~0.3 ms a stroke to build, on this thread.
-    final thumbnail = size.width <= thumbnailWidth;
-    final bg = page.background;
-    final image = bg == null ? null : backgrounds?.imageFor(bg, size.width * dpr);
-    canvas
-      ..save()
-      ..scale(scale);
-    paintWholePage(
-      canvas,
-      page,
-      strokes: origin == null ? sheet?.strokes ?? const [] : const [],
-      elements: origin == null ? sheet?.elements ?? const [] : const [],
-      scale: scale,
-      background: image,
-      images: images,
-      miniature: true,
-      worldOrigin: origin,
-      sketchThin: thumbnail,
-    );
-    if (sheet != null && origin != null) {
-      // A canvas: its content where it is, moved into the frame.
-      canvas
-        ..save()
-        ..clipRect(Offset.zero & page.size)
-        ..translate(-origin.dx, -origin.dy);
-      ContentPainter.paint(
-        canvas,
-        sheet.strokes,
-        sheet.elements,
-        images: images,
-        pixelScale: scale,
-        sketchThin: thumbnail,
-      );
-      canvas.restore();
-    }
-    if (bg != null && image == null && (backgrounds?.isMissing(bg) ?? false)) {
-      paintMissingPdf(canvas, page.size, scan: !bg.isPdf);
-    }
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_SheetPainter old) =>
-      !identical(old.sheet, sheet) ||
-      old.version?.id != version?.id ||
-      old.page != page ||
-      old.backgrounds != backgrounds ||
-      old.dpr != dpr ||
-      old.imagesShown != imagesShown;
 }
