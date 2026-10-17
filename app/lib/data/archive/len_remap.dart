@@ -1,4 +1,5 @@
 import '../../core/clock.dart';
+import '../../domain/shape_ids.dart';
 import '../syncable.dart';
 
 /// Gives the records of a Len file new ids as they are imported, so the
@@ -7,8 +8,9 @@ import '../syncable.dart';
 /// copies.
 ///
 /// Folders, templates, notebooks, pages, outline entries and recordings
-/// keep a mapping (others refer to them); strokes and elements just get
-/// fresh ids. References to rows that are not in the file are mapped too
+/// keep a mapping (others refer to them), and so do shapes (connectors
+/// name them, [ShapeIds]: an imported arrow attaches to the imported box);
+/// other strokes and elements just get fresh ids. References to rows that are not in the file are mapped too
 /// (nothing then shows them), except links to pages: those lead to the
 /// copy only when the file holds the page, else stay as they are (to a
 /// notebook here, or shown as deleted).
@@ -97,9 +99,12 @@ class LenRemap {
         ref('pageId');
         ref('parentId');
       case 'strokes' || 'elements':
-        id = kept ? record.id : clock.newId();
+        final style = copy['style'];
+        final shape = record.collection == 'strokes' && style is Map && style['sh'] != null;
+        id = kept ? record.id : (shape ? idOf(record.id) : clock.newId());
         ref('surfaceId', into: surfaces);
         if (record.collection == 'elements') _relink(copy);
+        if (shape && !kept) copy['style'] = ShapeIds.remapStyle(style, idOf) ?? style;
       default:
         return null;
     }

@@ -4,11 +4,13 @@ import '../domain/chunk_digest.dart';
 import '../domain/link_target.dart';
 import '../domain/notebook.dart';
 import '../domain/recording.dart';
+import '../domain/shape_ids.dart';
 import '../domain/surface_element.dart';
 import '../domain/text/text_data.dart';
 import 'notebook_repository.dart';
 import 'page_order.dart';
 import 'row_copier.dart';
+import 'shape_renames.dart';
 import 'stroke_queries.dart';
 
 /// Deep-copies a notebook: its row, its pages, every live stroke and
@@ -49,13 +51,7 @@ class NotebookDuplicator {
         copier.copy('pages', page.id, {...stamp, 'id': pageId, 'notebook_id': copyId});
         surfaces[page.id] = pageId;
       }
-      final elements = <String, String>{};
-      surfaces.forEach((from, to) {
-        _copyContent(copier, 'strokes', 'stroke_chunks', 'stroke_id', from, to, stamp);
-        elements.addAll(
-          _copyContent(copier, 'elements', 'element_chunks', 'element_id', from, to, stamp),
-        );
-      });
+      final elements = _copySurfaces(copier, surfaces, stamp);
       _rechain(surfaces.values, elements);
       _relink(id, copyId, surfaces);
       _copyRecordings(copier, id, copyId, stamp);
@@ -91,13 +87,7 @@ class NotebookDuplicator {
         });
         surfaces[page.id] = pageId;
       }
-      final elements = <String, String>{};
-      surfaces.forEach((from, to) {
-        _copyContent(copier, 'strokes', 'stroke_chunks', 'stroke_id', from, to, stamp);
-        elements.addAll(
-          _copyContent(copier, 'elements', 'element_chunks', 'element_id', from, to, stamp),
-        );
-      });
+      final elements = _copySurfaces(copier, surfaces, stamp);
       _rechain(surfaces.values, elements);
       _relink(from, to, surfaces);
       final outline = repo.outline?.copyAll(from, to, surfaces, onlyPages: true) ?? const [];
@@ -122,6 +112,31 @@ class NotebookDuplicator {
       }
       repo.recordings?.deleteAll(copied.recordings);
     });
+  }
+
+  /// Copies the strokes and elements of each surface of [surfaces] (old id
+  /// → copy's id) to its copy, the copies' shapes renamed ([ShapeIds]):
+  /// connectors attach to the copies of their targets. Returns the copied
+  /// elements' ids (old → new).
+  Map<String, String> _copySurfaces(
+    RowCopier copier,
+    Map<String, String> surfaces,
+    Map<String, Object?> stamp,
+  ) {
+    final strokes = <String, String>{}, elements = <String, String>{};
+    surfaces.forEach((from, to) {
+      strokes.addAll(
+        _copyContent(copier, 'strokes', 'stroke_chunks', 'stroke_id', from, to, stamp),
+      );
+      elements.addAll(
+        _copyContent(copier, 'elements', 'element_chunks', 'element_id', from, to, stamp),
+      );
+    });
+    final idOf = ShapeIds.mapper(strokes, _notebooks.clock.newId);
+    for (final to in surfaces.values) {
+      ShapeRenames.apply(_notebooks.db, idOf, surfaceId: to);
+    }
+    return elements;
   }
 
   /// Copies the recordings of notebook [from] during which the ink on
