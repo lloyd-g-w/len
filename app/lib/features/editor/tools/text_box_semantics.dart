@@ -46,7 +46,7 @@ class _TextBoxSemanticsState extends State<TextBoxSemantics> {
     return ListenableBuilder(
       listenable: Listenable.merge([
         content.model,
-        content.selection,
+        content.selection.settled,
         content.text,
         widget.viewport,
       ]),

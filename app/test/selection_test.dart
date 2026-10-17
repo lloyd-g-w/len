@@ -296,6 +296,28 @@ void main() {
       expect(model.elementById('t')!.rect.left, 110);
     });
 
+    test('settled is notified as a drag starts and ends, not on its moves', () {
+      var all = 0, settled = 0;
+      selection
+        ..addListener(() => all++)
+        ..settled.addListener(() => settled++);
+      selectAll();
+      expect(settled, all);
+      final before = (all: all, settled: settled);
+      for (var i = 1; i <= 5; i++) {
+        final move = selection.frame!.moved(Offset(i * 10.0, 0));
+        selection.setPreview(move.transform, move.frame);
+      }
+      expect(selection.isChanging, isTrue);
+      expect(all - before.all, 5);
+      expect(settled - before.settled, 1); // The drag started: the menu hides.
+      selection.commitPreview();
+      expect(selection.isChanging, isFalse);
+      expect(settled - before.settled, 2); // It ended: the menu shows again.
+      selection.clear();
+      expect(settled - before.settled, 3);
+    });
+
     test('a burst of nudges is one undo step; a pause or another edit starts a new one', () {
       selectAll();
       double left() => model.elementById('t')!.rect.left;

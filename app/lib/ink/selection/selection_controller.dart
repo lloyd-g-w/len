@@ -198,10 +198,21 @@ abstract class _SelectionCore extends ChangeNotifier {
     if (_followers case final followers?) canvas.drawPicture(followers);
   }
 
+  /// Notified when listeners are, but not on the moves of a gesture (only
+  /// as it starts and ends): for what hides or stays as it is while the
+  /// selection is changing (its menu, text boxes' semantics), so a drag
+  /// rebuilds nothing.
+  Listenable get settled => _settled;
+  final _settled = _Settled();
+  bool _wasChanging = false;
+
   @override
   void notifyListeners() {
     super.notifyListeners();
     _model.liftedChanged(this); // Moved, resized, recoloured…
+    final changing = isChanging;
+    if (!changing || !_wasChanging) _settled.changed();
+    _wasChanging = changing;
   }
 
   /// Selects what [lasso] (this surface's coordinates) encloses here and
@@ -257,6 +268,12 @@ abstract class _SelectionCore extends ChangeNotifier {
     unawaited(_imageChanges?.cancel());
     _picture?.dispose();
     _followers?.dispose();
+    _settled.dispose();
     super.dispose();
   }
+}
+
+/// [SelectionController.settled].
+class _Settled extends ChangeNotifier {
+  void changed() => notifyListeners();
 }
