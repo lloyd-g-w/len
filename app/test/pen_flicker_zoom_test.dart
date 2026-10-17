@@ -7,6 +7,7 @@ import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/ink/render/tiles/tile_space.dart';
 
 import 'pen_flicker_frames_test.dart' show background, endOf, framesOf, settledTiles, wave;
 import 'support/canvas_fixtures.dart';
@@ -50,6 +51,23 @@ Future<void> expectComplete(List<Frame> frames, String what) async {
     final missing = lostInk(settled, frames[k]);
     if (missing > 0) await expectNoLostInk([settled, frames[k]], what: '$what $k vs settled');
   }
+}
+
+/// Bands either side of the seams of [scene]'s tiles (device px). The
+/// stroke appended at pen-up is drawn over the tiles it crosses clipped to
+/// each, and this test's rasteriser cuts curves where a clip cuts them,
+/// approximating them a little differently near the cut: an edge pixel or
+/// two within a few pixels of a seam may change shade there (at 110 % with
+/// the pen's default stabiliser, one went from 99 to 59). A GPU clips
+/// without cutting the curves.
+List<Rect> seamsOf(InkScene scene, {double reach = 8}) {
+  const size = TileSpace.size;
+  final origin = scene.viewport.offset * scene.dpr;
+  final w = scene.size.width * scene.dpr, h = scene.size.height * scene.dpr;
+  return [
+    for (var x = origin.dx % size; x < w; x += size) Rect.fromLTRB(x - reach, 0, x + reach, h),
+    for (var y = origin.dy % size; y < h; y += size) Rect.fromLTRB(0, y - reach, w, y + reach),
+  ];
 }
 
 void main() {
@@ -137,10 +155,7 @@ void main() {
         }
         await scene.warm();
         final points = wave(x: 120, y: 140, length: 300);
-        // Stabiliser off, as before the pen's 30 % default: with it, at 110 %
-        // one edge pixel mid-stroke changes shade at pen-up, pans or not (the
-        // shift this test is about is hundreds).
-        final frames = await f.draw(points, streamline: 0);
+        final frames = await f.draw(points);
         f.lift(scene.model);
         frames
           ..add(await f.frame())
@@ -152,7 +167,7 @@ void main() {
             frames[k],
             near: 0,
             by: 40,
-            except: endOf(f, points),
+            except: [...endOf(f, points), ...seamsOf(scene)],
           );
           expect(shifted, 0, reason: 'frame $k shifted $shifted px of ink');
         }

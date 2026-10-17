@@ -126,11 +126,10 @@ class InkFrames {
     InkTool tool = InkTool.ballpoint,
     double? width,
     int per = 8,
-    double? streamline,
     Future<void> Function(int frame)? between,
   }) async {
     final config = PenConfig.defaultsFor(tool);
-    final style = config.styleFor(tool).copyWith(unit: 1 / viewport.scale, streamline: streamline);
+    final style = config.styleFor(tool).copyWith(unit: 1 / viewport.scale);
     live.begin(tool: tool, color: config.color, width: width ?? config.width, style: style);
     final frames = <Frame>[];
     for (var n = 0; n < points.length; n += per) {
