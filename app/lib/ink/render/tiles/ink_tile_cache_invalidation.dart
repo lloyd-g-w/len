@@ -69,6 +69,8 @@ extension _Invalidation on InkTileCache {
     }
     final underlaid = change.underlaid;
     if (underlaid != null && _space != null) return _underlay(underlaid, areas);
+    final overlaid = change.overlaid;
+    if (overlaid != null && _space != null) return _overlay(overlaid, areas);
     final hit = _touching(_tiles, areas);
     if (change.loaded) {
       // Stored content arrived: it was not on screen before, so nothing
@@ -108,6 +110,29 @@ extension _Invalidation on InkTileCache {
         ..version += 1
         ..stale = true
         ..underlay.addAll(strokes.where((s) => s.bounds.overlaps(rect)));
+      if (_inUse) _request(tile.index, 0);
+    }
+  }
+
+  /// New pen strokes something paints over (no append): tiles with an
+  /// image keep it, stale, with the strokes drawn over it — as the live
+  /// stroke was, over the committed ink — until rendered again (urgently);
+  /// tiles without one show the content as it now is from vectors. So the
+  /// stroke never misses a frame at pen-up, however many tiles it crosses.
+  void _overlay(List<Stroke> strokes, List<ui.Rect> areas) {
+    for (final tile in _touching(_tiles, areas)) {
+      if (tile.image == null) {
+        tile
+          ..invalidate()
+          ..edited = true;
+        continue;
+      }
+      final rect = tile.space.worldRectOf(tile.index);
+      tile
+        ..dropParked()
+        ..version += 1
+        ..stale = true
+        ..overlay.addAll(strokes.where((s) => s.bounds.overlaps(rect)));
       if (_inUse) _request(tile.index, 0);
     }
   }

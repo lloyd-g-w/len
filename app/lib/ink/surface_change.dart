@@ -10,6 +10,7 @@ class SurfaceChange {
     this.chunks, {
     this.appended,
     this.underlaid,
+    this.overlaid,
     this.loaded = false,
     this.evicted = false,
     this.areas,
@@ -31,6 +32,15 @@ class SurfaceChange {
   /// it looks as the live highlighter did (beneath the committed ink), so
   /// it may stand in until a new rendering is made.
   final List<Stroke>? underlaid;
+
+  /// Set when the change only adds these pen strokes, but they are no
+  /// [appended] ones: something in their chunks paints over them (a text
+  /// box or an image above the ink, ink of a later paint order, say from
+  /// another device). A rendering from before with them drawn over it looks
+  /// as the live stroke did (over all committed ink), so it may stand in
+  /// until a new rendering is made — rather than the stroke vanishing at
+  /// pen-up until one is.
+  final List<Stroke>? overlaid;
 
   /// Set when the change only brings in stored content (a load): a
   /// rendering from before may stand in until a new one is made, as the

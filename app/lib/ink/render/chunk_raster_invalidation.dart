@@ -5,8 +5,10 @@ extension _RasterInvalidation on ChunkRasterCache {
   /// The surface changed: rasters of the chunks it touched go stale
   /// (appends and loads keep theirs as stand-ins) or are dropped.
   void _onChange(SurfaceChange change) {
-    // New pen strokes go over the images, new highlights beneath them.
-    final appended = change.appended ?? change.underlaid;
+    // New pen strokes go over the images (also those something in their
+    // chunks paints over: as the live stroke was, until made again), new
+    // highlights beneath them.
+    final appended = change.appended ?? change.underlaid ?? change.overlaid;
     final chunks = change.chunks;
     if (!change.loaded) _stored?.forget(chunks);
     if (change.loaded && chunks != null) {

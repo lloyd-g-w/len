@@ -140,11 +140,19 @@ abstract class _SurfaceState extends ChangeNotifier {
     Set<ChunkKey> chunks, {
     List<Stroke>? appended,
     List<Stroke>? underlaid,
+    List<Stroke>? overlaid,
     bool loaded = false,
     List<Rect>? areas,
   }) {
     _changes.add(
-      SurfaceChange(chunks, appended: appended, underlaid: underlaid, loaded: loaded, areas: areas),
+      SurfaceChange(
+        chunks,
+        appended: appended,
+        underlaid: underlaid,
+        overlaid: overlaid,
+        loaded: loaded,
+        areas: areas,
+      ),
     );
     notifyListeners();
   }
