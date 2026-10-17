@@ -159,6 +159,17 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   `nix develop`; a Flutter from outside the dev shell lacks its toolchain and libraries. The
   repo has an `.envrc` (direnv: `use flake`) and the README says so.
 
+- 🚧 (feat/version-history) **Version history** (owner): a notebook's (and canvas's) history to
+  browse and restore: versions kept automatically (after a stretch of editing goes quiet, and at
+  most every few minutes while editing; thinned over time: all of today, hourly for a week,
+  daily for a month, …) and named ones saved by hand ("Save version…"); a timeline with
+  thumbnails, who / which device and what changed (pages added / removed / edited); preview a
+  version read-only, then restore the whole notebook, restore one page, or copy it as a new
+  notebook; restoring is itself undoable (a new version, nothing lost). Cheap: unchanged
+  content shared between versions (records and blobs by reference, not copies); synced, so
+  every device sees the same history; storage budget and "Delete older versions"; works on the
+  web and offline. Designed with live collaboration in mind (who changed what).
+
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
