@@ -5,7 +5,10 @@ extension _Geometry on RibbonEmitter {
   /// Unit tangent and radius slope at [i] within the stretch [lo]..[hi].
   (double, double, double) _frame(int i, int lo, int hi) {
     final x = line.x, y = line.y, r = line.r;
-    var a = math.max(lo, i - 1), c = math.min(hi, i + 1);
+    // The line's end sees [lookahead] samples past it (a prefix of a
+    // longer line whose next sample is known).
+    final top = hi == line.length - 1 ? hi + lookahead : hi;
+    var a = math.max(lo, i - 1), c = math.min(top, i + 1);
     // A flat end is square to where the line runs over its last half
     // radius: the line's first and last samples are where the pen was
     // (`StrokeShaper` keeps the ends of stretches), and the step to them
@@ -17,9 +20,9 @@ extension _Geometry on RibbonEmitter {
     var dx = x[c] - x[a], dy = y[c] - y[a];
     var d = math.sqrt(dx * dx + dy * dy);
     // Coincident neighbours (a pinned tip): look one further.
-    if (d < 1e-9 && (a > lo || c < hi)) {
+    if (d < 1e-9 && (a > lo || c < top)) {
       a = math.max(lo, a - 1);
-      c = math.min(hi, c + 1);
+      c = math.min(top, c + 1);
       dx = x[c] - x[a];
       dy = y[c] - y[a];
       d = math.sqrt(dx * dx + dy * dy);

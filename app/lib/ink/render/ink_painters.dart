@@ -204,6 +204,10 @@ class LiveInkPainter extends CustomPainter {
     ..color = const Color(0x99FFFFFF);
   static final Paint _penPreview = Paint()..isAntiAlias = true;
 
+  /// The live stroke's outline as last painted (tests).
+  @visibleForTesting
+  LiveOutline? get debugOutline => _path;
+
   /// Told how long each live outline took to build (the Ink Lab's stats).
   static void Function(int points, Duration took)? onBuild;
 
@@ -239,17 +243,10 @@ class LiveInkPainter extends CustomPainter {
         canvas.drawPath(StrokeRenderer.fillPath(live.points), StrokeRenderer.fillPaint(fill));
       }
       final paint = StrokeRenderer.paintFor(live.color, live.style);
-      final frozen = outline.frozen;
-      if (frozen != null && paint.color.a >= 1) {
-        // Opaque ink: the frozen part and the tail overlap (the tail's cap),
-        // so they can be filled separately, without copying the frozen part.
-        canvas
-          ..drawPath(frozen, paint)
-          ..drawPath(outline.tail, paint);
-      } else {
-        // Translucent ink must be filled in one go.
-        canvas.drawPath(outline.combined, paint);
-      }
+      // In one go, as the committed stroke is filled: translucent ink must
+      // be, and opaque ink filled in two overlapping paths has darker edge
+      // pixels where they overlap, which lighten at pen-up.
+      canvas.drawPath(outline.combined, paint);
       if (live.tip.isNotEmpty) _paintTip(canvas, paint.color);
     }
     if (eraser != null) {

@@ -26,6 +26,7 @@ extension _EditorSessionParts on EditorSession {
     tools: tools,
     live: live,
     clipboard: services.clipboard,
+    clock: services.clock,
   );
 
   /// The input controller (and the lasso, shape, text and laser tools it

@@ -11,6 +11,11 @@ mixin _WetInkSegments on _WetInkRadii {
   // resampling measures it), for the points so far.
   final List<double> _arcs = [0];
 
+  /// The samples of a line [length] long that Flutter's live ink draws
+  /// when it may show [live] (`StrokeOutline.shownOf`): round ends one
+  /// less, where the end's tangent is known.
+  int _shownOf(int live, int length) => !shape.flat && live < length && live > 2 ? live - 1 : live;
+
   /// The overlay's pieces from point [from] to [to] (exclusive): the hull
   /// of the circles `(a, ra)` and `(b, rb)` of consecutive smoothed points;
   /// one point is a dot (a == b).
@@ -79,12 +84,13 @@ mixin _WetInkSegments on _WetInkRadii {
     final x = shaper.x, y = shaper.y;
     final rr = _tapered(shaper, arc0, arc1, ended: ended);
     // With the stabiliser on, as far as Flutter's live ink reaches (its
-    // final line); from pen-down until the hook is decided, its first point.
+    // final line, round ends a sample short: `StrokeOutline.shownOf`);
+    // from pen-down until the hook is decided, its first point.
     final n = shape.lag == 0 || ended
         ? shaper.length
         : _start == null
         ? 1
-        : math.max(1, shaper.finalCount);
+        : _shownOf(math.max(1, shaper.finalCount), shaper.length);
     if (n - first < 2) {
       final i = math.min(first, n - 1);
       final c = Offset(x[i], y[i]);

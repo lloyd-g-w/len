@@ -45,16 +45,19 @@ abstract final class StrokeOutline {
   }
 
   /// Emits the outline of an [update]d [shaper] (a dot when too short);
-  /// with [live], only what live ink shows ([StrokeShaper.liveLength]).
+  /// with [live], only what live ink shows ([StrokeShaper.liveLength], or
+  /// the first [count] samples).
   static void emitLine(
     OutlineSink sink,
     StrokeShaper shaper,
     OutlineSpec spec, {
     bool live = false,
+    int? count,
     double? tolerance,
   }) {
     if (isDot(shaper)) return dot(sink, shaper, spec);
-    final n = live ? shaper.liveLength : shaper.length;
+    final full = live ? count ?? shaper.liveLength : shaper.length;
+    final n = shownOf(full, shaper.length, flat: spec.flatCaps);
     if (n == 1) return _dotAt(sink, shaper.x[0], shaper.y[0], shaper.r[0], spec.flatCaps);
     RibbonEmitter(
       n < shaper.length ? RibbonPrefix(shaper, n) : shaper,
@@ -62,8 +65,19 @@ abstract final class StrokeOutline {
       width: spec.width,
       step: shaper.p.step,
       tolerance: tolerance,
+      lookahead: n < full ? 1 : 0,
     ).emit(sink);
   }
+
+  /// The samples drawn of a line [length] samples long of which live ink
+  /// may show [live] (`StrokeShaper.liveLength`): with the stabiliser on
+  /// (fewer), one less, so the tangent where it ends is known (the next
+  /// sample is final) and its end is drawn as the committed line has it
+  /// there (`RibbonEmitter.lookahead`). Not with [flat] ends: their end
+  /// is redrawn at pen-up anyway (its zone is never frozen), so they
+  /// would only trail a sample more.
+  static int shownOf(int live, int length, {required bool flat}) =>
+      !flat && live < length && live > 2 ? live - 1 : live;
 
   /// Whether the line is too short for anything but a dot.
   static bool isDot(StrokeShaper s) {

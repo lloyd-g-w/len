@@ -1,37 +1,20 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show listEquals;
+
 import '../../domain/stroke.dart';
 import '../input/live_ink.dart';
+import 'live_outline.dart';
 import 'outline_sink.dart';
 import 'ribbon_emitter.dart';
 import 'stroke_outline.dart';
 import 'stroke_renderer.dart';
 import 'stroke_shaper.dart';
 
-/// The outline of a live stroke: its frozen part (unchanged since the
-/// previous frame, except for appended pieces) and its tail. The tail starts
-/// with a round cap inside the frozen part, so the two can be drawn one
-/// after the other without a seam.
-class LiveOutline {
-  LiveOutline(this.frozen, this.tail);
+export 'live_outline.dart';
 
-  /// An outline that is all tail.
-  LiveOutline.of(Path path) : frozen = null, tail = path;
-
-  final Path? frozen;
-  final Path tail;
-
-  /// Both in one path (a copy of the frozen part: for translucent ink,
-  /// which must be filled in one go, and for tests).
-  Path get combined {
-    final f = frozen;
-    if (f == null) return tail;
-    return Path()
-      ..addPath(f, Offset.zero)
-      ..addPath(tail, Offset.zero);
-  }
-}
+part 'live_stroke_handover.dart';
 
 /// Builds the outline of the stroke being drawn, frame by frame, in
 /// constant time per frame, and its committed outline at pen-up.
@@ -46,9 +29,17 @@ class LiveOutline {
 /// last pressures): it rolls back to a recent checkpoint and completes
 /// from there, so committing a long stroke costs no more than a frame.
 class LiveStrokeBuilder {
-  LiveStrokeBuilder(this.spec);
+  LiveStrokeBuilder(this.spec, {this.trails = false});
 
   final OutlineSpec spec;
+
+  /// Whether live ink shows only the final line, as with the stabiliser
+  /// on, whatever the spec's ([LiveInk.trails]: a mouse's stabiliser).
+  final bool trails;
+
+  /// The samples live ink shows (`StrokeShaper.liveLength`).
+  int get _liveLength =>
+      trails && _shaper.length > 0 ? math.max(1, _shaper.finalCount) : _shaper.liveLength;
 
   // Created once the stroke's unit is known: at once when the stroke
   // records it (`StrokeStyle.unit`), else after [StrokeOutline.unitPoints].
@@ -66,6 +57,11 @@ class LiveStrokeBuilder {
   /// Emitter state at each shaper checkpoint: (checkpoint id, cursor, pieces).
   final List<(int, RibbonCursor, int)> _checkpoints = [];
 
+  /// The last frame, when its live line ended before the newest samples
+  /// ([_shown]) or showed only the first sample's dot ([_dot]).
+  _Shown? _shown;
+  _Dot? _dot;
+
   /// Told why [finish] had to rebuild from scratch (tests).
   static void Function(String why)? debugFallback;
 
@@ -77,17 +73,22 @@ class LiveStrokeBuilder {
   /// points ([continues]).
   LiveOutline update(List<StrokePoint> points) {
     assert(continues(points));
+    _shown = null;
+    _dot = null;
     if (points.isEmpty) return LiveOutline.of(Path());
     if (!_ready(points)) {
       return LiveOutline.of(StrokeOutline.build(points, spec, complete: false));
     }
     _feed(points);
     _shaper.update();
-    if (!_shaper.started || _shaper.liveLength == 1) {
+    if (!_shaper.started || _liveLength == 1) {
       // The start (pen-down hook) is undecided: the provisional line (with
       // the stabiliser on, or before anything is final: its first sample).
       final out = Path();
-      StrokeOutline.emitLine(PathSink(out), _shaper, spec, live: true);
+      StrokeOutline.emitLine(PathSink(out), _shaper, spec, live: true, count: _liveLength);
+      if (_liveLength == 1 && _shaper.length > 1 && !spec.flatCaps) {
+        if (!StrokeOutline.isDot(_shaper)) _dot = _Dot(_shaper, out);
+      }
       return LiveOutline.of(out);
     }
     if (StrokeOutline.isDot(_shaper)) {
@@ -95,7 +96,10 @@ class LiveStrokeBuilder {
       StrokeOutline.dot(PathSink(out), _shaper, spec);
       return LiveOutline.of(out);
     }
-    final shown = _shaper.liveLength;
+    // With the stabiliser on, the live line ends before its newest samples
+    // (where its end's tangent is known, see [_handOver]).
+    final shown = StrokeOutline.shownOf(_liveLength, _shaper.length, flat: spec.flatCaps);
+    final trailing = shown < _liveLength;
     final piece = Path();
     _cursor = _emitter.freeze(PathSink(piece), _cursor, _shaper.finalCount, shown: shown);
     if (piece.getBounds() != Rect.zero) {
@@ -105,19 +109,23 @@ class LiveStrokeBuilder {
     _checkpoints.add((_shaper.checkpoint(), _cursor, _pieces.length));
     if (_checkpoints.length > 48) _checkpoints.removeAt(0);
     final tail = Path();
-    // A cap rather than a cut where the tail meets the frozen part: drawn
-    // separately, two paths sharing an edge would leave a hairline seam.
-    // With the stabiliser on, only the final line ([StrokeShaper.liveLength],
-    // which reaches past the frozen part).
+    // A cap rather than a cut where the tail meets the frozen part (the
+    // committed outline keeps it, see [_handOver]). With the stabiliser on,
+    // only the final line ([StrokeShaper.liveLength], which reaches past
+    // the frozen part).
     final emitter = shown < _shaper.length
         ? RibbonEmitter(
             RibbonPrefix(_shaper, shown),
             flatCaps: spec.flatCaps,
             width: spec.width,
             step: _shaper.p.step,
+            lookahead: trailing ? 1 : 0,
           )
         : _emitter;
     emitter.emit(PathSink(tail), from: (at: _cursor.at, cut: false));
+    if (trailing) {
+      _shown = _Shown(_frozen, _cursor.at, shown - 1, _shaper);
+    }
     return LiveOutline(_frozen, tail);
   }
 
@@ -129,6 +137,10 @@ class LiveStrokeBuilder {
   /// the lift; the pieces it reaches are emitted again.
   Path finish(List<StrokePoint> points, {double? taperEnd}) {
     final spec = this.spec.withTaperEnd(taperEnd ?? this.spec.taperEnd);
+    final shown = _shown, dot = _dot;
+    _shown = null;
+    _dot = null;
+    if (dot != null) return dot.finish(points, spec);
     if (_shaperOrNull == null || !_shaper.started || points.isEmpty) {
       return StrokeOutline.build(points, spec);
     }
@@ -171,6 +183,7 @@ class LiveStrokeBuilder {
           StrokeOutline.dot(PathSink(out), _shaper, spec);
           return out;
         }
+        if (_handOver(shown, out)) return out;
         // The end taper's pieces, and a flat end's (cut off at the end).
         final redo = math.min(_shaper.taperedFrom, _emitter.endZoneFrom());
         if (!_unfreeze(redo)) return StrokeOutline.build(points, spec);
@@ -254,7 +267,13 @@ class LiveStrokeBuilder {
   static LiveOutline livePath(LiveInk live) {
     final previous = _builderOf(live);
     _generations[live] = live.generation;
-    final built = build(previous, live.points, width: live.width, style: live.style);
+    final built = build(
+      previous,
+      live.points,
+      width: live.width,
+      style: live.style,
+      trails: live.trails && !live.straightened,
+    );
     _builders[live] = built.builder;
     return built.path;
   }
@@ -276,7 +295,8 @@ class LiveStrokeBuilder {
     return builder.finish(points, taperEnd: spec.taperEnd);
   }
 
-  /// The live outline of [points] drawn with [tool], [width] and [style]:
+  /// The live outline of [points] drawn with [tool], [width] and [style]
+  /// (only its final line with [trails]):
   /// built by [previous] when it is drawing the same stroke, else by a new
   /// builder (returned in `builder`).
   static ({LiveOutline path, LiveStrokeBuilder builder}) build(
@@ -284,10 +304,15 @@ class LiveStrokeBuilder {
     List<StrokePoint> points, {
     required double width,
     required StrokeStyle style,
+    bool trails = false,
   }) {
     final spec = StrokeRenderer.specFor(width, style);
-    final same = previous != null && previous.continues(points) && previous.spec.sameShape(spec);
-    final builder = same ? previous : LiveStrokeBuilder(spec);
+    final same =
+        previous != null &&
+        previous.trails == trails &&
+        previous.continues(points) &&
+        previous.spec.sameShape(spec);
+    final builder = same ? previous : LiveStrokeBuilder(spec, trails: trails);
     return (path: builder.update(points), builder: builder);
   }
 }
