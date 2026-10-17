@@ -251,7 +251,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   thumbnail readiness from a private painter field; the phone preview's title is cut by its
   two buttons; device names are still platform names.
 
-- 🚧 (fix/vh-phone) **Version history on phones**: below `Breakpoints.medium` the preview's
+- ✅ **Version history on phones**: below `Breakpoints.medium` the preview's
   app bar holds only the date (one line, as tall as the text size needs), the version's name
   and device head the pages in full, and Copy as new notebook / Restore (a page: Restore this
   page) sit in a docked bottom bar (`DialogActions`: a row, stacked at large text); wide
