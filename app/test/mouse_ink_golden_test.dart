@@ -33,10 +33,12 @@ List<_Row> _rows(double speed) => [
 ];
 
 class _Painter extends CustomPainter {
-  _Painter(this.rows, {required this.scale, this.origin = Offset.zero, this.rowHeight = 80});
+  _Painter(this.rows, {required this.scale, this.origin = Offset.zero});
+
+  static const double rowHeight = 80;
 
   final List<_Row> rows;
-  final double scale, rowHeight;
+  final double scale;
   final Offset origin;
 
   @override

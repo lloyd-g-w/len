@@ -225,6 +225,7 @@ class MouseEvent {
 /// A recording of [paths] written with a mouse ([model]) at [speed] px/s
 /// (ramping up and down over the first and last 15 % of each stroke), on
 /// a view at [zoom] with the pen [pen]. Also returns each stroke's events.
+/// [kind] makes it another pointer (a stylus, at constant pressure).
 ({InputRecording recording, List<List<MouseEvent>> events}) mouseRecording(
   List<TruePath> paths, {
   required MouseModel model,
@@ -232,6 +233,7 @@ class MouseEvent {
   required PenSettings pen,
   double zoom = 1,
   Size view = const Size(1000, 700),
+  PointerDeviceKind kind = PointerDeviceKind.mouse,
 }) {
   final rng = math.Random(model.seed);
   final entries = <(int, int, InputEntry)>[]; // (time, order, entry)
@@ -247,13 +249,13 @@ class MouseEvent {
     PointerEntry pe(int t, PointerType type, MouseEvent e) => PointerEntry(
       t,
       type: type,
-      kind: PointerDeviceKind.mouse,
+      kind: kind,
       pointer: pointer,
       device: 0,
       timeStampUs: e.timeUs,
       position: e.position,
       localPosition: e.position,
-      pressure: type == PointerType.up ? 0 : 1,
+      pressure: type == PointerType.up ? 0 : (kind == PointerDeviceKind.mouse ? 1 : 0.5),
       buttons: type == PointerType.up ? 0 : 1,
     );
     at(events.first.timeUs + 1000, pe(0, PointerType.down, events.first));
@@ -276,7 +278,10 @@ class MouseEvent {
       }
     }
     final up = events.last;
-    at(up.timeUs + 1000 + (model.delivery == Delivery.raw ? 0 : frameUs), pe(0, PointerType.up, up));
+    at(
+      up.timeUs + 1000 + (model.delivery == Delivery.raw ? 0 : frameUs),
+      pe(0, PointerType.up, up),
+    );
     start = up.timeUs + 300000;
   }
   entries.sort((a, b) => a.$1 != b.$1 ? a.$1.compareTo(b.$1) : a.$2.compareTo(b.$2));
@@ -358,9 +363,9 @@ List<MouseEvent> _poll(
   Offset q(Offset p) => model.quantum == 0
       ? p
       : Offset(
-    (p.dx / model.quantum).roundToDouble() * model.quantum,
-    (p.dy / model.quantum).roundToDouble() * model.quantum,
-  );
+          (p.dx / model.quantum).roundToDouble() * model.quantum,
+          (p.dy / model.quantum).roundToDouble() * model.quantum,
+        );
   final events = [MouseEvent(startUs, q(path.at(0)))];
   var t = 0.0;
   final dt = 1 / model.hz;

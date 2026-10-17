@@ -256,10 +256,15 @@ double _distanceTo(List<Offset> path, Offset p) {
     if (!moved) continue;
     final mouse = at[f.newestEventUs];
     if (mouse == null) continue;
-    final spec = StrokeRenderer.specFor(replay.pen.width, f.style);
-    final line = StrokeOutline.centerline(f.points, spec, complete: false);
-    if (line == null || line.live < 1) continue;
-    final tip = Offset(line.x[line.live - 1], line.y[line.live - 1]) * zoom;
+    final Offset tip;
+    if (f.tip.isNotEmpty) {
+      tip = f.tip.last * zoom; // The provisional tip, beyond the line.
+    } else {
+      final spec = StrokeRenderer.specFor(replay.pen.width, f.style);
+      final line = StrokeOutline.centerline(f.points, spec, complete: false);
+      if (line == null || line.live < 1) continue;
+      tip = Offset(line.x[line.live - 1], line.y[line.live - 1]) * zoom;
+    }
     lags.add((tip - mouse).distance);
   }
   if (lags.isEmpty) return (median: 0, p90: 0);

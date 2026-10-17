@@ -1,7 +1,7 @@
-// Mouse ink written zoomed out is as smooth on screen as at 100 %: mouse
-// positions are whole pixels, a staircase the outline's smoothing (relative
-// to the pen's width) levels only while the pen is wide enough on screen;
-// `MouseSmoother` makes up the rest, and leaves wide enough pens alone.
+// Mouse ink is smooth on screen at any zoom and width: mouse positions are
+// whole pixels, a staircase the outline's smoothing (relative to the pen's
+// width) cannot level; `MouseSmoother` levels it on the screen, applying
+// the stroke's stabiliser there (the outline then adds none).
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui';
@@ -33,7 +33,9 @@ List<Offset> _mouse(double spacing) {
 }
 
 /// The smoothed centre line of [screen] samples written at [zoom] with a
-/// pen [width] world units wide and stabiliser [streamline], in screen px.
+/// pen [width] world units wide and stabiliser [streamline], in screen px:
+/// by the mouse's smoother (the outline adds no stabiliser then, as
+/// `InkDrawing` commits it), or with [smooth] off by the outline alone.
 List<Offset> _inked(
   List<Offset> screen,
   double zoom,
@@ -52,12 +54,17 @@ List<Offset> _inked(
     if (sampler.add(last, at, 0.5, ms)) last = at;
   }
 
-  final smoother = MouseSmoother(sample)..begin(screen.first, 0, width: width * zoom);
+  final smoother = MouseSmoother(sample)..begin(screen.first, 0, stabiliser: streamline);
   for (var i = 1; i < screen.length; i++) {
     smooth ? smoother.add(screen[i], i * 8) : sample(screen[i], i * 8);
   }
   if (smooth) smoother.finish();
-  final spec = OutlineSpec(width: width, thinning: 0, streamline: streamline, unit: 1 / zoom);
+  final spec = OutlineSpec(
+    width: width,
+    thinning: 0,
+    streamline: smooth ? 0 : streamline,
+    unit: 1 / zoom,
+  );
   final c = StrokeOutline.centerline(points, spec)!;
   return [for (var i = 0; i < c.length; i++) Offset(c.x[i] * zoom, c.y[i] * zoom)];
 }
@@ -105,28 +112,32 @@ double _deviation(List<Offset> line) {
 
 void main() {
   for (final spacing in [2.0, 4.0]) {
-    test('mouse events every $spacing px: as smooth at any zoom as at 100 %', () {
-      final mouse = _mouse(spacing);
-      // The default pen at 100 %, which the outline alone smooths: the
-      // reference.
-      final full = _wobble(_inked(mouse, 1, 2.5, 0, smooth: false));
-      for (final streamline in [0.0, 0.5, 1.0]) {
-        final drift = _deviation(_inked(mouse, 1, 2.5, streamline, smooth: false));
-        // Thin to thick pens, the highlighter's narrowest.
-        for (final width in [0.5, 2.5, 4.0, 12.0]) {
-          for (final zoom in [1.0, 0.5, 0.25, 0.1]) {
-            final line = _inked(mouse, zoom, width, streamline);
-            final wobble = _wobble(line);
-            final reason = 'width $width, zoom $zoom, stabiliser $streamline: $wobble vs $full';
-            expect(wobble, lessThan(full * 1.15), reason: reason);
-            // Smooth, not distorted: it follows the path the hand made
-            // about as closely as before (smoothing rounds the tightest
-            // turns a little).
-            expect(_deviation(line), lessThan(drift + 1), reason: reason);
+    test(
+      'mouse events every $spacing px: smoother at any zoom and width than the outline alone at 100 %',
+      () {
+        final mouse = _mouse(spacing);
+        // The default pen at 100 %, which the outline alone smooths: the
+        // reference.
+        final full = _wobble(_inked(mouse, 1, 2.5, 0, smooth: false));
+        for (final streamline in [0.0, 0.5, 1.0]) {
+          final drift = _deviation(_inked(mouse, 1, 2.5, streamline, smooth: false));
+          // Thin to thick pens, the highlighter's narrowest.
+          for (final width in [0.5, 2.5, 4.0, 12.0]) {
+            for (final zoom in [1.0, 0.5, 0.25, 0.1]) {
+              final line = _inked(mouse, zoom, width, streamline);
+              final wobble = _wobble(line);
+              final reason = 'width $width, zoom $zoom, stabiliser $streamline: $wobble vs $full';
+              expect(wobble, lessThan(full * 1.15), reason: reason);
+              // Smooth, not distorted: it follows the path the hand made
+              // about as closely as before (smoothing rounds the tightest
+              // turns a little: the screen's plain Gaussian a little more
+              // than the outline's sharpened one).
+              expect(_deviation(line), lessThan(drift + 1.25), reason: reason);
+            }
           }
         }
-      }
-    });
+      },
+    );
   }
 
   test('without levelling, zoomed out mouse ink was squiggly (the bug)', () {
@@ -136,37 +147,46 @@ void main() {
     expect(out, greaterThan(full * 3));
   });
 
-  test('a pen at least 2.5 px wide on screen: the mouse passes on unchanged, without lag', () {
-    final mouse = _mouse(3);
-    for (final width in [MouseSmoother.fullWidth, 12.0]) {
-      final kept = <Offset>[];
-      final smoother = MouseSmoother((at, _) => kept.add(at))..begin(mouse.first, 0, width: width);
-      for (var i = 1; i < mouse.length; i++) {
-        smoother.add(mouse[i], i * 8);
-        expect(kept.last, mouse[i]);
-      }
-      smoother.finish();
-      expect(kept, mouse.sublist(1));
-    }
+  test('the smoothing grows with the stabiliser, and so does the lag', () {
+    expect(MouseSmoother.sigmaFor(0), MouseSmoother.minSigma);
+    expect(MouseSmoother.sigmaFor(1), MouseSmoother.maxSigma);
+    expect(MouseSmoother.sigmaFor(0.3), closeTo(2.9, 1e-9));
+    expect(MouseSmoother.lagOf(MouseSmoother.sigmaFor(0)), 8);
+    expect(MouseSmoother.lagOf(MouseSmoother.sigmaFor(0.3)), 11);
+    // At most about the stylus's at full stabiliser (~15 px).
+    expect(MouseSmoother.lagOf(MouseSmoother.maxSigma), 16);
   });
 
-  test('the smoothing grows as the pen thins on screen', () {
-    expect(MouseSmoother.sigmaFor(2.5), 0);
-    expect(MouseSmoother.sigmaFor(1.25), inExclusiveRange(1, 2));
-    expect(MouseSmoother.sigmaFor(0), MouseSmoother.maxSigma);
-    expect(MouseSmoother.reachOf(MouseSmoother.maxSigma), 6);
+  test('the tip reaches the mouse and is what finishing there passes on', () {
+    final mouse = _mouse(3);
+    for (final stabiliser in [0.0, 0.3]) {
+      final kept = <Offset>[];
+      final smoother = MouseSmoother((at, _) => kept.add(at))
+        ..begin(mouse.first, 0, stabiliser: stabiliser);
+      for (var i = 1; i < mouse.length; i++) {
+        smoother.add(mouse[i], i * 8);
+        final tip = smoother.tip();
+        expect(tip.last, mouse[i]);
+        if (i == mouse.length ~/ 2) {
+          final before = kept.length;
+          smoother.finish();
+          expect(kept.sublist(before), tip, reason: 'stabiliser $stabiliser');
+          break;
+        }
+      }
+    }
   });
 
   test('the smoothed stroke starts and ends where the mouse went down and up', () {
     final mouse = _mouse(3);
     final kept = <Offset>[];
-    final smoother = MouseSmoother((at, _) => kept.add(at))..begin(mouse.first, 0, width: 0);
-    final reach = MouseSmoother.reachOf(MouseSmoother.maxSigma);
+    final smoother = MouseSmoother((at, _) => kept.add(at))..begin(mouse.first, 0, stabiliser: 1);
+    final lag = MouseSmoother.lagOf(MouseSmoother.maxSigma);
     for (var i = 1; i < mouse.length; i++) {
       smoother.add(mouse[i], i * 8);
-      // It trails the mouse by at most its reach (plus a resampling step).
+      // It trails the mouse by at most its lag (plus the events' spacing).
       if (kept.isNotEmpty) {
-        expect((kept.last - mouse[i]).distance, lessThan(reach + 3 + 1e-9));
+        expect((kept.last - mouse[i]).distance, lessThan(lag + 3 + 1e-9));
       }
     }
     smoother.finish();
@@ -177,7 +197,7 @@ void main() {
   test('a flush catches up with a resting mouse, and smoothing carries on after it', () {
     final mouse = _mouse(3);
     final kept = <Offset>[];
-    final smoother = MouseSmoother((at, _) => kept.add(at))..begin(mouse.first, 0, width: 0);
+    final smoother = MouseSmoother((at, _) => kept.add(at))..begin(mouse.first, 0, stabiliser: 1);
     final half = mouse.length ~/ 2;
     for (var i = 1; i <= half; i++) {
       smoother.add(mouse[i], i * 8);
