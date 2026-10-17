@@ -26,11 +26,19 @@ Future<void> saveVersionFlow(BuildContext context, AppServices services, String 
 void _unavailable(BuildContext context) =>
     showMessage(context, 'This version isn’t on this device yet. Connect to sync and try again.');
 
-/// Tells open editors what a restore rewrote.
-void _announce(AppServices services, String notebookId, Restored done) {
+/// Tells open editors what a restore rewrote: they reload it and drop its
+/// undo steps (R25-6), and those of page-level changes too if it was the
+/// [whole] notebook.
+void announceRestore(
+  AppServices services,
+  String notebookId,
+  Restored done, {
+  required bool whole,
+}) {
   final changes = RemoteChanges()..notebooks = true;
   if (done.pages) changes.pagesOfNotebooks.add(notebookId);
-  done.surfaces.forEach(changes.reloadSurface);
+  done.surfaces.forEach(changes.rewriteSurface);
+  if (whole) changes.rewrittenNotebooks.add(notebookId);
   services.sync.announce(changes);
 }
 
@@ -109,7 +117,7 @@ Future<bool> _restoreNow(
     if (context.mounted) _unavailable(context);
     return false;
   }
-  _announce(services, version.notebookId, done);
+  announceRestore(services, version.notebookId, done, whole: !page);
   if (!context.mounted) return true;
   final before = done.before;
   showMessage(
@@ -121,7 +129,8 @@ Future<bool> _restoreNow(
             label: 'Undo',
             onPressed: () async {
               try {
-                _announce(services, version.notebookId, await services.versions.restore(before));
+                final undone = await services.versions.restore(before);
+                announceRestore(services, version.notebookId, undone, whole: true);
               } on VersionUnavailable {
                 // Made here a moment ago: its packs are here.
               }

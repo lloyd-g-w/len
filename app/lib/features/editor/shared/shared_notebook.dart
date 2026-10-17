@@ -204,6 +204,7 @@ class SharedNotebook extends ChangeNotifier {
       _backgrounds?.pdf.retryMissing(); // New pages may bring new PDFs.
       _pdfInfo?.retry();
     }
+    _forgetRewritten(changes);
     for (final surface in changes.strokeSurfaces) {
       final ids = changes.itemsOf(surface);
       if (ids == null) {
@@ -218,6 +219,16 @@ class SharedNotebook extends ChangeNotifier {
     // on a surface reloading whole, once its load brought the stroke.
     remoteInk.landed(changes);
     _watchReloads();
+  }
+
+  /// Drops the undo steps of what a restore rewrote (R25-6): undoing them
+  /// would take out what is gone, redoing write back what was replaced.
+  /// The restore's own Undo is its snack bar's.
+  void _forgetRewritten(RemoteChanges changes) {
+    final whole = changes.rewrittenNotebooks.contains(id);
+    if (changes.rewrittenSurfaces.isEmpty && !whole) return;
+    if (changes.rewrittenSurfaces.contains(_canvas?.surfaceId)) _canvas!.forgetHistory();
+    _pages?.forget(changes.rewrittenSurfaces, pageEdits: whole);
   }
 
   /// The model of surface [id] (the canvas or a page), if one is open.

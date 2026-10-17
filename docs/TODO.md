@@ -267,8 +267,9 @@ From the reports; the owner picks. Status as above.
 
 - 🚧 (fix/r25-followups) **Undo after a version restore** (UX_AUDIT R25-6): the editor's undo steps from before a
   restore survive it, so Ctrl+Z does nothing visible and Ctrl+Shift+Z writes an old stroke back
-  onto the restored page. Decide: drop the undo steps of the surfaces a restore rewrote (its Undo
-  is the snack bar's), or make the restore one `UndoHistory` step.
+  onto the restored page. Done: open editors drop the undo and redo steps of the surfaces a
+  restore rewrote (a whole-notebook restore its page-level steps too); its Undo is the snack
+  bar's; other surfaces keep theirs.
 - 🚧 (fix/remote-pointers) **Remote pointers on other pages and in the zoom window** (UX_AUDIT R25-16, R25-17): a hover
   or mouse laser over a page that is not the active one is sent as the active page's (map it
   with the layout first); the zoom window draws neither other devices' live ink nor their

@@ -3075,7 +3075,12 @@ shares between versions (and between devices of one platform family).
   its own pages, text flows and connectors follow the copies; recordings
   copied with the same audio blobs, outline entries onto the copied pages;
   recognised text is read again, as for a duplicated notebook). Open
-  editors reload as after a sync (`SyncController.announce`).
+  editors reload as after a sync (`SyncController.announce`), and drop the
+  undo and redo steps of the surfaces it rewrote (`RemoteChanges.rewrittenSurfaces`,
+  `PageModels.forget`; a whole-notebook restore its page-level steps too, R25-6):
+  undoing them would take out what is gone, redoing write back what was
+  replaced. A restore is not an `UndoHistory` step: its Undo is the snack bar's.
+  Steps on other surfaces (another notebook in split view) stay.
 - **Audio** is kept by blob reference: a version names a recording's parts
   and waveform, so audio freed after a trim ("Free space") stays on the
   server and devices until no version names it (thinned or deleted).

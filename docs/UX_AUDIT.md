@@ -82,7 +82,7 @@ a phone, within its cap; the library's notebook menu
 had only that row already); Save version… is the sheet's header button.
 There was no shortcut for either.
 
-**R25-6 P2 · After a restore, the editor's Ctrl+Z does nothing and Ctrl+Shift+Z partly undoes the restore.** ⬜
+**R25-6 P2 · After a restore, the editor's Ctrl+Z does nothing and Ctrl+Shift+Z partly undoes the restore.** ✅
 - *What:* a restore is not an `UndoHistory` step, but the editor's undo
   steps from before it survive the reload: undo "removes" a stroke the
   restore already removed (nothing visible), redo then writes it back onto
@@ -91,6 +91,11 @@ There was no shortcut for either.
   the surfaces a restore rewrote in open sessions (or make the restore one
   step). Needs a decision: CONVENTIONS wants every edit undoable through
   `UndoHistory` (TODO "Next").
+- *Fix (owner's decision):* the restore's Undo stays the snack bar's; open
+  editors drop the undo and redo steps of the surfaces it rewrote (a
+  whole-notebook restore its page-level steps too), as they reload them
+  (`RemoteChanges.rewrittenSurfaces`, `PageModels.forget`). Steps on other
+  surfaces (another notebook in split view) stay (`version_restore_undo_test`).
 
 **R25-7 P2 · The preview's title was cut on phones.** ✅
 "17 Oct 2026…" lost the time at 390 dp. The title is now the list's short
