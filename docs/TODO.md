@@ -144,7 +144,7 @@ From the reports; the owner picks. Status as above.
   (cached until the next commit); scroll forward / back and Next / Previous page turn and
   announce it, continuous and single-page; a canvas is one "Canvas" node; nothing built while
   semantics are off.
-- 🚧 **Arrows that stay attached** (UX_AUDIT R21-6, feat/connectors): a line's or arrow's
+- ✅ **Arrows that stay attached** (UX_AUDIT R21-6): a line's or arrow's
   end (bent too) dropped on a closed shape's outline, or inside it (where it faces the other
   end), attaches — by handle drag or drawn so with the Shape tool; the target's outline and
   a snap dot show meanwhile. `ShapeGeometry.tail` / `tip` (synced `sh.a`, optional) keep the
@@ -153,6 +153,10 @@ From the reports; the owner picks. Status as above.
   selection's `_replace` re-points and rebuilds the lines); remote devices get both. Moved
   together they move rigidly; a line moved alone lets go (Excalidraw); copies attach to
   copied targets; a deleted target leaves the line where it is; never across pages.
+- 🚧 (fix/connector-ids) **Connector follow-ups**: a duplicated page's (or notebook's) arrows
+  stay attached to the copies (`surface_copier` remaps `sh.a`); references that survive
+  concurrent edits (an edit replaces the stroke id, so two devices editing at once can leave an
+  arrow pointing at a gone id): resolve to the stroke that replaced it, or give shapes a stable id.
 - ✅ **Eyedropper** (UX_AUDIT R21-7): "Pick from page" next to Custom in every editor colour
   block (quick slots, tool options, shape fill, Style, text colour): the picker steps aside,
   "Tap a colour on the page" shows, and the next press on the page (a loupe while it rests
