@@ -10,7 +10,8 @@ enum HandleRole {
   /// A corner, vertex, end or anchor: moves that point.
   vertex,
 
-  /// The middle of a side: moves the side.
+  /// The middle of a side: moves the side. On a circle, the end of an
+  /// axis: sizes that axis alone, squashing it into an ellipse.
   edge,
 
   /// The centre of a circle, ellipse or star: moves the shape.
@@ -55,7 +56,9 @@ class ShapeHandle {
 ///  * rectangle: the four corners, then the middles of the four sides;
 ///  * diamond: the four vertices, then the middles of its sides;
 ///  * triangle, polygon: the vertices;
-///  * circle: the centre and the radius;
+///  * circle: the centre, the radius (on the rim between its axes: sizes it
+///    evenly) and the ends of its two axes (sizing one alone makes it an
+///    ellipse, whose radii are where they were);
 ///  * ellipse: the centre and the ends of its two radii;
 ///  * star: the centre, the top point (size and turn) and an inner point
 ///    (inner radius);
@@ -78,10 +81,7 @@ abstract final class ShapeHandles {
       ],
       ShapeKind.rectangle || ShapeKind.diamond => [...vertices(p), ...sides(p)],
       ShapeKind.triangle || ShapeKind.polygon => vertices(p),
-      ShapeKind.circle => [
-        ShapeHandle(p[0], HandleRole.centre),
-        ShapeHandle(p[1], HandleRole.radius),
-      ],
+      ShapeKind.circle => _circle(shape),
       ShapeKind.ellipse => [
         ShapeHandle(p[0], HandleRole.centre),
         ShapeHandle(p[1], HandleRole.radius),
@@ -99,6 +99,24 @@ abstract final class ShapeHandles {
               : ShapeHandle(p[i], HandleRole.tangent, anchor: p[anchorOf(shape, i)]),
       ],
     };
+  }
+
+  static List<ShapeHandle> _circle(ShapeGeometry circle) {
+    final c = circle.points[0];
+    final (u, v) = circleAxes(circle);
+    return [
+      ShapeHandle(c, HandleRole.centre),
+      ShapeHandle(c + (u + v) / math.sqrt2, HandleRole.radius),
+      ShapeHandle(c + u, HandleRole.edge),
+      ShapeHandle(c + v, HandleRole.edge),
+    ];
+  }
+
+  /// A circle's two axes (radius vectors): to its rim point and a quarter
+  /// turn on, as its outline runs ([ShapeBuilder.outline]).
+  static (Offset, Offset) circleAxes(ShapeGeometry circle) {
+    final u = circle.points[1] - circle.points[0];
+    return (u, Offset(-u.dy, u.dx));
   }
 
   /// The index of the anchor curve point [index] belongs to (itself for

@@ -173,10 +173,23 @@ void main() {
     drag([const Offset(100, 200)]);
     drag([const Offset(200, 200), const Offset(220, 200), const Offset(250, 210)]);
     expect(content.selection.shape!.points[0], const Offset(250, 210));
-    drag([const Offset(350, 210), const Offset(370, 210), const Offset(400, 210)]);
-    final shape = content.selection.shape!;
+    // The radius, on the rim between the axes (down and right).
+    final radius = const Offset(250, 210) + Offset.fromDirection(math.pi / 4, 100);
+    drag([radius, radius + const Offset(20, 20), radius + const Offset(35, 35)]);
+    var shape = content.selection.shape!;
     expect(shape.kind, ShapeKind.circle);
-    expect((shape.points[1] - shape.points[0]).distance, 150);
+    expect((shape.points[1] - shape.points[0]).distance, closeTo(100 + 35 * math.sqrt2, 1e-6));
+    // The bottom axis squashes it: an ellipse, one more undo step.
+    final bottom = shape.points[0] + Offset(0, (shape.points[1] - shape.points[0]).distance);
+    drag([bottom, bottom - const Offset(0, 20), bottom - const Offset(0, 50)]);
+    shape = content.selection.shape!;
+    expect(shape.kind, ShapeKind.ellipse);
+    expect((shape.points[2] - shape.points[0]).distance, closeTo(50 + 35 * math.sqrt2, 1e-6));
+    model.undo();
+    expect(
+      model.strokesNear(const Rect.fromLTWH(0, 0, 800, 600)).single.shape!.kind,
+      ShapeKind.circle,
+    );
   });
 
   test('Shift on the rotate handle turns in 15° steps; near them it snaps', () {

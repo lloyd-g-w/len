@@ -23,9 +23,11 @@ import 'shape_snap.dart';
 ///  * a triangle's or polygon's vertex moves freely, lining up with the
 ///    others (Shift: level, upright or diagonal from where it was);
 ///  * a centre moves the shape;
-///  * a circle's radius sizes it (Shift: along the radius only), an
-///    ellipse's sizes one axis (Shift: both, proportions kept; the other
-///    radius snaps);
+///  * a circle's radius sizes it evenly, the end of one of its axes sizes
+///    that axis alone (an ellipse; Shift: both, so still a circle; equal
+///    radii snap); an ellipse's radius sizes one axis (Shift: both,
+///    proportions kept; the other radius snaps), and equal radii make it a
+///    circle;
 ///  * a star's point turns and sizes it about its centre (15° turns snap;
 ///    Shift: in 15° steps), its inner point sets the inner radius (a
 ///    regular star's snaps);
@@ -60,7 +62,7 @@ class ShapeDrags {
       ),
       ShapeKind.diamond => _diamond(index, to),
       ShapeKind.triangle || ShapeKind.polygon => shape.withPoint(index, _free(index, to)),
-      ShapeKind.circle => _radius(to),
+      ShapeKind.circle => index == 1 ? _radius(to) : _squash(index, to),
       ShapeKind.ellipse => _axis(index, to),
       ShapeKind.star => index == 1 ? _turnStar(to) : _inner(to),
       ShapeKind.curve => index % 3 == 0 ? _anchor(index, to) : _tangent(index, to),
@@ -199,16 +201,21 @@ class ShapeDrags {
 
   // Circles, ellipses, stars ---------------------------------------------
 
+  /// The circle sized evenly so that its radius handle (on the rim between
+  /// its axes) lies as far from the centre as [to].
   ShapeGeometry _radius(Offset to) {
+    final c = _p[0], u = _p[1] - c, r = (to - c).distance;
+    if (r < 1e-6 || u == Offset.zero) return shape;
+    return shape.withPoints([c, c + u / u.distance * r]);
+  }
+
+  /// The circle with axis [index] − 1 sized alone (an ellipse), as the
+  /// ellipse's radius handle there would.
+  ShapeGeometry _squash(int index, Offset to) {
     final c = _p[0];
-    var rim = to;
-    if (shift) {
-      final u = _p[1] - c, d = to - c;
-      if (u != Offset.zero) rim = c + u * ((d.dx * u.dx + d.dy * u.dy) / u.distanceSquared).abs();
-    } else if (_snaps) {
-      rim = ShapeSnap.handleAngle(c, to);
-    }
-    return (rim - c).distance < 1e-9 ? shape : shape.withPoints([c, rim]);
+    final (u, v) = ShapeHandles.circleAxes(shape);
+    final ellipse = ShapeGeometry(ShapeKind.ellipse, [c, c + u, c + v]);
+    return ShapeDrags(ellipse, shift: shift, snap: snap)._axis(index - 1, to);
   }
 
   ShapeGeometry _axis(int index, Offset to) {
@@ -220,7 +227,12 @@ class ShapeDrags {
     length = math.max(length, 1e-6);
     final scale = length / axis.distance;
     final a = c + axis * scale, b = c + (shift ? other * scale : other);
-    return shape.withPoints(index == 1 ? [c, a, b] : [c, b, a]);
+    final points = index == 1 ? [c, a, b] : [c, b, a];
+    // Equal radii: a circle.
+    if ((length - (b - c).distance).abs() <= 1e-9 * length) {
+      return ShapeGeometry(ShapeKind.circle, points.sublist(0, 2));
+    }
+    return shape.withPoints(points);
   }
 
   /// The star turned and sized about its centre so that its top point lies
