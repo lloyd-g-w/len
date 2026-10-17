@@ -47,7 +47,7 @@ void _write(
   }
   if (!end) return;
   live.finish();
-  events.inkEnded?.call(strokeId);
+  events.inkEnded?.call([?strokeId]);
 }
 
 /// Devices a (writing through `live` and `events`) and b (showing
@@ -115,7 +115,7 @@ void main() {
 
     // It ends as stroke s1: shown until that stroke arrives.
     live.finish();
-    events.inkEnded?.call('s1');
+    events.inkEnded?.call(const ['s1']);
     l.wait(const Duration(milliseconds: 100));
     expect(remote.strokesOn('page-1'), hasLength(1));
     remote.landed(RemoteChanges()..addItem('page-1', 'other-stroke'));
@@ -140,7 +140,7 @@ void main() {
     l.wait(RemoteInk.silence + const Duration(milliseconds: 600));
     expect(remote.strokesOn('page-1'), isEmpty);
     live.finish();
-    events.inkEnded?.call(null);
+    events.inkEnded?.call(const []);
 
     // Leaving: the other side sees it alone again.
     b.s.sync.rooms.leave('nb');
@@ -157,7 +157,7 @@ void main() {
     remote.landed(RemoteChanges()..addItem('page-1', 's1'));
     expect(remote.strokesOn('page-1'), hasLength(1));
     live.finish();
-    events.inkEnded?.call('s1');
+    events.inkEnded?.call(const ['s1']);
     l.wait(const Duration(milliseconds: 100));
     expect(remote.strokesOn('page-1'), isEmpty);
     expect(a.s.sync.rooms.othersIn('nb'), hasLength(1));
@@ -172,7 +172,7 @@ void main() {
     l.wait(const Duration(milliseconds: 100));
     expect(remote.strokesOn('page-1'), isEmpty);
     live.finish();
-    events.inkEnded?.call(null);
+    events.inkEnded?.call(const []);
 
     a.s.sync.rooms.join('nb');
     l.wait(const Duration(milliseconds: 100));
@@ -183,7 +183,7 @@ void main() {
     expect(remote.strokesOn('page-1'), isEmpty);
     expect(b.s.sync.rooms.othersIn('nb'), isEmpty);
     live.finish();
-    events.inkEnded?.call(null);
+    events.inkEnded?.call(const []);
 
     // Back: in the room again (joined anew on the new connection), and the
     // next stroke shows.
@@ -191,7 +191,7 @@ void main() {
     _write(l, live, events, 'page-1', end: false);
     expect(remote.strokesOn('page-1'), hasLength(1));
     live.finish();
-    events.inkEnded?.call(null);
+    events.inkEnded?.call(const []);
   });
 
   liveTest('nothing is sent while nobody else is in the room', (l) {
@@ -338,7 +338,12 @@ void main() {
         room: nb.id,
         from: 'c9',
         deviceId: 'd9',
-        data: const {'k': 'ink', 's': 'w1', 'end': true, 'stroke': 'st1'},
+        data: const {
+          'k': 'ink',
+          's': 'w1',
+          'end': true,
+          'strokes': ['st1'],
+        },
       ),
     );
     await tester.pump();

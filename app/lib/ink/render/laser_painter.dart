@@ -27,41 +27,15 @@ class LaserPainter extends CustomPainter {
   /// Glow width relative to the core.
   static const double glowScale = 2.4;
 
-  final LaserRibbon _glow = LaserRibbon.glow();
-  final LaserRibbon _core = LaserRibbon.core();
-
-  /// The trail's strokes, shaped by the pen's engine and kept between
-  /// frames.
-  final LaserStrokes _strokes = LaserStrokes();
+  final LaserPaint _paint = LaserPaint();
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final config = trail.config;
-    final color = Color(config.color);
-    if (config.mode == LaserMode.trail && trail.length > 1) {
-      _glow.color = color;
-      _core.color = color;
-      final scale = viewport.scale, offset = viewport.toScreen(Offset.zero);
-      _strokes
-        ..sync(trail, scale)
-        ..emit(
-          _glow,
-          _core,
-          trail,
-          glowScale: glowScale,
-          scale: scale,
-          ox: offset.dx,
-          oy: offset.dy,
-        );
-      _glow.draw(canvas);
-      _core.draw(canvas);
-    }
-    final head = trail.head;
-    final alpha = trail.headAlpha;
-    if (head == null || alpha <= 0) return;
-    final radius = config.mode == LaserMode.dot ? config.size * 0.8 : config.size / 2;
-    paintDot(canvas, viewport.toScreen(head), radius, color, alpha);
-  }
+  void paint(Canvas canvas, Size size) =>
+      _paint.paint(canvas, trail, scale: viewport.scale, origin: viewport.toScreen(Offset.zero));
+
+  /// The core radius of [config]'s dot on screen.
+  static double dotRadius(LaserConfig config) =>
+      config.mode == LaserMode.dot ? config.size * 0.8 : config.size / 2;
 
   /// A glowing dot of core [radius] at [centre] with opacity [alpha].
   static void paintDot(Canvas canvas, Offset centre, double radius, Color color, double alpha) {
@@ -103,4 +77,50 @@ class LaserPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(LaserPainter old) => old.trail != trail || old.viewport != viewport;
+}
+
+/// Draws one laser: the meshes of its trail and its strokes (kept between
+/// frames, so one per trail) and its dot. [LaserPainter] draws this
+/// device's with it; other devices' lasers are drawn with one each.
+class LaserPaint {
+  final LaserRibbon _glow = LaserRibbon.glow();
+  final LaserRibbon _core = LaserRibbon.core();
+
+  /// The trail's strokes, shaped by the pen's engine and kept between
+  /// frames.
+  final LaserStrokes _strokes = LaserStrokes();
+
+  /// Paints [trail] on a screen where world point p shows at
+  /// `p * scale + origin`.
+  void paint(Canvas canvas, LaserTrail trail, {required double scale, required Offset origin}) {
+    final config = trail.config;
+    final color = Color(config.color);
+    if (config.mode == LaserMode.trail && trail.length > 1) {
+      _glow.color = color;
+      _core.color = color;
+      _strokes
+        ..sync(trail, scale)
+        ..emit(
+          _glow,
+          _core,
+          trail,
+          glowScale: LaserPainter.glowScale,
+          scale: scale,
+          ox: origin.dx,
+          oy: origin.dy,
+        );
+      _glow.draw(canvas);
+      _core.draw(canvas);
+    }
+    final head = trail.head;
+    final alpha = trail.headAlpha;
+    if (head == null || alpha <= 0) return;
+    LaserPainter.paintDot(
+      canvas,
+      head * scale + origin,
+      LaserPainter.dotRadius(config),
+      color,
+      alpha,
+    );
+  }
 }

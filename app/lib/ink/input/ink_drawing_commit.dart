@@ -27,6 +27,7 @@ extension _InkCommit on InkDrawing {
     // needed) unless the highlighter's Snap to text is off.
     if (stroke.tool.isHighlighter && tools.configOf(stroke.tool).snapToText) {
       if (highlightSnap?.snap(stroke) case final snapped? when snapped.isNotEmpty) {
+        _committedIds = [for (final s in snapped) s.id];
         return model.commit(InkEdit(added: snapped));
       }
     }

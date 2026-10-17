@@ -3640,7 +3640,8 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   the editor's bar. A dropped connection empties every room's presence (`disconnected`).
 - **Live ink** ([Room data](SYNC_PROTOCOL.md#get-v1live)): `InkDrawing` tells
   `InkEvents.inkBegan` (surface id) when a pen or highlighter contact starts live ink and
-  `inkEnded` (the committed stroke's id, or null) when it ends. `LiveInkRelay` (one per
+  `inkEnded` (the ids of the strokes it was committed as: one, or one per line of a highlight
+  snapped to text; none when dropped) when it ends. `LiveInkRelay` (one per
   `EditorSession`, attached to the main input and the zoom window's) listens to `LiveInk` and
   sends the points not sent yet at most every 50 ms — nothing at all while nobody else is in
   the room, so the local pen pays one listener call and a null check per point; with someone
@@ -3650,15 +3651,34 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   being written per writer connection, and `RemoteInkPainter` paints them in their own
   `RepaintBoundary` between the committed ink and the local `LiveInkPainter` (`InkSurface`
   for canvases; `PagedDocumentView` once for all pages, clipped to each page's frame), so a
-  remote stroke growing repaints only that layer. It goes when the stroke's record is applied:
-  `SharedNotebook._onRemoteChanges` refreshes the open surfaces first and then calls
-  `RemoteInk.landed`, so the committed stroke and the provisional one swap in the same frame
-  (no flicker, no double ink; a surface reloaded whole instead — many items, a selection — may
-  show neither for the moment its load takes); a record that overtakes its `end` is remembered
-  for 2 s. It also
-  goes on `end` without a stroke, 2 s after `end` without the record, 3 s after the last
-  points, or when the writer is no longer in the room's presence (left, or this device's
-  connection dropped).
+  remote stroke growing repaints only that layer. It goes once every stroke it became is
+  applied and drawn: `SharedNotebook._onRemoteChanges` refreshes the open surfaces first and
+  then calls `RemoteInk.landed`, so the committed stroke and the provisional one swap in the
+  same frame (no flicker, no double ink). A surface reloaded whole instead (many items, a
+  selection in the way) has not drawn the stroke yet: `RemoteInk.shows` (the surface's model
+  holds the stroke, or is not loading) keeps the ink, and `SharedNotebook` follows that model's
+  loads (`SurfaceChange.loaded`) to `recheck` it, so it goes in the frame the reload brings the
+  stroke in (`test/live_pointers_test.dart` checks every frame on a canvas whose reads answer
+  late). A record that overtakes its `end` is remembered for 2 s. It also
+  goes on `end` without strokes, 2 s after `end` without the records (afresh once they arrived
+  on a surface still reloading), 3 s after the last points, or when the writer is no longer in
+  the room's presence (left, or this device's connection dropped).
+- **Pointers** (same section): `PointerRelay` (`features/editor/live_ink/`, one per
+  `EditorSession`) shows where this editor points: `InkEvents.hovered` (the input's hover, in
+  the active surface's coordinates; null on exit and on a pen or mouse press) and the laser's
+  `LaserTrail` (pressed, hovering, dot, and the trail points added since — `LaserTrail.added`).
+  It hooks into both only while another device is in the room (it follows presence), so alone
+  it costs nothing; then it sends what changed at most every 40 ms, a held laser again every
+  second. `RemotePointers` (`ink/remote_pointers.dart`, one per `SharedNotebook`) keeps a
+  `RemotePointer` per device — its hover position or a `LaserTrail` replaying its laser — hides
+  it after 3 s without news and drops it when the device leaves. `RemotePointersOverlay` (in
+  `EditorCanvas`, over the content layer; `RepaintBoundary`, ticking only while a laser fades)
+  paints them through `frameOf` (a page's frame, the canvas as is): a small dot for hovering,
+  the laser as `LaserPaint` draws the local one, each labelled with the device's plate
+  (`RoomPresence.initialOf`, the presence plate's colours).
+- **End to end**: `integration_test/live_test.dart` runs two app instances at once
+  (`tool/e2e.sh`'s `live` phase, `LEN_E2E_ROLE` a and b, talking through files): B sees A's
+  pointer, its stroke as written, then the record, with no sync run in between.
 - **Failures.** After a failed run, runs the controller starts on its own
   wait 5 s, doubling up to 2 min (what that run was to push is still due); the
   live connection or event stream connecting again retries at once.

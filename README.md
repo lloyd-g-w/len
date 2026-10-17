@@ -81,6 +81,8 @@ rendering and a local sync server, two devices) under a virtual display:
 from nixpkgs; on a shared machine wrap it in `tool/heavy.sh`). The flows are
 in `app/integration_test/`; pictures of each step and the logs go to
 `$LEN_E2E_OUT` (default under `/tmp`), and any logged error fails the run.
+The last flow runs two app instances at once over the live connection;
+`LEN_E2E_PHASES` picks flows (`a b relaunch live`, e.g. `LEN_E2E_PHASES=live`).
 
 **Web walk-through** (`tool/web_explore.sh`, from `app/`, after
 `tool/build_web.sh` or `tool/build_web.sh --wasm`; ~5 min): drives the web

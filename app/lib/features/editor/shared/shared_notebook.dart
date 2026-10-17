@@ -6,6 +6,7 @@ import '../../../app_services.dart';
 import '../../../domain/notebook.dart';
 import '../../../domain/recording.dart';
 import '../../../ink/remote_ink.dart';
+import '../../../ink/remote_pointers.dart';
 import '../../../ink/surface_model.dart';
 import '../../../sync/sync_engine.dart';
 import '../../audio/notebook_audio.dart';
@@ -47,8 +48,13 @@ class SharedNotebook extends ChangeNotifier {
     // In the notebook's room: other devices here show in presence, and
     // their strokes as they are written.
     services.sync.rooms.join(notebook.id);
-    remoteInk = RemoteInk(services.sync.rooms, room: notebook.id);
+    remoteInk = RemoteInk(services.sync.rooms, room: notebook.id)..shows = _shows;
+    remotePointers = RemotePointers(services.sync.rooms, room: notebook.id);
   }
+
+  /// The pointers (hovering pens and mice, lasers) of other devices in
+  /// this notebook right now.
+  late final RemotePointers remotePointers;
 
   /// The strokes other devices are writing in this notebook right now.
   late final RemoteInk remoteInk;
@@ -208,8 +214,42 @@ class SharedNotebook extends ChangeNotifier {
         _pages?.refresh(surface, ids);
       }
     }
-    // Live ink whose stroke is drawn now goes (after: no frame without it).
+    // Live ink whose stroke is drawn now goes (after: no frame without it);
+    // on a surface reloading whole, once its load brought the stroke.
     remoteInk.landed(changes);
+    _watchReloads();
+  }
+
+  /// The model of surface [id] (the canvas or a page), if one is open.
+  SurfaceModel? _modelOf(String id) => id == _canvas?.surfaceId ? _canvas : _pages?.peek(id);
+
+  /// Whether stroke [strokeId], whose record arrived, is drawn on [surface]
+  /// (or cannot be: no view of it, or not in what its views load).
+  bool _shows(String surface, String strokeId) {
+    final model = _modelOf(surface);
+    return model == null || model.strokeById(strokeId) != null || !model.isLoading;
+  }
+
+  /// Loads of the surfaces whose remote ink waits for them ([_shows]).
+  final Map<String, StreamSubscription<SurfaceChange>> _reloads = {};
+
+  /// Follows the loads of the surfaces reloading under remote ink: the ink
+  /// goes in the frame their stroke arrives.
+  void _watchReloads() {
+    final waiting = remoteInk.reloading;
+    for (final surface in waiting) {
+      if (_reloads.containsKey(surface)) continue;
+      final model = _modelOf(surface);
+      if (model == null) continue;
+      _reloads[surface] = model.changes.listen((change) {
+        if (!change.loaded) return;
+        remoteInk.recheck();
+        if (!remoteInk.reloading.contains(surface)) unawaited(_reloads.remove(surface)?.cancel());
+      });
+    }
+    for (final surface in [..._reloads.keys]) {
+      if (!waiting.contains(surface)) unawaited(_reloads.remove(surface)!.cancel());
+    }
   }
 
   /// Called by `SharedNotebooks` when the last editor let go: saves a
@@ -217,7 +257,11 @@ class SharedNotebook extends ChangeNotifier {
   @override
   void dispose() {
     unawaited(_remote.cancel());
+    for (final reload in _reloads.values) {
+      unawaited(reload.cancel());
+    }
     remoteInk.dispose();
+    remotePointers.dispose();
     services.sync.rooms.leave(id);
     for (final doc in [..._docs.keys]) {
       detachDocument(doc);

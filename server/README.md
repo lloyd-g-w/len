@@ -186,7 +186,7 @@ server: devices recognise it by its id and upload everything.
 
 **Live connections** (`/v1/live`): at most 1000 at a time (`503` beyond),
 messages up to 4 MiB, rooms (one per open notebook) up to 8 per connection,
-relayed messages (live ink) up to 16 KiB and 40 a second per connection.
+relayed messages (live ink, pointers) up to 16 KiB and 40 a second per connection.
 Nothing sent in rooms is stored. A device that does not read (a stalled
 network) gets at most 1 MiB queued, then one "resync" that makes it pull.
 
