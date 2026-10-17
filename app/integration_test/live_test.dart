@@ -2,7 +2,8 @@
 // this file twice, LEN_E2E_ROLE=a and =b, each with its own data
 // directory) on one server. A writes; B sees A's pointer, then the stroke
 // as A writes it, then its record — all over the live connection, without
-// a pull. The two talk through files in $E2E_OUT/live/.
+// a pull. The two talk through files in $E2E_OUT/live/. The server is the
+// one the earlier phases used: its notebooks come down too.
 import 'dart:io';
 
 import 'package:flutter/gestures.dart';
@@ -60,7 +61,7 @@ void main() {
 Future<void> _writer(WidgetTester tester, AppServices s) async {
   await connectSync(tester, s);
   await createNotebook(tester, _title);
-  final nb = s.notebooks.list().single;
+  final nb = s.notebooks.list().singleWhere((n) => n.title == _title);
   // On the server (pushed live once the first sync ran), then B may come.
   final end = DateTime.now().add(const Duration(seconds: 30));
   while (!((await serverRecords())['notebooks'] ?? const []).any((n) => n['id'] == nb.id)) {
@@ -135,7 +136,7 @@ Future<void> _watcher(WidgetTester tester, AppServices s) async {
   await _heard(tester, 'a-ready');
   await connectSync(tester, s);
   await pumpUntil(tester, find.text(_title));
-  final nb = s.notebooks.list().single;
+  final nb = s.notebooks.list().singleWhere((n) => n.title == _title);
   final page = s.pages.pagesOf(nb.id).single;
   int strokes() => count(s, 'strokes', "surface_id = '${page.id}'");
   expect(strokes(), 0);
