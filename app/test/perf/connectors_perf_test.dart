@@ -119,7 +119,9 @@ void main() {
     test('drag one box with $arrows arrows: followers per move', () async {
       final db = AppDatabase.inMemory();
       final repository = StrokeRepository(db, deviceId: 'd');
-      final model = SurfaceModel(surfaceId: 's', repository: repository);
+      // Edits written after the frame showing them, as in the editor
+      // (`EditorSession`): the commit, then the write, timed apart.
+      final model = SurfaceModel(surfaceId: 's', repository: repository, writeBehind: true);
       final hub = _hub('s', arrows);
       repository.save([
         ...hub,
@@ -161,9 +163,9 @@ void main() {
       }, runs: 5);
       // Each commit drops the box (and its arrows, as followers) where the
       // drag left it; the next drag picks up the moved box.
+      // Profiled: the last drag's commit and write, sampled every 100 µs.
       final profile = const bool.fromEnvironment('PROFILE') ? await CpuProfile.connect() : null;
-      await profile?.start();
-      final commits = <int>[];
+      final commits = <int>[], writes = <int>[];
       for (var k = 0; k < 5; k++) {
         if (k > 0) {
           final frame = selection.frame!;
@@ -172,15 +174,23 @@ void main() {
           }
         }
         expect(selection.followers, isNotNull);
+        final last = k == 4 ? profile : null;
+        await last?.start(period: 100);
         final commit = Stopwatch()..start();
         selection.commitPreview();
         commits.add(commit.elapsedMicroseconds);
+        await last?.dump('commit $arrows', count: 70);
+        await last?.start(period: 100);
+        final write = Stopwatch()..start();
+        model.flush();
+        writes.add(write.elapsedMicroseconds);
+        await last?.dump('write $arrows', count: 40);
         expect(model.strokeById(selection.strokes.single.id)?.shapeId, 'hub');
       }
-      await profile?.dump('commit $arrows', count: 90);
       report(
         'CONNECTORS drag, $arrows arrows: setPreview ${_ms(perMove ~/ 20)} a move '
-        '(best of 5 × 20); commit ${_stats(commits)} (5 drags)',
+        '(best of 5 × 20); commit ${_stats(commits)}, written after the frame '
+        '${_stats(writes)} (5 drags)',
       );
       content.dispose();
       model.dispose();
