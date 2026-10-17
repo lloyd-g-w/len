@@ -284,7 +284,10 @@ From the reports; the owner picks. Status as above.
   before. Still worth a look on the tablet.
 - 🚧 (fix/r25-followups) **Teach curve editing and attaching ends** (UX_AUDIT R25-30): no hint says a tap on a
   selected curve's line adds an anchor and a double tap removes one, or that line and arrow
-  ends attach to shapes.
+  ends attach to shapes. Done: two one-time tips on the tips budget — "Tap the curve to add a
+  point; double-tap a point to remove it" when a curve is first selected (gone if it is
+  deselected), and "Drop a line or arrow end on a shape to attach it" when a dragged or drawn
+  end first finds a shape (once the pen rests, when drawn).
 
 - ✅ **Pages to screen readers** (UX_AUDIT R23-10): `PageSemantics`, one node per page in view
   ("Page 3 of 12, bookmarked") valued with its text boxes, recognised handwriting and PDF text

@@ -528,7 +528,9 @@ again. Text being typed reads once its write lands. The nodes take no pointers.
   phrased for `PenButtonAction`), hold to snap (a hand-drawn line or shape,
   `HoldToStraighten.wouldSnap` via `InkEvents.shapeDrawn`; writing on puts it off to the
   next shape), the lasso (when picked; never over a selection, and a selection is the
-  tip done), scribble to erase (the eraser picked again). Each only while its setting
+  tip done), scribble to erase (the eraser picked again), curve points (a single curve
+  selected; gone with it), attaching ends (`SelectionController.attachHint` set by a
+  handle drag or the Shape tool; R25-30). Each only while its setting
   is on. `TipBanner` (`chrome/tip_banner.dart`) sits at the bottom above the toolbar,
   ignores all pointers (strokes go to the page), fades while the pen is down and hides
   behind snack bars; its 10 s stop meanwhile, and it counts as seen

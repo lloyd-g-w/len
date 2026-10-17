@@ -233,11 +233,13 @@ a press that draws on another page (a stylus) still finishes the curve
 and starts one there, as a tool change does (`curve_pages_test`). With
 finger drawing, a finger there is a drawing press too (it may be a tap).
 
-**R25-30 P3 · Curve hints.** ✅ / ⬜ With Curve picked the keyboard line said
+**R25-30 P3 · Curve hints.** ✅ With Curve picked the keyboard line said
 "Hold Shift…" (Shift does nothing for curves); it now says "Enter finishes
-a curve, Esc drops it". ⬜ Editing a selected curve (tap the line to add an
+a curve, Esc drops it". ✅ Editing a selected curve (tap the line to add an
 anchor, double tap one to remove it) and Line / Arrow ends attaching to
-shapes are taught nowhere; a caption line each would fit.
+shapes were taught nowhere; each is now a one-time tip (`EditorTip.curve`,
+`EditorTip.attach`): on first selecting a curve, and when an end being
+dragged or drawn first finds a shape.
 
 **R25-31 P3 · A drawn arrow looks for its tip's target at the raw pointer, not the Shift- or snap-adjusted end.** ⬜
 (`shape_tool.dart` `_connected`); only one target is outlined while
