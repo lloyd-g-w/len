@@ -225,6 +225,49 @@ void main() {
       expect(tools.configOf(InkTool.ballpoint).colorIndex, 0);
     });
 
+    testWidgets('the highlighter has the pen\'s customisation: slot editors and counts', (
+      tester,
+    ) async {
+      final tools = await pumpToolbar(tester, const Size(1280, 900));
+      await tester.tap(find.byTooltip('Highlighter (H)'));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.byKey(const ValueKey('color-1')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('color-slot-editor')), findsOneWidget);
+      await tester.tapAt(const Offset(1200, 850));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.byKey(const ValueKey('width-0')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('width-slot-editor')), findsOneWidget);
+      await tester.tapAt(const Offset(1200, 850));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Highlighter (H)'));
+      await tester.pumpAndSettle();
+      expect(inPopover(find.text('Reset')), findsOneWidget);
+      expect(inPopover(find.byType(StrokePreview)), findsOneWidget);
+      // Disclosures stay open while the app runs (an earlier test may have opened them).
+      Future<bool> open(String disclosure, Finder inside) async {
+        if (inside.evaluate().isNotEmpty) return false;
+        await tester.ensureVisible(find.text(disclosure));
+        await tester.tap(find.text(disclosure));
+        await tester.pumpAndSettle();
+        return true;
+      }
+
+      await open('Quick colours and sizes', find.byTooltip('More quick sizes'));
+      await tester.ensureVisible(find.byTooltip('More quick sizes'));
+      await tester.tap(find.byTooltip('More quick sizes'));
+      await tester.pump();
+      expect(tools.configOf(InkTool.highlighter).widths, hasLength(4));
+      expect(tools.configOf(InkTool.ballpoint).widths, hasLength(3));
+      final opened = await open('Opacity and feel', find.text('Pressure sensitivity'));
+      for (final label in ['Opacity', 'Pressure sensitivity', 'Stabiliser', 'Ends']) {
+        expect(inPopover(find.text(label)), findsOneWidget, reason: label);
+      }
+      // Leave Feel as the next tests expect it.
+      if (opened) await tester.tap(find.text('Opacity and feel'));
+    });
+
     testWidgets('phones: one tap swaps the pen and the previous tool', (tester) async {
       final tools = await pumpToolbar(tester, const Size(390, 800));
       final previous = find.byKey(const ValueKey('previous-tool'));

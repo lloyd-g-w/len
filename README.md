@@ -20,7 +20,8 @@ optional sync through a tiny server you host yourself.
   drag a selected shape's handles to reshape it; closed shapes take a fill.
 - **Lasso**: freehand or rectangle; select what it touches, mostly or wholly encloses,
   and which items (ink, highlighter, text, images).
-- **Laser pointer**: fades per stroke, or holds everything until you stop writing.
+- **Laser pointer**: fades per stroke, or holds everything until you stop writing; quick
+  colours and sizes like the pen's.
 - **Zoom window**: write large in a docked box, small on the page; it moves along the
   lines and pages.
 - **Minimap** on infinite canvases: see where content is, tap or drag to move.

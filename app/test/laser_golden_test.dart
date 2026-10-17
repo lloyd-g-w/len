@@ -33,16 +33,16 @@ void main() {
   testWidgets('laser pointer: trail and dot, colours, options panel', (tester) async {
     await loadFonts();
     tester.view
-      ..physicalSize = const Size(980, 620)
+      ..physicalSize = const Size(980, 680)
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final viewport = ViewportController();
     addTearDown(viewport.dispose);
     final configs = [
       const LaserConfig(),
-      const LaserConfig(color: 0xFF2BD957, size: 9),
-      const LaserConfig(color: 0xFF2F8BFF, size: 4),
-      const LaserConfig(mode: LaserMode.dot, size: 10),
+      const LaserConfig(colorIndex: 1, sizes: [9], sizeIndex: 0),
+      const LaserConfig(colorIndex: 2, sizeIndex: 0),
+      const LaserConfig(mode: LaserMode.dot, sizeIndex: 2),
     ];
     final trails = [
       for (final (i, c) in configs.indexed)
@@ -54,7 +54,7 @@ void main() {
         sampleTrail(c, Offset(20.0 + (i % 2) * 330, 10.0 + (i ~/ 2) * 130)),
     ];
     final tools = ToolSettings()
-      ..laser = const LaserConfig(color: 0xFF2BD957, size: 9, fade: LaserFade.pause);
+      ..laser = const LaserConfig(colorIndex: 1, sizes: [4, 9, 12], fade: LaserFade.pause);
     addTearDown(tools.dispose);
     await tester.pumpWidget(
       MaterialApp(

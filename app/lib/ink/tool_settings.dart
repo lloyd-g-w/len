@@ -109,23 +109,37 @@ class ToolSettings extends _ToolState {
   StrokeStyle styleFor(InkTool tool) => configOf(tool).styleFor(tool);
 
   /// Selects colour slot [index] of the active ink (switching to the pen
-  /// from tools that draw no ink).
+  /// from tools that draw no ink), or of the laser while it is the tool.
   void selectColor(int index) {
+    if (_tool == EditorTool.laser) {
+      if (index >= 0 && index < _laser.colors.length) laser = _laser.copyWith(colorIndex: index);
+      return;
+    }
     if (index < 0 || index >= activeConfig.colors.length) return;
     _leaveNonInk();
     updateConfig(activeInk, (c) => c.copyWith(colorIndex: index));
   }
 
   /// Selects width slot [index] of the active ink (switching to the pen
-  /// from tools that draw no ink).
+  /// from tools that draw no ink), or size slot [index] of the laser while
+  /// it is the tool.
   void selectWidth(int index) {
+    if (_tool == EditorTool.laser) {
+      if (index >= 0 && index < _laser.sizes.length) laser = _laser.copyWith(sizeIndex: index);
+      return;
+    }
     if (index < 0 || index >= activeConfig.widths.length) return;
     _leaveNonInk();
     updateConfig(activeInk, (c) => c.copyWith(widthIndex: index));
   }
 
-  /// Steps the active ink's width selection by [delta] slots, clamped.
+  /// Steps the active ink's width selection (the laser's size, while it
+  /// is the tool) by [delta] slots, clamped.
   void stepWidth(int delta) {
+    if (_tool == EditorTool.laser) {
+      selectWidth((_laser.sizeIndex + delta).clamp(0, _laser.sizes.length - 1));
+      return;
+    }
     final c = activeConfig;
     selectWidth((c.widthIndex + delta).clamp(0, c.widths.length - 1));
   }

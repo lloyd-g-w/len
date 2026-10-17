@@ -453,7 +453,7 @@ void main() {
 
   test('the laser tool records samples a few pixels apart; the dot follows all', () {
     final trail = LaserTrail();
-    final tool = LaserTool(trail, config: () => const LaserConfig(size: 9))
+    final tool = LaserTool(trail, config: () => const LaserConfig(sizes: [9], sizeIndex: 0))
       ..down(const ToolPointer(screen: Offset.zero, world: Offset.zero))
       ..move(const ToolPointer(screen: Offset(0.5, 0), world: Offset(0.5, 0)))
       ..move(const ToolPointer(screen: Offset(3, 0), world: Offset(3, 0)));
@@ -468,8 +468,10 @@ void main() {
     final store = SettingsRepository(db);
     const config = LaserConfig(
       mode: LaserMode.dot,
-      color: 0xFF2F8BFF,
-      size: 10,
+      colors: [0xFF2F8BFF, 0xFFFFD60A],
+      colorIndex: 1,
+      sizes: [10, 3, 16, 5],
+      sizeIndex: 2,
       duration: Duration(milliseconds: 2500),
     );
     final tools = ToolSettings(store: store)..laser = config;
