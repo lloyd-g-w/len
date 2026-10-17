@@ -111,7 +111,12 @@ class EditorCanvas extends StatelessWidget {
     final doc = session.doc;
     return doc != null
         ? PageSemantics.document(doc: doc, texts: texts)
-        : PageSemantics.canvas(canvasId: session.notebook.id, texts: texts);
+        : PageSemantics.canvas(
+            canvasId: session.notebook.id,
+            canvas: session.canvas!,
+            viewport: session.canvasViewport!,
+            texts: texts,
+          );
   }
 
   Widget _surface(BuildContext context) {

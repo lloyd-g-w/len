@@ -456,7 +456,9 @@ bookmarked", whose value is the page's text: `SurfaceText` (`data/search/surface
 reads the text boxes (`search_docs`, placed by `elements`) and recognised handwriting
 (`ink_text`) in reading order (top, then left), then the PDF page's extracted text
 (`search_docs` kind `pdf`; turning semantics on schedules `SearchService.indexPdfs` for PDFs not
-read yet). Scroll forward / back (`onScrollUp` / `onScrollDown`) and the custom actions *Next
+read yet). The active page's text boxes in view are nodes of their own (`TextBoxSemantics`), so
+its value leaves them out (`TextBoxSemantics.shown`, R25-23: read once); other pages, and boxes
+out of view, stay in their page's value. Scroll forward / back (`onScrollUp` / `onScrollDown`) and the custom actions *Next
 page* / *Previous page* call `scrollToPage` and announce the page's name. An infinite canvas is
 one "Canvas" node with its whole text. Cost: nothing while no semantics client is attached
 (`SemanticsBinding.semanticsEnabled`, listened to: the widget is an empty box, listens to
@@ -2398,7 +2400,8 @@ GoodNotes-style rich text inside a box.
 - **Screen readers**: while semantics are on, `TextBoxSemantics` lays a node
   over each text box in view on the edited surface (its text, in reading
   order; activating it edits the box). The pages themselves are
-  `PageSemantics`' nodes (see *Paged notebooks*).
+  `PageSemantics`' nodes (see *Paged notebooks*), whose values leave these
+  boxes out.
 - **Lasso**: *Style* (`selection_style_panel.dart`) changes font and size of the
   selected boxes and pen type / width of selected ink (`SelectionController
   .restyleText` / `restyleInk`, one undo step each); *Colour* recolours all text.

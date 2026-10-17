@@ -181,11 +181,13 @@ a fixed plate on the paper, sized with the pointer.
 **R25-22 P3 · In dot mode the feel was greyed with no reason while Fade was hidden.** ✅
 Feel is hidden for the dot, as Fade is.
 
-**R25-23 P3 · A page's text boxes are read twice.** ⬜ The page (or Canvas)
+**R25-23 P3 · A page's text boxes are read twice.** ✅ The page (or Canvas)
 node's value holds its text boxes, and the active surface's boxes have
 their own nodes too. Either is useful (an overview vs navigable boxes);
 dropping boxes of the active surface from the value is one line — owner's
-call (TODO "Next").
+call (TODO "Next"). *Fix (owner's decision):* the active surface's boxes
+that have nodes (those in view, `TextBoxSemantics.shown`) are left out of
+its value; other pages, and boxes out of view, keep theirs.
 
 **R25-24 P3 · The 30 % stabiliser upgrade also ran for settings saved by a later version.** ✅
 `version != prefsVersion` → older than it. A pen deliberately set to off

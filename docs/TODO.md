@@ -275,8 +275,8 @@ From the reports; the owner picks. Status as above.
   with the layout first); the zoom window draws neither other devices' live ink nor their
   pointers; their hover dot is a hollow ring on light paper in dark mode (R25-18).
 - 🚧 (fix/r25-followups) **Text boxes read twice** (UX_AUDIT R25-23): a page's screen-reader value holds its text
-  boxes, and the active page's boxes are nodes of their own too. Keep the overview, or leave the
-  active surface's boxes out of the value?
+  boxes, and the active page's boxes are nodes of their own too. Done: the active surface's
+  boxes in view (those with nodes) are left out of its value; other pages keep theirs.
 - 🚧 (fix/r25-followups) **A curve in progress and a finger pan on another page** (UX_AUDIT R25-29, suspected): the
   pan's first touch activates that page, which finishes (or, with one anchor, drops) the curve.
   Check on the tablet; keep the page while a curve is drawn, without letting a stylus add
