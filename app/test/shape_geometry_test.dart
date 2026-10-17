@@ -80,7 +80,6 @@ void main() {
         {...line, 'i': 0.4},
         {...star}..remove('i'),
         {...star, 'i': 1.5},
-        {...star}..remove('n'),
         {...star, 'n': 2},
         {...star, 'n': 13},
         {...star, 'n': 5.5},
@@ -100,6 +99,24 @@ void main() {
       ]) {
         expect(() => ShapeGeometry.fromJson(bad), throwsFormatException, reason: '$bad');
       }
+    });
+
+    test('shapes written before handles by meaning still read', () {
+      // A star without its number of points (all had five), a straight
+      // line of two points, a skewed ellipse (conjugate radii, below).
+      final star = ShapeGeometry.fromJson({
+        'k': 'star',
+        'p': [50, 50, 90, 50, 50, 90],
+        'i': 0.42,
+      });
+      expect(star.tips, 5);
+      expect(ShapeBuilder.starVertices(star), hasLength(10));
+      final line = ShapeGeometry.fromJson({
+        'k': 'arrow',
+        'p': [0, 0, 100, 0],
+      });
+      expect(line.isBent, isFalse);
+      expect(ShapeBuilder.outline(line).first, Offset.zero);
     });
 
     test('an ellipse keeps perpendicular radii; a circle turned stays one', () {

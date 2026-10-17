@@ -150,7 +150,8 @@ class ShapeGeometry {
   };
 
   /// Parses [json] strictly (see [toJson]); throws [FormatException] when
-  /// malformed. An ellipse's semi-axes are made perpendicular.
+  /// malformed. An ellipse's semi-axes are made perpendicular; a star
+  /// without `n` has five points.
   static ShapeGeometry fromJson(Object? json) {
     if (json is! Map) throw const FormatException('Malformed shape');
     final kind = ShapeKind.strict(json['k']);
@@ -171,10 +172,12 @@ class ShapeGeometry {
       if (inner is! num || !(inner >= minInner && inner <= maxInner)) {
         throw const FormatException('Malformed shape: i');
       }
-      if (tips is! int || tips < minTips || tips > maxTips) {
+      // Stars written before they had other numbers of points have five.
+      final n = tips ?? defaultTips;
+      if (n is! int || n < minTips || n > maxTips) {
         throw const FormatException('Malformed shape: n');
       }
-      return ShapeGeometry(kind, points, inner: inner.toDouble(), tips: tips);
+      return ShapeGeometry(kind, points, inner: inner.toDouble(), tips: n);
     }
     if (inner != null || tips != null) {
       throw const FormatException('Malformed shape: i or n without a star');
