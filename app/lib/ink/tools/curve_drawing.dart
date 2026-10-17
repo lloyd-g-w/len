@@ -73,6 +73,10 @@ class CurveDrawing extends ChangeNotifier {
   /// Whether a curve is being drawn.
   bool get active => _model != null;
 
+  /// What to show over the curve being drawn (its anchors, the close
+  /// target, the tangents being pulled); null when none is.
+  final ValueNotifier<CurveGuide?> guide = ValueNotifier(null);
+
   int get _anchors => (_points.length + 2) ~/ 3;
 
   /// A press at [p]: the first anchor of a new curve on [model] (whose
@@ -100,12 +104,12 @@ class CurveDrawing extends ChangeNotifier {
     }
     _before = _state;
     final reach = SelectionChrome.shapeHitRadius(p.kind);
-    final last = viewport.toScreen(_points.last), first = viewport.toScreen(_points.first);
+    final last = viewport.toScreen(_points.last);
     if ((p.screen - last).distance <= reach && clock.nowMs() - _lastUp <= doubleTapMs) {
       _finishing = true;
       return;
     }
-    if (_anchors >= 2 && (p.screen - first).distance <= reach) {
+    if (closesAt(p.screen, p.kind)) {
       _closing = true;
       _show();
       return;
@@ -114,6 +118,13 @@ class CurveDrawing extends ChangeNotifier {
     _lastOut = p.world;
     _show();
   }
+
+  /// Whether a press at [screen] by a [kind] of pointer would close the
+  /// curve (on its first anchor, with a second placed).
+  bool closesAt(Offset screen, [PointerDeviceKind kind = PointerDeviceKind.touch]) =>
+      active &&
+      _anchors >= 2 &&
+      (viewport.toScreen(_points.first) - screen).distance <= SelectionChrome.shapeHitRadius(kind);
 
   /// The pointer at [p]: after the slop, the anchor pressed gets tangents
   /// pulled out to [p] (and opposite).
@@ -258,6 +269,7 @@ class CurveDrawing extends ChangeNotifier {
 
   /// No curve is drawn any more.
   void _end() {
+    guide.value = null;
     _model = null;
     _pressed = false;
     _placed.clear();
@@ -279,6 +291,24 @@ class CurveDrawing extends ChangeNotifier {
       shape == null
           ? [StrokePoint(_points.first.dx, _points.first.dy, 0.5)]
           : ShapeBuilder.pointsOf(shape, spacing: spacing),
+    );
+    guide.value = _guide();
+  }
+
+  /// The anchors so far, and the tangents of the last one (the first while
+  /// closing): where the next segment leaves from.
+  CurveGuide _guide() {
+    final p = _points, i = p.length - 1;
+    final a = _closing ? p.first : p[i];
+    final into = _closing ? _firstIn : (i == 0 ? _firstIn : p[i - 1]);
+    final out = _closing ? (p.length > 1 ? p[1] : null) : _lastOut;
+    return CurveGuide(
+      anchors: [for (var j = 0; j < p.length; j += 3) p[j]],
+      closes: _anchors >= 2,
+      tangents: [
+        for (final t in [into, out])
+          if (t != null && t != a) (anchor: a, handle: t),
+      ],
     );
   }
 
@@ -309,6 +339,12 @@ class CurveDrawing extends ChangeNotifier {
     );
   }
 
+  @override
+  void dispose() {
+    guide.dispose();
+    super.dispose();
+  }
+
   /// Whether [shape] spans less than a few pixels (taps on one spot).
   bool _tiny(ShapeGeometry shape) {
     var r = Rect.fromPoints(shape.points.first, shape.points.first);
@@ -330,3 +366,15 @@ typedef _Dropped = ({
   _Spline spline,
   List<_Spline> undone,
 });
+
+/// What [CurveDrawing] shows over a curve being drawn (world coordinates):
+/// its [anchors], whether the first one [closes] it, and the [tangents]
+/// of the anchor placed last (or being pulled).
+@immutable
+class CurveGuide {
+  const CurveGuide({required this.anchors, required this.closes, required this.tangents});
+
+  final List<Offset> anchors;
+  final bool closes;
+  final List<({Offset anchor, Offset handle})> tangents;
+}
