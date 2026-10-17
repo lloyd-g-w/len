@@ -2909,7 +2909,11 @@ manifest and, for a backup, the folders and notebooks it holds), stages
 everything, remaps ids (`LenRemap`), checks each blob's hash and commits in
 one transaction (`LenImportCommit`). Damage (a blob, a line, a part) is
 left out and reported, the rest imported; an error or Cancel leaves nothing
-behind. What the file is decides where it goes (`importLenFlow`): a
+behind (a restore that wrote over the tombstones of a notebook deleted here
+puts those of its text boxes, recordings and outline entries back as they
+were, what their deletion knew included, and removes such rows it added:
+the same version must say the same on every device, as last-write-wins
+never replaces an equal one). What the file is decides where it goes (`importLenFlow`): a
 notebook or folder into the library's open folder (`LenArchives.openFolder`)
 wherever the import started; a backup, after a confirmation that offers to
 skip notebooks already here, at the top level as it was into an empty
