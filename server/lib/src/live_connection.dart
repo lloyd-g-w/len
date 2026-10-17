@@ -231,7 +231,12 @@ class LiveConnection {
     while (_queue.isNotEmpty && !_out.isPaused && !_out.isClosed) {
       final m = _queue.removeFirst();
       _queuedBytes -= m.text.length;
-      if (m.kind == LiveKind.resync) _resyncQueued = false;
+      if (m.kind == LiveKind.resync) {
+        _resyncQueued = false;
+        // Written now, so its seq covers the records dropped meanwhile.
+        _out.add(resyncText?.call() ?? m.text);
+        continue;
+      }
       _out.add(m.text);
     }
   }

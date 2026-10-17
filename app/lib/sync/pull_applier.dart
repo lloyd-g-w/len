@@ -138,8 +138,9 @@ class PullApplier {
         // A live stroke or element is now on the surface its record names
         // (written as such); a tombstone stays where it was.
         case StrokeRepository() || ElementRepository():
-          _addKnown(changes.strokeSurfaces, record.data?['surfaceId'] as String?);
-          _addKnown(changes.strokeSurfaces, previousOwner);
+          for (final surface in {record.data?['surfaceId'] as String?, previousOwner}) {
+            if (surface != null && surface.isNotEmpty) changes.addItem(surface, record.id);
+          }
         case OutlineRepository():
           _addKnown(changes.outlineOfNotebooks, r.outline.notebookOf(record.id));
           _addKnown(changes.outlineOfNotebooks, previousOwner);

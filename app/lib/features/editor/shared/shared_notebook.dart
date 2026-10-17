@@ -190,7 +190,16 @@ class SharedNotebook extends ChangeNotifier {
       _backgrounds?.pdf.retryMissing(); // New pages may bring new PDFs.
       _pdfInfo?.retry();
     }
-    changes.strokeSurfaces.forEach(reloadSurface);
+    for (final surface in changes.strokeSurfaces) {
+      final ids = changes.itemsOf(surface);
+      if (ids == null) {
+        reloadSurface(surface);
+      } else {
+        // Only what changed (a stroke written elsewhere a moment ago).
+        if (surface == _canvas?.surfaceId) _canvas!.refreshItems(ids);
+        _pages?.refresh(surface, ids);
+      }
+    }
   }
 
   /// Called by `SharedNotebooks` when the last editor let go: saves a

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -6,9 +7,13 @@ import 'package:flutter/foundation.dart';
 import '../core/clock.dart';
 import '../data/settings_repository.dart';
 import '../data/sync_token_store.dart';
+import '../platform/live_socket.dart';
 import 'blob_sync.dart';
 import 'freed_files.dart';
+import 'live_channel.dart';
 import 'live_events.dart';
+import 'live_link.dart';
+import 'live_rooms.dart';
 import 'revival_notice.dart';
 import 'sync_api.dart';
 import 'sync_engine.dart';
@@ -16,16 +21,22 @@ import 'sync_engine.dart';
 part 'sync_controller_live.dart';
 part 'sync_controller_requests.dart';
 part 'sync_controller_run.dart';
+part 'sync_controller_socket.dart';
 
 enum SyncState { disabled, idle, syncing, error }
 
 /// Schedules sync cycles and exposes their status to the UI.
 ///
-/// Once [start]ed, a run follows local writes ([writeDelay] after writing
-/// pauses), the server's events (another device pushed: [remoteDelay]
-/// later; heard over [LiveEvents] while the app is in the [foreground]),
-/// leaving and returning to the app, and a fallback timer ([interval], or
-/// [liveInterval] while the event stream is healthy). Failed runs are
+/// Once [start]ed, sync is live while the app is in the [foreground]: a
+/// live connection ([LiveLink], `/v1/live`) carries local edits to the
+/// server a frame after they are committed (at most one push per
+/// [livePushDelay]) and brings other
+/// devices' records as they are stored. Runs (push, pull, push) follow
+/// what the connection cannot carry, local writes while it is down
+/// ([writeDelay] after writing pauses), the server's news (a gap in the
+/// feed, the event stream [LiveEvents] where live connections fail:
+/// [remoteDelay] later), leaving and returning to the app, and a fallback
+/// timer ([interval], or [liveInterval] while connected). Failed runs are
 /// tried again after a backoff ([firstRetry] doubling up to [lastRetry]).
 class SyncController extends ChangeNotifier with _SyncRequests {
   SyncController({
@@ -37,7 +48,9 @@ class SyncController extends ChangeNotifier with _SyncRequests {
     this.writeDelay = const Duration(seconds: 3),
     this.writeMaxDelay = const Duration(seconds: 10),
     this.remoteDelay = const Duration(seconds: 1),
+    this.livePushDelay = const Duration(milliseconds: 150),
     this.apiFactory = defaultApi,
+    this.liveConnector = connectLive,
     this.clock = const Clock(),
     this.jitter,
   }) {
@@ -76,10 +89,27 @@ class SyncController extends ChangeNotifier with _SyncRequests {
   /// burst make one).
   final Duration remoteDelay;
 
+  /// The least time between two pushes over the live connection: a
+  /// commit (a pen-up, a move) goes out a frame later ([liveFrame]) unless
+  /// a push went less than this ago; writes meanwhile make one push then.
+  final Duration livePushDelay;
+
+  /// How long after a commit a live push goes: writes of the same frame
+  /// (a stroke and its notebook's edit time) make one.
+  static const liveFrame = Duration(milliseconds: 16);
+
+  /// Opens the live connection to [SyncApi]'s server ([connectLive];
+  /// tests connect to a server in process).
+  final Future<LiveChannel> Function(SyncApi api) liveConnector;
+
   /// The first delay before a failed run is tried again; it doubles with
   /// every failure in a row, up to [lastRetry].
   static const firstRetry = Duration(seconds: 5);
   static const lastRetry = Duration(minutes: 2);
+
+  /// Failed live connections in a row after which the event stream opens
+  /// as well (it closes once a live connection works again).
+  static const eventsAfterFailures = 2;
 
   /// The app's clock: when syncs worked or began failing, and how long ago
   /// that is (the captions and alerts read it too).
@@ -117,8 +147,41 @@ class SyncController extends ChangeNotifier with _SyncRequests {
     random: jitter,
   );
 
-  /// Whether the app is in the foreground (the event stream is open only
-  /// then); the app sets it from its lifecycle.
+  /// The live connection (open while [_LiveSync._updateLive] says).
+  late final LiveLink _socket = LiveLink(
+    connect: () async {
+      final api = apiFactory(settings.syncUrl, tokens.token);
+      try {
+        return await liveConnector(api);
+      } finally {
+        api.close();
+      }
+    },
+    onMessage: _onLiveMessage,
+    onChanged: _onSocketChanged,
+    identity: () => (deviceId: engine.repositories.strokes.deviceId, name: deviceName),
+    random: jitter,
+  );
+  final _s = _Socket();
+
+  /// The rooms (open notebooks) this device is in, who else is there, and
+  /// their live messages.
+  late final LiveRooms rooms = LiveRooms(_socket);
+
+  /// How this device is named to others in a room.
+  static String get deviceName => kIsWeb
+      ? 'Browser'
+      : switch (defaultTargetPlatform) {
+          TargetPlatform.android => 'Android',
+          TargetPlatform.iOS => 'iPad',
+          TargetPlatform.linux => 'Linux',
+          TargetPlatform.macOS => 'Mac',
+          TargetPlatform.windows => 'Windows',
+          TargetPlatform.fuchsia => 'Device',
+        };
+
+  /// Whether the app is in the foreground (the live connection is open
+  /// only then); the app sets it from its lifecycle.
   bool get foreground => _foreground;
   set foreground(bool value) {
     if (value == _foreground) return;
@@ -128,12 +191,25 @@ class SyncController extends ChangeNotifier with _SyncRequests {
 
   bool _foreground = true;
 
-  /// Whether the event stream is open and alive.
-  bool get live => _live.healthy;
+  /// Whether the live connection (or, where it fails, the event stream)
+  /// is open and alive: changes elsewhere arrive at once.
+  bool get live => _socket.healthy || _live.healthy;
+
+  /// Whether the live connection is open and alive.
+  bool get connected => _socket.healthy;
 
   /// Connections the event stream opened (tests).
   @visibleForTesting
   int get liveConnections => _live.connections;
+
+  /// Live connections opened, records messages applied and live pushes
+  /// made (tests).
+  @visibleForTesting
+  int get socketConnections => _socket.connections;
+  @visibleForTesting
+  int get liveApplied => _s.applied;
+  @visibleForTesting
+  int get livePushes => _s.pushes;
 
   /// What makes runs due on their own (see [_LiveSync]).
   final _t = _Triggers();
@@ -314,6 +390,8 @@ class SyncController extends ChangeNotifier with _SyncRequests {
     _configGeneration++;
     _api?.close();
     _live.run = false;
+    _socket.run = false;
+    _s.reset();
     _t.reset();
     _lastError = _lastErrorDetails = _lastFailure = null;
     _failingSince = null;
@@ -330,6 +408,7 @@ class SyncController extends ChangeNotifier with _SyncRequests {
       return _running = _run().whenComplete(() {
         _running = null;
         _runEnded(failed: _state == SyncState.error);
+        _liveAfterRun();
       });
     }
     // After the run however it ended: a follow-up is never lost.
@@ -337,6 +416,14 @@ class SyncController extends ChangeNotifier with _SyncRequests {
       _queued = null;
       return syncNow();
     });
+  }
+
+  /// The live connection opened or closed.
+  void _onSocketChanged() {
+    if (_disposed) return;
+    if (!_socket.healthy) _s.hello = null;
+    _updateLive();
+    notifyListeners();
   }
 
   static String _files(int n) => n == 1 ? '1 file' : '$n files';
@@ -379,7 +466,10 @@ class SyncController extends ChangeNotifier with _SyncRequests {
     tokens.removeListener(_tokenChanged);
     _timer?.cancel();
     _t.dispose();
+    _s.dispose();
     _live.dispose();
+    _socket.dispose();
+    rooms.dispose();
     _api?.close();
     unawaited(_remoteChanges.close());
     unawaited(_notices.close());
