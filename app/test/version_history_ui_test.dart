@@ -244,8 +244,10 @@ void main() {
     expect(offers(live.copyWith(trashedAt: 1)), isFalse);
   });
 
-  testWidgets('the editor’s ⋯ menu saves a version and opens the history', (tester) async {
-    var saved = 0, history = 0;
+  testWidgets('the editor’s ⋯ menu opens the history (Save version… is in its header)', (
+    tester,
+  ) async {
+    var history = 0;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light(),
@@ -265,7 +267,6 @@ void main() {
                 onSearch: () {},
                 zoomWindow: false,
                 onZoomWindow: () {},
-                onSaveVersion: () => saved++,
                 onVersionHistory: () => history++,
               ),
             ),
@@ -275,12 +276,9 @@ void main() {
     );
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Save version…'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('More options'));
-    await tester.pumpAndSettle();
+    expect(find.text('Save version…'), findsNothing);
     await tester.tap(find.text('Version history…'));
     await tester.pumpAndSettle();
-    expect((saved, history), (1, 1));
+    expect(history, 1);
   });
 }

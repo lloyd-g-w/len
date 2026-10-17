@@ -72,12 +72,15 @@ copy or restore runs at a time; taps meanwhile are ignored.
 It now says "Version deleted" with Undo (`Versions.undelete` writes the
 row back as a newer edit; its packs are still here).
 
-**R25-33 P2 · ⋯ passed its cap by two rows.** ⬜ Round 24 left ⋯ at 8 rows
+**R25-33 P2 · ⋯ passed its cap by two rows.** ✅ Round 24 left ⋯ at 8 rows
 on a tablet and up to 11 on a phone, "the next command merges before it
 adds"; version history added Save version… and Version history… (10 and
 12, `editor_phone_more_menu.png`). *Proposal:* one row, Version history…;
-its sheet's header already has Save version…. Owner's call, as the two
-rows were asked for (TODO "Next").
+its sheet's header already has Save version…. *Fixed:* ⋯ has one row,
+Version history… (9 rows on a tablet, the one row the feature adds; 11 on
+a phone, within its cap; the library's notebook menu
+had only that row already); Save version… is the sheet's header button.
+There was no shortcut for either.
 
 **R25-6 P2 · After a restore, the editor's Ctrl+Z does nothing and Ctrl+Shift+Z partly undoes the restore.** ⬜
 - *What:* a restore is not an `UndoHistory` step, but the editor's undo
@@ -89,11 +92,11 @@ rows were asked for (TODO "Next").
   step). Needs a decision: CONVENTIONS wants every edit undoable through
   `UndoHistory` (TODO "Next").
 
-**R25-7 P2 · The preview's title was cut on phones.** ✅ / ⬜
+**R25-7 P2 · The preview's title was cut on phones.** ✅
 "17 Oct 2026…" lost the time at 390 dp. The title is now the list's short
-form ("Today, 14:02") on one line. ⬜ At 2× text the page view's "Page 1 of
-2" still vanishes beside Restore this page; a compact layout would move
-the actions under the title.
+form ("Today, 14:02") on one line. At 2× text the page view's "Page 1 of
+2" vanished beside Restore this page: on phones that button now sits in a
+bar under the page (`version_preview.dart`).
 
 **R25-8 P3 · Escape does not close the preview or its page view.** ⬜ Keep
 for now: the page overview and Settings don't either. A route-wide rule

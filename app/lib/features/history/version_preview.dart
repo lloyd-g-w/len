@@ -122,50 +122,60 @@ class VersionPreview extends StatelessWidget {
   Future<void> _openPage(BuildContext context, VersionPage page, int index, int count) =>
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (pageContext) => Scaffold(
-            appBar: AppBar(
-              title: Text(
-                'Page ${index + 1} of $count',
-                style: Theme.of(pageContext).textTheme.titleMedium,
-              ),
-              actions: [
-                FilledButton(
-                  onPressed: () async {
-                    if (!await restorePageFlow(
-                      pageContext,
-                      services,
-                      version,
-                      page.id,
-                      message: message,
-                    )) {
-                      return;
-                    }
-                    if (!pageContext.mounted) return;
-                    Navigator.of(pageContext)
-                      ..pop()
-                      ..pop();
-                    onRestored?.call();
-                  },
-                  child: const Text('Restore this page'),
+          builder: (pageContext) {
+            // Phones: the action sits under the page, so the title keeps
+            // its row at large text sizes (UX_AUDIT R25-7).
+            final compact = MediaQuery.sizeOf(pageContext).width < Breakpoints.medium;
+            final restore = FilledButton(
+              onPressed: () async {
+                if (!await restorePageFlow(
+                  pageContext,
+                  services,
+                  version,
+                  page.id,
+                  message: message,
+                )) {
+                  return;
+                }
+                if (!pageContext.mounted) return;
+                Navigator.of(pageContext)
+                  ..pop()
+                  ..pop();
+                onRestored?.call();
+              },
+              child: const Text('Restore this page'),
+            );
+            return Scaffold(
+              appBar: AppBar(
+                title: Text(
+                  'Page ${index + 1} of $count',
+                  style: Theme.of(pageContext).textTheme.titleMedium,
                 ),
-                const SizedBox(width: Gaps.lg),
-              ],
-            ),
-            body: Padding(
-              padding: const EdgeInsets.all(Gaps.xl),
-              child: Center(
-                child: InteractiveViewer(
-                  maxScale: 8,
-                  child: VersionSurfaceView(
-                    sheets: sheets,
-                    version: version,
-                    page: page,
-                    images: services.images,
+                actions: [
+                  if (!compact) ...[restore, const SizedBox(width: Gaps.lg)],
+                ],
+              ),
+              bottomNavigationBar: compact
+                  ? SafeArea(
+                      child: Padding(padding: const EdgeInsets.all(Gaps.lg), child: restore),
+                    )
+                  : null,
+              body: Padding(
+                padding: const EdgeInsets.all(Gaps.xl),
+                child: Center(
+                  child: InteractiveViewer(
+                    maxScale: 8,
+                    child: VersionSurfaceView(
+                      sheets: sheets,
+                      version: version,
+                      page: page,
+                      images: services.images,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       );
 }

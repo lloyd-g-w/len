@@ -183,6 +183,23 @@ void main() {
     expect(s.versions.of(notebook.id).map((x) => x.id), contains(v.id));
   });
 
+  testWidgets('a phone’s page view keeps its title at 2× text (Restore under the page)', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await setUpNotebook(tester);
+    await open(tester, const Size(390, 844));
+    await openPreview(tester);
+    await tester.tap(find.byKey(ValueKey('version-page-${pageIds().last}')));
+    await tester.pumpAndSettle();
+    final title = tester.getRect(find.text('Page 2 of 2'));
+    final restore = tester.getRect(find.widgetWithText(FilledButton, 'Restore this page'));
+    expect(title.width, greaterThan(100));
+    expect(restore.top, greaterThan(400), reason: 'the action sits under the page');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a page’s scan shows in the preview', (tester) async {
     await setUpNotebook(tester);
     await open(tester, const Size(1200, 900));

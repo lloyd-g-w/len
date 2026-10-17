@@ -3044,7 +3044,8 @@ shares between versions (and between devices of one platform family).
   goes to the background (hidden / paused). One equal to the latest
   version (same packs and fields) is not made. The app turns the recorder
   on (`main.dart`); tests not about it leave it off, so edits start no
-  timers. "Save version…" (the editor's ⋯ menu, the history's header) makes
+  timers. "Save version…" (the history sheet's header; ⋯ has only Version
+  history…, UX_AUDIT R25-33) makes
   a `named` one at once.
 - **Thinning** (`VersionPolicy`, pure, deterministic): automatic versions
   are kept all for the last day, then the newest per hour for a week, per

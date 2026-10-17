@@ -195,7 +195,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   (settings, pages by id in order, strokes / elements by id), one page (back after its
   predecessor), copy as new notebook (new ids, own links / flows / connectors follow); a
   `restore` version is saved first and the snack bar's Undo restores it; open editors reload
-  (`SyncController.announce`). UI: editor ⋯ "Save version…" / "Version history…", library
+  (`SyncController.announce`). UI: editor ⋯ "Version history…" (Save version… in its header, R25-33), library
   notebook menu "Version history…"; history sheet (day groups, thumbnail of the first changed
   page, time, device, summary; ⋯ Restore…, Copy as new notebook, Rename…, Delete version,
   Delete older versions…), preview route (page grid, page view with Restore this page; canvas
@@ -251,17 +251,13 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   thumbnail readiness from a private painter field; the phone preview's title is cut by its
   two buttons; device names are still platform names.
 
-- ⬜ **Version history on phones**: the preview's title is cut off by its two buttons (round 25:
-  now the short "Today, 14:02", which fits at 390 dp; at 2× text the page view's title still
-  goes, UX_AUDIT R25-7); the golden test knows a thumbnail loaded by a private painter field
-  (give it a public signal).
+- ⬜ **Version history on phones**: the golden test knows a thumbnail loaded by a private
+  painter field (give it a public signal). (The preview's title: fixed in round 25, R25-7 — the
+  short "Today, 14:02", and on phones the page view's Restore this page sits under the page.)
 
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
-- ⬜ **⋯ past its cap** (UX_AUDIT R25-33): Save version… and Version history… took ⋯ to 10 rows
-  on a tablet and 12 on a phone (round 24's cap: 8 / 11, merge before adding). Proposal: keep
-  only Version history… (its sheet has Save version… in the header).
 - ⬜ **Undo after a version restore** (UX_AUDIT R25-6): the editor's undo steps from before a
   restore survive it, so Ctrl+Z does nothing visible and Ctrl+Shift+Z writes an old stroke back
   onto the restored page. Decide: drop the undo steps of the surfaces a restore rewrote (its Undo
