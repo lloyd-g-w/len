@@ -2356,8 +2356,10 @@ tool options popover hosts them unchanged under *Feel* (`InkOptions`,
 their title row (`FeelHeader`) and `PreviewCard` step aside, since the
 popover shows its own above: so a setting added to a panel shows up in the
 popover with no other change. The
-stabiliser shows "Off" at 0 (the pen's default: ink under the nib) and up to
-100 % (the live ink then trails the pen by ~6–15 px). **Straight lines**
+stabiliser shows "Off" at 0 (ink under the nib) and up to
+100 % (the live ink then trails the pen by ~6–15 px); the pen's default is
+30 % (`PenDefaults.pen`; settings saved before `ToolSettings.prefsVersion` 2
+with the old default, off, are upgraded on restore), the highlighter's 50 %. **Straight lines**
 (`PenConfig.straight`, offered for the highlighter): every stroke is the line
 from pen-down to the pen — `HoldToStraighten.begin(straight: true)` makes
 the live stroke straight from its first point, like a held line, so it
@@ -2503,16 +2505,35 @@ does not grow with the stroke's length.
    device pressure 0.2 is medium, the pen's nominal width; fingers and the
    mouse are 0.5, medium too) and is filtered (`PressureFilter`); the
    overlay's Kotlin model applies the same. A **mouse** reports whole
-   pixels (web, desktops), a staircase that zoomed out — the pen a fraction
-   of a pixel wide on screen — showed as squiggles the outline's smoothing
-   (bounded relative to the pen's width, which keeps its geometry exact)
-   cannot level; so when the pen is under 2.5 px wide on screen its path
-   is first resampled every pixel and smoothed with a centred Gaussian in
-   screen space (`MouseSmoother`: what the outline lacks, up to 2 px for a
-   hairline, trailing the mouse by at most 6 px like the stabiliser, the
-   ends where the mouse went down and up). Wider pens (the default at 100 %)
-   get the mouse's positions unchanged, without lag
-   (`test/mouse_zoom_smoothness_test.dart`).
+   pixels (web, desktops): a staircase with ±0.5 px of error at every
+   sample, which the outline's smoothing (bounded relative to the pen's
+   width, which keeps its geometry exact) cannot level — a thick pen
+   showed every step as a bump, its width swelling and pinching by up to
+   a third along straight lines, a thin one zoomed out as squiggles. So
+   every mouse stroke is first resampled every screen pixel and smoothed
+   with a centred Gaussian in screen space (`MouseSmoother`), whose σ is
+   the stroke's stabiliser: 2 px at 0, 2.9 at 30 %, 5 at 1. Cusps (a turn
+   > 90° over 3 px each way) are kept, and stretches are continued past
+   cusps and ends by point reflection, so the stroke starts and ends where
+   the mouse went down and up. The stabiliser is applied there instead of
+   by the outline (`InkDrawing` commits mouse strokes with stabiliser 0,
+   as straight lines are): in screen space, where a mouse's error is, the
+   same smoothing costs less lag. A point is passed on once its window
+   and the cusp test are known, so it never moves: the final line trails
+   the mouse by `MouseSmoother.lagOf` (8 px at 0, 11 at 30 %, 16 at 1;
+   the stylus's at 30 % is ~13). At stabiliser 0 the ink still reaches
+   the mouse: the pending rest of the path, smoothed as if the mouse
+   lifted there (`MouseSmoother.tip`), is the live ink's provisional
+   **tip** (`LiveInk.tip`, drawn by `LiveInkPainter` as a line of the
+   stroke's width with its end; opaque ink only, a translucent tip would
+   darken where it overlaps). A mouse has no pressure: its width is steady.
+   `test/mouse_ink_smoothness_test.dart` measures mouse handwriting
+   through the whole pipeline (`test/support/mouse_writing.dart`:
+   whole-pixel events at 1000 and 125 Hz, raw or coalesced per frame;
+   `ink_roughness.dart`: edge bumps, kinks, width spread, drift from the
+   true path, cusps, lag) and that a stylus is left alone;
+   `mouse_zoom_smoothness_test.dart` checks every width and zoom, and
+   `mouse_ink_golden_test.dart` shows it.
    **Ink shows from the first sample**, under the nib
    (latency beats purity): every contact is drawn from pen-down, even one
    that turns out to be a bounce (`BounceFilter.isBounce`, decided at its

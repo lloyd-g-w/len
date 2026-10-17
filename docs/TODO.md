@@ -68,7 +68,14 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Owner reports (after the first list)
 - 🚧 (fix/mouse-ink-2) **Smoother ink, mouse first** (owner): default stabiliser 30 %; mouse
   ink is only acceptable at 30 % and still a little bumpy — steady width, light smoothing at
-  every width, less bumpiness at 0 % too.
+  every width, less bumpiness at 0 % too. Done on the branch: the pen's default stabiliser is
+  30 % (saved settings still at the old default, off, upgraded). Every mouse stroke is smoothed
+  on the screen with the stroke's stabiliser (`MouseSmoother`, cusps kept), not again by the
+  outline; at 0 % a provisional tip keeps the ink at the mouse. Measured on synthetic mouse
+  handwriting (1000 / 125 Hz, coalesced, slow and fast, widths 0.4–10 px on screen), worst
+  case before → after: at 0 % kinks 60° → 9°, edge bumps 0.35 → 0.04 px, width spread on
+  straight lines 32 % → 3 %, lag 6 → 0 px; at 30 % kinks 12° → 9° (mean 2.8° → 1.3°), width
+  spread 8 % → 1 %, lag 13–33 → 11 px. Stylus ink unchanged (specimen goldens identical).
 - 🚧 (merged; to verify on the tablet, flicker log in Ink Lab) **The pen still flickers sometimes** on the Android tablet (S Pen),
   no clear pattern: find every handover / prediction / tile cause, test, fix, and add an
   on-device flicker log to catch the rest.
