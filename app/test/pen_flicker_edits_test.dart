@@ -7,9 +7,10 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/ink/pen/eraser_config.dart';
+import 'package:len/ink/render/raster_batch.dart';
 import 'package:len/ink/undo_history.dart';
 
-import 'pen_flicker_frames_test.dart' show background, framesOf, settledTiles, wave;
+import 'pen_flicker_frames_test.dart' show background, endOf, framesOf, settledTiles, wave;
 import 'support/ink_frames.dart';
 import 'support/ink_scene.dart';
 
@@ -189,6 +190,35 @@ void main() {
         ..add(await f.frame())
         ..addAll(await f.until(() => settledTiles(scene)));
       await expectNoLostInk(frames, except: [for (final s in shifted) ...inkOf(f, s)]);
+      scene.dispose();
+    });
+  });
+
+  testWidgets('the web\'s renders (atlases, strokes merged once the pen rests): a word, then '
+      'its merge, lose nothing', (tester) async {
+    await tester.runAsync(() async {
+      final scene = InkScene(background(), dpr: 2, batch: RasterBatch(batching: true));
+      await scene.warm();
+      final f = framesOf(scene);
+      final frames = <Frame>[];
+      final ends = <Rect>[];
+      // Letters of a word, one stroke each, across tiles.
+      for (var i = 0; i < 4; i++) {
+        final points = wave(x: 60 + i * 110, y: 100 + i * 40, length: 120);
+        frames.addAll(await f.draw(points));
+        f.lift(scene.model, id: 'letter $i');
+        frames.add(await f.frame());
+        ends.addAll(endOf(f, points));
+      }
+      // The pen rests: the strokes are merged into their tiles.
+      frames.addAll(
+        await f.until(
+          () => settledTiles(scene),
+          limit: 200,
+          step: const Duration(milliseconds: 20),
+        ),
+      );
+      await expectNoLostInk(frames, except: ends);
       scene.dispose();
     });
   });
