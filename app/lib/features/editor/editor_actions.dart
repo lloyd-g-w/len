@@ -63,8 +63,11 @@ EditorMenuActions editorMenuActions(
     onBackground: nav == null ? null : onBackground,
     minimap: nav == null ? null : prefs.canvasMinimap,
     onMinimap: nav == null ? null : () => prefs.canvasMinimap = !prefs.canvasMinimap,
+    // Only while another device is here: its pointer is what they label.
     pointerTags: prefs.pointerTags,
-    onPointerTags: () => prefs.pointerTags = !prefs.pointerTags,
+    onPointerTags: session.services.sync.rooms.othersIn(session.shared.id).isEmpty
+        ? null
+        : () => prefs.pointerTags = !prefs.pointerTags,
   );
 }
 

@@ -144,7 +144,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   the device initial plate drawn beside another device's pen / laser while it writes (⋯ → View
   and Settings), persisted; the pointer itself and presence in the bar stay. Done on the
   branch: `pointerTags` preference (`pointer_tags`, default on), ⋯ → View → *Name tags*
-  (paged notebooks and canvases, always offered) and a *Name tags* switch in Settings → Sync
+  (paged notebooks and canvases, while another device is in the notebook) and a *Name tags* switch in Settings → Sync
   while connected; `RemotePointersPainter.tags` skips the plates, repainting at once. Remote
   live ink draws no tag, so nothing to hide there.
 - ✅ **Live sync follow-ups**: cursors / pointers of other devices (the laser

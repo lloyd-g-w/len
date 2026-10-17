@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/stroke_reader.dart';
 import 'package:len/domain/chunk_digest.dart';
@@ -393,10 +394,22 @@ void main() {
   });
 
   testWidgets('in the editor: ⋯ → View → Name tags hides the plates, remembered', (tester) async {
-    final (s, _) = await pumpEditor(tester);
+    final (s, nb) = await pumpEditor(tester);
     bool tags() => tester.widget<RemotePointersOverlay>(find.byType(RemotePointersOverlay)).tags;
     expect(s.settings.pointerTags, isTrue, reason: 'on by default');
     expect(tags(), isTrue);
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    expect(find.text('Name tags'), findsNothing, reason: 'alone: nothing to label');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    s.sync.rooms.receive(
+      LivePresence(nb.id, const [(connection: 'c9', deviceId: 'd9', name: 'Linux')]),
+    );
+    await tester.pump();
     Future<void> toggle() async {
       await tester.tap(find.byTooltip('More options'));
       await tester.pumpAndSettle();

@@ -93,7 +93,7 @@ class EditorMenuActions {
   final VoidCallback? onMinimap;
 
   /// Whether other devices' pointers carry their name tag; [onPointerTags]
-  /// toggles it (null: not offered).
+  /// toggles it (null: not offered, nobody else is here).
   final bool pointerTags;
   final VoidCallback? onPointerTags;
 

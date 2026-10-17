@@ -3725,7 +3725,8 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   the laser as `LaserPaint` draws the local one, each labelled with the device's plate
   (`RoomPresence.initialOf`, the presence plate's colours) — its *name tag*, unless the local
   setting `pointer_tags` (`AppPreferences.pointerTags`, default on; "⋯" → View → *Name tags*
-  in every notebook, and Settings → Sync once connected) is off: then only the dot or laser
+  in pages and canvases while another device is in the notebook — the chrome rebuilds on
+  presence — and Settings → Sync once connected) is off: then only the dot or laser
   shows (the overlay rebuilds on the preference, `RemotePointersPainter.tags`). Presence in
   the bar and remote live ink (which carries no tag) are unaffected.
 - **End to end**: `integration_test/live_test.dart` runs two app instances at once

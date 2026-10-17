@@ -172,7 +172,8 @@ class EditorChromeHost extends StatelessWidget {
     final toolbar = EditorToolbar(tools: session.tools, dock: dock, insert: _insert(context));
     final inBar = dock != ToolbarDock.bottom && dock != ToolbarDock.floating;
     return ListenableBuilder(
-      listenable: Listenable.merge([?doc, ?session.canvasNav]),
+      // Presence: View → Name tags shows while another device is here.
+      listenable: Listenable.merge([?doc, ?session.canvasNav, session.services.sync.rooms]),
       // Ink previews in the tool popovers show the paper being written on.
       builder: (context, _) => InkPaper(
         color: doc?.activePageData.paperColor ?? session.shared.notebook.paperColor,
