@@ -25,6 +25,7 @@ class SelectionPainter extends CustomPainter {
     required this.accent,
     required this.handleFill,
     this.clip,
+    this.handleScale = 1,
   }) : super(repaint: Listenable.merge([selection, lasso, viewport]));
 
   final SelectionController selection;
@@ -32,6 +33,14 @@ class SelectionPainter extends CustomPainter {
   final ViewportController viewport;
   final Color accent;
   final Color handleFill;
+
+  /// How much larger than with a pointer handles are drawn ([touchScale]
+  /// on touch-first devices, where fingers cover them; they are reached
+  /// from further away there too, `SelectionChrome.shapeHitRadius`).
+  final double handleScale;
+
+  /// [handleScale] on touch-first devices.
+  static const double touchScale = 1.25;
 
   /// World-space clip for the selected content: the pages it may show on
   /// (a selection can span pages and be dragged from one to another).
@@ -93,9 +102,9 @@ class SelectionPainter extends CustomPainter {
 
   /// A round handle of radius [r] at [at]: paper, ringed in the accent.
   void _knob(Canvas canvas, Offset at, double r) => canvas
-    ..drawCircle(at + const Offset(0, 1), r, _shadow)
-    ..drawCircle(at, r, Paint()..color = handleFill)
-    ..drawCircle(at, r, _outline);
+    ..drawCircle(at + const Offset(0, 1), r * handleScale, _shadow)
+    ..drawCircle(at, r * handleScale, Paint()..color = handleFill)
+    ..drawCircle(at, r * handleScale, _outline);
 
   void _paintFrame(Canvas canvas, SelectionFrame frame) {
     final outline = _outline;
@@ -136,6 +145,7 @@ class SelectionPainter extends CustomPainter {
     }
     final fill = Paint()..color = handleFill;
     final solid = Paint()..color = accent;
+    final k = handleScale;
     for (final h in handles) {
       final p = h.at;
       switch (h.handle.role) {
@@ -145,13 +155,14 @@ class SelectionPainter extends CustomPainter {
           _knob(canvas, p, 4.5);
         case HandleRole.centre:
           _knob(canvas, p, 6.5);
-          canvas.drawCircle(p, 2.5, solid);
+          canvas.drawCircle(p, 2.5 * k, solid);
         case HandleRole.radius:
+          final d = 8 * k;
           final diamond = Path()
-            ..moveTo(p.dx, p.dy - 8)
-            ..lineTo(p.dx + 8, p.dy)
-            ..lineTo(p.dx, p.dy + 8)
-            ..lineTo(p.dx - 8, p.dy)
+            ..moveTo(p.dx, p.dy - d)
+            ..lineTo(p.dx + d, p.dy)
+            ..lineTo(p.dx, p.dy + d)
+            ..lineTo(p.dx - d, p.dy)
             ..close();
           canvas
             ..drawPath(diamond.shift(const Offset(0, 1)), _shadow)
@@ -159,7 +170,7 @@ class SelectionPainter extends CustomPainter {
             ..drawPath(diamond, _outline);
         case HandleRole.bend:
           final square = RRect.fromRectAndRadius(
-            Rect.fromCenter(center: p, width: 10, height: 10),
+            Rect.fromCenter(center: p, width: 10 * k, height: 10 * k),
             const Radius.circular(2),
           );
           canvas
@@ -168,12 +179,12 @@ class SelectionPainter extends CustomPainter {
             ..drawRRect(square, _outline);
         case HandleRole.inner:
           canvas
-            ..drawCircle(p + const Offset(0, 1), 4.5, _shadow)
-            ..drawCircle(p, 4.5, solid);
+            ..drawCircle(p + const Offset(0, 1), 4.5 * k, _shadow)
+            ..drawCircle(p, 4.5 * k, solid);
         case HandleRole.tangent:
           canvas
-            ..drawCircle(p, 5, fill)
-            ..drawCircle(p, 3.5, solid);
+            ..drawCircle(p, 5 * k, fill)
+            ..drawCircle(p, 3.5 * k, solid);
       }
     }
   }
@@ -208,5 +219,6 @@ class SelectionPainter extends CustomPainter {
       old.viewport != viewport ||
       old.accent != accent ||
       old.handleFill != handleFill ||
+      old.handleScale != handleScale ||
       !listEquals(old.clip, clip);
 }

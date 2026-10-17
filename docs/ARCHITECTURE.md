@@ -1885,8 +1885,8 @@ surface.
   or diagonal exactly so — as do a held line or arrow once snapped (its end
   while the pen moves on), the straight pen, a line's end handle and a
   rectangle's corner handle) and commits exactly the shape last shown (an
-  ellipse dragged square is a circle); a tap on a shape selects it (not
-  with Curve picked: its taps place anchors).
+  ellipse dragged square is a circle); a tap on a shape selects it (with
+  Curve picked too: a drag from it starts a curve, and the hint says so).
   **Curves** (`tools/curve_drawing.dart`) are drawn a gesture at a time:
   a tap places an anchor (a corner), a press-drag places one and pulls its
   tangents out symmetrically, a tap on the first anchor closes the curve
@@ -1895,7 +1895,13 @@ surface.
   (`ShapeTool.finishCurve`, via `EditorScreen`'s keys and
   `ContentTools`); Escape drops it (`cancelCurve`). The curve so far is
   the live stroke between gestures; a gesture that turns into a pinch takes
-  back only its own anchor. One stroke, one undo step. The live outline is rebuilt
+  back only its own anchor. While it is drawn, undo and redo (Ctrl+Z, the
+  buttons, finger taps) step through its anchors; undoing the first drops
+  it, redo brings it back. Its anchors show over it (`CurveGuide`, painted
+  by `tools/curve_guide_painter.dart` in the look of a selected curve's
+  handles): the first ringed larger once a tap there closes the curve, and
+  the tangents of the anchor being pulled (or placed last) as arms. One
+  stroke, one undo step. The live outline is rebuilt
   whenever the live points are replaced rather than extended
   (`LiveInk.generation`; the incremental builder would otherwise keep the
   outline of an earlier preview).
@@ -1998,7 +2004,9 @@ surface.
   the opposite side), diamond vertices (along their axis, the opposite one
   fixed) and side middles (sizing it from the opposite side: the box it is
   drawn in), triangle and polygon vertices (free; Shift: one axis), a
-  circle's centre (moves it) and radius, an ellipse's centre and two radii
+  circle's centre (moves it), its radius (on the rim between its axes:
+  sizes it evenly) and its axes' ends (squash it into an ellipse; an
+  ellipse dragged to equal radii is a circle again), an ellipse's centre and two radii
   (each sizes its axis about the centre; Shift: both), a star's centre, top
   point (turns and sizes it) and inner point (inner radius; its number of
   points is in Style, `StepperRow`), a curve's anchors (moving their
@@ -2022,14 +2030,26 @@ surface.
   a radius, a small square for a bend, solid dots for a star's inner
   radius and for tangents; secondary handles (sides, centres, bends,
   tangents) step aside within 24 px of a primary one, so small shapes
-  show their corners or radii only (`SelectionChrome.crowd`); a tangent
+  show their corners or radii only (`SelectionChrome.crowd`). On a shape
+  under 84 px across whose primary handles come within 28 px of each other
+  (`SelectionChrome.apart`), those are spread out from its middle until
+  they are that far apart (at most 4×) and shown alone, so each can be
+  seen and grabbed; a drag moves the true point by as much as the pointer
+  (no jump). Lines and large shapes keep handles on their points. On
+  touch-first devices handles are drawn a quarter larger
+  (`SelectionPainter.touchScale`). A tangent
   shorter than that (none at all: a corner anchor, as a tap places it)
   shows 24 px from its anchor, along itself or its segment, and grows
   from the anchor when dragged, so corners can be made smooth. They are
   reached within `SelectionChrome.shapeHitRadius` by input (24 px for a
   finger, `Targets.touch` across; 22 for a pen; 18 for a mouse; inside a
   small shape's frame less, so it still moves by its middle; the rotate
-  handle wins when nearer), grabbed where they are (no jump). Dragging one (`LassoTool`, mode reshape) shows the shape
+  handle wins when nearer), grabbed where they are (no jump). With a
+  mouse, the cursor says what a press would do (`SelectionCursors.at` via
+  `ContentTools.cursorAt`, held in `InkInputController.cursor`): grab over
+  a shape's handle or the rotate handle (grabbing while dragged), resize
+  along a frame handle's direction (turned with the frame), move over the
+  body, a pointing hand on a curve's closing anchor, else the crosshair. Dragging one (`LassoTool`, mode reshape) shows the shape
   rebuilt (`ShapeBuilder.reshaped`: outline 2 px apart at its zoom, same
   look and fill) as the selection's picture; the release commits it as one
   `InkEdit` (remove + add, so it syncs), keeping it selected. During moves

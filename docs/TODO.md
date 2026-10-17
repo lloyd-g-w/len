@@ -106,10 +106,15 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   closed) drawn anchor by anchor with the Shape tool or snapped from a held smooth stroke
   (Schneider fit); anchors and tangents are editable, a tap on the line adds an anchor and a
   double tap removes one.
-- 🚧 (feat/shape-followups) **Shape follow-ups** (from the shape-handles review): undo while a curve is being drawn
+- ✅ **Shape follow-ups** (from the shape-handles review): undo while a curve is being drawn
   takes back its last anchor (today it undoes earlier strokes); a circle can be squashed into
   an ellipse from a handle; with Curve picked a tap on a shape selects it rather than placing an
-  anchor (or the hint says how).
+  anchor (or the hint says how). Done: undo/redo step through a curve's anchors while it is
+  drawn; a tap on a shape selects it with Curve picked (a drag from it starts a curve); a circle
+  has handles at its axes' ends that squash it into an ellipse. Handle UX review: a tiny shape's
+  primary handles spread apart (others hidden) so each can be grabbed, handles drawn larger on
+  touch-first devices, desktop cursors over handles / frame / body, a curve's anchors and
+  tangents shown while it is drawn.
 - 🚧 (fix/pen-flicker-3) **The pen still flickers sometimes** (owner, again): keep hunting every cause on every
   platform (Linux, web, Android), with frame-by-frame tests.
 - ✅ **Live sync, actually live**: edits show on other devices within a fraction of a second

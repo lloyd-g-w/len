@@ -25,7 +25,10 @@ import 'pointer_tool.dart';
 /// the shape regular (squares, circles, equilateral triangles, regular
 /// stars) or steps lines by 15°. A tap on a shape selects it, to edit its
 /// points. Curves are drawn anchor by anchor ([CurveDrawing]): [finishCurve]
-/// (Enter, another tool) commits one, [cancelCurve] (Escape) drops it.
+/// (Enter, another tool) commits one, [cancelCurve] (Escape) drops it. With
+/// Curve picked, a tap on a shape selects it too unless a curve is being
+/// drawn (then it places an anchor there); a drag from a shape starts a
+/// curve.
 class ShapeTool implements PointerTool {
   ShapeTool({
     required this.model,
@@ -57,6 +60,10 @@ class ShapeTool implements PointerTool {
   bool _dragged = false;
   ShapeGeometry? _shape;
 
+  /// A press on a shape with Curve picked and none being drawn: a tap
+  /// selects the shape, a drag starts a curve from here.
+  ToolPointer? _onShape;
+
   /// The curve being drawn, anchor by anchor.
   late final CurveDrawing curve = CurveDrawing(live: live, viewport: viewport, clock: clock);
 
@@ -70,13 +77,12 @@ class ShapeTool implements PointerTool {
   @override
   void down(ToolPointer p) {
     if (tools.shape == ShapeKind.curve) {
-      final config = tools.configOf(InkTool.ballpoint);
-      curve.down(
-        p,
-        model: model(),
-        fill: tools.shapeFill.colorFor(config.color),
-        begin: () => _begin(ShapeKind.curve),
-      );
+      _onShape = null;
+      if (!curve.active && _shapeAt(p.world) != null) {
+        _onShape = p;
+        return;
+      }
+      _curveDown(p);
       return;
     }
     curve.finish();
@@ -87,6 +93,16 @@ class ShapeTool implements PointerTool {
     _shape = null;
     _begin(tools.shape);
     HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  void _curveDown(ToolPointer p) {
+    final config = tools.configOf(InkTool.ballpoint);
+    curve.down(
+      p,
+      model: model(),
+      fill: tools.shapeFill.colorFor(config.color),
+      begin: () => _begin(ShapeKind.curve),
+    );
   }
 
   /// Starts the live stroke of a [kind] with the pen's look.
@@ -108,6 +124,11 @@ class ShapeTool implements PointerTool {
 
   @override
   void move(ToolPointer p) {
+    if (_onShape case final press?) {
+      if ((p.screen - press.screen).distance < CurveDrawing.slop) return;
+      _onShape = null;
+      _curveDown(press);
+    }
     if (curve.active) return curve.move(p);
     if (_start == null) return;
     _end = p.world;
@@ -136,6 +157,11 @@ class ShapeTool implements PointerTool {
 
   @override
   void up() {
+    if (_onShape case final press?) {
+      _onShape = null;
+      curve.forget();
+      return _tap(press.world);
+    }
     if (curve.active) return curve.up();
     _stopKeys();
     final shape = _shape;
@@ -164,6 +190,7 @@ class ShapeTool implements PointerTool {
 
   @override
   void cancel() {
+    _onShape = null;
     if (curve.active) return curve.cancelGesture();
     _stopKeys();
     if (_start != null) live.finish();
@@ -175,10 +202,14 @@ class ShapeTool implements PointerTool {
 
   /// A tap on a shape selects it (its points become handles).
   void _tap(Offset world) {
-    final selection = this.selection;
-    if (selection == null) return;
+    if (_shapeAt(world) case final hit?) selection!.select([hit], const []);
+  }
+
+  /// The shape a tap at [world] selects, if any (none without a [selection]).
+  Stroke? _shapeAt(Offset world) {
+    if (selection == null) return null;
     final hit = ContentHitTest.strokeAt(model(), world, 8 / viewport.scale);
-    if (hit?.shape != null) selection.select([hit!], const []);
+    return hit?.shape == null ? null : hit;
   }
 
   /// Boxes making closed shapes regular (squares, circles, equilateral
