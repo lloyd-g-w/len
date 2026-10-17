@@ -17,13 +17,15 @@ import 'dart:ui';
 /// So every mouse stroke is resampled every [spacing] px along its path
 /// (by position, whatever the event rate, its jitter or batching) and
 /// smoothed with a centred Gaussian of σ [sigmaFor] the stabiliser, from
-/// [minSigma] px at 0 (the steps levelled, ink 4 px behind the mouse) to
-/// [maxSigma] at 1. A point is passed on once the samples it depends on
-/// are known: the ink trails the mouse by [lagOf] px and never changes
-/// once drawn. The stroke's stabiliser is applied here, not again by the
-/// outline (`InkDrawing` commits mouse strokes with stabiliser 0, as the
-/// pen's straight lines are): the same smoothing costs half the lag in
-/// screen space, where a mouse's error is.
+/// [minSigma] px at 0 (the steps levelled) to [maxSigma] at 1. A point is
+/// passed on once the samples it depends on are known, so it never
+/// changes once drawn: the final ink trails the mouse by [lagOf] px (8 px
+/// at 0, 11 at 30 %), and with the stabiliser off [tip] gives the rest up
+/// to the mouse, provisionally, so the ink reaches it. The stroke's
+/// stabiliser is applied here, not again by the outline (`InkDrawing`
+/// commits mouse strokes with stabiliser 0, as the pen's straight lines
+/// are): the same smoothing costs half the lag in screen space, where a
+/// mouse's error is.
 ///
 /// Sharp turns (cusps: the line turns by more than [minTurn] over
 /// [cornerBaseline] px each way) are kept: smoothing never crosses them.
@@ -41,10 +43,10 @@ class MouseSmoother {
   static const double spacing = 1;
 
   /// σ (px) with the stabiliser off: enough to level a mouse's steps.
-  static const double minSigma = 1.5;
+  static const double minSigma = 2;
 
   /// σ (px) at full stabiliser.
-  static const double maxSigma = 6.5;
+  static const double maxSigma = 5;
 
   /// The smoothing (σ, screen px) at stabiliser [stabiliser] (0..1).
   static double sigmaFor(double stabiliser) =>
@@ -56,24 +58,16 @@ class MouseSmoother {
   /// The least turn (radians) over [cornerBaseline] that is a cusp.
   static const double minTurn = 90 * math.pi / 180;
 
-  /// σ (px) from which cusps are kept. Below it smoothing rounds them by
-  /// less than a pixel, less than deciding them costs in lag.
-  static const double cornerSigma = 2;
-
   /// Samples each side of a point its smoothing reaches (the Gaussian cut
   /// at 2.5 σ).
   static int reachOf(double sigma) => (2.5 * sigma / spacing).ceil();
 
-  /// How far (px) the ink trails the mouse with the smoothing [sigma]: the
-  /// smoothing's reach, and what deciding a cusp needs.
-  static double lagOf(double sigma) =>
-      (reachOf(sigma) + (sigma >= cornerSigma ? cornerBaseline : 0)) * spacing;
+  /// How far (px) the final ink trails the mouse with the smoothing
+  /// [sigma]: the smoothing's reach, and what deciding a cusp needs.
+  static double lagOf(double sigma) => (reachOf(sigma) + cornerBaseline) * spacing;
 
   int _k = 0;
   List<double> _weights = const [1];
-
-  /// Whether cusps are kept ([cornerSigma]).
-  bool _corners = false;
 
   final List<Offset> _path = [];
   final List<int> _times = [];
@@ -96,7 +90,6 @@ class MouseSmoother {
   void begin(Offset at, int timeMs, {required double stabiliser}) {
     final sigma = sigmaFor(stabiliser);
     _k = reachOf(sigma);
-    _corners = sigma >= cornerSigma;
     _weights = [for (var i = 0; i <= _k; i++) math.exp(-0.5 * math.pow(i * spacing / sigma, 2))];
     _restart(at, timeMs);
   }
@@ -114,22 +107,26 @@ class MouseSmoother {
     _carry = spacing;
     _last = at;
     _lastTime = timeMs;
-    _before = null;
-    _tangent = null;
   }
 
   /// The mouse moved to [at].
   void add(Offset at, int timeMs) {
     final d = (at - _last).distance;
     if (d < 1e-6) return;
-    _resample(at, timeMs, d);
-    _before = _last;
+    var along = _carry;
+    while (along <= d) {
+      final t = along / d;
+      _path.add(Offset.lerp(_last, at, t)!);
+      _times.add(_lastTime + ((timeMs - _lastTime) * t).round());
+      along += spacing;
+    }
+    _carry = along - d;
     _last = at;
     _lastTime = timeMs;
-    _findCusps(ended: false);
+    _findCusps();
     // A point's window reaches [_k] samples ahead, and a cusp there is
     // known [cornerBaseline] samples after it.
-    _emitUpTo(_path.length - 1 - _k - (_corners ? cornerBaseline : 0), ended: false);
+    _emitUpTo(_path.length - 1 - _k - cornerBaseline, ended: false);
   }
 
   /// The mouse went up at its last position: passes on the rest of the
@@ -140,7 +137,7 @@ class MouseSmoother {
       _path.add(_last);
       _times.add(_lastTime);
     }
-    _findCusps(ended: true);
+    _findCusps();
     _emitUpTo(_path.length - 1, ended: true);
   }
 
@@ -153,82 +150,25 @@ class MouseSmoother {
     _restart(_last, _lastTime);
   }
 
-  /// The shortest step (px) between events, and before it, that is curved
-  /// ([_resample]).
-  static const double minCurve = 4;
-
-  /// The mouse position before [_last] (null at the start), and the
-  /// path's direction at [_last] (unit; null at the start).
-  Offset? _before;
-  Offset? _tangent;
-
-  /// Resamples the path from [_last] to [at] ([d] px apart) every
-  /// [spacing] px. Sparse events (a slow event rate, or one event per frame
-  /// as GTK and some browsers deliver them) would make a polygon whose
-  /// corners the smoothing only blunts, so the piece is a cubic curve
-  /// leaving [_last] the way the path arrived there and reaching [at] the
-  /// way the circle through the last three positions does: the path's
-  /// direction is continuous, and nothing waits for the next event. At a
-  /// sharp turn (more than 60° off the chord) a piece starts or ends along
-  /// its chord instead, rather than loop.
-  void _resample(Offset at, int timeMs, double d) {
-    final chord = (at - _last) / d;
-    final before = _before;
-    // Steps of a few pixels are mostly the whole-pixel error: chords.
-    final curved = d >= minCurve && before != null && (_last - before).distance >= minCurve;
-    final start = (curved ? _along(_tangent, chord) : chord) * d;
-    final end = (curved ? _along(_endTangent(before, _last, at), chord) : chord) * d;
-    // Flattened finely, then sampled by length.
-    final pieces = math.max(1, (d / 0.25).ceil());
-    var from = _last;
-    var along = _carry;
-    for (var m = 1; m <= pieces; m++) {
-      final t = m / pieces;
-      final to = _hermite(_last, start, at, end, t);
-      final length = (to - from).distance;
-      while (along <= length) {
-        final u = (m - 1 + along / length) / pieces;
-        _path.add(Offset.lerp(from, to, along / length)!);
-        _times.add(_lastTime + ((timeMs - _lastTime) * u).round());
-        along += spacing;
-      }
-      along -= length;
-      from = to;
-    }
-    _carry = along;
-    _tangent = end / d;
-  }
-
-  /// [tangent], or [chord] when there is none or it turns sharply off it.
-  static Offset _along(Offset? tangent, Offset chord) =>
-      tangent != null && tangent.dx * chord.dx + tangent.dy * chord.dy > 0.5 ? tangent : chord;
-
-  /// The unit direction at [c] of the parabola through [a], [b], [c]
-  /// (parametrised by chord length), or null if they double back.
-  static Offset? _endTangent(Offset a, Offset b, Offset c) {
-    final d1 = (b - a).distance, d2 = (c - b).distance;
-    if (d1 < 1e-6) return null;
-    final v = a * (d2 / (d1 * (d1 + d2))) -
-        b * ((d1 + d2) / (d1 * d2)) +
-        c * ((d1 + 2 * d2) / ((d1 + d2) * d2));
-    final length = v.distance;
-    return length < 1e-9 ? null : v / length;
-  }
-
-  static Offset _hermite(Offset p0, Offset m0, Offset p1, Offset m1, double t) {
-    final t2 = t * t, t3 = t2 * t;
-    return p0 * (2 * t3 - 3 * t2 + 1) +
-        m0 * (t3 - 2 * t2 + t) +
-        p1 * (-2 * t3 + 3 * t2) +
-        m1 * (t3 - t2);
+  /// The rest of the path after the last point passed on, as [finish]
+  /// would pass it on now (screen px; ending at the mouse), without
+  /// passing it on: the live ink's provisional tip. Points near its start
+  /// barely move as the mouse goes on (the window there is nearly full).
+  List<Offset> tip() {
+    if (_path.isEmpty) return const [];
+    final extra = _path.last != _last;
+    if (extra) _path.add(_last);
+    final n = _path.length;
+    final out = [for (var i = _emitted; i < n; i++) _pointAt(i, ended: true)];
+    if (extra) _path.removeLast();
+    return out;
   }
 
   /// Finds the cusps among the samples whose turn is known: where the
   /// line first turns by more than [minTurn], the tip is the sample within
   /// the baseline after it furthest along the way the line came (as the
   /// outline's corners are), decided as soon as the turn is known.
-  void _findCusps({required bool ended}) {
-    if (!_corners) return;
+  void _findCusps() {
     const b = cornerBaseline;
     final n = _path.length;
     for (; _scanned + b < n; _scanned++) {
@@ -253,17 +193,22 @@ class MouseSmoother {
   }
 
   void _emitUpTo(int last, {required bool ended}) {
-    final n = _path.length;
-    var c = 0; // The first corner after the point.
     for (; _emitted <= last; _emitted++) {
-      final i = _emitted;
-      while (c < _cusps.length && _cusps[c] < i) {
-        c++;
-      }
-      final lo = c > 0 ? _cusps[c - 1] : 0;
-      final hi = c < _cusps.length ? _cusps[c] : (ended ? n - 1 : n + _k);
-      onPoint(i == hi ? _path[i] : _smoothed(i, lo, math.min(hi, n - 1)), _times[i]);
+      onPoint(_pointAt(_emitted, ended: ended), _times[_emitted]);
     }
+  }
+
+  /// Sample [i] smoothed within its stretch between cusps; the path's end
+  /// bounds the last stretch only once [ended].
+  Offset _pointAt(int i, {required bool ended}) {
+    final n = _path.length;
+    var c = _cusps.length; // The first cusp at or after [i].
+    while (c > 0 && _cusps[c - 1] >= i) {
+      c--;
+    }
+    final lo = c > 0 ? _cusps[c - 1] : 0;
+    final hi = c < _cusps.length ? _cusps[c] : (ended ? n - 1 : n + _k);
+    return i == hi ? _path[i] : _smoothed(i, lo, math.min(hi, n - 1));
   }
 
   /// The Gaussian at [i] within the stretch [lo]..[hi], continued past its
