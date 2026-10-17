@@ -398,8 +398,8 @@ its "uploaded" marks, so the next upload phase re-checks (`HEAD`) the blobs its 
 reference and uploads any the server lost.
 
 **Client** (local, never visible to the server): a locally stored blob is deleted from the device
-once no live local row references it (page backgrounds, image templates of pages, image elements, recordings (audio parts and waveform) and the user's
-templates; pages, elements and recordings of trashed notebooks are live rows, so they count) for 7 days. Tombstoned
+once no live local row references it (page backgrounds, image templates of pages, image elements, recordings (audio parts and waveform), the user's
+templates and versions (their packs, page backgrounds and `blobs`); pages, elements and recordings of trashed notebooks are live rows, so they count) for 7 days. Tombstoned
 pages, elements and recordings count for 30 days after their deletion, as long as a
 [deletion conflict](#deletion-conflicts) may still bring them back. The app
 checks this at startup at most once a day, and checks each due blob again right before deleting it
@@ -561,7 +561,37 @@ back to the blobs the zip holds.
 | `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements. `type` = `text` (`data` = `{text, spans, paras, font, size, color, align, autoWidth, flow?}`, see [Text boxes](#text-boxes)), `image` (`data` = `{blob, width, height, crop?}`, see below) or `link` (`data` = `{target}`, see [Links](#links)). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
 | `recordings` | `{notebookId, audio, durationMs, startedAt, title, mime, segments, waveform, trimStartMs, trimEndMs}` — an audio recording of a notebook. `audio` = `[[<sha256>, durationMs], …]` (never empty) are the parts of the audio in order, each a [blob](#blobs) of `mime`: `audio/aac` (raw AAC in ADTS frames; parts join by concatenation into one stream), `audio/mp4` AAC or `audio/webm` Opus (recorded in browsers; each part a complete file, played one after the other). A recording being made gains a part every few minutes, so the record is updated (and its finished parts uploaded) while recording continues. `durationMs` is the audio length (the sum of the parts); `startedAt` is the wall time (epoch ms) recording began; `segments` = `[[startedAt, durationMs], …]` are the stretches captured between pauses, mapping audio time to wall time so ink (`strokes.createdAt`) can be replayed with it (empty → one segment `[startedAt, durationMs]`); ink and elements are replayed from their `createdAt`. `waveform` is `""` (none) or the `<sha256>` of the recording's [waveform](#waveforms) blob. `trimStartMs` / `trimEndMs` (ints, `0 ≤ trimStartMs ≤ trimEndMs ≤ durationMs`, else malformed) are the audio kept by a non-destructive trim, positions in the whole audio: `0` and `durationMs` when untrimmed (a recording being made stays untrimmed). Clients play, list, replay and export only the kept range; the parts keep all the audio, so trimming back restores it — until the user frees the space trimmed away: the record is then rewritten with only the parts the trim touches, `durationMs`, `segments`, `startedAt`, `waveform` and the trim moved to begin at the first kept part (the dropped blobs become unreferenced). Deleting a notebook tombstones its recordings. |
 | `outline`   | `{notebookId, pageId, parentId: string|null, title, createdAt}` — an entry of a notebook's own outline (table of contents) leading to page `pageId`. Entries nest by `parentId` (null = top level). There is no stored order: siblings are shown in the order of their pages in the notebook (then by `createdAt`), so reordering pages reorders the outline and concurrent additions never conflict. An entry whose parent is missing, or that is part of a parent cycle, is shown at the top level; one whose page was deleted is shown as such (deleting a page keeps its entries, so undoing the deletion restores them). Deleting an entry moves its children to its parent. |
+| `versions` | `{notebookId, createdAt, kind, name: string|null, deviceId, deviceName, notebook, pages, canvas, blobs, summary, size}` — a saved state of a notebook ([Version history](#version-history)). |
 | `recognised_text` | `{language, lines}` — handwriting a device with a recogniser read on one surface; the record's `id` **is the surface id** (a page id, or a canvas notebook's id). See [Recognised handwriting](#recognised-handwriting). |
+
+**Version history.** A `versions` record is one saved state of notebook `notebookId`; its
+content lives in *packs*, blobs of type `application/x-len-pack`, shared by every version
+holding the same content:
+
+- `createdAt` (int, ms) when it was made; `kind` ∈ `auto` (made after editing), `named` (saved by
+  hand), `restore` (the state before a restore); `name` the user's name for it (`null`: none);
+  `deviceId` (non-empty) and `deviceName` (a platform name such as `Android`, may be `""`) the
+  device that made it — not the record's `deviceId`, which names the last writer (a rename).
+- `notebook` = `{title, kind, paper, paperData, paperColor, coverColor}` as on `notebooks`.
+- `pages` = `[page, …]` in page order (`[]` for a canvas), each `{id, width, height, paper,
+  paperData, paperColor, bookmarked, background, ink, items}` with the fields of `pages` (the
+  page's id, kept by restoring), `ink` the packs of its live strokes and `items` those of its live
+  elements (lists of `<sha256>`, in order); `canvas` = `{ink, items}` for a canvas notebook (its
+  surface is the notebook), `null` for a paged one.
+- `blobs` = `[<sha256>, …]`: the blobs the packs' items reference (image elements), so blob
+  garbage collection, which reads records only, keeps them.
+- `summary` = `{pages, strokes, pagesAdded, pagesRemoved, pagesEdited, strokesAdded,
+  strokesRemoved, focus}` (ints; `focus` the id of the first page changed, or `null`) against
+  the version made before it; `size` (int) the bytes of the packs it added.
+
+A pack is UTF-8 JSON `{"v": 1, "items": [[id, data], …]}`: items of one surface, each the
+`data` of its `strokes` or `elements` record without `surfaceId`, in paint order (`createdAt`,
+then id). Writers cut a surface's items into packs where an item's id hashes to a boundary (on
+average 32 items, at most 256), so unchanged runs of items make the same blobs; readers take any
+cut. A pack with another `v`, or an item that is malformed for its collection, is skipped when
+read (that content is missing from the preview or restore). A version is never changed but for
+its `name`; thinning and "Delete older versions" tombstone it. Every field is required.
+Clients that do not know the collection skip it, as any unknown collection.
 
 **Not synced: the search index.** Full-text search (`search_docs`, `search_fts`, and the PDF text
 cache `pdf_text`) is derived on each device from the collections above and the PDF blobs, and is
