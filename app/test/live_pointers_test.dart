@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/stroke_reader.dart';
 import 'package:len/domain/chunk_digest.dart';
@@ -211,6 +212,34 @@ void main() {
     expect(asked, ['p1']);
   });
 
+  test('name tags: a plate by each pointer, none with tags off', () {
+    final rooms = _rooms();
+    final pointers = RemotePointers(rooms, room: 'nb');
+    addTearDown(pointers.dispose);
+    _say(rooms, {
+      'k': 'pointer',
+      'page': 'p1',
+      'at': [5, 5],
+    });
+    ({int plates, int dots}) paint({required bool tags}) {
+      final canvas = _CountingCanvas();
+      RemotePointersPainter(
+        pointers: pointers,
+        viewport: ViewportController(),
+        frameOf: (_) => const Rect.fromLTWH(0, 0, 800, 1000),
+        tags: tags,
+        plate: const Color(0xFFEEEEEE),
+        label: const TextStyle(fontSize: 12),
+        dot: const Color(0xFF000000),
+        halo: const Color(0xFFFFFFFF),
+      ).paint(canvas, const Size(800, 600));
+      return (plates: canvas.rrects, dots: canvas.circles);
+    }
+
+    expect(paint(tags: true), (plates: 1, dots: 2));
+    expect(paint(tags: false), (plates: 0, dots: 2), reason: 'the dot stays');
+  });
+
   test('a snapped highlight\'s ink stays until every stroke it became arrived', () {
     final rooms = _rooms();
     final remote = RemoteInk(rooms, room: 'nb');
@@ -363,6 +392,56 @@ void main() {
     expect(session.input.events.hovered, isNull);
     await closeEditor(tester);
   });
+
+  testWidgets('in the editor: ⋯ → View → Name tags hides the plates, remembered', (tester) async {
+    final (s, nb) = await pumpEditor(tester);
+    bool tags() => tester.widget<RemotePointersOverlay>(find.byType(RemotePointersOverlay)).tags;
+    expect(s.settings.pointerTags, isTrue, reason: 'on by default');
+    expect(tags(), isTrue);
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View'));
+    await tester.pumpAndSettle();
+    expect(find.text('Name tags'), findsNothing, reason: 'alone: nothing to label');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    s.sync.rooms.receive(
+      LivePresence(nb.id, const [(connection: 'c9', deviceId: 'd9', name: 'Linux')]),
+    );
+    await tester.pump();
+    Future<void> toggle() async {
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Name tags'));
+      await tester.pumpAndSettle();
+    }
+
+    await toggle();
+    expect(tags(), isFalse);
+    expect(s.settings.pointerTags, isFalse);
+    await toggle();
+    expect(tags(), isTrue);
+    expect(s.settings.pointerTags, isTrue);
+    await closeEditor(tester);
+  });
+}
+
+/// Counts the plates (rounded rects) and dots (circles) a painter draws.
+class _CountingCanvas implements Canvas {
+  int rrects = 0;
+  int circles = 0;
+
+  @override
+  void drawRRect(RRect rrect, Paint paint) => rrects++;
+
+  @override
+  void drawCircle(Offset c, double radius, Paint paint) => circles++;
+
+  @override
+  Object? noSuchMethod(Invocation invocation) => null;
 }
 
 /// Answers reads 30 ms later (as a background isolate does).

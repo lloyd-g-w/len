@@ -12,6 +12,7 @@ import '../../sync/sync_setup_link.dart';
 import '../../ui/app_dialogs.dart';
 import '../../ui/app_theme.dart';
 import '../documents/progress_dialog.dart';
+import 'name_tags_tile.dart';
 import 'settings_section.dart';
 import 'sync_setup_dialog.dart';
 import 'sync_status_line.dart';
@@ -19,9 +20,10 @@ import 'sync_status_line.dart';
 part 'sync_settings_views.dart';
 
 /// Sync: once connected the server, its status, Sync now, Change…, Set up
-/// another device… and Turn off sync…; otherwise (or while changing) the
-/// URL and token form, with a connection test. A setup link fills the form:
-/// pasted into the URL field, or opened with Len ([IncomingFiles.syncSetup]).
+/// another device… and Turn off sync…, then the Name tags switch; otherwise
+/// (or while changing) the URL and token form, with a connection test. A
+/// setup link fills the form: pasted into the URL field, or opened with Len
+/// ([IncomingFiles.syncSetup]).
 class SyncSettings extends StatefulWidget {
   const SyncSettings({super.key, this.reveal = false});
 
@@ -291,6 +293,13 @@ class _SyncSettingsState extends State<SyncSettings> {
             padding: const EdgeInsets.symmetric(horizontal: SettingsTile.edge, vertical: Gaps.md),
             child: _sync.isConfigured && !_editing ? _connected(context) : _form(context),
           ),
+        ),
+        // Live sync shows other devices' pointers once connected.
+        ListenableBuilder(
+          listenable: _sync,
+          builder: (context, _) => _sync.isConfigured && !_editing
+              ? NameTagsTile(preferences: _services.preferences)
+              : const SizedBox.shrink(),
         ),
       ],
     );

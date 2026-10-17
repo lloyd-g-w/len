@@ -82,15 +82,20 @@ class EditorCanvas extends StatelessWidget {
   /// Other devices' pointers, over everything on the pages (or canvas).
   Widget _remotePointers() {
     final doc = session.doc;
-    return RemotePointersOverlay(
-      pointers: session.shared.remotePointers,
-      viewport: doc?.viewport ?? session.canvasViewport!,
-      frameOf: doc == null
-          ? (id) => id == session.canvas!.surfaceId ? Rect.largest : null
-          : (id) {
-              final index = doc.pages.indexWhere((p) => p.id == id);
-              return index < 0 ? null : doc.layout.frameOf(index);
-            },
+    final prefs = session.services.preferences;
+    return ListenableBuilder(
+      listenable: prefs,
+      builder: (context, _) => RemotePointersOverlay(
+        pointers: session.shared.remotePointers,
+        tags: prefs.pointerTags,
+        viewport: doc?.viewport ?? session.canvasViewport!,
+        frameOf: doc == null
+            ? (id) => id == session.canvas!.surfaceId ? Rect.largest : null
+            : (id) {
+                final index = doc.pages.indexWhere((p) => p.id == id);
+                return index < 0 ? null : doc.layout.frameOf(index);
+              },
+      ),
     );
   }
 

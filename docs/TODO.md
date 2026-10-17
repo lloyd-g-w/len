@@ -142,7 +142,11 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   are not sent yet (the room data has room for them).
 - 🚧 (feat/pointer-tags) **Hide the name tags of other devices' pointers** (owner): a toggle for
   the device initial plate drawn beside another device's pen / laser while it writes (⋯ → View
-  and Settings), persisted; the pointer itself and presence in the bar stay.
+  and Settings), persisted; the pointer itself and presence in the bar stay. Done on the
+  branch: `pointerTags` preference (`pointer_tags`, default on), ⋯ → View → *Name tags*
+  (paged notebooks and canvases, while another device is in the notebook) and a *Name tags* switch in Settings → Sync
+  while connected; `RemotePointersPainter.tags` skips the plates, repainting at once. Remote
+  live ink draws no tag, so nothing to hide there.
 - ✅ **Live sync follow-ups**: cursors / pointers of other devices (the laser
   too); no gap between another device's live stroke and its record when the page reloads fully
   (500+ changes, a selection in the way) or for a highlight snapped to text (it ends without a
