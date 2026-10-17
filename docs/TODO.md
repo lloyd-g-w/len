@@ -265,22 +265,22 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
-- ⬜ **Undo after a version restore** (UX_AUDIT R25-6): the editor's undo steps from before a
+- 🚧 (fix/r25-followups) **Undo after a version restore** (UX_AUDIT R25-6): the editor's undo steps from before a
   restore survive it, so Ctrl+Z does nothing visible and Ctrl+Shift+Z writes an old stroke back
   onto the restored page. Decide: drop the undo steps of the surfaces a restore rewrote (its Undo
   is the snack bar's), or make the restore one `UndoHistory` step.
-- ⬜ **Remote pointers on other pages and in the zoom window** (UX_AUDIT R25-16, R25-17): a hover
+- 🚧 (fix/remote-pointers) **Remote pointers on other pages and in the zoom window** (UX_AUDIT R25-16, R25-17): a hover
   or mouse laser over a page that is not the active one is sent as the active page's (map it
   with the layout first); the zoom window draws neither other devices' live ink nor their
   pointers; their hover dot is a hollow ring on light paper in dark mode (R25-18).
-- ⬜ **Text boxes read twice** (UX_AUDIT R25-23): a page's screen-reader value holds its text
+- 🚧 (fix/r25-followups) **Text boxes read twice** (UX_AUDIT R25-23): a page's screen-reader value holds its text
   boxes, and the active page's boxes are nodes of their own too. Keep the overview, or leave the
   active surface's boxes out of the value?
-- ⬜ **A curve in progress and a finger pan on another page** (UX_AUDIT R25-29, suspected): the
+- 🚧 (fix/r25-followups) **A curve in progress and a finger pan on another page** (UX_AUDIT R25-29, suspected): the
   pan's first touch activates that page, which finishes (or, with one anchor, drops) the curve.
   Check on the tablet; keep the page while a curve is drawn, without letting a stylus add
   off-page anchors.
-- ⬜ **Teach curve editing and attaching ends** (UX_AUDIT R25-30): no hint says a tap on a
+- 🚧 (fix/r25-followups) **Teach curve editing and attaching ends** (UX_AUDIT R25-30): no hint says a tap on a
   selected curve's line adds an anchor and a double tap removes one, or that line and arrow
   ends attach to shapes.
 
