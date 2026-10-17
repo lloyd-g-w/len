@@ -44,8 +44,8 @@ class VersionPreview extends StatelessWidget {
           children: [
             Text(VersionLabels.when(v), style: theme.textTheme.titleLarge),
             Text(
-              '${VersionLabels.title(v)}, '
-              '${VersionLabels.device(v, thisDevice: services.strokes.deviceId)}',
+              '${VersionLabels.title(v)} '
+              '${VersionLabels.madeOn(v, thisDevice: services.strokes.deviceId)}',
               style: theme.textTheme.bodySmall,
             ),
           ],

@@ -231,7 +231,7 @@ class _VersionRow extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(
-                width: 40,
+                width: 48,
                 child: v.canvas == null && page == null
                     ? const SizedBox.shrink()
                     : ClipRRect(

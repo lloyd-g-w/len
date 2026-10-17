@@ -2954,12 +2954,15 @@ shares between versions (and between devices of one platform family).
   restored (`SyncController.fetchBlob`), so another device's history shows at
   once (times, devices, summaries) and its pages once fetched; offline,
   versions made here always open.
-- **When** (`VersionRecorder`, one per app): an editor's edits (its undo
-  history moving) call `noteEdit`; a version is made 2 minutes after
-  editing goes quiet, at most every 10 minutes while it goes on, and when
-  the editor closes or the app goes to the background. One equal to the
-  latest version (same packs and fields) is not made. "Save version…" (the
-  editor's ⋯ menu) makes a `named` one at once.
+- **When** (`VersionRecorder`, `AppServices.versionRecorder`): an editor's
+  edits (its undo history moving, `EditorSession._onEdited`) call
+  `noteEdit`; a version is made 2 minutes after editing goes quiet, at most
+  every 10 minutes while it goes on, and when the editor closes or the app
+  goes to the background (hidden / paused). One equal to the latest
+  version (same packs and fields) is not made. The app turns the recorder
+  on (`main.dart`); tests not about it leave it off, so edits start no
+  timers. "Save version…" (the editor's ⋯ menu, the history's header) makes
+  a `named` one at once.
 - **Thinning** (`VersionPolicy`, pure, deterministic): automatic versions
   are kept all for the last day, then the newest per hour for a week, per
   day for a month and per week after that (buckets aligned to the epoch, so
@@ -2985,11 +2988,19 @@ shares between versions (and between devices of one platform family).
 - **Not versioned:** recordings (audio is never rewritten), the outline
   (it refers to pages by id, which restoring keeps), recognised text.
 - **UI** (`features/history/`): "Version history…" in the editor's ⋯ menu
-  and the library's notebook menu opens `VersionHistorySheet`
-  (`showDialogOrSheet`): the versions newest first, grouped by day, each with
-  a thumbnail (the first page it changed), time, device, name and summary;
-  a version opens `VersionPreview` (its pages as thumbnails, read-only;
-  a page opens larger) with Restore, Restore page and Copy as new notebook.
+  and the library's notebook menu opens `showVersionHistory`
+  (`showDialogOrSheet` + `SheetHeader`): the versions newest first, grouped
+  by day (`SectionLabel`), each with a thumbnail (the first page it
+  changed), its name or what made it, the time, the device and what changed
+  (`VersionLabels`), and a ⋯ (`MenuRow`s: Restore…, Copy as new notebook,
+  Rename…, Delete version, Delete older versions…). A version opens
+  `VersionPreview` (its pages as thumbnails, read-only; a page opens larger
+  with Restore this page; a canvas shows whole), with Restore and Copy as
+  new notebook. `VersionSheets` loads (and fetches) what a version's
+  surfaces hold for `VersionSurfaceView`, which paints them with
+  `paintWholePage`; a version whose packs can't be had shows its paper with
+  a "not on this device" glyph, and restoring it says so and changes
+  nothing.
   Collaboration: each version names its device; per user once there are
   users.
 

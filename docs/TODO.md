@@ -169,6 +169,35 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   content shared between versions (records and blobs by reference, not copies); synced, so
   every device sees the same history; storage budget and "Delete older versions"; works on the
   web and offline. Designed with live collaboration in mind (who changed what).
+  **Done** (design: ARCHITECTURE "Version history", SYNC_PROTOCOL "Version history"): a
+  version is a synced `versions` record (old clients skip the unknown collection) naming
+  content-addressed *packs* (blobs of a surface's stroke / element record data, cut where ids
+  hash to a boundary, so unchanged runs are shared between versions; re-packed only for
+  surfaces whose change mark moved). Row references were not enough: elements, pages and the
+  notebook are edited in place and tombstones sync without payload. Every blob a version needs
+  is named in its record, so server and device blob GC keep it (no server change), and its push
+  waits for the packs' upload. `VersionRecorder`: 2 min after editing goes quiet, at most every
+  10 min, on editor close / app background; skipped when equal to the newest. `VersionPolicy`:
+  all of the last day, newest per hour for a week, per day for a month, per week after
+  (epoch-aligned nested buckets: every device thins the same, later clocks keep a subset),
+  budget 200 automatic versions / 64 MB per notebook; named kept; thinning on record and with
+  GC; versions of notebooks deleted forever go after 30 days. `VersionRestorer`: whole notebook
+  (settings, pages by id in order, strokes / elements by id), one page (back after its
+  predecessor), copy as new notebook (new ids, own links / flows / connectors follow); a
+  `restore` version is saved first and the snack bar's Undo restores it; open editors reload
+  (`SyncController.announce`). UI: editor ⋯ "Save version…" / "Version history…", library
+  notebook menu "Version history…"; history sheet (day groups, thumbnail of the first changed
+  page, time, device, summary; ⋯ Restore…, Copy as new notebook, Rename…, Delete version,
+  Delete older versions…), preview route (page grid, page view with Restore this page; canvas
+  view). Tests: `version_history_test` (packs, snapshots / dedupe, thinning with fake clock,
+  restore whole / page / copy / undo, offline refusal, GC), `version_history_sync_test` (two
+  devices, lazy pack fetch, restore and delete across devices, malformed record skipped),
+  `version_history_ui_test`.
+  **Left:** recordings and the outline are not versioned; packs are not compressed and only
+  dedupe across devices of one platform family (doubles print differently on the web);
+  version records grow with page count (a 1000-page PDF notebook: ~100 KB a version) — a
+  reference-blob scheme the server GC follows would shrink them; device names are platform
+  names (per user once there are users); no golden / screenshot of the history yet.
 
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.

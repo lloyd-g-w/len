@@ -40,6 +40,12 @@ abstract final class VersionLabels {
       ? 'Another device'
       : v.deviceName;
 
+  /// Where it was made, after its title: `on this device`, `on Android`.
+  static String madeOn(NotebookVersion v, {required String thisDevice}) {
+    final device = VersionLabels.device(v, thisDevice: thisDevice);
+    return 'on ${device == 'This device' || device == 'Another device' ? device.toLowerCase() : device}';
+  }
+
   /// What changed since the version before ([first]: there was none).
   static String summary(NotebookVersion v, {bool first = false}) {
     final s = v.summary;
@@ -54,7 +60,7 @@ abstract final class VersionLabels {
       if (s.strokesAdded > 0) '${_count(s.strokesAdded, 'stroke')} added',
       if (s.strokesRemoved > 0) '${_count(s.strokesRemoved, 'stroke')} erased',
     ];
-    if (parts.isEmpty) return v.canvas == null ? 'No changes to pages' : 'No ink added or erased';
+    if (parts.isEmpty) return 'No changes';
     final text = parts.join(', ');
     return text[0].toUpperCase() + text.substring(1);
   }
