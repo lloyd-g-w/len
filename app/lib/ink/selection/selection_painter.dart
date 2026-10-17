@@ -90,9 +90,12 @@ class SelectionPainter extends CustomPainter {
       canvas.clipPath(pages);
     }
     canvas
+      ..save()
       ..transform(selection.preview.matrix4)
       ..drawPicture(picture)
       ..restore();
+    if (selection.followers case final followers?) canvas.drawPicture(followers);
+    canvas.restore();
   }
 
   void _paintLasso(Canvas canvas) {

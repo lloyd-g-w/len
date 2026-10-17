@@ -65,26 +65,68 @@ extension _SelectionConnectors on _SelectionCore {
   /// Adds to [plan] the unselected lines attached to the [replaced] shapes,
   /// following them.
   void _follow(SelectionPlan plan, Map<String, Stroke> replaced, Set<String> selected) {
-    final lines = <String, (SurfaceModel, Stroke, ShapeGeometry)>{};
+    for (final (model, line, shape) in _followersOf(replaced, selected)) {
+      plan.replaceUnselected(model, line, Connectors.rebuilt(line, shape, id: clock.newId()));
+    }
+  }
+
+  /// The unselected lines attached to the [replaced] shapes (by old id),
+  /// where they are stored, and their geometry following the shapes (in
+  /// that surface's coordinates). With [homeOnly], only lines on this
+  /// surface.
+  List<(SurfaceModel, Stroke, ShapeGeometry)> _followersOf(
+    Map<String, Stroke> replaced,
+    Set<String> selected, {
+    bool homeOnly = false,
+  }) {
+    final lines = <String, (SurfaceModel, Stroke)>{};
     final targets = <SurfaceModel, Map<String, Followed>>{};
     for (final MapEntry(key: id, value: now) in replaced.entries) {
       final old = _strokes.firstWhere((s) => s.id == id);
       final surface = _sourceOf(old);
+      if (homeOnly && surface.model != _model) continue;
       final stored = (_sources[id]?.original as Stroke?) ?? old;
       final shift = surface.shift;
       (targets[surface.model] ??= {})[id] = (id: now.id, shape: now.shape!.map((p) => p - shift));
       for (final s in surface.model.strokesNear(stored.bounds)) {
         final shape = s.shape;
         if (shape == null || selected.contains(s.id) || lines.containsKey(s.id)) continue;
-        if (shape.tail?.id != id && shape.tip?.id != id) continue;
-        lines[s.id] = (surface.model, s, shape);
+        if (shape.tail?.id == id || shape.tip?.id == id) lines[s.id] = (surface.model, s);
       }
     }
-    for (final (model, line, shape) in lines.values) {
-      final followed = Connectors.follow(shape, targets[model]!);
-      plan.replaceUnselected(model, line, Connectors.rebuilt(line, followed, id: clock.newId()));
+    return [
+      for (final (model, line) in lines.values)
+        (model, line, Connectors.follow(line.shape!, targets[model]!)),
+    ];
+  }
+
+  /// Shows the unselected lines attached to [replaced] shapes (selected
+  /// ones as a gesture would leave them) following them, in place of their
+  /// stored selves.
+  void _previewFollowers(Map<String, Stroke> replaced) {
+    final lines = replaced.isEmpty
+        ? const <(SurfaceModel, Stroke, ShapeGeometry)>[]
+        : _followersOf(replaced, {for (final s in _strokes) s.id}, homeOnly: true);
+    if (lines.isEmpty && _followers == null) return;
+    _followers?.dispose();
+    _followers = lines.isEmpty
+        ? null
+        : _recordStrokes([
+            for (final (_, line, shape) in lines) Connectors.rebuilt(line, shape, id: line.id),
+          ]);
+    final ids = {for (final (_, line, _) in lines) line.id};
+    if (!setEquals(ids, _followerIds)) {
+      _followerIds = ids;
+      _hide();
     }
   }
+
+  /// The selected shapes as [t] would move them (their geometry only).
+  Map<String, Stroke> _moved(Affine t) => {
+    for (final s in _strokes)
+      if (ShapeAnchors.isTarget(s.shape))
+        s.id: s.withPoints(s.points, shape: s.shape!.map(t.apply)),
+  };
 
   /// Pasted copies [strokes] of [originals] (in order) attached to each
   /// other's copies; ends attached to shapes not pasted with them let go.

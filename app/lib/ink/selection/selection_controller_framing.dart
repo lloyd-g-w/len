@@ -9,17 +9,20 @@ extension _SelectionFraming on _SelectionCore {
     return identical(lookup(source?.surface.model ?? _model), source?.original ?? item);
   }
 
-  ui.Picture _record(List<Stroke> strokes) {
+  ui.Picture _record(List<Stroke> strokes, [List<SurfaceElement>? elements]) {
     final recorder = ui.PictureRecorder();
     ContentPainter.paint(
       Canvas(recorder),
       strokes,
-      _elements,
+      elements ?? _elements,
       images: _model.images,
       pixelScale: pixelScale,
     );
     return recorder.endRecording();
   }
+
+  /// [strokes] alone (no elements).
+  ui.Picture _recordStrokes(List<Stroke> strokes) => _record(strokes, const []);
 
   /// A new selection's frame: around a single element it follows the
   /// element's rotation (so handles sit on its edges), otherwise it is the

@@ -246,6 +246,26 @@ void main() {
       expectAttached();
     });
 
+    test('while the box is dragged, its arrow is shown following', () {
+      box();
+      attachedArrow();
+      final s = content.selection..select([boxNow()], const []);
+      s.setPreview(Affine.translation(const Offset(0, 40)), s.frame!);
+      expect(s.followers, isNotNull);
+      expect(model.isHidden('arrow'), isTrue);
+      s.cancelPreview();
+      expect(s.followers, isNull);
+      expect(model.isHidden('arrow'), isFalse);
+      // Reshaped by a handle too.
+      final shape = s.shape!;
+      s.reshape(ShapeHandles.drag(shape, 0, shape.points[0] + const Offset(-20, 0)));
+      expect(s.followers, isNotNull);
+      s.commitReshape();
+      expect(s.followers, isNull);
+      expect(model.isHidden(arrowNow().id), isFalse);
+      expectAttached();
+    });
+
     test('moved with its box the arrow stays attached; moved alone it lets go', () {
       box();
       attachedArrow();

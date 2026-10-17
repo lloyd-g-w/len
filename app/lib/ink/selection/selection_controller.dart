@@ -131,6 +131,13 @@ abstract class _SelectionCore extends ChangeNotifier {
   /// [shapeStroke] reshaped by the drag in progress.
   Stroke? _reshaped;
 
+  /// Unselected lines attached to shapes a gesture is moving or
+  /// reshaping, drawn as they will follow (this surface's coordinates);
+  /// their stored selves are hidden meanwhile.
+  ui.Picture? get followers => _followers;
+  ui.Picture? _followers;
+  Set<String> _followerIds = const {};
+
   /// The shape a line's end being dragged (a handle, the Shape tool)
   /// would attach to, shown with the selection's chrome.
   AttachHint? get attachHint => _attachHint;
@@ -161,6 +168,9 @@ abstract class _SelectionCore extends ChangeNotifier {
     _reshaped = null;
     _picture?.dispose();
     _picture = null;
+    _followers?.dispose();
+    _followers = null;
+    _followerIds = const {};
     _frame = isEmpty ? null : frame ?? _frameAround(_strokes, _elements);
     if (!isEmpty) _picture = _record(_strokes);
     _hide();
@@ -184,6 +194,7 @@ abstract class _SelectionCore extends ChangeNotifier {
       ..transform(_preview.matrix4)
       ..drawPicture(picture)
       ..restore();
+    if (_followers case final followers?) canvas.drawPicture(followers);
   }
 
   @override
@@ -204,7 +215,7 @@ abstract class _SelectionCore extends ChangeNotifier {
   void _hide() => _others = SelectionReach.hide(
     owner: this,
     model: _model,
-    ids: [for (final s in _strokes) s.id, for (final e in _elements) e.id],
+    ids: [for (final s in _strokes) s.id, for (final e in _elements) e.id, ..._followerIds],
     sources: _sources,
     before: _others,
     onChanged: _onModelChanged,
@@ -244,6 +255,7 @@ abstract class _SelectionCore extends ChangeNotifier {
     }
     unawaited(_imageChanges?.cancel());
     _picture?.dispose();
+    _followers?.dispose();
     super.dispose();
   }
 }
