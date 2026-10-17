@@ -10,12 +10,11 @@ import '../selection/lasso_path.dart';
 import '../selection/selection_chrome.dart';
 import '../selection/selection_controller.dart';
 import '../selection/selection_frame.dart';
+import '../shapes/bezier.dart';
 import '../shapes/shape_handles.dart';
-import '../shapes/shape_snap.dart';
 import '../viewport.dart';
 import 'content_hit_test.dart';
 import 'pointer_tool.dart';
-import 'shape_tool.dart';
 
 part 'lasso_tool_picking.dart';
 
@@ -51,9 +50,11 @@ abstract interface class LassoText {
 
 /// The lasso: draw a loop (or drag a rectangle, [LassoShape.rectangle]) to
 /// select, tap to select one item, drag the selection to move it, drag its
-/// handles to resize or rotate it — or, for a single shape, its own points
-/// to reshape it (one undo step per drag; Shift keeps a line's end on 15°
-/// steps). A long press on empty space asks to paste ([onLongPress]); a
+/// handles to resize or rotate it (Shift: 15° steps) — or, for a single
+/// shape, its own handles to reshape it ([ShapeHandles.drag]: one undo
+/// step per drag, Shift constrains, snaps within [snapReach]). On a
+/// selected curve, a tap on the line adds an anchor there and a double tap
+/// on an anchor removes it. A long press on empty space asks to paste ([onLongPress]); a
 /// double tap on a text box edits it ([onEditText]). What it selects
 /// follows the [LassoConfig] read at each press: its shape, how much of an
 /// item it must cover, and which kinds of item (taps too).
@@ -98,6 +99,10 @@ class LassoTool implements PointerTool {
 
   /// Movement (pixels) that turns a press into a drag.
   static const double slop = 6;
+
+  /// How near (pixels) a dragged shape handle snaps to lines, angles and
+  /// other points.
+  static const double snapReach = 8;
   static const Duration longPress = Duration(milliseconds: 500);
   static const int doubleTapMs = 400;
 
@@ -119,6 +124,10 @@ class LassoTool implements PointerTool {
   Timer? _longPressTimer;
   ({String id, int time})? _lastTap;
 
+  /// The last tap on a shape's handle: a second one on a curve's anchor
+  /// removes it.
+  ({int point, int time})? _lastHandleTap;
+
   /// The press started on [text], with no ink (but highlights) or element
   /// there.
   bool _onText = false;
@@ -132,12 +141,18 @@ class LassoTool implements PointerTool {
     final frame = selection.frame;
     final shape = selection.shape;
     if (shape != null) {
-      if (SelectionChrome.shapeHandleAt(shape, viewport, p.screen, frame: frame)
-          case final point?) {
+      final point = SelectionChrome.shapeHandleAt(
+        shape,
+        viewport,
+        p.screen,
+        frame: frame,
+        kind: p.kind,
+      );
+      if (point != null) {
         _mode = _Mode.reshape;
         _shape = shape;
         _point = point;
-        _grab = ShapeHandles.of(shape)[point] - p.world;
+        _grab = ShapeHandles.of(shape)[point].at - p.world;
         return;
       }
     }
@@ -191,13 +206,24 @@ class LassoTool implements PointerTool {
         final frame = _startFrame!;
         final result = switch (_handle) {
           null => frame.moved(p.world - _startWorld),
-          SelectionHandle.rotate => frame.rotatedTowards(p.world),
+          SelectionHandle.rotate => frame.rotatedTowards(
+            p.world,
+            steps: HardwareKeyboard.instance.isShiftPressed,
+          ),
           final handle => frame.resized(handle, p.world + _grab),
         };
         selection.setPreview(result.transform, result.frame);
         if (_handle == null) dragOut?.dragging(p.screen, _centreOnScreen);
       case _Mode.reshape:
-        selection.reshape(ShapeHandles.drag(_shape!, _point, _reshapeTarget(p.world + _grab)));
+        selection.reshape(
+          ShapeHandles.drag(
+            _shape!,
+            _point,
+            p.world + _grab,
+            shift: HardwareKeyboard.instance.isShiftPressed,
+            snap: snapReach / viewport.scale,
+          ),
+        );
       case _Mode.idle:
         break;
     }
@@ -230,10 +256,15 @@ class LassoTool implements PointerTool {
           selection.commitPreview();
         } else {
           selection.cancelPreview();
-          _tap(_lastWorld, keepSelection: true);
+          if (!_addAnchor(_lastWorld)) _tap(_lastWorld, keepSelection: true);
         }
       case _Mode.reshape:
-        _dragged ? selection.commitReshape() : selection.cancelReshape();
+        if (_dragged) {
+          selection.commitReshape();
+        } else {
+          selection.cancelReshape();
+          _tapHandle();
+        }
       case _Mode.idle:
         break;
     }

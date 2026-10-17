@@ -11,7 +11,6 @@ import 'package:len/ink/input/ink_input_controller.dart';
 import 'package:len/ink/input/live_ink.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
 import 'package:len/ink/shapes/shape_builder.dart';
-import 'package:len/ink/shapes/shape_handles.dart';
 import 'package:len/ink/surface_model.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ink/tools/content_tools.dart';
@@ -129,18 +128,72 @@ void main() {
   });
 
   testWidgets('Shift keeps a corner on the diagonal: proportions kept', (tester) async {
+    final rect = seed(
+      ShapeBuilder.dragged(ShapeKind.rectangle, const Offset(100, 100), const Offset(300, 200)),
+    );
+    drag([const Offset(100, 150)]);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    const corner = Offset(300, 200);
+    drag([corner, corner + const Offset(10, 40), corner + const Offset(90, 70)]);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    final p = content.selection.shape!.points;
+    expect((p[1] - p[0]).distance / (p[3] - p[0]).distance, closeTo(2, 1e-9));
+    expect(p[0], offsetMoreOrLessEquals(rect.shape!.points[0]));
+  });
+
+  testWidgets('an ellipse\'s radius sizes it about its centre; Shift keeps proportions', (
+    tester,
+  ) async {
     final ellipse = seed(
       ShapeBuilder.dragged(ShapeKind.ellipse, const Offset(100, 100), const Offset(300, 200)),
     );
-    drag([const Offset(100, 150)]);
-    final box = ShapeHandles.of(ellipse.shape!);
+    drag([const Offset(110, 150)]); // on its outline
+    expect(content.selection.shape, ellipse.shape);
+    final [c, u, v] = ellipse.shape!.points;
+    drag([u, u + const Offset(10, 20), u + const Offset(50, 20)]);
+    var shape = content.selection.shape!;
+    expect(shape.points, [c, u + const Offset(50, 0), v]);
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-    drag([box[2], box[2] + const Offset(10, 40), box[2] + const Offset(90, 70)]);
+    drag([shape.points[2], shape.points[2] + const Offset(0, 50)]);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    shape = content.selection.shape!;
+    expect(shape.points[0], c);
+    expect((shape.points[1] - c).distance / (shape.points[2] - c).distance, closeTo(3, 1e-9));
+    // Each drag was one undo step.
+    model.undo();
+    model.undo();
+    expect(model.strokesNear(const Rect.fromLTWH(0, 0, 800, 600)).single.shape, ellipse.shape);
+  });
+
+  test('a circle moves by its centre and sizes by its radius', () {
+    final circle = seed(
+      ShapeBuilder.dragged(ShapeKind.ellipse, const Offset(100, 100), const Offset(300, 300)),
+    );
+    expect(circle.shape!.kind, ShapeKind.circle);
+    drag([const Offset(100, 200)]);
+    drag([const Offset(200, 200), const Offset(220, 200), const Offset(250, 210)]);
+    expect(content.selection.shape!.points[0], const Offset(250, 210));
+    drag([const Offset(350, 210), const Offset(370, 210), const Offset(400, 210)]);
     final shape = content.selection.shape!;
-    final u = shape.points[1] - shape.points[0], v = shape.points[2] - shape.points[0];
-    expect(u.distance / v.distance, closeTo(2, 1e-9));
-    expect(ShapeHandles.of(shape)[0], offsetMoreOrLessEquals(box[0]));
+    expect(shape.kind, ShapeKind.circle);
+    expect((shape.points[1] - shape.points[0]).distance, 150);
+  });
+
+  test('Shift on the rotate handle turns in 15° steps; near them it snaps', () {
+    seed(ShapeBuilder.dragged(ShapeKind.rectangle, const Offset(100, 100), const Offset(300, 200)));
+    drag([const Offset(100, 150)]);
+    final frame = content.selection.frame!;
+    final rotate = frame.rotatedTowards(
+      frame.center + Offset.fromDirection(-math.pi / 2 + 0.27, 99),
+    );
+    expect(rotate.frame.angle, closeTo(math.pi / 12, 1e-9));
+    final free = frame.rotatedTowards(frame.center + Offset.fromDirection(-math.pi / 2 + 0.33, 99));
+    expect(free.frame.angle, closeTo(0.33, 1e-9));
+    final steps = frame.rotatedTowards(
+      frame.center + Offset.fromDirection(-math.pi / 2 + 0.33, 99),
+      steps: true,
+    );
+    expect(steps.frame.angle, closeTo(math.pi / 12, 1e-9));
   });
 
   test('a finger reaches a handle from a fingertip away; small shapes still move', () {
@@ -166,8 +219,9 @@ void main() {
     drag([const Offset(300, 250)]);
     expect(content.selection.strokes.single.id, line.id);
     expect(content.holds(const Offset(140, 360)), isFalse); // in its box, far from it
-    expect(content.holds(const Offset(305, 245)), isTrue);
-    drag([const Offset(305, 245), const Offset(325, 245), const Offset(345, 245)]);
+    expect(content.holds(const Offset(205, 175)), isTrue);
+    // Not by its middle: that bends it.
+    drag([const Offset(205, 175), const Offset(225, 175), const Offset(245, 175)]);
     expect(content.selection.shape, line.shape!.map((p) => p + const Offset(40, 0)));
   });
 }

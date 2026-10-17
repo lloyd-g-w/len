@@ -78,7 +78,8 @@ extension _EditorLayout on _EditorScreenState {
   );
 
   /// Escape first leaves focus mode, then closes a chrome menu opened
-  /// with a tap (focus stayed here, out of the menu's reach); the Menu
+  /// with a tap (focus stayed here, out of the menu's reach), then drops a
+  /// curve being drawn (Enter finishes it); the Menu
   /// key opens the canvas menu. The audio
   /// player's keys (Space, ← / →) come before the editor's shortcuts.
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
@@ -95,6 +96,13 @@ extension _EditorLayout on _EditorScreenState {
     }
     if (escape && _guard.closeMenus()) return KeyEventResult.handled;
     if (escape && _session.content.leaveTextTool()) return KeyEventResult.handled;
+    // A curve being drawn: Escape drops it, Enter finishes it.
+    if (escape && _session.content.shape.cancelCurve()) return KeyEventResult.handled;
+    final enter =
+        event is KeyDownEvent &&
+        (event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.numpadEnter);
+    if (enter && _session.content.shape.finishCurve()) return KeyEventResult.handled;
     // The Menu key or Shift+F10 on the page: the canvas menu, at the
     // middle of the view.
     if (node.hasPrimaryFocus && ContextMenuKeys.accepts(event)) {

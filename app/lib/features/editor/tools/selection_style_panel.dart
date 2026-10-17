@@ -16,6 +16,7 @@ import '../../../ui/group_header.dart';
 import '../../../ui/roving_focus.dart';
 import '../pen/ink_slots.dart';
 import '../pen/option_controls.dart';
+import '../pen/option_sections.dart';
 import '../pen/size_scale.dart';
 import 'selection_fill.dart';
 import 'text/text_style_menus.dart';
@@ -23,7 +24,8 @@ import 'text_format_bar.dart';
 
 /// Opens the style panel of a lasso selection: the colour of its ink and
 /// text, then font and size of the selected text boxes, pen type and width
-/// of the selected ink, and the fill of the selected closed shapes.
+/// of the selected ink, a star's points, and the fill of the selected
+/// closed shapes.
 Future<void> showSelectionStyle(
   BuildContext context, {
   required SelectionController selection,
@@ -78,6 +80,18 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
             if (texts.isNotEmpty) ..._textSection(context, texts),
             if (texts.isNotEmpty && strokes.isNotEmpty) const SizedBox(height: Gaps.md),
             if (strokes.isNotEmpty) ..._inkSection(context, strokes),
+            if (_sel.shape case final star? when star.kind == ShapeKind.star) ...[
+              const SizedBox(height: Gaps.md),
+              StepperRow(
+                label: 'Points',
+                noun: 'points',
+                count: star.tips,
+                min: ShapeGeometry.minTips,
+                max: ShapeGeometry.maxTips,
+                onAdd: () => _setTips(star, star.tips + 1),
+                onRemove: () => _setTips(star, star.tips - 1),
+              ),
+            ],
             if (strokes.any((s) => s.isClosed)) ...[
               const SizedBox(height: Gaps.md),
               SelectionFill(selection: _sel, recent: widget.tools.recentColors),
@@ -87,6 +101,11 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
       },
     );
   }
+
+  /// The selected star with [tips] points (one undoable edit).
+  void _setTips(ShapeGeometry star, int tips) => _sel
+    ..reshape(star.withStar(tips: tips))
+    ..commitReshape();
 
   /// The colour all strokes and text boxes share, else null.
   int? _commonColour() => _common([

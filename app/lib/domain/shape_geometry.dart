@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -11,22 +12,44 @@ export 'shape_kind.dart';
 /// its outline (the stroke's points) is built.
 ///
 /// [points] by kind:
-///  * line, arrow: the two ends (tail, tip);
+///  * line, arrow: the two ends (tail, tip), and for a bent one a third
+///    point, the bend: the middle of the curve (a quadratic Bézier from
+///    tail to tip through it at t = ½);
 ///  * rectangle: the four corners in order (a parallelogram once skewed);
-///  * triangle, diamond, polygon: the vertices in order;
-///  * ellipse: the centre and the ends of two conjugate semi-axes `u`,
-///    `v` (the outline is `centre + u·cos t + v·sin t`);
-///  * star: a frame like the ellipse's: the outer points are at angles
-///    −90° + k·72° of the unit circle mapped through it, the inner ones at
-///    [inner] of that radius in between.
+///  * triangle, diamond, polygon: the vertices in order (a diamond's are
+///    top, right, bottom, left of its frame);
+///  * circle: the centre and a point on the rim (its radius handle);
+///  * ellipse: the centre and the ends of its two semi-axes `u`, `v`,
+///    kept perpendicular (the outline is `centre + u·cos t + v·sin t`);
+///  * star: a frame like an ellipse's (centre, `u`, `v`, not necessarily
+///    perpendicular): its [tips] outer points lie at −90° + k·360°/[tips]
+///    of the unit circle mapped through it, the inner ones at [inner] of
+///    that radius in between;
+///  * curve: a cubic Bézier spline: anchor, its outgoing handle, the next
+///    anchor's incoming handle, the next anchor, … — `3n − 2` points for
+///    `n` anchors when open; closed, `3n`, the last being the first
+///    anchor's incoming handle.
 ///
-/// Every kind is described by points an affine map takes to the same kind,
-/// so moving, scaling or rotating a shape just maps its points ([map]).
+/// Every kind is described by points an affine map takes to the same kind
+/// (a circle squashed becomes an ellipse), so moving, scaling or rotating
+/// a shape maps its points ([map]).
 @immutable
 class ShapeGeometry {
-  ShapeGeometry(this.kind, List<Offset> points, {this.inner = defaultInner})
-    : points = List.unmodifiable(points),
-      assert(isValidCount(kind, points.length), 'Wrong number of points for $kind');
+  ShapeGeometry(
+    this.kind,
+    List<Offset> points, {
+    this.inner = defaultInner,
+    this.tips = defaultTips,
+  }) : points = List.unmodifiable(points),
+       assert(isValidCount(kind, points.length), 'Wrong number of points for $kind');
+
+  /// The ellipse around [centre] with conjugate semi-axes [u] and [v] (any
+  /// affine image of a circle), as its perpendicular semi-axes: the pair
+  /// nearest [u] and [v].
+  factory ShapeGeometry.ellipse(Offset centre, Offset u, Offset v) {
+    final (a, b) = principalAxes(u, v);
+    return ShapeGeometry(ShapeKind.ellipse, [centre, centre + a, centre + b]);
+  }
 
   final ShapeKind kind;
   final List<Offset> points;
@@ -34,40 +57,101 @@ class ShapeGeometry {
   /// A star's inner radius as a share of its outer one (0 < inner < 1).
   final double inner;
 
+  /// How many points a star has.
+  final int tips;
+
   static const double defaultInner = 0.42;
   static const double minInner = 0.1, maxInner = 0.95;
+  static const int defaultTips = 5, minTips = 3, maxTips = 12;
 
   /// The most vertices a polygon has.
   static const int maxVertices = 12;
 
+  /// The most anchors a curve has.
+  static const int maxAnchors = 64;
+
   /// Whether a [kind] has [count] control points.
   static bool isValidCount(ShapeKind kind, int count) => switch (kind) {
-    ShapeKind.line || ShapeKind.arrow => count == 2,
+    ShapeKind.line || ShapeKind.arrow => count == 2 || count == 3,
+    ShapeKind.circle => count == 2,
     ShapeKind.rectangle || ShapeKind.diamond => count == 4,
     ShapeKind.triangle || ShapeKind.ellipse || ShapeKind.star => count == 3,
     ShapeKind.polygon => count >= 3 && count <= maxVertices,
+    ShapeKind.curve =>
+      (count % 3 == 1 && count >= 4 && count <= 3 * maxAnchors - 2) ||
+          (count % 3 == 0 && count >= 6 && count <= 3 * maxAnchors),
   };
 
-  /// This shape with every point moved by [f] (an affine map).
-  ShapeGeometry map(Offset Function(Offset p) f) =>
-      ShapeGeometry(kind, [for (final p in points) f(p)], inner: inner);
+  /// Whether the outline is closed: every kind but lines, arrows and open
+  /// curves.
+  bool get isClosed => kind == ShapeKind.curve ? points.length % 3 == 0 : kind.isClosed;
+
+  /// A line or arrow with a bend (three points).
+  bool get isBent => (kind == ShapeKind.line || kind == ShapeKind.arrow) && points.length == 3;
+
+  /// A curve's number of anchors.
+  int get anchorCount => isClosed ? points.length ~/ 3 : (points.length + 2) ~/ 3;
+
+  /// This shape with every point moved by [f] (an affine map). An
+  /// ellipse keeps perpendicular semi-axes; a circle no longer round
+  /// becomes an ellipse.
+  ShapeGeometry map(Offset Function(Offset p) f) {
+    switch (kind) {
+      case ShapeKind.circle:
+        final [c, rim] = points;
+        final u = rim - c, v = Offset(-u.dy, u.dx);
+        final c2 = f(c), u2 = f(c + u) - c2, v2 = f(c + v) - c2;
+        final round =
+            (u2.distance - v2.distance).abs() <= 1e-9 * (u2.distance + v2.distance) &&
+            (u2.dx * v2.dx + u2.dy * v2.dy).abs() <= 1e-9 * u2.distanceSquared;
+        return round ? ShapeGeometry(kind, [c2, c2 + u2]) : ShapeGeometry.ellipse(c2, u2, v2);
+      case ShapeKind.ellipse:
+        final c2 = f(points[0]);
+        return ShapeGeometry.ellipse(c2, f(points[1]) - c2, f(points[2]) - c2);
+      default:
+        return ShapeGeometry(kind, [for (final p in points) f(p)], inner: inner, tips: tips);
+    }
+  }
 
   /// This shape with point [index] at [p].
-  ShapeGeometry withPoint(int index, Offset p) =>
-      ShapeGeometry(kind, [...points]..[index] = p, inner: inner);
+  ShapeGeometry withPoint(int index, Offset p) => withPoints([...points]..[index] = p);
+
+  /// This shape (same kind, star parameters) with other [points].
+  ShapeGeometry withPoints(List<Offset> points) =>
+      ShapeGeometry(kind, points, inner: inner, tips: tips);
+
+  /// This star with another [inner] radius or number of [tips].
+  ShapeGeometry withStar({double? inner, int? tips}) =>
+      ShapeGeometry(kind, points, inner: inner ?? this.inner, tips: tips ?? this.tips);
+
+  /// The perpendicular semi-axes of the ellipse `u·cos t + v·sin t`: the
+  /// pair at the parameter nearest 0 (so already perpendicular axes stay
+  /// as they are).
+  static (Offset, Offset) principalAxes(Offset u, Offset v) {
+    final dot = u.dx * v.dx + u.dy * v.dy;
+    if (dot.abs() <= 1e-12 * (u.distanceSquared + v.distanceSquared)) return (u, v);
+    var t = 0.5 * math.atan2(2 * dot, u.distanceSquared - v.distanceSquared);
+    // Both t and t ± 90° are principal: take the one nearest 0.
+    if (t > math.pi / 4) t -= math.pi / 2;
+    if (t < -math.pi / 4) t += math.pi / 2;
+    final c = math.cos(t), s = math.sin(t);
+    return (u * c + v * s, v * c - u * s);
+  }
 
   /// Compact JSON for storage and sync: `k` the kind, `p` the points as
-  /// `[x0, y0, x1, y1, …]`, `i` a star's [inner] radius (stars only).
+  /// `[x0, y0, x1, y1, …]`, `i` a star's [inner] radius and `n` its
+  /// [tips] (stars only).
   Map<String, Object?> toJson() => {
     'k': kind.name,
     'p': [
       for (final p in points) ...[p.dx, p.dy],
     ],
-    if (kind == ShapeKind.star) 'i': inner,
+    if (kind == ShapeKind.star) ...{'i': inner, 'n': tips},
   };
 
   /// Parses [json] strictly (see [toJson]); throws [FormatException] when
-  /// malformed.
+  /// malformed. An ellipse's semi-axes are made perpendicular; a star
+  /// without `n` has five points.
   static ShapeGeometry fromJson(Object? json) {
     if (json is! Map) throw const FormatException('Malformed shape');
     final kind = ShapeKind.strict(json['k']);
@@ -83,14 +167,24 @@ class ShapeGeometry {
       }
       points.add(Offset(x.toDouble(), y.toDouble()));
     }
-    final inner = json['i'];
+    final inner = json['i'], tips = json['n'];
     if (kind == ShapeKind.star) {
       if (inner is! num || !(inner >= minInner && inner <= maxInner)) {
         throw const FormatException('Malformed shape: i');
       }
-      return ShapeGeometry(kind, points, inner: inner.toDouble());
+      // Stars written before they had other numbers of points have five.
+      final n = tips ?? defaultTips;
+      if (n is! int || n < minTips || n > maxTips) {
+        throw const FormatException('Malformed shape: n');
+      }
+      return ShapeGeometry(kind, points, inner: inner.toDouble(), tips: n);
     }
-    if (inner != null) throw const FormatException('Malformed shape: i without a star');
+    if (inner != null || tips != null) {
+      throw const FormatException('Malformed shape: i or n without a star');
+    }
+    if (kind == ShapeKind.ellipse) {
+      return ShapeGeometry.ellipse(points[0], points[1] - points[0], points[2] - points[0]);
+    }
     return ShapeGeometry(kind, points);
   }
 
@@ -99,10 +193,11 @@ class ShapeGeometry {
       other is ShapeGeometry &&
       other.kind == kind &&
       other.inner == inner &&
+      other.tips == tips &&
       listEquals(other.points, points);
 
   @override
-  int get hashCode => Object.hash(kind, inner, Object.hashAll(points));
+  int get hashCode => Object.hash(kind, inner, tips, Object.hashAll(points));
 
   @override
   String toString() => 'ShapeGeometry(${toJson()})';

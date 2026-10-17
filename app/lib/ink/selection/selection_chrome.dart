@@ -46,7 +46,7 @@ abstract final class SelectionChrome {
     final width = frame.rect.width * viewport.scale;
     final height = frame.rect.height * viewport.scale;
     final result = <SelectionHandle, Offset>{};
-    if (shape != null && !shape.kind.isClosed) return result;
+    if (shape != null && !shape.isClosed) return result;
     for (final h in SelectionHandle.values) {
       if (h == SelectionHandle.rotate || shape != null) continue;
       final small = width < minEdgeHandleSpan || height < minEdgeHandleSpan;
@@ -86,35 +86,82 @@ abstract final class SelectionChrome {
     return best;
   }
 
-  /// Screen positions of [shape]'s handles ([ShapeHandles.of]).
-  static List<Offset> shapeHandles(ShapeGeometry shape, ViewportController viewport) => [
-    for (final p in ShapeHandles.of(shape)) viewport.toScreen(p),
-  ];
+  /// [shape]'s handles as shown ([ShapeHandles.of]): their index, role
+  /// and screen position. Secondary handles (sides, centres, bends,
+  /// tangents) step aside where they would crowd a primary one (within
+  /// [crowd] pixels: a small shape shows its corners or radii only). A
+  /// tangent shorter than [crowd] on screen (none at all: a corner anchor)
+  /// is shown [crowd] from its anchor, along itself or else along its
+  /// segment ([ShapeHandles.tangentTowards]), so it can still be pulled
+  /// out; it steps aside where that spot crowds another primary handle.
+  static List<({int index, ShapeHandle handle, Offset at})> shapeHandles(
+    ShapeGeometry shape,
+    ViewportController viewport,
+  ) {
+    final all = ShapeHandles.of(shape);
+    final screen = [for (final h in all) viewport.toScreen(h.at)];
+    final primary = [
+      for (final (i, h) in all.indexed)
+        if (h.role.isPrimary) screen[i],
+    ];
+    bool crowds(Offset at, [Offset? own]) =>
+        primary.any((p) => p != own && (p - at).distance < crowd);
+    Offset? place(int i) {
+      final h = all[i];
+      if (h.role.isPrimary) return screen[i];
+      final anchor = h.anchor;
+      if (anchor == null) return crowds(screen[i]) ? null : screen[i];
+      final from = viewport.toScreen(anchor), arm = screen[i] - from;
+      if (arm.distance >= crowd) return screen[i];
+      final towards = arm.distance >= 1
+          ? arm
+          : viewport.toScreen(ShapeHandles.tangentTowards(shape, i)) - from;
+      if (towards.distance < 1) return null;
+      final at = from + towards / towards.distance * crowd;
+      return crowds(at, from) ? null : at;
+    }
 
-  /// Reach of a shape's handles (pixels): a finger-sized target.
-  static const double shapeHitRadius = 24;
+    return [
+      for (final (i, h) in all.indexed)
+        if (place(i) case final at?) (index: i, handle: h, at: at),
+    ];
+  }
+
+  /// How close (pixels) a secondary handle may come to a primary one.
+  static const double crowd = 24;
+
+  /// Reach of a shape's handles (pixels) by input: a fingertip
+  /// (`Targets.touch` across), a pen, a mouse.
+  static double shapeHitRadius([PointerDeviceKind kind = PointerDeviceKind.touch]) =>
+      switch (kind) {
+        PointerDeviceKind.touch || PointerDeviceKind.unknown => 24,
+        PointerDeviceKind.stylus || PointerDeviceKind.invertedStylus => 22,
+        PointerDeviceKind.mouse || PointerDeviceKind.trackpad => 18,
+      };
 
   /// The index of [shape]'s handle nearest to [screen], if any is within
-  /// reach: [shapeHitRadius] outside the [frame], less inside it (so a
-  /// small shape can still be moved by its middle), and not when the
-  /// frame's rotate handle is nearer.
+  /// reach: [shapeHitRadius] for [kind] outside the [frame], less inside
+  /// it (so a small shape can still be moved by its middle), and not when
+  /// the frame's rotate handle is nearer.
   static int? shapeHandleAt(
     ShapeGeometry shape,
     ViewportController viewport,
     Offset screen, {
     SelectionFrame? frame,
+    PointerDeviceKind kind = PointerDeviceKind.touch,
   }) {
-    var reach = shapeHitRadius;
+    final full = shapeHitRadius(kind);
+    var reach = full;
     if (frame != null && frame.contains(viewport.toWorld(screen))) {
       final side = frame.rect.shortestSide * viewport.scale;
-      reach = (side / 4).clamp(hitRadius / 2, shapeHitRadius);
+      reach = (side / 4).clamp(hitRadius / 2, full);
     }
     int? best;
     var bestDistance = reach;
-    for (final (i, p) in shapeHandles(shape, viewport).indexed) {
-      final d = (p - screen).distance;
+    for (final h in shapeHandles(shape, viewport)) {
+      final d = (h.at - screen).distance;
       if (d <= bestDistance) {
-        best = i;
+        best = h.index;
         bestDistance = d;
       }
     }
@@ -134,7 +181,7 @@ abstract final class SelectionChrome {
     Offset screen, {
     ShapeGeometry? shape,
   }) {
-    if (shape == null || shape.kind.isClosed) return frame.contains(viewport.toWorld(screen));
+    if (shape == null || shape.isClosed) return frame.contains(viewport.toWorld(screen));
     final outline = [for (final p in ShapeBuilder.outline(shape)) viewport.toScreen(p)];
     for (var i = 1; i < outline.length; i++) {
       if (Polyline.distanceToSegment(screen, outline[i - 1], outline[i]) <= hitRadius) return true;

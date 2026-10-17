@@ -189,8 +189,8 @@ void main() {
       final r = frame.rotatedTowards(frame.center + const Offset(100, 2));
       expect(r.frame.angle, closeTo(math.pi / 2, 1e-9)); // snapped
       expectOffset(r.transform.apply(frame.center), frame.center);
-      final free = frame.rotatedTowards(frame.center + const Offset(100, -30));
-      expect(free.frame.angle, closeTo(math.atan2(100, 30), 1e-9));
+      final free = frame.rotatedTowards(frame.center + const Offset(100, -40));
+      expect(free.frame.angle, closeTo(math.atan2(100, 40), 1e-9));
     });
 
     test('a rotated frame resizes along its own axes', () {

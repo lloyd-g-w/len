@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../domain/shape_geometry.dart';
 import '../render/dashes.dart';
 import '../shapes/shape_handles.dart';
 import '../viewport.dart';
@@ -100,7 +101,7 @@ class SelectionPainter extends CustomPainter {
     final outline = _outline;
     final shape = selection.shape;
     final handles = SelectionChrome.handles(frame, viewport, shape: shape);
-    final corners = shape == null || shape.kind.isClosed
+    final corners = shape == null || shape.isClosed
         ? [for (final c in frame.corners) viewport.toScreen(c)]
         : null;
     final rotate = handles.remove(SelectionHandle.rotate);
@@ -114,20 +115,72 @@ class SelectionPainter extends CustomPainter {
     for (final entry in handles.entries) {
       _knob(canvas, entry.value, entry.key.isCorner ? 6.5 : 5.0);
     }
-    if (shape != null) {
-      for (final (i, p) in SelectionChrome.shapeHandles(shape, viewport).indexed) {
-        if (ShapeHandles.isInner(shape, i)) {
-          // The star's inner radius: a small solid dot, apart from its points.
-          canvas
-            ..drawCircle(p + const Offset(0, 1), 4.5, _shadow)
-            ..drawCircle(p, 4.5, Paint()..color = accent);
-        } else {
-          _knob(canvas, p, 6.5);
+    if (shape != null) _paintShapeHandles(canvas, shape);
+    if (rotate != null) _paintRotate(canvas, rotate);
+  }
+
+  /// A selected shape's own handles, each looking like what it does:
+  /// round knobs for points, smaller ones for sides, a ringed dot for a
+  /// centre, a diamond for a radius, a small square for a bend, solid
+  /// dots for a star's inner radius and for tangents (on an arm from
+  /// their anchor).
+  void _paintShapeHandles(Canvas canvas, ShapeGeometry shape) {
+    final handles = SelectionChrome.shapeHandles(shape, viewport);
+    // Tangent arms first, beneath every knob.
+    for (final paint in [_halo, _arm]) {
+      for (final h in handles) {
+        if (h.handle.anchor case final anchor?) {
+          canvas.drawLine(viewport.toScreen(anchor), h.at, paint);
         }
       }
     }
-    if (rotate != null) _paintRotate(canvas, rotate);
+    final fill = Paint()..color = handleFill;
+    final solid = Paint()..color = accent;
+    for (final h in handles) {
+      final p = h.at;
+      switch (h.handle.role) {
+        case HandleRole.vertex:
+          _knob(canvas, p, 6.5);
+        case HandleRole.edge:
+          _knob(canvas, p, 4.5);
+        case HandleRole.centre:
+          _knob(canvas, p, 6.5);
+          canvas.drawCircle(p, 2.5, solid);
+        case HandleRole.radius:
+          final diamond = Path()
+            ..moveTo(p.dx, p.dy - 8)
+            ..lineTo(p.dx + 8, p.dy)
+            ..lineTo(p.dx, p.dy + 8)
+            ..lineTo(p.dx - 8, p.dy)
+            ..close();
+          canvas
+            ..drawPath(diamond.shift(const Offset(0, 1)), _shadow)
+            ..drawPath(diamond, fill)
+            ..drawPath(diamond, _outline);
+        case HandleRole.bend:
+          final square = RRect.fromRectAndRadius(
+            Rect.fromCenter(center: p, width: 10, height: 10),
+            const Radius.circular(2),
+          );
+          canvas
+            ..drawRRect(square.shift(const Offset(0, 1)), _shadow)
+            ..drawRRect(square, fill)
+            ..drawRRect(square, _outline);
+        case HandleRole.inner:
+          canvas
+            ..drawCircle(p + const Offset(0, 1), 4.5, _shadow)
+            ..drawCircle(p, 4.5, solid);
+        case HandleRole.tangent:
+          canvas
+            ..drawCircle(p, 5, fill)
+            ..drawCircle(p, 3.5, solid);
+      }
+    }
   }
+
+  Paint get _arm => Paint()
+    ..color = accent
+    ..strokeWidth = 1;
 
   /// The rotate handle: a filled accent knob with a circular-arrow glyph.
   void _paintRotate(Canvas canvas, Offset rotate) {
