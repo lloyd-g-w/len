@@ -61,6 +61,9 @@ class SyncException implements Exception {
     kind: SyncFailure.incompatible,
   );
 
+  /// A live connection that cannot be opened (tests without one).
+  static const noLive = SyncException('No live connection to this server');
+
   static const historyLost = SyncException(
     'The sync server lost recent changes (restored or replaced)',
     kind: SyncFailure.historyLost,

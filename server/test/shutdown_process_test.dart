@@ -53,6 +53,14 @@ void main() {
       },
     );
 
+    // And a live connection.
+    final live = await WebSocket.connect(
+      'ws://127.0.0.1:$port/v1/live',
+      headers: {'authorization': 'Bearer shutdown-test-token-0123456789'},
+    );
+    final liveClosed = Completer<int?>();
+    live.listen((_) {}, onDone: () => liveClosed.complete(live.closeCode));
+
     final stopping = Stopwatch()..start();
     server.kill(ProcessSignal.sigterm);
     final code = await server.exitCode.timeout(const Duration(seconds: 20));
@@ -63,5 +71,6 @@ void main() {
     expect('$out', isNot(contains('forcing closed')));
     expect(stopping.elapsed, lessThan(const Duration(seconds: 8)));
     await streamEnded.future.timeout(const Duration(seconds: 5));
+    expect(await liveClosed.future.timeout(const Duration(seconds: 5)), WebSocketStatus.goingAway);
   }, timeout: const Timeout(Duration(minutes: 2)));
 }

@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 
 import '../../../ink/input/ink_input_controller.dart';
 import '../../../ink/input/live_ink.dart';
+import '../../../ink/remote_ink.dart';
 import '../../../ink/render/ink_painters.dart';
+import '../../../ink/render/remote_ink_painter.dart';
 import '../../../ui/app_theme.dart';
 import 'document_controller.dart';
 import 'document_layout.dart';
@@ -26,12 +28,16 @@ class PagedDocumentView extends StatefulWidget {
     required this.controller,
     required this.input,
     required this.live,
+    this.remote,
     this.backgrounds,
   });
 
   final DocumentController controller;
   final InkInputController input;
   final LiveInk live;
+
+  /// Strokes other devices are writing in the notebook right now.
+  final RemoteInk? remote;
   final PageBackgrounds? backgrounds;
 
   @override
@@ -280,6 +286,19 @@ class _PagedDocumentViewState extends State<PagedDocumentView> with TickerProvid
                         ),
                       ),
                     ),
+                    if (widget.remote case final remote?)
+                      RepaintBoundary(
+                        child: CustomPaint(
+                          painter: RemoteInkPainter(
+                            remote: remote,
+                            viewport: _doc.viewport,
+                            frameOf: (id) {
+                              final index = _doc.pages.indexWhere((p) => p.id == id);
+                              return index < 0 ? null : _doc.layout.frameOf(index);
+                            },
+                          ),
+                        ),
+                      ),
                     RepaintBoundary(
                       child: CustomPaint(
                         painter: LiveInkPainter(

@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:len/sync/live_channel.dart';
+import 'package:len/sync/sync_errors.dart';
 
 import 'real_server.dart';
 
@@ -77,6 +79,26 @@ class FaultyNetwork {
   /// as no app is left to send it.
   http.Client clientFor({void Function()? onKill, bool Function()? killed}) =>
       _FaultyClient(this, onKill, killed ?? () => false);
+
+  /// Live connections opened through the network, and how to break each.
+  final List<void Function()> _liveCuts = [];
+
+  /// Opens a live connection to the server (nothing goes wrong on it
+  /// unless [cutLive] says so); refused once [killed].
+  Future<LiveChannel> connectLive(String token, {bool Function()? killed}) async {
+    if (killed?.call() ?? false) {
+      throw SyncException.unreachable(http.ClientException('the app was killed'));
+    }
+    return server.connectLive(token, cut: _liveCuts.add);
+  }
+
+  /// Breaks every live connection open now (a network change).
+  void cutLive() {
+    for (final cut in _liveCuts) {
+      cut();
+    }
+    _liveCuts.clear();
+  }
 
   Fault? _pick({required bool canKill}) {
     if (rate == 0 || random.nextDouble() >= rate) return null;
