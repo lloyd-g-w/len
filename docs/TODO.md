@@ -92,7 +92,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   pen's slots but not its feel: ends (round / flat / tapered), pressure, stabiliser; the trail
   drawn with the pen's outline engine. Done: the laser popover has the pen's Pressure
   sensitivity, Stabiliser and Ends controls (round / tapered with start / end / both and
-  length / flat), greyed out in dot mode; persisted (old settings load as before: flat, off,
+  length / flat; under Feel, as the pen's, hidden for the dot since round 25); persisted (old settings load as before: flat, off,
   off), Reset restores them. Each trail stroke is shaped by the pen's `StrokeShaper`
   (sampling, smoothing, stabiliser, pressure radii, tapers) incrementally, then drawn as the
   laser's glow and core with the fade (round ends add a soft half disc); the preview shows a

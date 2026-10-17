@@ -2233,8 +2233,8 @@ surface.
   pen or finger and presenting with F5, `test/laser_hold_input_test.dart`). Set in the tool's options
   popup (`LaserOptionsPanel`, with a live preview: a finished stroke through `LaserStroke`, so
   ends, pressure and stabiliser show; the pen's `PressureSlider`, `StabiliserSlider` and
-  `PenEndsOptions`, greyed out for the dot as the highlighter greys its stabiliser for straight
-  lines; `test/laser_feel_test.dart`, `test/laser_trail_shape_test.dart`). The old painter drew two lines per sample, one
+  `PenEndsOptions` collapsed under Feel after Fade, as the pen's, and hidden for the dot as
+  Fade is; `test/laser_feel_test.dart`, `test/laser_trail_shape_test.dart`). The old painter drew two lines per sample, one
   with a blur mask filter — hundreds of blurs per frame; `test/perf/laser_perf_test.dart`
   measures a move (0 rebuilds, 1 paint) and a full trail against it.
 
