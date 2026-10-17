@@ -20,7 +20,8 @@ optional sync through a tiny server you host yourself.
   drag a selected shape's handles to reshape it; closed shapes take a fill.
 - **Lasso**: freehand or rectangle; select what it touches, mostly or wholly encloses,
   and which items (ink, highlighter, text, images).
-- **Laser pointer**: fades per stroke, or holds everything until you stop writing.
+- **Laser pointer**: fades per stroke, or holds everything until you stop writing; quick
+  colours and sizes like the pen's.
 - **Zoom window**: write large in a docked box, small on the page; it moves along the
   lines and pages.
 - **Minimap** on infinite canvases: see where content is, tap or drag to move.
@@ -30,6 +31,9 @@ optional sync through a tiny server you host yourself.
   Android), split view, tabs, PDF / PNG export, Len files and backups.
 - **Keyboard access**: shortcuts (Ctrl/⌘+/ lists them), arrow keys within every group,
   context menus with the Menu key or Shift+F10.
+- **Screen readers**: every control is named; pages read as "Page 3 of 12, bookmarked"
+  with their typed text, recognised handwriting and PDF text, and scroll to the next or
+  previous page.
 
 ## Install
 
@@ -89,9 +93,13 @@ read-backs, surface resizes and shader compiles of each step) and the JS heap
 are reported. Screenshots of each step and `report.json` go to `$LEN_EXPLORE_OUT` (default
 `/tmp/len-web-explore`); options are at the top of `tool/web_explore.py`.
 
-> **NixOS note:** run the Linux build from inside `nix develop`. nixpkgs' Flutter
-> engine library carries its own RUNPATH, which hides the bundled
-> `libsqlite3.so`; the dev shell supplies SQLite via `LD_LIBRARY_PATH`.
+> **NixOS note:** run the Linux build from inside `nix develop` (or let direnv
+> enter it: the repo has an `.envrc`). A Flutter from outside the dev shell has
+> neither its toolchain nor the GTK / libsecret / GStreamer libraries and fails
+> at the link step ("clang++: error: linker command failed"); from `app/`,
+> `nix develop .. -c flutter run --release -d linux` works.
+> The dev shell also supplies SQLite: nixpkgs' Flutter engine library carries its own RUNPATH, which hides the bundled
+> `libsqlite3.so`, so it is put on `LD_LIBRARY_PATH`.
 
 Without Nix, install Flutter ≥ 3.47 and follow
 [flutter.dev/desktop](https://docs.flutter.dev/platform-integration/desktop).

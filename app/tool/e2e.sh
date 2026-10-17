@@ -31,6 +31,15 @@ if command -v nix >/dev/null; then
   export LIBGL_DRIVERS_PATH="$mesa/lib/dri"
 fi
 
+# xvfb-run -a takes the first display number without a lock file and runs
+# the command even when its Xvfb lost the race for that number to another
+# job's: both then share the other job's display, gone when that job ends,
+# and the app fails to start ("Error waiting for a debug connection: The
+# log reader stopped unexpectedly"). -d lets Xvfb pick a free display
+# itself (nixpkgs', Fedora's, Arch's xvfb-run; not Debian's or Ubuntu's).
+xvfb_display=-a
+[[ $(xvfb-run --help 2>&1) == *--auto-display* ]] && xvfb_display=-d
+
 work=$(mktemp -d /tmp/len-e2e.XXXXXX)
 out="${LEN_E2E_OUT:-$work/out}"
 mkdir -p "$out"
@@ -73,7 +82,7 @@ phase() { # <test file> <data dir>
   mkdir -p "$data"
   echo "e2e: $name ($data)"
   XDG_DATA_HOME="$data" XDG_CONFIG_HOME="$data/config" XDG_CACHE_HOME="$data/cache" \
-    xvfb-run -a -s '-screen 0 1600x1000x24' \
+    xvfb-run "$xvfb_display" -s '-screen 0 1600x1000x24' \
     flutter test "integration_test/$name.dart" -d linux \
     --dart-define=E2E_SERVER="$url" --dart-define=E2E_TOKEN="$token" \
     --dart-define=E2E_OUT="$out" "${@:3}" 2>&1 | tee "$log" || status=$?

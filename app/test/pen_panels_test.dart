@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/editor_tools.dart';
@@ -89,6 +90,44 @@ void main() {
     expect(tools.configOf(InkTool.ballpoint).straight, isFalse);
     // Hold to snap has one home, Settings → Writing.
     expect(find.text('Hold to snap'), findsNothing);
+  });
+
+  testWidgets('highlighter: Snap to text, on by default, a switch by keyboard; Reset restores', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await pump(tester, HighlighterOptionsPanel(tools: tools));
+    PenConfig config() => tools.configOf(InkTool.highlighter);
+    expect(config().snapToText, isTrue);
+    final row = find.text('Snap to text');
+    expect(
+      tester.getSemantics(row),
+      isSemantics(
+        label: 'Snap to text\nHighlights over PDF text cover whole words',
+        hasToggledState: true,
+        isToggled: true,
+        isFocusable: true,
+        hasTapAction: true,
+      ),
+    );
+    await tester.tap(row);
+    await tester.pump();
+    expect(config().snapToText, isFalse);
+    expect(tester.getSemantics(row), isSemantics(hasToggledState: true, isToggled: false));
+    expect(tools.configOf(InkTool.ballpoint).snapToText, isTrue, reason: 'the pen is untouched');
+    // The row is a focus stop: Space toggles it back, and off again.
+    Focus.of(tester.element(row)).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(config().snapToText, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(config().snapToText, isFalse);
+    await tester.tap(find.text('Reset'));
+    await tester.pump();
+    expect(config(), PenConfig.defaultsFor(InkTool.highlighter));
+    semantics.dispose();
   });
 
   testWidgets('shapes: one line points to hold to snap in Settings → Writing (R8-33)', (

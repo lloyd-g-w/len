@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
@@ -86,6 +87,10 @@ class FaultDevice {
       AppDatabase.open('${_dir.path}/len.db'),
       clock: clock,
       blobBackend: files,
+      // Reconnection delays the same every time (per device and app run).
+      syncJitter: math.Random(
+        utf8.encode('$prefix/$run').fold<int>(0, (h, c) => (h * 31 + c) & 0xfffffff),
+      ),
       syncApiFactory: (url, token) => SyncApi(
         baseUrl: url,
         token: token,

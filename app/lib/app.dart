@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'app_services.dart';
 import 'data/blob_backend.dart';
 import 'domain/preferences.dart';
-import 'features/library/library_screen.dart';
+import 'features/library/launch_routes.dart';
 import 'features/settings/sync_attention.dart';
 import 'features/storage/storage_attention.dart';
 import 'ui/app_theme.dart';
@@ -126,7 +126,9 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
             scaffoldMessengerKey: _messenger,
             navigatorKey: _navigator,
             navigatorObservers: [widget.services.routeOwners],
-            home: const LibraryScreen(),
+            // Not `home`: the editor may launch over the library.
+            onGenerateInitialRoutes: (_) => launchRoutes(widget.services),
+            onGenerateRoute: namedRoute,
           );
         },
       ),

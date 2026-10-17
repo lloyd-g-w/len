@@ -8,6 +8,7 @@ import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_canvas.dart';
 import 'package:len/features/editor/editor_layers.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
+import 'package:len/features/editor/pen/slot_button.dart';
 import 'package:len/features/editor/toolbar/tool_options_popover.dart';
 import 'package:len/features/editor/tools/laser_strip.dart';
 import 'package:len/ink/tool_settings.dart';
@@ -222,13 +223,18 @@ void main() {
     }
   });
 
-  testWidgets('the laser has three colour slots; picking one sets its colour', (tester) async {
+  testWidgets('the laser has colour and size slots; picking one sets its colour', (tester) async {
     await pumpEditor(tester, size: const Size(1280, 900));
     await tester.tap(find.byTooltip('Laser pointer (K)'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('laser-slot-1')));
+    await tester.tap(find.byKey(const ValueKey('color-1')));
     await tester.pumpAndSettle();
-    expect(toolsOf(tester).laser.color, LaserStrip.colors[1]);
+    expect(toolsOf(tester).laser.color, LaserConfig.defaultColors[1]);
+    final strip = find.byType(LaserStrip);
+    expect(find.descendant(of: strip, matching: find.byType(SlotButton)), findsNWidgets(6));
+    await tester.tap(find.byKey(const ValueKey('width-2')));
+    await tester.pumpAndSettle();
+    expect(toolsOf(tester).laser.size, LaserConfig.defaultSizes[2]);
     await closeEditor(tester);
   });
 }

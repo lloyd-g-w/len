@@ -1,3 +1,7 @@
+import 'package:flutter/foundation.dart' show listEquals;
+
+import 'laser_config_json.dart';
+
 /// How the laser pointer shows: a dot under the pointer, or a dot that
 /// leaves a fading trail.
 enum LaserMode {
@@ -30,21 +34,35 @@ enum LaserFade {
       values.firstWhere((f) => f.name == name, orElse: () => LaserFade.stroke);
 }
 
-/// The laser pointer's customisation (persisted with the tool settings).
+/// The laser pointer's customisation (persisted with the tool settings):
+/// like an ink's, quick colours and quick sizes — independent rows of
+/// [minSlots]..[maxSlots] slots, one of each selected — plus how it shows
+/// (dot or trail) and fades. Immutable; `ToolSettings` swaps configs.
 class LaserConfig {
   const LaserConfig({
     this.mode = LaserMode.trail,
-    this.color = defaultColor,
-    this.size = defaultSize,
+    this.colors = defaultColors,
+    this.colorIndex = 0,
+    this.sizes = defaultSizes,
+    this.sizeIndex = defaultSizeIndex,
     this.duration = defaultDuration,
     this.fade = LaserFade.stroke,
     this.hold = defaultHold,
   });
 
-  static const int defaultColor = 0xFFFF2D2D;
-  static const double defaultSize = 6;
+  /// The quick colours at first: red, green and blue.
+  static const List<int> defaultColors = [0xFFFF2D2D, 0xFF2BD957, 0xFF2F8BFF];
+
+  /// The quick sizes at first, the middle one selected.
+  static const List<double> defaultSizes = [4, 6, 10];
+  static const int defaultSizeIndex = 1;
+
   static const Duration defaultDuration = Duration(milliseconds: 1000);
   static const Duration defaultHold = Duration(milliseconds: 2000);
+
+  /// Fewest and most slots in each row (as an ink's).
+  static const int minSlots = 1;
+  static const int maxSlots = 5;
 
   /// Width of the bright core on screen (logical pixels).
   static const double minSize = 3, maxSize = 16;
@@ -57,7 +75,7 @@ class LaserConfig {
   static const Duration minHold = Duration(milliseconds: 500);
   static const Duration maxHold = Duration(milliseconds: 5000);
 
-  /// The quick colours: red, orange, yellow, green, blue, magenta.
+  /// The colour palette: red, orange, yellow, green, blue, magenta.
   static const List<int> presets = [
     0xFFFF2D2D,
     0xFFFF8A00,
@@ -69,11 +87,14 @@ class LaserConfig {
 
   final LaserMode mode;
 
-  /// Opaque ARGB.
-  final int color;
+  /// Quick colours (opaque ARGB) and sizes (width of the bright core on
+  /// screen, logical pixels, [minSize]..[maxSize]).
+  final List<int> colors;
+  final List<double> sizes;
 
-  /// Width of the bright core on screen (logical pixels).
-  final double size;
+  /// The selected colour and size slots.
+  final int colorIndex;
+  final int sizeIndex;
 
   /// How long a point of the trail stays visible ([LaserFade.stroke]).
   final Duration duration;
@@ -85,64 +106,112 @@ class LaserConfig {
   /// ([LaserFade.pause]).
   final Duration hold;
 
+  /// The selected colour (opaque ARGB) and size.
+  int get color => colors[colorIndex];
+  double get size => sizes[sizeIndex];
+
   LaserConfig copyWith({
     LaserMode? mode,
-    int? color,
-    double? size,
+    List<int>? colors,
+    int? colorIndex,
+    List<double>? sizes,
+    int? sizeIndex,
     Duration? duration,
     LaserFade? fade,
     Duration? hold,
   }) => LaserConfig(
     mode: mode ?? this.mode,
-    color: color ?? this.color,
-    size: size ?? this.size,
+    colors: colors ?? this.colors,
+    colorIndex: colorIndex ?? this.colorIndex,
+    sizes: sizes ?? this.sizes,
+    sizeIndex: sizeIndex ?? this.sizeIndex,
     duration: duration ?? this.duration,
     fade: fade ?? this.fade,
     hold: hold ?? this.hold,
   );
 
+  /// A copy with the defaults of everything but the quick slots (what
+  /// Reset restores: the slots are the user's choices, as an ink's).
+  LaserConfig withFeelDefaults() => const LaserConfig().copyWith(
+    colors: colors,
+    colorIndex: colorIndex,
+    sizes: sizes,
+    sizeIndex: sizeIndex,
+  );
+
+  /// A copy with colour slot [index] set to [argb] (made opaque).
+  LaserConfig withColor(int index, int argb) =>
+      copyWith(colors: [...colors]..[index] = argb | 0xFF000000);
+
+  /// A copy with size slot [index] set to [size] (clamped to the range).
+  LaserConfig withSize(int index, double size) =>
+      copyWith(sizes: [...sizes]..[index] = size.clamp(minSize, maxSize));
+
+  /// A copy with [argb] appended as a new, selected colour slot (unchanged
+  /// when the row is full).
+  LaserConfig addColor(int argb) => colors.length >= maxSlots
+      ? this
+      : copyWith(colors: [...colors, argb | 0xFF000000], colorIndex: colors.length);
+
+  /// A copy with [size] appended as a new, selected size slot.
+  LaserConfig addSize(double size) => sizes.length >= maxSlots
+      ? this
+      : copyWith(sizes: [...sizes, size.clamp(minSize, maxSize)], sizeIndex: sizes.length);
+
+  /// A copy without colour slot [index] (the last slot is never removed).
+  LaserConfig removeColor(int index) {
+    if (colors.length <= minSlots || index < 0 || index >= colors.length) return this;
+    return copyWith(
+      colors: [...colors]..removeAt(index),
+      colorIndex: _afterRemoval(colorIndex, index),
+    );
+  }
+
+  /// A copy without size slot [index] (the last slot is never removed).
+  LaserConfig removeSize(int index) {
+    if (sizes.length <= minSlots || index < 0 || index >= sizes.length) return this;
+    return copyWith(sizes: [...sizes]..removeAt(index), sizeIndex: _afterRemoval(sizeIndex, index));
+  }
+
+  static int _afterRemoval(int selected, int removed) =>
+      selected > removed || (selected == removed && selected > 0) ? selected - 1 : selected;
+
   Map<String, Object?> toJson() => {
     'mode': mode.name,
-    'color': color,
-    'size': size,
+    'colors': colors,
+    'color': colorIndex,
+    'sizes': sizes,
+    'size': sizeIndex,
     'duration': duration.inMilliseconds,
     'fade': fade.name,
     'hold': hold.inMilliseconds,
   };
 
-  /// Reads [toJson] output; anything missing or malformed takes its default.
-  static LaserConfig fromJson(Object? json) {
-    if (json is! Map) return const LaserConfig();
-    final size = json['size'];
-    final duration = json['duration'];
-    final color = json['color'];
-    final hold = json['hold'];
-    return LaserConfig(
-      mode: LaserMode.parse(json['mode']),
-      color: color is int ? color | 0xFF000000 : defaultColor,
-      size: size is num ? size.toDouble().clamp(minSize, maxSize) : defaultSize,
-      duration: duration is int
-          ? Duration(
-              milliseconds: duration.clamp(minDuration.inMilliseconds, maxDuration.inMilliseconds),
-            )
-          : defaultDuration,
-      fade: LaserFade.parse(json['fade']),
-      hold: hold is int
-          ? Duration(milliseconds: hold.clamp(minHold.inMilliseconds, maxHold.inMilliseconds))
-          : defaultHold,
-    );
-  }
+  /// Reads [toJson] output; a part missing or malformed takes its default
+  /// (the quick colours with their selection, the sizes with theirs).
+  static LaserConfig fromJson(Object? json) => LaserConfigJson.parse(json);
 
   @override
   bool operator ==(Object other) =>
       other is LaserConfig &&
       other.mode == mode &&
-      other.color == color &&
-      other.size == size &&
+      listEquals(other.colors, colors) &&
+      other.colorIndex == colorIndex &&
+      listEquals(other.sizes, sizes) &&
+      other.sizeIndex == sizeIndex &&
       other.duration == duration &&
       other.fade == fade &&
       other.hold == hold;
 
   @override
-  int get hashCode => Object.hash(mode, color, size, duration, fade, hold);
+  int get hashCode => Object.hash(
+    mode,
+    Object.hashAll(colors),
+    colorIndex,
+    Object.hashAll(sizes),
+    sizeIndex,
+    duration,
+    fade,
+    hold,
+  );
 }

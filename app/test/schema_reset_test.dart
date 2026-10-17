@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/schema_migrations.dart';
 import 'package:len/data/schema_reset.dart';
 import 'package:len/data/settings_repository.dart';
 import 'package:len/data/sync_token_store.dart';
@@ -150,6 +151,31 @@ void main() {
     expect(db.schemaReset, isNull);
     expect(notebookCount(db.db), 1);
     expect(backups(), isEmpty);
+  });
+
+  test('the schema the migrations produce has the digest SchemaMigrations knows', () {
+    final fresh = AppDatabase.inMemory();
+    addTearDown(fresh.close);
+    expect(
+      SchemaCheck.digestOf(SchemaCheck.shapeOf(fresh.db)),
+      SchemaMigrations.shapeDigest,
+      reason: 'set SchemaMigrations.shapeDigest to this value',
+    );
+  });
+
+  test('at launch a current database is kept, a changed one reset', () async {
+    prepare((_) {});
+    final current = await AppDatabase.openDefault(dir.path);
+    expect(current.schemaReset, isNull);
+    expect(notebookCount(current.db), 1);
+    current.close();
+    final raw = AppDatabase.open(path);
+    raw.db.execute('ALTER TABLE notebooks ADD COLUMN stray TEXT');
+    raw.close();
+    final changed = await AppDatabase.openDefault(dir.path);
+    addTearDown(changed.close);
+    expect(changed.schemaReset, isNotNull);
+    expectFresh(changed);
   });
 
   test('a new database is fine', () {

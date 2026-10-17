@@ -1,22 +1,24 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../../ink/render/catmull_rom.dart';
-import '../../../ink/render/laser_painter.dart';
-import '../../../ink/render/laser_ribbon.dart';
 import '../../../ink/tool_settings.dart';
+import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_picker/color_choices.dart';
 import '../../../ui/group_header.dart';
 import '../../../ui/roving_focus.dart';
 import '../pen/option_controls.dart';
-import '../pen/stroke_preview.dart';
+import '../pen/option_sections.dart';
+import 'laser_preview.dart';
+import 'laser_slots.dart';
 
-/// The laser pointer's settings: dot or trail, colour, size, when the
-/// trail fades (each stroke on its own, or all of it once the writing
-/// stops) and how long it lasts, with a live preview.
+/// The laser pointer's settings, laid out as the pen's: a title with Reset
+/// (puts dot / trail and the fading back to the defaults, keeping the quick
+/// slots), a live preview, (in the phone sheet, which covers the toolbar)
+/// the quick slots, then dot or trail, the colour and size of the selected
+/// quick slots, when the trail fades (each stroke on its own, or all of it
+/// once the writing stops) and how long it lasts, and, collapsed, how many
+/// quick colours and sizes the toolbar shows. Edits apply live.
 class LaserOptionsPanel extends StatelessWidget {
   const LaserOptionsPanel({super.key, required this.tools});
 
@@ -37,12 +39,22 @@ class LaserOptionsPanel extends StatelessWidget {
               'Laser pointer',
               trailing: ResetButton<LaserConfig>(
                 value: laser,
-                defaults: const LaserConfig(),
+                defaults: laser.withFeelDefaults(),
                 onChanged: update,
               ),
             ),
             const SizedBox(height: Gaps.sm),
             LaserPreview(config: laser),
+            if (popoverIsSheet(context)) ...[
+              const SizedBox(height: Gaps.sm),
+              Row(
+                children: [
+                  LaserColorSlots(tools: tools, editable: false),
+                  const Spacer(),
+                  LaserSizeSlots(tools: tools, editable: false),
+                ],
+              ),
+            ],
             const SizedBox(height: Gaps.sm),
             RovingSegments(
               SegmentedButton<LaserMode>(
@@ -68,19 +80,12 @@ class LaserOptionsPanel extends StatelessWidget {
               color: laser.color,
               palette: LaserConfig.presets,
               recent: tools.recentColors,
-              onChanged: (c) => update(laser.copyWith(color: c)),
+              onChanged: (c) => update(laser.withColor(laser.colorIndex, c)),
             ),
             const SizedBox(height: Gaps.sm),
-            OptionSlider(
-              label: 'Size',
+            LaserSizeSlider(
               value: laser.size,
-              min: LaserConfig.minSize,
-              max: LaserConfig.maxSize,
-              // On screen, whatever the zoom: no unit to read.
-              showValue: false,
-              display: (v) =>
-                  percent((v - LaserConfig.minSize) / (LaserConfig.maxSize - LaserConfig.minSize)),
-              onChanged: (v) => update(laser.copyWith(size: v.roundToDouble())),
+              onChanged: (v) => update(laser.withSize(laser.sizeIndex, v)),
             ),
             if (laser.mode == LaserMode.trail) ...[
               const OptionRule(),
@@ -116,9 +121,36 @@ class LaserOptionsPanel extends StatelessWidget {
                   onChanged: (d) => update(tools.laser.copyWith(hold: d)),
                 ),
             ],
+            const SizedBox(height: Gaps.sm),
+            QuickSlotCounts(
+              colors: laser.colors.length,
+              sizes: laser.sizes.length,
+              min: LaserConfig.minSlots,
+              max: LaserConfig.maxSlots,
+              onAddColor: () => update(laser.addColor(_unusedColor(laser.colors))),
+              onRemoveColor: () => update(laser.removeColor(laser.colors.length - 1)),
+              onAddSize: () => update(laser.addSize(_newSize(laser))),
+              onRemoveSize: () => update(laser.removeSize(laser.sizes.length - 1)),
+            ),
           ],
         );
       },
+    );
+  }
+
+  /// A palette colour not in the row yet, to start a new slot with.
+  static int _unusedColor(List<int> used) => LaserConfig.presets.firstWhere(
+    (c) => !used.contains(c),
+    orElse: () => LaserConfig.presets.first,
+  );
+
+  /// A size for a new slot: a step above the last one, or below the
+  /// current one when that would exceed the range.
+  static double _newSize(LaserConfig c) {
+    final up = (c.sizes.last * 1.5).roundToDouble();
+    return (up <= LaserConfig.maxSize ? up : (c.size / 1.5).roundToDouble()).clamp(
+      LaserConfig.minSize,
+      LaserConfig.maxSize,
     );
   }
 }
@@ -146,76 +178,4 @@ class _Seconds extends StatelessWidget {
     display: (v) => '${v.toStringAsFixed(1)} s',
     onChanged: (v) => onChanged(Duration(milliseconds: (v * 10).round() * 100)),
   );
-}
-
-/// A sample of the laser as configured: a fading curve ending in the dot
-/// (trail), or just the dot, on a dark backdrop like a presentation.
-class LaserPreview extends StatelessWidget {
-  const LaserPreview({super.key, required this.config});
-
-  final LaserConfig config;
-
-  /// The backdrop: a neutral dark grey in both themes, like a dimmed
-  /// presentation (the laser's glow needs the dark).
-  static final Color backdrop = Tones.dark.board;
-
-  @override
-  Widget build(BuildContext context) {
-    // Framed like the ink previews: a Rule edge, radius sm.
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: backdrop,
-        borderRadius: BorderRadius.circular(Radii.sm),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: SizedBox(
-        height: PreviewCard.defaultHeight,
-        child: CustomPaint(painter: _PreviewPainter(config)),
-      ),
-    );
-  }
-}
-
-class _PreviewPainter extends CustomPainter {
-  _PreviewPainter(this.config);
-
-  final LaserConfig config;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final color = Color(config.color);
-    final end = Offset(size.width * 0.82, size.height * 0.5);
-    if (config.mode == LaserMode.trail) {
-      final xs = <double>[], ys = <double>[], alphas = <double>[];
-      const n = 24;
-      for (var i = 0; i <= n; i++) {
-        final t = i / n;
-        xs.add(size.width * (0.1 + 0.72 * t));
-        ys.add(size.height * (0.5 + 0.28 * math.sin(t * 2 * math.pi)));
-        // A held trail shows all of it; else it fades with age.
-        alphas.add(config.fade == LaserFade.pause ? 1 : t);
-      }
-      final curve = CatmullRom.densify(xs, ys, alphas, 3);
-      LaserRibbon.glow()
-        ..color = color
-        ..add(curve.x, curve.y, curve.r, config.size / 2 * LaserPainter.glowScale)
-        ..draw(canvas);
-      LaserRibbon.core()
-        ..color = color
-        ..add(curve.x, curve.y, curve.r, config.size / 2)
-        ..draw(canvas);
-    }
-    final radius = config.mode == LaserMode.dot ? config.size * 0.8 : config.size / 2;
-    LaserPainter.paintDot(
-      canvas,
-      config.mode == LaserMode.dot ? size.center(Offset.zero) : end,
-      radius,
-      color,
-      1,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_PreviewPainter old) => old.config != config;
 }

@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:ui' show Color, Offset;
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:pdf/pdf.dart';
 
 import '../../../domain/notebook_page.dart';
@@ -56,6 +56,13 @@ abstract final class PdfExporter {
   /// turn.
   static const Duration yieldEvery = Duration(milliseconds: 12);
 
+  /// Path segments of ink one content stream of a page takes before the
+  /// ink goes on in another (~100 KB of operators). Streams are compressed
+  /// one at a time as the file is saved; in a browser that is pure Dart on
+  /// the page's only thread, and a dense page's ink in one stream (4 MB)
+  /// held the tab 2.3 s in one task (WebAssembly).
+  static const int inkStreamSegments = 3000;
+
   /// Resolution of rendered elements (text boxes).
   static const double elementDpi = 300;
 
@@ -98,7 +105,9 @@ abstract final class PdfExporter {
     report?.missingImages += writer.images.missing;
     PdfLinkWriter.write(doc, pages, writer.written, writer.links);
     writeBookmarks(doc, bookmarks, writer.written);
-    return doc.save();
+    // In a browser the save runs on the page's thread: it lets the event
+    // loop turn between objects (elsewhere it runs in an isolate).
+    return doc.save(enableEventLoopBalancing: kIsWeb);
   }
 
   /// Writes [export]; false if its PDF background had to be rasterised.
@@ -137,9 +146,9 @@ abstract final class PdfExporter {
     Future<void> drawElements(bool belowInk) async {
       for (final element in elements.where((e) => e.belowInk == belowInk)) {
         if (element.knownType == ElementType.image) {
-          await images.draw(g, element, toPdf: pen.map, k: k);
+          await images.draw(pen.g, element, toPdf: pen.map, k: k);
         } else if (element.knownType == ElementType.text &&
-            await writer.text.draw(g, element, pageHeight: page.height, k: k)) {
+            await writer.text.draw(pen.g, element, pageHeight: page.height, k: k)) {
           // Written as text.
         } else {
           await _drawElement(doc, pen, element);
@@ -150,8 +159,15 @@ abstract final class PdfExporter {
     await drawElements(true);
     // Highlighter beneath pen ink, as on screen (see ContentPainter).
     final slice = Stopwatch()..start();
+    pen.segments = 0;
     for (final stroke in [...export.strokes]..sort(Stroke.drawOrder)) {
       _drawStroke(pen, stroke);
+      // Each stroke is a whole q … Q: the next one may start a new stream.
+      if (pen.segments > inkStreamSegments) {
+        pen
+          ..g = pdfPage.getGraphics()
+          ..segments = 0;
+      }
       // A dense page takes seconds in a browser, all on its one thread:
       // the tab (progress, Cancel) keeps responding.
       if (slice.elapsed > yieldEvery) {

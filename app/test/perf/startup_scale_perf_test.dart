@@ -61,8 +61,8 @@ void main() {
     time('services', () => s = AppServices.create(database, clock: clock));
     addTearDown(s.dispose);
     late LibraryController controller;
-    time('library', () => controller = LibraryController(s));
-    // The expired trash goes after the first frame, a notebook at a time.
+    time('library', () => controller = LibraryController(s, purgeAfter: Duration.zero));
+    // The expired trash goes after launch, a notebook at a time.
     final purge = Stopwatch()..start();
     final blocked = await longestTurnUntil(() => controller.trash.isEmpty);
     timings['trash purge (200 notebooks)'] = purge.elapsedMilliseconds;

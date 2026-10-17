@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 import '../../../domain/stroke.dart';
@@ -71,14 +73,19 @@ abstract final class ToolbarMetrics {
     return widest;
   }
 
-  /// The widest ink strip (pen or highlighter slots): what a minimal
-  /// strip needs at most.
+  /// The widest strip of quick colours and sizes (the pen's, the
+  /// highlighter's or the laser's slots): what a minimal strip needs at
+  /// most.
   static double inkStrip(ToolSettings tools, {bool compact = false}) {
     final slot = slotCell(compact: compact);
-    double of(InkTool ink) =>
-        (tools.configOf(ink).colors.length + tools.configOf(ink).widths.length) * slot + groupGap;
-    final pen = of(InkTool.ballpoint), highlighter = of(InkTool.highlighter);
-    return pen > highlighter ? pen : highlighter;
+    double of(int colors, int sizes) => (colors + sizes) * slot + groupGap;
+    final pen = tools.configOf(InkTool.ballpoint),
+        highlighter = tools.configOf(InkTool.highlighter);
+    return [
+      of(pen.colors.length, pen.widths.length),
+      of(highlighter.colors.length, highlighter.widths.length),
+      of(tools.laser.colors.length, tools.laser.sizes.length),
+    ].reduce(math.max);
   }
 
   /// Tools, a divider and the reserved strip: the group shown in the bar,
