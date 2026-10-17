@@ -60,10 +60,19 @@ extension _InkCommit on InkDrawing {
   void _hintShape(Stroke stroke) {
     final hint = events.shapeDrawn;
     if (hint == null || !tools.holdToStraighten || stroke.tool != InkTool.ballpoint) return;
-    if (HoldToStraighten.wouldSnap([for (final p in stroke.points) p.offset], viewport.scale)) {
-      hint();
-    }
+    // At most a few hundred points (a hint, not a snap): a long stroke's
+    // all would make pen-up cost its length.
+    final points = stroke.points;
+    final step = (points.length / _hintPoints).ceil();
+    final offsets = [
+      for (var i = 0; i < points.length; i += step) points[i].offset,
+      if ((points.length - 1) % step != 0) points.last.offset,
+    ];
+    if (HoldToStraighten.wouldSnap(offsets, viewport.scale)) hint();
   }
+
+  /// The most points [_hintShape] looks at.
+  static const int _hintPoints = 512;
 
   /// Whether the contact that just ended was an accidental stylus bounce.
   bool _isBounce(Duration? liftTime) =>
