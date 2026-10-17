@@ -232,7 +232,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   (migration 17) so surfaces re-pack. A version record now names *table blobs* (`LR`, 1:
   *reference blobs*) holding its rows — canvas or pages (fields, packs, images, recognised
   text), recordings and outline entries — cut by row id like packs, so a 1000-page notebook's
-  record is ~2 KB and an edit of one page writes one or two new table blobs. Blob GC follows
+  record is ~2.5 KB (was ~100 KB) and an edit of one page writes one or two new table blobs. Blob GC follows
   reference blobs: the server inflates and scans those reached from live records
   (`BlobGc.referencedAmong`); the device notes what a table blob names in `blob_links` when it
   writes or reads one (`BlobLinks`), which `BlobReferences` (GC, uploads) and the push's

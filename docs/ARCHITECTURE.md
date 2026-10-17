@@ -3010,7 +3010,7 @@ shares between versions (and between devices of one platform family).
   elements, the images they show, its recognised handwriting), then its
   recordings and outline entries (record data whole). The rows are cut like
   packs (by row id), so a version of a 1000-page notebook writes one or two
-  new table blobs after an edit of one page and its record stays ~2 KB
+  new table blobs after an edit of one page and its record stays a few KB
   (it was ~100 KB with the pages inline). A table blob is a **reference
   blob** (`LR`, 1, deflated canonical JSON): blob garbage collection follows
   it, on the server by inflating and scanning it, on the device through
