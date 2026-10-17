@@ -137,7 +137,10 @@ void main() {
         }
         await scene.warm();
         final points = wave(x: 120, y: 140, length: 300);
-        final frames = await f.draw(points);
+        // Stabiliser off, as before the pen's 30 % default: with it, at 110 %
+        // one edge pixel mid-stroke changes shade at pen-up, pans or not (the
+        // shift this test is about is hundreds).
+        final frames = await f.draw(points, streamline: 0);
         f.lift(scene.model);
         frames
           ..add(await f.frame())
