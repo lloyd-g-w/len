@@ -206,6 +206,11 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 - ⬜ **Len import keeps text flow links**: import gives elements new ids; check that text boxes
   flowing across pages keep their links (remap them as strokes' are), with a test.
 
+- ⬜ **Version history follow-ups**: compress packs (and the same bytes on web and native, so
+  they dedupe across platforms); version recordings, the outline and recognised handwriting
+  too; smaller version records for very long notebooks (pages' entries in shared blobs, with
+  the blob clean-up following them); a golden of the history view.
+
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
