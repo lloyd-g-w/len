@@ -250,6 +250,7 @@ class LiveInkPainter extends CustomPainter {
         // Translucent ink must be filled in one go.
         canvas.drawPath(outline.combined, paint);
       }
+      if (live.tip.isNotEmpty) _paintTip(canvas, paint.color);
     }
     if (eraser != null) {
       final px = 1 / viewport.scale; // One screen pixel.
@@ -267,6 +268,30 @@ class LiveInkPainter extends CustomPainter {
     }
     canvas.restore();
   }
+
+  /// A mouse stroke's provisional tip ([LiveInk.tip]): a line as wide as the
+  /// stroke's last point (a mouse has no pressure) on from it, with the
+  /// stroke's end.
+  void _paintTip(Canvas canvas, Color color) {
+    final spec = StrokeRenderer.specFor(live.width, live.style);
+    final from = live.points.last;
+    final line = Path()..moveTo(from.x, from.y);
+    for (final p in live.tip) {
+      line.lineTo(p.dx, p.dy);
+    }
+    canvas.drawPath(
+      line,
+      _tip
+        ..color = color
+        ..strokeWidth = 2 * spec.radiusFor(from.pressure)
+        ..strokeCap = spec.flatCaps ? StrokeCap.butt : StrokeCap.round,
+    );
+  }
+
+  static final Paint _tip = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeJoin = StrokeJoin.round
+    ..isAntiAlias = true;
 
   @override
   bool shouldRepaint(LiveInkPainter old) =>

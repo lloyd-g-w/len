@@ -1909,8 +1909,8 @@ surface.
   or diagonal exactly so — as do a held line or arrow once snapped (its end
   while the pen moves on), the straight pen, a line's end handle and a
   rectangle's corner handle) and commits exactly the shape last shown (an
-  ellipse dragged square is a circle); a tap on a shape selects it (not
-  with Curve picked: its taps place anchors).
+  ellipse dragged square is a circle); a tap on a shape selects it (with
+  Curve picked too: a drag from it starts a curve, and the hint says so).
   **Curves** (`tools/curve_drawing.dart`) are drawn a gesture at a time:
   a tap places an anchor (a corner), a press-drag places one and pulls its
   tangents out symmetrically, a tap on the first anchor closes the curve
@@ -1919,7 +1919,13 @@ surface.
   (`ShapeTool.finishCurve`, via `EditorScreen`'s keys and
   `ContentTools`); Escape drops it (`cancelCurve`). The curve so far is
   the live stroke between gestures; a gesture that turns into a pinch takes
-  back only its own anchor. One stroke, one undo step. The live outline is rebuilt
+  back only its own anchor. While it is drawn, undo and redo (Ctrl+Z, the
+  buttons, finger taps) step through its anchors; undoing the first drops
+  it, redo brings it back. Its anchors show over it (`CurveGuide`, painted
+  by `tools/curve_guide_painter.dart` in the look of a selected curve's
+  handles): the first ringed larger once a tap there closes the curve, and
+  the tangents of the anchor being pulled (or placed last) as arms. One
+  stroke, one undo step. The live outline is rebuilt
   whenever the live points are replaced rather than extended
   (`LiveInk.generation`; the incremental builder would otherwise keep the
   outline of an earlier preview).
@@ -2022,7 +2028,9 @@ surface.
   the opposite side), diamond vertices (along their axis, the opposite one
   fixed) and side middles (sizing it from the opposite side: the box it is
   drawn in), triangle and polygon vertices (free; Shift: one axis), a
-  circle's centre (moves it) and radius, an ellipse's centre and two radii
+  circle's centre (moves it), its radius (on the rim between its axes:
+  sizes it evenly) and its axes' ends (squash it into an ellipse; an
+  ellipse dragged to equal radii is a circle again), an ellipse's centre and two radii
   (each sizes its axis about the centre; Shift: both), a star's centre, top
   point (turns and sizes it) and inner point (inner radius; its number of
   points is in Style, `StepperRow`), a curve's anchors (moving their
@@ -2046,14 +2054,26 @@ surface.
   a radius, a small square for a bend, solid dots for a star's inner
   radius and for tangents; secondary handles (sides, centres, bends,
   tangents) step aside within 24 px of a primary one, so small shapes
-  show their corners or radii only (`SelectionChrome.crowd`); a tangent
+  show their corners or radii only (`SelectionChrome.crowd`). On a shape
+  under 84 px across whose primary handles come within 28 px of each other
+  (`SelectionChrome.apart`), those are spread out from its middle until
+  they are that far apart (at most 4×) and shown alone, so each can be
+  seen and grabbed; a drag moves the true point by as much as the pointer
+  (no jump). Lines and large shapes keep handles on their points. On
+  touch-first devices handles are drawn a quarter larger
+  (`SelectionPainter.touchScale`). A tangent
   shorter than that (none at all: a corner anchor, as a tap places it)
   shows 24 px from its anchor, along itself or its segment, and grows
   from the anchor when dragged, so corners can be made smooth. They are
   reached within `SelectionChrome.shapeHitRadius` by input (24 px for a
   finger, `Targets.touch` across; 22 for a pen; 18 for a mouse; inside a
   small shape's frame less, so it still moves by its middle; the rotate
-  handle wins when nearer), grabbed where they are (no jump). Dragging one (`LassoTool`, mode reshape) shows the shape
+  handle wins when nearer), grabbed where they are (no jump). With a
+  mouse, the cursor says what a press would do (`SelectionCursors.at` via
+  `ContentTools.cursorAt`, held in `InkInputController.cursor`): grab over
+  a shape's handle or the rotate handle (grabbing while dragged), resize
+  along a frame handle's direction (turned with the frame), move over the
+  body, a pointing hand on a curve's closing anchor, else the crosshair. Dragging one (`LassoTool`, mode reshape) shows the shape
   rebuilt (`ShapeBuilder.reshaped`: outline 2 px apart at its zoom, same
   look and fill) as the selection's picture; the release commits it as one
   `InkEdit` (remove + add, so it syncs), keeping it selected. During moves
@@ -2093,23 +2113,43 @@ surface.
   wraps identically while edited and once committed. The whole session is
   one undoable edit (an emptied box is deleted). See *Text boxes*.
 - **Laser pointer** (`tools/laser.dart`, `render/laser_painter.dart`,
-  `render/laser_ribbon.dart`, `features/editor/tools/laser_overlay.dart`): `LaserTrail` keeps
-  the samples (at least 1.5 px apart on screen; the dot follows every one) in a fixed-size ring
-  buffer of typed arrays, stamped with frame time; `LaserOverlay` owns a `RepaintBoundary`, a
+  `render/laser_strokes.dart`, `render/laser_stroke.dart`, `render/laser_ribbon.dart`,
+  `features/editor/tools/laser_overlay.dart`): `LaserTrail` keeps
+  the samples (at least 1.5 px apart on screen; the dot follows every one) with their pressure
+  in a fixed-size ring buffer of typed arrays, stamped with frame time (each point has an id
+  that stays with it as older ones expire; `revision` changes when points move or go
+  otherwise); `LaserOverlay` owns a `RepaintBoundary`, a
   `CustomPaint` repainting from the trail (no widget rebuilds) and a ticker that runs only while
-  something is visible. `LaserPainter` draws, in screen space, a centripetal Catmull-Rom curve
-  through the samples as two vertex meshes with per-vertex colours (`LaserRibbon`: a wide soft
+  something is visible. Each stroke of the trail is shaped by the pen's engine
+  (`LaserStroke`: a `StrokeShaper` fed in world units, as wide as the laser's size on screen
+  whatever the zoom — sampling, pen-down hook, smoothing with the stabiliser, radii from
+  pressure, start and end tapers; live strokes show what live ink shows, `liveLength`, so the
+  stabiliser trails the pointer as the pen's ink does; no pen-up hook trim, a laser keeps
+  nothing). `LaserStrokes` keeps the strokes between frames and feeds them only new points (a
+  frame that only fades recomputes nothing but opacities; a stroke is rebuilt when the size,
+  pressure sensitivity, stabiliser or ends change); a long press rebuilds its shaper from the
+  samples still showing (`_rebase`, with the old samples' phase), so memory stays bounded.
+  `LaserPainter` draws, in screen space, the strokes' centre lines (every 4 px, every 1 px
+  where the width changes: tapers, pressure) as two vertex meshes with per-vertex colours
+  (`LaserRibbon`: a wide soft
   glow, a bright core whitened in the middle — lanes transparent at the edges, so no blur
-  filter), narrowing and fading with age (smoothstep), plus a radial-gradient dot at the pointer.
+  filter; per-point widths; round ends add a half disc of rings, flat ends are cut square),
+  narrowing and fading with age (smoothstep), plus a radial-gradient dot at the pointer.
   `LaserConfig` (in `ToolSettings`, persisted): dot or trail mode, quick colours and quick
   sizes like an ink's (1–5 each, one of each selected; red / green / blue and 4 / 6 / 10 px at
-  first; `LaserConfigJson` drops a malformed row to its defaults) and when the trail fades (`LaserFade`): each point a set time after it was
+  first; `LaserConfigJson` drops a malformed row to its defaults), the pen's feel for the trail
+  (pressure sensitivity and stabiliser 0–1, default off; ends round / tapered / flat as
+  `PenEnds`, default flat — the trail as it always looked; a missing or malformed value loads
+  its default, so settings saved before load unchanged; Reset restores them) and when the trail fades (`LaserFade`): each point a set time after it was
   drawn (0.3–3 s), or, *when I stop*, all of it together once `hold` (0.5–5 s, default 2 s)
   has passed since the last lift (`LaserTrail.holding`: the trail and dot stay in full while
   writing, a press within the hold keeps everything, then a 400-ms fade; frames during the hold
   repaint nothing, and a hovering mouse doesn't stop the countdown; the same with a mouse,
   pen or finger and presenting with F5, `test/laser_hold_input_test.dart`). Set in the tool's options
-  popup (`LaserOptionsPanel`, with a live preview). The old painter drew two lines per sample, one
+  popup (`LaserOptionsPanel`, with a live preview: a finished stroke through `LaserStroke`, so
+  ends, pressure and stabiliser show; the pen's `PressureSlider`, `StabiliserSlider` and
+  `PenEndsOptions`, greyed out for the dot as the highlighter greys its stabiliser for straight
+  lines; `test/laser_feel_test.dart`, `test/laser_trail_shape_test.dart`). The old painter drew two lines per sample, one
   with a blur mask filter — hundreds of blurs per frame; `test/perf/laser_perf_test.dart`
   measures a move (0 rebuilds, 1 paint) and a full trail against it.
 
@@ -2437,8 +2477,10 @@ tool options popover hosts them unchanged under *Feel* (`InkOptions`,
 their title row (`FeelHeader`) and `PreviewCard` step aside, since the
 popover shows its own above: so a setting added to a panel shows up in the
 popover with no other change. The
-stabiliser shows "Off" at 0 (the pen's default: ink under the nib) and up to
-100 % (the live ink then trails the pen by ~6–15 px). **Straight lines**
+stabiliser shows "Off" at 0 (ink under the nib) and up to
+100 % (the live ink then trails the pen by ~6–15 px); the pen's default is
+30 % (`PenDefaults.pen`; settings saved before `ToolSettings.prefsVersion` 2
+with the old default, off, are upgraded on restore), the highlighter's 50 %. **Straight lines**
 (`PenConfig.straight`, offered for the highlighter): every stroke is the line
 from pen-down to the pen — `HoldToStraighten.begin(straight: true)` makes
 the live stroke straight from its first point, like a held line, so it
@@ -2586,16 +2628,35 @@ does not grow with the stroke's length.
    device pressure 0.2 is medium, the pen's nominal width; fingers and the
    mouse are 0.5, medium too) and is filtered (`PressureFilter`); the
    overlay's Kotlin model applies the same. A **mouse** reports whole
-   pixels (web, desktops), a staircase that zoomed out — the pen a fraction
-   of a pixel wide on screen — showed as squiggles the outline's smoothing
-   (bounded relative to the pen's width, which keeps its geometry exact)
-   cannot level; so when the pen is under 2.5 px wide on screen its path
-   is first resampled every pixel and smoothed with a centred Gaussian in
-   screen space (`MouseSmoother`: what the outline lacks, up to 2 px for a
-   hairline, trailing the mouse by at most 6 px like the stabiliser, the
-   ends where the mouse went down and up). Wider pens (the default at 100 %)
-   get the mouse's positions unchanged, without lag
-   (`test/mouse_zoom_smoothness_test.dart`).
+   pixels (web, desktops): a staircase with ±0.5 px of error at every
+   sample, which the outline's smoothing (bounded relative to the pen's
+   width, which keeps its geometry exact) cannot level — a thick pen
+   showed every step as a bump, its width swelling and pinching by up to
+   a third along straight lines, a thin one zoomed out as squiggles. So
+   every mouse stroke is first resampled every screen pixel and smoothed
+   with a centred Gaussian in screen space (`MouseSmoother`), whose σ is
+   the stroke's stabiliser: 2 px at 0, 2.9 at 30 %, 5 at 1. Cusps (a turn
+   > 90° over 3 px each way) are kept, and stretches are continued past
+   cusps and ends by point reflection, so the stroke starts and ends where
+   the mouse went down and up. The stabiliser is applied there instead of
+   by the outline (`InkDrawing` commits mouse strokes with stabiliser 0,
+   as straight lines are): in screen space, where a mouse's error is, the
+   same smoothing costs less lag. A point is passed on once its window
+   and the cusp test are known, so it never moves: the final line trails
+   the mouse by `MouseSmoother.lagOf` (8 px at 0, 11 at 30 %, 16 at 1;
+   the stylus's at 30 % is ~13). At stabiliser 0 the ink still reaches
+   the mouse: the pending rest of the path, smoothed as if the mouse
+   lifted there (`MouseSmoother.tip`), is the live ink's provisional
+   **tip** (`LiveInk.tip`, drawn by `LiveInkPainter` as a line of the
+   stroke's width with its end; opaque ink only, a translucent tip would
+   darken where it overlaps). A mouse has no pressure: its width is steady.
+   `test/mouse_ink_smoothness_test.dart` measures mouse handwriting
+   through the whole pipeline (`test/support/mouse_writing.dart`:
+   whole-pixel events at 1000 and 125 Hz, raw or coalesced per frame;
+   `ink_roughness.dart`: edge bumps, kinks, width spread, drift from the
+   true path, cusps, lag) and that a stylus is left alone;
+   `mouse_zoom_smoothness_test.dart` checks every width and zoom, and
+   `mouse_ink_golden_test.dart` shows it.
    **Ink shows from the first sample**, under the nib
    (latency beats purity): every contact is drawn from pen-down, even one
    that turns out to be a bounce (`BounceFilter.isBounce`, decided at its

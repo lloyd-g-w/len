@@ -51,7 +51,9 @@ class InkDrawing {
   }) : _straighten = HoldToStraighten(live) {
     // A resting mouse's ink catches up with it before the stroke is read.
     _straighten.beforeSnap = () {
-      if (_byMouse) _mouse.flush();
+      if (!_byMouse) return;
+      _mouse.flush();
+      _showMouseTip();
     };
   }
 
@@ -87,6 +89,9 @@ class InkDrawing {
     (at, ms) => _inkTo(at, 0.5, Duration(milliseconds: ms)),
   );
   bool _byMouse = false;
+
+  /// Whether a mouse stroke's live ink runs on to the mouse ([LiveInk.tip]).
+  bool _mouseTip = false;
 
   /// Erases what a pen scribble crosses.
   late final ScribbleErase _scribble = ScribbleErase(viewport: viewport, tools: tools, live: live)
@@ -192,7 +197,7 @@ class InkDrawing {
       _eraseOrHold(e.localPosition);
       return;
     }
-    if (_byMouse) return _mouse.add(e.localPosition, StrokeSampler.msOf(e.timeStamp));
+    if (_byMouse) return _mouseTo(e);
     _addSamplesBefore(e);
     _inkTo(e.localPosition, StrokeSampler.pressureOf(e), e.timeStamp, synthesized: e.synthesized);
   }

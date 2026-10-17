@@ -5,16 +5,18 @@ import 'package:flutter/rendering.dart';
 
 import '../tools/laser.dart';
 import '../viewport.dart';
-import 'catmull_rom.dart';
 import 'laser_ribbon.dart';
+import 'laser_strokes.dart';
 
 /// Paints the laser pointer: a soft glow with a bright core, as a dot under
 /// the pointer and (in trail mode) a smooth trail that thins and fades with
 /// age.
 ///
-/// Cheap per frame: the trail is two vertex meshes (glow and core) with
-/// per-vertex colours — no blur filters, no layers — built in screen space
-/// along a centripetal Catmull-Rom curve through the samples.
+/// The trail's strokes are shaped by the pen's engine ([LaserStrokes]:
+/// sampling, stabiliser, pressure, ends), incrementally. Cheap per frame:
+/// the trail is two vertex meshes (glow and core) with per-vertex colours —
+/// no blur filters, no layers — built in screen space along the strokes'
+/// centre lines.
 class LaserPainter extends CustomPainter {
   LaserPainter({required this.trail, required this.viewport})
     : super(repaint: Listenable.merge([trail, viewport]));
@@ -28,8 +30,9 @@ class LaserPainter extends CustomPainter {
   final LaserRibbon _glow = LaserRibbon.glow();
   final LaserRibbon _core = LaserRibbon.core();
 
-  /// Curve resolution (screen pixels between generated points).
-  static const double _step = 4;
+  /// The trail's strokes, shaped by the pen's engine and kept between
+  /// frames.
+  final LaserStrokes _strokes = LaserStrokes();
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -38,7 +41,18 @@ class LaserPainter extends CustomPainter {
     if (config.mode == LaserMode.trail && trail.length > 1) {
       _glow.color = color;
       _core.color = color;
-      _addTrail(_glow, _core, config.size / 2);
+      final scale = viewport.scale, offset = viewport.toScreen(Offset.zero);
+      _strokes
+        ..sync(trail, scale)
+        ..emit(
+          _glow,
+          _core,
+          trail,
+          glowScale: glowScale,
+          scale: scale,
+          ox: offset.dx,
+          oy: offset.dy,
+        );
       _glow.draw(canvas);
       _core.draw(canvas);
     }
@@ -47,35 +61,6 @@ class LaserPainter extends CustomPainter {
     if (head == null || alpha <= 0) return;
     final radius = config.mode == LaserMode.dot ? config.size * 0.8 : config.size / 2;
     paintDot(canvas, viewport.toScreen(head), radius, color, alpha);
-  }
-
-  /// Feeds every stroke of the trail to the meshes.
-  void _addTrail(LaserRibbon glow, LaserRibbon core, double halfWidth) {
-    final n = trail.length;
-    var start = 0;
-    for (var i = 1; i <= n; i++) {
-      if (i < n && !trail.startsAt(i)) continue;
-      _addStroke(glow, core, start, i, halfWidth);
-      start = i;
-    }
-  }
-
-  void _addStroke(LaserRibbon glow, LaserRibbon core, int from, int to, double halfWidth) {
-    // Skip the expired head of the stroke (keep one point to fade from).
-    while (from < to - 1 && trail.alphaAt(from + 1) <= 0) {
-      from++;
-    }
-    if (to - from < 2) return;
-    final xs = <double>[], ys = <double>[], alphas = <double>[];
-    for (var i = from; i < to; i++) {
-      final p = viewport.toScreen(trail.pointAt(i));
-      xs.add(p.dx);
-      ys.add(p.dy);
-      alphas.add(trail.alphaAt(i));
-    }
-    final curve = CatmullRom.densify(xs, ys, alphas, _step);
-    glow.add(curve.x, curve.y, curve.r, halfWidth * glowScale);
-    core.add(curve.x, curve.y, curve.r, halfWidth);
   }
 
   /// A glowing dot of core [radius] at [centre] with opacity [alpha].

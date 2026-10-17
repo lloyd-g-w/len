@@ -56,22 +56,43 @@ void main() {
       expect(back, rect);
     });
 
-    test('a circle by its centre and radius, an ellipse by its centre and two radii', () {
+    test('a circle by its centre, radius and axes, an ellipse by its centre and two radii', () {
       final circle = ShapeBuilder.dragged(ShapeKind.ellipse, Offset.zero, const Offset(100, 100));
       expect(circle.kind, ShapeKind.circle);
+      final circleHandles = ShapeHandles.of(circle);
       expect(
-        [for (final h in ShapeHandles.of(circle)) h.role],
-        [HandleRole.centre, HandleRole.radius],
+        [for (final h in circleHandles) h.role],
+        [HandleRole.centre, HandleRole.radius, HandleRole.edge, HandleRole.edge],
       );
-      // The centre moves it; the radius sizes it about the centre.
+      // The radius on the rim between the axes (at their ends).
+      final r45 = 50 / math.sqrt2;
+      expect(circleHandles[1].at, offsetMoreOrLessEquals(Offset(50 + r45, 50 + r45)));
+      expect(circleHandles[2].at, const Offset(100, 50));
+      expect(circleHandles[3].at, const Offset(50, 100));
+      // The centre moves it; the radius sizes it evenly about the centre,
+      // wherever the pointer goes around it.
       final moved = ShapeHandles.drag(circle, 0, const Offset(70, 50));
       expect(moved.points, const [Offset(70, 50), Offset(120, 50)]);
       final bigger = ShapeHandles.drag(circle, 1, const Offset(50, 130));
-      expect(bigger.points[0], const Offset(50, 50));
-      expect((bigger.points[1] - bigger.points[0]).distance, 80);
-      // Shift: along the radius only.
-      final along = ShapeHandles.drag(circle, 1, const Offset(150, 70), shift: true);
-      expect(along.points[1], const Offset(150, 50));
+      expect(bigger.kind, ShapeKind.circle);
+      expect(bigger.points, const [Offset(50, 50), Offset(130, 50)]);
+      // An axis squashes it into an ellipse, its radii where the axes were.
+      final flat = ShapeHandles.drag(circle, 3, const Offset(60, 70));
+      expect(flat.kind, ShapeKind.ellipse);
+      expect(flat.points, const [Offset(50, 50), Offset(100, 50), Offset(50, 70)]);
+      final stretched = ShapeHandles.drag(circle, 2, const Offset(130, 40));
+      expect(stretched.points, const [Offset(50, 50), Offset(130, 50), Offset(50, 100)]);
+      // Shift: both axes, still a circle; nearly round snaps round.
+      final even = ShapeHandles.drag(circle, 2, const Offset(130, 40), shift: true);
+      expect(even.kind, ShapeKind.circle);
+      expect(even.points, const [Offset(50, 50), Offset(130, 50)]);
+      final rounded = ShapeHandles.drag(circle, 3, const Offset(50, 102), snap: 8);
+      expect(rounded.kind, ShapeKind.circle);
+      expect(rounded.points, circle.points);
+      // An ellipse whose radii are made equal is a circle again.
+      final back = ShapeHandles.drag(flat, 2, const Offset(50, 100));
+      expect(back.kind, ShapeKind.circle);
+      expect(back.points, circle.points);
 
       final ellipse = ShapeBuilder.dragged(ShapeKind.ellipse, Offset.zero, const Offset(100, 60));
       final handles = ShapeHandles.of(ellipse);
@@ -389,9 +410,12 @@ void main() {
           expect(edit!.removed.single.id, before.id);
           final after = edit.added.single;
           expect(after.shape, isNot(before.shape), reason: 'handle $i');
-          expect(after.shape!.kind, shape.kind);
+          // A circle's axis squashes it into an ellipse (its last handles).
+          final squashed = shape.kind == ShapeKind.circle && i >= 2;
+          expect(after.shape!.kind, squashed ? ShapeKind.ellipse : shape.kind);
           expect(after.fill, before.fill);
           expect(content.selection.strokes.single.id, after.id);
+          if (squashed) break;
         }
       });
     }

@@ -74,4 +74,52 @@ void main() {
     await tester.pumpAndSettle();
     expect(liveStrokes(services, nb.id).single.shape, curve.shape);
   });
+
+  testWidgets('Ctrl+Z and the undo button take back a curve\'s last anchor, redo puts it back', (
+    tester,
+  ) async {
+    await loadFonts();
+    final (services, nb) = await openCanvas(tester);
+    await key(tester, LogicalKeyboardKey.keyP);
+    await mouseDrag(tester, const [Offset(100, 100), Offset(200, 150), Offset(300, 120)]);
+    final ink = liveStrokes(services, nb.id).single;
+    await tester.tap(find.byTooltip('Shapes (S)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Shapes (S)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('shape-curve')));
+    await tester.pumpAndSettle();
+    expect(find.text('Tap a shape to edit it; undo takes back a point'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape); // closes the options
+    await tester.pumpAndSettle();
+    await tap(tester, const Offset(300, 500));
+    await tap(tester, const Offset(500, 300));
+    await tap(tester, const Offset(700, 500));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(liveStrokes(services, nb.id).map((s) => s.id), [ink.id], reason: 'the ink stays');
+    await key(tester, LogicalKeyboardKey.enter);
+    final two = liveStrokes(services, nb.id).firstWhere((s) => s.shape != null);
+    expect(two.shape!.anchorCount, 2);
+    expect(two.shape!.points.last, const Offset(500, 300));
+
+    // The toolbar's buttons, the same.
+    await tap(tester, const Offset(300, 650));
+    await tap(tester, const Offset(500, 700));
+    await tap(tester, const Offset(700, 650));
+    await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Undo (Ctrl+Z)'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Redo (Ctrl+Shift+Z)'));
+    await tester.pump();
+    await key(tester, LogicalKeyboardKey.enter);
+    final curves = liveStrokes(services, nb.id).where((s) => s.shape != null).toList();
+    expect(curves, hasLength(2));
+    final again = curves.firstWhere((s) => s.id != two.id).shape!;
+    expect(again.anchorCount, 2);
+    expect(again.points.last, const Offset(500, 700));
+  });
 }

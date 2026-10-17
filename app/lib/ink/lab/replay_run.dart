@@ -27,6 +27,7 @@ class ReplayFrame {
     this.viewScale = 1,
     this.viewOffset = Offset.zero,
     this.style = const StrokeStyle(),
+    this.tip = const [],
   });
 
   final int index;
@@ -47,6 +48,9 @@ class ReplayFrame {
 
   /// The live stroke's style (with the zoom it is written at).
   final StrokeStyle style;
+
+  /// The live stroke's provisional tip (world; a mouse's, `LiveInk.tip`).
+  final List<Offset> tip;
 
   /// Newest pointer event handled before the frame (µs, event clock).
   final int newestEventUs;
@@ -73,6 +77,7 @@ class ReplayFrame {
     viewScale: viewScale,
     viewOffset: viewOffset,
     style: style,
+    tip: tip,
   );
 
   bool get drawing => points.isNotEmpty;
@@ -205,6 +210,7 @@ class ReplayResult {
             viewScale: viewport.scale,
             viewOffset: viewport.offset,
             style: live.style,
+            tip: live.tip,
           ),
         );
       }

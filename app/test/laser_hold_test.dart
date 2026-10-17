@@ -225,12 +225,14 @@ void main() {
       ),
     );
     expect(find.text('Trail lasts'), findsOneWidget);
+    await tester.ensureVisible(find.text('When I stop'));
     await tester.tap(find.text('When I stop'));
     await tester.pump();
     expect(tools.laser.fade, LaserFade.pause);
     expect(find.text('Trail lasts'), findsNothing);
     expect(find.text('Fades after'), findsOneWidget);
     expect(find.text('2.0 s'), findsOneWidget);
+    await tester.ensureVisible(find.text('Dot'));
     await tester.tap(find.text('Dot'));
     await tester.pump();
     expect(find.text('When I stop'), findsNothing, reason: 'a dot leaves no trail to fade');
