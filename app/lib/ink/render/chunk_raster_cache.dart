@@ -178,6 +178,18 @@ class ChunkRasterCache extends ChangeNotifier {
     return best;
   }
 
+  /// The finest raster of [chunk] cached at any level, without asking for
+  /// one (null: none): a stand-in where the tiles that take over from the
+  /// level of detail (zooming in) are not rendered yet. Strokes added
+  /// since go with it ([overlayOf]).
+  RasterImage? peekFinest(ChunkKey chunk) {
+    for (final level in levels.reversed) {
+      final image = _images[(chunk: chunk, level: level)];
+      if (image != null) return image;
+    }
+    return null;
+  }
+
   /// Caches [image] as [key]'s raster of content [version] (showing
   /// content [digest], if known); with [keep], a copy goes to storage.
   void _store(

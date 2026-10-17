@@ -216,6 +216,11 @@ draws a few dozen images, however much ink is on screen.
   render, rather than being drawn from vectors every frame meanwhile —
   which cost as much as rendering them, per frame. Tiles dropped by an
   edit (`InkTile.edited`) and a cache's first show still draw vectors.
+  Zooming in out of the level of detail, the chunk rasters it showed a
+  frame ago stand in there (`paintRasterStandIn`, the finest level cached,
+  with the strokes added since; nothing is asked for): before, all but
+  the pre-zoom-out tiles' area went blank for the frames the new tiles
+  took (`test/pen_flicker_zoom_test.dart`).
 - **Memory**: tile images live in one `TilePool` (LRU by bytes, 160 MB =
   160 tiles of 1 MB) shared by every surface and view; evicted tiles are
   re-rendered when needed. Beyond 256 tiles known per cache, those without
@@ -250,7 +255,10 @@ draws a few dozen images, however much ink is on screen.
   `ChunkRasterCache` images are drawn instead (see *Level of detail* above); on an
   append they too keep their (stale) images with the new strokes drawn
   over them until re-rasterised. Crossing into LOD, the tiles stand in
-  until the rasters are made (`InkTileCache.paintStandIn`).
+  until the rasters are made (`InkTileCache.paintStandIn`) — stale ones
+  too, with the highlights and strokes added since beneath and over them
+  (not those that may show ink an edit removed): a highlight lifted just
+  before zooming out blanked every tile it crossed until then.
 
 Two more things keep pen-up and first show off the frame:
 

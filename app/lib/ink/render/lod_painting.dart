@@ -3,6 +3,7 @@ import 'dart:ui';
 import '../../domain/chunk_grid.dart';
 import '../lab/perf_probe.dart';
 import 'chunk_raster_cache.dart';
+import 'raster_batch.dart';
 import 'stroke_renderer.dart';
 import 'tiles/ink_tile_cache.dart';
 import 'tiles/tile_space.dart';
@@ -54,23 +55,7 @@ void paintLod(
       missing.add(key);
       continue;
     }
-    final rect = ChunkGrid.rectOf(key);
-    // Strokes committed since the raster was made, until it is redone:
-    // highlights beneath it (the pen ink covers them), pen ink over it.
-    final added = rasters.overlayOf(key, image);
-    void draw(bool highlights) {
-      canvas
-        ..save()
-        ..clipRect(rect);
-      for (final stroke in added) {
-        if (stroke.tool.isHighlighter == highlights) StrokeRenderer.draw(canvas, stroke);
-      }
-      canvas.restore();
-    }
-
-    if (added.any((s) => s.tool.isHighlighter)) draw(true);
-    canvas.drawImageRect(image.image, image.source, rect, _imagePaint);
-    if (added.any((s) => !s.tool.isHighlighter)) draw(false);
+    _drawRaster(canvas, rasters, key, image);
   }
   canvas.restore();
   if (missing.isEmpty) return;
@@ -115,4 +100,70 @@ void paintLod(
     PerfProbe.count('chunkDraws');
   }
   canvas.restore();
+}
+
+/// Draws [image], [key]'s raster, over its chunk ([canvas] in world
+/// units), with the strokes committed since it was made, until it is
+/// redone: highlights beneath it (the pen ink covers them), pen ink over
+/// it.
+void _drawRaster(Canvas canvas, ChunkRasterCache rasters, ChunkKey key, RasterImage image) {
+  final rect = ChunkGrid.rectOf(key);
+  final added = rasters.overlayOf(key, image);
+  void draw(bool highlights) {
+    canvas
+      ..save()
+      ..clipRect(rect);
+    for (final stroke in added) {
+      if (stroke.tool.isHighlighter == highlights) StrokeRenderer.draw(canvas, stroke);
+    }
+    canvas.restore();
+  }
+
+  if (added.any((s) => s.tool.isHighlighter)) draw(true);
+  canvas.drawImageRect(image.image, image.source, rect, _imagePaint);
+  if (added.any((s) => !s.tool.isHighlighter)) draw(false);
+}
+
+/// Draws the level-of-detail rasters [rasters] holds of the chunks in
+/// [world] (rects in world units, clipped to them; [canvas] in device
+/// pixels) as stand-ins: zooming in from the level of detail, the tiles
+/// of the new zoom are not rendered yet, and the rasters showed the ink a
+/// frame ago — without them it vanished for a frame or two. Nothing is
+/// asked for. Returns the parts of [world] with ink and no raster.
+List<Rect> paintRasterStandIn(
+  Canvas canvas,
+  ChunkRasterCache rasters,
+  TileView view,
+  List<Rect> world,
+) {
+  final uncovered = <Rect>[];
+  final clip = Path();
+  final drawn = <(ChunkKey, RasterImage)>[];
+  for (final rect in world) {
+    final area = view.clip == null ? rect : rect.intersect(view.clip!);
+    if (area.isEmpty) continue;
+    for (final key in rasters.pictures.model.chunksIn(ChunkGrid.rangeFor(area))) {
+      final part = ChunkGrid.rectOf(key).intersect(area);
+      if (part.isEmpty) continue;
+      final image = rasters.peekFinest(key);
+      if (image == null) {
+        uncovered.add(part);
+        continue;
+      }
+      clip.addRect(part);
+      if (!drawn.any((d) => d.$1 == key)) drawn.add((key, image));
+    }
+  }
+  if (drawn.isEmpty) return uncovered;
+  canvas
+    ..save()
+    ..translate(view.origin.dx, view.origin.dy)
+    ..scale(view.k)
+    ..clipPath(clip, doAntiAlias: false);
+  for (final (key, image) in drawn) {
+    _drawRaster(canvas, rasters, key, image);
+  }
+  canvas.restore();
+  PerfProbe.count('lodStandIns', drawn.length);
+  return uncovered;
 }

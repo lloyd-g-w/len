@@ -17,9 +17,9 @@ double _pixels(List<ui.Rect> rects, TileView view) {
 extension _Drawing on InkTileCache {
   /// Paints the tiles of [space] over [area] (the visible world in [view]),
   /// scaled unless they are of the view's zoom ([same]); requests those to
-  /// render. Returns the world rects to draw as vectors and the tiles with
-  /// strokes to draw over them.
-  ({List<ui.Rect> missing, List<InkTile> overlays}) _paintTiles(
+  /// render. Returns the world rects to draw as vectors, those left empty
+  /// until rendered and the tiles with strokes to draw over them.
+  ({List<ui.Rect> missing, List<ui.Rect> blank, List<InkTile> overlays}) _paintTiles(
     ui.Canvas canvas,
     TileView view,
     TileSpace space,
@@ -30,6 +30,7 @@ extension _Drawing on InkTileCache {
     final x0 = (view.origin.dx - space.phase.dx).roundToDouble();
     final y0 = (view.origin.dy - space.phase.dy).roundToDouble();
     final missing = <ui.Rect>[];
+    final blank = <ui.Rect>[];
     final overlays = <InkTile>[];
     for (final index in space.covering(area)) {
       final tile = _tiles[index] ??= InkTile(pool, space, index);
@@ -70,11 +71,11 @@ extension _Drawing on InkTileCache {
         // waiting for the surface to load: empty for the frame or two
         // until it is, rather than frames of vectors. Strokes written
         // since show over the stand-ins (they kept their images).
-        lastPaint.blankPixels += _pixels(uncovered, view);
+        blank.addAll(uncovered);
         if (tile.overlay.isNotEmpty) overlays.add(tile);
       }
     }
-    return (missing: missing, overlays: overlays);
+    return (missing: missing, blank: blank, overlays: overlays);
   }
 
   List<ui.Rect> _paintStandIn(ui.Canvas canvas, TileView view, ui.Rect world) {
@@ -87,7 +88,12 @@ extension _Drawing on InkTileCache {
       final rect = space.worldRectOf(index).intersect(area);
       final tile = _tiles[index];
       final image = tile?.image;
-      if (tile != null && image != null && !tile.stale) {
+      // Stale images too (a highlight or a selection dropped since, drawn
+      // beneath and over them; stored content arrived), as the tiles
+      // showed them a frame ago — not those that may show content an edit
+      // removed.
+      if (tile != null && image != null && !tile.lingers) {
+        if (tile.underlay.isNotEmpty) _drawUnderlay(canvas, view, tile);
         _drawImage(canvas, image, view.toDevice(space.worldRectOf(index)), exact: false);
         if (tile.overlay.isNotEmpty) _drawOverlay(canvas, view, tile);
         lastPaint.images++;
