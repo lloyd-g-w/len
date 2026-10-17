@@ -137,10 +137,17 @@ void main() {
     expect(remote.strokesOn('page-1'), isEmpty);
     _write(l, live, events, 'page-1', end: false);
     expect(remote.strokesOn('page-1'), hasLength(1));
+    // A pen resting mid-stroke is told again: its ink stays, and grows on.
+    l.wait(RemoteInk.silence + const Duration(milliseconds: 600));
+    expect(remote.strokesOn('page-1'), hasLength(1));
+    live.add(const StrokePoint(90, 40, 0.5));
+    l.wait(const Duration(milliseconds: 100));
+    expect(remote.strokesOn('page-1').single.points.last.x, 90);
+    // A writer gone quiet (frozen, its messages lost) goes after a while.
+    relay.dispose();
     l.wait(RemoteInk.silence + const Duration(milliseconds: 600));
     expect(remote.strokesOn('page-1'), isEmpty);
     live.finish();
-    events.inkEnded?.call(const []);
 
     // Leaving: the other side sees it alone again.
     b.s.sync.rooms.leave('nb');
