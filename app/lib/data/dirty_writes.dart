@@ -35,5 +35,5 @@ class DirtyWrites {
 
   /// Rows dirtied on this connection so far (0 once the database closed).
   int get count =>
-      database.isClosed ? 0 : database.db.select('SELECT n FROM $_counter').first['n'] as int;
+      database.isClosed ? 0 : database.select('SELECT n FROM $_counter').first['n'] as int;
 }

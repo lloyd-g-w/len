@@ -148,7 +148,7 @@ abstract class SyncableTable implements SyncableStore {
   );
 
   @override
-  List<SyncRecord> dirtyRecords(int limit, {String? after, bool? deleted}) => db
+  List<SyncRecord> dirtyRecords(int limit, {String? after, bool? deleted}) => database
       .select(
         'SELECT * FROM $table WHERE dirty = 1 AND id > ? '
         '${deleted == null ? '' : 'AND deleted = ${deleted ? 1 : 0} '}'
@@ -164,16 +164,14 @@ abstract class SyncableTable implements SyncableStore {
   @override
   void markClean(List<RowVersion> versions) {
     if (versions.isEmpty) return;
-    final stmt = db.prepare('UPDATE $table SET dirty = 0 WHERE id = ? AND updated_at = ?');
-    try {
-      database.transaction(() {
-        for (final v in versions) {
-          stmt.execute([v.id, v.updatedAt]);
-        }
-      });
-    } finally {
-      stmt.close();
-    }
+    database.transaction(() {
+      for (final v in versions) {
+        database.execute('UPDATE $table SET dirty = 0 WHERE id = ? AND updated_at = ?', [
+          v.id,
+          v.updatedAt,
+        ]);
+      }
+    });
   }
 
   @override

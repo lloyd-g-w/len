@@ -164,7 +164,7 @@ class BlobStore with _BlobCleanup {
 
   /// Ids of local blobs the sync server does not have yet, except those it
   /// refused as too large.
-  List<String> pendingUploads() => database.db
+  List<String> pendingUploads() => database
       .select(
         'SELECT sha256 FROM blobs WHERE uploaded = 0 AND rejected_limit IS NULL '
         'ORDER BY created_at',

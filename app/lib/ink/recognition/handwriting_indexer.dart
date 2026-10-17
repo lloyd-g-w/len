@@ -120,7 +120,7 @@ class HandwritingIndexer extends ChangeNotifier {
   /// surfaces with synced text do (the others are dropped from the queue
   /// whenever a run happens), so a device that never received any does not
   /// even wake up.
-  bool get _hasWork => _db
+  bool get _hasWork => database
       .select(
         recognizer.isSupported
             ? 'SELECT 1 FROM ink_text_queue LIMIT 1'

@@ -270,14 +270,12 @@ class SettingsRepository {
   set workspace(String? value) => value == null ? _remove('workspace') : _set('workspace', value);
 
   String? _get(String key) {
-    final rows = _database.db.select('SELECT value FROM settings WHERE key = ?', [key]);
+    final rows = _database.select('SELECT value FROM settings WHERE key = ?', [key]);
     return rows.isEmpty ? null : rows.first['value'] as String;
   }
 
-  void _set(String key, String value) => _database.db.execute(
-    'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
-    [key, value],
-  );
+  void _set(String key, String value) =>
+      _database.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value]);
 
   void _remove(String key) => _database.db.execute('DELETE FROM settings WHERE key = ?', [key]);
 }
