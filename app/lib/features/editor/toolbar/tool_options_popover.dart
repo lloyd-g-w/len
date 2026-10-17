@@ -11,14 +11,15 @@ import '../pen/ink_paper.dart';
 const double toolOptionsTouchWidth = colorChoicesTouchWidth;
 
 /// Opens the options of [tool] — the one popover every tool shares — at
-/// [anchor] (the tool's button, or an eraser or laser slot): anchored on
+/// [anchor] (the tool's button, or an eraser slot): anchored on
 /// tablets and desktops (320 dp wide, or [toolOptionsTouchWidth] on touch
 /// so a row of seven 48-dp swatches fits), a sheet on phones. Edits apply
-/// live; an outside tap or Esc closes it. The pen's and highlighter's
-/// quick slots open their own small editors instead (`slot_editors.dart`).
+/// live; an outside tap or Esc closes it. The pen's, highlighter's and
+/// laser's quick slots open their own small editors instead
+/// (`slot_editors.dart`, `laser_slots.dart`).
 ///
-/// Colours newly put into the ink's quick slots, or newly given to text or
-/// the laser, become recent colours when it closes (not while the custom
+/// Colours newly put into the ink's or laser's quick slots, or newly given
+/// to text, become recent colours when it closes (not while the custom
 /// picker is dragged).
 Future<void> showToolOptions(
   BuildContext anchor, {
@@ -29,7 +30,7 @@ Future<void> showToolOptions(
   final ink = tool == EditorTool.highlighter ? InkTool.highlighter : InkTool.ballpoint;
   List<int> colours() => switch (tool) {
     EditorTool.text => [tools.textStyle.color],
-    EditorTool.laser => [tools.laser.color],
+    EditorTool.laser => tools.laser.colors,
     _ when tool.usesInk => tools.configOf(ink).colors,
     _ => const [],
   };
