@@ -16,8 +16,10 @@ import 'package:len/sync/live_rooms.dart';
 import 'package:len/sync/remote_changes.dart';
 import 'package:len/ui/app_theme.dart';
 
+import 'document_editor_test.dart' show pumpEditor, closeEditor;
 import 'support/fault_devices.dart';
 import 'support/live_devices.dart';
+import 'support/zoom_fixtures.dart' show zoomSession;
 
 // Real-time collaboration's first pieces over the live connection: rooms
 // with presence, and the stroke being written shown on other devices as
@@ -285,5 +287,79 @@ void main() {
     rooms.receive(const LivePresence('nb', []));
     await tester.pump();
     expect(find.byType(Text), findsNothing);
+  });
+
+  testWidgets('in the editor: presence in the bar, remote ink on its page until its stroke', (
+    tester,
+  ) async {
+    final (s, nb) = await pumpEditor(tester);
+    final page = s.pages.pagesOf(nb.id).first;
+    final session = zoomSession(tester);
+    s.sync.rooms.receive(
+      LivePresence(nb.id, const [(connection: 'c9', deviceId: 'd9', name: 'Android')]),
+    );
+    await tester.pump();
+    expect(find.bySemanticsLabel('Also open on Android'), findsOneWidget);
+    expect(
+      tester
+          .widgetList<CustomPaint>(find.byType(CustomPaint))
+          .map((p) => p.painter)
+          .whereType<RemoteInkPainter>(),
+      hasLength(1),
+      reason: 'one layer for all pages',
+    );
+
+    final points = [for (var i = 0; i < 20; i++) StrokePoint(100.0 + i * 5, 200.0 + i, 0.5)];
+    s.sync.rooms.receive(
+      LiveEphemeral(
+        room: nb.id,
+        from: 'c9',
+        deviceId: 'd9',
+        data: {
+          'k': 'ink',
+          's': 'w1',
+          'page': page.id,
+          'tool': 'ballpoint',
+          'color': 0xFF0000FF,
+          'width': 3,
+          'from': 0,
+          'p': [
+            for (final p in points) ...[p.x, p.y, p.pressure],
+          ],
+        },
+      ),
+    );
+    await tester.pump();
+    final remote = session.shared.remoteInk;
+    expect(remote.strokesOn(page.id).single.points, hasLength(20));
+
+    s.sync.rooms.receive(
+      LiveEphemeral(
+        room: nb.id,
+        from: 'c9',
+        deviceId: 'd9',
+        data: const {'k': 'ink', 's': 'w1', 'end': true, 'stroke': 'st1'},
+      ),
+    );
+    await tester.pump();
+    expect(remote.strokesOn(page.id), hasLength(1), reason: 'until its record arrives');
+    // The record arrives (as live sync applies it) and the stroke is drawn
+    // instead.
+    s.strokes.save([
+      Stroke(
+        id: 'st1',
+        surfaceId: page.id,
+        tool: InkTool.ballpoint,
+        color: 0xFF0000FF,
+        width: 3,
+        points: points,
+        createdAt: 1,
+      ),
+    ]);
+    s.sync.debugAnnounce(RemoteChanges()..addItem(page.id, 'st1'));
+    await tester.pump();
+    expect(remote.strokesOn(page.id), isEmpty);
+    expect(session.doc!.surfaces.models.peek(page.id)?.strokeById('st1'), isNotNull);
+    await closeEditor(tester);
   });
 }

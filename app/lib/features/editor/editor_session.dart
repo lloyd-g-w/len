@@ -134,18 +134,18 @@ class EditorSession with _EditorSessionZoom {
       );
     }
     gestures.onDoubleTap = zoom.toggle;
-    if (initialZoom != null) _restoreZoom(initialZoom);
-    content.text
-      ..undo = undo.undo
-      ..redo = undo.redo;
-    reading = FingerReading(tools: tools, hasContent: _hasContent, busy: _busy);
-    input.events.contact = reading.wrote;
     relay = LiveInkRelay(
       live: live,
       events: input.events,
       send: (data) => services.sync.rooms.send(shared.id, data),
       anyoneThere: () => services.sync.rooms.othersIn(shared.id).isNotEmpty,
     );
+    if (initialZoom != null) _restoreZoom(initialZoom); // Attaches to [relay].
+    content.text
+      ..undo = undo.undo
+      ..redo = undo.redo;
+    reading = FingerReading(tools: tools, hasContent: _hasContent, busy: _busy);
+    input.events.contact = reading.wrote;
     commands?.onBlankPage = reading.write;
     content.selection.addListener(_onSelection);
   }
