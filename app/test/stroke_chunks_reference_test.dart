@@ -54,6 +54,19 @@ void main() {
           ),
       ];
       if (n % 9 == 0) points.add(points.last); // A repeated sample.
+      if (n % 3 == 0) {
+        // Along a chunk edge, a spike now and then toward it, ending
+        // across it (the samples around a segment decide its chunks).
+        final edge = (random.nextInt(8) - 4) * ChunkGrid.size;
+        final gap = random.nextDouble() * 60;
+        points
+          ..clear()
+          ..addAll([
+            for (var i = 0; i < 80; i++)
+              StrokePoint(x + i * 3, edge + gap - (i % 9 == 4 ? random.nextDouble() * 50 : 0), 0.5),
+            StrokePoint(x + 240, edge - 200, 0.5),
+          ]);
+      }
       final width = 1 + random.nextDouble() * 30;
       expect(StrokeChunks.along(points, width), _reference(points, width), reason: 'walk $n');
     }

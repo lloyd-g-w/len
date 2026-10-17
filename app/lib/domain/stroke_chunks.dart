@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'chunk_grid.dart';
@@ -56,9 +57,14 @@ abstract final class StrokeChunks {
     if (range.count == 1) return {(x: range.minX, y: range.minY)};
     // A pathological stroke (very long zigzags) would take too many
     // pieces; its bounding box is always a valid (if coarser) answer.
+    // Measures how far along the stroke each sample lies on the way.
+    final along = Float64List(points.length);
     var pieces = 0.0;
     for (var i = 0; i + 1 < points.length && pieces <= _maxPieces; i++) {
-      pieces += (points[i + 1].offset - points[i].offset).distance / _piece + 1;
+      final dx = points[i + 1].x - points[i].x, dy = points[i + 1].y - points[i].y;
+      final length = math.sqrt(dx * dx + dy * dy);
+      along[i + 1] = along[i] + length;
+      pieces += length / _piece + 1;
     }
     if (pieces > _maxPieces) return ChunkGrid.rangeFor(bounds).keys.toSet();
     // In plain doubles (no offsets, rects or ranges per piece: a commit of
@@ -71,6 +77,23 @@ abstract final class StrokeChunks {
     for (var i = 0; i + 1 < points.length && keys.length < range.count; i++) {
       final ax = points[i].x, ay = points[i].y;
       final bx = points[i + 1].x, by = points[i + 1].y;
+      // The samples around lie no further from the segment than along the
+      // stroke from its start: when even that reach adds no chunk, the
+      // segment adds none (most of a long stroke's segments).
+      final around = math.max(
+        along[i] - along[math.max(0, i - _window)],
+        along[math.min(points.length - 1, i + 1 + _window)] - along[i],
+      );
+      final most = pad + around * 1.25 + 2; // 1 more than the reach: rounding.
+      if (_allIn(
+        keys,
+        (math.max(math.min(ax, bx) - most, left) / size).floor(),
+        (math.max(math.min(ay, by) - most, top) / size).floor(),
+        (math.min(math.max(ax, bx) + most, right) / size).floor(),
+        (math.min(math.max(ay, by) + most, bottom) / size).floor(),
+      )) {
+        continue;
+      }
       final reach = pad + _stray(points, i, ax, ay, bx, by) * 1.25 + 1;
       final dx = bx - ax, dy = by - ay;
       final pieces = math.max(1, (math.sqrt(dx * dx + dy * dy) / _piece).ceil());
@@ -95,6 +118,16 @@ abstract final class StrokeChunks {
       }
     }
     return keys;
+  }
+
+  /// Whether [keys] holds every chunk from ([minX], [minY]) to ([maxX], [maxY]).
+  static bool _allIn(Set<ChunkKey> keys, int minX, int minY, int maxX, int maxY) {
+    for (var y = minY; y <= maxY; y++) {
+      for (var x = minX; x <= maxX; x++) {
+        if (!keys.contains((x: x, y: y))) return false;
+      }
+    }
+    return true;
   }
 
   /// How far the samples around segment [i] (from a to b) lie from it
