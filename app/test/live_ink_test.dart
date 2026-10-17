@@ -399,6 +399,9 @@ void main() {
     await tester.pump();
     expect(find.text('A'), findsOneWidget);
     expect(find.text('L'), findsOneWidget);
+    // A small plate, not as tall as the space it is given (the bar).
+    final plate = find.ancestor(of: find.text('L'), matching: find.byType(Container)).first;
+    expect(tester.getSize(plate).height, RoomPresence.plate);
     expect(find.bySemanticsLabel('Also open on Android and Linux'), findsOneWidget);
     rooms.receive(
       LivePresence('nb', [

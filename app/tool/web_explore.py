@@ -24,13 +24,14 @@ offline reload → phone width and sideways phone → open and close a
 notebook a few times (memory) → a folder and the list view (cards, folder
 tiles and rows are named buttons for screen readers) → save a notebook
 style and create a canvas with it → a rectangle with the Shapes tool, a
-corner handle dragged → the lasso as a rectangle → the laser fading "When
+corner handle dragged → a curve, anchor by anchor → the lasso as a rectangle → the laser fading "When
 I stop" → the minimap (Shift+M) → the zoom window (M) → a scan from a
 picked image (its page a JPEG the browser encoded) → an Arabic text box
 (right to left) copied as HTML (the copy event's, and lassoed through the
 async Clipboard API in Chromium) → Pick from page in a colour slot's
 editor → a long text box flowing onto a page added for it → slides inserted
-from a landscape PDF, Go to page "s2" → Settings → Storage. Exported PDFs
+from a landscape PDF, Go to page "s2" → ⋯ → Version history…: a version
+saved by name and previewed → Settings → Storage. Exported PDFs
 are read back with pypdf. Then a second fresh
 profile restores that backup made big (big_backup: ~20 MB, 4000 strokes, large images, read in
 slices on the web) and opens the big notebook at a page with an image and
@@ -419,8 +420,10 @@ async def type_text(page, text):
     await page.wait_for_function("document.activeElement && ['INPUT', 'TEXTAREA']"
                                  ".includes(document.activeElement.tagName)", timeout=15000)
     await page.keyboard.type(text, delay=20)
-    value = await page.evaluate('document.activeElement.value')
-    w.expect(value.endswith(text), f'typed {text!r}: field holds {value!r}')
+    value, focused = await page.evaluate('''() => { const e = document.activeElement;
+      return [e && typeof e.value === 'string' ? e.value : null, e ? e.tagName : null]; }''')
+    w.expect(value is not None and value.endswith(text),
+             f'typed {text!r}: field holds {value!r}' + ('' if value is not None else f' (focus on {focused})'))
 
 
 async def go_to_page(page, number):
@@ -561,7 +564,7 @@ async def choose(page, label):
     tool's popover, which Playwright's click takes for one hiding the
     control; Flutter hit-tests the click itself)."""
     for _ in range(30):
-        for role in ('radio', 'button', 'tab', 'checkbox', 'menuitemradio'):
+        for role in ('radio', 'button', 'tab', 'checkbox', 'menuitemradio', 'menuitem'):
             item = page.get_by_role(role, name=label, exact=True)
             if await item.count():
                 box = await item.first.bounding_box()
@@ -909,7 +912,9 @@ class Walk:
         await page.screenshot(path=os.path.join(OUT, f'{self.name}-{self.n:02}-phone-library.png'))
         await tap(page, 'Explore', exact=False)
         await page.get_by_role('button', name='Back', exact=True).wait_for(timeout=30000)
-        await page.wait_for_timeout(800)
+        # Painted: in a WebAssembly build its first frame may show up to a
+        # second after its nodes (Skwasm rasterises off the main thread).
+        await page.wait_for_timeout(1500)
         await page.screenshot(path=os.path.join(OUT, f'{self.name}-{self.n:02}-phone-editor.png'))
         await page.set_viewport_size({'width': 844, 'height': 390})
         await page.wait_for_timeout(800)
@@ -997,6 +1002,27 @@ class Walk:
         await page.keyboard.press('Escape')
         self.fx['shape'] = (x0, y0, x1 + 70, y1 + 50)
 
+    async def curve_shape(self):
+        """A curve with the Shapes tool, anchor by anchor: two taps, a drag
+        that pulls a smooth anchor's tangents, Enter to finish it open."""
+        page = self.page
+        x, y = await view_center(page)
+        x0, y0 = x - 470, y + 40  # Clear of the rectangle, the laser and the text to come.
+        await tool_options(page, 's', 'Shapes (S)')
+        await choose(page, 'Curve')
+        await page.keyboard.press('Escape')
+        # The canvas ignores pointers until the options have closed (their
+        # exit's 100 ms; CanvasGuard): a click at once would be lost.
+        await page.wait_for_timeout(500)
+        await page.mouse.click(x0, y0)
+        await drag(page, [(x0 + 60, y0 - 70), (x0 + 110, y0 - 70)], steps=10)
+        await page.mouse.click(x0 + 150, y0)
+        await page.keyboard.press('Enter')
+        await wait_query(page, self.FEATURES + 'AND s.deleted = 0',
+                         lambda r: len(r) == 2 and any('"curve"' in st for (st,) in r),
+                         'the curve stored beside the rectangle')
+        await page.wait_for_timeout(300)  # Painted, for the screenshot.
+
     async def lasso_rectangle(self):
         """The lasso switched to Rectangle selects the shape."""
         page = self.page
@@ -1046,8 +1072,8 @@ class Walk:
                     f.write(data)
         await page.evaluate("() => document.querySelectorAll('.len-walk-mask').forEach((d) => d.remove())")
         w.expect(last == blank, 'the laser trail faded')
-        await wait_query(page, self.FEATURES + 'AND s.deleted = 0', lambda r: len(r) == 1,
-                         'the laser stored nothing')
+        await wait_query(page, self.FEATURES + 'AND s.deleted = 0', lambda r: len(r) == 2,
+                         'the laser stored nothing (the rectangle and the curve)')
         await page.keyboard.press('p')
 
     async def minimap(self):
@@ -1221,6 +1247,35 @@ class Walk:
         await expect_text(page, f'Page {slide2[0] + 1} of {len(rows)}')
         await page.wait_for_timeout(1000)  # Painted, for the screenshot.
 
+    VERSIONS = """SELECT v.name FROM versions v JOIN notebooks n ON n.id = v.notebook_id
+        WHERE n.title = 'Flow' AND v.deleted = 0 AND v.kind = 'named'"""
+
+    async def version_history(self):
+        """⋯ → Version history…: a version saved by name, stored, then
+        previewed (its pages' thumbnails, slides' PDF backgrounds too)."""
+        page = self.page
+        await tap(page, 'More options')
+        await choose(page, 'Version history…')
+        await expect_text(page, 'Version history')
+        await tap(page, 'Save version…')
+        await expect_text(page, 'Save version')
+        await type_text(page, 'Walk version')
+        await tap(page, 'Save')
+        await wait_query(page, self.VERSIONS, lambda r: r == [('Walk version',)], 'the version saved')
+        row = page.get_by_role('button', name=re.compile('^Walk version'))
+        await row.first.wait_for(timeout=30000)
+        await page.wait_for_timeout(1000)  # Its thumbnail painted, for the screenshot.
+        await page.screenshot(path=os.path.join(OUT, f'{self.name}-{self.n:02}-version-list.png'))
+        await row.first.click(timeout=30000)
+        await page.get_by_role('button', name='Restore', exact=True).first.wait_for(timeout=30000)
+        await page.get_by_role('button', name=re.compile(r'^Page 1 of \d')).first.wait_for(timeout=30000)
+        await page.wait_for_timeout(2000)  # Thumbnails painted, for the screenshot.
+        await page.screenshot(path=os.path.join(OUT, f'{self.name}-{self.n:02}-version-preview.png'))
+        await tap(page, 'Back')
+        await row.first.wait_for(timeout=15000)
+        await page.keyboard.press('Escape')
+        await row.first.wait_for(state='detached', timeout=15000)
+
     async def storage(self):
         """Settings → Storage measures the space used in this browser and
         lists the largest notebooks."""
@@ -1315,9 +1370,9 @@ class Walk:
                 self.add_page, self.lasso_move, self.text_box, self.insert_image, self.view_menu,
                 self.import_pdf, self.search, self.export_pdf, self.shortcuts, self.settings,
                 self.backup, self.offline_reload, self.phone, self.memory, self.library_semantics,
-                self.notebook_style, self.shape_handle, self.lasso_rectangle, self.laser_hold,
-                self.minimap, self.zoom_window, self.rtl_text, self.copy_rich, self.eyedropper,
-                self.scan, self.text_flow, self.slide_number, self.storage]
+                self.notebook_style, self.shape_handle, self.curve_shape, self.lasso_rectangle,
+                self.laser_hold, self.minimap, self.zoom_window, self.rtl_text, self.copy_rich, self.eyedropper,
+                self.scan, self.text_flow, self.slide_number, self.version_history, self.storage]
 
 
 async def launch(p, browser, profile):

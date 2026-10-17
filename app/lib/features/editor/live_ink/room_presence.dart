@@ -79,15 +79,20 @@ class _Plate extends StatelessWidget {
         minHeight: RoomPresence.plate,
       ),
       padding: const EdgeInsets.symmetric(horizontal: Gaps.xxs),
-      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: Surfaces.selected(scheme),
         borderRadius: BorderRadius.circular(Radii.xs),
       ),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.onSurface),
-        maxLines: 1,
+      // Centred within the plate's own size (an alignment on the Container
+      // would stretch the plate to the bar's height).
+      child: Center(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Text(
+          text,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.onSurface),
+          maxLines: 1,
+        ),
       ),
     );
   }
