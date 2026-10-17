@@ -151,6 +151,8 @@ class _ContentLayerState extends State<ContentLayer> {
                 accent: AppTheme.seed, // handles sit on the paper, not the chrome
                 handleFill: Palette.paper,
                 clip: widget.pages,
+                // Fingers cover handles: larger on touch-first devices.
+                handleScale: Targets.touchFirst ? SelectionPainter.touchScale : 1,
               ),
             ),
           ),
