@@ -11,7 +11,10 @@ import 'support/handwriting.dart';
 int _ids = 0;
 
 Stroke make(InkTool tool, List<StrokePoint> points, {required int color, required double width}) {
-  final style = PenConfig.defaultsFor(tool).styleFor(tool);
+  // The pen without its stabiliser (its default until it became 30 %):
+  // these goldens show the engine itself.
+  final defaults = PenConfig.defaultsFor(tool);
+  final style = (tool.isHighlighter ? defaults : defaults.copyWith(streamline: 0)).styleFor(tool);
   return Stroke(
     id: 's${_ids++}',
     surfaceId: 's',

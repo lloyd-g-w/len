@@ -97,9 +97,9 @@ class PointerRelay {
     if (added != _seen) {
       final n = added - _seen < laser.length ? added - _seen : laser.length;
       for (var i = laser.length - n; i < laser.length; i++) {
-        if (laser.startsAt(i)) _starts.add(_points.length ~/ 2);
+        if (laser.startsAt(i)) _starts.add(_points.length ~/ 3);
         final p = laser.pointAt(i);
-        _points.addAll([_round(p.dx), _round(p.dy)]);
+        _points.addAll([_round(p.dx), _round(p.dy), (laser.pressureAt(i) * 1000).round() / 1000]);
       }
       _seen = added;
     }
@@ -143,10 +143,10 @@ class PointerRelay {
     final Map<String, Object?>? laserData;
     if (laserShows) {
       final c = laser.config;
-      final take = _points.length > maxPoints * 2 ? maxPoints * 2 : _points.length;
+      final take = _points.length > maxPoints * 3 ? maxPoints * 3 : _points.length;
       final starts = [
         for (final s in _starts)
-          if (s * 2 < take) s,
+          if (s * 3 < take) s,
       ];
       laserData = {
         'mode': c.mode.name,
@@ -163,7 +163,7 @@ class PointerRelay {
       _points.removeRange(0, take);
       final rest = [
         for (final s in _starts)
-          if (s * 2 >= take) s - take ~/ 2,
+          if (s * 3 >= take) s - take ~/ 3,
       ];
       _starts
         ..clear()

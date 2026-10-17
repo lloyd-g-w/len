@@ -40,7 +40,7 @@ class PenOptionsPanel extends StatelessWidget {
               onChanged: (v) => update((c) => c.copyWith(streamline: v)),
             ),
             PenEndsOptions(
-              config: config,
+              ends: config.ends,
               styles: PenDefaults.pen.endStyles,
               onChanged: (ends) => update((c) => c.copyWith(ends: ends)),
             ),

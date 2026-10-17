@@ -7,22 +7,29 @@ extension _Inking on InkDrawing {
   void _beginInk(PointerDownEvent e) {
     final ink = tools.activeInk;
     final config = tools.configOf(ink);
+    final style = tools.styleFor(ink);
+    // A mouse's stabiliser smooths its path on the screen ([MouseSmoother]),
+    // so the outline adds none.
+    _byMouse = e.kind == PointerDeviceKind.mouse;
     // Ink shows from the first sample, under the nib. The outline smooths
     // at the zoom it is written at (`StrokeStyle.unit`), known now.
     live.begin(
       tool: ink,
       color: config.color,
       width: config.width,
-      style: tools.styleFor(ink).copyWith(unit: 1 / viewport.scale),
+      style: style.copyWith(unit: 1 / viewport.scale, streamline: _byMouse ? 0 : null),
     );
     _endFollowsSpeed = config.ends.endFollowsSpeed;
     live.add(_sampler.first(e));
     _inkBegan = true;
     events.inkBegan?.call(model.surfaceId);
-    _byMouse = e.kind == PointerDeviceKind.mouse;
     if (_byMouse) {
       final ms = StrokeSampler.msOf(e.timeStamp);
-      _mouse.begin(e.localPosition, ms, width: config.width * viewport.scale);
+      _mouse.begin(e.localPosition, ms, stabiliser: style.streamline);
+      // With the stabiliser off ink is under the nib: the live ink runs on
+      // to the mouse (opaque ink only: a translucent tip drawn over the
+      // stroke would show where they overlap).
+      _mouseTip = style.streamline == 0 && style.opacity >= 1;
     }
     _liftSpeed.add(e.localPosition, StrokeSampler.msOf(e.timeStamp));
     _scribble.begin(model, e.localPosition, StrokeSampler.msOf(e.timeStamp));
@@ -33,6 +40,20 @@ extension _Inking on InkDrawing {
       straight: config.straight,
       timeMs: StrokeSampler.msOf(e.timeStamp),
     );
+  }
+
+  /// The mouse moved to [e]'s position: its smoothed path extends the ink.
+  void _mouseTo(PointerEvent e) {
+    _mouse.add(e.localPosition, StrokeSampler.msOf(e.timeStamp));
+    _showMouseTip();
+  }
+
+  /// Shows the rest of the mouse's path, up to the mouse, as the live
+  /// ink's provisional tip ([LiveInk.tip]), unless hold to snap made the
+  /// stroke a line or shape.
+  void _showMouseTip() {
+    if (!_mouseTip || live.straightened) return live.showTip(const []);
+    live.showTip([for (final p in _mouse.tip()) viewport.toWorld(p)]);
   }
 
   /// Adds the samples the platform saw since the previous event of [e]'s

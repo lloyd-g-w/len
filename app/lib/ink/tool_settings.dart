@@ -9,6 +9,7 @@ import '../domain/text/text_data.dart';
 import 'editor_tool.dart';
 import 'pen/eraser_config.dart';
 import 'pen/pen_config.dart';
+import 'pen/pen_defaults.dart';
 import 'pen/recent_colors.dart';
 import 'selection/lasso_config.dart';
 import 'shapes/shape_fill.dart';
@@ -40,6 +41,11 @@ class ToolSettings extends _ToolState {
 
   /// The inks offered in the toolbar: the pen (ballpoint) and highlighter.
   static const List<InkTool> inks = [InkTool.ballpoint, InkTool.highlighter];
+
+  /// The version of the saved settings' format: 2 since the pen's default
+  /// stabiliser became 30 % (a pen saved before at the old default, off,
+  /// is upgraded on restore).
+  static const int prefsVersion = 2;
 
   /// The tool in hand. Picking another one starts writing ([reading] off).
   EditorTool get tool => _tool;

@@ -107,8 +107,8 @@ class RemotePointers extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Plays what a device's laser did on [trail]: its new trail points
-  /// (strokes starting where `starts` says), then whether it is down and
+  /// Plays what a device's laser did on [trail]: its new trail points with
+  /// their pressure (strokes starting where `starts` says), then whether it is down and
   /// where its dot is ([at]).
   static void _replay(LaserTrail trail, Map<Object?, Object?> laser, Offset? at) {
     final color = laser['color'], size = laser['size'];
@@ -126,15 +126,17 @@ class RemotePointers extends ChangeNotifier {
     final starts = laser['starts'];
     final startSet = starts is List ? starts.whereType<int>().toSet() : const <int>{};
     if (points is List) {
-      for (var i = 0; 2 * i + 1 < points.length; i++) {
-        final point = _offset(points, 2 * i);
-        if (point == null) break;
+      for (var i = 0; 3 * i + 2 < points.length; i++) {
+        final point = _offset(points, 3 * i);
+        final pressure = points[3 * i + 2];
+        if (point == null || pressure is! num) break;
+        final p = pressure.toDouble().clamp(0.0, 1.0);
         if (startSet.contains(i) || !trail.pressed) {
           trail
             ..up()
-            ..down(point);
+            ..down(point, pressure: p);
         } else {
-          trail.move(point);
+          trail.move(point, pressure: p);
         }
       }
     }

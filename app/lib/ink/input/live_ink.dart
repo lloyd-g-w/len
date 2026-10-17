@@ -35,6 +35,21 @@ class LiveInk extends ChangeNotifier {
   double penRadius = 0;
   Color penColor = const Color(0x00000000);
 
+  /// The provisional tip of a mouse stroke (world): where its ink runs on
+  /// from the last point to the mouse, until the smoothing has the samples
+  /// to place it for good (`MouseSmoother.tip`). Not part of the stroke;
+  /// empty for a stylus or a finger, and once [points] change otherwise
+  /// than by growing.
+  List<Offset> get tip => _tip;
+  List<Offset> _tip = const [];
+
+  /// Shows [tip] (see [tip]); repaints without changing [revision].
+  void showTip(List<Offset> tip) {
+    if (tip.isEmpty && _tip.isEmpty) return;
+    _tip = tip;
+    notifyListeners();
+  }
+
   List<StrokePoint> get points => _points;
   bool get isDrawing => _points.isNotEmpty;
 
@@ -61,6 +76,7 @@ class LiveInk extends ChangeNotifier {
     straightened = false;
     shape = null;
     _points.clear();
+    _tip = const [];
     _revision++;
     _generation++;
     notifyListeners();
@@ -82,6 +98,7 @@ class LiveInk extends ChangeNotifier {
 
   /// Replaces every point of the live stroke (e.g. when it is straightened).
   void replaceAll(List<StrokePoint> points) {
+    _tip = const [];
     _points
       ..clear()
       ..addAll(points);
@@ -94,6 +111,7 @@ class LiveInk extends ChangeNotifier {
   List<StrokePoint> finish() {
     final points = List<StrokePoint>.of(_points);
     _points.clear();
+    _tip = const [];
     straightened = false;
     shape = null;
     _revision++;

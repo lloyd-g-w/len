@@ -2,15 +2,16 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../ink/render/catmull_rom.dart';
 import '../../../ink/render/laser_painter.dart';
 import '../../../ink/render/laser_ribbon.dart';
+import '../../../ink/render/laser_stroke.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../pen/stroke_preview.dart';
 
-/// A sample of the laser as configured: a fading curve ending in the dot
-/// (trail), or just the dot, on a dark backdrop like a presentation.
+/// A sample of the laser as configured: a fading stroke shaped as the trail
+/// is (its ends, pressure sensitivity and stabiliser showing), or the dot,
+/// on a dark backdrop like a presentation.
 class LaserPreview extends StatelessWidget {
   const LaserPreview({super.key, required this.config, this.height = PreviewCard.defaultHeight});
 
@@ -47,35 +48,33 @@ class _PreviewPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final color = Color(config.color);
-    final end = Offset(size.width * 0.82, size.height * 0.5);
-    if (config.mode == LaserMode.trail) {
-      final xs = <double>[], ys = <double>[], alphas = <double>[];
-      const n = 24;
-      for (var i = 0; i <= n; i++) {
-        final t = i / n;
-        xs.add(size.width * (0.1 + 0.72 * t));
-        ys.add(size.height * (0.5 + 0.28 * math.sin(t * 2 * math.pi)));
-        // A held trail shows all of it; else it fades with age.
-        alphas.add(config.fade == LaserFade.pause ? 1 : t);
-      }
-      final curve = CatmullRom.densify(xs, ys, alphas, 3);
-      LaserRibbon.glow()
-        ..color = color
-        ..add(curve.x, curve.y, curve.r, config.size / 2 * LaserPainter.glowScale)
-        ..draw(canvas);
-      LaserRibbon.core()
-        ..color = color
-        ..add(curve.x, curve.y, curve.r, config.size / 2)
-        ..draw(canvas);
+    if (config.mode == LaserMode.dot) {
+      LaserPainter.paintDot(canvas, size.center(Offset.zero), config.size * 0.8, color, 1);
+      return;
     }
-    final radius = config.mode == LaserMode.dot ? config.size * 0.8 : config.size / 2;
-    LaserPainter.paintDot(
-      canvas,
-      config.mode == LaserMode.dot ? size.center(Offset.zero) : end,
-      radius,
-      color,
-      1,
-    );
+    // A finished stroke through the pen's engine, so its ends, pressure
+    // (pressing harder towards the middle) and stabiliser show; no dot over
+    // its end. A held trail shows all of it; else it fades with age.
+    final stroke = LaserStroke(LaserStroke.specFor(config, 1), 1);
+    const n = 24;
+    final alphas = <double>[];
+    for (var i = 0; i <= n; i++) {
+      final t = i / n;
+      stroke.add(
+        i,
+        size.width * (0.1 + 0.8 * t),
+        size.height * (0.5 + 0.28 * math.sin(t * 2 * math.pi)),
+        0.2 + 0.7 * math.sin(t * math.pi),
+      );
+      alphas.add(config.fade == LaserFade.pause ? 1 : 0.25 + 0.75 * t);
+    }
+    final glow = LaserRibbon.glow()..color = color;
+    final core = LaserRibbon.core()..color = color;
+    stroke
+      ..end()
+      ..emit(glow, core, alphaOf: (i) => alphas[i], glowScale: LaserPainter.glowScale);
+    glow.draw(canvas);
+    core.draw(canvas);
   }
 
   @override

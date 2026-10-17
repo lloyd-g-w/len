@@ -79,6 +79,7 @@ class ShapeOptionsPanel extends StatelessWidget {
           if (tools.shape == ShapeKind.curve) ...[
             Text('Tap for corners, drag for smooth points', style: text.bodySmall),
             Text('Tap the first point to close, tap twice to finish', style: text.bodySmall),
+            Text('Tap a shape to edit it; undo takes back a point', style: text.bodySmall),
           ] else
             Text('Drag to draw, tap a shape to edit it', style: text.bodySmall),
           // Only a keyboard has Shift.

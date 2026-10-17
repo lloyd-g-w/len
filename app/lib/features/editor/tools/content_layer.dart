@@ -7,6 +7,7 @@ import '../../../ink/images/image_crop_session.dart';
 import '../../../ink/selection/selection_painter.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ink/tools/content_tools.dart';
+import '../../../ink/tools/curve_guide_painter.dart';
 import '../../../ink/viewport.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
@@ -151,6 +152,21 @@ class _ContentLayerState extends State<ContentLayer> {
                 accent: AppTheme.seed, // handles sit on the paper, not the chrome
                 handleFill: Palette.paper,
                 clip: widget.pages,
+                // Fingers cover handles: larger on touch-first devices.
+                handleScale: Targets.touchFirst ? SelectionPainter.touchScale : 1,
+              ),
+            ),
+          ),
+        ),
+        IgnorePointer(
+          child: RepaintBoundary(
+            child: CustomPaint(
+              painter: CurveGuidePainter(
+                guide: _content.shape.curve.guide,
+                viewport: widget.viewport,
+                accent: AppTheme.seed,
+                handleFill: Palette.paper,
+                handleScale: Targets.touchFirst ? SelectionPainter.touchScale : 1,
               ),
             ),
           ),

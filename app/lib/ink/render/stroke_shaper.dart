@@ -166,6 +166,10 @@ class StrokeShaper with _SampleIndex implements RibbonLine {
   double inputX(int i) => _sx[i];
   double inputY(int i) => _sy[i];
 
+  /// The outline radius input sample [i] was added with (the largest of
+  /// the points merged into it).
+  double inputR(int i) => _sr[i];
+
   /// The largest input radius (a dot's size).
   double get maxInputRadius {
     var m = 0.0;

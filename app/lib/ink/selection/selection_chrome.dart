@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../domain/shape_geometry.dart';
@@ -87,8 +88,12 @@ abstract final class SelectionChrome {
   }
 
   /// [shape]'s handles as shown ([ShapeHandles.of]): their index, role
-  /// and screen position. Secondary handles (sides, centres, bends,
-  /// tangents) step aside where they would crowd a primary one (within
+  /// and screen position. On a shape smaller than [spreadSpan] whose
+  /// primary handles (corners, ends, vertices, radii) come closer than
+  /// [apart], those are spread out from its middle until they are that far
+  /// apart, so each can still be seen and grabbed (a drag moves the true
+  /// point from where it was: no jump), and show alone. Secondary handles
+  /// (sides, centres, bends, tangents) step aside where they would crowd a primary one (within
   /// [crowd] pixels: a small shape shows its corners or radii only). A
   /// tangent shorter than [crowd] on screen (none at all: a corner anchor)
   /// is shown [crowd] from its anchor, along itself or else along its
@@ -99,7 +104,9 @@ abstract final class SelectionChrome {
     ViewportController viewport,
   ) {
     final all = ShapeHandles.of(shape);
-    final screen = [for (final h in all) viewport.toScreen(h.at)];
+    final onScreen = [for (final h in all) viewport.toScreen(h.at)];
+    final spread = _spread(all, onScreen);
+    final screen = spread ?? onScreen;
     final primary = [
       for (final (i, h) in all.indexed)
         if (h.role.isPrimary) screen[i],
@@ -109,6 +116,7 @@ abstract final class SelectionChrome {
     Offset? place(int i) {
       final h = all[i];
       if (h.role.isPrimary) return screen[i];
+      if (spread != null) return null; // Too small for more.
       final anchor = h.anchor;
       if (anchor == null) return crowds(screen[i]) ? null : screen[i];
       final from = viewport.toScreen(anchor), arm = screen[i] - from;
@@ -129,6 +137,43 @@ abstract final class SelectionChrome {
 
   /// How close (pixels) a secondary handle may come to a primary one.
   static const double crowd = 24;
+
+  /// How far apart (pixels) a small shape's primary handles are spread.
+  static const double apart = 28;
+
+  /// Shapes at least this large (pixels, the primary handles' extent) keep
+  /// their handles where they are, however close two of them come.
+  static const double spreadSpan = 3 * apart;
+
+  /// [screen] (the handles' positions) with the primary handles of a small
+  /// shape spread out from their middle until they are [apart]; null when
+  /// they need no spreading.
+  static List<Offset>? _spread(List<ShapeHandle> all, List<Offset> screen) {
+    final primary = [
+      for (final (i, h) in all.indexed)
+        if (h.role.isPrimary) i,
+    ];
+    if (primary.length < 2) return null;
+    var box = Rect.fromCenter(center: screen[primary.first], width: 0, height: 0);
+    var closest = double.infinity;
+    for (final (k, i) in primary.indexed) {
+      box = box.expandToInclude(Rect.fromCenter(center: screen[i], width: 0, height: 0));
+      for (final j in primary.skip(k + 1)) {
+        final d = (screen[i] - screen[j]).distance;
+        if (d < closest) closest = d;
+      }
+    }
+    // Points on one spot (a degenerate shape) have no direction to go.
+    if (closest >= apart || closest < 1 || box.longestSide >= spreadSpan) return null;
+    final scale = math.min(apart / closest, maxSpread);
+    final mid = box.center;
+    return [
+      for (final (i, p) in screen.indexed) all[i].role.isPrimary ? mid + (p - mid) * scale : p,
+    ];
+  }
+
+  /// The most a small shape's handles are spread (times its size).
+  static const double maxSpread = 4;
 
   /// Reach of a shape's handles (pixels) by input: a fingertip
   /// (`Targets.touch` across), a pen, a mouse.

@@ -66,9 +66,16 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   round 11, performance rounds (pan, paged scroll, web long tasks), bug hunts 1–5.
 
 ## Owner reports (after the first list)
-- 🚧 (fix/mouse-ink-2) **Smoother ink, mouse first** (owner): default stabiliser 30 %; mouse
+- ✅ **Smoother ink, mouse first** (owner): default stabiliser 30 %; mouse
   ink is only acceptable at 30 % and still a little bumpy — steady width, light smoothing at
-  every width, less bumpiness at 0 % too.
+  every width, less bumpiness at 0 % too. The pen's default stabiliser is
+  30 % (saved settings still at the old default, off, upgraded). Every mouse stroke is smoothed
+  on the screen with the stroke's stabiliser (`MouseSmoother`, cusps kept), not again by the
+  outline; at 0 % a provisional tip keeps the ink at the mouse. Measured on synthetic mouse
+  handwriting (1000 / 125 Hz, coalesced, slow and fast, widths 0.4–10 px on screen), worst
+  case before → after: at 0 % kinks 60° → 9°, edge bumps 0.35 → 0.04 px, width spread on
+  straight lines 32 % → 3 %, lag 6 → 0 px; at 30 % kinks 12° → 9° (mean 2.8° → 1.3°), width
+  spread 8 % → 1 %, lag 13–33 → 11 px. Stylus ink unchanged (specimen goldens identical).
 - 🚧 (merged; to verify on the tablet, flicker log in Ink Lab) **The pen still flickers sometimes** on the Android tablet (S Pen),
   no clear pattern: find every handover / prediction / tile cause, test, fix, and add an
   on-device flicker log to catch the rest.
@@ -81,9 +88,16 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 - ✅ **Highlighter and laser customisation like the pen's**: the highlighter already had every
   pen option (now tested); the laser gets editable, persisted quick colour and size slots (1–5
   each, shared slot rows and editors, 1–9 and [ / ] too) and the pen's popover layout.
-- 🚧 (feat/laser-feel) **The laser's ends can't be changed** (owner, again): the laser has the
+- ✅ **The laser's ends can't be changed** (owner, again): the laser has the
   pen's slots but not its feel: ends (round / flat / tapered), pressure, stabiliser; the trail
-  drawn with the pen's outline engine.
+  drawn with the pen's outline engine. Done: the laser popover has the pen's Pressure
+  sensitivity, Stabiliser and Ends controls (round / tapered with start / end / both and
+  length / flat), greyed out in dot mode; persisted (old settings load as before: flat, off,
+  off), Reset restores them. Each trail stroke is shaped by the pen's `StrokeShaper`
+  (sampling, smoothing, stabiliser, pressure radii, tapers) incrementally, then drawn as the
+  laser's glow and core with the fade (round ends add a soft half disc); the preview shows a
+  finished stroke. Defaults look as before; frame cost about as before
+  (`test/perf/laser_perf_test.dart`).
 - ✅ **Better shape control points**: handles by meaning for drawn and snapped shapes (circle
   centre + radius, ellipse centre + two radii, rectangle / diamond corners + sides, a line's
   bend, star centre + point + inner radius and its points in Style) with snaps and Shift
@@ -92,10 +106,15 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   closed) drawn anchor by anchor with the Shape tool or snapped from a held smooth stroke
   (Schneider fit); anchors and tangents are editable, a tap on the line adds an anchor and a
   double tap removes one.
-- ⬜ **Shape follow-ups** (from the shape-handles review): undo while a curve is being drawn
+- ✅ **Shape follow-ups** (from the shape-handles review): undo while a curve is being drawn
   takes back its last anchor (today it undoes earlier strokes); a circle can be squashed into
   an ellipse from a handle; with Curve picked a tap on a shape selects it rather than placing an
-  anchor (or the hint says how).
+  anchor (or the hint says how). Done: undo/redo step through a curve's anchors while it is
+  drawn; a tap on a shape selects it with Curve picked (a drag from it starts a curve); a circle
+  has handles at its axes' ends that squash it into an ellipse. Handle UX review: a tiny shape's
+  primary handles spread apart (others hidden) so each can be grabbed, handles drawn larger on
+  touch-first devices, desktop cursors over handles / frame / body, a curve's anchors and
+  tangents shown while it is drawn.
 - 🚧 (fix/pen-flicker-3) **The pen still flickers sometimes** (owner, again): keep hunting every cause on every
   platform (Linux, web, Android), with frame-by-frame tests.
 - ✅ **Live sync, actually live**: edits show on other devices within a fraction of a second
@@ -109,7 +128,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   over loopback); the stroke being written drawn live on the others (replaced by its record),
   presence plates in the editor bar; the event stream and the cycle as fallbacks. Cursors
   are not sent yet (the room data has room for them).
-- ⬜ **Live sync follow-ups** (feat/live-sync-3): cursors / pointers of other devices (the laser
+- 🚧 (feat/live-sync-3) **Live sync follow-ups**: cursors / pointers of other devices (the laser
   too); no gap between another device's live stroke and its record when the page reloads fully
   (500+ changes, a selection in the way) or for a highlight snapped to text (it ends without a
   stroke id); an e2e run with two real app instances over the live channel. Done: other

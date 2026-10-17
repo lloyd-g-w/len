@@ -21,7 +21,7 @@ class LaserTool implements PointerTool {
   void down(ToolPointer p) {
     if (_config case final config?) trail.config = config();
     _last = p.screen;
-    trail.down(p.world);
+    trail.down(p.world, pressure: p.pressure);
   }
 
   @override
@@ -29,7 +29,7 @@ class LaserTool implements PointerTool {
     final last = _last;
     final record = last == null || (p.screen - last).distance >= minGap;
     if (record) _last = p.screen;
-    trail.move(p.world, record: record);
+    trail.move(p.world, record: record, pressure: p.pressure);
   }
 
   @override

@@ -24,6 +24,7 @@ class LaserTrail extends ChangeNotifier {
     : _x = Float64List(capacity),
       _y = Float64List(capacity),
       _t = Float64List(capacity),
+      _p = Float32List(capacity),
       _starts = Uint8List(capacity);
 
   /// The most points kept (seconds of fast stylus input; a held trail
@@ -64,10 +65,18 @@ class LaserTrail extends ChangeNotifier {
   static const Duration holdFade = Duration(milliseconds: 400);
 
   final Float64List _x, _y, _t;
+  final Float32List _p;
   final Uint8List _starts;
   int _first = 0;
   int _length = 0;
   double _now = 0;
+
+  /// Points ever recorded: point i's [idAt] is `_pushed − length + i`.
+  int _pushed = 0;
+
+  /// Bumped when the points move or go other than by expiring ([shift],
+  /// [clear]): what was derived from them (`LaserStrokes`) is stale.
+  int _revision = 0;
 
   Offset? _head;
   bool _pressed = false;
@@ -114,6 +123,26 @@ class LaserTrail extends ChangeNotifier {
   /// Whether point [i] starts a new stroke of the trail (not joined to i − 1).
   bool startsAt(int i) => i == 0 || _starts[_index(i)] == 1;
 
+  /// Whether point [i] was the first of its stroke (unlike [startsAt],
+  /// false for a first point whose stroke's start has expired).
+  bool beganStrokeAt(int i) => _starts[_index(i)] == 1;
+
+  /// Normalised pen pressure at point [i] (0.5 without a stylus).
+  double pressureAt(int i) => _p[_index(i)];
+
+  /// A number for point [i] that stays with it while older points expire
+  /// (consecutive along the trail).
+  int idAt(int i) => _pushed - _length + i;
+
+  /// The id ([idAt]) of the oldest point, or of the next one when empty.
+  int get firstId => _pushed - _length;
+
+  /// Changes whenever the points move or go other than by expiring.
+  int get revision => _revision;
+
+  /// Whether the pointer is down (the last stroke is still being drawn).
+  bool get pressed => _pressed;
+
   /// Opacity (1 → 0) of point [i] as of [now].
   double alphaAt(int i) => holding && i >= _legacy ? _held : _fade(_t[_index(i)], lifetime);
 
@@ -154,13 +183,9 @@ class LaserTrail extends ChangeNotifier {
 
   int _index(int i) => (_first + i) % capacity;
 
-  /// Whether the pointer is down ([down] until [up]).
-  bool get pressed => _pressed;
-
   /// Trail points recorded ever (the newest [length] of them are kept):
   /// what was added since an earlier count is the trail's tail.
-  int get added => _added;
-  int _added = 0;
+  int get added => _pushed;
 
   /// Whether a hovering mouse shows the dot ([hover]).
   bool get hovering => _hovering;
@@ -182,20 +207,21 @@ class LaserTrail extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The pointer went down at [world].
-  void down(Offset world) {
+  /// The pointer went down at [world] with [pressure] (normalised; 0.5
+  /// without a stylus).
+  void down(Offset world, {double pressure = 0.5}) {
     _pressed = true;
     _liftedAt = null;
     _releasedAt = null;
     _head = world;
-    if (config.mode == LaserMode.trail) _push(world, start: true);
+    if (config.mode == LaserMode.trail) _push(world, pressure, start: true);
     notifyListeners();
   }
 
   /// The pointer moved to [world]; with [record] false only the dot moves.
-  void move(Offset world, {bool record = true}) {
+  void move(Offset world, {bool record = true, double pressure = 0.5}) {
     _head = world;
-    if (record && config.mode == LaserMode.trail) _push(world, start: _length == 0);
+    if (record && config.mode == LaserMode.trail) _push(world, pressure, start: _length == 0);
     notifyListeners();
   }
 
@@ -208,7 +234,7 @@ class LaserTrail extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _push(Offset world, {required bool start}) {
+  void _push(Offset world, double pressure, {required bool start}) {
     final int k;
     if (_length == capacity) {
       k = _first;
@@ -217,11 +243,12 @@ class LaserTrail extends ChangeNotifier {
     } else {
       k = _index(_length++);
     }
-    _added++;
     _x[k] = world.dx;
     _y[k] = world.dy;
     _t[k] = _pending;
+    _p[k] = pressure;
     _starts[k] = start ? 1 : 0;
+    _pushed++;
   }
 
   /// Advances to frame time [nowMs]: stamps new points and drops expired
@@ -243,7 +270,12 @@ class LaserTrail extends ChangeNotifier {
         _legacy--;
       }
       final alpha = _held;
-      if (alpha == 0) _length = _legacy; // Faded: all that was held goes.
+      if (alpha == 0 && _length > _legacy) {
+        // Faded: all that was held goes (the newest points: ids move on).
+        _pushed -= _length - _legacy;
+        _length = _legacy;
+        _revision++;
+      }
       // While it is held in full, frames change nothing.
       final still = _length > 0 && _legacy == 0 && !_pressed && alpha == 1 && _heldAlpha == 1;
       _heldAlpha = alpha;
@@ -277,6 +309,7 @@ class LaserTrail extends ChangeNotifier {
     }
     final head = _head;
     if (head != null) _head = head + delta;
+    _revision++;
     notifyListeners();
   }
 
@@ -290,6 +323,7 @@ class LaserTrail extends ChangeNotifier {
     _liftedAt = null;
     _releasedAt = null;
     _heldAlpha = 1;
+    _revision++;
     notifyListeners();
   }
 }

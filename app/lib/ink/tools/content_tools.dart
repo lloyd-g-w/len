@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:flutter/services.dart';
+
 import '../../core/clock.dart';
 import '../../domain/surface_element.dart';
 import '../../domain/text/text_data.dart';
@@ -11,6 +13,7 @@ import '../selection/ink_clipboard.dart';
 import '../selection/lasso_path.dart';
 import '../selection/selection_chrome.dart';
 import '../selection/selection_controller.dart';
+import '../selection/selection_cursors.dart';
 import '../surface_model.dart';
 import '../tool_settings.dart';
 import '../viewport.dart';
@@ -182,12 +185,29 @@ class ContentTools {
   /// live: pressing on it moves or resizes it with the
   /// lasso, pressing elsewhere drops it and uses [tool] again.
   PointerTool? toolAt(EditorTool tool, Offset screen, {bool lasso = false}) {
+    final picked = _toolAt(tool, screen, lasso: lasso);
+    // Redo brings back an undone curve only until something else is done.
+    if (!identical(picked, shape)) shape.curve.forget();
+    return picked;
+  }
+
+  PointerTool? _toolAt(EditorTool tool, Offset screen, {required bool lasso}) {
     if (lasso) return this.lasso;
     if (tool != EditorTool.lasso && !selection.isEmpty) {
       if (holds(screen)) return this.lasso;
       selection.clear();
     }
     return toolFor(tool);
+  }
+
+  /// The mouse cursor at [screen] with [tool]: what a press there does to
+  /// the selection ([SelectionCursors]), a pointing hand where it closes a
+  /// curve being drawn; null for the tool's own (drawing) cursor.
+  MouseCursor? cursorAt(EditorTool tool, Offset screen) {
+    if (tool == EditorTool.shape && shape.curve.closesAt(screen, PointerDeviceKind.mouse)) {
+      return SystemMouseCursors.click;
+    }
+    return SelectionCursors.at(selection, viewport, screen);
   }
 
   /// Selects everything in [area] (world) on the current surface with the
@@ -281,6 +301,7 @@ class ContentTools {
     viewport.removeListener(_onViewport);
     text.removeListener(_onTextChanged);
     text.end();
+    shape.curve.dispose();
     selection.dispose();
     text.dispose();
     lassoPath.dispose();

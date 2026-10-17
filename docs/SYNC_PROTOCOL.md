@@ -236,10 +236,10 @@ leaves the room (or the receiver's connection drops).
 points, in `page`'s coordinates (to a hundredth of a world unit): `at` alone is a hovering pen or
 mouse; with `laser` it is the laser's dot, and `laser` is `{"mode": "dot"|"trail", "color":
 <ARGB>, "size": <screen px>, "duration": <ms>, "fade": "stroke"|"pause", "hold": <ms>, "down":
-<bool>, "hover": true (a mouse pointing without pressing), "p": [x0, y0, x1, …], "starts": [i,
-…]}` (how it looks, as the tool settings say; whether it is pressed; the trail points recorded
-since the previous message, at most 200; `starts`: the indices of the points in `p` that begin a
-new trail stroke). Without `at` the device points nowhere any more (left the surface, pressed to
+<bool>, "hover": true (a mouse pointing without pressing), "p": [x0, y0, pressure0, x1, …],
+"starts": [i, …]}` (how it looks, as the tool settings say; whether it is pressed; the trail
+points recorded since the previous message, at most 200, pressure to a thousandth; `starts`: the
+indices of the points in `p` that begin a new trail stroke). Without `at` the device points nowhere any more (left the surface, pressed to
 write, the laser lifted: a laser fades on its own). Sent only while someone else is in the room,
 when something changed, at most every 40 ms (25 a second); a laser held down or hovering is told
 again every second. A receiver replays the laser as the sender shows it, drops what it showed

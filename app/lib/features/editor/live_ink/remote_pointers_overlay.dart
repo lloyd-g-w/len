@@ -115,7 +115,8 @@ class RemotePointersPainter extends CustomPainter {
   static const double dotRadius = 3.5;
   static const Offset plateOffset = Offset(Gaps.sm, Gaps.sm);
 
-  final LaserPaint _laser = LaserPaint();
+  /// Each laser's paint (its trail's strokes are kept between frames).
+  final Expando<LaserPaint> _lasers = Expando();
   final Map<String, TextPainter> _initials = {};
 
   @override
@@ -124,7 +125,8 @@ class RemotePointersPainter extends CustomPainter {
       final frame = frameOf(p.surface);
       if (frame == null) continue;
       final origin = frame == Rect.largest ? Offset.zero : frame.topLeft;
-      Offset toScreen(Offset world) => viewport.toScreen(origin + world);
+      final screenOrigin = viewport.toScreen(origin);
+      Offset toScreen(Offset world) => world * viewport.scale + screenOrigin;
       Offset? tip;
       if (p.hover case final hover?) {
         tip = toScreen(hover);
@@ -133,7 +135,12 @@ class RemotePointersPainter extends CustomPainter {
           ..drawCircle(tip, dotRadius, Paint()..color = dot);
       }
       if (p.laser.isVisible) {
-        _laser.paint(canvas, p.laser, toScreen);
+        (_lasers[p.laser] ??= LaserPaint()).paint(
+          canvas,
+          p.laser,
+          scale: viewport.scale,
+          origin: screenOrigin,
+        );
         final head = p.laser.head;
         if (head != null && p.laser.headAlpha > 0) {
           tip = toScreen(head) + Offset.fromDirection(0.8, LaserPainter.dotRadius(p.laser.config));

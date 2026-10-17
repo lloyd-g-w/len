@@ -5,16 +5,18 @@ import 'package:flutter/rendering.dart';
 
 import '../tools/laser.dart';
 import '../viewport.dart';
-import 'catmull_rom.dart';
 import 'laser_ribbon.dart';
+import 'laser_strokes.dart';
 
 /// Paints the laser pointer: a soft glow with a bright core, as a dot under
 /// the pointer and (in trail mode) a smooth trail that thins and fades with
 /// age.
 ///
-/// Cheap per frame: the trail is two vertex meshes (glow and core) with
-/// per-vertex colours — no blur filters, no layers — built in screen space
-/// along a centripetal Catmull-Rom curve through the samples.
+/// The trail's strokes are shaped by the pen's engine ([LaserStrokes]:
+/// sampling, stabiliser, pressure, ends), incrementally. Cheap per frame:
+/// the trail is two vertex meshes (glow and core) with per-vertex colours —
+/// no blur filters, no layers — built in screen space along the strokes'
+/// centre lines.
 class LaserPainter extends CustomPainter {
   LaserPainter({required this.trail, required this.viewport})
     : super(repaint: Listenable.merge([trail, viewport]));
@@ -28,7 +30,8 @@ class LaserPainter extends CustomPainter {
   final LaserPaint _paint = LaserPaint();
 
   @override
-  void paint(Canvas canvas, Size size) => _paint.paint(canvas, trail, viewport.toScreen);
+  void paint(Canvas canvas, Size size) =>
+      _paint.paint(canvas, trail, scale: viewport.scale, origin: viewport.toScreen(Offset.zero));
 
   /// The core radius of [config]'s dot on screen.
   static double dotRadius(LaserConfig config) =>
@@ -76,65 +79,48 @@ class LaserPainter extends CustomPainter {
   bool shouldRepaint(LaserPainter old) => old.trail != trail || old.viewport != viewport;
 }
 
-/// Draws a laser: the meshes of its trail (kept between frames) and its
-/// dot. Used by [LaserPainter] and for other devices' lasers.
+/// Draws one laser: the meshes of its trail and its strokes (kept between
+/// frames, so one per trail) and its dot. [LaserPainter] draws this
+/// device's with it; other devices' lasers are drawn with one each.
 class LaserPaint {
   final LaserRibbon _glow = LaserRibbon.glow();
   final LaserRibbon _core = LaserRibbon.core();
 
-  /// Curve resolution (screen pixels between generated points).
-  static const double _step = 4;
+  /// The trail's strokes, shaped by the pen's engine and kept between
+  /// frames.
+  final LaserStrokes _strokes = LaserStrokes();
 
-  /// Paints [trail] (this device's laser, or another's), its points put
-  /// on the screen by [toScreen].
-  void paint(Canvas canvas, LaserTrail trail, Offset Function(Offset world) toScreen) {
+  /// Paints [trail] on a screen where world point p shows at
+  /// `p * scale + origin`.
+  void paint(Canvas canvas, LaserTrail trail, {required double scale, required Offset origin}) {
     final config = trail.config;
     final color = Color(config.color);
     if (config.mode == LaserMode.trail && trail.length > 1) {
       _glow.color = color;
       _core.color = color;
-      _addTrail(trail, toScreen, config.size / 2);
+      _strokes
+        ..sync(trail, scale)
+        ..emit(
+          _glow,
+          _core,
+          trail,
+          glowScale: LaserPainter.glowScale,
+          scale: scale,
+          ox: origin.dx,
+          oy: origin.dy,
+        );
       _glow.draw(canvas);
       _core.draw(canvas);
     }
     final head = trail.head;
     final alpha = trail.headAlpha;
     if (head == null || alpha <= 0) return;
-    LaserPainter.paintDot(canvas, toScreen(head), LaserPainter.dotRadius(config), color, alpha);
-  }
-
-  /// Feeds every stroke of [trail] to the meshes.
-  void _addTrail(LaserTrail trail, Offset Function(Offset) toScreen, double halfWidth) {
-    final n = trail.length;
-    var start = 0;
-    for (var i = 1; i <= n; i++) {
-      if (i < n && !trail.startsAt(i)) continue;
-      _addStroke(trail, toScreen, start, i, halfWidth);
-      start = i;
-    }
-  }
-
-  void _addStroke(
-    LaserTrail trail,
-    Offset Function(Offset) toScreen,
-    int from,
-    int to,
-    double halfWidth,
-  ) {
-    // Skip the expired head of the stroke (keep one point to fade from).
-    while (from < to - 1 && trail.alphaAt(from + 1) <= 0) {
-      from++;
-    }
-    if (to - from < 2) return;
-    final xs = <double>[], ys = <double>[], alphas = <double>[];
-    for (var i = from; i < to; i++) {
-      final p = toScreen(trail.pointAt(i));
-      xs.add(p.dx);
-      ys.add(p.dy);
-      alphas.add(trail.alphaAt(i));
-    }
-    final curve = CatmullRom.densify(xs, ys, alphas, _step);
-    _glow.add(curve.x, curve.y, curve.r, halfWidth * LaserPainter.glowScale);
-    _core.add(curve.x, curve.y, curve.r, halfWidth);
+    LaserPainter.paintDot(
+      canvas,
+      head * scale + origin,
+      LaserPainter.dotRadius(config),
+      color,
+      alpha,
+    );
   }
 }

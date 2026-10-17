@@ -1,6 +1,10 @@
 import 'package:flutter/foundation.dart' show listEquals;
 
+import '../../domain/stroke.dart';
+import '../pen/pen_ends.dart';
 import 'laser_config_json.dart';
+
+export '../pen/pen_ends.dart';
 
 /// How the laser pointer shows: a dot under the pointer, or a dot that
 /// leaves a fading trail.
@@ -37,7 +41,9 @@ enum LaserFade {
 /// The laser pointer's customisation (persisted with the tool settings):
 /// like an ink's, quick colours and quick sizes — independent rows of
 /// [minSlots]..[maxSlots] slots, one of each selected — plus how it shows
-/// (dot or trail) and fades. Immutable; `ToolSettings` swaps configs.
+/// (dot or trail) and fades, and the pen's feel for the trail: pressure
+/// sensitivity, stabiliser and ends (the trail is shaped by the pen's
+/// engine, `LaserStroke`). Immutable; `ToolSettings` swaps configs.
 class LaserConfig {
   const LaserConfig({
     this.mode = LaserMode.trail,
@@ -48,7 +54,17 @@ class LaserConfig {
     this.duration = defaultDuration,
     this.fade = LaserFade.stroke,
     this.hold = defaultHold,
+    this.thinning = 0,
+    this.streamline = 0,
+    this.ends = defaultEnds,
   });
+
+  /// The trail's ends at first: flat, as the trail always ended (the dot
+  /// covers the end while pointing).
+  static const PenEnds defaultEnds = PenEnds(style: StrokeEnds.flat);
+
+  /// The end styles offered: the pen's three.
+  static const List<StrokeEnds> endStyles = [StrokeEnds.round, StrokeEnds.tapered, StrokeEnds.flat];
 
   /// The quick colours at first: red, green and blue.
   static const List<int> defaultColors = [0xFFFF2D2D, 0xFF2BD957, 0xFF2F8BFF];
@@ -106,6 +122,17 @@ class LaserConfig {
   /// ([LaserFade.pause]).
   final Duration hold;
 
+  /// Pressure sensitivity of the trail's width (0..1, as the pen's
+  /// `PenConfig.thinning`; 0: one width).
+  final double thinning;
+
+  /// Stabiliser strength of the trail (0..1, as the pen's
+  /// `PenConfig.streamline`).
+  final double streamline;
+
+  /// The trail's ends (round, flat or tapered, as the pen's).
+  final PenEnds ends;
+
   /// The selected colour (opaque ARGB) and size.
   int get color => colors[colorIndex];
   double get size => sizes[sizeIndex];
@@ -119,6 +146,9 @@ class LaserConfig {
     Duration? duration,
     LaserFade? fade,
     Duration? hold,
+    double? thinning,
+    double? streamline,
+    PenEnds? ends,
   }) => LaserConfig(
     mode: mode ?? this.mode,
     colors: colors ?? this.colors,
@@ -128,6 +158,9 @@ class LaserConfig {
     duration: duration ?? this.duration,
     fade: fade ?? this.fade,
     hold: hold ?? this.hold,
+    thinning: thinning ?? this.thinning,
+    streamline: streamline ?? this.streamline,
+    ends: ends ?? this.ends,
   );
 
   /// A copy with the defaults of everything but the quick slots (what
@@ -185,6 +218,9 @@ class LaserConfig {
     'duration': duration.inMilliseconds,
     'fade': fade.name,
     'hold': hold.inMilliseconds,
+    'thinning': thinning,
+    'streamline': streamline,
+    'ends': ends.toJson(),
   };
 
   /// Reads [toJson] output; a part missing or malformed takes its default
@@ -201,7 +237,10 @@ class LaserConfig {
       other.sizeIndex == sizeIndex &&
       other.duration == duration &&
       other.fade == fade &&
-      other.hold == hold;
+      other.hold == hold &&
+      other.thinning == thinning &&
+      other.streamline == streamline &&
+      other.ends == ends;
 
   @override
   int get hashCode => Object.hash(
@@ -213,5 +252,8 @@ class LaserConfig {
     duration,
     fade,
     hold,
+    thinning,
+    streamline,
+    ends,
   );
 }
