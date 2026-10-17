@@ -190,7 +190,7 @@ From the reports; the owner picks. Status as above.
   selection's `_replace` rebuilds the lines); remote devices get both. Moved
   together they move rigidly; a line moved alone lets go (Excalidraw); copies attach to
   copied targets; a deleted target leaves the line where it is; never across pages.
-- 🚧 (fix/connector-ids) **Connector follow-ups**: shapes keep an identity across edits
+- ✅ **Connector follow-ups**: shapes keep an identity across edits
   (`sh.o`, the id of the stroke first drawn; `Stroke.shapeId`) and attachments name it, so an
   edit no longer re-points arrows. Duplicated pages and notebooks, pages sent to another
   notebook and imported Len files map origins and attachment ids with the stroke ids
