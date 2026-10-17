@@ -133,13 +133,12 @@ class _VersionHistoryState extends State<VersionHistory> {
           children: [
             Padding(
               padding: EdgeInsets.fromLTRB(Gaps.lg, widget.wide ? Gaps.lg : 0, Gaps.lg, Gaps.sm),
-              child: SheetHeader(
-                title: 'Version history',
-                subtitle: title,
-                onClose: () => Navigator.of(context).pop(),
-                trailing: TextButton(
-                  onPressed: () => unawaited(saveVersionFlow(context, services, widget.notebookId)),
-                  child: const Text('Save version…'),
+              child: LayoutBuilder(
+                builder: (context, box) => SheetHeader(
+                  title: 'Version history',
+                  subtitle: title,
+                  onClose: () => Navigator.of(context).pop(),
+                  trailing: _saveButton(context, box.maxWidth),
                 ),
               ),
             ),
@@ -155,6 +154,39 @@ class _VersionHistoryState extends State<VersionHistory> {
           ],
         );
       },
+    );
+  }
+
+  /// "Save version…" as a text button, or as an icon where its label would
+  /// squeeze the title (phones, large text).
+  Widget _saveButton(BuildContext context, double width) {
+    void save() => unawaited(saveVersionFlow(widget.message, widget.services, widget.notebookId));
+    const label = 'Save version…';
+    final text = Theme.of(context).textTheme;
+    final scaler = MediaQuery.textScalerOf(context);
+    double measure(String s, TextStyle? style) {
+      final painter = TextPainter(
+        text: TextSpan(text: s, style: style),
+        textScaler: scaler,
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
+      final width = painter.width;
+      painter.dispose();
+      return width;
+    }
+
+    // Title, label, the button's padding and the ✕.
+    final needed =
+        measure('Version history', text.titleMedium) +
+        measure(label, text.labelLarge) +
+        Gaps.xxl +
+        Targets.barHit(context);
+    if (needed <= width) return TextButton(onPressed: save, child: const Text(label));
+    return IconButton(
+      tooltip: label,
+      icon: const Icon(Symbols.bookmark_add_sharp),
+      onPressed: save,
     );
   }
 
@@ -264,6 +296,8 @@ class _VersionRow extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
                             children: [
                               if (v.kind == VersionKind.named) ...[
                                 const Icon(Symbols.bookmark_sharp, size: Glyphs.menu, fill: 1),
@@ -273,7 +307,7 @@ class _VersionRow extends StatelessWidget {
                                 child: Text(
                                   title,
                                   style: theme.textTheme.labelLarge,
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -289,7 +323,7 @@ class _VersionRow extends StatelessWidget {
                           Text(
                             '$device, ${summary[0].toLowerCase()}${summary.substring(1)}',
                             style: theme.textTheme.bodySmall,
-                            maxLines: 2,
+                            maxLines: 3,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],

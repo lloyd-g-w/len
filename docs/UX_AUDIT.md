@@ -96,7 +96,8 @@ There was no shortcut for either.
 "17 Oct 2026…" lost the time at 390 dp. The title is now the list's short
 form ("Today, 14:02") on one line. At 2× text the page view's "Page 1 of
 2" vanished beside Restore this page: on phones that button now sits in a
-bar under the page (`version_preview.dart`).
+bar under the page (`version_preview.dart`; since merged with fix/vh-phone's
+docked bottom bar, which also holds the preview's Copy / Restore).
 
 **R25-8 P3 · Escape does not close the preview or its page view.** ⬜ Keep
 for now: the page overview and Settings don't either. A route-wide rule

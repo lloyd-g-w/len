@@ -144,7 +144,7 @@ void main() {
       final onTile =
           focus != null &&
           find
-              .ancestor(of: find.byWidget(focus.widget), matching: find.byType(GridView))
+              .ancestor(of: find.byWidget(focus.widget), matching: find.byType(SliverGrid))
               .evaluate()
               .isNotEmpty;
       if (onTile) {

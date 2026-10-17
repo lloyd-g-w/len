@@ -251,9 +251,16 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   thumbnail readiness from a private painter field; the phone preview's title is cut by its
   two buttons; device names are still platform names.
 
-- ⬜ **Version history on phones**: the golden test knows a thumbnail loaded by a private
-  painter field (give it a public signal). (The preview's title: fixed in round 25, R25-7 — the
-  short "Today, 14:02", and on phones the page view's Restore this page sits under the page.)
+- ✅ **Version history on phones**: below `Breakpoints.medium` the preview's
+  app bar holds only the date (one line, as tall as the text size needs), the version's name
+  and device head the pages in full, and Copy as new notebook / Restore (a page: Restore this
+  page) sit in a docked bottom bar (`DialogActions`: a row, stacked at large text); wide
+  screens keep the bar with a tooltip for the full title. The history's Save version… turns
+  into an icon where its label would squeeze the title; names take two lines. The thumbnail's
+  public `VersionSurfaceViewState.loaded` replaces the painter peek; goldens add a long name
+  at text scale 1.3 and 2.0.
+  Merged with round 25 (R25-7): the bar's date is the short "Today, 14:02", and the page
+  view's Restore this page docks in the same bottom bar.
 
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
