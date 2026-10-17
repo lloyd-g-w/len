@@ -57,20 +57,31 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
   /// Inserts new strokes, or revives previously deleted ones (redo).
   void save(Iterable<Stroke> strokes) {
     final now = clock.nowMs();
+    final rows = [for (final s in strokes) StrokeRow.of(s)];
+    if (rows.isEmpty) return;
     database.transaction(() {
-      for (final s in strokes) {
-        _upsert(s, updatedAt: nextVersion(s.id, now), deviceId: deviceId, dirty: true);
+      final versions = nextVersions([for (final r in rows) r.id], now);
+      for (var i = 0; i < rows.length; i++) {
+        _put(rows[i], updatedAt: versions[i], deviceId: deviceId, dirty: true);
       }
+      _reindexAll(rows);
     });
   }
 
   /// Tombstones strokes by id.
   void delete(Iterable<String> ids) {
     final now = clock.nowMs();
+    final all = ids.toList();
+    if (all.isEmpty) return;
     database.transaction(() {
-      for (final id in ids) {
-        _tombstone(id, updatedAt: nextVersion(id, now), deviceId: deviceId, dirty: true);
+      final versions = nextVersions(all, now);
+      for (var i = 0; i < all.length; i++) {
+        _bury(all[i], updatedAt: versions[i], deviceId: deviceId, dirty: true);
       }
+      database.execute(
+        'DELETE FROM stroke_chunks WHERE stroke_id IN (SELECT value FROM json_each(?))',
+        [jsonEncode(all)],
+      );
     });
   }
 
@@ -162,6 +173,12 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
     required String deviceId,
     required bool dirty,
   }) {
+    _put(s, updatedAt: updatedAt, deviceId: deviceId, dirty: dirty);
+    _reindex(s);
+  }
+
+  /// Writes row [s] without its chunk index.
+  void _put(StrokeRow s, {required int updatedAt, required String deviceId, required bool dirty}) {
     database.execute(
       '''
       INSERT INTO strokes (id, surface_id, tool, color, width, points,
@@ -187,7 +204,6 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
         s.style,
       ],
     );
-    _reindex(s);
   }
 
   void _tombstone(
@@ -196,6 +212,12 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
     required String deviceId,
     required bool dirty,
   }) {
+    _bury(id, updatedAt: updatedAt, deviceId: deviceId, dirty: dirty);
+    database.execute('DELETE FROM stroke_chunks WHERE stroke_id = ?', [id]);
+  }
+
+  /// Marks [id] deleted without touching its chunk index.
+  void _bury(String id, {required int updatedAt, required String deviceId, required bool dirty}) {
     // Insert a bare tombstone if the stroke was never seen locally, so an
     // older live version arriving later cannot resurrect it. A known stroke
     // keeps its points for a while, so a deletion that raced an edit on
@@ -209,7 +231,26 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
         device_id = excluded.device_id, deleted = 1, dirty = excluded.dirty''',
       [id, updatedAt, deviceId, dirty ? 1 : 0],
     );
-    database.execute('DELETE FROM stroke_chunks WHERE stroke_id = ?', [id]);
+  }
+
+  /// [_reindex] for many rows in two statements (a statement per row and
+  /// chunk was most of a commit of many lines).
+  void _reindexAll(List<StrokeRow> rows) {
+    database.execute(
+      'DELETE FROM stroke_chunks WHERE stroke_id IN (SELECT value FROM json_each(?))',
+      [
+        jsonEncode([for (final s in rows) s.id]),
+      ],
+    );
+    final entries = [
+      for (final s in rows)
+        for (final key in s.chunks) [s.surfaceId, key.x, key.y, s.id, ChunkDigest.ofStroke(s.id)],
+    ];
+    database.execute(
+      'INSERT OR IGNORE INTO stroke_chunks (surface_id, cx, cy, stroke_id, digest) '
+      'SELECT value ->> 0, value ->> 1, value ->> 2, value ->> 3, value ->> 4 FROM json_each(?)',
+      [jsonEncode(entries)],
+    );
   }
 
   void _reindex(StrokeRow s) {
