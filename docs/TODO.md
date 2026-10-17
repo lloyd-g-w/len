@@ -140,6 +140,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   over loopback); the stroke being written drawn live on the others (replaced by its record),
   presence plates in the editor bar; the event stream and the cycle as fallbacks. Cursors
   are not sent yet (the room data has room for them).
+- 🚧 (feat/pointer-tags) **Hide the name tags of other devices' pointers** (owner): a toggle for
+  the device initial plate drawn beside another device's pen / laser while it writes (⋯ → View
+  and Settings), persisted; the pointer itself and presence in the bar stay.
 - ✅ **Live sync follow-ups**: cursors / pointers of other devices (the laser
   too); no gap between another device's live stroke and its record when the page reloads fully
   (500+ changes, a selection in the way) or for a highlight snapped to text (it ends without a
@@ -155,6 +158,17 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 - ✅ **`flutter run --release -d linux` fails to link** (owner): it builds and runs inside
   `nix develop`; a Flutter from outside the dev shell lacks its toolchain and libraries. The
   repo has an `.envrc` (direnv: `use flake`) and the README says so.
+
+- 🚧 (feat/version-history) **Version history** (owner): a notebook's (and canvas's) history to
+  browse and restore: versions kept automatically (after a stretch of editing goes quiet, and at
+  most every few minutes while editing; thinned over time: all of today, hourly for a week,
+  daily for a month, …) and named ones saved by hand ("Save version…"); a timeline with
+  thumbnails, who / which device and what changed (pages added / removed / edited); preview a
+  version read-only, then restore the whole notebook, restore one page, or copy it as a new
+  notebook; restoring is itself undoable (a new version, nothing lost). Cheap: unchanged
+  content shared between versions (records and blobs by reference, not copies); synced, so
+  every device sees the same history; storage budget and "Delete older versions"; works on the
+  web and offline. Designed with live collaboration in mind (who changed what).
 
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
