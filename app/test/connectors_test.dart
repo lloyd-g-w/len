@@ -9,6 +9,7 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/ink/geometry/affine.dart';
 import 'package:len/ink/input/ink_input_controller.dart';
 import 'package:len/ink/input/live_ink.dart';
+import 'package:len/ink/render/stroke_renderer.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
 import 'package:len/ink/shapes/shape_anchors.dart';
 import 'package:len/ink/shapes/shape_builder.dart';
@@ -25,6 +26,18 @@ import 'shape_geometry_test.dart' show shapeStroke;
 // letting go, and through sync.
 
 const _all = Rect.fromLTWH(-1000, -1000, 3000, 3000);
+
+/// The alpha of each pixel of [picture] over (0, 0)–(800, 600), at 2 px a
+/// unit.
+Future<List<int>> _alpha(Picture picture) async {
+  final recorder = PictureRecorder();
+  Canvas(recorder)
+    ..scale(2)
+    ..drawPicture(picture);
+  final image = await recorder.endRecording().toImage(1600, 1200);
+  final bytes = (await image.toByteData())!;
+  return [for (var i = 3; i < bytes.lengthInBytes; i += 4) bytes.getUint8(i)];
+}
 
 void main() {
   group('geometry', () {
@@ -286,6 +299,54 @@ void main() {
       expect(s.followers, isNull);
       expect(model.isHidden(arrowNow().id), isFalse);
       expectAttached();
+    });
+
+    test('a line on another stroke of the same shape stays when the box is dragged', () {
+      box();
+      attachedArrow();
+      // A copy of the box below it (edited on two devices at once), and a
+      // line from inside the box to the copy's top, attached to it.
+      seed(
+        ShapeBuilder.dragged(
+          ShapeKind.rectangle,
+          const Offset(300, 320),
+          const Offset(400, 420),
+        ).withOrigin('box'),
+        'box2',
+      );
+      final onCopy = seed(
+        ShapeGeometry(ShapeKind.line, const [
+          Offset(350, 250),
+          Offset(350, 320),
+        ], tip: const ShapeAttachment('box', 0.125)),
+        'onCopy',
+      );
+      final s = content.selection..select([model.strokeById('box')!], const []);
+      s.setPreview(Affine.translation(const Offset(0, -40)), s.frame!);
+      expect(model.isHidden('arrow'), isTrue);
+      expect(model.isHidden('onCopy'), isFalse);
+      s.commitPreview();
+      expect(model.strokeById('onCopy'), onCopy);
+      expect(arrowNow().shape!.points[1], const Offset(300, 210));
+    });
+
+    test('the arrow shown following looks as it does once committed', () async {
+      box();
+      attachedArrow();
+      final s = content.selection..select([boxNow()], const []);
+      s.setPreview(Affine.translation(const Offset(30, 60)), s.frame!);
+      final shown = await _alpha(s.followers!);
+      s.commitPreview();
+      final recorder = PictureRecorder();
+      StrokeRenderer.draw(Canvas(recorder), arrowNow());
+      final committed = await _alpha(recorder.endRecording());
+      var inked = 0, differ = 0;
+      for (var i = 0; i < shown.length; i++) {
+        if (shown[i] > 0 || committed[i] > 0) inked++;
+        if ((shown[i] - committed[i]).abs() > 96) differ++;
+      }
+      expect(inked, greaterThan(300));
+      expect(differ / inked, lessThan(0.03), reason: '$differ of $inked pixels');
     });
 
     test('moved with its box the arrow stays attached; moved alone it lets go', () {

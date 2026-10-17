@@ -21,9 +21,6 @@ extension _SelectionFraming on _SelectionCore {
     return recorder.endRecording();
   }
 
-  /// [strokes] alone (no elements).
-  ui.Picture _recordStrokes(List<Stroke> strokes) => _record(strokes, const []);
-
   /// A new selection's frame: around a single element it follows the
   /// element's rotation (so handles sit on its edges), otherwise it is the
   /// axis-aligned bounds.

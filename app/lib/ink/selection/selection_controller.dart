@@ -13,6 +13,7 @@ import '../elements/text_flow_chains.dart';
 import '../elements/text_layout.dart';
 import '../geometry/affine.dart';
 import '../render/content_painter.dart';
+import '../render/stroke_renderer.dart';
 import '../shapes/shape_anchors.dart';
 import '../shapes/shape_builder.dart';
 import '../shapes/shape_handles.dart';
