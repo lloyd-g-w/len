@@ -12,6 +12,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/history/version_history_sheet.dart';
+import 'package:len/features/history/version_ink_images.dart';
 import 'package:len/features/history/version_surface_view.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -113,6 +114,36 @@ Future<void> _open(WidgetTester tester, AppServices s, String notebookId, String
       '(p50 ${turns[turns.length ~/ 2]} ms, max ${turns.last} ms), '
       'RSS +${(ProcessInfo.currentRss - rss) >> 20} MB',
     );
+    // Their ink at thumbnail size (48 logical pixels wide, as in the rows),
+    // where large enough to be rendered into images.
+    final keys = [
+      for (final sheet in await loads)
+        if (sheet != null && sheet.strokes.length >= VersionInkImages.minStrokes)
+          (
+            strokes: sheet.strokes,
+            frame: (sheet.origin ?? Offset.zero) & sheet.page.size,
+            width: 48,
+            height: (48 * sheet.page.height / sheet.page.width).ceil(),
+          ),
+    ];
+    if (keys.isNotEmpty) {
+      final rendered = Stopwatch()..start();
+      var drawn = false;
+      final images = Future.wait([
+        for (final k in keys) sheets.inkImages.image(k, wanted: () => true),
+      ]).whenComplete(() => drawn = true);
+      final turns = await turnsUntil(() => drawn);
+      for (final image in await images) {
+        image?.dispose();
+      }
+      turns.sort();
+      report(
+        '$label: ${keys.length} thumbnails\' ink rendered in ${rendered.elapsedMilliseconds} ms, '
+        '${turns.length} turns (p50 ${turns[turns.length ~/ 2]} ms, max ${turns.last} ms), '
+        '${sheets.inkImages.bytes >> 10} KB kept',
+      );
+    }
+    sheets.dispose();
   });
   tester.view
     ..physicalSize = const Size(1280, 800)
@@ -144,15 +175,19 @@ Future<void> _open(WidgetTester tester, AppServices s, String notebookId, String
   await tester.pump();
   final firstFrame = open.elapsedMilliseconds;
   // Every pump runs what became due (the loads' zero-delay yields among
-  // it), so the longest pump is the UI thread's longest stretch here.
+  // it: fake time runs them all, while the app would draw frames between
+  // them; their turns are measured above), then a frame: the longest frame
+  // is the longest build, layout and paint.
   var longest = 0;
+  var longestPump = 0;
   var frames = 0;
   final watch = Stopwatch()..start();
   while (!_loaded()) {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 2)));
-    final frame = Stopwatch()..start();
-    await tester.pump(const Duration(milliseconds: 16));
-    longest = math.max(longest, frame.elapsedMilliseconds);
+    final pump = Stopwatch()..start();
+    final frame = await _frameMs(tester, () => tester.pump(const Duration(milliseconds: 16)));
+    longest = math.max(longest, frame);
+    longestPump = math.max(longestPump, pump.elapsedMilliseconds);
     frames++;
     if (watch.elapsed > const Duration(minutes: 3)) fail('thumbnails did not load');
   }
@@ -160,23 +195,39 @@ Future<void> _open(WidgetTester tester, AppServices s, String notebookId, String
   final shown = find.byType(VersionSurfaceView).evaluate().length;
   report(
     '$label: first frame $firstFrame ms; $shown thumbnails built ($built builds), loaded in '
-    '$loadedMs ms over $frames frames, longest frame $longest ms; RSS +${(ProcessInfo.currentRss - rss) >> 20} MB',
+    '$loadedMs ms over $frames frames, longest frame $longest ms (pump $longestPump ms); RSS +${(ProcessInfo.currentRss - rss) >> 20} MB',
   );
   // Scroll to the oldest, a screen at a time.
   final list = find.byType(Scrollable).last;
   final scroll = <int>[];
+  final pumps = <int>[];
   for (var i = 0; i < 40; i++) {
-    final frame = Stopwatch()..start();
+    final pump = Stopwatch()..start();
     await tester.drag(list, const Offset(0, -500));
-    await tester.pump(const Duration(milliseconds: 16));
-    scroll.add(frame.elapsedMilliseconds);
+    scroll.add(await _frameMs(tester, () => tester.pump(const Duration(milliseconds: 16))));
+    pumps.add(pump.elapsedMilliseconds);
   }
   await pumpUntil(tester, _loaded, reason: 'the thumbnails after scrolling');
   scroll.sort();
+  pumps.sort();
   report(
-    '$label: scrolling, frames median ${scroll[scroll.length ~/ 2]} ms, max ${scroll.last} ms; '
+    '$label: scrolling, frames median ${scroll[scroll.length ~/ 2]} ms, max ${scroll.last} ms '
+    '(pumps median ${pumps[pumps.length ~/ 2]}, max ${pumps.last} ms); '
     '${find.byType(VersionSurfaceView).evaluate().length} thumbnails built at the end',
   );
+}
+
+/// How long the frame [pump] draws takes (ms): from its first frame
+/// callback to the end of drawing it (build, layout, paint), without the
+/// timers the pump runs before it.
+Future<int> _frameMs(WidgetTester tester, Future<void> Function() pump) async {
+  final frame = Stopwatch();
+  var ms = 0;
+  tester.binding
+    ..scheduleFrameCallback((_) => frame.start())
+    ..addPostFrameCallback((_) => ms = frame.elapsedMilliseconds);
+  await pump();
+  return ms;
 }
 
 bool _loaded() {
