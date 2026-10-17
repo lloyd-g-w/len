@@ -222,7 +222,8 @@ world unit, pressure to a thousandth), sent only while someone else is in the ro
 50 ms while the pen is down and at most 300 points a message: `p` holds the points from index
 `from` on (`from` > 0: only those after the points sent before; a stroke replaced whole, e.g.
 straightened or snapped, starts again at 0, and a receiver drops its points from `from` on). A
-receiver that missed points (`from` beyond what it has) waits for the next start. Then `{"k":
+receiver that missed points (`from` beyond what it has) waits for the next start. While the pen
+rests, the stroke is told again every second with no new points (`p` empty). Then `{"k":
 "ink", "s": "<id>", "end": true, "strokes": ["<stroke id>", …]}` when it ends: `strokes` names the
 stroke records it became — one, or several for a highlight snapped to text (one per line it
 covers) — and is absent when it was dropped. Other devices draw it as provisional ink over the

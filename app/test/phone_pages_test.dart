@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/features/editor/document/page_overview.dart';
 import 'package:len/features/editor/outline/outline_panel.dart';
@@ -14,7 +15,7 @@ void main() {
     await tester.tap(find.byTooltip('More options'));
     await tester.pumpAndSettle();
     expect(find.text('Outline'), findsNothing, reason: 'its home is the overview');
-    await tester.tapAt(const Offset(200, 500)); // Close the menu.
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape); // Close the menu.
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('All pages'));

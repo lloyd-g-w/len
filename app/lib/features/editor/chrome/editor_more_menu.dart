@@ -105,8 +105,6 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
                   onPrint,
                   shortcut: const SingleActivator(LogicalKeyboardKey.keyP, control: true),
                 ),
-              if (a.onSaveVersion case final onSaveVersion?)
-                _item(Symbols.bookmark_add_sharp, 'Save version…', onSaveVersion),
               if (a.onVersionHistory case final onVersionHistory?)
                 _item(Symbols.history_sharp, 'Version history…', onVersionHistory),
               const Divider(),

@@ -8,7 +8,7 @@ mixin _SelectionGestures on _SelectionCore {
   void setPreview(Affine t, SelectionFrame frame) {
     _preview = t;
     _previewFrame = frame;
-    _previewFollowers(_moved(t));
+    _previewFollowers(_moved(t), moved: t);
     notifyListeners();
   }
 
@@ -22,7 +22,7 @@ mixin _SelectionGestures on _SelectionCore {
     }
     final strokes = [for (final s in _strokes) TransformItems.stroke(s, t, id: clock.newId())];
     final elements = [for (final e in _elements) TransformItems.element(e, t)];
-    _replace(strokes, elements, frame: frame, transfer: true);
+    _replace(strokes, elements, frame: frame, transfer: true, moved: t);
   }
 
   void cancelPreview() {

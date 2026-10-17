@@ -43,6 +43,11 @@ class LiveInkRelay {
   /// The least time between two messages of a stroke.
   final Duration every;
 
+  /// How often a stroke whose pen rests is told again (no new points), so
+  /// other devices keep showing it (they drop writers they don't hear of
+  /// for a while, [RemoteInk.silence]).
+  static const keepAlive = Duration(seconds: 1);
+
   /// Points per message at most (a stroke replaced whole, e.g. snapped to
   /// a shape, goes in several).
   static const maxPoints = 300;
@@ -54,11 +59,13 @@ class LiveInkRelay {
   int _sent = 0;
   int _generation = 0;
   Timer? _timer;
+  Timer? _alive;
   bool _due = false;
 
   void _began(String surfaceId) {
     _timer?.cancel();
     _timer = null;
+    _alive?.cancel();
     if (!anyoneThere()) {
       _id = null;
       return;
@@ -92,23 +99,33 @@ class LiveInkRelay {
     }
     if (points.length > _sent) {
       final end = min(points.length, _sent + maxPoints);
-      send({
-        'k': 'ink',
-        's': id,
-        'page': _surface,
-        'tool': live.tool.name,
-        'color': live.color,
-        'width': live.width,
-        'style': live.style.toJson(),
-        'from': _sent,
-        'p': [for (final p in points.sublist(_sent, end)) ..._rounded(p)],
-      });
+      _send(id, [for (final p in points.sublist(_sent, end)) ..._rounded(p)]);
       _sent = end;
       if (end < points.length) _due = true;
     }
     _timer = Timer(every, () {
       _timer = null;
       if (_due) _flush();
+    });
+  }
+
+  /// Sends the points [p] (flattened) from [_sent] on, and tells the
+  /// stroke again after [keepAlive] if nothing else was sent meanwhile.
+  void _send(String id, List<num> p) {
+    send({
+      'k': 'ink',
+      's': id,
+      'page': _surface,
+      'tool': live.tool.name,
+      'color': live.color,
+      'width': live.width,
+      'style': live.style.toJson(),
+      'from': _sent,
+      'p': p,
+    });
+    _alive?.cancel();
+    _alive = Timer(keepAlive, () {
+      if (_id == id && live.isDrawing) _send(id, const []);
     });
   }
 
@@ -125,6 +142,7 @@ class LiveInkRelay {
     _id = null;
     _timer?.cancel();
     _timer = null;
+    _alive?.cancel();
     if (id == null) return;
     send({'k': 'ink', 's': id, 'end': true, if (strokeIds.isNotEmpty) 'strokes': strokeIds});
   }
@@ -136,5 +154,6 @@ class LiveInkRelay {
       if (events.inkEnded == _ended) events.inkEnded = null;
     }
     _timer?.cancel();
+    _alive?.cancel();
   }
 }

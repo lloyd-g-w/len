@@ -7,10 +7,14 @@ import '../../../ui/app_theme.dart';
 /// small plate per other device with its initial, in the editor's bar
 /// before the actions; nothing while the notebook is open here alone.
 class RoomPresence extends StatelessWidget {
-  const RoomPresence({super.key, required this.rooms, required this.room});
+  const RoomPresence({super.key, required this.rooms, required this.room, this.compact = false});
 
   final LiveRooms rooms;
   final String room;
+
+  /// One plate only (phones, short windows): the other device's initial,
+  /// or how many others there are ("+3").
+  final bool compact;
 
   /// Plates shown at most; more are counted in the last one.
   static const maxShown = 3;
@@ -25,15 +29,17 @@ class RoomPresence extends StatelessWidget {
       final others = rooms.othersIn(room);
       if (others.isEmpty) return const SizedBox.shrink();
       final names = [for (final m in others) m.name ?? 'Another device'];
-      final shown = others.length > maxShown ? maxShown - 1 : others.length;
+      final most = compact ? 1 : maxShown;
+      final shown = others.length > most ? most - 1 : others.length;
       final label = 'Also open on ${_list(names)}';
       return Tooltip(
         message: label,
+        excludeFromSemantics: true,
         child: Semantics(
           label: label,
           excludeSemantics: true,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Gaps.sm),
+            padding: EdgeInsets.symmetric(horizontal: compact ? Gaps.xs : Gaps.sm),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               spacing: Gaps.xs,
@@ -57,7 +63,8 @@ class RoomPresence extends StatelessWidget {
       : '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}';
 }
 
-/// One device's plate: its initial on the chrome, a hairline around it.
+/// One device's plate: its initial (or a count) on a selected-ink plate,
+/// wider when its text needs it (large text, "+12").
 class _Plate extends StatelessWidget {
   const _Plate({required this.text});
 
@@ -67,8 +74,11 @@ class _Plate extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      width: RoomPresence.plate,
-      height: RoomPresence.plate,
+      constraints: const BoxConstraints(
+        minWidth: RoomPresence.plate,
+        minHeight: RoomPresence.plate,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: Gaps.xxs),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: Surfaces.selected(scheme),

@@ -215,7 +215,12 @@ class EditorChromeHost extends StatelessWidget {
             status: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                RoomPresence(rooms: session.services.sync.rooms, room: session.shared.id),
+                RoomPresence(
+                  rooms: session.services.sync.rooms,
+                  room: session.shared.id,
+                  // Phones' and short windows' bars have room for one plate.
+                  compact: layout.phone || layout.short,
+                ),
                 SyncAlertButton(
                   sync: session.services.sync,
                   button: (tooltip, icon, color, onPressed) =>

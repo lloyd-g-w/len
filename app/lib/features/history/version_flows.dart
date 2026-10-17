@@ -24,7 +24,7 @@ Future<void> saveVersionFlow(BuildContext context, AppServices services, String 
 
 /// Says that [version]'s content is not on this device.
 void _unavailable(BuildContext context) =>
-    showMessage(context, 'This version isn’t on this device yet. Connect to sync and try again');
+    showMessage(context, 'This version isn’t on this device yet. Connect to sync and try again.');
 
 /// Tells open editors what a restore rewrote.
 void _announce(AppServices services, String notebookId, Restored done) {
@@ -50,7 +50,7 @@ Future<bool> restoreVersionFlow(
     title: 'Restore this version?',
     message:
         'The notebook goes back to how it was on $when. How it is now is kept as a '
-        'version, so you can go back to it',
+        'version, so you can go back to it.',
     confirmLabel: 'Restore',
   );
   if (!ok || !context.mounted) return false;
@@ -71,7 +71,7 @@ Future<bool> restorePageFlow(
     title: 'Restore this page?',
     message:
         'The page goes back to how it was on $when; the other pages stay as they are. How '
-        'the notebook is now is kept as a version',
+        'the notebook is now is kept as a version.',
     confirmLabel: 'Restore page',
   );
   if (!ok || !context.mounted) return false;
@@ -92,6 +92,15 @@ Future<bool> _restore(
   Future<Restored> Function() restore,
   String when, {
   bool page = false,
+}) => _once(false, () => _restoreNow(context, services, version, restore, when, page: page));
+
+Future<bool> _restoreNow(
+  BuildContext context,
+  AppServices services,
+  NotebookVersion version,
+  Future<Restored> Function() restore,
+  String when, {
+  required bool page,
 }) async {
   final Restored done;
   try {
@@ -122,12 +131,25 @@ Future<bool> _restore(
   return true;
 }
 
+/// Whether a restore or copy is running: a second tap (on Copy, on
+/// Restore while the first writes) is ignored rather than run twice.
+bool _busy = false;
+
+Future<T> _once<T>(T idle, Future<T> Function() run) async {
+  if (_busy) return idle;
+  _busy = true;
+  try {
+    return await run();
+  } finally {
+    _busy = false;
+  }
+}
+
 /// "Copy as new notebook": writes [version] as a new notebook next to it.
-Future<void> copyVersionFlow(
-  BuildContext context,
-  AppServices services,
-  NotebookVersion version,
-) async {
+Future<void> copyVersionFlow(BuildContext context, AppServices services, NotebookVersion version) =>
+    _once(null, () => _copy(context, services, version));
+
+Future<void> _copy(BuildContext context, AppServices services, NotebookVersion version) async {
   final title = '${version.title} (${VersionLabels.when(version)})';
   try {
     final copy = await services.versions.copy(version, title: title);
@@ -137,6 +159,18 @@ Future<void> copyVersionFlow(
   } on VersionUnavailable {
     if (context.mounted) _unavailable(context);
   }
+}
+
+/// "Delete version": deletes [version] at once; the snack bar's Undo
+/// brings it back.
+void deleteVersionFlow(BuildContext context, AppServices services, NotebookVersion version) {
+  services.versions.delete([version.id]);
+  if (!context.mounted) return;
+  showMessage(
+    context,
+    'Version deleted',
+    action: SnackBarAction(label: 'Undo', onPressed: () => services.versions.undelete([version])),
+  );
 }
 
 /// "Delete older versions…": asks, then deletes every version of the

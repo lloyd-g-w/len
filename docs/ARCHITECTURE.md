@@ -2127,10 +2127,14 @@ surface.
   id). Following: every selection edit goes through `_replace`, where
   `_SelectionConnectors._connect` gives each edited shape its old shape
   id (`_identified`; one moved to another page becomes a shape of its
-  own there) and adds the unselected lines attached to it (found near its
+  own there, and a selected line landing on that page with it is
+  attached to it under its new id) and adds the unselected lines attached to it (found near its
   bounds, and lying on this stroke of the shape: `Connectors.targetOf`)
   to the same `SelectionPlan` (`replaceUnselected`), their ends moved
-  onto the new outline by `ShapeDrags` (a bend keeps its place): one
+  onto the new outline by `ShapeDrags` (a bend keeps its place; a
+  circle or ellipse stretched gets new principal axes, so under a
+  selection transform its attachments are re-parametrised to the same
+  point, `_remapped`): one
   `InkEdit`, one undo step, synced as ordinary strokes (a remote device
   receives box and arrow together). While a
   target is dragged or reshaped, the followers are drawn as they will be
@@ -2229,8 +2233,8 @@ surface.
   pen or finger and presenting with F5, `test/laser_hold_input_test.dart`). Set in the tool's options
   popup (`LaserOptionsPanel`, with a live preview: a finished stroke through `LaserStroke`, so
   ends, pressure and stabiliser show; the pen's `PressureSlider`, `StabiliserSlider` and
-  `PenEndsOptions`, greyed out for the dot as the highlighter greys its stabiliser for straight
-  lines; `test/laser_feel_test.dart`, `test/laser_trail_shape_test.dart`). The old painter drew two lines per sample, one
+  `PenEndsOptions` collapsed under Feel after Fade, as the pen's, and hidden for the dot as
+  Fade is; `test/laser_feel_test.dart`, `test/laser_trail_shape_test.dart`). The old painter drew two lines per sample, one
   with a blur mask filter — hundreds of blurs per frame; `test/perf/laser_perf_test.dart`
   measures a move (0 rebuilds, 1 paint) and a full trail against it.
 
@@ -3040,7 +3044,8 @@ shares between versions (and between devices of one platform family).
   goes to the background (hidden / paused). One equal to the latest
   version (same packs and fields) is not made. The app turns the recorder
   on (`main.dart`); tests not about it leave it off, so edits start no
-  timers. "Save version…" (the editor's ⋯ menu, the history's header) makes
+  timers. "Save version…" (the history sheet's header; ⋯ has only Version
+  history…, UX_AUDIT R25-33) makes
   a `named` one at once.
 - **Thinning** (`VersionPolicy`, pure, deterministic): automatic versions
   are kept all for the last day, then the newest per hour for a week, per

@@ -55,12 +55,15 @@ extension _SelectionCommits on _SelectionCore {
   /// Replaces the selected items with [strokes] (one per selected stroke,
   /// in order; or the very same list to keep them) and [elements] (matched
   /// by id) as one undoable edit, each on the surface it was stored on —
-  /// or, with [transfer], on the page under its centre.
+  /// or, with [transfer], on the page under its centre. [moved]: the
+  /// transform that made [strokes], if one did (attached ends keep their
+  /// place on stretched circles and ellipses).
   void _replace(
     List<Stroke> strokes,
     List<SurfaceElement> elements, {
     SelectionFrame? frame,
     bool transfer = false,
+    Affine? moved,
   }) {
     final plan = SelectionPlan(_model);
     final same = identical(strokes, _strokes);
@@ -74,7 +77,7 @@ extension _SelectionCommits on _SelectionCore {
         i < _strokes.length ? _sources[_strokes[i].id] : null,
         transfer: transfer,
       );
-      final connected = _connect(strokes, plan, (i) => to(i)?.model ?? _model);
+      final connected = _connect(strokes, plan, (i) => to(i)?.model ?? _model, moved: moved);
       for (var i = 0; i < connected.length; i++) {
         plan.addStroke(connected[i], to: to(i));
       }

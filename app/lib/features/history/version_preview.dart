@@ -51,11 +51,17 @@ class VersionPreview extends StatelessWidget {
       child: const Text('Restore'),
     );
     final heading = _Heading(v, madeOn: VersionLabels.madeOn(v, thisDevice: _thisDevice));
+    // Short ("Today, 11:42"), so it keeps one line at large text (R25-7).
+    final when = VersionLabels.at(v, now: services.clock.nowDate());
     return Scaffold(
       appBar: compact
-          ? _CompactBar(context, title: VersionLabels.when(v))
+          ? _CompactBar(context, title: when)
           : AppBar(
-              title: _Title(v, madeOn: VersionLabels.madeOn(v, thisDevice: _thisDevice)),
+              title: _Title(
+                v,
+                when: when,
+                madeOn: VersionLabels.madeOn(v, thisDevice: _thisDevice),
+              ),
               actions: [
                 copy,
                 const SizedBox(width: Gaps.xs),
@@ -148,6 +154,8 @@ class VersionPreview extends StatelessWidget {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (pageContext) {
+            // Phones: Restore this page docks at the bottom, so the title
+            // keeps its row at large text sizes (UX_AUDIT R25-7).
             final compact = MediaQuery.sizeOf(pageContext).width < Breakpoints.medium;
             final title = 'Page ${index + 1} of $count';
             final restore = FilledButton(
