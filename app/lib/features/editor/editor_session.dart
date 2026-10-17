@@ -146,8 +146,8 @@ class EditorSession with _EditorSessionZoom {
       laser: content.laser,
       surface: () => content.model.surfaceId,
       send: (data) => services.sync.rooms.send(shared.id, data),
-      presence: services.sync.rooms,
-      anyoneThere: () => services.sync.rooms.othersIn(shared.id).isNotEmpty,
+      presence: shared.othersHere,
+      anyoneThere: () => shared.othersHere.value,
     );
     if (initialZoom != null) _restoreZoom(initialZoom); // Attaches to [relay].
     content.text

@@ -3868,6 +3868,9 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   `LiveLink` after a reconnect). Presence lists the other devices there; `RoomPresence`
   (`features/editor/live_ink/`) shows a plate with each one's initial before the sync alert in
   the editor's bar. A dropped connection empties every room's presence (`disconnected`).
+  The editor's chrome (View → Name tags) and `PointerRelay` follow
+  `SharedNotebook.othersHere` (whether anyone else is there), which changes only when the first
+  device comes or the last goes, so other presence messages (any room's) rebuild just the plates.
 - **Live ink** ([Room data](SYNC_PROTOCOL.md#get-v1live)): `InkDrawing` tells
   `InkEvents.inkBegan` (surface id) when a pen or highlighter contact starts live ink and
   `inkEnded` (the ids of the strokes it was committed as: one, or one per line of a highlight
@@ -3878,7 +3881,9 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   there, a list slice and a small JSON message 20 times a second, never per point (about 0.15 µs a
   point on average, `test/perf/live_ink_relay_perf_test.dart`). On the
   other side `RemoteInk` (`ink/remote_ink.dart`, one per `SharedNotebook`) keeps the strokes
-  being written per writer connection, and `RemoteInkPainter` paints them in their own
+  being written per writer connection, each with a `LiveStrokeBuilder` that extends its outline
+  by the points a message adds (as the writer's own live ink is built; whole again only when
+  points are replaced), and `RemoteInkPainter` paints them in their own
   `RepaintBoundary` between the committed ink and the local `LiveInkPainter` (`InkSurface`
   for canvases; `PagedDocumentView` once for all pages, clipped to each page's frame), so a
   remote stroke growing repaints only that layer. It goes once every stroke it became is

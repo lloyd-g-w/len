@@ -3,11 +3,10 @@ import 'package:flutter/rendering.dart';
 
 import '../remote_ink.dart';
 import '../viewport.dart';
-import 'stroke_renderer.dart';
 
 /// Paints the strokes other devices are writing right now ([RemoteInk]) on
 /// the surfaces of a view: over the committed ink, as the writer sees
-/// their own live stroke.
+/// their own live stroke (built as it grows, see [RemoteInk.outlinesOn]).
 class RemoteInkPainter extends CustomPainter {
   RemoteInkPainter({required this.remote, required this.viewport, required this.frameOf})
     : super(repaint: Listenable.merge([remote, viewport]));
@@ -25,8 +24,8 @@ class RemoteInkPainter extends CustomPainter {
     for (final surface in remote.surfaces) {
       final frame = frameOf(surface);
       if (frame == null) continue;
-      final strokes = remote.strokesOn(surface);
-      if (strokes.isEmpty) continue;
+      final outlines = remote.outlinesOn(surface);
+      if (outlines.isEmpty) continue;
       canvas
         ..save()
         ..translate(viewport.offset.dx, viewport.offset.dy)
@@ -36,8 +35,8 @@ class RemoteInkPainter extends CustomPainter {
           ..translate(frame.left, frame.top)
           ..clipRect(Offset.zero & frame.size);
       }
-      for (final stroke in strokes) {
-        StrokeRenderer.draw(canvas, stroke);
+      for (final (path, paint) in outlines) {
+        canvas.drawPath(path, paint);
       }
       canvas.restore();
     }
