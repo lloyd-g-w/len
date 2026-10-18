@@ -270,7 +270,7 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   opening, 17 ms scrolling, RSS flat); presence repaints 25 objects; pen-up 2 ms; repair warm max
   5.5 ms, reload 7.5 ms, drag commit 5–6 ms (its write behind, 11 ms, after the frame).
 
-- 🚧 (perf/r15) **Performance, round 15 leftovers**: the 200-version paged history scrolled at
+- ✅ **Performance, round 15 leftovers**: the 200-version paged history scrolled at
   ~57 ms a frame (now 30: rows of ~40 elements, built lazily, menus staggered); the full-size
   preview of a 50k-stroke canvas drew it all in one 14.6 s frame (now from sliced images, no
   frame over 24 ms); the frames after a 58k-point pen-up were the undo buttons rebuilding on
