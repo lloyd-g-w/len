@@ -4,19 +4,18 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
 
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:len/data/versions/versions.dart';
 import 'package:len/sync/background_pull_worker.dart';
 import 'package:len/sync/pull_applier.dart';
-import 'package:len/sync/sync_controller.dart';
 import 'package:len/sync/sync_engine.dart';
+import 'package:len_sync_server/len_sync_server.dart' show BlobGc;
 
 import 'support/fault_devices.dart';
 import 'support/faulty_network.dart';
 import 'support/random_edits.dart';
 import 'support/real_server.dart';
+import 'support/sync_checks.dart';
 import 'support/sync_ledger.dart';
 
 // Sync under a bad network and failures, against the real server
@@ -53,6 +52,7 @@ Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) asyn
   ];
   final reference = <FaultDevice>[];
   final ledger = SyncLedger();
+  var serverGcRuns = 0;
   // LEN_FAULT_TRACE=<table/id>: prints that row on each device as it changes.
   final trace = Platform.environment['LEN_FAULT_TRACE']?.split('/');
   final traced = <String, String>{};
@@ -112,8 +112,22 @@ Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) asyn
       } else if (roll < 95) {
         // The clock jumps (forwards or back) by up to an hour.
         d.clock.skew += r.nextInt(7200000) - 3600000;
-      } else {
+      } else if (roll < 97) {
         server.restart();
+      } else if (roll < 98) {
+        // The server collects blobs no live record references (as if a
+        // month passed since the last run: no grace).
+        serverGcRuns++;
+        BlobGc(
+          server.store,
+          server.blobs,
+        ).run(now: DateTime.now().add(Duration(days: 31 * serverGcRuns)));
+      } else if (roll < 99) {
+        // A week passes; the device collects its unreferenced blobs.
+        time.now += const Duration(days: 8).inMilliseconds;
+        await _collect(d, ledger);
+      } else {
+        await _collect(d, ledger);
       }
     }
 
@@ -127,7 +141,7 @@ Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) asyn
         await d.sync();
       }
       final first = jsonEncode(syncedState(devices.first.s));
-      if (devices.every((d) => _clean(d) && jsonEncode(syncedState(d.s)) == first)) break;
+      if (devices.every((d) => cleanDevice(d) && jsonEncode(syncedState(d.s)) == first)) break;
     }
     // What the server holds, as a new device sees it.
     final ref = await FaultDevice.start(network, time, 'z');
@@ -160,13 +174,22 @@ Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) asyn
         }
       }
     }
-    return await _problems(server, [...devices, ref], ledger);
+    return await syncProblems(server, [...devices, ref], ledger);
   } finally {
     for (final d in [...devices, ...reference]) {
       d.dispose();
     }
     server.dispose();
   }
+}
+
+/// Runs [d]'s blob garbage collection, which first thins version
+/// histories (deletions the device makes knowingly).
+Future<void> _collect(FaultDevice d, SyncLedger ledger) async {
+  final s = d.app;
+  final before = SyncLedger.snapshot(s);
+  await s.blobGc.run();
+  if (d.alive && identical(s, d.s)) ledger.record(before, s);
 }
 
 /// What a run did, to tune the mix of steps.
@@ -185,108 +208,6 @@ int _skew(math.Random r) => switch (r.nextInt(4)) {
   2 => r.nextInt(600000) - 300000,
   _ => r.nextInt(7 * 24 * 3600000) - 3 * 24 * 3600000,
 };
-
-bool _clean(FaultDevice d) => d.s.sync.engine.stores.every((st) => st.dirtyRecords(1).isEmpty);
-
-/// Everything wrong with the converged devices (the last is the reference).
-Future<List<String>> _problems(
-  RealServer server,
-  List<FaultDevice> devices,
-  SyncLedger ledger,
-) async {
-  final out = <String>[];
-  final ref = devices.last;
-  final expected = syncedState(ref.s);
-  final seq = server.store.currentSeq();
-  for (final d in devices) {
-    final s = d.s;
-    final name = d.prefix;
-    out.addAll(d.stuck.map((run) => '$run: left "syncing"'));
-    if (s.sync.state != SyncState.idle) {
-      out.add('$name: sync ${s.sync.state.name}: ${s.sync.lastError} ${s.sync.lastErrorDetails}');
-    }
-    if (!_clean(d)) out.add('$name: unpushed rows');
-    if (s.settings.syncLastSeq != seq) {
-      out.add(
-        '$name: pulled up to ${s.settings.syncLastSeq} of $seq: '
-        '${[for (final r in server.records())
-          if (r.seq! > s.settings.syncLastSeq) '${r.collection}/${r.id}@${r.updatedAt}/${r.deviceId}${r.deleted ? ' deleted' : ''}']}',
-      );
-    }
-    if (d != ref) out.addAll(_diff(name, syncedState(s), expected));
-  }
-  out.addAll(
-    ledger.losses(ref.s, witnesses: [for (final d in devices) d.s]).map((loss) => 'lost $loss'),
-  );
-  // Every file a live row references is on the server, intact, and every
-  // device has it or can fetch it.
-  for (final sha in ref.s.sync.engine.blobReferences.all()) {
-    final path = server.blobs.pathFor(sha);
-    if (!File(path).existsSync()) {
-      out.add('blob $sha is not on the server');
-      continue;
-    }
-    if (sha256.convert(File(path).readAsBytesSync()).toString() != sha) {
-      out.add('blob $sha is damaged on the server');
-    }
-    for (final d in devices) {
-      if (!await d.s.blobs.has(sha) && !await d.s.sync.fetchBlob(sha)) {
-        out.add('${d.prefix}: cannot get blob $sha');
-      } else if (sha256.convert((await d.s.blobs.read(sha))!).toString() != sha) {
-        out.add('${d.prefix}: blob $sha is damaged');
-      }
-    }
-  }
-  // No live content on a surface that is not there (no page or canvas of
-  // that id) or deleted.
-  for (final table in ['strokes', 'elements']) {
-    for (final row in ref.s.database.db.select('''
-      SELECT id, surface_id FROM $table t WHERE deleted = 0
-        AND NOT EXISTS (SELECT 1 FROM pages WHERE id = t.surface_id AND deleted = 0)
-        AND NOT EXISTS (SELECT 1 FROM notebooks WHERE id = t.surface_id AND deleted = 0)''')) {
-      out.add('$table/${row['id']}: live on missing or deleted surface ${row['surface_id']}');
-    }
-  }
-  // Every live version can be read whole (its table blobs and packs to be
-  // had) on every device.
-  for (final d in devices) {
-    final versions = d.s.versions;
-    for (final row in d.s.database.db.select('SELECT id FROM versions WHERE deleted = 0')) {
-      final version = versions.store.get(row['id'] as String);
-      if (version == null) {
-        out.add('${d.prefix}: version ${row['id']} is malformed');
-        continue;
-      }
-      try {
-        final body = await versions.content.body(version);
-        await versions.content.ensure([for (final p in body.pages) p.content, ?body.canvas]);
-      } on VersionUnavailable catch (e) {
-        out.add('${d.prefix}: version ${version.id} unavailable: $e');
-      }
-    }
-  }
-  return out;
-}
-
-/// The differences between [actual] and [expected] (states of
-/// [syncedState]), row by row.
-List<String> _diff(String name, Map<String, Object?> actual, Map<String, Object?> expected) {
-  final out = <String>[];
-  for (final table in expected.keys) {
-    final a = actual[table], e = expected[table];
-    if (jsonEncode(a) == jsonEncode(e)) continue;
-    if (a is Map && e is Map) {
-      for (final id in {...a.keys, ...e.keys}) {
-        if (jsonEncode(a[id]) != jsonEncode(e[id])) {
-          out.add('$name: $table/$id is ${jsonEncode(a[id])}, server ${jsonEncode(e[id])}');
-        }
-      }
-    } else {
-      out.add('$name: $table differs');
-    }
-  }
-  return out;
-}
 
 void main() {
   setUp(() => PullApplier.debugSliceRecords = 7);
