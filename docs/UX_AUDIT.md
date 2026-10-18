@@ -104,18 +104,25 @@ form ("Today, 14:02") on one line. At 2× text the page view's "Page 1 of
 bar under the page (`version_preview.dart`; since merged with fix/vh-phone's
 docked bottom bar, which also holds the preview's Copy / Restore).
 
-**R25-8 P3 · Escape does not close the preview or its page view.** ⬜ Keep
+**R25-8 P3 · Escape does not close the preview or its page view.** ✅ Keep
 for now: the page overview and Settings don't either. A route-wide rule
-(Escape pops full-screen routes) would fix all three at once.
+(Escape pops full-screen routes) would fix all three at once. ✅ `ui/escape_closes.dart`
+(`EscapeCloses`) wraps the preview, its page view, the page overview and
+Settings: Escape asks the route to pop (so the overview leaves selecting
+first), nearer Escape handlers still win, and it takes focus when nothing
+has it. Opt-in, not route-wide: the editor keeps Escape for itself.
 
 **R25-9 P3 · Multi-sentence messages lacked their full stop.** ✅ The empty
 history, both restore confirmations and "not on this device yet" end with
 one, as other multi-sentence copy does.
 
-**R25-10 P3 · Rename… cannot clear a version's name.** ⬜ The shared
+**R25-10 P3 · Rename… cannot clear a version's name.** ✅ The shared
 `showTextPrompt` disables its button on an empty field but Enter submits
 it; `renameVersionFlow` treats empty as "no name". Make the two agree in
-`ui/text_prompt.dart`, and decide whether clearing a name is wanted.
+`ui/text_prompt.dart`, and decide whether clearing a name is wanted. ✅ Clearing is
+wanted: `showTextPrompt` takes `allowEmpty`, and its button and Enter
+now agree (both refuse an empty answer, or with `allowEmpty` both accept
+it). Rename… and Save version… allow it (empty: no name).
 
 **R25-11 P3 · The preview sits on Board, not Desk.** Keep: so does the page
 overview, its model.
@@ -250,12 +257,20 @@ shapes were taught nowhere; each is now a one-time tip (`EditorTip.curve`,
 `EditorTip.attach`): on first selecting a curve, and when an end being
 dragged or drawn first finds a shape.
 
-**R25-31 P3 · A drawn arrow looks for its tip's target at the raw pointer, not the Shift- or snap-adjusted end.** ⬜
+**R25-31 P3 · A drawn arrow looks for its tip's target at the raw pointer, not the Shift- or snap-adjusted end.** ✅
 (`shape_tool.dart` `_connected`); only one target is outlined while
-drawing.
+drawing. ✅ The tip's target is looked for at the end as
+drawn (snapped or Shift-stepped), so the end shown is the one that
+attaches; a selected line's dragged end does the same (`lasso_tool.dart`
+`_reshaped`). One outlined target while drawing is kept (the tip's, else
+the tail's).
 
-**R25-32 P3 · An ellipse dragged into a circle whose second axis ran the other way reverses its parameter.** ⬜
-An attached end would jump; rare.
+**R25-32 P3 · An ellipse dragged into a circle whose second axis ran the other way reverses its parameter.** ✅
+An attached end would jump; rare. ✅ A handle edit whose
+outline now runs the other way round (a circle always turns from its rim
+point a quarter turn on) reverses the attachments' parameters, so ends
+stay on the same outline point, while dragging and once committed
+(`selection_controller_connectors.dart` `_remapped`).
 
 Checked and sound: curve drawing (undo / redo through anchors, Enter,
 Escape, a tool change finishes, a page added or deleted elsewhere
@@ -1699,6 +1714,9 @@ away, and a palm is only a palm on the canvas it rests on.
   is near (Android caps them at 200 dp per edge); needs the tablet to
   see whether One UI routes stylus edge swipes at all. Effort M with
   device checks: TODO "Next".
+- *Still open (checked 2026-10-18, `fix/audit-backlog`):* nothing sets
+  gesture exclusion rects yet; whether it is needed at all can only be
+  seen on the tablet, so it stays ⬜ until then.
 
 Checked and sound: the side button with every tool (erase or lasso win
 over the tool; "nothing" writes); the eraser end; the overlay armed on

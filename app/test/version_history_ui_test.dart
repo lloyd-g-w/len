@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/core/clock.dart';
@@ -156,6 +157,43 @@ void main() {
     expect(find.text('Before the exam'), findsOneWidget);
   });
 
+  testWidgets('Rename… clears a version\'s name (button and Enter alike)', (tester) async {
+    final (_, recent) = await twoVersions(tester);
+    s.versions.rename(recent.id, 'Draft');
+    await open(tester);
+    Future<void> rename() async {
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(ValueKey('version-${recent.id}')),
+          matching: find.byTooltip('Version options'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Rename…'));
+      await tester.pumpAndSettle();
+    }
+
+    await rename();
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+    expect(
+      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Rename')).enabled,
+      isTrue,
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Rename'));
+    await tester.pumpAndSettle();
+    expect(s.versions.of(notebook.id).first.name, isNull);
+
+    s.versions.rename(recent.id, 'Draft');
+    await tester.pumpAndSettle();
+    await rename();
+    await tester.enterText(find.byType(TextField), '  ');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(find.text('Rename version'), findsNothing);
+    expect(s.versions.of(notebook.id).first.name, isNull);
+  });
+
   testWidgets('preview, restore, and undo through the version saved before', (tester) async {
     final (old, _) = await twoVersions(tester);
     await open(tester);
@@ -182,6 +220,24 @@ void main() {
 
     await tester.tap(find.text('Undo'));
     await pumpUntil(tester, () => strokesOn(pages.last).length == 2, reason: 'undone');
+  });
+
+  testWidgets('Escape closes the page view, then the preview (R25-8)', (tester) async {
+    final (old, _) = await twoVersions(tester);
+    await open(tester);
+    await tester.tap(find.byKey(ValueKey('version-${old.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('version-page-${pages.last}')));
+    await tester.pumpAndSettle();
+    expect(find.text('Page 2 of 2'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Page 2 of 2'), findsNothing);
+    expect(find.text('Yesterday, 14:02'), findsOneWidget, reason: 'the preview');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Yesterday, 14:02'), findsNothing);
+    expect(find.text('Version history'), findsOneWidget, reason: 'back to the list');
   });
 
   testWidgets('one page restores from its page view', (tester) async {

@@ -280,9 +280,10 @@ class LassoTool implements PointerTool {
     );
     final line = shape.kind == ShapeKind.line || shape.kind == ShapeKind.arrow;
     if (!line || _point > 1) return dragged;
+    // At the end as dragged (snapped, Shift-stepped), not the pointer.
     final hint = selection.attachHint = Connectors.find(
       selection.model,
-      to,
+      dragged.points[_point],
       reach: attachReach / viewport.scale,
       towards: shape.points[1 - _point],
       exclude: {?selection.shapeStroke?.id},
