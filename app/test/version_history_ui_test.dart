@@ -256,6 +256,7 @@ void main() {
     work.value = VersionWork.copy;
     await tester.pump();
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.bySemanticsLabel('Copying…'), findsOneWidget, reason: 'for screen readers');
     work.value = null;
     await tester.pump();
     expect(find.byType(LinearProgressIndicator), findsNothing);

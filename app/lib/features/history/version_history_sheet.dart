@@ -128,7 +128,14 @@ class _VersionHistoryState extends State<VersionHistory> {
               valueListenable: versionWork,
               builder: (context, running, _) => SizedBox(
                 height: Hairline.rule,
-                child: running == null ? null : const LinearProgressIndicator(),
+                child: switch (running) {
+                  null => null,
+                  // Said, as the preview's buttons say it.
+                  VersionWork.restore => const LinearProgressIndicator(
+                    semanticsLabel: 'Restoring…',
+                  ),
+                  VersionWork.copy => const LinearProgressIndicator(semanticsLabel: 'Copying…'),
+                },
               ),
             ),
             Flexible(
