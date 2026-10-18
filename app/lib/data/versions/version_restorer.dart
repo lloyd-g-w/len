@@ -39,10 +39,9 @@ class VersionRestorer {
     final canvas = body.canvas == null
         ? null
         : await content.load(body.canvas!, version.notebookId, strict: true);
-    final before = await _before(version);
     final r = repositories;
     final surfaces = <String>{};
-    r.versions.database.transaction(() {
+    final before = await _beforeAnd(version, () {
       final notebook = r.notebooks.get(version.notebookId);
       if (notebook == null) return;
       final restored = VersionContent.settingsOn(notebook, version);
@@ -71,9 +70,8 @@ class VersionRestorer {
     final body = await content.body(version);
     final page = body.page(pageId)!;
     final loaded = await _load(body, [page]);
-    final before = await _before(version);
     final r = repositories;
-    r.versions.database.transaction(() {
+    final before = await _beforeAnd(version, () {
       final live = {for (final p in r.pages.pagesOf(version.notebookId)) p.id: p};
       final key = live[pageId]?.sortKey ?? _keyAfterPredecessor(body, pageId, live);
       _writePage(VersionContent.pageOf(version, page, sortKey: key), live[pageId]);
@@ -171,9 +169,55 @@ class VersionRestorer {
     return {for (final p in pages) p.id: await content.load(p.content, p.id, strict: true)};
   }
 
-  /// Saves the notebook as it is now, before a restore changes it.
-  Future<NotebookVersion?> _before(NotebookVersion version) =>
-      snapshots.take(version.notebookId, kind: VersionKind.restore, force: true);
+  /// Saves the notebook as it is now as a [VersionKind.restore] version
+  /// and runs [restore] in the same transaction; returns that version.
+  ///
+  /// The version is made across turns, while sync (or an edit) may write
+  /// to the notebook, and the restore would remove what the version lacks.
+  /// So it is saved, and the restore run, only if nothing in the notebook
+  /// changed since it began; else it is made again (the last of
+  /// [attempts] goes ahead regardless).
+  Future<NotebookVersion?> _beforeAnd(NotebookVersion version, void Function() restore) async {
+    final db = repositories.versions.database;
+    for (var attempt = 1; ; attempt++) {
+      db.steps.finish();
+      final mark = _stateOf(version.notebookId);
+      final before = await snapshots.build(version.notebookId, kind: VersionKind.restore);
+      final done = db.transaction(() {
+        if (attempt < attempts && _stateOf(version.notebookId) != mark) return false;
+        if (before != null) repositories.versions.save(before);
+        restore();
+        return true;
+      });
+      if (done) return before;
+    }
+  }
+
+  /// How often a restore makes the version before it while the notebook
+  /// keeps changing.
+  static const attempts = 4;
+
+  /// A mark of everything stored of notebook [id] (tombstones too) that
+  /// changes with every write to it.
+  String _stateOf(String id) {
+    const ofRows = "COUNT(*) || ':' || COALESCE(SUM(updated_at), 0) || ':' || TOTAL(deleted)";
+    const surfaces = 'SELECT id FROM pages WHERE notebook_id = ?1 UNION ALL SELECT ?1';
+    final row = repositories.versions.db
+        .select(
+          '''
+      SELECT
+        (SELECT $ofRows FROM notebooks WHERE id = ?1) AS n,
+        (SELECT $ofRows FROM pages WHERE notebook_id = ?1) AS p,
+        (SELECT $ofRows FROM strokes WHERE surface_id IN ($surfaces)) AS s,
+        (SELECT $ofRows FROM elements WHERE surface_id IN ($surfaces)) AS e,
+        (SELECT $ofRows FROM recognised_text WHERE id IN ($surfaces)) AS t,
+        (SELECT $ofRows FROM recordings WHERE notebook_id = ?1) AS r,
+        (SELECT $ofRows FROM outline WHERE notebook_id = ?1) AS o''',
+          [id],
+        )
+        .first;
+    return row.values.join('|');
+  }
 
   static bool _sameSettings(Notebook a, Notebook b) =>
       a.title == b.title &&
