@@ -7,7 +7,15 @@ code, probed each suspicion with a widget or unit test (throwaway probes;
 the fixes' tests kept), rendered the zoom window right to left (phone and
 tablet, light and dark, 1× and 2× text, with its menu) and the curve and
 attach tips with the Rename prompt (390 and 1280 dp, light, dark, 2×
-text), and looked at them. Verdict: *in progress.*
+text), and looked at them. Probed Escape with a text field or a control
+focused and with a menu open, and a restore with one notebook in both
+panes of split view (both panes' undo and redo go off, as R25-6 wants).
+Verdict: the engines hold (the stylus edge guard is sound: held only while
+an editor's route is current and its pane not parked, counted across
+panes, released under dialogs and screens; natively stylus and eraser
+only, never fingers or mice; band unit tests cover placement); what was
+unfinished was right to left in the zoom window, Escape from inside a
+page, and feedback while a version is restored.
 
 ### Version history
 
@@ -21,6 +29,32 @@ text), and looked at them. Verdict: *in progress.*
   named versions of any kind; clearing the name lets it thin again
   (`version_history_test` "an automatic version given a name stays; its
   name cleared, it thins again"; ARCHITECTURE "Version history").
+
+**R26-M9 P2 · Restore and Copy gave no sign of running.** ✅
+- *What:* R25-4 made a second tap on Restore or Copy do nothing while the
+  first runs, silently: on a large notebook the buttons looked dead, and a
+  copy from a row's ⋯ showed nothing until its snack bar.
+- *Fix:* `versionWork` (`history/version_flows.dart`, a `ValueNotifier`
+  replacing the private `_busy` flag; one restore or copy app-wide, as
+  before) drives the preview's buttons ("Restoring…", "Copying…", all off
+  meanwhile; the page view's Restore this page too) and an indeterminate
+  `LinearProgressIndicator` on a `Hairline.rule` line under the history's
+  header (as the scan screen's), labelled for screen readers
+  (`version_history_ui_test` "while a restore runs, the preview says so and
+  takes no other").
+
+**R26-M11 P3 · A version named with Rename… lacked the kept mark.** ✅ After
+R26-M1 it is kept like a saved one, but only `VersionKind.named` rows had
+the bookmark. The row now marks any version with a name (or saved by
+hand); clearing the name drops the mark and the title says Edited again
+(`history/version_row.dart`; `version_history_ui_test` "a version given a
+name shows it is kept").
+
+**R26-M12 P3 · A restore's Undo is not in the one-at-a-time rule.** ⬜ The
+snack bar's Undo runs `versions.restore(before)` outside `_once`, so a
+restore started from the history while it writes is not refused, and the
+buttons don't say Restoring…. *Proposal:* run Undo through
+`_once(VersionWork.restore, …)`.
 
 ### Zoom window right to left
 
@@ -55,6 +89,20 @@ nothing. The lab is wrapped in
 `EscapeCloses` (`inklab/inklab_screen.dart`; `inklab_screen_test` leaves
 the lab with Escape).
 
+**R26-M10 P2 · Escape did nothing once a control in the page had focus.** ✅
+- *What:* `EscapeCloses` (R25-8) only worked while its own focus node held
+  focus. After Tab to a switch or button, or typing in Settings' Server URL,
+  Escape did nothing: Flutter's Escape shortcut takes only the *nearest*
+  `DismissIntent` action, and every `Scaffold` has one (closing its
+  drawer) that is off with no drawer open. Settings, the version preview
+  and its page view, the page overview and the Ink Lab all had it.
+- *Fix:* `EscapeCloses` sees Escape bubble up first (`Focus.onKeyEvent`): a
+  nearer action that is on keeps it (an open drawer); in a text field it
+  leaves the field (a second Escape closes; what was typed is not lost to
+  one stray key); else it asks the route to pop. Menus and popovers over
+  the page close alone, no double pop (`escape_closes_test`: a focused
+  control, a text field, a menu open).
+
 ### Tips
 
 **R26-M7 P2 · The attach tip showed mid-drag.** ✅ The tips wait for the pen
@@ -69,3 +117,22 @@ the drag rests").
 `tipMessage` takes `touch` (`Targets.touchFirst`): with a pointer it says
 "Click the curve to add a point; double-click a point to remove it"
 (`tip_budget_test` "with a mouse, the curve tip says click").
+
+### Checked, no findings
+
+Stylus edge guard (`features/editor/stylus_edge_guard.dart`,
+`platform/stylus_edges.dart`, `StylusEdgeGuard.kt`): see the verdict;
+`stylus_edges_test` covers routes, dialogs, split view and parked panes.
+Settings has no sub-pages besides the Ink Lab (R26-M6). Tips at 390 dp, dark
+and 2× text wrap to two lines inside the banner; the banner is a live
+region, so screen readers announce it. Restore: offline refuses with "not
+on this device yet", the snack bar shows on the screen behind the history,
+its Undo restores the version saved before.
+
+Counts: 12 findings (0 P1, 7 P2, 5 P3); fixed: M1–M11 (all P2, 4 P3); open: M12 (P3).
+
+Owner decisions for TODO Next:
+- Escape in a text field of a full-screen page (Settings) leaves the field
+  first and closes on the second press (R26-M10), unlike dialogs, where
+  Escape closes at once. Options: keep (no typed text lost to one key), or
+  close at once everywhere.
