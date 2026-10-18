@@ -13,6 +13,7 @@ class FlowPart {
     this.joined = false,
     this.numbers = const [],
     this.direction = TextDirection.ltr,
+    this.overflow = 0,
   });
 
   /// Where the part begins in the whole text. After a paragraph break the
@@ -33,6 +34,11 @@ class FlowPart {
   /// [TextFlow.direction]).
   final TextDirection direction;
 
+  /// How much taller than [height] its text is: a table row taller than
+  /// the page's room is cut at the room, its frame's bottom (see
+  /// [TextFlowLayout]).
+  final double overflow;
+
   /// The part's text out of [whole]; continuing the box [from] (null for
   /// the first part).
   TextData dataOf(TextData whole, {String? from}) {
@@ -50,7 +56,12 @@ class FlowPart {
 
 /// Splits a laid-out text box into the parts that fit on successive pages:
 /// at line boundaries, each part at most `room(k)` tall (yet at least one
-/// line; paragraph spacing below a part's last line may reach past it). One layout of the whole text serves every part, which lays out
+/// line; paragraph spacing below a part's last line may reach past it). A
+/// table row is one line: one taller than a page's room (a cell of many
+/// paragraphs' worth of words) makes a part of its own (unless it begins
+/// the text) cut at the room ([FlowPart.overflow]), the box drawn clipped
+/// there with a sign that the row goes on (`ShownTextLayout`) and shown
+/// whole while edited. One layout of the whole text serves every part, which lays out
 /// alone as it does here (a part begins at a line start); a part on a page
 /// of another width (`width(k)`) lays out what is left again there.
 abstract final class TextFlowLayout {
@@ -63,7 +74,7 @@ abstract final class TextFlowLayout {
     double Function(int part)? width,
   }) {
     final whole = layout.data;
-    var (:starts, :heights) = _cuts(layout, room);
+    var (:starts, :heights, :overflows) = _cuts(layout, room);
     if (starts.length == 1) {
       return [FlowPart(start: 0, end: whole.text.length, height: layout.painter.height)];
     }
@@ -80,6 +91,7 @@ abstract final class TextFlowLayout {
         relaid.dispose();
         starts = [...starts.take(k), for (final s in more.starts) at + s];
         heights = [...heights.take(k), ...more.heights];
+        overflows = [...overflows.take(k), ...more.overflows];
       }
     }
     final text = whole.text;
@@ -92,13 +104,15 @@ abstract final class TextFlowLayout {
           heights[k],
           k,
           last: k + 1 == starts.length,
+          overflow: overflows[k],
         ),
     ];
   }
 
   /// Where the parts of [layout]'s text begin (model offsets) and their
-  /// heights, part k at most [room] (k) tall.
-  static ({List<int> starts, List<double> heights}) _cuts(
+  /// heights, part k at most [room] (k) tall (a table row taller than
+  /// that cut there: its [FlowPart.overflow]s).
+  static ({List<int> starts, List<double> heights, List<double> overflows}) _cuts(
     TextBoxLayout layout,
     double Function(int part) room,
   ) {
@@ -106,6 +120,13 @@ abstract final class TextFlowLayout {
     final length = layout.data.text.length;
     final starts = <int>[0];
     final heights = <double>[];
+    final overflows = <double>[];
+    void close(double partTop, double bottom) {
+      final cut = _rowCut(layout, partTop, bottom, room(heights.length));
+      heights.add(cut - partTop);
+      overflows.add(bottom - cut);
+    }
+
     var partTop = 0.0, top = 0.0;
     var first = 0; // The part's first line.
     for (var i = 0; i < lines.length; i++) {
@@ -115,7 +136,7 @@ abstract final class TextFlowLayout {
       if (i > first && text - partTop > room(starts.length - 1)) {
         final at = _lineStart(layout, top, lines[i].height);
         if (at > starts.last && at <= length) {
-          heights.add(top - partTop);
+          close(partTop, top);
           starts.add(at);
           partTop = top;
           first = i;
@@ -123,9 +144,23 @@ abstract final class TextFlowLayout {
       }
       top = bottom;
     }
-    heights.add(top - partTop);
-    return (starts: starts, heights: heights);
+    close(partTop, top);
+    return (starts: starts, heights: heights, overflows: overflows);
   }
+
+  /// Where a part of [layout] from [top] to [bottom] ends on a page with
+  /// [room]: [bottom], or the room's end where a table row reaches past
+  /// it (by more than a rounding error).
+  static double _rowCut(TextBoxLayout layout, double top, double bottom, double room) {
+    final end = top + room;
+    if (bottom <= end + _slack) return bottom;
+    for (final r in layout.rows) {
+      if (r.rect.top < end && r.rect.bottom > end + _slack) return end;
+    }
+    return bottom;
+  }
+
+  static const double _slack = 0.5;
 
   /// Part [k] of [layout]'s text, from [start] to the next part's start
   /// [next] (the end of the text when [last]), [height] tall.
@@ -136,6 +171,7 @@ abstract final class TextFlowLayout {
     double height,
     int k, {
     bool last = true,
+    double overflow = 0,
   }) {
     final whole = layout.data;
     final text = whole.text;
@@ -149,6 +185,7 @@ abstract final class TextFlowLayout {
       joined: k > 0 && !hard,
       numbers: k == 0 ? const [] : TextFlow.numbersAfter(whole.paras.sublist(0, line)),
       direction: layout.plan.directions[line],
+      overflow: overflow,
     );
   }
 

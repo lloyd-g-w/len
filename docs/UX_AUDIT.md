@@ -34,7 +34,7 @@ non-Western code pages pasted as gibberish; the zoom window right to left
 still pointed and grew as left to right; Escape did nothing once a control
 had focus; a version named with Rename… was thinned away; restores gave no
 sign of running. 43 findings: 0 P1, 18 P2, 25 P3; 33 fixed (16 P2, 17 P3),
-with tests; open: R26-14 (P2), R26-15, R26-16, R26-19 (P3).
+with tests; open: R26-15, R26-16, R26-19 (P3).
 
 ### Tables in text boxes
 
@@ -162,13 +162,18 @@ right to left).
   continuation (`table_flow_alone_test`). Deleting the table from one part deletes that part
   only (as deleting its rows does).
 
-**R26-14 P2 · A row taller than a page runs off the page.** ⬜ `TextFlowLayout.split`
+**R26-14 P2 · A row taller than a page runs off the page.** ✅ `TextFlowLayout.split`
 cuts between lines, and a table row is one line: a cell holding a few thousand words
 (probe: a 6 012-unit row, 700 units of room) makes a part as tall as the row, far past
-the page's bottom margin and edge. Plain paragraphs split line by line. *Proposal:* split a row taller than the room between its cells' lines (each
-cell cut at the same height, the row continued as a `continued` table with the rest of
-each cell), or at least clip the part at the page's edge and say "This row is taller than
-a page" when it is edited.
+the page's bottom margin and edge. Plain paragraphs split line by line. *Fix (the fallback; documented):* a row taller than the room is cut at
+the room's end: its part's frame stops at the page's bottom margin (`TextFlowLayout._rowCut`,
+`FlowPart.overflow`), the text after the row goes on on the next page, and the box is drawn
+clipped to its frame with the cut row fading out above a dashed line in the grid's colour
+(`ShownTextLayout.clipped`; PDF export clips there too). The text keeps the row whole; while
+edited it shows whole (the chain's field leaves no gap after it, the box edited alone grows
+past the page). Splitting a row's cells between pages was not done: a part is a stretch of
+the whole text, and a row cut cell by cell is not (the chain's field, carets, joins and
+search all rest on that) (`table_tall_row_test`).
 
 **R26-15 P3 · A table's header row is not repeated on the pages it continues on.** ⬜
 By design (`TableSpec.hasHeaderRow` is false for a continued part), unlike Word / Docs'
