@@ -34,7 +34,7 @@ class PackRuns {
         _db.select('SELECT sha FROM version_runs WHERE key = ?', [key]).firstOrNull?['sha']
             as String?;
     if (sha == null) return null;
-    if (_blobs.sizeOf(sha) != null) return sha;
+    if (_blobs.reuse(sha)) return sha;
     _db.execute('DELETE FROM version_runs WHERE key = ?', [key]);
     return null;
   }

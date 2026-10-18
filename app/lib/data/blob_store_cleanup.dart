@@ -53,7 +53,10 @@ mixin _BlobCleanup {
           _setUnreferencedSince(sha, null);
           return null;
         }
-        final row = database.db.select('SELECT * FROM blobs WHERE sha256 = ?', [sha]).first;
+        final row = database.db.select('SELECT * FROM blobs WHERE sha256 = ?', [sha]).firstOrNull;
+        // Stored or reused again meanwhile (`BlobStore.reuse`).
+        final since = row?['unreferenced_since'] as int?;
+        if (since == null || now - since < grace.inMilliseconds) return null;
         database.db.execute('DELETE FROM blobs WHERE sha256 = ?', [sha]);
         return row;
       });

@@ -82,6 +82,28 @@ void main() {
     expect(await versionInk(made, p), {for (var i = 0; i < 300; i++) 'b$i'});
   });
 
+  test('a pack reused by a version being made is not collected before it is saved', () async {
+    final p = page();
+    final notebook = s.pages.notebookOf(p)!;
+    s.strokes.save([for (var i = 0; i < 5; i++) _ink('a$i', p, i)]);
+    final v1 = (await s.versions.save(notebook, name: 'one'))!;
+    final packs = (await s.versions.content.body(v1)).packs;
+    // Only v1 kept its packs and table; gone, they are due a week later.
+    s.versions.delete([v1.id]);
+    await s.blobGc.run();
+    clock.now += const Duration(days: 8).inMilliseconds;
+    // A version made of the same content reuses them; collection runs
+    // while it is made (before it is saved).
+    final made = (await s.versions.snapshots.build(notebook, kind: VersionKind.named))!;
+    expect((await s.versions.content.body(made)).packs, packs);
+    final deleted = await s.blobGc.run();
+    s.versions.store.save(made);
+    expect(deleted, isEmpty);
+    for (final sha in [...packs, ...made.table]) {
+      expect(await s.blobs.has(sha), isTrue, reason: sha);
+    }
+  });
+
   test('ink arriving while a restore saves the state before it is kept in that version, or '
       'live', () async {
     final first = page();

@@ -105,7 +105,7 @@ class SurfacePacker {
       ink: _list(row['ink'] as String),
       items: _list(row['items'] as String),
     );
-    if (!surface.packs.every((sha) => blobs.sizeOf(sha) != null)) return null;
+    if (!surface.packs.every(blobs.reuse)) return null;
     return (surface: surface, blobs: _list(row['blobs'] as String), strokes: row['strokes'] as int);
   }
 
