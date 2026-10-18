@@ -117,7 +117,7 @@ mixin _SurfaceEditing on _SurfaceState {
           // After the frame that shows the edit is handed to the raster
           // thread, so the write runs alongside its rasterisation.
           SchedulerBinding.instance
-            ..addPostFrameCallback((_) => flush())
+            ..addPostFrameCallback((_) => startWriting())
             ..ensureVisualUpdate();
         }
       } else {
@@ -228,11 +228,24 @@ mixin _SurfaceEditing on _SurfaceState {
   /// Writes stroke edits still waiting for [writeBehind] to storage.
   @override
   void flush() {
+    startWriting();
+    _repository.database.steps.finish();
+  }
+
+  /// Starts writing the stroke edits waiting for [writeBehind]: a turn's
+  /// worth now, the rest in the turns after, in one transaction (see
+  /// `SteppedWrites`); [flush] finishes them.
+  void startWriting() {
     _withUnsaved.remove(this);
     if (_unsaved.isEmpty) return;
     final edits = List.of(_unsaved);
     _unsaved.clear();
-    _repository.database.transaction(() => edits.forEach(_write));
+    developer.Timeline.startSync('len.persistStrokes');
+    _writingTo.add(_repository.database);
+    _repository.database.steps.add([
+      for (final edit in edits) ..._repository.editSteps(edit.removed.map((s) => s.id), edit.added),
+    ]);
+    developer.Timeline.finishSync();
   }
 
   /// Writes [edit]'s strokes, in one transaction.

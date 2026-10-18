@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui';
 
@@ -75,6 +76,21 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
       _reindexAll(rows);
     });
   }
+
+  /// Tombstones [removed] (ids) and saves [added] as [delete] and [save]
+  /// do, as steps of a few dozen strokes each (see `SteppedWrites`).
+  List<void Function()> editSteps(Iterable<String> removed, Iterable<Stroke> added) {
+    final ids = removed.toList(), strokes = added.toList();
+    return [
+      for (var i = 0; i < ids.length; i += _strokesAStep)
+        () => delete(ids.sublist(i, math.min(i + _strokesAStep, ids.length))),
+      for (var i = 0; i < strokes.length; i += _strokesAStep)
+        () => save(strokes.sublist(i, math.min(i + _strokesAStep, strokes.length))),
+    ];
+  }
+
+  /// Strokes an [editSteps] step writes (~1.5 ms of saving).
+  static const _strokesAStep = 32;
 
   /// Tombstones strokes by id.
   void delete(Iterable<String> ids) {

@@ -1,11 +1,13 @@
 @Tags(['perf'])
 library;
 
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/stepped_writes.dart';
 import 'package:len/data/stroke_repository.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/tools/content_layer.dart';
@@ -165,7 +167,7 @@ void main() {
       // drag left it; the next drag picks up the moved box.
       // Profiled: the last drag's commit and write, sampled every 100 µs.
       final profile = const bool.fromEnvironment('PROFILE') ? await CpuProfile.connect() : null;
-      final commits = <int>[], writes = <int>[];
+      final commits = <int>[], writes = <int>[], turns = <int>[], longest = <int>[];
       for (var k = 0; k < 5; k++) {
         if (k > 0) {
           final frame = selection.frame!;
@@ -181,17 +183,25 @@ void main() {
         commits.add(commit.elapsedMicroseconds);
         await last?.dump('commit $arrows', count: 70);
         await last?.start(period: 100);
+        // Written in steps after the frame (`SteppedWrites`), turn by turn.
         final write = Stopwatch()..start();
-        model.flush();
+        model.startWriting();
+        while (db.steps.isOpen) {
+          await Future<void>.delayed(Duration.zero);
+        }
         writes.add(write.elapsedMicroseconds);
+        turns.add(db.steps.turns.length);
+        longest.add(db.steps.turns.reduce(math.max));
         await last?.dump('write $arrows', count: 40);
         expect(model.strokeById(selection.strokes.single.id)?.shapeId, 'hub');
       }
       report(
         'CONNECTORS drag, $arrows arrows: setPreview ${_ms(perMove ~/ 20)} a move '
-        '(best of 5 × 20); commit ${_stats(commits)}, written after the frame '
-        '${_stats(writes)} (5 drags)',
+        '(best of 5 × 20); commit ${_stats(commits)}, written after the frame in '
+        '${_stats(writes)} (5 drags; turns ${turns.join(', ')}, the longest ${_stats(longest)})',
       );
+      // A turn writes for about [SteppedWrites.budget] and a step more.
+      expect(longest.reduce(math.min), lessThan(SteppedWrites.budget.inMicroseconds * 3));
       content.dispose();
       model.dispose();
       db.close();
