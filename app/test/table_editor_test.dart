@@ -264,4 +264,33 @@ void main() {
     expect(TextTables.of(box.data.paras), isEmpty);
     expect(box.activeCell, isNull);
   });
+
+  testWidgets('a table being edited (golden): the cell field over the painted cells', (
+    tester,
+  ) async {
+    final b = RichTextBuffer(const TextData(text: 'Plan'));
+    final t = b.insertTable(4, 3, 3, header: true);
+    final words = [
+      'Day',
+      'Task',
+      'Done',
+      'Mon',
+      'Write the long report draft',
+      'yes',
+      'Tue',
+      '',
+      'no',
+    ];
+    for (final (k, s) in words.indexed) {
+      b.setCell(t.line + k, s, List.filled(s.length, SpanStyle.plain));
+    }
+    await openBox(tester, b.toData(const TextData(fontSize: 20)));
+    final box = boxController(tester);
+    box.enterCell(t.line + 4, atEnd: true);
+    await tester.pumpAndSettle();
+    box.selectCells(null);
+    box.enterCell(t.line + 4, atEnd: true);
+    await tester.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/table_editing.png'));
+  });
 }
