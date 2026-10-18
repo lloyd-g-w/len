@@ -17,14 +17,22 @@ import 'text_data.dart';
 /// row's `\cellx`, a header from its `\trhdr`; nested tables flattened
 /// into their cell's text).
 /// The font, size and colour are the [box]'s. Returns null when there is
-/// no text (or [rtf] is not RTF).
+/// no text, [rtf] is not RTF, or its text is in a code page not read here
+/// (East Asian double-byte ones: the plain text then pastes instead).
 TextData? textFromRtf(String rtf, TextData box) {
   var s = rtf.startsWith('\uFEFF') ? rtf.substring(1) : rtf;
-  s = s.replaceFirst(RegExp(r'\x00+$'), '').trimLeft();
+  // Trailing NULs (a loop: a regular expression tries every position of
+  // what may be megabytes of a picture's hex).
+  var end = s.length;
+  while (end > 0 && s.codeUnitAt(end - 1) == 0) {
+    end--;
+  }
+  s = s.substring(0, end).trimLeft();
   if (!s.startsWith(r'{\rtf')) return null;
   final reader = _RtfReader(box.font == TextFont.mono);
   for (final token in tokenizeRtf(s)) {
     reader.add(token);
+    if (reader.unreadable) return null;
   }
   return reader.lines.result(box);
 }
@@ -64,6 +72,9 @@ class _RtfReader {
   /// The last word was `\*`.
   bool _starred = false;
 
+  /// Text came in bytes of a code page not read here.
+  bool unreadable = false;
+
   void add(RtfToken token) {
     switch (token) {
       case RtfGroup(open: true):
@@ -87,8 +98,10 @@ class _RtfReader {
       case RtfByte(:final value):
         if (_skip > 0) {
           _skip--;
-        } else {
-          _text(decodeCodePageByte(value, _codePage));
+        } else if (decodeCodePageByte(value, _codePage) case final c?) {
+          _text(c);
+        } else if (_state.dest == RtfDest.text && !_state.hidden) {
+          unreadable = true;
         }
       case RtfText(:final text):
         final skip = _skip.clamp(0, text.length);

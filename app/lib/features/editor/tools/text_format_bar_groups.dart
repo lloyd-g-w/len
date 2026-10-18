@@ -38,13 +38,17 @@ extension _TextFormatGroups on TextFormatBar {
           onPressed: () => _setSize(TextFormatBar.step(size, -1)),
           icon: const Icon(Symbols.text_decrease_sharp, size: Glyphs.bar),
         ),
-        SizedBox(
-          width: 28,
+        // (Wider with large text: the number never wraps.)
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 28),
           child: Text(
             size.round().toString(),
             key: const ValueKey('text-size'),
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelLarge,
+            maxLines: 1,
+            softWrap: false,
+            style: Theme.of(context).textTheme.labelLarge
+                ?.copyWith(fontFeatures: AppTheme.tabularFigures),
           ),
         ),
         IconButton(

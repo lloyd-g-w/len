@@ -19,11 +19,13 @@ import '../pen/option_controls.dart';
 import '../pen/option_sections.dart';
 import '../pen/size_scale.dart';
 import 'selection_fill.dart';
+import 'text/paragraph_spacing_menus.dart';
 import 'text/text_style_menus.dart';
 import 'text_format_bar.dart';
 
 /// Opens the style panel of a lasso selection: the colour of its ink and
-/// text, then font and size of the selected text boxes, pen type and width
+/// text, then font, size and paragraph spacing of the selected text
+/// boxes, pen type and width
 /// of the selected ink, a star's points, and the fill of the selected
 /// closed shapes.
 Future<void> showSelectionStyle(
@@ -193,6 +195,10 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
             icon: const Icon(Symbols.text_increase_sharp, size: Glyphs.bar),
           ),
         ],
+      ),
+      ParagraphSpacingRow(
+        spacing: _common(texts.map((t) => t.spacing)),
+        onSelected: (s) => _sel.restyleText((t) => t.copyWith(spacing: s)),
       ),
     ];
   }

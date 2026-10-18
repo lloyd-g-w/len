@@ -114,7 +114,8 @@ const properWords = {
   'Del', 'Menu', 'Type', 'Sofia', 'Sans', 'Inter', 'Lora', 'JetBrains', 'Mono', //
   'Caveat', 'Undo', 'Redo', 'Export…', 'Done', 'Keep', 'Set', 'Back', 'Locate', //
   'Turn', 'Try', 'Google', 'Chrome', 'Firefox', 'Safari', 'Linux', 'Windows', //
-  'GoodNotes', 'Notewise', 'FlateDecode', 'Corrupt', 'Server', 'Enter',
+  'GoodNotes', 'Notewise', 'FlateDecode', 'Corrupt', 'Server', 'Enter', 'TrueType', //
+  'OpenType',
 };
 
 /// Whether [copy] reads as Title Case: a word after the first starts with

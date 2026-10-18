@@ -367,6 +367,9 @@ class AppServices {
     blobs: blobs,
     fetch: sync.fetchBlob,
     remoteChanges: sync.remoteChanges,
+    imports: lenFiles,
+    syncStatus: sync,
+    syncMark: () => sync.lastSuccess,
   );
 
   /// Decoded bitmaps of image elements, shared by editors and previews.
