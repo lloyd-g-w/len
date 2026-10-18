@@ -51,7 +51,13 @@ class AppDatabase {
     // Compared with only when migrated from an older version or changed (a
     // new database, version 0, is created by the migrations).
     if (version > 0 && !current) _expected ??= _shapeOfFresh(await openSqliteScratch());
-    return database.._migrate(shapeChecked: current);
+    try {
+      database._migrate(shapeChecked: current);
+    } on Object {
+      database.close(); // A busy or failing disk: the app offers Try again.
+      rethrow;
+    }
+    return database;
   }
 
   static const _defaultName = 'len.db';
@@ -192,23 +198,23 @@ class AppDatabase {
   /// [shapeChecked]: the schema is known to be current ([openDefault]).
   void _migrate({bool shapeChecked = false}) {
     final version = _version;
-    var kept = const <String, String>{};
-    if (version > SchemaMigrations.all.length || (version == 0 && !SchemaCheck.isEmpty(db))) {
-      kept = _reset(version);
-    } else if (version > 0) {
+    var reset = version > SchemaMigrations.all.length || (version == 0 && !SchemaCheck.isEmpty(db));
+    if (!reset && version > 0) {
       try {
         _upgrade(version);
       } on SqliteException catch (e) {
+        // A busy, full or failing disk is no schema this build can't use:
+        // the next start tries again (a reset would lose what isn't synced).
+        if (SchemaCheck.isTransient(e)) rethrow;
         debugPrint('Migrating the database from version $version failed: $e');
-        kept = _reset(version);
+        reset = true;
       }
-      if (schemaReset == null && !shapeChecked && !_hasExpectedShape()) {
-        kept = _reset(version);
-      }
+      if (!reset && !shapeChecked && !_hasExpectedShape()) reset = true;
     }
-    _upgrade(_version);
-    for (final MapEntry(:key, :value) in kept.entries) {
-      db.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value]);
+    if (reset) {
+      _reset(version);
+    } else {
+      _upgrade(_version);
     }
   }
 
@@ -236,16 +242,25 @@ class AppDatabase {
   /// used. Pre-release there is no upgrade path (see CONVENTIONS.md): the
   /// old file is kept aside (native only) and the database starts empty,
   /// instead of failing on missing tables or columns later.
-  /// Returns the settings to write back ([SchemaCheck.keptSettings]).
-  Map<String, String> _reset(int version) {
-    final (backup, kept) = SchemaCheck.reset(db, path: path, version: version);
+  void _reset(int version) {
+    final backup = SchemaCheck.backUp(db, path: path, version: version);
+    // Dropped, created again and the sync login written back in one
+    // transaction: a kill midway leaves the old database (whose backup is
+    // then made again), never one half dropped or without the login.
+    final kept = transaction(() {
+      final kept = SchemaCheck.reset(db);
+      _upgrade(0);
+      for (final MapEntry(:key, :value) in kept.entries) {
+        db.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value]);
+      }
+      return kept;
+    });
     _schemaReset = SchemaReset(
       backupPath: backup,
       keptSync: SchemaCheck.keepsSync(kept),
       fromNewer: version > SchemaMigrations.all.length,
     );
     debugPrint('Database schema (version $version) not usable; started fresh (backup: $backup)');
-    return kept;
   }
 
   /// Whether the schema is exactly what the migrations produce.
