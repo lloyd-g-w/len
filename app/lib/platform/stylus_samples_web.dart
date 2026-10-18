@@ -12,3 +12,6 @@ SampleSource? openStylusSamples({
 
 /// No stylus batches on the web.
 void observeStylusBatches(void Function(List<StylusBatch> batches)? observer) {}
+
+/// No system Back gesture to keep off the edges in a browser (`StylusEdges`).
+const bool stylusEdgesSupported = false;
