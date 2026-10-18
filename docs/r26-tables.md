@@ -37,6 +37,10 @@ cells deletes all its rows (or columns) as one step, but the rows read "Delete r
 "Delete column". They now say "Delete rows" / "Delete columns" when the block spans
 several (`table_editor_test`: with a block of rows selected the menu deletes rows).
 
+**R26-T9 P3 · A column border dragged back where it was made an undo step that did nothing.** ✅
+`commitWidths` ran at every drag's end; now only when the widths changed
+(`table_editor_test`: dragging a column border resizes it, one undo step).
+
 ### Inserting a table
 
 **R26-T4 P2 · On touch screens the size picker's last column was cut off and could not be picked.** ✅

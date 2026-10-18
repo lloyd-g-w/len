@@ -305,6 +305,16 @@ void main() {
     await ctrl(tester, LogicalKeyboardKey.keyZ);
     await tester.pumpAndSettle();
     expect(TextTables.of(box.data.paras).single.spec.widths.first, closeTo(0.5, 0.001));
+    expect(box.canUndo, isFalse);
+    // Dragged back where it was: no step.
+    final g = await tester.startGesture(tester.getCenter(border));
+    await g.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await g.moveBy(const Offset(-40, 0));
+    await tester.pump();
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(box.canUndo, isFalse);
   });
 
   testWidgets('tapping a cell edits it; the table menu adds and removes', (tester) async {

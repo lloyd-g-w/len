@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../domain/text/text_data.dart';
@@ -63,6 +64,7 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
 
   /// Column resizing: the table's widths when the drag began, and where.
   List<double>? _dragWidths;
+  int _dragTable = 0;
   double _dragX = 0;
 
   RichTextController get _box => widget.box;
@@ -133,6 +135,7 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
 
   void _dragStart(TableLayout t, DragStartDetails d) {
     _dragWidths = [...t.table.spec.widths];
+    _dragTable = t.table.line;
     _dragX = _local(d.globalPosition).dx;
   }
 
@@ -150,8 +153,12 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
   }
 
   void _dragEnd() {
-    if (_dragWidths == null) return;
+    final start = _dragWidths;
+    if (start == null) return;
     _dragWidths = null;
+    // A border dragged back where it was is no step to undo.
+    final now = _box.tableAt(_dragTable)?.spec.widths;
+    if (now != null && listEquals(now, start)) return;
     _box.commitWidths();
   }
 
