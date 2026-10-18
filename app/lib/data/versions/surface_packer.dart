@@ -48,7 +48,9 @@ class SurfacePacker {
     // ids in slices after it, the strokes themselves run by run (a stroke
     // never changes under its id). If the mark moved meanwhile, or a
     // stroke listed is gone, the surface is packed again, so the packs are
-    // those of the state the mark names.
+    // those of the state the mark names. An edit written in steps
+    // ([AppDatabase.steps]) finishes before the mark is read (both times):
+    // a version never holds half of it.
     final mark = _markOf(surfaceId);
     if (_cached(surfaceId, mark) case final packed?) return packed;
     final items = _elements(surfaceId);
@@ -109,7 +111,12 @@ class SurfacePacker {
 
   /// Every stroke or element written on [surfaceId] (tombstones too)
   /// changes it.
-  String _markOf(String surfaceId) => [
+  String _markOf(String surfaceId) {
+    repositories.versions.database.steps.finish();
+    return _marks(surfaceId);
+  }
+
+  String _marks(String surfaceId) => [
     for (final table in const ['strokes', 'elements'])
       switch (_db.select(
         'SELECT COUNT(*) AS n, MAX(updated_at) AS v FROM $table WHERE surface_id = ?',
