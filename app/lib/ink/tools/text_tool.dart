@@ -52,7 +52,8 @@ class TextTool implements PointerTool {
         return;
       }
       _limitAt(hit.rect.left);
-      session.edit(hit);
+      // A tap in a table cell edits that cell.
+      session.edit(hit, caret: TextHitTest.cellAt(hit, down.world));
     } else if (session.isEditing) {
       session.end(); // A tap outside finishes the current box first.
     } else {

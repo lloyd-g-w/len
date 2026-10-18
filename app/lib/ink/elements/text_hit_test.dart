@@ -23,6 +23,20 @@ abstract final class TextHitTest {
     return line;
   }
 
+  /// The model offset nearest world point [world] in the table cell of
+  /// text box [element] it is in, if any.
+  static int? cellAt(SurfaceElement element, Offset world) {
+    if (element.knownType != ElementType.text) return null;
+    final data = TextData.fromJson(element.data);
+    if (!TextTables.any(data.paras)) return null;
+    final layout = TextLayout.layout(data, element.rect.width);
+    final hit = layout.cellAt(toLocal(element, world));
+    layout.dispose();
+    if (hit == null) return null;
+    final start = data.text.split('\n').take(hit.line).fold(0, (n, l) => n + l.length + 1);
+    return start + hit.offset;
+  }
+
   /// [world] in [element]'s unrotated box coordinates (top left = 0, 0).
   static Offset toLocal(SurfaceElement element, Offset world) {
     final c = element.rect.center;

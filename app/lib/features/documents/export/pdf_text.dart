@@ -99,19 +99,30 @@ class PdfTextWriter {
     try {
       final runs = await _runs(data, layout);
       if (runs == null) return false;
+      // Table cells: each laid out on its own, at its place in its row.
+      final cells = <(Offset, List<_Run>)>[];
+      for (final row in layout.rows) {
+        final t = layout.tables[row.table];
+        for (var c = 0; c < t.table.columns; c++) {
+          final cell = t.cells[t.index(row.row, c)];
+          final cellRuns = await _runs(cell.data, cell);
+          if (cellRuns == null) return false;
+          cells.add((t.textOrigin(row.rect, row.row, c), cellRuns));
+        }
+      }
       g
         ..saveContext()
         ..setTransform(_boxToPdf(element, pageHeight, k));
-      for (final r in runs) {
-        _highlight(g, r);
-      }
-      for (final r in runs) {
-        _text(g, r);
-      }
-      for (final r in runs) {
-        _decorations(g, r);
-      }
+      _paint(g, runs);
       await _markers(g, layout);
+      for (final (origin, cellRuns) in cells) {
+        g
+          ..saveContext()
+          ..setTransform(Matrix4.translationValues(origin.dx, origin.dy, 0));
+        _paint(g, cellRuns);
+        g.restoreContext();
+      }
+      _grids(g, layout);
       g.restoreContext();
       return true;
     } finally {
@@ -143,6 +154,11 @@ class PdfTextWriter {
       final nl = text.indexOf('\n', lineStart);
       final end = nl < 0 ? text.length : nl;
       final para = paras[line];
+      if (para.isCell) {
+        // (Written with its own layout, see [draw].)
+        lineStart = end + 1;
+        continue;
+      }
       var i = lineStart;
       while (i < end) {
         var j = i + 1;

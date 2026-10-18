@@ -161,7 +161,7 @@ class TextEditSession extends ChangeNotifier {
 
   /// Starts editing an existing text box (of a chain flowing across pages:
   /// the whole chain, see the class doc).
-  void edit(SurfaceElement element) {
+  void edit(SurfaceElement element, {int? caret}) {
     if (identical(element, _original)) return;
     if (_current != null && _rest.any((r) => r.box.id == element.id)) return;
     _end(notify: false);
@@ -169,6 +169,7 @@ class TextEditSession extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    startCaret = caret;
     _original = element;
     _current = _alone(element);
     _startWidth = element.rect.width;
