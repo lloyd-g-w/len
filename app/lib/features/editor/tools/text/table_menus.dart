@@ -37,18 +37,25 @@ enum TableCommand {
   };
 }
 
-/// The table menu's rows for the table [box] edits (destructive last).
+/// The table menu's rows for the table [box] edits (destructive last;
+/// with a block of cells selected, deleting its rows or columns).
 List<PopupMenuEntry<TableCommand>> tableMenuItems(RichTextController box) {
-  final place = box.activeCell ?? box.cellRange?.table;
+  final range = box.cellRange;
+  final place = box.activeCell ?? range?.table;
   final t = place == null ? null : box.tableAt(place);
   final full = (t?.columns ?? 0) >= TableSpec.maxColumns;
+  String label(TableCommand c) => switch (c) {
+    TableCommand.deleteRow when range != null && range.bottom > range.top => 'Delete rows',
+    TableCommand.deleteColumn when range != null && range.right > range.left => 'Delete columns',
+    _ => c.label,
+  };
   return [
     for (final c in TableCommand.values) ...[
       if (c == TableCommand.deleteRow) const PopupMenuDivider(),
       MenuRow(
         value: c,
         icon: c.icon,
-        label: c.label,
+        label: label(c),
         checked: c == TableCommand.header && (t?.spec.header ?? false),
         destructive: c.index >= TableCommand.deleteRow.index,
         enabled: !(full && (c == TableCommand.columnLeft || c == TableCommand.columnRight)),

@@ -337,6 +337,30 @@ void main() {
     expect(box.activeCell, isNull);
   });
 
+  testWidgets('with a block of rows selected the menu deletes rows, in one undo step', (
+    tester,
+  ) async {
+    final b = RichTextBuffer(const TextData());
+    final t = b.insertTable(0, 3, 2);
+    for (var k = 0; k < t.cells; k++) {
+      b.setCell(t.line + k, 'c$k', List.filled(2, SpanStyle.plain));
+    }
+    await openBox(tester, b.toData(const TextData()));
+    final box = boxController(tester);
+    box.enterCell(0, atEnd: true);
+    await tester.pumpAndSettle();
+    await press(tester, LogicalKeyboardKey.arrowDown, shift: true);
+    await tester.tap(find.byTooltip('Table'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete column'), findsOneWidget, reason: 'one column selected');
+    await tester.tap(find.text('Delete rows'));
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['c4', 'c5']);
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['c0', 'c1', 'c2', 'c3', 'c4', 'c5']);
+  });
+
   testWidgets('a table being edited (golden): the cell field over the painted cells', (
     tester,
   ) async {

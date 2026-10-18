@@ -32,6 +32,11 @@
   dropped, as a pasted HTML table's are) (`table_editor_test`: rows of tab-separated text
   pasted into a cell fill cells, adding rows and columns).
 
+**R26-T8 P3 · With several rows selected the menu still said "Delete row".** ✅ A block of
+cells deletes all its rows (or columns) as one step, but the rows read "Delete row" and
+"Delete column". They now say "Delete rows" / "Delete columns" when the block spans
+several (`table_editor_test`: with a block of rows selected the menu deletes rows).
+
 ### Inserting a table
 
 **R26-T4 P2 · On touch screens the size picker's last column was cut off and could not be picked.** ✅
