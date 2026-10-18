@@ -165,7 +165,7 @@ class TextEditSession extends ChangeNotifier {
     if (identical(element, _original)) return;
     if (_current != null && _rest.any((r) => r.box.id == element.id)) return;
     _end(notify: false);
-    if (_editChain(element)) {
+    if (_editChain(element, caret: caret)) {
       notifyListeners();
       return;
     }
