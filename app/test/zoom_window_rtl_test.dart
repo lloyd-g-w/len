@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_preferences.dart';
 import 'package:len/features/editor/zoom/zoom_frame.dart';
 import 'package:len/features/editor/zoom/zoom_window.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'document_editor_test.dart' show pumpEditor, inkOf, closeEditor;
 import 'support/zoom_fixtures.dart';
@@ -138,6 +139,47 @@ void main() {
     expect(after.width, greaterThan(before.width * 1.1));
     expect(after.right, closeTo(before.right, 0.5));
     expect(after.top, closeTo(before.top, 0.5));
+    await closeEditor(tester);
+  });
+  testWidgets('right to left, ↵ points back to the right', (tester) async {
+    await pumpEditor(tester);
+    final zoom = await openZoom(tester);
+    double across() => tester
+        .renderObject<RenderBox>(find.byIcon(Symbols.keyboard_return_sharp))
+        .getTransformTo(null)
+        .entry(0, 0);
+    expect(across(), greaterThan(0));
+    zoomSession(tester).services.preferences.zoomRightToLeft = true;
+    await tester.pumpAndSettle();
+    expect(zoom.rightToLeft, isTrue);
+    expect(across(), lessThan(0), reason: 'mirrored');
+    await closeEditor(tester);
+  });
+
+  testWidgets('the direction set elsewhere (the other pane\'s box) turns this box over too', (
+    tester,
+  ) async {
+    final (s, _) = await pumpEditor(tester);
+    final zoom = await openZoom(tester);
+    final rect = zoom.frameRect!;
+    s.preferences.toggleZoomRightToLeft();
+    await tester.pump();
+    expect(zoom.rightToLeft, isTrue);
+    expect(zoom.lineStart, closeTo(rect.right, 0.01));
+    await closeEditor(tester);
+  });
+
+  testWidgets('right to left, a narrower box keeps the frame\'s right edge (the line\'s start)', (
+    tester,
+  ) async {
+    await pumpEditor(tester);
+    final zoom = await openRtl(tester);
+    final before = zoom.frameRect!;
+    zoom.setBox(Size(zoom.box.width - 120, zoom.box.height));
+    final after = zoom.frameRect!;
+    expect(after.width, lessThan(before.width));
+    expect(after.right, closeTo(before.right, 0.5));
+    expect(after.top, before.top);
     await closeEditor(tester);
   });
 }

@@ -23,7 +23,7 @@ List<PopupMenuEntry<ZoomBoxChoice>> zoomBoxMenu(EditorSession session) => [
     value: ZoomBoxChoice.rightToLeft,
     icon: Symbols.format_textdirection_r_to_l_sharp,
     label: 'Right to left',
-    caption: 'Lines advance leftwards',
+    caption: 'Lines go left',
     checked: session.services.preferences.zoomWritesRightToLeft,
   ),
   if (session.zoomWindow.boxHeight.value != null)
@@ -43,8 +43,8 @@ void onZoomBoxMenu(EditorSession session, ZoomBoxChoice choice) {
       // Once the editor made room for the box at its new edge.
       WidgetsBinding.instance.addPostFrameCallback((_) => session.zoomWindow.showFrame());
     case ZoomBoxChoice.rightToLeft:
+      // The box follows (so does the other pane's, in split view).
       session.services.preferences.toggleZoomRightToLeft();
-      session.zoomWindow.directionChanged();
     case ZoomBoxChoice.automaticHeight:
       session.zoomWindow.boxHeight.value = null;
   }
