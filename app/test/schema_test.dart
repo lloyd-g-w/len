@@ -73,8 +73,10 @@ void main() {
     final fresh = AppDatabase.inMemory();
     addTearDown(fresh.close);
     final schema = _schemaOf(fresh);
-    expect(schema['version'], 20);
-    expect(AppDatabase.latestVersion, 20);
+    expect(schema['version'], 21);
+    expect(AppDatabase.latestVersion, 21);
+    // Version 21: imported fonts.
+    expect(schema.keys, contains('fonts'));
     // Version 20: shape strokes indexed by attachments and identity.
     expect(
       fresh.db.select(
@@ -358,7 +360,7 @@ void main() {
   });
 }
 
-/// Back to before version 10 (the chunk indexes): undoes versions 10 to 20
+/// Back to before version 10 (the chunk indexes): undoes versions 10 to 21
 /// of a fresh database (14 only rewrites data).
 void _dropChunkDigests(CommonDatabase db) {
   for (final table in ['elements', 'recordings', 'outline']) {
@@ -384,4 +386,5 @@ void _dropChunkDigests(CommonDatabase db) {
   for (final index in ['tails', 'tips', 'origins']) {
     db.execute('DROP INDEX strokes_shape_$index');
   }
+  db.execute('DROP TABLE fonts');
 }

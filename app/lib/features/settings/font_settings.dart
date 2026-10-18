@@ -40,7 +40,7 @@ class FontSettings extends StatelessWidget {
         SettingsTile(
           icon: Symbols.upload_file_sharp,
           title: 'Import font…',
-          subtitle: 'A TrueType or OpenType file (.ttf, .otf)',
+          subtitle: 'A .ttf or .otf font file',
           onTap: () => unawaited(FontImport.pick(context)),
         ),
       ],
