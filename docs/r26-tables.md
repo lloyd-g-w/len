@@ -67,12 +67,13 @@ several (`table_editor_test`: with a block of rows selected the menu deletes row
 `commitWidths` ran at every drag's end; now only when the widths changed
 (`table_editor_test`: dragging a column border resizes it, one undo step).
 
-**R26-T12 P3 · Typing, Tab or Enter with a block of cells selected does nothing.** ⬜
-`TableKeys.range` handles copy, cut, paste (R26-T2), Delete, arrows, Esc and formatting;
-a typed letter is dropped, Tab moves the focus out of the box to the next control (the
-format bar), Enter is ignored. *Proposal:* as spreadsheets do: a typed character replaces
-the block's top left cell and edits it (its typing run starting there); Tab / Enter edit
-the block's top left cell (Shift+Tab: its last cell).
+**R26-T12 P3 · Typing, Tab or Enter with a block of cells selected did nothing.** ✅
+`TableKeys.range` handled copy, cut, paste (R26-T2), Delete, arrows, Esc and formatting;
+a typed letter was dropped, Tab moved the focus out of the box to the next control (the
+format bar), Enter was ignored. Now, as in spreadsheets, a character typed replaces the
+block's first cell and edits it (one undo step), Tab and Enter edit its first cell,
+Shift+Tab its last (`table_editor_test`: with a block selected a character replaces its
+first cell; Tab edits it).
 
 ### Right to left
 
@@ -175,8 +176,8 @@ for the page. Debug-mode probe, 10 keystrokes: 5 × 10 cells 0.8 s, 50 × 10 1.9
 Comfortable to 50 rows; a 200-row table will lag. *Proposal:* keep cell layouts across
 plans keyed by the cell's data and width (only the edited cell changes per keystroke).
 
-Counts: 19 findings (0 P1, 8 P2, 11 P3); fixed: 11 (T1–T11: 6 P2, 5 P3); open: 8
-(T13, T14 P2; T12, T15–T19 P3).
+Counts: 19 findings (0 P1, 8 P2, 11 P3); fixed: 12 (T1–T12: 6 P2, 6 P3); open: 7
+(T13, T14 P2; T15–T19 P3).
 
 Owner decisions for TODO Next:
 - R26-T13: a split table in one-page-at-a-time layouts — edit the chain as a whole there

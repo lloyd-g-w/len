@@ -162,6 +162,21 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
     _box.commitWidths();
   }
 
+  /// [character] typed with a block of cells selected: it replaces the
+  /// block's first cell, which is then edited.
+  void _typeOver(String character) {
+    final r = _box.cellRange;
+    final t = r == null ? null : _box.tableAt(r.table);
+    if (r == null || t == null) return;
+    _box.enterCell(t.lineOf(r.top, r.left));
+    final cell = widget.cell;
+    if (cell.line == null) return;
+    cell.value = TextEditingValue(
+      text: character,
+      selection: TextSelection.collapsed(offset: character.length),
+    );
+  }
+
   Offset _local(Offset global) => (context.findRenderObject()! as RenderBox).globalToLocal(global);
 
   @override
@@ -186,6 +201,7 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
             undo: widget.onUndo ?? () => _box.undo(),
             redo: widget.onRedo ?? () => _box.redo(),
             paste: ({required plain}) => pasteIntoCells(widget.cell, plain: plain),
+            type: _typeOver,
           ),
           child: Listener(
             behavior: HitTestBehavior.translucent,

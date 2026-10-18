@@ -299,6 +299,45 @@ void main() {
     expect(cells(box.data), ['ab', 'cd', '1', '2'], reason: 'one undo step');
   });
 
+  testWidgets('with a block selected a character replaces its first cell; Tab edits it', (
+    tester,
+  ) async {
+    final b = RichTextBuffer(const TextData());
+    final t = b.insertTable(0, 2, 2);
+    for (final (k, s) in ['ab', 'cd', 'ef', 'gh'].indexed) {
+      b.setCell(t.line + k, s, List.filled(2, SpanStyle.plain));
+    }
+    await openBox(tester, b.toData(const TextData()));
+    final box = boxController(tester);
+    Future<void> selectBlock() async {
+      box.enterCell(3);
+      await tester.pumpAndSettle();
+      await press(tester, LogicalKeyboardKey.arrowLeft, shift: true);
+      await press(tester, LogicalKeyboardKey.arrowUp, shift: true);
+      expect(box.cellRange, isNotNull);
+    }
+
+    await selectBlock();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyQ, character: 'q');
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['q', 'cd', 'ef', 'gh']);
+    expect(box.activeCell, 0);
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['ab', 'cd', 'ef', 'gh']);
+    await selectBlock();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyQ, character: 'q');
+    await tester.pumpAndSettle();
+    await typeInCell(tester, 'qr');
+    expect(cells(box.data).first, 'qr', reason: 'typing goes on in that cell');
+    await selectBlock();
+    await press(tester, LogicalKeyboardKey.tab);
+    expect(box.activeCell, 0);
+    await selectBlock();
+    await press(tester, LogicalKeyboardKey.tab, shift: true);
+    expect(box.activeCell, 3);
+  });
+
   testWidgets('rows of tab-separated text pasted into a cell fill cells, adding rows and columns', (
     tester,
   ) async {

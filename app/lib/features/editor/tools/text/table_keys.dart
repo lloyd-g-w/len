@@ -16,9 +16,10 @@ import 'rich_text_controller.dart';
 ///   they select a block of cells;
 /// - with a block selected: Ctrl+C / Ctrl+X copy and cut it (an HTML table
 ///   and tab-separated text), Delete / Backspace empty its cells, Shift +
-///   arrows grow it, arrows or Esc go back to editing a cell, Ctrl+V
-///   pastes from its top left cell on, Ctrl+B / I / U format every cell,
-///   Ctrl+Z undoes.
+///   arrows grow it, arrows or Esc go back to editing a cell (Tab or
+///   Enter its first, Shift+Tab its last), a character typed replaces its
+///   first cell, Ctrl+V pastes from its first cell on, Ctrl+B / I / U
+///   format every cell, Ctrl+Z undoes.
 abstract final class TableKeys {
   static bool get _shift => HardwareKeyboard.instance.isShiftPressed;
   static bool get _command =>
@@ -160,6 +161,7 @@ abstract final class TableKeys {
     required VoidCallback undo,
     required VoidCallback redo,
     required void Function({required bool plain}) paste,
+    required void Function(String character) type,
   }) {
     final r = box.cellRange;
     if (r == null || (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
@@ -215,8 +217,20 @@ abstract final class TableKeys {
         box.clearCells();
       case LogicalKeyboardKey.escape:
         box.enterCell(t.lineOf(r.anchor.row, r.anchor.column).clamp(t.line, t.end - 1));
+      case LogicalKeyboardKey.tab || LogicalKeyboardKey.enter || LogicalKeyboardKey.numpadEnter:
+        // The block's first cell (Shift+Tab: its last).
+        final last = key == LogicalKeyboardKey.tab && _shift;
+        box.enterCell(
+          t.lineOf(last ? r.bottom : r.top, last ? r.right : r.left).clamp(t.line, t.end - 1),
+          atEnd: true,
+        );
       default:
-        return KeyEventResult.ignored;
+        // A character typed replaces the block's first cell, as in a spreadsheet.
+        final c = event.character;
+        if (_alt || c == null || c.isEmpty || c.codeUnitAt(0) < 0x20 || c == '\u007f') {
+          return KeyEventResult.ignored;
+        }
+        type(c);
     }
     return KeyEventResult.handled;
   }
