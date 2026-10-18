@@ -125,8 +125,8 @@ Stylus edge guard (`features/editor/stylus_edge_guard.dart`,
 `stylus_edges_test` covers routes, dialogs, split view and parked panes.
 Settings has no sub-pages besides the Ink Lab (R26-M6). Tips at 390 dp, dark
 and 2× text wrap to two lines inside the banner; the banner is a live
-region, so screen readers announce it. Restore: offline refuses with "not
-on this device yet", the snack bar shows on the screen behind the history,
+region, so screen readers announce it. Restore: offline, a version whose packs are not here is refused ("This
+version isn’t on this device yet…"); the snack bar shows on the screen behind the history,
 its Undo restores the version saved before.
 
 Counts: 12 findings (0 P1, 7 P2, 5 P3); fixed: M1–M11 (all P2, 4 P3); open: M12 (P3).
