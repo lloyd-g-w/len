@@ -143,7 +143,9 @@ class FontMenuRow extends StatelessWidget {
         child: Row(
           children: [
             Expanded(child: Text('Font', style: theme.textTheme.labelLarge)),
-            Flexible(
+            // (A long user font name ends in an ellipsis.)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 160),
               child: Text(
                 current == null ? 'Mixed' : TextFonts.labelOf(current),
                 overflow: TextOverflow.ellipsis,

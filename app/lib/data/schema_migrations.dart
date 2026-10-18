@@ -15,7 +15,7 @@ abstract final class SchemaMigrations {
   /// compare with. `app_database_test` fails with the new value when a
   /// migration changes the schema.
   static const String shapeDigest =
-      'f065b9cd7099a5d23e652b15bd926b9b4ecef6e8aa34e1165b1ba7443d3709fe';
+      '5924f8bacbfe0c22f83b83a6567f4473d81ce66bdbbba818bc49807240eaca94';
 
   /// Index i migrates from version i to i + 1.
   static final List<void Function(CommonDatabase)> all = [
