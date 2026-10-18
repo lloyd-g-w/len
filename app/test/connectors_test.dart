@@ -333,6 +333,57 @@ void main() {
       });
     }
 
+    test('an ellipse whose second axis ran the other way, made a circle: the arrow stays put '
+        '(R25-32)', () {
+      // Its second axis points up: the outline runs the other way round
+      // from a circle's (which always turns from its rim point down).
+      final ring = seed(
+        ShapeGeometry(ShapeKind.ellipse, [
+          centre,
+          centre + const Offset(80, 0),
+          centre - const Offset(0, 40),
+        ]),
+        'ring',
+      );
+      for (final (at, name) in [(0.1, 'arrow'), (0.6, 'other')]) {
+        // From above the ring, left to right in the order of [at].
+        seed(
+          ShapeGeometry(ShapeKind.arrow, [
+            Offset(at * 1000, 0),
+            ShapeAnchors.pointAt(ring.shape!, at),
+          ], tip: ShapeAttachment('ring', at)),
+          name,
+        );
+      }
+      final above = ShapeAnchors.pointAt(ring.shape!, 0.1).dy < centre.dy;
+      content.selection.select([ring], const []);
+      final shape = content.selection.shape!;
+      // Its second axis stretched to the first's length: a circle.
+      content.selection
+        ..reshape(ShapeHandles.drag(shape, 2, centre - const Offset(0, 80)))
+        ..commitReshape();
+      final r = stored((s) => s.shape!.kind != ShapeKind.arrow)!;
+      expect(r.shape!.kind, ShapeKind.circle);
+      final arrows = [
+        for (final s in model.strokesNear(_all))
+          if (s.shape!.kind == ShapeKind.arrow) s.shape!,
+      ]..sort((x, y) => x.points[0].dx.compareTo(y.points[0].dx));
+      expect(arrows.length, 2);
+      // On the same side as before: the first above the centre, the other below.
+      expect(arrows[0].points[1].dy < centre.dy, above);
+      expect(arrows[1].points[1].dy < centre.dy, !above);
+      for (final a in arrows) {
+        expect(a.tip!.id, 'ring');
+        expect(Connectors.sits(a, 1, r.shape), isTrue);
+      }
+      // The point on the stretched outline: the old one with its axis scaled.
+      final was = ShapeAnchors.pointAt(ring.shape!, 0.1) - centre;
+      expect(
+        arrows[0].points[1],
+        offsetMoreOrLessEquals(centre + Offset(was.dx, was.dy * 2), epsilon: 1e-6),
+      );
+    });
+
     test('while the box is dragged, its arrow is shown following', () {
       box();
       attachedArrow();

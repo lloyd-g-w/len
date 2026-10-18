@@ -56,16 +56,31 @@ extension _SelectionConnectors on _SelectionCore {
   /// Attachment [a] to a selected circle or ellipse that [t] mapped to
   /// [now], at the same point of its outline: a stretch turns the axes
   /// ([ShapeGeometry.map] keeps them perpendicular), which shifts the
-  /// parameter. Other shapes, and edits that are no transform, keep it.
+  /// parameter. Without a transform (a handle edit), only an outline that
+  /// now runs the other way round reverses it: a circle's always turns
+  /// from its rim point a quarter turn on, so an ellipse whose second axis
+  /// ran the other way, made a circle, does (UX_AUDIT R25-32). Other
+  /// shapes keep it.
   ShapeAttachment _remapped(ShapeAttachment a, Stroke now, Affine? t) {
     final shape = now.shape!;
-    if (t == null || (shape.kind != ShapeKind.circle && shape.kind != ShapeKind.ellipse)) {
-      return a;
-    }
+    if (shape.kind != ShapeKind.circle && shape.kind != ShapeKind.ellipse) return a;
     final old = _strokes.firstWhere((s) => s.shapeId == a.id).shape!;
+    if (t == null) {
+      if (old.kind != ShapeKind.circle && old.kind != ShapeKind.ellipse) return a;
+      return _turnsLeft(old) == _turnsLeft(shape) ? a : ShapeAttachment(a.id, (1 - a.at) % 1);
+    }
     final p = t.apply(ShapeAnchors.pointAt(old, a.at));
     if ((ShapeAnchors.pointAt(shape, a.at) - p).distance <= 1e-6) return a;
     return ShapeAttachment(a.id, ShapeAnchors.nearest(shape, p));
+  }
+
+  /// Which way round [ellipse]'s (or a circle's) outline runs: whether its
+  /// second axis is a positive quarter turn from its first.
+  static bool _turnsLeft(ShapeGeometry ellipse) {
+    final (u, v) = ellipse.kind == ShapeKind.circle
+        ? ShapeHandles.circleAxes(ellipse)
+        : (ellipse.points[1] - ellipse.points[0], ellipse.points[2] - ellipse.points[0]);
+    return u.dx * v.dy - u.dy * v.dx > 0;
   }
 
   /// [now], the edit of shape [old] going to surface [to], with [old]'s

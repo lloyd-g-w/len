@@ -265,8 +265,12 @@ attaches; a selected line's dragged end does the same (`lasso_tool.dart`
 `_reshaped`). One outlined target while drawing is kept (the tip's, else
 the tail's).
 
-**R25-32 P3 · An ellipse dragged into a circle whose second axis ran the other way reverses its parameter.** ⬜
-An attached end would jump; rare.
+**R25-32 P3 · An ellipse dragged into a circle whose second axis ran the other way reverses its parameter.** ✅
+An attached end would jump; rare. ✅ A handle edit whose
+outline now runs the other way round (a circle always turns from its rim
+point a quarter turn on) reverses the attachments' parameters, so ends
+stay on the same outline point, while dragging and once committed
+(`selection_controller_connectors.dart` `_remapped`).
 
 Checked and sound: curve drawing (undo / redo through anchors, Enter,
 Escape, a tool change finishes, a page added or deleted elsewhere
