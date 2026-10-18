@@ -49,3 +49,10 @@ Only three preset buttons (2 × 2, 3 × 3, 4 × 3) were reachable; the grid was 
 inserts it; screen readers read it as "Table size", its value "2 × 3", a tap inserts it
 (`table_editor_test`: the size picker takes the keyboard). The unused
 `TableSpec.maxPickerRows` went.
+
+**R26-T6 P3 · A table inserted at the end of a heading or list item was followed by an empty heading or bullet.** ✅
+`insertTable` gave the line it adds after the table the style of the line the table went
+into: after "Title" (a heading) the next thing typed was a heading, after a list item an
+empty bullet showed. A line the table adds is now plain text; a heading or item split by
+the table goes on below it (`text_table_test`: the line a table adds after it is plain
+text).

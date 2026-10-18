@@ -15,7 +15,8 @@ extension TableEdits on RichTextBuffer {
   /// Inserts a table of [rows] × [columns] empty cells at [offset] (not in
   /// a table): in place of an empty line, else above the line when
   /// [offset] is at its start, below it at its end, or splitting it. A line
-  /// always follows the table. Returns the table.
+  /// always follows the table (a new one is plain text, not the heading or
+  /// list item the table went into). Returns the table.
   TextTable insertTable(int offset, int rows, int columns, {bool header = false}) {
     final line = lineOf(offset);
     final spec = TableSpec.even(columns, header: header);
@@ -25,13 +26,18 @@ extension TableEdits on RichTextBuffer {
     final List<BufferLine> lines;
     final int first;
     if (l.text.isEmpty) {
-      lines = [...cells, _empty(l.para)];
+      lines = [...cells, _empty(ParaStyle.body)];
       first = line;
     } else if (at == 0) {
       lines = [...cells, l];
       first = line;
     } else {
-      final rest = (text: l.text.substring(at), chars: l.chars.sublist(at), para: l.para);
+      final tail = l.text.substring(at);
+      final rest = (
+        text: tail,
+        chars: l.chars.sublist(at),
+        para: tail.isEmpty ? ParaStyle.body : l.para,
+      );
       lines = [
         (text: l.text.substring(0, at), chars: l.chars.sublist(0, at), para: l.para),
         ...cells,

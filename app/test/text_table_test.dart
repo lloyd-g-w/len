@@ -198,6 +198,22 @@ void main() {
       expect([for (final p in below.paras) p.isCell], [false, true, false]);
     });
 
+    test('the line a table adds after it is plain text, not the heading or list item', () {
+      final heading = RichTextBuffer(const TextData(text: 'Title'))
+        ..updateParas(0, 0, (p) => p.copyWith(heading: 1));
+      heading.insertTable(5, 1, 1);
+      expect([for (final p in heading.paras) p.heading], [1, 0, 0]);
+      final item = RichTextBuffer(const TextData(text: 'one\n'))
+        ..updateParas(0, 1, (p) => p.copyWith(list: ListKind.bullet));
+      item.insertTable(4, 1, 1);
+      expect([for (final p in item.paras) p.list], [ListKind.bullet, ListKind.none, ListKind.none]);
+      // A heading split by a table goes on below it.
+      final split = RichTextBuffer(const TextData(text: 'Title'))
+        ..updateParas(0, 0, (p) => p.copyWith(heading: 1));
+      split.insertTable(2, 1, 1);
+      expect([for (final p in split.paras) p.heading], [1, 0, 1]);
+    });
+
     test('rows and columns', () {
       final b = RichTextBuffer(sample(header: true));
       var t = b.tables.single;
