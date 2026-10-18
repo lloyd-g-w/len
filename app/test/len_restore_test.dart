@@ -115,6 +115,18 @@ void main() {
     expect(skipped.folders, isEmpty);
     expect(target.folders.list(), hasLength(1));
     expect(target.notebooks.list(), hasLength(2));
+    // Nor the content of their pages (it once came as copies on no page).
+    for (final table in ['strokes', 'elements']) {
+      expect(
+        target.database.db.select(
+          'SELECT id FROM $table WHERE surface_id NOT IN (SELECT id FROM pages) '
+          'AND surface_id NOT IN (SELECT id FROM notebooks)',
+        ),
+        isEmpty,
+        reason: table,
+      );
+    }
+    expect(target.database.db.select('SELECT id FROM strokes'), hasLength(2));
 
     // Restoring all of it again makes copies, in a folder of their own.
     final copies = await restore(target, bytes, folderName: 'Backup 13 Oct 2026');

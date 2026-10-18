@@ -73,6 +73,9 @@ class LenRemap {
       'strokes' || 'elements' => _notebookOf[data['surfaceId']] ?? data['surfaceId'],
       _ => null,
     };
+    // Noted before a skip: the content on a skipped notebook's pages is
+    // skipped with them.
+    if (record.collection == 'pages' && notebook is String) _notebookOf[record.id] = notebook;
     if (skip.contains(notebook)) return null;
     // What belongs to a notebook keeping its id keeps its id too.
     final kept = notebook is String && _ids[notebook] == notebook;
@@ -95,7 +98,6 @@ class LenRemap {
         id = record.id;
       case 'pages' || 'recordings':
         id = map(record.id);
-        if (record.collection == 'pages' && notebook is String) _notebookOf[record.id] = notebook;
         ref('notebookId', into: owners);
       case 'outline':
         id = map(record.id);
