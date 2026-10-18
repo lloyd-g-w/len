@@ -2629,7 +2629,8 @@ GoodNotes-style rich text inside a box.
   grips on column borders that resize columns (one step per drag, `previewWidths` /
   `commitWidths`). `TableKeys`: Tab / Shift+Tab next / previous cell (Tab in the last adds a
   row), Enter the cell below (from the last row, the line after), arrows at a cell's edge
-  the cell beyond or the text around the table. The format bar formats the cell edited;
+  the cell on their side of the table or the text around it; with a block selected a
+  typed character replaces its first cell and Tab / Enter edit it. The format bar formats the cell edited;
   its table button picks a new table's size (`TablePicker`) or, in a table, opens the table
   menu (insert row above / below, column left / right, header row, delete row / column /
   table); on phones both are in its ⋯. A table copied here, or tab-separated rows (a
