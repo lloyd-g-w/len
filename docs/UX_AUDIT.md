@@ -34,7 +34,7 @@ non-Western code pages pasted as gibberish; the zoom window right to left
 still pointed and grew as left to right; Escape did nothing once a control
 had focus; a version named with Rename… was thinned away; restores gave no
 sign of running. 43 findings: 0 P1, 18 P2, 25 P3; 33 fixed (16 P2, 17 P3),
-with tests; open: R26-13, R26-14 (P2), R26-15–R26-17, R26-19, R26-31 (P3).
+with tests; open: R26-13, R26-14 (P2), R26-15, R26-16, R26-19 (P3).
 
 ### Tables in text boxes
 
@@ -191,11 +191,14 @@ committed boxes.
 
 #### Phone and touch
 
-**R26-17 P3 · On phones the text ⋯ in a table holds 13 rows.** ⬜ The docked bar has no
-table button, so its ⋯ gains the 8 table commands, above the 4 paragraph spacings and
+**R26-17 P3 · On phones the text ⋯ in a table holds 13 rows.** ✅ The docked bar has no
+table button, so its ⋯ gained the 8 table commands, above the 4 paragraph spacings and
 Delete text box (the whole 844-dp screen; at 2× text the rows truncate, "Insert column
-l…", "Small paragrap…"). *Proposal:* one row "Table…" opening the table menu from ⋯ (as
-Version history… holds its commands), keeping ⋯ at 6 rows.
+l…", "Small paragrap…"). *Fix:* ⋯ holds three rows: "Table…" (in a table; else "Insert
+table…") opening the tablet's table menu below ⋯, "Paragraph spacing" (R26-31) and Delete text
+box. Menus widen with large text (`menuConstraints`: up to the screen less margins), so the
+table menu's rows are whole at 2× too (`text_controls_large_text_test`: "phones at 2× text:
+the ⋯ in a table has whole rows; Table… opens the table menu").
 
 **R26-18 P3 · Column borders are 16 dp grips on touch screens too.** ✅
 `TableEditorLayer._grip` was 16 screen px for mouse, stylus and finger alike, invisible,
@@ -314,11 +317,14 @@ Looked at: the format bar and its menu (phone at 2×, tablet at 1× and 2×), th
 `paragraph_spacing_test`, `paragraph_spacing_ui_test`, `pdf_text_export_test` and
 `rtl_text_golden_test`, read and run; no new findings there.
 
-**R26-31 P3 · On phones at 2× text the ⋯'s spacing rows are cut: "No paragraph s…", "Small paragrap…".** ⬜
-`TextFormatBar`'s docked ⋯ lists the four spacings as "No paragraph spacing", "Small paragraph
-spacing", … (beside Insert table… and Delete text box); at 2× text they truncate to the
-first word. *Proposal:* with R26-17's "Table…", one row "Paragraph spacing" with the current
-one as its caption, opening the four-choice menu the tablet's button shows.
+**R26-31 P3 · On phones at 2× text the ⋯'s spacing rows are cut: "No paragraph s…", "Small paragrap…".** ✅
+`TextFormatBar`'s docked ⋯ listed the four spacings as "No paragraph spacing", "Small paragraph
+spacing", … (beside Insert table… and Delete text box); at 2× text they truncated to the
+first word. *Fix:* with R26-17's "Table…", one row "Paragraph spacing" with the box's spacing
+as its caption, opening the four-choice menu the tablet's button shows; in a table cell the
+caption and the tablet button's check now show the box's spacing, not the cell's
+(`text_controls_large_text_test`: "the ⋯'s Paragraph spacing opens the four and applies one";
+`paragraph_spacing_ui_test`).
 
 **R26-24 P3 · At large text the Text options cut "Paragraph spacing" to "Paragraph".** ✅
 `ParagraphSpacingRow` and `FontMenuRow` (`features/editor/tools/text/`) were fixed at a menu

@@ -142,7 +142,7 @@ extension _TextFormatGroups on TextFormatBar {
         if (!docked) TableButton(box: c.boxController, refocus: refocus),
         if (!docked)
           ParagraphSpacingButton(
-            spacing: box.spacing,
+            spacing: c.boxController.box.spacing,
             onSelected: (s) {
               _box(box.copyWith(spacing: s));
               refocus();

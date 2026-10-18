@@ -54,8 +54,9 @@ class TextFormatBar extends StatelessWidget {
 
   static const List<double> sizes = [12, 16, 20, 24, 32, 40, 56, 72, 96];
 
-  /// The ⋯ menu's "Insert table…" (phones).
-  static const Object _insertTable = #insertTable;
+  /// The ⋯ menu's "Insert table…", "Table…" and "Paragraph spacing"
+  /// (phones; the last two open the menus the tablet's buttons show).
+  static const Object _insertTable = #insertTable, _table = #table, _spacing = #spacing;
 
   /// Narrower screens (phones) dock the bar at the bottom.
   static const double dockBelowWidth = 600;
@@ -93,52 +94,57 @@ class TextFormatBar extends StatelessWidget {
     );
     // Delete in a trailing ⋯ (REDESIGN §2.6): out of the way of ✓. On
     // phones, whose rows have no room left, tables and paragraph spacing
-    // too.
+    // too: a row each, opening the menu the tablet's button shows, so ⋯
+    // stays short and its rows whole at large text (UX_AUDIT R26-17, R26-31).
+    // (The box's spacing: in a table cell [controller] is the cell's.)
     final box = controller.boxController;
-    final more = MenuIconButton<Object>(
-      tooltip: 'More',
-      icon: const Icon(Symbols.more_horiz_sharp, size: Glyphs.bar),
-      items: () => [
-        if (docked) ...[
-          if (box.inTable)
-            ...tableMenuItems(box)
-          else
-            const MenuRow<Object>(
-              value: _insertTable,
-              icon: Symbols.table_sharp,
-              label: 'Insert table…',
-            ),
-          const PopupMenuDivider(),
-          for (final s in ParagraphSpacing.values)
+    final more = Builder(
+      builder: (anchor) => MenuIconButton<Object>(
+        tooltip: 'More',
+        icon: const Icon(Symbols.more_horiz_sharp, size: Glyphs.bar),
+        items: () => [
+          if (docked) ...[
+            box.inTable
+                ? const MenuRow<Object>(value: _table, icon: Symbols.table_sharp, label: 'Table…')
+                : const MenuRow<Object>(
+                    value: _insertTable,
+                    icon: Symbols.table_sharp,
+                    label: 'Insert table…',
+                  ),
             MenuRow<Object>(
-              value: s,
-              label: s == ParagraphSpacing.none
-                  ? 'No paragraph spacing'
-                  : '${s.label} paragraph spacing',
-              checked: s == controller.box.spacing,
+              value: _spacing,
+              icon: Symbols.format_line_spacing_sharp,
+              label: 'Paragraph spacing',
+              caption: box.box.spacing.label,
             ),
-          const PopupMenuDivider(),
+            const PopupMenuDivider(),
+          ],
+          const MenuRow<Object>(
+            value: true,
+            icon: Symbols.delete_sharp,
+            label: 'Delete text box',
+            destructive: true,
+          ),
         ],
-        const MenuRow<Object>(
-          value: true,
-          icon: Symbols.delete_sharp,
-          label: 'Delete text box',
-          destructive: true,
-        ),
-      ],
-      onSelected: (choice) {
-        if (choice == _insertTable) {
-          insertTableFromPicker(context, box, refocus);
-        } else if (choice is TableCommand) {
-          choice.run(box);
-          refocus();
-        } else if (choice is ParagraphSpacing) {
-          _box(controller.box.copyWith(spacing: choice));
-          refocus();
-        } else {
-          onDelete();
-        }
-      },
+        onSelected: (choice) async {
+          if (choice == _insertTable) {
+            await insertTableFromPicker(context, box, refocus);
+          } else if (choice == _table) {
+            final command = await showMenuBelow(anchor, items: tableMenuItems(box));
+            command?.run(box);
+            refocus();
+          } else if (choice == _spacing) {
+            final spacing = await showMenuBelow(
+              anchor,
+              items: paragraphSpacingItems(box.box.spacing),
+            );
+            if (spacing != null) _box(controller.box.copyWith(spacing: spacing));
+            refocus();
+          } else {
+            onDelete();
+          }
+        },
+      ),
     );
     final done = IconButton(
       tooltip: 'Done (Esc)',
