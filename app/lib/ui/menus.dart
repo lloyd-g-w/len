@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
 import 'package:flutter/material.dart';
@@ -73,6 +74,23 @@ class MenuRow<T> extends PopupMenuItem<T> {
 }
 
 class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
+  @override
+  void initState() {
+    super.initState();
+    // A long menu (40 fonts) opens scrolled to the current choice.
+    if (widget.checked) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || Scrollable.maybeOf(context) == null) return;
+        unawaited(
+          Scrollable.ensureVisible(
+            context,
+            alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+          ),
+        );
+      });
+    }
+  }
+
   @override
   Widget buildChild() {
     final scheme = Theme.of(context).colorScheme;
