@@ -237,15 +237,18 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
       left: origin.dx,
       top: origin.dy,
       width: width + RichTextField.caretMargin(widget.cursorWidth),
-      child: RichTextField(
-        controller: widget.cell,
-        focusNode: widget.cellFocus,
-        cursorWidth: widget.cursorWidth,
-        cursorColor: widget.accent,
-        onDone: widget.onDone,
-        onUndo: widget.onUndo,
-        onRedo: widget.onRedo,
-        onKey: (node, event) => TableKeys.cell(_box, widget.cell, event),
+      child: Semantics(
+        label: 'Row ${p.row + 1}, column ${p.column + 1}',
+        child: RichTextField(
+          controller: widget.cell,
+          focusNode: widget.cellFocus,
+          cursorWidth: widget.cursorWidth,
+          cursorColor: widget.accent,
+          onDone: widget.onDone,
+          onUndo: widget.onUndo,
+          onRedo: widget.onRedo,
+          onKey: (node, event) => TableKeys.cell(_box, widget.cell, event),
+        ),
       ),
     );
   }
