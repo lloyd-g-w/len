@@ -311,7 +311,7 @@ Servers write with `synchronous = FULL`, so an answered push survives a power lo
 
 ## Blobs
 
-Binary payloads (PDFs used as page backgrounds, images, audio recordings) are stored as **content-addressed blobs**,
+Binary payloads (PDFs used as page backgrounds, images, audio recordings, imported fonts) are stored as **content-addressed blobs**,
 separately from records. A blob is identified by the SHA-256 of its bytes, written as 64
 lowercase hex characters (`<sha256>`); any other identifier is rejected with `400`. Blobs are
 immutable. All blob endpoints require the bearer token (`401` otherwise).
@@ -418,7 +418,7 @@ reference and uploads any the server lost.
 
 **Client** (local, never visible to the server): a locally stored blob is deleted from the device
 once no live local row references it (page backgrounds, image templates of pages, image elements, recordings (audio parts and waveform), the user's
-templates and versions (their table blobs and what those name, which the device notes when it
+templates and fonts, and versions (their table blobs and what those name, which the device notes when it
 writes or reads a table blob; format 1: their packs, page backgrounds and `blobs`); pages, elements and recordings of trashed notebooks are live rows, so they count) for 7 days. Tombstoned
 pages, elements and recordings count for 30 days after their deletion, as long as a
 [deletion conflict](#deletion-conflicts) may still bring them back. The app
@@ -551,17 +551,19 @@ library (a backup) packed for people rather than servers: a zip with `manifest.j
 (`{"format": "len", "version": 1, "kind": "notebook"|"folder"|"notebooks"|"library",
 "title", "createdAt"}`), the records as sync records (the format above; one JSON record per line
 in `records/000001.jsonl`, … parts of about 4 MB, parents before children in the order
-`folders, templates, notebook_styles, notebooks, pages, outline, recordings, strokes, elements`; templates and notebook styles only in a library backup), `blobs.json`
+`folders, templates, fonts, notebook_styles, notebooks, pages, outline, recordings, strokes, elements`; templates and notebook styles only in a library backup, fonts in a backup all of them, else those the text of the notebooks written uses), `blobs.json`
 (`{"<sha256>": {"mime", "size"}}`) and the blobs themselves under `blobs/<sha256>` (stored, not
 compressed). Tombstones and `recognised_text` are left out (its keys hash stroke ids).
 
-Importing never replaces anything: every record gets a new id (references follow, links to pages
+Importing never replaces anything: every record but a font gets a new id (references follow, links to pages
 of the same file included, and shape ids: a stroke's `sh.o` and its connectors' `sh.a[i].id`), is stamped with the importing device's id and a fresh `updatedAt`,
 and is synced like any local write. Restoring a library backup keeps the ids of the folders and
 notebooks (with their pages, outline, recordings, strokes and elements) that aren't here, so a
 second restore can tell what is here already; the user chooses to skip those or copy them again
 (new ids). A backup holds no trashed notebooks. Templates already present (same image blob) are
-not added twice, nor are notebook styles (same name and style); a restored default style stays the
+not added twice, nor are notebook styles (same name and style) or fonts (a font's id is its
+file's, so text keeps naming it: a font live here is skipped, one removed here comes back, written
+after its tombstone); a restored default style stays the
 default only where none is set yet. A file that isn't a zip, has no readable manifest or a newer `version` is
 refused and leaves nothing behind; otherwise damage is left out and reported, the rest imported:
 a blob whose bytes don't match its `<sha256>` counts as missing, a line that is not a record is
@@ -576,6 +578,7 @@ back to the blobs the zip holds.
 | `notebooks` | `{title, kind: "paged"|"canvas", paper, paperData: object, paperColor, coverColor, createdAt, editedAt, folderId: string|null, favorite: bool, trashedAt: int|null}` |
 | `pages`     | `{notebookId, sortKey, width, height, paper, paperData: object, paperColor, bookmarked: bool, background: object|null}` — see [Paper and pages](#paper-and-pages) |
 | `templates` | `{name, blob, width, height, createdAt}` — one of the user's own templates ("My templates"): `blob` is the `<sha256>` of a PNG or JPEG image ([blob](#blobs)), `width` / `height` (> 0) the size in world units (96 per inch) of pages made from it. Pages made from a template copy its blob into their `paperData`, so renaming or deleting (tombstoning) a template never changes existing pages. |
+| `fonts` | `{name, blob, createdAt}` — a font the user imported for text boxes: `blob` is the `<sha256>` of the TrueType / OpenType file (one face; [blob](#blobs)), `name` (non-empty) what pickers show (read from the file's name table when imported). The record's `id` is the first 32 hex digits of `blob`, so the same file imported on two devices is one record (anything else is malformed). Text names the font by that id (see [Text boxes](#text-boxes)); deleting (tombstoning) the record removes the font: text using it is shown in the default font (Inter), and its file is collected once nothing else references it. Importing the file again revives the record. |
 | `notebook_styles` | `{name, style, isDefault: bool, createdAt}` — one of the user's notebook styles: what a new notebook starts as. `style` = `{kind: "paged"|"canvas", paper, look, paperColor, format, orientation, coverColor, weekStart?, locale?}`: `paper` a built-in template name (never `image`; planners are generated from the day a notebook is made, in the style's calendar: for a planner `paper`, `weekStart` ∈ `monday`, `sunday` and `locale`, a planner language tag as in its `paperData`, are required; other templates have neither), `look` a paper look as in `paperData.look`, `paperColor` as on notebooks, `format` ∈ `a4`, `a5`, `letter`, `square`, `orientation` ∈ `portrait`, `landscape`, `coverColor` an ARGB integer. Every field is required (`weekStart` and `locale` for planners only); malformed → skipped. At most one style has `isDefault` true (marking one clears the others as further writes); should several arrive marked, the one with the latest `updatedAt` is the default. Notebooks made from a style copy its values, so editing or deleting a style never changes them. |
 | `strokes`   | `{surfaceId, tool, color, width, points (base64 little-endian Float32 x,y,pressure triples), createdAt, style}` — `tool` ∈ `ballpoint` (the pen), `highlighter`. `style` = `{o: opacity, th: thinning, sl: streamline, u?: unit, e: ends, ts?: taperStart, te?: taperEnd, cs?: cutStart, ce?: cutEnd, f?: fill, sh?: shape}` (`o`, `th`, `sl` in 0..1; `u`: world units per screen pixel when written, i.e. 1 / zoom; absent → estimated from the points). `e` is required: `round`, `flat` or `taper`; `ts` and `te` are required for `taper` only, each 0..24 multiples of stroke width (0 means round at that end). `cs` and `ce` mark ends cut by the pixel eraser (absent for the pen's own ends): `cs` (0 < cs ≤ 1) is where the first resampled point of the centre line lies after the first point, in resampling steps, so a fragment resamples where the stroke it was cut from did; `ce` is `true`. Cut ends have no pen-down/up hook trimmed. `f` is the fill colour of a closed shape (an ARGB integer, 0..0xFFFFFFFF, alpha included: tints are translucent), painted beneath the outline as the polygon through the points; absent for no fill, and only shown on a stroke whose last point is its first (within 0.01). `sh` is the geometry of a shape (drawn with the Shape tool or snapped), absent for free-hand ink: `{k: kind, p: [x0, y0, x1, y1, …], i?: inner, n?: tips, a?: attached, o?: origin}` with `k` ∈ `line`, `arrow` (2 points: tail, tip; or 3 for a bent one: tail, tip and the bend, the middle of the quadratic Bézier from tail to tip through it at t = ½), `rectangle` (4 corners in order), `triangle` (3 vertices), `diamond` (4 vertices: top, right, bottom, left of its frame), `polygon` (3–12 vertices), `circle` (2 points: the centre and a point on the rim), `ellipse` (3 points: the centre and the ends of two semi-axes u, v; the outline is centre + u·cos t + v·sin t; written perpendicular, and a reader makes conjugate ones perpendicular: the same ellipse), `star` (3 points: a frame like the ellipse's, not necessarily perpendicular, the outer points at −90° + k·360°/n of its unit circle; `i`, required for stars only, is the inner radius as a share of the outer one, 0.1..0.95; `n`, for stars only, the number of points, an integer 3..12; absent → 5, as written before stars had other numbers), `curve` (a cubic Bézier spline of 2..64 anchors: anchor, its outgoing handle, the next anchor's incoming handle, the next anchor, …; open, 3m − 2 points for m anchors; closed, 3m, the last being the first anchor's incoming handle — so a count ≡ 1 mod 3 is open, ≡ 0 closed, any other malformed). `o`, optional (any kind), is the shape's identity across edits: the id of the stroke it was first drawn as (non-empty). An edit replaces a stroke by a new one; a client editing a shape writes the new stroke with the old one's shape id — its `o`, else (never edited) its id — so the shape id of a stroke is its `o` if present, else its own id, and edits never change it. A copy (duplicated content, pasted, imported) is a new shape: it gets new ids, its `o` and the `id`s of its connectors mapped alike (an arrow copied with its box attaches to the copy). Absent: the stroke's id (data written before origins reads unchanged). `a`, optional and for `line` / `arrow` only, attaches their ends to other shapes (connectors): `[tail, tip]`, each `null` or `{id, t}` with `id` a closed shape's shape id (non-empty; for data written before origins, a stroke id: the shape id of a stroke without `o`) and `t` (0..1) the point on its outline in the shape's own terms: for rectangle, triangle, diamond, polygon and star `t·n = i + f` with `n` vertices (a star's outer and inner points alternating, from the top point), the point `f` of the way from vertex `i` to the next; for circle and ellipse the angle `2π·t` of centre + u·cos + v·sin (a circle's v is u turned a quarter, as its outline runs); for a closed curve `t·n = i + f` with `n` anchors, the cubic segment from anchor `i` at parameter `f`. The end's own point stays in `p` (readers draw it there); a client editing the target moves attached ends in the same change (their `id` stays: the target's shape id did not change). Several live strokes may have one shape id (the shape edited on two devices at once): an end belongs to the one it lies on (within 0.05), else to the stroke whose id is the shape id, else to the one of the least id. Concurrent edits can leave an end off its shape (one device moves the box, the other recolours the arrow): a client applying other devices' records then replaces each line on the surfaces they touched with an end not lying on the shape it names by a line moved onto it (the end to the outline point `t`, a bend kept), as an ordinary local edit: the old line deleted, the new one with id UUID v5 (namespace `6f1c2b0e-4f5d-5c8a-9a37-2d8e1c4b7a10`) of `"<line id>><tail stroke id>|<tip stroke id>"` (the strokes its ends are moved onto; empty for an end not moved or detached) and its points from those strokes alone, so devices repairing at once write the same record (not written again when that id is known here); a repaired line lies on its shapes, so nothing repairs it again. A shape id not on the stroke's surface (deleted, other page) is ignored: the end stays put. Absent: no end attached (data written before connectors reads unchanged); `a` on another kind, or a malformed entry, makes the record malformed. Coordinates are finite world units. The points are the outline built from it, so a client that ignores `sh` still draws the shape; a malformed `sh` (a wrong count of points, `i` missing on a star, `i` or `n` present on another kind) makes the record malformed. Unknown keys ignored. The highlighter has flat caps regardless of pen settings. `createdAt` is the wall time (epoch ms) the stroke was *begun* (pen down), not finished: strokes are painted in this order, and audio replay shows a stroke from the moment writing it started. |
 | `elements`  | `{surfaceId, type, x, y, w, h, rotation, z, createdAt, data}` — a non-ink object on a surface. `x, y, w, h` is the unrotated box in world units, `rotation` is clockwise radians about its centre, `z` the stacking order among elements. `type` = `text` (`data` = `{text, spans, paras, font, size, color, align, autoWidth, spacing?, flow?}`, see [Text boxes](#text-boxes)), `image` (`data` = `{blob, width, height, crop?}`, see below) or `link` (`data` = `{target}`, see [Links](#links)). Elements with `z < 0` are drawn beneath the ink, the others above it. Unknown types are stored and synced unchanged but not rendered; unknown `data` keys survive local edits. |
@@ -674,7 +677,9 @@ Enumerated values: `kind` as above (notebooks); `paper` and `paperColor` see [Pa
   (favourite, move, trash) only bump `updatedAt`.
 
 **Text boxes.** `text` is the plain text (lines separated by `\n`; what search indexes);
-`font` ∈ `inter`, `lora`, `mono`, `caveat` (the bundled fonts), `size` the body font size in world
+`font` ∈ `inter`, `lora`, `mono`, `caveat` (the bundled fonts) or the id of a user font (32
+lowercase hex digits, a [`fonts`](#app-collections-informational) record's id; a client without
+that live record, or without its file yet, shows the text in Inter and keeps the id), `size` the body font size in world
 units (6–400), `color` an ARGB int (0..0xFFFFFFFF), `align` ∈ `start`, `center`, `end`, and `autoWidth`
 whether the box grows with its text (`true`) or wraps at its width. `align` is relative to each
 paragraph's direction, which is not stored: a paragraph runs right-to-left when its first strong
@@ -686,7 +691,8 @@ one; list markers and hanging indents sit on the start side too. Formatting is c
 - `spans` = `[[start, end, style], …]` — character formatting of the UTF-16 range `[start, end)` of
   `text`, sorted, non-overlapping, never empty or unformatted. `style` holds only what is set:
   `b`, `i`, `u`, `s` (bold, italic, underline, strikethrough; `true`), `c` (colour) and `hl`
-  (highlight, translucent) as ARGB ints, `sz` (size in world units), `f` (font, as `font`). Unset
+  (highlight, translucent) as ARGB ints, `sz` (size in world units), `f` (font, as `font`: a
+bundled name or a user font's id). Unset
   attributes take the box's.
 - `paras` = `[para, …]` — empty when no line is formatted, else one object per line: `h` heading
   level (1 or 2), `l` list ∈ `bullet`, `number`, `check`, `x` ticked (`true`, checklists), `n` list
@@ -700,7 +706,7 @@ Example: `{"text": "Todo\nmilk", "spans": [[0, 4, {"b": true}]], "paras": [{"h":
 "x": true}], "font": "inter", "size": 24, "color": 4280229663, "align": "start", "autoWidth": true}`.
 Text `data` is parsed strictly (`TextRecord`): every key above except `spacing` is required and
 every value must be well-formed (spans in range, sorted and set; `paras` empty or one per line;
-known fonts, list kinds, alignments and spacings); otherwise the whole element record is malformed and skipped. Unknown keys are
+bundled fonts or user font ids, list kinds, alignments and spacings); otherwise the whole element record is malformed and skipped. Unknown keys are
 ignored and survive local edits. (Before schema version 14 `align` was `left` / `center` / `right`;
 the migration rewrote local boxes as `start` / `end` and sent them again.)
 

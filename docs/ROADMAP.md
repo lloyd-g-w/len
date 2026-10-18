@@ -75,7 +75,13 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Text: paragraph spacing (None / Small / Medium / Large below each paragraph, per box: format
   bar, on phones its ⋯; default in the Text tool's options), synced, flowing across pages, in PDF
   export, rich copy / paste (`margin-bottom`) and search highlights
-- ⬜ Text: font import, tables
+- ✅ Text: font import — your own TTF / OTF fonts for text boxes (font picker → Import font…,
+  Settings → Fonts; named from the file, shown in themselves): synced as a `fonts` record and a
+  blob on every platform incl. the web, carried by Len files (the fonts a notebook's text uses)
+  and backups, embedded (subset) in PDF exports when TrueType (CFF `.otf` boxes export as
+  images); removing a font, or one not on a device yet, shows its text in Sans and says so in the
+  picker
+- ⬜ Text: tables
 - ✅ Images: insert from files (top bar), the system clipboard (Ctrl+V), drag and drop (desktop) and
   the camera (Android); downscaled to 4096 px on import; beneath the ink by default with bring to
   front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;
