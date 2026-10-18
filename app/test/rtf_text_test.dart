@@ -265,7 +265,7 @@ void main() {
 
     test('list markers decide bullets and numbers without a list table', () {
       final d = _parse(
-        r"{\listtext 1.\tab}\ls1 one\par{\listtext a)\tab}\ls1\ilvl1 two\par"
+        r'{\listtext 1.\tab}\ls1 one\par{\listtext a)\tab}\ls1\ilvl1 two\par'
         r"\pard{\listtext\f0 \'95\tab}\ls2 three\par\pard{\pntext\f0 (iv)\tab}four\par"
         r'\pard\ls3\ilvl9 deep\par\pard plain',
       );
