@@ -12,18 +12,25 @@ import 'text_fonts.dart';
 
 /// The fonts the user imported for text boxes: importing and removing
 /// them, and loading each into the engine ([TextFonts]) once its file is
-/// on the device (fetched through sync when it is not), at launch and
-/// whenever sync brings a change.
+/// on the device (fetched through sync when it is not), at launch,
+/// whenever sync brings a change or a Len file is imported ([imports]).
+/// A font whose file could not be had (offline at launch, say) is tried
+/// again after each sync that worked ([syncStatus], [syncMark]) and each
+/// change sync brings.
 class UserFontLibrary extends ChangeNotifier {
   UserFontLibrary({
     required this.repository,
     required this.blobs,
     required this.fetch,
     Stream<RemoteChanges>? remoteChanges,
+    this.imports,
+    this.syncStatus,
+    this.syncMark,
   }) {
-    _changes = remoteChanges?.listen((c) {
-      if (c.fonts) unawaited(refresh());
-    });
+    _changes = remoteChanges?.listen((c) => unawaited(c.fonts ? refresh() : _retryMissing()));
+    imports?.addListener(_onImport);
+    _lastMark = syncMark?.call();
+    syncStatus?.addListener(_onSyncStatus);
   }
 
   final FontRepository repository;
@@ -31,8 +38,34 @@ class UserFontLibrary extends ChangeNotifier {
 
   /// Fetches a blob through sync (see `SyncController.fetchBlob`).
   final Future<bool> Function(String sha) fetch;
+
+  /// Notifies when a Len file was imported (it may bring fonts).
+  final Listenable? imports;
+
+  /// Notifies as sync's state changes; a font not loaded yet is tried
+  /// again when [syncMark] (when sync last worked) has changed.
+  final Listenable? syncStatus;
+  final Object? Function()? syncMark;
   StreamSubscription<RemoteChanges>? _changes;
+  Object? _lastMark;
+  Future<void>? _retrying;
   List<UserFont> _fonts = const [];
+
+  void _onImport() => unawaited(refresh());
+
+  void _onSyncStatus() {
+    final mark = syncMark?.call();
+    if (mark == _lastMark) return;
+    _lastMark = mark;
+    unawaited(_retryMissing());
+  }
+
+  /// Loads the fonts not loaded yet (one try at a time).
+  Future<void> _retryMissing() {
+    if (_fonts.every((f) => TextFonts.isLoaded(f.id))) return Future.value();
+    return _retrying ??= Future.wait([for (final f in _fonts) _ensureLoaded(f)])
+        .whenComplete(() => _retrying = null);
+  }
 
   /// The imported fonts, by name.
   List<UserFont> get fonts => _fonts;
@@ -105,6 +138,8 @@ class UserFontLibrary extends ChangeNotifier {
   @override
   void dispose() {
     unawaited(_changes?.cancel());
+    imports?.removeListener(_onImport);
+    syncStatus?.removeListener(_onSyncStatus);
     super.dispose();
   }
 }
