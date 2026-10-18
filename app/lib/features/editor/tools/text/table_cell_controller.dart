@@ -111,6 +111,23 @@ class TableCellController extends RichTextController {
     ]);
   }
 
+  /// A cell is no heading or list item: paragraph formats do nothing,
+  /// "- " typed at its start stays text.
+  @override
+  void toggleHeading(int level) {}
+
+  @override
+  void setHeading(int level) {}
+
+  @override
+  void toggleList(ListKind kind) {}
+
+  @override
+  bool indent(int delta) => false;
+
+  @override
+  void _autoList(int space) {}
+
   /// Undo and redo are the box's.
   @override
   bool undo() => owner.undo();

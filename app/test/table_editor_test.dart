@@ -107,6 +107,8 @@ void main() {
     expect(box.activeCell, 0);
     expect(cellField, findsOneWidget);
 
+    await typeInCell(tester, '- ');
+    expect(cells(box.data).first, '- ', reason: 'no list in a cell');
     await typeInCell(tester, 'a');
     await press(tester, LogicalKeyboardKey.tab);
     expect(box.activeCell, 1);
