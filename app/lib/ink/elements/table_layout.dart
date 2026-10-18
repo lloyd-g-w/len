@@ -1,8 +1,10 @@
+import 'dart:collection';
 import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../domain/text/table_cells.dart';
 import '../../domain/text/text_data.dart';
+import '../fonts/text_fonts.dart';
 import 'text_box_layout.dart';
 import 'text_wraps.dart';
 
@@ -37,7 +39,7 @@ class TableLayout {
             color: data.color,
             align: data.align,
           );
-          final layout = TextBoxLayout(cell, math.max(1, columnWidth(c) - 2 * padX));
+          final layout = cellLayout(cell, math.max(1, columnWidth(c) - 2 * padX));
           headerCells.add(layout);
           tallest = math.max(tallest, layout.height);
         }
@@ -51,7 +53,7 @@ class TableLayout {
         final cell = line < table.end
             ? data.cellData(line, start: lineStarts[line])
             : _empty(data, header: table.spec.hasHeaderRow && r == 0);
-        final layout = TextBoxLayout(cell, math.max(1, columnWidth(c) - 2 * padX));
+        final layout = cellLayout(cell, math.max(1, columnWidth(c) - 2 * padX));
         cells.add(layout);
         tallest = math.max(tallest, layout.height);
       }
@@ -73,6 +75,36 @@ class TableLayout {
       : table.spec.hasHeaderRow && rowHeights.isNotEmpty
       ? rowHeights.first
       : 0;
+
+  /// Cell layouts kept across the layouts of boxes (UX_AUDIT R26-19): a
+  /// keystroke in a cell lays the box out again, and only that cell's
+  /// layout is new (the others are found by their text and width). The
+  /// most recently used [cellCacheSize] are kept; all go when a font
+  /// loads or goes ([TextFonts.changes]).
+  static final LinkedHashMap<(TextData, double), TextBoxLayout> _cellCache = LinkedHashMap();
+  static int _cacheFonts = -1;
+  static const int cellCacheSize = 6000;
+
+  /// Cells laid out anew (for tests).
+  static int debugCellLayouts = 0;
+
+  /// The layout of [cell] at [width], from the cache when it was laid out
+  /// before (shared: never disposed; nothing paints into it).
+  static TextBoxLayout cellLayout(TextData cell, double width) {
+    final fonts = TextFonts.changes.value;
+    if (fonts != _cacheFonts) {
+      _cellCache.clear();
+      _cacheFonts = fonts;
+    }
+    final key = (cell, width);
+    final hit = _cellCache.remove(key);
+    if (hit != null) return _cellCache[key] = hit;
+    debugCellLayouts++;
+    final layout = TextBoxLayout(cell, width);
+    _cellCache[key] = layout;
+    if (_cellCache.length > cellCacheSize) _cellCache.remove(_cellCache.keys.first);
+    return layout;
+  }
 
   final TextData data;
   final TextTable table;

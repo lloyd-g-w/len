@@ -34,7 +34,7 @@ non-Western code pages pasted as gibberish; the zoom window right to left
 still pointed and grew as left to right; Escape did nothing once a control
 had focus; a version named with Rename… was thinned away; restores gave no
 sign of running. 43 findings: 0 P1, 18 P2, 25 P3; 33 fixed (16 P2, 17 P3),
-with tests; open: R26-16, R26-19 (P3).
+with tests; open: R26-16 (P3).
 
 ### Tables in text boxes
 
@@ -226,13 +226,21 @@ touch; a tap on one edits the cell under it", the `table_editing` golden).
 
 #### Large tables
 
-**R26-19 P3 · Every keystroke in a cell lays out every cell of the box, twice or more.** ⬜
+**R26-19 P3 · Every keystroke in a cell lays out every cell of the box, twice or more.** ✅
 `setCell` → `_relayout` builds a new `TextPlan` (a `TableLayout` per table, a
 `TextBoxLayout` per cell), the layer lays the box out again, and the session measures it
 for the page. Debug-mode probe, 10 keystrokes: 5 × 10 cells 0.8 s, 50 × 10 1.9 s,
 100 × 10 3.4 s (about 2.5 ms per extra row per keystroke, before release-mode speed-up).
-Comfortable to 50 rows; a 200-row table will lag. *Proposal:* keep cell layouts across
-plans keyed by the cell's data and width (only the edited cell changes per keystroke).
+Comfortable to 50 rows; a 200-row table will lag. *Fix:* cell layouts are kept across the box's layouts,
+found by the cell's text and width (`TableLayout.cellLayout`, the 6 000 most recent; cleared
+when a font loads or goes), so a keystroke lays out the edited cell alone; and two hidden
+quadratic costs went: each cell counted the box's lines to find its style
+(`TextData.paraOf`) and looked through all its spans (`cellData` now searches them), and
+`RichTextBuffer.spliceLines` found every line from the start. Benchmark
+(`test/perf/table_typing_perf_test`, debug test build, a keystroke = the controller's
+relayout plus the session's measure, 5 columns): 50 rows 65 → 4.4 ms, 200 rows 342 →
+9.7 ms, 1000 rows 60 ms (before: seconds) (`table_typing_test`: one cell laid out a
+keystroke in a 200-row table).
 
 ### Imported fonts, RTF paste, paragraph spacing
 
