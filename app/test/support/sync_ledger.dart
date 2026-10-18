@@ -60,7 +60,8 @@ class SyncLedger {
   };
 
   /// What the versions [s] saved since [before] as the state before a
-  /// restore hold (`table/id` of pages, strokes and elements): a restore
+  /// restore hold (`table/id` of pages, strokes, elements, recordings
+  /// and outline entries): a restore
   /// removes what synced in while it ran, kept in that version.
   static Future<Set<String>> savedBeforeRestores(
     AppServices s,
@@ -74,9 +75,11 @@ class SyncLedger {
       final version = versions.store.get(id);
       if (version == null || version.kind != VersionKind.restore) continue;
       final body = await versions.content.body(version);
-      for (final page in body.pages) {
-        out.add('pages/${page.id}');
-      }
+      out.addAll([
+        for (final page in body.pages) 'pages/${page.id}',
+        for (final r in body.recordings ?? const <VersionRecord>[]) 'recordings/${r.id}',
+        for (final e in body.outline ?? const <VersionRecord>[]) 'outline/${e.id}',
+      ]);
       for (final surface in [for (final p in body.pages) p.content, ?body.canvas]) {
         for (final item in await versions.content.itemIds(surface)) {
           out.addAll(['strokes/$item', 'elements/$item']);
