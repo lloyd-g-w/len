@@ -16,6 +16,7 @@ import 'package:len/features/history/version_history_sheet.dart';
 import 'package:len/features/history/version_row_text.dart';
 import 'package:len/features/library/library_menus.dart';
 import 'package:len/ui/app_theme.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'support/real_async.dart';
 
@@ -193,6 +194,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Rename version'), findsNothing);
     expect(s.versions.of(notebook.id).first.name, isNull);
+  });
+
+  testWidgets('a version given a name shows it is kept; its name cleared, it says Edited again', (
+    tester,
+  ) async {
+    final (_, recent) = await twoVersions(tester);
+    await open(tester);
+    final row = find.byKey(ValueKey('version-${recent.id}'));
+    Finder mark() => find.descendant(of: row, matching: find.byIcon(Symbols.bookmark_sharp));
+    String title() => tester
+        .widget<VersionRowText>(find.descendant(of: row, matching: find.byType(VersionRowText)))
+        .title;
+    expect(mark(), findsNothing);
+    s.versions.rename(recent.id, 'Draft');
+    await tester.pumpAndSettle();
+    // Kept until deleted, as a saved version is (R26-M1): it has the mark.
+    expect(mark(), findsOneWidget);
+    expect(find.descendant(of: row, matching: find.text('Draft')), findsOneWidget);
+    s.versions.rename(recent.id, '');
+    await tester.pumpAndSettle();
+    expect(mark(), findsNothing);
+    expect(title(), 'Edited');
   });
 
   testWidgets('preview, restore, and undo through the version saved before', (tester) async {
