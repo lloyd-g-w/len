@@ -13,7 +13,459 @@ Escape closing previews, the overview and Settings; Rename clearing a
 version's name; the curve and attaching tips; version restore changes.
 Paths are under `app/lib/`. ⬜ open, ✅ fixed on this branch.
 
-*In progress.*
+Three auditors (tables; fonts, RTF and spacing; the rest), each reading
+the code, probing suspicions with widget and unit tests (throwaway probes,
+the fixes' tests kept), rendering the screens touched (phone and tablet,
+light and dark, 1× and 2× text) and looking at them. Commits on the branch
+use the working ids: T*n* is R26-*n*, F*n* is R26-(19 + *n*), M*n* is
+R26-(31 + *n*).
+
+Summary: the engines are sound — every table command is one undo step,
+tables are repaired after any edit, PDF and HTML are faithful; fonts embed
+in PDFs and survive sync and Len files; RTF survives anything malformed;
+the stylus edge guard is scoped right. What was unfinished was the edges:
+the table size picker lost its last column on touch screens and could not
+be used from the keyboard, taps into a table over pages missed their cell,
+pastes lost columns or did nothing over a block, arrows in right-to-left
+tables went the wrong way, screen readers read the text after a table
+first; fonts brought by a Len file stayed missing until a restart, and
+Settings showed a missing font in Sans as if it were the font; RTF in
+non-Western code pages pasted as gibberish; the zoom window right to left
+still pointed and grew as left to right; Escape did nothing once a control
+had focus; a version named with Rename… was thinned away; restores gave no
+sign of running. 43 findings: 0 P1, 18 P2, 25 P3; 33 fixed (16 P2, 17 P3),
+with tests; open: R26-13, R26-14 (P2), R26-15–R26-19, R26-29–R26-31 (P3).
+
+### Tables in text boxes
+
+Read the table code (model, edits, controller, keys, editor layer, menus, flow, PDF,
+HTML / RTF, semantics) and probed each suspicion with widget and unit tests (throwaway
+probes; the fixes' tests kept): every table command undone and redone, blocks of cells,
+pastes, column drags, Backspace / Delete around a table, a heading or list item before
+it, right-to-left boxes with Hebrew, Latin and number cells, a table over two pages in
+continuous and one-page-at-a-time layouts, a 6 000-unit cell, 5 / 50 / 100 × 10 tables,
+screen-reader traversal. Rendered the picker and the table menu (phone ⋯ and sheet,
+tablet popover; light, dark, 2× text; keyboard focus) and the cell being edited, and
+looked at them. Verdict: the model and the editing engine are sound (every command one
+undo step, tables repaired after any edit, PDF and HTML faithful); the edges were not:
+the picker lost its last column on touch screens, taps into a table over pages missed
+their cell, pastes lost columns or did nothing, arrows in right-to-left tables went the
+wrong way from numbers, and screen readers heard the text after a table first.
+
+#### Inserting a table
+
+**R26-4 P2 · On touch screens the size picker's last column was cut off and could not be picked.** ✅
+- *What:* the picker padded itself (`Gaps.md`) inside the popover's own padding, leaving
+  224 dp for a grid of 8 × 30 dp touch cells: the eighth column was painted past the
+  grid's box, half of it, and taps there missed it (an Android tablet could pick at most
+  7 columns from the grid). The phone sheet had the same doubled margin.
+- *Fix:* the picker no longer pads itself (as the other popovers' contents); the grid is
+  whole (`table_editor_test`: the size picker shows its whole grid).
+
+**R26-5 P3 · The size picker's grid could not be used from the keyboard or a screen reader.** ✅
+Only three preset buttons (2 × 2, 3 × 3, 4 × 3) were reachable; the grid was a bare
+`GestureDetector` with no semantics. The grid now takes the focus when the picker opens
+(a focus ring in the accent when the keyboard is used), arrows size the table, Enter
+inserts it; screen readers read it as "Table size", its value "2 × 3", a tap inserts it
+(`table_editor_test`: the size picker takes the keyboard). The unused
+`TableSpec.maxPickerRows` went.
+
+**R26-6 P3 · A table inserted at the end of a heading or list item was followed by an empty heading or bullet.** ✅
+`insertTable` gave the line it adds after the table the style of the line the table went
+into: after "Title" (a heading) the next thing typed was a heading, after a list item an
+empty bullet showed. A line the table adds is now plain text; a heading or item split by
+the table goes on below it (`text_table_test`: the line a table adds after it is plain
+text).
+
+#### Cells and blocks of cells
+
+**R26-2 P2 · Ctrl+V with a block of cells selected did nothing.** ✅
+- *What:* a block selected (Shift+arrows, a drag) took Ctrl+C, Ctrl+X, Delete, but its
+  keys (`TableKeys.range`) ignored Ctrl+V: copying a block and pasting it over another, as
+  in any spreadsheet or word processor, silently did nothing.
+- *Fix:* Ctrl+V (Ctrl+Shift+V plain) edits the block's top left cell and pastes there
+  (`pasteIntoCells`): a table or tab-separated rows fill the cells from it on, one value
+  replaces that cell; one undo step (`table_editor_test`: Ctrl+V with a block of cells
+  selected pastes from its top left cell on).
+
+**R26-3 P2 · Rows pasted into a cell lost the columns past the table's last.** ✅
+- *What:* `pasteGrid` added rows for a taller paste but dropped every cell past the last
+  column: three columns from a spreadsheet pasted into a new 2-column table lost the third,
+  silently (only undo brought nothing back of it).
+- *Fix:* it adds columns too, up to `TableSpec.maxColumns` (12; only cells past that are
+  dropped, as a pasted HTML table's are) (`table_editor_test`: rows of tab-separated text
+  pasted into a cell fill cells, adding rows and columns).
+
+**R26-8 P3 · With several rows selected the menu still said "Delete row".** ✅ A block of
+cells deletes all its rows (or columns) as one step, but the rows read "Delete row" and
+"Delete column". They now say "Delete rows" / "Delete columns" when the block spans
+several (`table_editor_test`: with a block of rows selected the menu deletes rows).
+
+**R26-9 P3 · A column border dragged back where it was made an undo step that did nothing.** ✅
+`commitWidths` ran at every drag's end; now only when the widths changed
+(`table_editor_test`: dragging a column border resizes it, one undo step).
+
+**R26-12 P3 · Typing, Tab or Enter with a block of cells selected did nothing.** ✅
+`TableKeys.range` handled copy, cut, paste (R26-2), Delete, arrows, Esc and formatting;
+a typed letter was dropped, Tab moved the focus out of the box to the next control (the
+format bar), Enter was ignored. Now, as in spreadsheets, a character typed replaces the
+block's first cell and edits it (one undo step), Tab and Enter edit its first cell,
+Shift+Tab its last (`table_editor_test`: with a block selected a character replaces its
+first cell; Tab edits it).
+
+#### Right to left
+
+**R26-11 P2 · In a right-to-left table, ← and → went to the wrong cell from a number or Latin word.** ✅
+- *What:* at a cell's edge an arrow went to the next or previous cell in reading order,
+  chosen by the arrow's direction *in the cell's text*: in a Hebrew or Arabic table a cell
+  holding "12" or "PDF" runs left to right, so → at its right end went to the next cell,
+  which is on the left (← likewise to the right): the caret jumped against the arrow.
+  Shift+arrows (by the table's direction) were right.
+- *Fix:* the arrow picks the cell on its side of the table (`TableKeys._sideways`), the
+  edge still by the cell's text (`table_editor_test`: in a right-to-left table arrows go
+  to the cell on their side, numbers too).
+
+**R26-7 P3 · A right-to-left table copied to another app came out left to right.** ✅
+In a Hebrew or Arabic box the first column is on the right (`TableLayout`, by the box's
+direction), but the HTML copy (`htmlFromText`) wrote a plain `<table>`: Word or Docs put
+the first column on the left, mirroring the table. A right-to-left box's table is now
+written `<table dir="rtl">` (`table_clipboard_test`: a right-to-left box writes its table
+right to left).
+
+#### Tables over pages
+
+**R26-1 P2 · A tap in a table cell of a box flowing over pages opened the chain at its end, not in that cell.** ✅
+- *What:* a tap in a committed table edits the cell tapped (`TextHitTest.cellAt` →
+  `TextEditSession.edit(caret:)`), but a box of a chain is opened as the whole chain
+  (`_editChain`), which dropped the caret for the end of the tapped part: in a long table
+  over two pages the caret went to the end of the text, not into the cell.
+- *Fix:* `_editChain` maps the tapped offset into the whole text (`_startOf` the part plus
+  the offset), on the first page and on the pages after
+  (`text_flow_session_test`: a tap in a table cell of a chain edits that cell).
+
+**R26-13 P2 · In one-page-at-a-time layouts a column added to (or removed from) half of a split table splits it in two.** ⬜
+- *What:* with pages shown one at a time a box of a chain is edited alone
+  (`_Flow.alone`). Adding or deleting a column in the part of a table on one page changes
+  only that part; `TextFlow.join` joins parts with as many columns only, so the stored
+  text becomes two tables (page 1: 2 columns, page 2: 3; probe:
+  `TextTable(…c: 2…), TextTable(…c: 3, k: true)`). Column widths dragged and the header
+  row toggled on a continued part are silently reverted (`join` keeps the first part's
+  spec). Continuous layouts edit the whole chain and are fine.
+- *Proposal (owner decision):* either (a) edit a chain whose table crosses the page as
+  a whole even when pages show one at a time (the head's page is activated, as the
+  continuous layout does), or (b) carry the edited part's widths and header back to the
+  table's other parts on commit (`_commitAlone`, like `_carryFirstLine`) and disable the
+  column commands (insert / delete column) in a table that goes on over a page edited
+  alone, with a hint ("Show pages together to change columns").
+
+**R26-14 P2 · A row taller than a page runs off the page.** ⬜ `TextFlowLayout.split`
+cuts between lines, and a table row is one line: a cell holding a few thousand words
+(probe: a 6 012-unit row, 700 units of room) makes a part as tall as the row, far past
+the page's bottom margin and edge. Plain paragraphs split line by line. *Proposal:* split a row taller than the room between its cells' lines (each
+cell cut at the same height, the row continued as a `continued` table with the rest of
+each cell), or at least clip the part at the page's edge and say "This row is taller than
+a page" when it is edited.
+
+**R26-15 P3 · A table's header row is not repeated on the pages it continues on.** ⬜
+By design (`TableSpec.hasHeaderRow` is false for a continued part), unlike Word / Docs'
+"repeat header row". *Owner decision:* repeat the header (bold, read-only copy drawn
+above the continued rows, not in the text) or keep as is.
+
+#### Screen readers
+
+**R26-10 P2 · Screen readers read the text after a table before the table.** ✅
+- *What:* a box with a table was one node labelled with all its text outside tables
+  (`TextTableSemantics.textOutside`), the table's nodes after it: "Shopping. Total is
+  fine." and only then the rows, though "Total is fine" stands below the table.
+- *Fix:* the box's node reads the text before its first table; after each table a node
+  (where that text is laid out) reads the text up to the next table
+  (`table_semantics_test`: the text after the table is read after it).
+
+**R26-16 P3 · While a table is edited, screen readers get only the cell being edited.** ⬜
+`TextBoxSemantics` leaves the edited box out; `TableEditorLayer` paints the other cells
+(`_TablesPainter`) without nodes, and its field is named "Row r, column c" but not as a
+header. A screen-reader user on a touch tablet cannot reach another cell except by
+leaving the box. *Proposal:* the layer gives each painted cell a node (`SemanticsRole.cell`
+/ `columnHeader`, its text) whose tap action enters it, as `TextTableSemantics` does for
+committed boxes.
+
+#### Phone and touch
+
+**R26-17 P3 · On phones the text ⋯ in a table holds 13 rows.** ⬜ The docked bar has no
+table button, so its ⋯ gains the 8 table commands, above the 4 paragraph spacings and
+Delete text box (the whole 844-dp screen; at 2× text the rows truncate, "Insert column
+l…", "Small paragrap…"). *Proposal:* one row "Table…" opening the table menu from ⋯ (as
+Version history… holds its commands), keeping ⋯ at 6 rows.
+
+**R26-18 P3 · Column borders are 16 dp grips on touch screens too.** ⬜
+`TableEditorLayer._grip` is 16 screen px for mouse, stylus and finger alike, invisible,
+and there only while a cell is edited: with a finger they are hard to hit, and nothing
+says they are there. *Proposal:* `Targets`-sized grips on touch (24 dp, still clear of
+the cell text's padding), and a short accent tick on each border of the edited row as
+the handle.
+
+#### Large tables
+
+**R26-19 P3 · Every keystroke in a cell lays out every cell of the box, twice or more.** ⬜
+`setCell` → `_relayout` builds a new `TextPlan` (a `TableLayout` per table, a
+`TextBoxLayout` per cell), the layer lays the box out again, and the session measures it
+for the page. Debug-mode probe, 10 keystrokes: 5 × 10 cells 0.8 s, 50 × 10 1.9 s,
+100 × 10 3.4 s (about 2.5 ms per extra row per keystroke, before release-mode speed-up).
+Comfortable to 50 rows; a 200-row table will lag. *Proposal:* keep cell layouts across
+plans keyed by the cell's data and width (only the edited cell changes per keystroke).
+
+### Imported fonts, RTF paste, paragraph spacing
+
+#### Imported fonts
+
+Looked at: Settings → Fonts on phone and tablet, light and dark, 1× and 2× text, empty, with a
+font not on this device and a 48-character name (rendered and looked at); Remove (confirm,
+Undo, sync); the font picker with 40 imported fonts and long names (phone, tablet); missing
+fonts on the canvas, in the picker and in PDF export (TrueType embedded as a subset, CFF and
+missing files as an image of the box: `user_fonts_ui_test`). Settings wraps long names, reads
+the name and not the pangram, and keeps its rows at 2×; the empty state is the import row.
+
+**R26-20 P2 · Fonts brought by a Len file, or not fetched at launch, stayed "Missing" until Len restarted.** ✅
+- *What:* `UserFontLibrary` (`ink/fonts/user_font_library.dart`) re-read the library only at
+  launch and when sync brought a font record. Importing a notebook or backup that carries a font
+  wrote it to the database but not to the in-memory library: its text showed in Sans, the picker
+  said "Missing font", until a restart. A font whose file could not be fetched at launch
+  (offline, say) stayed "Not on this device yet" for the session.
+- *Fix:* the library refreshes when a Len file is imported (`LenArchives` notifies) and tries
+  the fonts not loaded yet again after each sync that worked and each change sync brings
+  (`user_fonts_test`: the Len files case now checks the library; "a font whose file couldn't be
+  had is tried again after a sync that worked").
+
+**R26-21 P2 · Settings → Fonts showed a font that isn't on this device with a Sans sample, as if it were the font.** ✅
+- *What:* `features/settings/font_settings.dart` drew each font's pangram through
+  `fontSample`, which falls back to Inter while the file isn't here (not synced yet, offline):
+  the row looked fine but showed the wrong typeface, without a word (the picker says "Not on
+  this device yet"). It also listened only to the library, so a sample drawn before the file
+  loaded stayed in Sans; and screen readers read the pangram after every font's name.
+- *Fix:* such a row says "Not on this device yet" and has no sample; the section rebuilds on
+  `TextFonts.changes`; the sample is left out of semantics (`font_settings_test`).
+
+**R26-27 P3 · With many fonts the picker opened at Sans, the current font out of sight.** ✅
+The font menu (`features/editor/tools/text/font_menus.dart`, through `showMenuBelow`) is a
+plain popup menu: with 40 fonts it fills a phone's height and opens at its top, so the checked
+font — the last one, say — was 2 100 dp down, and nothing showed which was current. `MenuRow`
+(`ui/menus.dart`) now scrolls a checked row into view when its menu opens (any long menu with a
+check benefits; short ones don't move) (`user_fonts_ui_test`: "with many fonts the picker
+opens scrolled to the current one").
+
+**R26-28 P3 · Remove didn't say the font goes from every device.** ✅
+`FontImport.remove` asked "Text in this font is shown in Sans until you import it again"; the
+removal syncs, so other devices lose it too. Now "… shown in Sans on all your devices until you
+import it again"; Remove → confirm → Undo had no test and now has one (`font_settings_test`).
+(Also on this branch: "TrueType" and "OpenType" added to `copy_rules_test`'s names, which
+R26-23's message tripped.)
+
+**R26-29 P3 · Fonts are listed by plain text order: "Font 10" before "Font 2".** ⬜
+`FontRepository.list` sorts `ORDER BY name COLLATE NOCASE` (Settings and the picker). Families
+with numbers ("Source Serif 4", "Font 2 / 10") sort oddly. *Proposal:* a natural order (digit
+runs compared as numbers) in Dart after the query.
+
+**R26-30 P3 · Text in a missing font keeps its box's frame from the real font.** ⬜
+A box's rect was measured in its font on the device that wrote it; where the font is missing
+the text is laid out in Sans in that width (`ElementRenderer._drawText`, not clipped), wraps
+differently (Sans is wider than a hand font such as Caveat) and may run past the frame's bottom and
+its selection outline. It is right again once the file
+arrives; editing it there saves the Sans height. *Proposal:* accept (the fallback is said in
+the picker), or re-measure missing-font boxes for display only. Owner's call.
+
+#### RTF paste
+
+Looked at besides F3 and F6 (probes, `textFromRtf`): unbalanced braces, extra closing braces,
+100 000 nested groups, truncated and bad `\'hh`, out-of-range and lone-surrogate `\u`, `\uc`
+past the text, `\bin` with a huge count, huge, zero and negative `\fs` (sizes clamp), undefined
+`\f` / `\cf`, fields (the result is kept, the instruction dropped), objects and shapes (their
+results only), NULs, unclosed tables and 200 000 table rows (1.2 s in a debug test). None
+throws or pastes junk; a number of more than ten digits leaves the rest as text, harmless.
+
+**R26-22 P2 · RTF in Greek, Turkish, Hebrew, Arabic, Baltic, Vietnamese, Thai or East Asian code pages pasted as gibberish.** ✅
+- *What:* `domain/text/rtf_code_pages.dart` decoded `\'hh` bytes only for code pages 1250, 1251
+  and 1252 and read every other as Latin-1. WordPad writes text its font's charset covers as
+  bytes of that charset (`\fcharset161` Greek: `\'e1\'e2\'e3`), so a Greek line pasted as
+  "áâã", Hebrew or Arabic as accented Latin, and Japanese / Chinese / Korean (double-byte, also
+  unmapped charsets 128 / 129 / 134 / 136) as control characters — worse than the plain text
+  the clipboard also holds.
+- *Fix:* tables for 874, 1253–1258, Mac Roman, 437 and 850 (`rtf_code_page_tables.dart`,
+  generated from Python's codecs); text in a double-byte code page makes `textFromRtf` give up,
+  so the plain text pastes instead (Word's `\u` with double-byte fallbacks still reads)
+  (`rtf_text_test`: "\'hh in Greek, Turkish, …", "East Asian double-byte text is not read").
+
+**R26-23 P3 · Importing a font already there said "Added"; a refused file's reason hid behind Details.** ✅
+`features/fonts/font_import.dart`: the same file again said "Added “Caveat”" (nothing was
+added), and a file that is no font said "Couldn’t import “x.otf”" with the reason only under
+Details. Now "“Caveat” is already in your fonts" and "“notes.otf” isn’t a TrueType or OpenType
+font" (`NotAFontException`); Details stays for files the engine refuses (`font_import_test`).
+
+#### Paragraph spacing
+
+Looked at: the format bar and its menu (phone at 2×, tablet at 1× and 2×), the Text options at
+2× (rendered); undo, flow across pages, PDF, HTML copy and right-to-left text are covered by
+`paragraph_spacing_test`, `paragraph_spacing_ui_test`, `pdf_text_export_test` and
+`rtl_text_golden_test`, read and run; no new findings there.
+
+**R26-31 P3 · On phones at 2× text the ⋯'s spacing rows are cut: "No paragraph s…", "Small paragrap…".** ⬜
+`TextFormatBar`'s docked ⋯ lists the four spacings as "No paragraph spacing", "Small paragraph
+spacing", … (beside Insert table… and Delete text box); at 2× text they truncate to the
+first word. *Proposal:* with R26-17's "Table…", one row "Paragraph spacing" with the current
+one as its caption, opening the four-choice menu the tablet's button shows.
+
+**R26-24 P3 · At large text the Text options cut "Paragraph spacing" to "Paragraph".** ✅
+`ParagraphSpacingRow` and `FontMenuRow` (`features/editor/tools/text/`) were fixed at a menu
+row's height, so a label that wraps at 2× lost its second line. They are now at least that high.
+The format bar's size number (the other auditor's "24" wrapping, phones and tablets alike at 2×)
+no longer wraps either: at least 28 wide, one line, tabular figures (`text_controls_large_text_test`;
+six text goldens moved by the figures).
+
+**R26-25 P3 · Pasting RTF with a large picture froze Len for about a second.** ✅
+`textFromRtf` trimmed trailing NULs with `RegExp(r'\x00+$')`, which tries every position of
+the string: with WordPad's hex for a 10 MB picture (20 MB of text) that took 0.7 s on the UI
+thread, and the tokenizer copied text a character at a time. A loop trims the NULs and text runs
+are copied whole: 0.07 s (`rtf_text_test`: "a large picture is skipped about as fast as its text
+is read", relative to reading the text once).
+
+**R26-26 P3 · The lasso's style panel set text boxes' font and size but not their paragraph spacing.** ✅
+`features/editor/tools/selection_style_panel.dart` had Font and Size for selected text boxes;
+spacing could only be set one box at a time while editing. It now has the Text options' row
+("Mixed" when the boxes differ), one undo step, boxes resized
+(`paragraph_spacing_ui_test`: "the lasso's style panel spaces the selected boxes…";
+`text_lasso_style.png` updated).
+
+### The rest: versions, zoom window right to left, Escape, tips
+
+Looked at the zoom window right to left, the stylus edge guard, Escape
+closing previews, the overview, Settings and the Ink Lab, Rename clearing a
+version's name, the curve and attaching tips, and version restore. Read the
+code, probed each suspicion with a widget or unit test (throwaway probes;
+the fixes' tests kept), rendered the zoom window right to left (phone and
+tablet, light and dark, 1× and 2× text, with its menu) and the curve and
+attach tips with the Rename prompt (390 and 1280 dp, light, dark, 2×
+text), and looked at them. Probed Escape with a text field or a control
+focused and with a menu open, and a restore with one notebook in both
+panes of split view (both panes' undo and redo go off, as R25-6 wants).
+Verdict: the engines hold (the stylus edge guard is sound: held only while
+an editor's route is current and its pane not parked, counted across
+panes, released under dialogs and screens; natively stylus and eraser
+only, never fingers or mice; band unit tests cover placement); what was
+unfinished was right to left in the zoom window, Escape from inside a
+page, and feedback while a version is restored.
+
+#### Version history
+
+**R26-32 P2 · A version named later with Rename… was still thinned away.** ✅
+- *What:* thinning (`data/versions/version_policy.dart`) kept versions by
+  kind: Save version… made a `named` one, kept until deleted, but an
+  automatic version given a name with Rename… stayed `auto` and went with
+  its hour's or day's bucket — the name the user gave so as to find it
+  again was lost with it.
+- *Fix:* `VersionInfo` carries `named` (it has a name) and thinning skips
+  named versions of any kind; clearing the name lets it thin again
+  (`version_history_test` "an automatic version given a name stays; its
+  name cleared, it thins again"; ARCHITECTURE "Version history").
+
+**R26-40 P2 · Restore and Copy gave no sign of running.** ✅
+- *What:* R25-4 made a second tap on Restore or Copy do nothing while the
+  first runs, silently: on a large notebook the buttons looked dead, and a
+  copy from a row's ⋯ showed nothing until its snack bar.
+- *Fix:* `versionWork` (`history/version_flows.dart`, a `ValueNotifier`
+  replacing the private `_busy` flag; one restore or copy app-wide, as
+  before) drives the preview's buttons ("Restoring…", "Copying…", all off
+  meanwhile; the page view's Restore this page too) and an indeterminate
+  `LinearProgressIndicator` on a `Hairline.rule` line under the history's
+  header (as the scan screen's), labelled for screen readers
+  (`version_history_ui_test` "while a restore runs, the preview says so and
+  takes no other").
+
+**R26-42 P3 · A version named with Rename… lacked the kept mark.** ✅ After
+R26-32 it is kept like a saved one, but only `VersionKind.named` rows had
+the bookmark. The row now marks any version with a name (or saved by
+hand); clearing the name drops the mark and the title says Edited again
+(`history/version_row.dart`; `version_history_ui_test` "a version given a
+name shows it is kept").
+
+**R26-43 P3 · A restore's Undo was not in the one-at-a-time rule.** ✅ The
+snack bar's Undo ran `versions.restore(before)` outside `_once`, so a
+restore started from the history while it wrote was not refused, and the
+buttons didn't say Restoring…. Undo now waits for a restore or copy
+running, then runs as a restore (refusing it would lose the Undo, which the
+snack bar takes with it) (`version_history_ui_test` "preview, restore, and
+undo through the version saved before").
+
+#### Zoom window right to left
+
+**R26-33 P2 · Right to left, ↵ still pointed left.** ✅ The rail's next-line
+button showed the left-to-right return glyph while a new line goes back to
+the right. `ZoomBoxRail` takes `rightToLeft` and mirrors ↵
+(`zoom/zoom_box_rail.dart`; `zoom_window_rtl_test` "right to left, ↵
+points back to the right").
+
+**R26-34 P2 · Right to left, a narrower box (rotation, resize) moved the line's start.** ✅
+`ZoomWindow.setBox` kept the frame's top-left, which right to left is the
+line's end: the frame's right edge, where writing goes on, jumped left.
+It now keeps the top-right right to left (`zoom_window_rtl_test` "a
+narrower box keeps the frame's right edge").
+
+**R26-35 P2 · In split view, the direction set in one pane's box left the other's box running the old way.** ✅
+The preference is shared, but only the box whose ⋯ was used called
+`directionChanged`: the other pane's frame advanced the wrong way until
+reopened. Each `ZoomBox` now listens to the preferences and turns over
+when the direction changes, wherever it was set (`zoom_window_rtl_test`
+"the direction set elsewhere turns this box over too").
+
+**R26-36 P3 · The Right to left row's caption wrapped at 2× text.** ✅
+"Lines advance leftwards" took two lines in the box's menu on a phone at
+2× text; it is now "Lines go left" (`zoom/zoom_box_menu.dart`).
+
+#### Escape
+
+**R26-37 P3 · Escape did not close the Ink Lab.** ✅ Settings closes on
+Escape (R25-8) but the Ink Lab, opened from it, did not: Escape there did
+nothing. The lab is wrapped in
+`EscapeCloses` (`inklab/inklab_screen.dart`; `inklab_screen_test` leaves
+the lab with Escape).
+
+**R26-41 P2 · Escape did nothing once a control in the page had focus.** ✅
+- *What:* `EscapeCloses` (R25-8) only worked while its own focus node held
+  focus. After Tab to a switch or button, or typing in Settings' Server URL,
+  Escape did nothing: Flutter's Escape shortcut takes only the *nearest*
+  `DismissIntent` action, and every `Scaffold` has one (closing its
+  drawer) that is off with no drawer open. Settings, the version preview
+  and its page view, the page overview and the Ink Lab all had it.
+- *Fix:* `EscapeCloses` sees Escape bubble up first (`Focus.onKeyEvent`): a
+  nearer action that is on keeps it (an open drawer); in a text field it
+  leaves the field (a second Escape closes; what was typed is not lost to
+  one stray key); else it asks the route to pop. Menus and popovers over
+  the page close alone, no double pop (`escape_closes_test`: a focused
+  control, a text field, a menu open).
+
+#### Tips
+
+**R26-38 P2 · The attach tip showed mid-drag.** ✅ The tips wait for the pen
+to rest before showing (so they never cover what is being drawn), but
+dragging a line's end onto a shape is not "drawing": the attach tip
+appeared under the hand while the end was still moving. A change of the
+selection while attaching now restarts the rest timer
+(`chrome/editor_tips.dart`; `tip_budget_test` "ends attach to shapes, once
+the drag rests").
+
+**R26-39 P3 · The curve tip said tap and double-tap with a mouse.** ✅
+`tipMessage` takes `touch` (`Targets.touchFirst`): with a pointer it says
+"Click the curve to add a point; double-click a point to remove it"
+(`tip_budget_test` "with a mouse, the curve tip says click").
+
+#### Checked, no findings
+
+Stylus edge guard (`features/editor/stylus_edge_guard.dart`,
+`platform/stylus_edges.dart`, `StylusEdgeGuard.kt`): see the verdict;
+`stylus_edges_test` covers routes, dialogs, split view and parked panes.
+Settings has no sub-pages besides the Ink Lab (R26-37). Tips at 390 dp, dark
+and 2× text wrap to two lines inside the banner; the banner is a live
+region, so screen readers announce it. Restore: offline, a version whose packs are not here is refused ("This
+version isn’t on this device yet…"); the snack bar shows on the screen behind the history,
+its Undo restores the version saved before.
 
 ## Round 25 audit — the last day's features together (`audit/r13`)
 
