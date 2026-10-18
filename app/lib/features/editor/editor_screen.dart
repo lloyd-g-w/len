@@ -46,6 +46,7 @@ import 'sidebar/page_sidebar.dart';
 import 'split/split_controller.dart';
 import 'split/split_view.dart';
 import 'split/split_view_menu.dart';
+import 'stylus_edge_guard.dart';
 import 'tabs/open_notebooks.dart';
 import 'toolbar_measure.dart';
 import 'zoom/zoom_window_state.dart';

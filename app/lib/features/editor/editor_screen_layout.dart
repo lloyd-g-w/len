@@ -15,25 +15,28 @@ extension _EditorLayout on _EditorScreenState {
         EditorTopBar.showsStrip(Size(primaryWidth, MediaQuery.sizeOf(context).height), open);
     // Back (e.g. Android's) leaves focus mode before leaving the editor;
     // a box being typed in finishes first (its own handler, after this one).
-    return PopScope(
-      canPop: !_focus,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !_session.content.text.isEditing) _setFocus(false);
-      },
-      child: Scaffold(
-        body: CallbackShortcuts(
-          bindings: _shortcuts(tabs),
-          child: Focus(
-            focusNode: _focusNode,
-            autofocus: true,
-            onKeyEvent: _onKey,
-            // Where the toolbar docks depends on its width (the slot counts);
-            // other tool changes never rebuild the editor (the toolbar's
-            // parts listen to the tools themselves).
-            child: ListenableBuilder(
-              listenable: _toolbar,
-              builder: (context, _) => LayoutBuilder(
-                builder: (context, constraints) => _buildArea(context, constraints, tabs, band),
+    // A stylus at the screen's edge writes rather than going Back.
+    return StylusEdgeGuard(
+      child: PopScope(
+        canPop: !_focus,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && !_session.content.text.isEditing) _setFocus(false);
+        },
+        child: Scaffold(
+          body: CallbackShortcuts(
+            bindings: _shortcuts(tabs),
+            child: Focus(
+              focusNode: _focusNode,
+              autofocus: true,
+              onKeyEvent: _onKey,
+              // Where the toolbar docks depends on its width (the slot counts);
+              // other tool changes never rebuild the editor (the toolbar's
+              // parts listen to the tools themselves).
+              child: ListenableBuilder(
+                listenable: _toolbar,
+                builder: (context, _) => LayoutBuilder(
+                  builder: (context, constraints) => _buildArea(context, constraints, tabs, band),
+                ),
               ),
             ),
           ),

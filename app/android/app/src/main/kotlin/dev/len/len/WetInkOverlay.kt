@@ -32,7 +32,11 @@ import io.flutter.plugin.common.StandardMessageCodec
  * The overlay keeps each point until the Flutter frame showing it has been
  * on screen for sure ([WetInkHandover]).
  */
-class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
+class WetInkOverlay(
+    private val host: Host,
+    messenger: BinaryMessenger,
+    private val onEdges: (Boolean) -> Unit = {},
+) {
     /** Where the overlay lives: the Flutter view. */
     interface Host {
         fun flutterView(): View?
@@ -207,6 +211,8 @@ class WetInkOverlay(private val host: Host, messenger: BinaryMessenger) {
                 render()
             }
             "log" -> logging = message.getOrNull(1) == true
+            // Whether an editor shows: guard the screen's edges (StylusEdgeGuard).
+            "edges" -> onEdges(message.getOrNull(1) == true)
         }
         if (contacts.isNotEmpty()) startTicking()
     }

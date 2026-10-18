@@ -402,11 +402,13 @@ From the reports; the owner picks. Status as above.
   it start when retried as Len leaves the front (`onPause`)? And the gap between parts
   while a recording plays part by part (ExoPlayer).
 
-- ⬜ **Stylus edge swipes** (UX_AUDIT R15-6): with gesture navigation, a pen stroke starting
-  at the screen's left or right edge may become Back (the stroke is now kept when cancelled,
-  R15-5). Check on the tablet whether One UI routes stylus edge swipes at all; if it does,
-  set system gesture exclusion rects over the canvas while a stylus is near (Android caps
-  them at 200 dp per edge).
+- 🚧 (fix/edge-swipes) **Stylus edge swipes** (UX_AUDIT R15-6): with gesture navigation, a pen
+  stroke starting at the screen's left or right edge may become Back (the stroke is kept when
+  cancelled, R15-5). While an editor shows, `StylusEdgeGuard.kt` excludes a 200-dp band (Android's
+  cap per edge) centred on the stylus's y at both edges while it hovers or touches
+  (`View.setSystemGestureExclusionRects`, Android 10+; fingers and mice never); ARCHITECTURE
+  *Stylus edge swipes*. Remains: on the tablet, whether One UI routes stylus edge swipes to Back at
+  all, that the band stops it, and that a finger's Back still works.
 - ⬜ **Tablet checks for round 15**: the hover preview beside Samsung's own hover pointer (does
   the system draw one over Len? Flutter asks for a crosshair, `SystemMouseCursors.precise`);
   whether the S Pen streams hover events while held still (the cursors expire after 500 ms

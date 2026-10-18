@@ -40,6 +40,10 @@ SampleSource? openStylusSamples({
   return LowLatencySource(merger, wetInk, wetInkNext, wetInkView, _devicePixelRatio);
 }
 
+/// Whether the screen's edges can be kept free of the Back gesture for a
+/// stylus (`StylusEdges`; Android).
+final bool stylusEdgesSupported = Platform.isAndroid;
+
 double _devicePixelRatio() =>
     WidgetsBinding.instance.platformDispatcher.implicitView?.devicePixelRatio ?? 1;
 
