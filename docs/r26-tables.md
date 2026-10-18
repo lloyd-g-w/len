@@ -41,7 +41,15 @@ several (`table_editor_test`: with a block of rows selected the menu deletes row
 `commitWidths` ran at every drag's end; now only when the widths changed
 (`table_editor_test`: dragging a column border resizes it, one undo step).
 
-### Screen readers
+**R26-T11 P2 · In a right-to-left table, ← and → went to the wrong cell from a number or Latin word.** ✅
+- *What:* at a cell's edge an arrow went to the next or previous cell in reading order,
+  chosen by the arrow's direction *in the cell's text*: in a Hebrew or Arabic table a cell
+  holding "12" or "PDF" runs left to right, so → at its right end went to the next cell,
+  which is on the left (← likewise to the right): the caret jumped against the arrow.
+  Shift+arrows (by the table's direction) were right.
+- *Fix:* the arrow picks the cell on its side of the table (`TableKeys._sideways`), the
+  edge still by the cell's text (`table_editor_test`: in a right-to-left table arrows go
+  to the cell on their side, numbers too).
 
 **R26-T10 P2 · Screen readers read the text after a table before the table.** ✅
 - *What:* a box with a table was one node labelled with all its text outside tables

@@ -204,6 +204,32 @@ void main() {
     expect(box.modelSelection.start, lessThanOrEqualTo(3));
   });
 
+  testWidgets('in a right-to-left table arrows go to the cell on their side, numbers too', (
+    tester,
+  ) async {
+    final b = RichTextBuffer(const TextData(text: 'שלום'));
+    final t = b.insertTable(4, 1, 3);
+    for (final (k, s) in ['אב', '12', 'הו'].indexed) {
+      b.setCell(t.line + k, s, List.filled(s.length, SpanStyle.plain));
+    }
+    await openBox(tester, b.toData(const TextData()));
+    final box = boxController(tester);
+    // The first column is on the right; "12" runs left to right in its cell.
+    box.enterCell(t.line + 1, atEnd: true);
+    await tester.pumpAndSettle();
+    await press(tester, LogicalKeyboardKey.arrowRight);
+    expect(box.activeCell, t.line, reason: '→ at the right end of 12: the cell on the right');
+    box.enterCell(t.line + 1);
+    await tester.pumpAndSettle();
+    await press(tester, LogicalKeyboardKey.arrowLeft);
+    expect(box.activeCell, t.line + 2, reason: '← at the left end of 12: the cell on the left');
+    // Hebrew runs right to left: its end is on the left.
+    box.enterCell(t.line, atEnd: true);
+    await tester.pumpAndSettle();
+    await press(tester, LogicalKeyboardKey.arrowLeft);
+    expect(box.activeCell, t.line + 1);
+  });
+
   testWidgets('a block of cells: Shift+arrow selects, copy as table, delete clears', (
     tester,
   ) async {

@@ -113,19 +113,22 @@ abstract final class TableKeys {
         ? selection.extentOffset >= cell.text.length
         : selection.extentOffset <= 0;
     if (!atEdge || (!_shift && !selection.isCollapsed)) return false;
-    // Columns run in the box's direction.
+    // Columns run in the box's direction; the arrow goes to the cell on
+    // its side (a number or Latin word in a right-to-left table runs
+    // left to right inside its cell, yet → still goes to the cell on the right).
     final rtl = box.plan.base == TextDirection.rtl;
-    final nextColumn = column + ((visualRight != rtl) ? 1 : -1);
+    final step = (visualRight != rtl) ? 1 : -1;
+    final nextColumn = column + step;
     if (_shift) {
       if (nextColumn < 0 || nextColumn >= t.columns) return true;
       return _extend(box, t, row, column, row, nextColumn);
     }
-    final k = row * t.columns + column + (forward ? 1 : -1);
+    final k = row * t.columns + column + step;
     if (k < 0 || k >= t.cells) {
-      box.leaveTable(t, after: forward);
+      box.leaveTable(t, after: step > 0);
       return true;
     }
-    box.enterCell(t.line + k, atEnd: !forward);
+    box.enterCell(t.line + k, atEnd: step < 0);
     return true;
   }
 
