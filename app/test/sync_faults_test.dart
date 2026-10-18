@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/data/versions/versions.dart';
 import 'package:len/sync/background_pull_worker.dart';
 import 'package:len/sync/pull_applier.dart';
 import 'package:len/sync/sync_controller.dart';
@@ -52,8 +53,27 @@ Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) asyn
   ];
   final reference = <FaultDevice>[];
   final ledger = SyncLedger();
+  // LEN_FAULT_TRACE=<table/id>: prints that row on each device as it changes.
+  final trace = Platform.environment['LEN_FAULT_TRACE']?.split('/');
+  final traced = <String, String>{};
+  void traceRow(int step, int roll) {
+    if (trace == null) return;
+    for (final d in devices) {
+      if (!d.alive) continue;
+      final rows = d.s.database.db.select(
+        'SELECT updated_at, device_id, deleted, dirty FROM ${trace[0]} WHERE id = ?',
+        [trace[1]],
+      );
+      final now = rows.isEmpty ? '-' : rows.single.values.join(' ');
+      if (traced[d.prefix] == now) continue;
+      traced[d.prefix] = now;
+      debugPrint('step $step ${d.prefix}: $now (${RandomEdits.lastEdit})');
+    }
+  }
+
   try {
     for (var step = 0; step < steps; step++) {
+      if (step > 0) traceRow(step - 1, -1);
       time.now += r.nextInt(3000);
       final d = devices[r.nextInt(devices.length)];
       final roll = r.nextInt(100);
@@ -61,18 +81,22 @@ Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) asyn
         final s = d.app;
         final before = SyncLedger.snapshot(s);
         try {
+          RandomEdits.lastEdit = '';
           await RandomEdits(s, r).any();
         } on StateError {
           // Killed while a backup fetched files: the edit stopped with it.
           if (d.alive && identical(s, d.s)) rethrow;
           continue;
         }
+        // Killed while fetching files (a version restored): the edit stopped.
+        if (!d.alive || !identical(s, d.s)) continue;
         ledger.record(before, s);
       } else if (roll < 88) {
         // Some syncs see a good network, so more get through to the end.
         network.rate = r.nextInt(3) == 0 ? 0 : faultRate;
         SyncEngine.workerFromBytes = r.nextBool() ? 0 : 64 * 1024;
         BackgroundPullWorker.debugOnServe = r.nextInt(6) == 0 ? _dieAfter(r.nextInt(20000)) : null;
+        RandomEdits.lastEdit = 'sync ${d.prefix}';
         await d.sync(killAfter: roll >= 84 ? Duration(microseconds: r.nextInt(30000)) : null);
       } else if (roll < 90) {
         // Shows something whose file is elsewhere: fetched over the faulty
@@ -116,6 +140,25 @@ Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 300}) asyn
     }
     if (Platform.environment['LEN_FAULT_STATS'] != null) {
       debugPrint('seed $seed: ${_stats(network, devices, ref)}');
+    }
+    if (trace != null) {
+      for (final d in [...devices, ref]) {
+        for (final row in d.s.database.db.select('SELECT * FROM ${trace[0]} WHERE id = ?', [
+          trace[1],
+        ])) {
+          final m = {...row}..remove('points');
+          debugPrint('end ${d.prefix}: $m');
+          final surface = row['surface_id'];
+          for (final t in ['pages', 'notebooks']) {
+            for (final p in d.s.database.db.select(
+              'SELECT id, updated_at, device_id, deleted FROM $t WHERE id = ?',
+              [surface],
+            )) {
+              debugPrint('  $t: $p');
+            }
+          }
+        }
+      }
     }
     return await _problems(server, [...devices, ref], ledger);
   } finally {
@@ -172,7 +215,9 @@ Future<List<String>> _problems(
     }
     if (d != ref) out.addAll(_diff(name, syncedState(s), expected));
   }
-  out.addAll(ledger.losses(ref.s).map((loss) => 'lost $loss'));
+  out.addAll(
+    ledger.losses(ref.s, witnesses: [for (final d in devices) d.s]).map((loss) => 'lost $loss'),
+  );
   // Every file a live row references is on the server, intact, and every
   // device has it or can fetch it.
   for (final sha in ref.s.sync.engine.blobReferences.all()) {
@@ -189,6 +234,34 @@ Future<List<String>> _problems(
         out.add('${d.prefix}: cannot get blob $sha');
       } else if (sha256.convert((await d.s.blobs.read(sha))!).toString() != sha) {
         out.add('${d.prefix}: blob $sha is damaged');
+      }
+    }
+  }
+  // No live content on a surface that is not there (no page or canvas of
+  // that id) or deleted.
+  for (final table in ['strokes', 'elements']) {
+    for (final row in ref.s.database.db.select('''
+      SELECT id, surface_id FROM $table t WHERE deleted = 0
+        AND NOT EXISTS (SELECT 1 FROM pages WHERE id = t.surface_id AND deleted = 0)
+        AND NOT EXISTS (SELECT 1 FROM notebooks WHERE id = t.surface_id AND deleted = 0)''')) {
+      out.add('$table/${row['id']}: live on missing or deleted surface ${row['surface_id']}');
+    }
+  }
+  // Every live version can be read whole (its table blobs and packs to be
+  // had) on every device.
+  for (final d in devices) {
+    final versions = d.s.versions;
+    for (final row in d.s.database.db.select('SELECT id FROM versions WHERE deleted = 0')) {
+      final version = versions.store.get(row['id'] as String);
+      if (version == null) {
+        out.add('${d.prefix}: version ${row['id']} is malformed');
+        continue;
+      }
+      try {
+        final body = await versions.content.body(version);
+        await versions.content.ensure([for (final p in body.pages) p.content, ?body.canvas]);
+      } on VersionUnavailable catch (e) {
+        out.add('${d.prefix}: version ${version.id} unavailable: $e');
       }
     }
   }
@@ -227,9 +300,11 @@ void main() {
   test('devices converge under faults and lose nothing', () async {
     final seed = int.tryParse(Platform.environment['LEN_FAULT_SEED'] ?? '') ?? 1;
     for (var run = 0; run < runs; run++) {
-      final problems = await _run(seed + run, deviceCount: 2 + (seed + run) % 3);
+      // LEN_FAULT_REPEAT=1: the same seed every run (timing still varies).
+      final at = Platform.environment['LEN_FAULT_REPEAT'] == null ? seed + run : seed;
+      final problems = await _run(at, deviceCount: 2 + at % 3);
       if (problems.isNotEmpty) {
-        fail('Seed ${seed + run}: ${problems.length} problems:\n${problems.take(40).join('\n')}');
+        fail('Seed $at: ${problems.length} problems:\n${problems.take(40).join('\n')}');
       }
     }
   }, timeout: Timeout(Duration(minutes: 5 + runs ~/ 4)));

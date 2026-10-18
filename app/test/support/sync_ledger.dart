@@ -80,6 +80,14 @@ class SyncLedger {
         created.add(key);
         if (key.startsWith('strokes/')) {
           final id = key.substring('strokes/'.length);
+          final line = s.database.db.select(
+            "SELECT surface_id, coalesce(json_extract(style, '\$.sh.o'), id) AS shape "
+            "FROM strokes WHERE id = ? AND json_extract(style, '\$.sh.a') IS NOT NULL",
+            [id],
+          );
+          if (line.isNotEmpty) {
+            _lines[id] = (line.single['surface_id'] as String, line.single['shape'] as String);
+          }
           points[id] = base64Encode(
             s.database.db.select('SELECT points FROM strokes WHERE id = ?', [id]).single['points']
                 as List<int>,
@@ -89,6 +97,24 @@ class SyncLedger {
       if (!live && wasLive) deleted.add(key);
     }
   }
+
+  /// Whether line [id] (deleted) was replaced by a connector repair
+  /// (`ConnectorRepair`): it was attached, and another line of its shape
+  /// id is on its surface (live, or deleted since with the page).
+  bool _repaired(Iterable<AppServices> devices, String id) {
+    final (surface, shape) = _lines[id] ?? (null, null);
+    if (surface == null) return false;
+    return devices.any(
+      (s) => s.database.db.select(
+        'SELECT 1 FROM strokes WHERE surface_id = ? AND id <> ? '
+        "AND json_extract(style, '\$.sh.o') = ?",
+        [surface, id, shape],
+      ).isNotEmpty,
+    );
+  }
+
+  /// Attached lines created: id → (surface, shape id).
+  final Map<String, (String, String)> _lines = {};
 
   /// What live row [key] (`table/id`) of [s] holds: its record's data, as
   /// JSON; null if it is not live.
@@ -104,7 +130,8 @@ class SyncLedger {
   /// What [s] (a converged device) lost of what was written: rows behind
   /// a version some device wrote, rows created and never knowingly deleted
   /// that are not live, strokes whose points changed.
-  List<String> losses(AppServices s) {
+  /// [witnesses]: other devices, whose tombstones keep what they deleted.
+  List<String> losses(AppServices s, {List<AppServices> witnesses = const []}) {
     final now = snapshot(s);
     final out = <String>[];
     for (final MapEntry(:key, value: version) in newest.entries) {
@@ -155,7 +182,13 @@ class SyncLedger {
       );
     }
     for (final key in created.difference(deleted)) {
-      if (!(now[key]?.$2 ?? false)) out.add('$key: deleted, but nobody deleted it knowingly');
+      final stroke = key.startsWith('strokes/') ? key.substring('strokes/'.length) : null;
+      if (stroke != null && _repaired([s, ...witnesses], stroke)) continue;
+      if (now[key] case final row? when !row.$2) {
+        out.add('$key: deleted at ${row.$1.at}/${row.$1.device}, but nobody deleted it knowingly');
+      } else if (now[key] == null) {
+        out.add('$key: missing, but nobody deleted it');
+      }
     }
     for (final MapEntry(key: id, value: written) in points.entries) {
       final rows = s.database.db.select('SELECT points, deleted FROM strokes WHERE id = ?', [id]);

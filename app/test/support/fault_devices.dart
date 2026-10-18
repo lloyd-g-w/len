@@ -149,6 +149,7 @@ class FaultDevice {
 const syncedTables = [
   'folders',
   'templates',
+  'fonts',
   'notebook_styles',
   'notebooks',
   'pages',
@@ -157,6 +158,7 @@ const syncedTables = [
   'strokes',
   'elements',
   'recognised_text',
+  'versions',
 ];
 
 /// Every synced row (and the chunk indexes), comparable across devices:

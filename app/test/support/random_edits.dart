@@ -5,7 +5,10 @@ import 'dart:ui';
 import 'package:archive/archive.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/archive/len_archives.dart';
+import 'package:len/data/font_repository.dart';
 import 'package:len/data/stroke_queries.dart';
+import 'package:len/data/surface_copier.dart';
+import 'package:len/data/versions/versions.dart';
 import 'package:len/domain/cancellation.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_style.dart';
@@ -14,12 +17,20 @@ import 'package:len/domain/recording.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
+import 'package:len/ink/selection/connectors.dart';
+import 'package:len/ink/shapes/shape_anchors.dart';
+import 'package:len/ink/shapes/shape_builder.dart';
+
+part 'random_content_edits.dart';
 
 /// Random user edits on one device, as the app makes them: notebooks,
 /// pages, strokes, text boxes (chains flowing across pages included),
 /// trash and deletion, folders, notebook styles, recordings in parts,
 /// templates, duplicated notebooks, pages copied or moved, deleted text
-/// brought back (undo), and backups taken and restored (or cancelled). Each edit is one of the repositories' own operations.
+/// brought back (undo), backups taken and restored (or cancelled),
+/// imported fonts, version history and connectors
+/// (`random_content_edits.dart`). Each edit is one of the repositories' own
+/// operations.
 class RandomEdits {
   RandomEdits(this.s, this.r);
 
@@ -66,6 +77,9 @@ class RandomEdits {
       if (e.type == ElementType.text.name) e,
   ];
 
+  /// The last edit [any] made (for traces).
+  static String lastEdit = '';
+
   /// Makes one random edit.
   Future<void> any() async {
     final edits = <Future<void> Function()?>[
@@ -96,8 +110,15 @@ class RandomEdits {
       copyPages,
       undoDeleteText,
       backup,
+      font,
+      version,
+      version,
+      connector,
+      connector,
     ];
-    await edits[r.nextInt(edits.length)]!();
+    final edit = edits[r.nextInt(edits.length)]!;
+    lastEdit = '$edit';
+    await edit();
   }
 
   Future<void> newNotebook() async {
@@ -177,7 +198,11 @@ class RandomEdits {
     rect: Rect.fromLTWH(40, flow == null ? 60.0 + r.nextInt(400) : 40, 300, 90),
     z: r.nextInt(10).toDouble(),
     createdAt: createdAt,
-    data: TextData.rich(text: 'text ${r.nextInt(100000)}').withFlow(flow).toJson(),
+    data: TextData.rich(
+      text: 'text ${r.nextInt(100000)}',
+      font: _textFont(),
+      spacing: _pick(ParagraphSpacing.values),
+    ).withFlow(flow).toJson(),
   );
 
   /// A text box, on a page continued on up to two pages after it.
@@ -436,6 +461,9 @@ class RandomEdits {
     s.elements.save([box]);
     _touch(box.surfaceId);
   }
+
+  /// Font files imported so far (devices import some of them again).
+  static final List<Uint8List> fontFiles = [];
 
   /// Backups each device took, by device id ([backup] restores them).
   static final Map<String, Uint8List> backups = {};
