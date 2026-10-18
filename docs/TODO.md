@@ -282,6 +282,12 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
+- **A restore while the notebook keeps changing** (bug hunt 6): `VersionRestorer._beforeAnd`
+  makes the version before a restore again while sync writes to the notebook, but its fourth
+  attempt goes ahead regardless, so ink synced in during that one is removed and kept in no
+  version. Never seen in ~1000 live property seeds (it needs four writes in a row while one
+  version is built). Options: build the last attempt without yielding, or refuse ("The notebook
+  is changing; try again") instead of going ahead.
 - ✅ **Undo after a version restore** (UX_AUDIT R25-6): the editor's undo steps from before a
   restore survive it, so Ctrl+Z does nothing visible and Ctrl+Shift+Z writes an old stroke back
   onto the restored page. Done: open editors drop the undo and redo steps of the surfaces a
