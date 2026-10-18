@@ -38,7 +38,7 @@ void main() {
     parent = parent?.parent;
     expect(parent?.getSemanticsData().role, SemanticsRole.table);
 
-    tester.binding.pipelineOwner.semanticsOwner!.performAction(milk.id, SemanticsAction.tap);
+    milk.owner!.performAction(milk.id, SemanticsAction.tap);
     await tester.pumpAndSettle();
     expect(box.activeCell, t.line + 2);
     semantics.dispose();
