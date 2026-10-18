@@ -19,7 +19,9 @@ import '../syncable.dart';
 /// A restored backup (UX_AUDIT R8-16) keeps the ids of the folders and
 /// notebooks in [keep] (with everything in them): those not here, so a
 /// second restore can tell they are here already. Notebooks in [skip]
-/// are left out with everything in them.
+/// are left out with everything in them. Pages, outline entries and
+/// recordings of no notebook in the file, and content on no page or canvas
+/// in it, are left out too (notebooks come first, then pages).
 class LenRemap {
   LenRemap({
     required this.deviceId,
@@ -35,6 +37,9 @@ class LenRemap {
 
   /// Notebooks left out, with their pages and content.
   final Set<String> skip;
+
+  /// The notebooks seen so far (skipped ones too).
+  final Set<String> _notebooks = {};
 
   /// The notebook of each page seen so far, for the content on it.
   final Map<String, String> _notebookOf = {};
@@ -73,6 +78,15 @@ class LenRemap {
       'strokes' || 'elements' => _notebookOf[data['surfaceId']] ?? data['surfaceId'],
       _ => null,
     };
+    // What belongs to no notebook or page of the file is left out (it
+    // would be on none here, yet synced).
+    switch (record.collection) {
+      case 'notebooks':
+        _notebooks.add(record.id);
+      case 'pages' || 'recordings' || 'outline' || 'strokes' || 'elements'
+          when !_notebooks.contains(notebook):
+        return null;
+    }
     // Noted before a skip: the content on a skipped notebook's pages is
     // skipped with them.
     if (record.collection == 'pages' && notebook is String) _notebookOf[record.id] = notebook;

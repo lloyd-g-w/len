@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -135,6 +136,80 @@ void main() {
     final backupFolder = target.folders.get(copies.folder!)!;
     expect(backupFolder.name, 'Backup 13 Oct 2026');
     expect(target.folders.childrenOf(backupFolder.id).single.name, 'School');
+  });
+
+  /// Strokes and elements of [s] on no page or canvas there.
+  List<String> orphans(AppServices s) => [
+    for (final table in ['strokes', 'elements'])
+      for (final row in s.database.db.select(
+        'SELECT id FROM $table WHERE deleted = 0 '
+        'AND surface_id NOT IN (SELECT id FROM pages WHERE deleted = 0) '
+        'AND surface_id NOT IN (SELECT id FROM notebooks WHERE deleted = 0)',
+      ))
+        '$table/${row['id']}',
+  ];
+
+  test(
+    'a page that comes while a backup is written (synced in) is left out with its ink',
+    () async {
+      final n = notebook(source, 'Diary');
+      final out = OutputMemoryStream();
+      var turns = 0;
+      await source.lenFiles.write(
+        const LenScope.library(),
+        out,
+        drain: () async {
+          // After the pages were read, before their ink is.
+          if (++turns != 2) return;
+          final page = source.pages.addPage(n.id);
+          source.strokes.save([
+            Stroke(
+              id: 'late-ink',
+              surfaceId: page.id,
+              tool: InkTool.ballpoint,
+              color: 0xFF000000,
+              width: 2,
+              points: const [StrokePoint(1, 1, 0.5), StrokePoint(9, 4, 0.5)],
+              createdAt: 2,
+            ),
+          ]);
+        },
+      );
+      expect(turns, greaterThan(2));
+      final bytes = out.getBytes();
+      final records = [
+        for (final f in ZipDecoder().decodeBytes(bytes).files)
+          if (f.name.startsWith(LenFormat.recordsPrefix)) utf8.decode(f.content as List<int>),
+      ].join();
+      expect(records, isNot(contains('late-ink')));
+      await target.lenFiles.import(await open(target, bytes), folderName: 'Copy');
+      expect(orphans(target), isEmpty);
+      expect(target.database.db.select('SELECT id FROM strokes'), hasLength(1));
+    },
+  );
+
+  test('ink on a page a file does not hold is left out of a restore', () async {
+    final bytes = await backup();
+    // The file without the record of Diary's page (as a backup written
+    // while it came once held its ink alone).
+    final diaryPage = source.pages.pagesOf(source.notebooks.list().last.id).single.id;
+    final zip = ZipDecoder().decodeBytes(bytes);
+    final edited = Archive();
+    for (final file in zip.files) {
+      if (!file.name.startsWith(LenFormat.recordsPrefix)) {
+        edited.addFile(file);
+        continue;
+      }
+      final lines = utf8.decode(file.content as List<int>).split('\n');
+      final kept = lines.where(
+        (l) => !(l.contains('"collection":"pages"') && l.contains('"id":"$diaryPage"')),
+      );
+      edited.addFile(ArchiveFile.string(file.name, kept.join('\n')));
+    }
+    final stripped = Uint8List.fromList(ZipEncoder().encode(edited));
+    await restore(target, stripped);
+    expect(orphans(target), isEmpty);
+    expect(target.database.db.select('SELECT id FROM strokes'), hasLength(1));
   });
 
   test('on the device it came from, only what was deleted since comes back', () async {
