@@ -34,7 +34,7 @@ non-Western code pages pasted as gibberish; the zoom window right to left
 still pointed and grew as left to right; Escape did nothing once a control
 had focus; a version named with Rename… was thinned away; restores gave no
 sign of running. 43 findings: 0 P1, 18 P2, 25 P3; 33 fixed (16 P2, 17 P3),
-with tests; open: R26-13, R26-14 (P2), R26-15–R26-19, R26-30, R26-31 (P3).
+with tests; open: R26-13, R26-14 (P2), R26-15–R26-19, R26-31 (P3).
 
 ### Tables in text boxes
 
@@ -266,13 +266,17 @@ with numbers ("Source Serif 4", "Font 2 / 10") sorted oddly. *Fix:* sorted in Da
 query by the library's `NameOrder` (digit runs by value, case-insensitive) (`user_fonts_test`:
 "fonts are listed in natural order").
 
-**R26-30 P3 · Text in a missing font keeps its box's frame from the real font.** ⬜
+**R26-30 P3 · Text in a missing font keeps its box's frame from the real font.** ✅
 A box's rect was measured in its font on the device that wrote it; where the font is missing
-the text is laid out in Sans in that width (`ElementRenderer._drawText`, not clipped), wraps
-differently (Sans is wider than a hand font such as Caveat) and may run past the frame's bottom and
+the text was laid out in Sans in that width (`ElementRenderer._drawText`, not clipped), wrapped
+differently (Sans is wider than a hand font such as Caveat) and could run past the frame's bottom and
 its selection outline. It is right again once the file
-arrives; editing it there saves the Sans height. *Proposal:* accept (the fallback is said in
-the picker), or re-measure missing-font boxes for display only. Owner's call.
+arrives; editing it there saves the Sans height. *Fix (owner: re-measure for display only):*
+such a box that would overflow is fitted into its frame (`ink/elements/shown_text_layout.dart`):
+laid out wider and drawn scaled down so it fills the frame's width and never passes its bottom.
+The frame, selection outline, hit area and stored data (font reference, rect) are unchanged —
+the least invasive way, no other code sees a different size; checkbox and cell taps map
+through the scale (`missing_font_fit_test`).
 
 #### RTF paste
 

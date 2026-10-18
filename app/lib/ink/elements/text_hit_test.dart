@@ -5,8 +5,8 @@ import '../../domain/surface_element.dart';
 import '../../domain/text/text_data.dart';
 import '../surface_model.dart';
 import '../undo_history.dart';
+import 'shown_text_layout.dart';
 import 'text_flow_chains.dart';
-import 'text_layout.dart';
 
 /// Hit tests inside committed text boxes (checklist ticks).
 abstract final class TextHitTest {
@@ -16,10 +16,9 @@ abstract final class TextHitTest {
     if (element.knownType != ElementType.text) return null;
     final data = TextData.fromJson(element.data);
     if (!data.paras.any((p) => p.list == ListKind.check)) return null;
-    final local = toLocal(element, world);
-    final layout = TextLayout.layout(data, element.rect.width);
-    final line = layout.checkboxAt(local);
-    layout.dispose();
+    final shown = ShownTextLayout.of(data, element.rect.size);
+    final line = shown.layout.checkboxAt(shown.toLayout(toLocal(element, world)));
+    shown.dispose();
     return line;
   }
 
@@ -29,9 +28,9 @@ abstract final class TextHitTest {
     if (element.knownType != ElementType.text) return null;
     final data = TextData.fromJson(element.data);
     if (!TextTables.any(data.paras)) return null;
-    final layout = TextLayout.layout(data, element.rect.width);
-    final hit = layout.cellAt(toLocal(element, world));
-    layout.dispose();
+    final shown = ShownTextLayout.of(data, element.rect.size);
+    final hit = shown.layout.cellAt(shown.toLayout(toLocal(element, world)));
+    shown.dispose();
     if (hit == null) return null;
     final start = data.text.split('\n').take(hit.line).fold(0, (n, l) => n + l.length + 1);
     return start + hit.offset;

@@ -289,9 +289,10 @@ From the reports; the owner picks. Status as above.
   on a split part ("Show pages together to change columns").
 - ⬜ **Repeat a table's header row** on the pages it continues on (UX_AUDIT R26-15), as Word /
   Docs can, or keep it on the first page only.
-- ⬜ **Text in a missing font** (UX_AUDIT R26-30): laid out in Sans in the frame measured with the
+- ✅ **Text in a missing font** (UX_AUDIT R26-30): laid out in Sans in the frame measured with the
   real font, it may run past the frame until the file arrives. Accept, or lay such boxes out again
-  for display only.
+  for display only. Done: for display only, such a box is laid out wider and drawn scaled down to
+  fit its frame (`ShownTextLayout`); the data and frame keep the real font's.
 - ⬜ **The phone ⋯ of a text box** (UX_AUDIT R26-17, R26-31): in a table it holds 13 rows, and at
   2× text the four spacing rows truncate. Proposal: one "Table…" row and one "Paragraph spacing"
   row (current one as caption), each opening the menu the tablet's button shows.

@@ -5,7 +5,7 @@ import '../../domain/surface_element.dart';
 import '../../domain/text/text_data.dart';
 import '../fonts/text_fonts.dart';
 import '../images/element_images.dart';
-import 'text_layout.dart';
+import 'shown_text_layout.dart';
 
 /// Paints surface elements in world coordinates.
 ///
@@ -16,8 +16,9 @@ import 'text_layout.dart';
 /// blob is unavailable — a placeholder is drawn instead.
 abstract final class ElementRenderer {
   /// Text layouts by element, with the [TextFonts.changes] they were made
-  /// at (a user font loaded or removed since lays them out again).
-  static final Expando<(int, TextBoxLayout)> _layouts = Expando('element layouts');
+  /// at (a user font loaded or removed since lays them out again). Text in
+  /// a missing font is fitted into its frame ([ShownTextLayout]).
+  static final Expando<(int, ShownTextLayout)> _layouts = Expando('element layouts');
 
   static void draw(
     Canvas canvas,
@@ -52,7 +53,7 @@ abstract final class ElementRenderer {
     final fonts = TextFonts.changes.value;
     var cached = _layouts[e];
     if (cached == null || cached.$1 != fonts) {
-      cached = _layouts[e] = (fonts, TextLayout.layout(TextData.fromJson(e.data), e.rect.width));
+      cached = _layouts[e] = (fonts, ShownTextLayout.of(TextData.fromJson(e.data), e.rect.size));
     }
     cached.$2.paint(canvas, e.rect.topLeft);
   }
