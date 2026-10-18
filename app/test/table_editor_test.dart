@@ -20,7 +20,7 @@ import 'package:len/ui/app_theme.dart';
 
 import 'data_test.dart' show FakeClock;
 import 'elements_test.dart' show textBox;
-import 'text_box_ui_test.dart' show ctrl;
+import 'text_box_ui_test.dart' show ctrl, mockClipboardText, paste;
 
 /// An editor on a surface holding box `t` ([data], 300 wide), opened.
 Future<(SurfaceModel, TextEditSession)> openBox(WidgetTester tester, TextData data) async {
@@ -199,6 +199,24 @@ void main() {
     await ctrl(tester, LogicalKeyboardKey.keyZ);
     await tester.pumpAndSettle();
     expect(cells(box.data), ['ab', 'cd', 'ef', 'gh']);
+  });
+
+  testWidgets('rows of tab-separated text pasted into a cell fill cells, adding rows', (
+    tester,
+  ) async {
+    mockClipboardText('1\t2\t3\n4\t5\t6\n');
+    final b = RichTextBuffer(const TextData());
+    b.insertTable(0, 1, 2);
+    await openBox(tester, b.toData(const TextData()));
+    final box = boxController(tester);
+    box.enterCell(0);
+    await tester.pumpAndSettle();
+    await paste(tester);
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['1', '2', '4', '5'], reason: 'the third column dropped');
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['', '']);
   });
 
   testWidgets('dragging a column border resizes it, one undo step', (tester) async {

@@ -62,6 +62,48 @@ class TableCellController extends RichTextController {
     );
   }
 
+  /// A table pasted into a cell fills the cells from it on (as do rows of
+  /// tab-separated text, from a spreadsheet); other text goes into it.
+  @override
+  void pasteRich(TextData fragment) {
+    final line = _line;
+    final tables = TextTables.of(fragment.paras);
+    if (line == null || tables.isEmpty) return super.pasteRich(fragment);
+    final t = tables.first;
+    final lines = fragment.text.split('\n');
+    final starts = fragment.lineStarts;
+    final chars = fragment.charStyles();
+    owner.pasteGrid(line, [
+      for (var r = 0; r < t.rows; r++)
+        [
+          for (var c = 0; c < t.columns; c++)
+            if (t.lineOf(r, c) < t.end)
+              (
+                text: lines[t.lineOf(r, c)],
+                chars: chars.sublist(
+                  starts[t.lineOf(r, c)],
+                  starts[t.lineOf(r, c)] + lines[t.lineOf(r, c)].length,
+                ),
+              ),
+        ],
+    ]);
+  }
+
+  @override
+  void pastePlain(String text) {
+    final line = _line;
+    final clean = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final rows = clean.endsWith('\n') ? clean.substring(0, clean.length - 1) : clean;
+    if (line == null || !rows.contains('\t') && !rows.contains('\n')) {
+      return super.pastePlain(text);
+    }
+    final style = currentStyle;
+    owner.pasteGrid(line, [
+      for (final row in rows.split('\n'))
+        [for (final cell in row.split('\t')) (text: cell, chars: List.filled(cell.length, style))],
+    ]);
+  }
+
   /// Undo and redo are the box's.
   @override
   bool undo() => owner.undo();

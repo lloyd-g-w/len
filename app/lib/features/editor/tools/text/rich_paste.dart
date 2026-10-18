@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../../../domain/text/text_data.dart';
 import '../../../../platform/clipboard_html.dart';
 import 'clipboard_rich_text.dart';
 import 'rich_text_controller.dart';
@@ -50,6 +51,15 @@ class RichPasteAction extends Action<PasteTextIntent> {
   Future<void> invoke(PasteTextIntent intent) async {
     // Only set while this runs synchronously.
     final fallback = callingAction;
-    if (!await pasteClipboardRich(controller)) fallback?.invoke(intent);
+    if (await pasteClipboardRich(controller)) return;
+    // In a table cell, cells copied here and rows of tab-separated text
+    // fill cells.
+    final text = controller is TableCellController ? await _clipboardText() : null;
+    final own = text == null ? null : RichTextController.ownClip(text);
+    if (own != null && TextTables.any(own.paras)) return controller.pasteRich(own);
+    if (text != null && (text.contains('\t') || text.trimRight().contains('\n'))) {
+      return controller.pastePlain(text);
+    }
+    fallback?.invoke(intent);
   }
 }

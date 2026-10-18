@@ -52,6 +52,10 @@ class RichTextController extends _RichTextState
   /// that formatting, so it wins over the clipboard's HTML).
   static bool isOwnClip(String text) => _clipPlain == _clean(text);
 
+  /// What was last copied from a box here, with its formatting, if the
+  /// clipboard's [text] is it.
+  static TextData? ownClip(String text) => isOwnClip(text) ? _clip : null;
+
   /// The plain text of [_clip] as other apps got it (table rows as
   /// tab-separated cells).
   static String? get _clipPlain {

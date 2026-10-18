@@ -303,6 +303,37 @@ mixin _RichTextTables on _RichTextState, _RichTextFormatting {
     notifyListeners();
   }
 
+  /// Pastes [grid] (rows of cells: their text and character styles) into
+  /// the table from the cell on [line] rightwards and down, adding rows
+  /// as needed (cells past the last column are dropped); one step.
+  void pasteGrid(int line, List<List<({String text, List<SpanStyle> chars})>> grid) {
+    var t = _buffer.tableAt(line);
+    if (t == null || grid.isEmpty) return;
+    final (:row, :column) = t.cellOf(line);
+    final table = t.line;
+    while (t != null && t.rows < row + grid.length) {
+      t = _buffer.insertRow(t, t.rows);
+    }
+    t = _buffer.tableAt(table);
+    if (t == null) return;
+    for (var r = 0; r < grid.length; r++) {
+      for (var c = 0; c < grid[r].length && column + c < t.columns; c++) {
+        final cell = grid[r][c];
+        _buffer.setCell(t.lineOf(row + r, column + c), cell.text, cell.chars);
+      }
+    }
+    final last = t.lineOf(
+      row + grid.length - 1,
+      math.min(t.columns - 1, column + grid.last.length - 1),
+    );
+    _range = null;
+    _cellSelection = TextSelection.collapsed(offset: _buffer.lineEnd(last));
+    _relayout();
+    _history.changed(_snapshot, command: true);
+    notifyListeners();
+    onDataChanged?.call();
+  }
+
   /// Empties the cells selected (one step).
   void clearCells() {
     final r = _range;
