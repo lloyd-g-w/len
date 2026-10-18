@@ -41,6 +41,16 @@ several (`table_editor_test`: with a block of rows selected the menu deletes row
 `commitWidths` ran at every drag's end; now only when the widths changed
 (`table_editor_test`: dragging a column border resizes it, one undo step).
 
+### Screen readers
+
+**R26-T10 P2 · Screen readers read the text after a table before the table.** ✅
+- *What:* a box with a table was one node labelled with all its text outside tables
+  (`TextTableSemantics.textOutside`), the table's nodes after it: "Shopping. Total is
+  fine." and only then the rows, though "Total is fine" stands below the table.
+- *Fix:* the box's node reads the text before its first table; after each table a node
+  (where that text is laid out) reads the text up to the next table
+  (`table_semantics_test`: the text after the table is read after it).
+
 ### Inserting a table
 
 **R26-T4 P2 · On touch screens the size picker's last column was cut off and could not be picked.** ✅

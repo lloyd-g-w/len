@@ -2639,7 +2639,8 @@ GoodNotes-style rich text inside a box.
   `continued` (`TextFlow.slice`); `TextFlow.join` merges it back. *Export*: `PdfTextWriter`
   writes each cell with its own layout at its place, then the grid. *Screen readers*:
   `TextBoxSemantics` gives a box with tables a table node with row and cell nodes (header
-  cells as column headers, `SemanticsRole`), the box's node reading the rest; the cell
+  cells as column headers, `SemanticsRole`), the box's node reading the text before the
+  first table and a node after each table reading the text up to the next; the cell
   edited is named "Row r, column c".
 - **Export**: `PdfTextWriter` writes boxes as real text in the embedded
   (subsetted) fonts (TrueType user fonts too), each word at the position the app's layout gives it, with
