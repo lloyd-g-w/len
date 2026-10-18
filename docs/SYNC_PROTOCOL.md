@@ -697,16 +697,36 @@ bundled name or a user font's id). Unset
 - `paras` = `[para, …]` — empty when no line is formatted, else one object per line: `h` heading
   level (1 or 2), `l` list ∈ `bullet`, `number`, `check`, `x` ticked (`true`, checklists), `n` list
   indent level (1–4); `{}` is body text. Numbers are not stored (they count consecutive items; a list running on from the page before counts on, see `flow.numbers` below).
+  Table cells are lines too (see *Tables* below): `tb` on a table's first cell, `tc` on the others.
 
 - `spacing` (optional) ∈ `small`, `medium`, `large`: the space below each paragraph but the last,
   a quarter, half or all of the box's `size` (so it scales with the box). Left out for none; a box
   without it (written before it existed) has none.
 
+**Tables.** A table is a run of consecutive lines of `text`, one line per cell, row by row (so
+the plain text holds every cell's text, searchable, and a cell never holds a line break). Its cells'
+characters are formatted by `spans` like any text. In `paras`, the table's first cell is
+`{"tb": {"c": columns, "w": [share, …], "h": header}}` and every other cell `{"tc": true}`; a cell's
+object has no other key (cells are no headings or list items). `c` is the number of columns
+(1–12); `w` one width per column, positive numbers, the share of the box's width each column
+takes (readers divide by their sum); `h` (bool) whether the first row is a bold header row. The
+optional `"k": true` (only in the box's first line, so on a box continuing another, see below)
+marks a table going on from the box on the page before: its first row is no header row, and the
+whole text joins it to the table there. A table is the `tb` line and the `tc` lines right after
+it; their number must be a multiple of `c` (whole rows). A `tc` line not following a cell, a
+table of part of a row, or a malformed `tb` makes the record malformed. Example: a 2 × 2 table
+with a header after a heading: `"text": "Prices\nItem\nPrice\nMilk\n1.10\n"`, `"paras": [{"h": 1},
+{"tb": {"c": 2, "w": [0.6, 0.4], "h": true}}, {"tc": true}, {"tc": true}, {"tc": true}, {}]`
+(writers leave a line after a table). Data written before tables reads unchanged. Clients
+without tables ignore the unknown keys and show each cell as a paragraph of body text, in order;
+should such a client edit the box, it writes the cells back as plain paragraphs (the table is
+gone, its text kept).
+
 Example: `{"text": "Todo\nmilk", "spans": [[0, 4, {"b": true}]], "paras": [{"h": 1}, {"l": "check",
 "x": true}], "font": "inter", "size": 24, "color": 4280229663, "align": "start", "autoWidth": true}`.
 Text `data` is parsed strictly (`TextRecord`): every key above except `spacing` is required and
 every value must be well-formed (spans in range, sorted and set; `paras` empty or one per line;
-bundled fonts or user font ids, list kinds, alignments and spacings); otherwise the whole element record is malformed and skipped. Unknown keys are
+tables as above; bundled fonts or user font ids, list kinds, alignments and spacings); otherwise the whole element record is malformed and skipped. Unknown keys are
 ignored and survive local edits. (Before schema version 14 `align` was `left` / `center` / `right`;
 the migration rewrote local boxes as `start` / `end` and sent them again.)
 
@@ -718,8 +738,8 @@ its elements):
 
 - `from` (non-empty string): the id of the box it continues, which is on the page right before it
   (pages in `sortKey` order).
-- `joined` (bool): its first line goes on with the last paragraph of the box before (the page
-  ended inside it): the whole text joins the two parts without a line break, and if that
+- `joined` (bool, `false` when it begins with a table row): its first line goes on with the last
+  paragraph of the box before (the page ended inside it): the whole text joins the two parts without a line break, and if that
   paragraph is a list item its first line here shows no marker but keeps the item's indent.
   Otherwise the parts are separate paragraphs (joined with `\n`).
 - `numbers` (list of ints ≥ 0, at most 5): for each list indent level, how many numbered items of
@@ -729,6 +749,11 @@ its elements):
   is its first strong character's, see `align` above); it overrides the
   direction this box's own first paragraph would get, so a right-to-left paragraph split between
   pages stays right-to-left (and its marker on the right) whatever word the next part begins with.
+
+A table splits only between rows: a box beginning inside a table begins with a copy of its first
+cell's `tb`, marked `"k": true` (its own first row is not the header row); joining the parts, a
+`k` table right after a cell of the part before goes on as that table (same column count; its own
+`tb` reads as a `tc`).
 
 Every field is required and typed as above: `flow` and `spacing` are the optional keys of text
 `data` (`TextRecord`), and an `elements` record whose text `data` has a `flow` (or a `spacing`) that

@@ -26,7 +26,11 @@ abstract final class TextSpacing {
     final painter = layout.painter;
     final lines = painter.computeLineMetrics();
     final heights = <int, double>{};
-    for (var e = text.indexOf('\n'); e >= 0; e = text.indexOf('\n', e + 1)) {
+    final paras = data.paras;
+    var line = 0;
+    for (var e = text.indexOf('\n'); e >= 0; e = text.indexOf('\n', e + 1), line++) {
+      // Inside a table only its last row has spacing below.
+      if (paras[line].isCell && (paras[line + 1].cell?.first == false)) continue;
       final d = plan.offsets.charAt(e);
       final y = painter.getOffsetForCaret(TextPosition(offset: d), Rect.zero).dy;
       heights[e] = _descentAt(lines, y) + gap;
@@ -40,7 +44,12 @@ abstract final class TextSpacing {
         out.add(inserts[i++]);
       }
       final piece = InsertPiece.spacing(height);
-      if (i < inserts.length && inserts[i].at == at) {
+      if (i < inserts.length && inserts[i].at == at && inserts[i].isRow) {
+        // (An empty row of one column: the spacing after it.)
+        out
+          ..add(inserts[i++])
+          ..add(TextInsert(at, [piece], caret: 0, allowed: {0}));
+      } else if (i < inserts.length && inserts[i].at == at) {
         out.add(_with(inserts[i++], piece));
       } else {
         out.add(TextInsert(at, [piece], caret: 0, allowed: {0}));

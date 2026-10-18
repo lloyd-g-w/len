@@ -6,6 +6,7 @@ import '../../../domain/text/text_data.dart';
 import '../../../ink/surface_model.dart';
 import '../../../ink/tools/content_tools.dart';
 import '../../../ink/viewport.dart';
+import 'text_table_semantics.dart';
 
 /// The text boxes in view as screen-reader nodes (the canvas is painted):
 /// each reads its text, in reading order, and activating one edits it.
@@ -65,27 +66,36 @@ class _TextBoxSemanticsState extends State<TextBoxSemantics> {
           for (final e in TextBoxSemantics.shown(model, view))
             if (e.id != editing) e,
         ]..sort(_readingOrder);
-        return Stack(
-          children: [
-            for (final (i, e) in boxes.indexed)
-              Positioned.fromRect(
-                rect: Rect.fromPoints(
-                  view.toScreen(e.bounds.topLeft),
-                  view.toScreen(e.bounds.bottomRight),
-                ),
-                child: Semantics(
-                  key: ValueKey(e.id),
-                  container: true,
-                  sortKey: OrdinalSortKey(i.toDouble()),
-                  label: TextData.fromJson(e.data).text,
-                  hint: 'Text box',
-                  onTap: () => content.editText(e),
-                  child: const SizedBox.expand(),
-                ),
-              ),
-          ],
-        );
+        return Stack(children: [for (final (i, e) in boxes.indexed) _node(e, i, view)]);
       },
+    );
+  }
+
+  /// The node of box [e], [i]th in reading order: its text, and its
+  /// tables' rows and cells as nodes of their own.
+  Widget _node(SurfaceElement e, int i, ViewportController view) {
+    final data = TextData.fromJson(e.data);
+    final tables = TextTables.any(data.paras);
+    final topLeft = view.toScreen(e.bounds.topLeft);
+    return Positioned.fromRect(
+      rect: Rect.fromPoints(topLeft, view.toScreen(e.bounds.bottomRight)),
+      child: Semantics(
+        key: ValueKey(e.id),
+        container: true,
+        explicitChildNodes: tables,
+        sortKey: OrdinalSortKey(i.toDouble()),
+        label: tables ? TextTableSemantics.textOutside(data) : data.text,
+        hint: 'Text box',
+        onTap: () => widget.content.editText(e),
+        child: tables
+            ? TextTableSemantics(
+                data: data,
+                width: e.rect.width,
+                offset: view.toScreen(e.rect.topLeft) - topLeft,
+                scale: view.scale,
+              )
+            : const SizedBox.expand(),
+      ),
     );
   }
 

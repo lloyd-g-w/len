@@ -1,14 +1,19 @@
 import 'html_css.dart';
+import 'html_table.dart';
 import 'html_tokens.dart';
 import 'text_data.dart';
+
+part 'html_text_tables.dart';
 
 /// Formatted text from HTML on the clipboard (browsers, Google Docs, Word,
 /// LibreOffice): bold, italic, underline, strikethrough, colours that are
 /// not grey, highlights, monospaced code, headings (h1 → heading 1, h2 and
 /// h3 → heading 2), nested bulleted / numbered lists and checklists, one
 /// line per paragraph, whitespace collapsed like a browser, the paragraph
-/// spacing nearest the blocks' largest inline margin (else the [box]'s).
-/// Sizes and fonts are the [box]'s. Returns null when there is no text.
+/// spacing nearest the blocks' largest inline margin (else the [box]'s),
+/// tables as tables (see [HtmlTable]; one inside a cell flattened into its
+/// text). Sizes and fonts are the [box]'s. Returns null when there is no
+/// text.
 TextData? textFromHtml(String html, TextData box) {
   final reader = _HtmlReader(box.font == TextFont.mono);
   for (final token in tokenizeHtml(fragmentOf(html))) {
@@ -51,23 +56,12 @@ const _blocks = {
 /// Blocks whose margins are paragraph spacing.
 const _paragraphs = {'p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li'};
 
-/// One line of the result.
-class _Line {
-  final text = StringBuffer();
-  final chars = <SpanStyle>[];
-  ParaStyle? para;
-  bool? check;
-  ListKind? wordKind;
-
-  bool get isEmpty => chars.isEmpty;
-}
-
 class _HtmlReader {
   _HtmlReader(this.monoBox);
 
   final bool monoBox;
   final _stack = <ElementFormat>[];
-  final _lines = [_Line()];
+  final _lines = [HtmlLine()];
   bool _space = false;
   SpanStyle _spaceStyle = SpanStyle.plain;
   int _pre = 0;
@@ -77,7 +71,18 @@ class _HtmlReader {
   /// The largest margin a paragraph's inline style gave (em), if any.
   double? _margin;
 
-  _Line get _line => _lines.last;
+  /// The (outermost) table being read, if any.
+  HtmlTable? _table;
+
+  /// How many tables inside its cells are open (their text is the cell's).
+  int _nested = 0;
+
+  /// The [_stack]'s length when [_table] started (its cells' elements
+  /// above).
+  int _tableBase = 0;
+
+  /// The line being read: the current cell's in a table.
+  HtmlLine get _line => _table?.cell ?? _lines.last;
 
   void add(HtmlToken token) {
     switch (token) {
@@ -106,8 +111,10 @@ class _HtmlReader {
 
   void _start(String name, Map<String, String> attrs, bool selfClosing) {
     if (_marker != null) return;
+    if (_tableStart(name, attrs)) return;
     if (name == 'br') {
       if (_hidden > 0) return;
+      if (_table != null) return _softBreak();
       // (An empty list item or heading keeps its style.)
       if (_line.isEmpty) _line.para ??= _para();
       return _newLine();
@@ -121,7 +128,7 @@ class _HtmlReader {
     }
     if (name == 'li' || name == 'p') _closeOpen(name);
     if (_blocks.contains(name)) _softBreak();
-    if (_paragraphs.contains(name)) {
+    if (_paragraphs.contains(name) && _table == null) {
       if (marginEm(parseCss(attrs['style'] ?? '')) case final em?) {
         _margin = _margin == null || em > _margin! ? em : _margin;
       }
@@ -144,7 +151,9 @@ class _HtmlReader {
 
   void _end(String name) {
     if (_marker != null) return;
-    for (var i = _stack.length - 1; i >= 0; i--) {
+    if (_tableEnd(name)) return;
+    // (In a table, only what opened in it closes.)
+    for (var i = _stack.length - 1; i >= (_table == null ? 0 : _tableBase); i--) {
       if (_stack[i].tag == name) {
         _popTo(i);
         if (_blocks.contains(name)) _softBreak();
@@ -162,17 +171,21 @@ class _HtmlReader {
   }
 
   void _softBreak() {
+    if (_table != null) return _cellBreak();
     _space = false;
-    if (!_line.isEmpty) _lines.add(_Line());
+    if (!_line.isEmpty) _lines.add(HtmlLine());
   }
 
   void _newLine() {
+    if (_table != null) return _cellBreak();
     _space = false;
-    _lines.add(_Line());
+    _lines.add(HtmlLine());
   }
 
   void _text(String text) {
     if (_hidden > 0) return;
+    // (Text in a table but outside its cells is dropped.)
+    if (_table != null && _table!.cell == null) return;
     final style = _style();
     for (final rune in text.runes) {
       final c = String.fromCharCode(rune);
@@ -205,7 +218,8 @@ class _HtmlReader {
     var bold = false, italic = false, underline = false, strike = false, mono = false;
     int? color, highlight;
     for (final f in _stack) {
-      bold = f.bold ?? bold;
+      // (A header row is bold by its table; other <th> by [HtmlTable].)
+      if (f.tag != 'th') bold = f.bold ?? bold;
       italic = f.italic ?? italic;
       underline = underline || f.underline;
       strike = strike || f.strike;
@@ -255,16 +269,22 @@ class _HtmlReader {
   }
 
   TextData? result(TextData box) {
+    _endTable();
     final lines = [
       for (final l in _lines) (text: l.text.toString(), chars: l.chars, para: _finalPara(l)),
     ];
-    while (lines.isNotEmpty && lines.last.text.trim().isEmpty) {
+    bool blank(({String text, List<SpanStyle> chars, ParaStyle para}) l) =>
+        !l.para.isCell && l.text.trim().isEmpty;
+    while (lines.isNotEmpty && blank(lines.last)) {
       lines.removeLast();
     }
-    while (lines.isNotEmpty && lines.first.text.trim().isEmpty) {
+    while (lines.isNotEmpty && blank(lines.first)) {
       lines.removeAt(0);
     }
     if (lines.isEmpty) return null;
+    if (lines.last.para.isCell) {
+      lines.add((text: '', chars: const [], para: ParaStyle.body));
+    }
     final chars = <SpanStyle>[];
     for (final (i, l) in lines.indexed) {
       if (i > 0) chars.add(SpanStyle.plain);
@@ -283,8 +303,9 @@ class _HtmlReader {
     );
   }
 
-  ParaStyle _finalPara(_Line l) {
+  ParaStyle _finalPara(HtmlLine l) {
     var p = l.para ?? ParaStyle.body;
+    if (p.isCell) return p;
     if (l.wordKind != null && p.isList) p = p.copyWith(list: l.wordKind);
     if (l.check != null) {
       p = p.copyWith(list: ListKind.check, checked: l.check, indent: p.isList ? p.indent : 0);

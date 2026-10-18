@@ -111,19 +111,21 @@ extension _TextFormatGroups on TextFormatBar {
         ),
       ],
       [
-        ParagraphMenuButton(
-          heading: para.heading,
-          list: para.list,
-          onSelected: (choice) {
-            switch (choice) {
-              case HeadingChoice(:final level):
-                c.setHeading(level);
-              case ListChoice(:final kind):
-                c.toggleList(kind);
-            }
-            refocus();
-          },
-        ),
+        // (A table cell is no heading or list item.)
+        if (identical(c.boxController, c))
+          ParagraphMenuButton(
+            heading: para.heading,
+            list: para.list,
+            onSelected: (choice) {
+              switch (choice) {
+                case HeadingChoice(:final level):
+                  c.setHeading(level);
+                case ListChoice(:final kind):
+                  c.toggleList(kind);
+              }
+              refocus();
+            },
+          ),
         IconButton(
           tooltip: switch (nextAlign) {
             TextAlignment.start => 'Align start',
@@ -133,6 +135,7 @@ extension _TextFormatGroups on TextFormatBar {
           onPressed: () => _box(box.copyWith(align: nextAlign)),
           icon: Icon(_alignIcon(box.align, c.caretDirection), size: Glyphs.bar),
         ),
+        if (!docked) TableButton(box: c.boxController, refocus: refocus),
         if (!docked)
           ParagraphSpacingButton(
             spacing: box.spacing,

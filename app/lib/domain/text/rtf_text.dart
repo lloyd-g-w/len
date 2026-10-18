@@ -12,7 +12,10 @@ import 'text_data.dart';
 /// monospaced fonts, font sizes relative to the body text's, headings
 /// (`\outlinelevel` or heading styles), bulleted / numbered lists (Word's
 /// list table, WordPad's `\pn`), one line per paragraph, the paragraph
-/// spacing nearest the body paragraphs' `\sa` / `\sb` (else the [box]'s).
+/// spacing nearest the body paragraphs' `\sa` / `\sb` (else the [box]'s),
+/// tables (`\intbl` paragraphs, `\cell`, `\row`; widths from the first
+/// row's `\cellx`, a header from its `\trhdr`; nested tables flattened
+/// into their cell's text).
 /// The font, size and colour are the [box]'s. Returns null when there is
 /// no text (or [rtf] is not RTF).
 TextData? textFromRtf(String rtf, TextData box) {
@@ -36,7 +39,7 @@ const _hidden = {
   'generator', 'xmlnstbl', 'mmathPr', 'pgdsctbl', 'listpicture', 'userprops', 'template',
   'expandedcolortbl', 'docvar', 'protusertbl', 'ftnsep', 'ftnsepc', 'ftncn', 'aftnsep',
   'aftnsepc', 'aftncn', 'shpinst', 'sp', 'formfield', 'datafield', 'hl', 'passwordhash',
-  'defchp', 'defpap', 'fchars', 'lchars', 'wgrffmtfilter',
+  'defchp', 'defpap', 'fchars', 'lchars', 'wgrffmtfilter', 'nonesttables',
 };
 
 /// Control words (and symbols) that stand for characters.
@@ -142,9 +145,20 @@ class _RtfReader {
   void _textWord(String name, int? param) {
     if (_state.apply(name, param, tables)) return;
     if (_chars[name] case final c?) return _text(c);
+    if (lines.row.word(name, param)) return;
+    final text = _state.dest == RtfDest.text;
+    final table = _state.intbl || lines.inTable;
     switch (name) {
-      case 'par' || 'line' || 'sect' || 'page' || 'row' || 'nestrow':
-        if (_state.dest == RtfDest.text) lines.newLine(_para());
+      case 'par' || 'line' || 'sect' || 'page':
+        if (text) _break();
+      case 'row' when text && lines.inTable:
+        lines.endRow();
+      case 'cell' when text && table:
+        lines.endCell();
+      case 'nestcell' || 'nestrow' when text && table:
+        lines.cellSpace();
+      case 'row' || 'nestrow':
+        if (text) lines.newLine(_para());
       case 'cell' || 'nestcell':
         if (!lines.current.isEmpty) _text(' ');
       case 'u':
@@ -171,11 +185,26 @@ class _RtfReader {
       case RtfDest.marker:
         lines.marker(text);
       case RtfDest.text:
-        if (!_state.hidden) lines.add(text, _style(), _state.half, _para);
+        if (_state.hidden) return;
+        _state.intbl ? lines.startTable() : lines.endTable();
+        lines.add(text, _style(), _state.half, _para);
       case RtfDest.skip || RtfDest.pn:
         break;
       case final dest:
         tables.text(dest, text);
+    }
+  }
+
+  /// A paragraph break: a space in a table's cell, else a new line.
+  void _break() {
+    if (_state.intbl) {
+      lines
+        ..startTable()
+        ..cellSpace();
+    } else {
+      lines
+        ..endTable()
+        ..newLine(_para());
     }
   }
 

@@ -34,9 +34,11 @@ optional sync through a tiny server you host yourself.
 - **Version history**: versions of a notebook or canvas kept as you write (thinned over
   time) and saved by hand; browse them with thumbnails, devices and what changed, then
   restore the whole notebook, one page, or a copy. Synced, shared between versions, undoable.
-- **Text boxes**: rich text (headings, lists, checklists, colours), formatting kept when
-  pasting from web pages, Word or WordPad (HTML and RTF), bundled fonts plus your own
-  (import a TTF / OTF once; it syncs, goes into backups and PDF exports).
+- **Text boxes**: rich text (headings, lists, checklists, colours), simple tables (Tab
+  between cells, resizable columns, header row; copied and pasted as tables, split
+  between pages), formatting kept when pasting from web pages, Word or WordPad (HTML and
+  RTF), bundled fonts plus your own (import a TTF / OTF once; it syncs, goes into
+  backups and PDF exports).
 - **More**: images, audio recordings with ink replay, search (handwriting on
   Android), split view, tabs, PDF / PNG export, Len files and backups.
 - **Keyboard access**: shortcuts (Ctrl/⌘+/ lists them), arrow keys within every group,

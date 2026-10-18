@@ -47,7 +47,7 @@ extension _SessionCommit on TextEditSession {
   void _commitWhole(SurfaceElement? original, SurfaceElement current, TextData data) {
     if (original != null && !_edited) return;
     final chains = flows!;
-    if (data.text.trim().isEmpty) {
+    if (data.isBlank) {
       if (original == null) return;
       chains.pages.batch(() {
         _model.commit(InkEdit(removedElements: [original]));
@@ -76,7 +76,7 @@ extension _SessionCommit on TextEditSession {
       ] else
         data,
     ];
-    final empty = data.text.trim().isEmpty;
+    final empty = data.isBlank;
     if (head != null) {
       if (!empty) {
         _carryFirstLine(parts, data);
@@ -99,7 +99,7 @@ extension _SessionCommit on TextEditSession {
     final first = head == null || _aloneIndex == 0 ? current : head.box;
     final whole = parts.isEmpty ? const TextData() : TextFlow.join(parts);
     chains.pages.batch(() {
-      if (whole.text.trim().isEmpty) {
+      if (whole.isBlank) {
         if (stored == null) return;
         _modelOf(headPage).commit(InkEdit(removedElements: [stored]));
         chains.commit(chains.removing(headPage, stored.id, _rest));

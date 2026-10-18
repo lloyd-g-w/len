@@ -37,35 +37,39 @@ class MarkerOffsets {
 
   /// Display offset of model offset [m] as a caret position: after the
   /// marker of its line, at a wrap at the start of the continuation line,
-  /// at the end of a paragraph before its closing isolate.
+  /// at the end of a paragraph before its closing isolate; inside a table
+  /// row's cells, before the row.
   int toDisplay(int m) {
     var d = m;
     for (final i in _inserts) {
       if (i.at > m) break;
-      d += i.at == m ? i.caret : i.length;
+      if (i.at == m || m < i.end) return d - (m - i.at) + i.caret;
+      d += i.growth;
     }
     return d;
   }
 
   /// Display offset of the character at model offset [m] (after every
-  /// insert in front of it).
+  /// insert in front of it; inside a table row, the row's).
   int charAt(int m) {
     var d = m;
     for (final i in _inserts) {
       if (i.at > m) break;
-      d += i.length;
+      if (m < i.end) return d - (m - i.at) + i.length - 1;
+      d += i.growth;
     }
     return d;
   }
 
-  /// Model offset of display offset [d] (inside an insert: its offset).
+  /// Model offset of display offset [d] (inside an insert: its offset;
+  /// after a table row: the end of its cells).
   int toModel(int d) {
     var shift = 0;
     for (final i in _inserts) {
       final start = i.at + shift;
       if (d <= start) break;
       if (d < start + i.length) return i.at;
-      shift += i.length;
+      shift += i.growth;
     }
     return d - shift;
   }
@@ -77,7 +81,7 @@ class MarkerOffsets {
       final start = i.at + shift;
       if (d < start) return null;
       if (d <= start + i.length) return (insert: i, index: d - start);
-      shift += i.length;
+      shift += i.growth;
     }
     return null;
   }
@@ -106,7 +110,7 @@ class MarkerOffsets {
         final k = i.pieces.indexWhere((p) => p.kind == InsertKind.room);
         if (k >= 0) return i.at + shift + k;
       }
-      shift += i.length;
+      shift += i.growth;
     }
     return null;
   }
@@ -149,19 +153,30 @@ class MarkerOffsets {
   }
 
   /// The display ranges holding the model text [start, end), without the
-  /// inserts inside it.
+  /// inserts inside it (nor table cells, which a row replaces).
   List<(int, int)> displayRanges(int start, int end) {
     final out = <(int, int)>[];
     var from = start;
     for (final i in _inserts) {
-      if (i.at <= start) continue;
+      if (i.end <= from && i.replaces > 0) continue;
+      if (i.at <= from) {
+        if (i.replaces > 0 && from < i.end) from = i.end;
+        continue;
+      }
       if (i.at >= end) break;
       out.add((charAt(from), charAt(from) + i.at - from));
-      from = i.at;
+      from = i.replaces > 0 ? i.end : i.at;
     }
     if (end > from) out.add((charAt(from), charAt(from) + end - from));
     return out;
   }
+
+  /// The table rows' inserts (those replacing model text).
+  Iterable<TextInsert> get rows => _inserts.where((i) => i.isRow);
+
+  /// Whether model offset [m] is inside a table row's cells (their ends
+  /// included).
+  bool isInRow(int m) => _inserts.any((i) => i.isRow && m >= i.at && m <= i.end);
 
   /// The laid-out text of [text].
   String display(String text) {
@@ -172,7 +187,7 @@ class MarkerOffsets {
       out
         ..write(text.substring(last, i.at))
         ..write(i.text);
-      last = i.at;
+      last = i.end;
     }
     out.write(text.substring(last));
     return out.toString();

@@ -1,6 +1,7 @@
 /// A tolerant HTML tokenizer for clipboard fragments (no DOM): start and
 /// end tags with attributes, text with entities decoded, and the Office
-/// conditional comments Word uses for list markers. Comments, doctype,
+/// conditional comments Word uses for list markers (the one around its
+/// row for misaligned table columns is skipped). Comments, doctype,
 /// processing instructions and the content of `script`, `style`, `title`,
 /// `head`-only elements and Word's `xml` islands are skipped.
 library;
@@ -66,6 +67,12 @@ List<HtmlToken> tokenizeHtml(String html) {
     if (html.startsWith('<!', lt) || html.startsWith('<?', lt)) {
       final end = html.indexOf('>', lt);
       final body = html.substring(lt, end < 0 ? n : end).toLowerCase();
+      if (body.contains('supportmisalignedcolumns')) {
+        // Word's row of empty cells setting misaligned columns' widths.
+        final close = html.indexOf('<![endif]>', lt);
+        i = close < 0 ? n : close + 10;
+        continue;
+      }
       if (body.contains('supportlists')) out.add(const ListMarkerFence(start: true));
       if (body.startsWith('<![endif]')) out.add(const ListMarkerFence(start: false));
       i = end < 0 ? n : end + 1;

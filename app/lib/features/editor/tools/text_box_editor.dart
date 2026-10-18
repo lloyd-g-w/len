@@ -14,6 +14,7 @@ import '../../../ui/app_theme.dart';
 import 'text/list_marker_view.dart';
 import 'text/rich_text_controller.dart';
 import 'text/rich_text_field.dart';
+import 'text/table_editor_layer.dart';
 import 'text/text_box_reveal.dart';
 import 'text_format_bar.dart';
 
@@ -42,7 +43,10 @@ class TextBoxEditor extends StatefulWidget {
 
 class _TextBoxEditorState extends State<TextBoxEditor> {
   final RichTextController _text = RichTextController(const TextData());
+  late final TableCellController _cell = TableCellController(_text);
   final FocusNode _focus = FocusNode(debugLabel: 'TextBoxEditor');
+  final FocusNode _cellFocus = FocusNode(debugLabel: 'TextBoxEditor cell');
+  final FocusNode _rangeFocus = FocusNode(debugLabel: 'TextBoxEditor cells');
   final GlobalKey _dockedBar = GlobalKey(debugLabel: 'docked format bar');
   final TextBoxReveal _reveal = TextBoxReveal();
   String? _editingId;
@@ -65,8 +69,46 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
     _session
       ..boxHistory = _text
       ..addListener(_onSession);
-    _text.addListener(_onSelection);
+    _text
+      ..addListener(_onSelection)
+      ..addListener(_onTable);
     _onSession();
+  }
+
+  /// The controller formatting acts on: the edited cell's, else the box's.
+  RichTextController get _formatted => _text.activeCell != null ? _cell : _text;
+
+  /// The focus of what is edited: a table cell, a block of cells, the box.
+  FocusNode get _editing => _text.activeCell != null
+      ? _cellFocus
+      : _text.cellRange != null
+      ? _rangeFocus
+      : _focus;
+
+  /// Gives the field being edited its focus (after a menu or sheet).
+  void _refocus() => _editing.requestFocus();
+
+  /// A table cell started or stopped being edited (or changed under it,
+  /// as by undo): the cell's field follows, and the focus.
+  void _onTable() {
+    final line = _text.activeCell;
+    if (line == null) {
+      if (_cell.line == null) return;
+      _cell.release();
+    } else {
+      final width = _text.cellWrapWidth(line);
+      if (_cell.line != line || _cell.data != _text.cellData(line)) {
+        _cell.edit(line, selection: _text.cellSelection, width: width);
+      } else if (_cell.wrapWidth != width) {
+        _cell.wrapWidth = width;
+      }
+    }
+    final target = _editing;
+    if (target.hasPrimaryFocus) return;
+    if (target.context != null) return target.requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _editingId != null && identical(target, _editing)) target.requestFocus();
+    });
   }
 
   /// The field's text and formatting → the session.
@@ -76,8 +118,11 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
   void dispose() {
     _session.removeListener(_onSession);
     if (identical(_session.boxHistory, _text)) _session.boxHistory = null;
+    _cell.dispose();
     _text.dispose();
     _focus.dispose();
+    _cellFocus.dispose();
+    _rangeFocus.dispose();
     super.dispose();
   }
 
@@ -103,9 +148,11 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
     if (element != null) _text.wrapWidth = element.rect.width;
     _editingId = id;
     if (id == null) return;
+    _cell.release();
     _text.load(_session.data, caret: _session.startCaret);
+    _onTable();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _editingId != null) _focus.requestFocus();
+      if (mounted && _editingId != null) _refocus();
     });
   }
 
@@ -176,10 +223,12 @@ class _TextBoxEditorState extends State<TextBoxEditor> {
   /// The caret's rect in global coordinates, if the field is laid out.
   Rect? _caretRect() {
     if (!mounted || _session.current == null) return null; // The box ended.
-    final field = _focus.context?.findAncestorStateOfType<EditableTextState>();
+    final inCell = _text.activeCell != null;
+    final field = (inCell ? _cellFocus : _focus).context
+        ?.findAncestorStateOfType<EditableTextState>();
     final editable = field?.renderEditable;
     if (editable == null || !editable.attached || !editable.hasSize) return null;
-    final selection = _text.selection;
+    final selection = inCell ? _cell.selection : _text.selection;
     if (!selection.isValid) return null;
     final local = editable.getLocalRectForCaret(selection.extent);
     return MatrixUtils.transformRect(editable.getTransformTo(null), local);

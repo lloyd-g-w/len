@@ -8,6 +8,37 @@ extension _PdfTextDrawing on PdfTextWriter {
       ..setGraphicState(PdfGraphicState(fillOpacity: c.a));
   }
 
+  /// Highlights, then glyphs, then decorations of [runs].
+  void _paint(PdfGraphics g, List<_Run> runs) {
+    for (final r in runs) {
+      _highlight(g, r);
+    }
+    for (final r in runs) {
+      _text(g, r);
+    }
+    for (final r in runs) {
+      _decorations(g, r);
+    }
+  }
+
+  /// The hairline grids of [layout]'s tables, as on the canvas
+  /// ([TableLayout.paintRow]).
+  void _grids(PdfGraphics g, TextBoxLayout layout) {
+    for (final row in layout.rows) {
+      final t = layout.tables[row.table];
+      final r = row.rect;
+      final w = TableLayout.lineWidthOf(t.data);
+      _fill(g, TableLayout.gridColorOf(t.data));
+      g.drawRect(r.left, r.top - w / 2, t.width, w);
+      if (row.row == t.table.rows - 1) g.drawRect(r.left, r.bottom - w / 2, t.width, w);
+      for (var c = 0; c <= t.table.columns; c++) {
+        final x = c == t.table.columns ? r.left + t.width : r.left + t.columnLeft(c);
+        g.drawRect(x - w / 2, r.top, w, r.height);
+      }
+      g.fillPath();
+    }
+  }
+
   void _highlight(PdfGraphics g, _Run r) {
     final paint = r.style.background;
     if (paint == null) return;

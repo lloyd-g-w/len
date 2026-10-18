@@ -262,7 +262,7 @@ class ContentTools {
   /// and selects it (the tool stays). It is as wide as its text, but wraps
   /// at [pasteWidthFraction] of the screen.
   void pasteText(TextData data, {Offset? at}) {
-    if (data.text.trim().isEmpty) return;
+    if (data.isBlank) return;
     if (at == null) beforePasteAtCentre?.call();
     final area = viewport.visibleWorld;
     final head = PastedText.add(

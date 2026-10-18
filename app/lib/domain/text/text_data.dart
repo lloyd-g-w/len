@@ -141,6 +141,10 @@ class TextData {
 
   int get lineCount => '\n'.allMatches(text).length + 1;
 
+  /// Whether the box shows nothing: only white space, and no table (an
+  /// emptied box is deleted when editing ends).
+  bool get isBlank => text.trim().isEmpty && !TextTables.any(paras);
+
   /// Whether any character or paragraph formatting is set.
   bool get isRich => spans.isNotEmpty || _paras.any((p) => p != ParaStyle.body);
 

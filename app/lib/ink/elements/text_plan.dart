@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import '../../domain/text/table_cells.dart';
 import '../../domain/text/text_data.dart';
 import 'text_layout.dart';
 
@@ -34,9 +35,18 @@ typedef FlowBreak = ({int at, double gap, bool soft});
 /// page breaks ([FlowBreak]): a line as tall as the room over the page
 /// edge, and a paragraph the page ends in is laid out in two pieces, as
 /// its two boxes lay it out.
+///
+/// Each row of a table is one placeholder that stands for its cells' text
+/// ([InsertKind.row]), laid out by [tables].
 class TextPlan {
-  TextPlan._(this.base, this.directions, this.markers, this.wraps, List<TextInsert> inserts)
-    : inserts = TextInsert.merge(inserts) {
+  TextPlan._(
+    this.base,
+    this.directions,
+    this.markers,
+    this.wraps,
+    List<TextInsert> inserts, [
+    this.tables = const [],
+  ]) : inserts = TextInsert.merge(inserts) {
     offsets = MarkerOffsets(this.inserts);
   }
 
@@ -59,8 +69,45 @@ class TextPlan {
     final builder = _Builder(data, w, base, wrap: w.isFinite && !data.autoWidth);
     final byLine = {for (final m in markers) m.line: m};
     final text = data.text;
+    final tables = data.tables;
+    final starts = tables.isEmpty ? const <int>[] : data.lineStarts;
+    final layouts = [
+      for (final t in tables) TableLayout(data, t, w, direction: base, starts: starts),
+    ];
     var start = 0;
     for (var line = 0; line < directions.length; line++) {
+      if (TextTables.at(tables, line) case final t?) {
+        // A row: one placeholder standing for its cells (the caret never
+        // rests by it; the editor edits cells on their own).
+        final k = tables.indexOf(t);
+        final row = (line - t.line) ~/ t.columns;
+        final last = math.min(t.lineOf(row, t.columns - 1), t.end - 1);
+        final nl = text.indexOf('\n', starts[last]);
+        final end = nl < 0 ? text.length : nl;
+        if (hard[start] case final gap? when start > 0) {
+          builder.inserts.add(
+            TextInsert(
+              start,
+              [InsertPiece.room(gap), InsertPiece.roomBreak],
+              caret: 2,
+              allowed: {},
+            ),
+          );
+        }
+        final size = Size(layouts[k].width, layouts[k].rowHeights[row]);
+        builder.inserts.add(
+          TextInsert(
+            start,
+            [InsertPiece.row(size, k, row)],
+            caret: 0,
+            allowed: {},
+            replaces: end - start,
+          ),
+        );
+        line = last;
+        start = end + 1;
+        continue;
+      }
       final nl = text.indexOf('\n', start);
       final end = nl < 0 ? text.length : nl;
       final m = byLine[line];
@@ -92,13 +139,17 @@ class TextPlan {
       for (final m in markers)
         if (!m.continued) m,
     ];
-    final plan = TextPlan._(base, directions, drawn, builder.wraps, builder.inserts);
+    final plan = TextPlan._(base, directions, drawn, builder.wraps, builder.inserts, layouts);
     if (data.paragraphGap <= 0) return plan;
     final spaced = TextSpacing.insertsOf(data, plan, w);
     return identical(spaced, plan.inserts)
         ? plan
-        : TextPlan._(base, directions, drawn, builder.wraps, spaced);
+        : TextPlan._(base, directions, drawn, builder.wraps, spaced, layouts);
   }
+
+  /// The box's tables laid out, in line order (rows refer to them by
+  /// index, [InsertPiece.row]).
+  final List<TableLayout> tables;
 
   /// The box's direction: its first paragraph's.
   final TextDirection base;

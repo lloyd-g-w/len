@@ -2525,6 +2525,14 @@ GoodNotes-style rich text inside a box.
   there). Content marked
   `aria-hidden="true"` is skipped (icon glyphs; the ☐ / ☑ Len writes); an
   empty list item or heading (`<li><br></li>`) keeps its style.
+  Tables (`html_table.dart`, `html_text_tables.dart`) become tables: one
+  cell line per `<td>` / `<th>` with its inline content (inner blocks and
+  `<br>` as spaces, a table inside a cell flattened into its text), the
+  widest row's columns (at most 12; a `colspan` cell followed by empty
+  ones, short rows padded), widths from the first row's or `<col>`s'
+  `width` (%, px, pt), a header when the first row is `<thead>` or all
+  `<th>`; cell shading is no highlight, Word's misaligned-columns row is
+  skipped.
   **RTF-only clipboards** (WordPad; apps offering both get the HTML read)
   go through `textFromRtf` (`domain/text/rtf_text.dart`, pure Dart: a
   tokenizer, `rtf_tokens.dart`; group state, `rtf_state.dart`; the header
@@ -2539,7 +2547,10 @@ GoodNotes-style rich text inside a box.
   → headings, lists from Word's `\listtable` (`\levelnfc` 23 bullet, 255
   none, else number; `\ls` via `\listoverridetable`, `\ilvl` → indent),
   else the `\listtext` / `\pntext` marker ("1." / "a)" → number) or
-  WordPad's `\pn`; non-text destinations (`\*…`, pictures, objects,
+  WordPad's `\pn`; tables from `\intbl` paragraphs, `\cell` and `\row`
+  (`rtf_table_rows.dart`: widths from the first row's `\cellx`, a header
+  from its `\trhdr`, `\par` in a cell a space, nested tables' `\nestcell`
+  text flattened into the outer cell); non-text destinations (`\*…`, pictures, objects,
   headers, info, theme data, `\bin`) are skipped. Unlike HTML, font sizes
   are kept *relative*: the size most body characters have is the box's,
   runs more than 10 % off it get the box size × their ratio (headings
@@ -2567,13 +2578,68 @@ GoodNotes-style rich text inside a box.
   red boxes stay red, Len's default ink stays the app's text colour),
   highlights blended onto white (`htmlHighlight`; Len's are translucent),
   fonts other than Inter as CSS stacks, alignment as `text-align`; sizes
-  are left to the receiving app. Spaces HTML would collapse (at a line's
+  are left to the receiving app. A table is a `<table>` of bordered
+  cells (its header row `<th>`, which reads as bold elsewhere), each
+  `<td>` carrying its column's width in percent, so it reads back the same
+  (`table_clipboard_test.dart`). Spaces HTML would collapse (at a line's
   ends, after another) become `&nbsp;`, tabs a `white-space:pre` span. A
   property test writes random boxes and reads them back: the same text,
   spans and paragraphs, up to what the reader keeps (no sizes, fonts other
   than mono, greys; blank lines at the ends). `pasteboard`'s `write` wraps
   the fragment per platform (above); where it fails (macOS / iOS, old
   browsers) the plain text goes alone.
+- **Tables** (`domain/text/text_table.dart`, `table_edits.dart`, `table_cells.dart`,
+  `ink/elements/table_layout.dart`, `features/editor/tools/text/table_*`,
+  `rich_text_tables.dart`): simple grids inside a box, no merged cells. *Model*: a table
+  is a run of lines of the box's text, one line per cell in row-major order, so the plain
+  text stays whole (search, old clients: cells read as paragraphs) and cells take character
+  formatting like any line. Each cell's `ParaStyle.cell` (`TextTableCell`) holds the
+  table's `TableSpec` (column widths as shares of the box width, bold header row,
+  `continued`: goes on from the box on the page before) and whether it starts the table;
+  stored compactly on the first cell only (see SYNC_PROTOCOL). `TextTables.of` finds the
+  tables (`normalize` links cells to their first, marks header cells); `TableEdits` (pure
+  Dart, on `RichTextBuffer`) inserts tables (in place of an empty line, else splitting the
+  caret's line), rows and columns, removes them, sets widths and the header, replaces a
+  cell's text, inserts fragments holding tables as whole lines, and repairs what generic
+  edits leave (a short last row is padded, a table always has a line after it, so the
+  caret has somewhere to go). A box holding only an empty table is not blank
+  (`TextData.isBlank`). *Layout*: in the box's one Flutter paragraph each row is folded into
+  a single placeholder (a `TextInsert` that `replaces` the row's model text,
+  `InsertKind.row`; `MarkerOffsets` maps offsets in cells to the row) as wide as the box and
+  as tall as its tallest cell, so a row is one line: alignment, paragraph spacing (below a
+  table, not between its rows) and page splits (between rows) work unchanged. `TableLayout`
+  (made by `TextPlan`) lays each cell out on its own as a one-line `TextData`
+  (`cellData`; a header cell's paragraph `bold`) at its column's width less the cell
+  padding, and paints cells and the hairline grid (text colour at 30 %) at the row
+  placeholders; columns run in the box's direction. `TextBoxLayout.boxesOf` maps model
+  ranges in cells to boxes (search highlights), `cellAt` a point to a cell offset (a tap
+  with the Text tool on a committed table edits that cell). Auto-width boxes give a table
+  6 em per column. *Editing*: the box's field shows the rows as placeholders the caret
+  never rests by; moving into one (arrows) edits a cell instead (first or last row, column
+  by the caret's x), a selection reaching into a table takes all of it, and a line break
+  next to a table is never deleted (backspace after one goes into its last cell). The
+  `TableEditorLayer` over the field (same layout, world units) paints the cells, edits one
+  cell at a time in its own `RichTextField` with a `TableCellController` (a
+  `RichTextController` over the cell's text, so typing, the IME, inline formats and
+  shortcuts work as in the box) whose history steps go into the box controller's history
+  (`setCell`; typing runs stay one step, undo and redo are the box's, a step made in a cell
+  goes back to that cell), takes taps on cells, turns a drag across cells into a block of
+  cells (`TableRange`, also Shift+arrows at a cell's edge; copied as an HTML table and
+  tab-separated text, emptied by Delete, formatted by the bar and Ctrl+B / I / U), and has
+  grips on column borders that resize columns (one step per drag, `previewWidths` /
+  `commitWidths`). `TableKeys`: Tab / Shift+Tab next / previous cell (Tab in the last adds a
+  row), Enter the cell below (from the last row, the line after), arrows at a cell's edge
+  the cell beyond or the text around the table. The format bar formats the cell edited;
+  its table button picks a new table's size (`TablePicker`) or, in a table, opens the table
+  menu (insert row above / below, column left / right, header row, delete row / column /
+  table); on phones both are in its ⋯. A table copied here, or tab-separated rows (a
+  spreadsheet), pasted into a cell fill the cells from it on, adding rows (`pasteGrid`).
+  *Flow*: a part beginning inside a table starts with a copy of its spec marked
+  `continued` (`TextFlow.slice`); `TextFlow.join` merges it back. *Export*: `PdfTextWriter`
+  writes each cell with its own layout at its place, then the grid. *Screen readers*:
+  `TextBoxSemantics` gives a box with tables a table node with row and cell nodes (header
+  cells as column headers, `SemanticsRole`), the box's node reading the rest; the cell
+  edited is named "Row r, column c".
 - **Export**: `PdfTextWriter` writes boxes as real text in the embedded
   (subsetted) fonts (TrueType user fonts too), each word at the position the app's layout gives it, with
   vector highlights, decorations and markers; boxes with characters the bundled

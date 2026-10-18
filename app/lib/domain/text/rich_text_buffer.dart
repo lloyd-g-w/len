@@ -1,5 +1,9 @@
 import 'text_data.dart';
 
+/// One line of a [RichTextBuffer]: its text (no break), one style per
+/// UTF-16 unit, and its paragraph style.
+typedef BufferLine = ({String text, List<SpanStyle> chars, ParaStyle para});
+
 /// Mutable formatted text while a text box is edited: the text, one
 /// [SpanStyle] per UTF-16 unit and one [ParaStyle] per line. Pure logic
 /// (no Flutter), so editing behaviours are unit-testable; the editor's
@@ -55,6 +59,33 @@ class RichTextBuffer {
       autoWidth: box.autoWidth,
       spacing: box.spacing,
     );
+  }
+
+  /// Line [line]: its text (without the break), character styles and
+  /// paragraph style.
+  BufferLine lineAt(int line) {
+    final start = lineStart(line), end = lineEnd(line);
+    return (
+      text: _text.substring(start, end),
+      chars: _chars.sublist(start, end),
+      para: _paras[line],
+    );
+  }
+
+  /// Replaces lines [first, end) with [lines] (none: they go, and so does
+  /// the break before or after them; a text without lines keeps one empty
+  /// line).
+  void spliceLines(int first, int end, List<BufferLine> lines) {
+    final all = [for (var l = 0; l < _paras.length; l++) lineAt(l)]
+      ..replaceRange(first, end, lines);
+    if (all.isEmpty) all.add((text: '', chars: const [], para: ParaStyle.body));
+    _text = all.map((l) => l.text).join('\n');
+    _chars = [
+      for (var i = 0; i < all.length; i++) ...[if (i > 0) SpanStyle.plain, ...all[i].chars],
+    ];
+    _paras
+      ..clear()
+      ..addAll([for (final l in all) l.para]);
   }
 
   SpanStyle charStyle(int offset) => _chars[offset];

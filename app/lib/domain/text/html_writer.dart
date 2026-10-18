@@ -13,8 +13,9 @@ import 'text_data.dart';
 /// so apps without checklists still show it); one block per line, spaces
 /// kept with `&nbsp;` where HTML would collapse them; alignment as
 /// `text-align`, paragraph spacing as each block's `margin-bottom` (in
-/// `em`). Sizes are left to the receiving app (headings carry
-/// theirs). Several [boxes] (copied whole, with the lasso) are separated
+/// `em`); tables as `<table>`s with bordered cells (a header row as
+/// `<th>`), column widths in percent. Sizes are left to the receiving app
+/// (headings carry theirs). Several [boxes] (copied whole, with the lasso) are separated
 /// by an empty line and end at their text, as their plain text does:
 /// blank lines and spaces after it are left out.
 String htmlFromTexts(Iterable<TextData> boxes) {
@@ -23,9 +24,24 @@ String htmlFromTexts(Iterable<TextData> boxes) {
   for (final box in boxes) {
     if (!first) out.write('<div><br></div>');
     first = false;
-    _BoxWriter(box, out).write(box.text.trimRight().length);
+    _BoxWriter(box, out).write(_contentEnd(box));
   }
   return out.toString();
+}
+
+/// Where [box]'s text ends: before blank lines and spaces after it, but
+/// not inside a table (whose last cells may be empty).
+int _contentEnd(TextData box) {
+  final text = box.text.trimRight().length;
+  final tables = TextTables.of(box.paras);
+  if (tables.isEmpty) return text;
+  var lineEnd = -1;
+  for (var l = 0, i = 0; l < tables.last.end; l++) {
+    lineEnd = box.text.indexOf('\n', i);
+    if (lineEnd < 0) return box.text.length;
+    i = lineEnd + 1;
+  }
+  return lineEnd > text ? lineEnd : text;
 }
 
 /// [htmlFromTexts] of the text selected in one box, all of it.
@@ -83,6 +99,11 @@ class _BoxWriter {
   final StringBuffer out;
   final _lists = <_OpenList>[];
   late final List<SpanStyle> _styles = data.charStyles();
+  late final List<TextTable> _tables = TextTables.of(data.paras);
+
+  /// The table being written and how many of its cells are.
+  TextTable? _table;
+  int _cells = 0;
 
   /// Each paragraph's direction (its first strong character's).
   late final List<TextDirection> _dirs = data.directions;
@@ -111,6 +132,13 @@ class _BoxWriter {
     for (final (i, line) in data.text.split('\n').indexed) {
       if (start > end) break;
       final p = paras[i];
+      final lineEnd = start + line.length < end ? start + line.length : end;
+      if (p.isCell) {
+        _cell(TextTables.at(_tables, i)!, start, lineEnd);
+        start += line.length + 1;
+        continue;
+      }
+      _closeTable();
       if (p.isList) {
         _item(p, i);
       } else {
@@ -125,11 +153,44 @@ class _BoxWriter {
       if (p.list == ListKind.check) {
         out.write('<span aria-hidden="true">${p.checked ? '☑' : '☐'} </span>');
       }
-      _line(start, start + line.length < end ? start + line.length : end);
+      _line(start, lineEnd);
       if (tag != null) out.write('</$tag>');
       start += line.length + 1;
     }
+    _closeTable();
     _closeLists(0);
+  }
+
+  /// Writes the next cell of [t], [start, end) of the text, opening the
+  /// table and row (and closing the table before).
+  void _cell(TextTable t, int start, int end) {
+    if (_table != t) {
+      _closeTable();
+      _closeLists(0);
+      out.write('<table style="border-collapse:collapse">');
+      _table = t;
+      _cells = 0;
+    }
+    final column = _cells % t.columns;
+    if (column == 0) out.write('<tr>');
+    final tag = t.spec.hasHeaderRow && _cells < t.columns ? 'th' : 'td';
+    final width = (t.spec.widths[column] * 100).toStringAsFixed(1);
+    out.write('<$tag style="border:1px solid #ccc;padding:2px 6px;width:$width%">');
+    _line(start, end);
+    out.write('</$tag>');
+    _cells++;
+    if (_cells % t.columns == 0) out.write('</tr>');
+  }
+
+  /// Closes the table being written, filling its last row with empty cells.
+  void _closeTable() {
+    final t = _table;
+    if (t == null) return;
+    while (_cells % t.columns != 0) {
+      _cell(t, 0, 0);
+    }
+    out.write('</table>');
+    _table = null;
   }
 
   /// The spacing alone as a style attribute (a heading inside a list

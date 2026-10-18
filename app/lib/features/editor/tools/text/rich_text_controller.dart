@@ -5,17 +5,24 @@ import 'package:flutter/widgets.dart';
 
 import '../../../../domain/text/html_writer.dart';
 import '../../../../domain/text/rich_text_buffer.dart';
+import '../../../../domain/text/table_cells.dart';
+import '../../../../domain/text/table_edits.dart';
 import '../../../../domain/text/text_data.dart';
 import '../../../../ink/elements/text_edit_session.dart' show BoxHistory;
 import '../../../../ink/elements/text_layout.dart';
 import '../../../../platform/clipboard_html.dart';
 import '../../clipboard/rich_clipboard.dart';
 import 'clipboard_rich_text.dart';
+import 'table_range.dart';
+
+export 'table_range.dart';
 
 part 'rich_text_clipboard.dart';
 part 'rich_text_formatting.dart';
 part 'rich_text_history.dart';
 part 'rich_text_state.dart';
+part 'rich_text_tables.dart';
+part 'table_cell_controller.dart';
 
 /// The text field controller of a text box being edited: keeps the
 /// formatted text in a [RichTextBuffer] and renders it with
@@ -29,9 +36,13 @@ part 'rich_text_state.dart';
 /// commands act on the selection (or, with a collapsed caret, on what is
 /// typed next, see [_RichTextFormatting]).
 class RichTextController extends _RichTextState
-    with _RichTextFormatting, _RichTextClipboard, _RichTextUndo
+    with _RichTextFormatting, _RichTextTables, _RichTextClipboard, _RichTextUndo
     implements BoxHistory {
   RichTextController(super.data);
+
+  /// The controller of the whole box: this one, or for a table cell's the
+  /// box's (table commands go there).
+  RichTextController get boxController => this;
 
   /// Text copied from a box here, with its formatting (Len's own clipboard
   /// format): pasting the same plain text keeps the formatting.
@@ -39,7 +50,18 @@ class RichTextController extends _RichTextState
 
   /// Whether [text] was last copied from a box here (pasting it keeps
   /// that formatting, so it wins over the clipboard's HTML).
-  static bool isOwnClip(String text) => _clip?.text == _clean(text);
+  static bool isOwnClip(String text) => _clipPlain == _clean(text);
+
+  /// What was last copied from a box here, with its formatting, if the
+  /// clipboard's [text] is it.
+  static TextData? ownClip(String text) => isOwnClip(text) ? _clip : null;
+
+  /// The plain text of [_clip] as other apps got it (table rows as
+  /// tab-separated cells).
+  static String? get _clipPlain {
+    final clip = _clip;
+    return clip == null ? null : TextTables.plainText(clip.text, clip.paras);
+  }
 
   /// [text] without marker placeholders and bidi isolates (the layout's,
   /// in text a browser copied from the field), its line breaks all \n.
@@ -53,15 +75,22 @@ class RichTextController extends _RichTextState
   static TextData pasted(String text, TextData box) {
     final clean = _clean(text);
     final clip = _clip;
-    final base = box.copyWith(text: clean);
-    if (clip == null || clip.text != clean) return base;
-    return base.withFormatting(spans: clip.spans, paras: clip.paras);
+    if (clip == null || _clipPlain != clean) return box.copyWith(text: clean);
+    return box.copyWith(text: clip.text).withFormatting(spans: clip.spans, paras: clip.paras);
   }
 
   @override
   set value(TextEditingValue next) {
     final old = super.value;
     if (next.text == old.text) {
+      if (next.selection == old.selection && (_cellSelection != null || _range != null)) return;
+      if (_entersTable(next.selection, old.selection)) return;
+      if (_cellSelection != null || _range != null) {
+        // The field's caret moved (a tap in the text): no cell edited.
+        _cellSelection = null;
+        _range = null;
+        notifyListeners();
+      }
       final sel = _normalize(next.selection, old.selection);
       if (sel != old.selection) _pending = null;
       super.value = next.copyWith(selection: sel);
@@ -84,7 +113,8 @@ class RichTextController extends _RichTextState
     if (!s.isValid || _offsets.isEmpty) return s;
     int fix(int d, int was) {
       if (!_offsets.isHidden(d)) return d;
-      final step = _offsets.isPageBreak(d)
+      // A selection reaching into a table takes all of it.
+      final step = _offsets.isPageBreak(d) || _offsets.isInRow(_offsets.toModel(d))
           ? (was > d ? -1 : 1)
           : (was == d + 1 ? -1 : (was == d - 1 ? 1 : 0));
       return _offsets.allowedNear(d, text.length, step: step);
@@ -94,6 +124,42 @@ class RichTextController extends _RichTextState
       baseOffset: fix(s.baseOffset, old.baseOffset),
       extentOffset: fix(s.extentOffset, old.extentOffset),
     );
+  }
+
+  /// Whether the caret moved into a table ([s] collapsed in a row; from
+  /// [old]): its first cell is edited coming from before it, its last
+  /// from after it (by the caret's column when it moved up or down); the
+  /// field's caret stays where it was.
+  bool _entersTable(TextSelection s, TextSelection old) {
+    if (!s.isValid || !s.isCollapsed || !old.isValid || !_offsets.isHidden(s.extentOffset)) {
+      return false;
+    }
+    final m = _offsets.toModel(s.extentOffset);
+    if (!_offsets.isInRow(m)) return false;
+    final t = _buffer.tableAt(_buffer.lineOf(m));
+    if (t == null) return false;
+    final forward = s.extentOffset > old.extentOffset;
+    final sideways = (s.extentOffset - old.extentOffset).abs() == 1;
+    final row = forward ? 0 : t.rows - 1;
+    final column = sideways
+        ? (forward ? 0 : t.columns - 1)
+        : _columnAtCaret(t, old.extentOffset) ?? (forward ? 0 : t.columns - 1);
+    final line = math.min(t.lineOf(row, column), t.end - 1);
+    enterCell(line, atEnd: !forward);
+    return true;
+  }
+
+  /// The column of [t] below or above the field's caret at display
+  /// offset [d].
+  int? _columnAtCaret(TextTable t, int d) {
+    final k = tables.indexWhere((x) => x.line == t.line);
+    if (k < 0 || k >= _plan.tables.length) return null;
+    final layout = TextBoxLayout.planned(data, _wrapWidth, _plan);
+    final x = layout.painter.getOffsetForCaret(TextPosition(offset: d), Rect.zero).dx;
+    final row = layout.rows.where((r) => r.table == k).firstOrNull;
+    layout.dispose();
+    if (row == null) return null;
+    return _plan.tables[k].columnAt(x - row.rect.left);
   }
 
   /// Maps the field's edit (old → next display text) onto the buffer.
@@ -125,6 +191,17 @@ class RichTextController extends _RichTextState
     var inserted = _clean(n.substring(p, n.length - s));
     var start = _offsets.toModel(p), end = _offsets.toModel(removedEnd);
     final composing = _composing(next.composing, p, n.length - s, start);
+    if (inserted.isEmpty && end == start + 1 && _buffer.text.codeUnitAt(start) == 0x0A) {
+      // A line break next to a table stays: backspace after a table goes
+      // into its last cell, delete before one does nothing.
+      final after = _offsets.isInRow(start), before = _offsets.isInRow(end);
+      if (after || before) {
+        super.value = old;
+        final t = _buffer.tableAt(_buffer.lineOf(after ? start : end));
+        if (after && t != null) enterCell(t.end - 1, atEnd: true);
+        return;
+      }
+    }
     final line = _buffer.lineOf(start);
     // Markers deleted on their own (backspace at a list line's start).
     final unlisted = <int>{
@@ -171,15 +248,23 @@ class RichTextController extends _RichTextState
     final pasted = inserted.length > 1 && !(next.composing.isValid && !next.composing.isCollapsed);
     final rich = inserted.isEmpty
         ? null
-        : pasted && clip?.text == inserted
+        : pasted && _clipPlain == inserted
         ? clip
         : _pastedRich(inserted);
-    if (rich != null) {
+    if (rich != null && TextTables.any(rich.paras) && _pastesCells(rich)) {
+      super.value = old; // (Filled into the box's cells instead.)
+      return;
+    }
+    if (rich != null && TextTables.any(rich.paras)) {
+      final after = _buffer.insertFragment(start, end, rich);
+      inserted = _buffer.text.substring(start, after);
+    } else if (rich != null) {
       _buffer.insertRich(start, end, rich, style, exact: identical(rich, clip));
       inserted = rich.text;
     } else {
       _buffer.replace(start, end, inserted, style);
     }
+    _buffer.repairTables();
     for (final l in unlisted) {
       _buffer.updateParas(l, l, (p) => p.copyWith(list: ListKind.none));
     }
@@ -218,6 +303,10 @@ class RichTextController extends _RichTextState
     onDataChanged?.call();
     if (typed && inserted == ' ' && rich == null) _autoList(start);
   }
+
+  /// Whether a table pasted by the browser ([rich], web) went into cells
+  /// (a table cell's controller fills the cells from it on).
+  bool _pastesCells(TextData rich) => false;
 
   /// What typed at a plain line's start, before a space, starts a list.
   static const Map<String, ListKind> listPrefixes = {
