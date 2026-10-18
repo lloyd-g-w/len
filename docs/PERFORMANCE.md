@@ -26,10 +26,10 @@ how long the UI thread is held, `bestMs`, `report`).
 | `scan_perf_test.dart` | a synthetic 12-MP photo: detection, preview, page render and JPEG; the longest UI stretch of the web's banded path |
 | `version_history_perf_test.dart` | making a version of a 1,000-page PDF and of a 50k-stroke canvas: first, after one stroke, unchanged (total, UI turns, peak RSS, blobs written) |
 | `version_history_view_perf_test.dart` | the history view of 200 versions of a 100-page notebook and of 12 versions of a 50k-stroke canvas: open, thumbnails, scroll to the oldest |
-| `connectors_perf_test.dart` | connector repair after a pull (500 boxes, 1,000 arrows, 5,000 strokes); dragging a box with 50 / 200 arrows (per move, editor frame) |
+| `connectors_perf_test.dart` | connector repair after a pull (500 boxes, 1,000 arrows, 5,000 strokes); dragging a box with 50 / 200 arrows (per move, commit and its write, editor frame) |
 | `shapes_perf_test.dart` | hold to snap at the end of 2k–10k-point strokes; a curve of 20 / 64 anchors among 2,000 shapes: handle hit test, hover, handle drag |
 | `live_collab_perf_test.dart` | live push tick; remote ink by length; editor frames with three other devices writing and pointing; presence changes |
-| `mouse_ink_perf_test.dart` | mouse ink early and late in a 20,000-move stroke at stabiliser 0 / 30 % / 1: smoother, pipeline, live outline, one path; editor frames |
+| `mouse_ink_perf_test.dart` | mouse ink early and late in a 20,000-move stroke at stabiliser 0 / 30 % / 1: smoother, pipeline, live outline, one path, pen-up; editor frames |
 
 Run one file with `tool/light.sh flutter test test/perf/<file>`. The widget
 benchmarks run in debug JIT inside the test harness: compare numbers with each
@@ -430,6 +430,89 @@ What remains:
   (4.4 s; its longest turn 59 ms, as before).
 
 All 20 slow tests of the six files pass.
+
+## Leftovers of the last day's features (branch perf/r14, Oct 2026)
+
+The four "What remains" items of the round above, on its benchmarks.
+Debug JIT in the harness on the shared 6-core machine; the before is the
+benchmark run at the branch's start (load 3–3.5), the after the merged
+branch run file by file (load 4–8, other agents' benchmarks alongside).
+The work was done on three branches in parallel, each measuring its own
+before → after (in the commit messages).
+
+| Scenario | Before | After |
+|---|---|---|
+| History view, 50k canvas: open | longest frame 2,174 ms; RSS +210 MB | longest frame 13 ms (build, layout, paint; the loads' slices in the same pump: 474 ms in 2 pumps, turns max 33 ms); RSS flat (−16 MB) |
+| History view, 50k canvas: scrolling | median 9 ms, max 626 ms | median 2 ms, max 17 ms |
+| History view, 50k canvas: 12 thumbnails' ink as images | (painted in frames) | 546 ms in 112 turns (max 11 ms), 144 KB kept |
+| Presence join / leave, a frame | 11.5 rebuilds, 497.5 paints | 11.5 rebuilds, 24.5 paints (the plates) |
+| Presence, a name changes | 13 rebuilds, 500 paints | 13 rebuilds, 27 paints |
+| Mouse ink, pen-up after 20,000 moves (stabiliser 0 / 30 % / 1) | 75.8 / 69.5 / 67.2 ms (the write included) | 2.4 / 2.3 / 2.0 ms (after 1,200 moves: 0.7–0.9); written after the frame 2.1–2.4 ms |
+| Connectors, repair: a box moved | best 4.7, median 5.8, max 25.8 ms | best 3.6, median 4.2, max 5.5 ms (the first, compiling in the JIT: 28.5 ms, reported apart) |
+| Connectors, repair: surface reloaded | 24.6 ms | 7.5 ms |
+| Connectors, drag commit (50 / 200 arrows) | 29.5 / 37.8 ms (one each, the write included) | median 2.6 / 5.4 ms; written after the frame 3.8 / 11.3 ms (5 drags each) |
+
+- **History view.** A thumbnail of 2,000 strokes or more no longer paints
+  its ink in a frame: it is rendered once at thumbnail pixel size into an
+  image (`version_ink_images.dart`), recorded in slices through the loads'
+  `WorkSlices` (one `PictureRecorder` open across turns), only once its row
+  is laid out, and dropped if the row goes away. `InkSketch`
+  (`ink/render/ink_sketch.dart`) draws at that size: points within half a
+  pixel dropped, runs of opaque strokes of one colour and width in one
+  `drawRawPoints`, ink under a pixel as faint hairlines (rasterising a
+  thumbnail 60 → 6 ms). The images are cached (64 images / 32 MB, a handle
+  per view), disposed when evicted and when the sheet closes. A canvas's
+  frame and its packs' check are sliced too. Paper, elements, small pages
+  and previews paint as before (goldens unchanged). The benchmark now
+  times a frame's build, layout and paint (in the harness every
+  zero-delay slice runs inside a pump; the pump is reported beside it).
+- **Presence.** The plates rebuilt inside the top bar's `LayoutBuilder`,
+  so the bar was laid out and the chrome layer repainted. `RoomPresence`
+  rebuilds the bar only when the first other device comes or the last
+  goes; in between the plates sit in a fixed slot (sized for the most
+  plates at the text scale, scaled down rather than overflowing) with
+  their own layer and build scope.
+- **Pen-up.** 80 % of it was `StrokeChunks.along` over the whole stroke:
+  `StrokeChunkTrace` now traces the chunks segment by segment while the
+  stroke is drawn, and the committed stroke takes them (and the bounds)
+  when the live points are still its start (else the full trace, which is
+  what `along` runs: same chunks, tested against the old algorithm). The
+  live points are handed over, not copied; the end's pressures are settled
+  in place; the committed outline starts from a block copy of the frozen
+  part; the hold-to-snap hint looks at most 512 points.
+- **Connectors.** Repair reads shapes' id and style only (points of the
+  repaired lines alone) and finds lines and shape strokes through
+  expression indexes on what their ends are attached to (schema 20);
+  repaired ids are the same UUID v5 from crypto's SHA-1. Stroke writes go
+  in batches (versions in one query, 16 rows a statement, tombstones and
+  the chunk index in one statement each, an edit in one transaction). A
+  moved selection keeps its outlines (translated strokes adopt the old
+  path shifted), and a drag's commit takes the following lines its last
+  move built. `StrokeChunks.along` runs in plain doubles and skips
+  segments that cannot add a chunk (a quarter of the time). The benchmark
+  now writes behind, as the editor's surfaces do, and times the write
+  apart.
+
+What remains:
+
+- **The drag commit's write** (200 arrows) is ~11 ms of SQLite after the
+  frame (tombstones, 201 rows, ~400 chunk rows; the recognition triggers
+  and the shape indexes ~3 ms of it); with the commit ~17 ms of UI
+  thread around one frame. Splitting it would split an edit's atomicity.
+- **First runs in the JIT**: the first repair (28–57 ms) and the first
+  commit (19–36 ms) compile; release (AOT) should not pay this, unmeasured.
+- **Paged history view**: scrolling 200 versions is still median ~100 ms
+  a frame in the benchmark (a screen a step: ~12 new rows built, ~350
+  widgets); a real scroll builds a row a frame. A big canvas's full-size
+  preview still paints its 50k strokes in one frame.
+- **Frames after a 58k-point pen-up**: the next two editor frames take
+  12–16 / ~28 ms (after a short stroke 4–8 ms); unexplained (GC or the
+  long stroke's first raster).
+- **Presence**: the first device coming and the last leaving still lay
+  out the bar; any other rebuild under its `LayoutBuilder` still repaints
+  the chrome.
+
+All slow tests of the four files pass.
 
 ## Current numbers (debug, harness)
 

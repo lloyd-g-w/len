@@ -57,20 +57,51 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
   /// Inserts new strokes, or revives previously deleted ones (redo).
   void save(Iterable<Stroke> strokes) {
     final now = clock.nowMs();
+    final rows = [for (final s in strokes) StrokeRow.of(s)];
+    if (rows.isEmpty) return;
     database.transaction(() {
-      for (final s in strokes) {
-        _upsert(s, updatedAt: nextVersion(s.id, now), deviceId: deviceId, dirty: true);
+      final versions = nextVersions([for (final r in rows) r.id], now);
+      var i = 0;
+      // Whole batches in one statement each, the rest one by one.
+      for (; i + _rowsAtOnce <= rows.length; i += _rowsAtOnce) {
+        database.execute(_putMany, [
+          for (var k = i; k < i + _rowsAtOnce; k++)
+            ..._values(rows[k], versions[k], deviceId, true),
+        ]);
       }
+      for (; i < rows.length; i++) {
+        _put(rows[i], updatedAt: versions[i], deviceId: deviceId, dirty: true);
+      }
+      _reindexAll(rows);
     });
   }
 
   /// Tombstones strokes by id.
   void delete(Iterable<String> ids) {
     final now = clock.nowMs();
+    final all = jsonEncode(ids.toSet().toList());
+    if (all == '[]') return;
+    // Stamped as nextVersion would stamp each: after now and the row's
+    // version. Then a bare tombstone for a stroke never seen here, so an
+    // older live version arriving later cannot resurrect it. A known
+    // stroke keeps its points for a while, so a deletion that raced an
+    // edit on another device can be undone (`DeletionConflicts`).
     database.transaction(() {
-      for (final id in ids) {
-        _tombstone(id, updatedAt: nextVersion(id, now), deviceId: deviceId, dirty: true);
-      }
+      database.execute(
+        'UPDATE strokes SET updated_at = MAX(?, updated_at + 1), device_id = ?, deleted = 1, '
+        'dirty = 1 WHERE id IN (SELECT value FROM json_each(?))',
+        [now, deviceId, all],
+      );
+      database.execute(
+        'INSERT OR IGNORE INTO strokes (id, surface_id, tool, color, width, points, '
+        'created_at, updated_at, device_id, deleted, dirty) '
+        "SELECT value, '', 'pen', 0, 0, x'', 0, ?, ?, 1, 1 FROM json_each(?)",
+        [now, deviceId, all],
+      );
+      database.execute(
+        'DELETE FROM stroke_chunks WHERE stroke_id IN (SELECT value FROM json_each(?))',
+        [all],
+      );
     });
   }
 
@@ -162,33 +193,47 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
     required String deviceId,
     required bool dirty,
   }) {
-    database.execute(
-      '''
+    _put(s, updatedAt: updatedAt, deviceId: deviceId, dirty: dirty);
+    _reindex(s);
+  }
+
+  /// Writes row [s] without its chunk index.
+  void _put(StrokeRow s, {required int updatedAt, required String deviceId, required bool dirty}) =>
+      database.execute(_putOne, _values(s, updatedAt, deviceId, dirty));
+
+  static const _insert = '''
       INSERT INTO strokes (id, surface_id, tool, color, width, points,
                            created_at, updated_at, device_id, deleted, dirty, style)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+      VALUES ''';
+  static const _row = '(?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)';
+  static const _onConflict = '''
       ON CONFLICT(id) DO UPDATE SET
         surface_id = excluded.surface_id, tool = excluded.tool,
         color = excluded.color, width = excluded.width, style = excluded.style,
         points = excluded.points, created_at = excluded.created_at,
         updated_at = excluded.updated_at, device_id = excluded.device_id,
-        deleted = 0, dirty = excluded.dirty''',
-      [
-        s.id,
-        s.surfaceId,
-        s.tool,
-        s.color,
-        s.width,
-        s.points,
-        s.createdAt,
-        updatedAt,
-        deviceId,
-        dirty ? 1 : 0,
-        s.style,
-      ],
-    );
-    _reindex(s);
-  }
+        deleted = 0, dirty = excluded.dirty''';
+  static const _putOne = '$_insert$_row$_onConflict';
+
+  /// Rows [save] writes in one statement (a statement per row was most of
+  /// the time of saving many).
+  static const _rowsAtOnce = 16;
+  static final _putMany = '$_insert${List.filled(_rowsAtOnce, _row).join(', ')}$_onConflict';
+
+  /// The parameters of [_row] for [s].
+  static List<Object?> _values(StrokeRow s, int updatedAt, String deviceId, bool dirty) => [
+    s.id,
+    s.surfaceId,
+    s.tool,
+    s.color,
+    s.width,
+    s.points,
+    s.createdAt,
+    updatedAt,
+    deviceId,
+    if (dirty) 1 else 0,
+    s.style,
+  ];
 
   void _tombstone(
     String id, {
@@ -210,6 +255,26 @@ class StrokeRepository extends SyncableTable implements StrokeReader {
       [id, updatedAt, deviceId, dirty ? 1 : 0],
     );
     database.execute('DELETE FROM stroke_chunks WHERE stroke_id = ?', [id]);
+  }
+
+  /// [_reindex] for many rows in two statements (a statement per row and
+  /// chunk was most of a commit of many lines).
+  void _reindexAll(List<StrokeRow> rows) {
+    database.execute(
+      'DELETE FROM stroke_chunks WHERE stroke_id IN (SELECT value FROM json_each(?))',
+      [
+        jsonEncode([for (final s in rows) s.id]),
+      ],
+    );
+    final entries = [
+      for (final s in rows)
+        for (final key in s.chunks) [s.surfaceId, key.x, key.y, s.id, ChunkDigest.ofStroke(s.id)],
+    ];
+    database.execute(
+      'INSERT OR IGNORE INTO stroke_chunks (surface_id, cx, cy, stroke_id, digest) '
+      'SELECT value ->> 0, value ->> 1, value ->> 2, value ->> 3, value ->> 4 FROM json_each(?)',
+      [jsonEncode(entries)],
+    );
   }
 
   void _reindex(StrokeRow s) {

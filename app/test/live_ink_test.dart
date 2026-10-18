@@ -411,6 +411,13 @@ void main() {
     await tester.pump();
     expect(find.text('W'), findsNWidgets(2));
     expect(find.text('+3'), findsOneWidget);
+    // In their slot as large as they are (not shrunk to fit it).
+    for (final plate in find.byType(Container).evaluate()) {
+      expect(
+        tester.getRect(find.byWidget(plate.widget)).size,
+        const Size.square(RoomPresence.plate),
+      );
+    }
     rooms.receive(const LivePresence('nb', []));
     await tester.pump();
     expect(find.byType(Text), findsNothing);
@@ -455,6 +462,8 @@ void main() {
       tester.getSize(find.ancestor(of: plus, matching: find.byType(Container)).first).width,
       greaterThanOrEqualTo(tester.getSize(plus).width),
     );
+    final plate = find.ancestor(of: plus, matching: find.byType(Container)).first;
+    expect(tester.getRect(plate).size, tester.getSize(plate), reason: 'not shrunk to its slot');
     handle.dispose();
   });
 

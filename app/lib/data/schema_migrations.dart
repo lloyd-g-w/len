@@ -1,6 +1,7 @@
 import 'package:sqlite3/common.dart';
 
 import 'chunk_digest_migration.dart';
+import 'connector_queries.dart';
 import 'initial_schema.dart';
 import 'search/ink_text_schema.dart';
 
@@ -14,7 +15,7 @@ abstract final class SchemaMigrations {
   /// compare with. `app_database_test` fails with the new value when a
   /// migration changes the schema.
   static const String shapeDigest =
-      '3613edbe02028af8747e423138522e8050bf1cf7bfbbe6c5e11f8b6f5d096099';
+      'f065b9cd7099a5d23e652b15bd926b9b4ecef6e8aa34e1165b1ba7443d3709fe';
 
   /// Index i migrates from version i to i + 1.
   static final List<void Function(CommonDatabase)> all = [
@@ -37,6 +38,7 @@ abstract final class SchemaMigrations {
     _versionTables,
     _versionRuns,
     _shapeStrokes,
+    ConnectorQueries.migrate,
   ];
 
   /// Version 19: live shape strokes (a `sh` in their style) indexed per

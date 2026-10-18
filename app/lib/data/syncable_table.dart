@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:sqlite3/common.dart';
 
 import '../core/clock.dart';
@@ -58,6 +60,26 @@ abstract class SyncableTable implements SyncableStore {
     if (rows.isEmpty) return time;
     final previous = rows.first['updated_at'] as int;
     return time > previous ? time : previous + 1;
+  }
+
+  /// [nextVersion] of each of [ids] (in order) in one query; an id named
+  /// twice gets a version after the one before it, as writes one by one
+  /// would.
+  List<int> nextVersions(List<String> ids, int now) {
+    final previous = <String, int>{
+      for (final r in database.select(
+        'SELECT id, updated_at FROM $table WHERE id IN (SELECT value FROM json_each(?))',
+        [jsonEncode(ids)],
+      ))
+        r['id'] as String: r['updated_at'] as int,
+    };
+    return [
+      for (final id in ids)
+        previous[id] = switch (previous[id]) {
+          final p? when p >= now => p + 1,
+          _ => now,
+        },
+    ];
   }
 
   /// The newest version among rows matching the SQL condition [where]

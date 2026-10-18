@@ -262,10 +262,13 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   Merged with round 25 (R25-7): the bar's date is the short "Today, 14:02", and the page
   view's Restore this page docks in the same bottom bar.
 
-- 🚧 (perf/r14) **Performance leftovers (PERFORMANCE round on the last day's features)**: the
+- ✅ (perf/r14) **Performance leftovers (PERFORMANCE round on the last day's features)**: the
   history view of a 50k-stroke canvas (a 2.2 s frame opening, +183 MB, 622 ms frames scrolling);
   presence changes repainting ~500 render objects; a 20,000-move stroke's pen-up (~70 ms);
-  connectors' worst repair (39 ms) and drag commit (50–58 ms).
+  connectors' worst repair (39 ms) and drag commit (50–58 ms). Done (PERFORMANCE "Leftovers of
+  the last day's features"): big thumbnails from images rendered in slices (longest frame 13 ms
+  opening, 17 ms scrolling, RSS flat); presence repaints 25 objects; pen-up 2 ms; repair warm max
+  5.5 ms, reload 7.5 ms, drag commit 5–6 ms (its write behind, 11 ms, after the frame).
 
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.

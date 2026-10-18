@@ -85,6 +85,17 @@ extension _Inking on InkDrawing {
     _scribble.add(at, timeMs);
     if (_straighten.move(at, point, timeMs: timeMs)) return;
     live.add(point);
+    _traceChunks();
+  }
+
+  /// Traces the chunks of the live stroke as it grows, so the stroke's
+  /// are ready at pen-up whatever its length ([StrokeChunkTrace]).
+  void _traceChunks() {
+    if (_chunks == null || _chunksGeneration != live.generation) {
+      _chunks = StrokeChunkTrace(live.width);
+      _chunksGeneration = live.generation;
+    }
+    _chunks!.add(live.points);
   }
 
   /// Ends the ink at the lift ([liftTime], when known) and commits it,

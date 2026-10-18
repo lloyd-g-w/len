@@ -29,7 +29,9 @@ class CpuProfile {
     return CpuProfile._(service, id);
   }
 
-  Future<void> start() async {
+  /// Starts sampling, every [period] µs if given (the VM's default: 1,000).
+  Future<void> start({int? period}) async {
+    if (period != null) await _service.setFlag('profile_period', '$period');
     await _service.clearCpuSamples(_isolate);
     _start = (await _service.getVMTimelineMicros()).timestamp!;
   }

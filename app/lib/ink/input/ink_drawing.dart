@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 
 import '../../core/clock.dart';
 import '../../domain/stroke.dart';
+import '../../domain/stroke_chunks.dart';
 import '../lab/perf_probe.dart';
 import '../render/live_stroke.dart';
 import '../render/stroke_renderer.dart';
@@ -100,6 +101,11 @@ class InkDrawing {
   /// The pen's speed at the lift, for an end taper that follows it.
   final LiftSpeed _liftSpeed = LiftSpeed();
   bool _endFollowsSpeed = false;
+
+  /// The chunks of the live stroke, traced as it grows (for the live
+  /// stroke of [_chunksGeneration], `LiveInk.generation`).
+  StrokeChunkTrace? _chunks;
+  int _chunksGeneration = -1;
 
   /// The stroke the contact just ended left, if any.
   Stroke? _committed;
@@ -267,6 +273,7 @@ class InkDrawing {
     _inkBegan = false;
     samples?.end(committed: _committed);
     _committed = null;
+    _chunks = null;
     _drawPointer = null;
     _drawKind = null;
     _byMouse = false;

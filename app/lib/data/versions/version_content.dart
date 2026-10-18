@@ -159,7 +159,10 @@ class VersionContent {
   /// not; throws [VersionUnavailable] if some cannot be had.
   Future<void> ensure(Iterable<VersionSurface> surfaces) async {
     var missing = 0;
+    // A canvas has thousands of packs: looked up in slices.
+    final slices = WorkSlices();
     for (final sha in {for (final s in surfaces) ...s.packs}) {
+      await slices.yieldIfDue();
       if (await blobs.has(sha)) continue;
       if (!(await fetch?.call(sha) ?? false)) missing++;
     }
