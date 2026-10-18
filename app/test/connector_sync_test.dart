@@ -237,6 +237,9 @@ void main() {
     for (final d in [a, b]) {
       expect(d.arrows, hasLength(2));
       _expectOnBox(d);
+      // The repaired arrow is still the shape it was (an edit keeps it).
+      expect({for (final x in d.arrows) x.shapeId}, {'arrow', 'new'});
+      expect(d.arrows.map((x) => x.id), isNot(contains('new')));
     }
     await _expectSettled(a, b);
   });
