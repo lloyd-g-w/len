@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
 
 import '../../domain/text/text_data.dart';
+import '../fonts/text_fonts.dart';
 import 'text_layout.dart';
 
 /// [TextLayout] of one text box: a laid-out painter plus its list markers
@@ -176,7 +177,7 @@ class TextBoxLayout {
       text: label,
       style: TextStyle(
         inherit: false,
-        fontFamily: marker.font.family,
+        fontFamily: TextFonts.familyOf(marker.font),
         fontFamilyFallback: TextLayout.fallback,
         fontSize: marker.fontSize,
         height: 1,

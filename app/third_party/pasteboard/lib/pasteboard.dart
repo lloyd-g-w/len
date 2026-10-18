@@ -27,6 +27,12 @@ class Pasteboard {
   /// HTML format: https://docs.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/aa767917(v=vs.85)
   static Future<String?> get html => pasteboard.html;
 
+  /// The clipboard's RTF (added in this copy): Windows' "Rich Text Format",
+  /// Linux's `text/rtf` / `application/rtf` / `text/richtext` targets;
+  /// null elsewhere (Android's clips and the browsers' Clipboard API have
+  /// none) or when there is none.
+  static Future<String?> get rtf => pasteboard.rtf;
+
   /// Puts a PNG image, plain text and / or an HTML fragment (only with
   /// [text], its plain version) on the system clipboard as one entry
   /// (other apps take the format they understand). Added in this copy;

@@ -15,7 +15,7 @@ abstract final class SchemaMigrations {
   /// compare with. `app_database_test` fails with the new value when a
   /// migration changes the schema.
   static const String shapeDigest =
-      'f065b9cd7099a5d23e652b15bd926b9b4ecef6e8aa34e1165b1ba7443d3709fe';
+      '5924f8bacbfe0c22f83b83a6567f4473d81ce66bdbbba818bc49807240eaca94';
 
   /// Index i migrates from version i to i + 1.
   static final List<void Function(CommonDatabase)> all = [
@@ -39,7 +39,25 @@ abstract final class SchemaMigrations {
     _versionRuns,
     _shapeStrokes,
     ConnectorQueries.migrate,
+    _fonts,
   ];
+
+  /// Version 21: the fonts the user imported for text boxes (collection
+  /// `fonts`): a name and the font file's blob; the id is the first half
+  /// of the blob's hash.
+  static void _fonts(CommonDatabase db) {
+    db.execute('''
+      CREATE TABLE fonts (
+        id          TEXT PRIMARY KEY NOT NULL,
+        name        TEXT NOT NULL,
+        blob        TEXT NOT NULL,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        device_id   TEXT NOT NULL,
+        deleted     INTEGER NOT NULL DEFAULT 0,
+        dirty       INTEGER NOT NULL DEFAULT 1
+      )''');
+  }
 
   /// Version 19: live shape strokes (a `sh` in their style) indexed per
   /// surface, so what connectors need after a pull (`ConnectorQueries`) is

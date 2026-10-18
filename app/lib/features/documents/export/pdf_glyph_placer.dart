@@ -3,7 +3,13 @@ part of 'pdf_text.dart';
 /// The faces a run of text can be written in: the run's own bundled font
 /// and the fallbacks for scripts it lacks.
 class _Fonts {
-  _Fonts(this.primary, this.fallbacks, {required this.italic, required this.hasItalic});
+  _Fonts(
+    this.primary,
+    this.fallbacks, {
+    required this.italic,
+    required this.hasItalic,
+    this.embolden = false,
+  });
 
   final PdfTtfFont primary;
   final List<PdfTtfFont> fallbacks;
@@ -11,6 +17,9 @@ class _Fonts {
 
   /// Whether [primary] has a real italic face.
   final bool hasItalic;
+
+  /// Whether text in [primary] is bold without a bold face (a user font).
+  final bool embolden;
 
   /// The face with a glyph for [rune], if any.
   PdfTtfFont? of(int rune) {
@@ -25,6 +34,9 @@ class _Fonts {
 
   /// Whether text in [font] is slanted (synthetic italic).
   bool slants(PdfTtfFont font) => italic && (!identical(font, primary) || !hasItalic);
+
+  /// Whether text in [font] is stroked (synthetic bold).
+  bool strokes(PdfTtfFont font) => embolden && identical(font, primary);
 }
 
 /// Places the words of one run: a left-to-right word in its own font
@@ -165,5 +177,6 @@ class _GlyphPlacer {
     x: x,
     baseline: PdfTextWriter._baseline(lines, box),
     slant: fonts.slants(font),
+    bold: fonts.strokes(font),
   ));
 }

@@ -58,12 +58,13 @@ int? htmlHighlight(int argb) {
 // (No shifts of 32-bit values: web ints.)
 int _alpha(int argb) => argb ~/ 0x1000000 & 0xFF;
 
-/// The CSS font stack of [font] (null for Inter: the receiving app's own).
+/// The CSS font stack of [font] (null for Inter and user fonts: the
+/// receiving app's own).
 String? _family(TextFont font) => switch (font) {
-  TextFont.inter => null,
   TextFont.lora => "'Lora',Georgia,serif",
   TextFont.mono => "'JetBrains Mono',Consolas,'Courier New',monospace",
   TextFont.caveat => "'Caveat',cursive",
+  _ => null,
 };
 
 String _hex(int argb) => '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';

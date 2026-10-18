@@ -127,8 +127,39 @@ static void clipboard_request_html_callback(
   fl_method_call_respond_success(method_call, result, nullptr);
 }
 
+// RTF targets apps offer (LibreOffice, AbiWord), most specific first.
+static const char *const kRtfTargets[] = {"text/rtf", "application/rtf", "text/richtext"};
+
+// The first RTF target among [atoms], or GDK_NONE.
+static GdkAtom find_rtf_target(GdkAtom *atoms, gint n_atoms) {
+  for (const char *name : kRtfTargets) {
+    GdkAtom rtf = gdk_atom_intern_static_string(name);
+    for (gint i = 0; i < n_atoms; i++) {
+      if (atoms[i] == rtf) return rtf;
+    }
+  }
+  return GDK_NONE;
+}
+
+// "rtf" (added in Len's copy): the targets first, then the raw bytes of the
+// first RTF target offered (as "html" answers), or null.
+static void clipboard_request_rtf_targets_callback(GtkClipboard *clipboard,
+                                                   GdkAtom *atoms,
+                                                   gint n_atoms,
+                                                   gpointer user_data) {
+  auto *method_call = static_cast<FlMethodCall *>(user_data);
+  GdkAtom target = atoms == nullptr ? GDK_NONE : find_rtf_target(atoms, n_atoms);
+  if (target == GDK_NONE) {
+    fl_method_call_respond_success(method_call, nullptr, nullptr);
+    g_object_unref(method_call);
+    return;
+  }
+  // The contents callback takes over the reference.
+  gtk_clipboard_request_contents(clipboard, target, clipboard_request_html_callback, method_call);
+}
+
 // "peek" (added in Len's copy): the kinds of content the clipboard offers
-// ("image", "text", "html", "files"), from its targets alone.
+// ("image", "text", "html", "rtf", "files"), from its targets alone.
 static void clipboard_request_targets_callback(GtkClipboard *clipboard,
                                                GdkAtom *atoms,
                                                gint n_atoms,
@@ -148,6 +179,9 @@ static void clipboard_request_targets_callback(GtkClipboard *clipboard,
         fl_value_append_take(kinds, fl_value_new_string("html"));
         break;
       }
+    }
+    if (find_rtf_target(atoms, n_atoms) != GDK_NONE) {
+      fl_value_append_take(kinds, fl_value_new_string("rtf"));
     }
     if (gtk_targets_include_uri(atoms, n_atoms)) {
       fl_value_append_take(kinds, fl_value_new_string("files"));
@@ -344,6 +378,10 @@ static void pasteboard_plugin_handle_method_call(
     auto *clipboard = gtk_clipboard_get_default(gdk_display_get_default());
     gtk_clipboard_request_contents(clipboard, gdk_atom_intern_static_string("text/html"),
                                    clipboard_request_html_callback, g_object_ref(method_call));
+  } else if (strcmp(method, "rtf") == 0) {
+    auto *clipboard = gtk_clipboard_get_default(gdk_display_get_default());
+    gtk_clipboard_request_targets(clipboard, clipboard_request_rtf_targets_callback,
+                                  g_object_ref(method_call));
   } else {
     fl_method_call_respond_not_implemented(method_call, nullptr);
   }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:sqlite3/common.dart';
 
 import '../syncable.dart';
@@ -95,7 +97,7 @@ class ResolvedScope {
   /// Notebooks written.
   final List<String> notebooks;
 
-  /// Whether the user's own templates and notebook styles are written (the
+  /// Whether the user's own templates, fonts and notebook styles are written (the
   /// library).
   final bool templates;
 
@@ -114,7 +116,11 @@ class ResolvedScope {
     }
     if (templates) {
       yield ('templates', '1', const []);
+      yield ('fonts', '1', const []);
       yield ('notebook_styles', '1', const []);
+    } else if (notebooks.isNotEmpty) {
+      // The user fonts the notebooks' text uses (by id, as `font` or `f`).
+      yield ('fonts', _fontsUsed, [jsonEncode(notebooks)]);
     }
     for (final id in notebooks) {
       yield ('notebooks', 'id = ?', [id]);
@@ -130,6 +136,13 @@ class ResolvedScope {
       }
     }
   }
+
+  static const _fontsUsed = '''
+    EXISTS (SELECT 1 FROM elements e
+      WHERE e.deleted = 0 AND instr(e.data, '"' || fonts.id || '"') > 0
+        AND (e.surface_id IN (SELECT value FROM json_each(?1))
+          OR e.surface_id IN (SELECT p.id FROM pages p WHERE p.deleted = 0
+            AND p.notebook_id IN (SELECT value FROM json_each(?1)))))''';
 
   /// Every surface of the notebooks: canvases are their own, pages theirs.
   late final List<String> _surfaces = [

@@ -165,7 +165,7 @@ class RichTextField extends StatelessWidget {
                       ),
                       ContextMenuButtonType.paste => item.copyWith(
                         onPressed: () async {
-                          if (await pasteClipboardHtml(controller)) {
+                          if (await pasteClipboardRich(controller)) {
                             state.hideToolbar();
                           } else {
                             item.onPressed?.call();

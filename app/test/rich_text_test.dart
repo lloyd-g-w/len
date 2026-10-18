@@ -48,7 +48,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('every bundled font has its faces and its OFL licence', () async {
-    for (final font in TextFont.values) {
+    for (final font in TextFont.bundled) {
       for (final bold in [false, true]) {
         for (final italic in [false, true]) {
           final bytes = await rootBundle.load(font.asset(bold: bold, italic: italic));

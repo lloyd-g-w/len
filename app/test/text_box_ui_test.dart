@@ -279,7 +279,7 @@ void main() {
     await ctrl(tester, LogicalKeyboardKey.keyA);
     await tester.tap(find.byKey(const ValueKey('font-menu')));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(MenuRow<TextFont>, 'Serif'));
+    await tester.tap(find.widgetWithText(MenuRow<String>, 'Serif'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Larger'));
     await tester.pump();

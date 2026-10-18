@@ -214,7 +214,7 @@ class StorageQueries {
   /// one a notebook in [keep] shows (open in the editor: it may be needed
   /// offline), one only rows not yet synced show (no server record keeps
   /// it from the server's clean-up yet), a user template (new pages copy
-  /// it), or a PDF whose text search has not read yet.
+  /// it) or font, or a PDF whose text search has not read yet.
   List<({String sha, int size})> freeable({Set<String> keep = const {}}) => [
     for (final row in db.select(
       '''
@@ -225,6 +225,7 @@ class StorageQueries {
         AND b.sha256 NOT IN (SELECT sha FROM refs WHERE nb IN (SELECT value FROM json_each(?1)))
         AND b.sha256 NOT IN (SELECT sha FROM refs WHERE dirty)
         AND b.sha256 NOT IN (SELECT blob FROM templates WHERE deleted = 0)
+        AND b.sha256 NOT IN (SELECT blob FROM fonts WHERE deleted = 0)
         AND b.sha256 NOT IN ($_unreadPdfs)
       ORDER BY b.size DESC''',
       [jsonEncode(keep.toList())],
@@ -233,14 +234,15 @@ class StorageQueries {
   ];
 
   /// Blobs whose copies must stay here whatever the server holds: those
-  /// the notebooks in [keep] show, rows not yet synced, user templates and PDFs search has not
-  /// read yet (as [freeable]; asked again right before copies go).
+  /// the notebooks in [keep] show, rows not yet synced, user templates,
+  /// user fonts and PDFs search has not read yet (as [freeable]; asked again right before copies go).
   Set<String> kept({Set<String> keep = const {}}) => {
     for (final row in db.select(
       '''
       WITH $_refs
       SELECT sha FROM refs WHERE nb IN (SELECT value FROM json_each(?1)) OR dirty
       UNION SELECT blob FROM templates WHERE deleted = 0
+      UNION SELECT blob FROM fonts WHERE deleted = 0
       UNION $_unreadPdfs''',
       [jsonEncode(keep.toList())],
     ))

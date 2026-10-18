@@ -11,13 +11,13 @@ import '../../../app_services.dart';
 import '../../../core/clock.dart';
 import '../../../domain/image_data.dart';
 import '../../../domain/surface_element.dart';
-import '../../../domain/text/html_text.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ink/tools/content_tools.dart';
 import '../../../platform/clipboard_html.dart';
 import '../../../ui/app_theme.dart';
 import '../../camera/camera_purpose.dart';
 import '../../documents/progress_dialog.dart';
+import '../tools/text/clipboard_rich_text.dart';
 import '../tools/text/rich_text_controller.dart';
 import 'image_import.dart';
 import 'image_placement.dart';
@@ -44,10 +44,10 @@ class EditorImages {
     this.activateAt,
     this.reveal,
     ClipboardImageReader? readClipboard,
-    Future<String?> Function()? readHtml,
+    Future<RichClip> Function()? readRich,
     this.clock = const Clock(),
   }) : _readClipboard = readClipboard ?? _systemClipboardImage,
-       _readHtml = readHtml ?? readClipboardHtml {
+       _readRich = readRich ?? readClipboardRich {
     services.clipboard.addListener(_onInkCopied);
     watchClipboardPastes();
   }
@@ -69,8 +69,8 @@ class EditorImages {
 
   final ClipboardImageReader _readClipboard;
 
-  /// Reads HTML from the system clipboard (null if it holds none).
-  final Future<String?> Function() _readHtml;
+  /// Reads formatted text (HTML, RTF) from the system clipboard.
+  final Future<RichClip> Function() _readRich;
 
   /// Hash of the system clipboard's image when ink was last copied in the
   /// app: that image is older than the ink, so Ctrl+V pastes the ink.
@@ -173,7 +173,7 @@ class EditorImages {
   /// Ctrl+V, and the canvas menu's Paste here: pastes an image from the
   /// system clipboard if it holds one that is newer than the ink last
   /// copied in the app; otherwise pastes the app's own clipboard. Text
-  /// becomes a text box, formatted when the clipboard has HTML (unless
+  /// becomes a text box, formatted when the clipboard has HTML or RTF (unless
   /// [plain], Ctrl+Shift+V). What is pasted lands around [screen] (the
   /// middle of the screen by default), selected; the tool stays.
   Future<void> paste(BuildContext context, {bool plain = false, Offset? screen}) async {
@@ -190,9 +190,9 @@ class EditorImages {
     final text = await _clipboardText();
     if (!context.mounted) return; // The editor closed meanwhile.
     if (text != null && (services.clipboard.isEmpty || !_isInkText(text))) {
-      final html = plain || RichTextController.isOwnClip(text) ? null : await _readHtml();
+      final clip = plain || RichTextController.isOwnClip(text) ? noRichClip : await _readRich();
       if (!context.mounted) return;
-      final rich = html == null ? null : textFromHtml(html, tools.textStyle);
+      final rich = richTextOf(clip, tools.textStyle);
       content.pasteText(
         rich ?? RichTextController.pasted(text, tools.textStyle),
         at: _worldAt(screen),

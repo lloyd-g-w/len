@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../data/surface_stats.dart';
 import '../../../domain/notebook.dart';
+import '../../../ink/fonts/text_fonts.dart';
 import 'thumbnail_renderer.dart';
 
 /// In-memory cache of notebook preview images.
@@ -20,6 +21,7 @@ import 'thumbnail_renderer.dart';
 class ThumbnailCache extends ChangeNotifier {
   ThumbnailCache({required this.renderer, required this.stats, this.width = 320}) {
     _imageChanges = renderer.images?.changes.listen(_onImage);
+    TextFonts.changes.addListener(_onFonts);
   }
 
   final ThumbnailRenderer renderer;
@@ -88,6 +90,18 @@ class ThumbnailCache extends ChangeNotifier {
     for (final id in ids) {
       _entries[id]
         ?..fingerprint = null
+        ..stale = true;
+    }
+    _notify();
+  }
+
+  /// A user font loaded or went: every preview renders again (text in it
+  /// may be on any).
+  void _onFonts() {
+    if (_disposed) return;
+    for (final e in _entries.values) {
+      e
+        ..fingerprint = null
         ..stale = true;
     }
     _notify();
@@ -178,6 +192,7 @@ class ThumbnailCache extends ChangeNotifier {
     _disposed = true;
     _timer?.cancel();
     unawaited(_imageChanges?.cancel());
+    TextFonts.changes.removeListener(_onFonts);
     for (final e in _entries.values) {
       e.image?.dispose();
     }

@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import '../../domain/chunk_grid.dart';
 import '../../domain/surface_element.dart';
 import '../elements/element_renderer.dart';
+import '../fonts/text_fonts.dart';
 import '../lab/perf_probe.dart';
 import '../surface_model.dart';
 import 'content_painter.dart';
@@ -32,6 +33,7 @@ class ChunkPictureCache {
           devicePixelRatio ?? ui.PlatformDispatcher.instance.implicitView?.devicePixelRatio ?? 1 {
     _subscription = model.invalidations.listen(_invalidate);
     _images = model.images?.changes.listen(_onImage);
+    TextFonts.changes.addListener(_onFonts);
   }
 
   final SurfaceModel model;
@@ -45,6 +47,9 @@ class ChunkPictureCache {
 
   /// Image blobs drawn into each cached picture.
   final Map<ChunkKey, Set<String>> _blobs = {};
+
+  /// Cached pictures with text in a user font (redrawn when one loads).
+  final Set<ChunkKey> _userFonts = {};
 
   /// Cached pictures drawn with an image still decoding (a stand-in).
   final Set<ChunkKey> _unsettled = {};
@@ -99,6 +104,9 @@ class ChunkPictureCache {
         if (e.knownType == ElementType.image && e.data['blob'] is String) e.data['blob']! as String,
     };
     if (blobs.isNotEmpty) _blobs[key] = blobs;
+    if (elements.any((e) => e.knownType == ElementType.text && TextFonts.usesUserFonts(e.data))) {
+      _userFonts.add(key);
+    }
     final scale = math.pow(2, _level).toDouble();
     if (!elements.every((e) => ElementRenderer.isSettled(e, model.images, scale))) {
       _unsettled.add(key);
@@ -113,9 +121,12 @@ class ChunkPictureCache {
       if (entry.value.contains(blob)) entry.key,
   });
 
+  void _onFonts() => model.refresh({..._userFonts});
+
   void _drop(ChunkKey key) {
     _pictures.remove(key)?.dispose();
     _blobs.remove(key);
+    _userFonts.remove(key);
     _unsettled.remove(key);
   }
 
@@ -126,6 +137,7 @@ class ChunkPictureCache {
       }
       _pictures.clear();
       _blobs.clear();
+      _userFonts.clear();
       _unsettled.clear();
       return;
     }
@@ -135,6 +147,7 @@ class ChunkPictureCache {
   void dispose() {
     unawaited(_subscription.cancel());
     unawaited(_images?.cancel());
+    TextFonts.changes.removeListener(_onFonts);
     _invalidate(null);
   }
 }

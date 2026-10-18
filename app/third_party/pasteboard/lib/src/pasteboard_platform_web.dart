@@ -75,6 +75,10 @@ class PasteboardPlatformWeb implements PasteboardPlatform {
     return null;
   }
 
+  /// The async Clipboard API offers no RTF (only `web ` custom formats).
+  @override
+  Future<String?> get rtf async => null;
+
   @override
   Future<Uint8List?> get image async {
     try {

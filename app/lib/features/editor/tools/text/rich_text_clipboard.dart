@@ -31,9 +31,10 @@ mixin _RichTextClipboard on _RichTextState, _RichTextFormatting {
     _changedKeeping(TextRange.collapsed(r.start));
   }
 
-  TextData? _pastedHtml(String inserted) {
-    final html = htmlPastedAs(inserted);
-    return html == null ? null : textFromHtml(html, _box);
+  /// The formatted text of a browser paste (web) that inserted [inserted].
+  TextData? _pastedRich(String inserted) {
+    final clip = richPastedAs(inserted);
+    return clip == null ? null : richTextOf(clip, _box);
   }
 
   /// Pastes formatted text from another app over the selection.

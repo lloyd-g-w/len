@@ -860,8 +860,8 @@ referencing a still-pending blob are held back for up to
 server before its blob. Blobs are fetched lazily when a page needs them
 (`SyncController.fetchBlob`).
 
-`BlobReferences` is the reference graph (live page backgrounds, elements and
-recordings; the trash is live, "delete forever" releases after 30 days, see
+`BlobReferences` is the reference graph (live page backgrounds, elements,
+recordings, user templates and user fonts; the trash is live, "delete forever" releases after 30 days, see
 *Sync*). `LocalBlobGc` (started 20 s after launch, at most daily; old tombstones'
 payloads are dropped first, 2,000 rows per transaction) deletes blobs unreferenced for 7 days
 (`blobs.unreferenced_since`); it runs exclusively with `BlobStore`'s `put`
@@ -2303,9 +2303,39 @@ GoodNotes-style rich text inside a box.
   (`core/font_licenses.dart`). Their fallbacks for right-to-left scripts are
   bundled too (`FallbackFont`: Noto Sans Arabic and Noto Sans Hebrew, Regular /
   Bold, subset to their blocks and presentation forms; first in
-  `TextLayout.fallback`). Boxes use only bundled fonts, so they measure and
-  wrap the same everywhere (the web included) and in exported PDFs; other
-  characters they lack (CJK, emoji) fall back to system fonts.
+  `TextLayout.fallback`). Boxes use only bundled and imported fonts, so they
+  measure and wrap the same everywhere (the web included) and in exported
+  PDFs; other characters they lack (CJK, emoji) fall back to system fonts.
+- **Imported fonts** (`domain/text/user_font.dart`, `font_file.dart`,
+  `data/font_repository.dart`, `ink/fonts/`, `features/fonts/`): `TextFont` is
+  a value, a bundled font or a *user font* named by an id, the first 32 hex
+  digits of its file's SHA-256 (so one file is one font on every device, and
+  ids survive Len files unchanged). "Import font…" (the font picker, Settings →
+  Fonts; `FontImport`) reads a TTF / OTF's name table and outline format
+  (`FontFileInfo`; collections and WOFF are refused), stores the file as a
+  blob and adds a `fonts` record (`FontRepository`, synced; see
+  SYNC_PROTOCOL). `UserFontLibrary` (`AppServices.fonts`, refreshed at launch
+  and when sync brings a font) loads each font with `FontLoader` under the
+  family `Len font <id>` once its blob is here (fetched through sync if not),
+  and keeps the app-wide `TextFonts` registry: `TextFonts.familyOf` is what
+  every layout asks (`TextLayout.styleFor`, list markers, menu samples), the
+  font's own family only while it is in the library and loaded, else Inter's —
+  so a missing font (not downloaded yet, broken, removed) falls back to the
+  default font, not to a system font; the picker names it "Missing font" in
+  grey ("Shown in Sans"), or a library font not loaded yet "Not on this
+  device yet". `TextFonts.changes` ticks on loads and removals: element
+  layouts (memoised with the tick), chunk pictures with user-font text,
+  page and library thumbnails redraw; chunk rasters holding user-font text
+  are never stored (`ElementRenderer.isSettled`), as they could change.
+  A user font is one face: bold and italic are synthesised (Flutter; the PDF
+  strokes bold glyphs and slants italics). Removing a font tombstones its
+  record (Undo re-adds it); its blob is then collected like any unreferenced
+  blob (text naming a font does not keep its file). Len files carry the fonts
+  the written notebooks' text uses (a backup: all), import skips fonts here
+  and revives removed ones. PDF export embeds TrueType user fonts subset
+  (`PdfTextWriter.userFont`, read through the export's `readBlob`); CFF
+  (most `.otf`) can't be embedded by the pdf package, so such boxes export as
+  images, as boxes whose font file can't be had.
 - **Layout** (`ink/elements/text_layout.dart`): `TextLayout.spanOf` builds one
   `TextSpan` tree; list markers are **inline placeholders** at the start of their
   line (one U+FFFC each), sized by indent level, so bullets, numbers (1. / a. /
@@ -2492,9 +2522,39 @@ GoodNotes-style rich text inside a box.
   is matched by its plain text in `RichTextController._applyEdit`; Ctrl+Shift+V
   there is the browser's plain paste) or else the async Clipboard API (may ask
   for permission). macOS / iOS are not targets (`pasteboard` returns no HTML
-  there). RTF-only clipboards (WordPad) paste as plain text. Content marked
+  there). Content marked
   `aria-hidden="true"` is skipped (icon glyphs; the ☐ / ☑ Len writes); an
   empty list item or heading (`<li><br></li>`) keeps its style.
+  **RTF-only clipboards** (WordPad; apps offering both get the HTML read)
+  go through `textFromRtf` (`domain/text/rtf_text.dart`, pure Dart: a
+  tokenizer, `rtf_tokens.dart`; group state, `rtf_state.dart`; the header
+  tables, `rtf_tables.dart`; lines and the result, `rtf_lines.dart`; Windows
+  code pages 1252 / 1250 / 1251 for `\'hh`, `rtf_code_pages.dart`, others
+  read as Latin-1): `\b` `\i` `\ul…` `\strike`, `\cf` / `\highlight` /
+  `\cb` colours from `\colortbl` that are not grey (`isGreyish`, as HTML),
+  monospaced fonts (`\fmodern`, `\fprq1` or a Courier / Consolas / Menlo /
+  … name) as mono, Cocoa's bold / italic faces (`Helvetica-Bold`) as bold /
+  italic, `\u` with `\uc` fallbacks and surrogate pairs, field results
+  (not instructions), `\outlinelevel` or stylesheet "heading 1/2/3" styles
+  → headings, lists from Word's `\listtable` (`\levelnfc` 23 bullet, 255
+  none, else number; `\ls` via `\listoverridetable`, `\ilvl` → indent),
+  else the `\listtext` / `\pntext` marker ("1." / "a)" → number) or
+  WordPad's `\pn`; non-text destinations (`\*…`, pictures, objects,
+  headers, info, theme data, `\bin`) are skipped. Unlike HTML, font sizes
+  are kept *relative*: the size most body characters have is the box's,
+  runs more than 10 % off it get the box size × their ratio (headings
+  keep theirs). `\sa` / `\sb` of most paragraphs, relative to that body
+  size, pick the paragraph spacing (else the box's). `richTextOf`
+  (`clipboard_rich_text.dart`) chooses HTML, else RTF, for the three paste
+  paths (`pasteClipboardRich`, the web paste event in the field,
+  `EditorImages.paste`, whose `readRich` is injectable). RTF comes from
+  `readClipboardRich`: **Windows** the "Rich Text Format" clipboard format,
+  **Linux** the first of the GTK targets `text/rtf`, `application/rtf`,
+  `text/richtext` (LibreOffice, AbiWord) — both added to our `pasteboard`
+  (`Pasteboard.rtf`, bytes read as Latin-1 unless valid UTF-8) and only
+  asked when there is no HTML —, **web** the paste event's `text/rtf`
+  where the browser passes it (Chromium on Windows, Firefox; not Safari;
+  the async Clipboard API has none). **Android** clips carry no RTF.
 - **Rich copy to other apps**: `htmlFromTexts` (`domain/text/html_writer.dart`)
   is the inverse of `textFromHtml`: one block per line (`<div>`, `<h1>` /
   `<h2>`, `<br>` when empty), list items as nested `<ul>` / `<ol>` (a
@@ -2515,7 +2575,7 @@ GoodNotes-style rich text inside a box.
   the fragment per platform (above); where it fails (macOS / iOS, old
   browsers) the plain text goes alone.
 - **Export**: `PdfTextWriter` writes boxes as real text in the embedded
-  (subsetted) fonts, each word at the position the app's layout gives it, with
+  (subsetted) fonts (TrueType user fonts too), each word at the position the app's layout gives it, with
   vector highlights, decorations and markers; boxes with characters the bundled
   fonts lack are embedded as images. PNG export and thumbnails use the canvas
   renderer.
@@ -3001,7 +3061,7 @@ import opens the file (`LenSource`: the
 manifest and, for a backup, the folders and notebooks it holds), stages
 everything, remaps ids (`LenRemap`: the references among the records follow, connectors'
 shapes, links to pages the file holds and text flows, a flow from a box not imported being
-dropped), checks each blob's hash and commits in
+dropped; fonts keep their ids, which are their files'), checks each blob's hash and commits in
 one transaction (`LenImportCommit`). Damage (a blob, a line, a part) is
 left out and reported, the rest imported; an error or Cancel leaves nothing
 behind (a restore that wrote over the tombstones of a notebook deleted here
@@ -4052,10 +4112,14 @@ again.
   (each a small GPU read-back).
 - Pixel-erasing a long stroke, or moving a selection, rewrites strokes as
   new records (simple and sync-safe, but more rows than a delta).
-- Text boxes: paste keeps formatting from HTML only (RTF-only sources such as
-  WordPad paste plain); PDF export places glyphs
+- Text boxes: paste keeps formatting from HTML and RTF; RTF in code pages
+  other than 1252 / 1250 / 1251 (raw `\'hh` bytes; `\u` is fine), RTF
+  tables (cells joined by spaces) and Android (clips carry no RTF) fall back
+  to less; PDF export places glyphs
   word by word without kerning; boxes with characters outside the bundled
-  fonts' subsets export as images.
+  fonts' subsets, or in CFF-outline user fonts, export as images; a user
+  font is one face (bold / italic synthesised); HTML copy names no user
+  font.
 - Android: historical stylus samples are merged from a platform channel;
   the low-latency overlay is tuned on a Galaxy Tab S8+ only (see *Input*;
   its hand-over delay assumes a Flutter pipeline like that tablet's).

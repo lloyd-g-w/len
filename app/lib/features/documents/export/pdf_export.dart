@@ -12,6 +12,7 @@ import '../../../domain/pdf_page_space.dart';
 import '../../../domain/stroke.dart';
 import '../../../domain/surface_element.dart';
 import '../../../ink/elements/element_renderer.dart';
+import '../../../ink/fonts/text_fonts.dart';
 import '../../../ink/render/outline_sink.dart';
 import '../../../ink/render/paper_painter.dart';
 import '../../../ink/render/stroke_renderer.dart';
@@ -70,8 +71,8 @@ abstract final class PdfExporter {
   static const int maxElementPixels = 4096;
 
   /// The PDF document of [pages]; [onPage] hears how many are written (and
-  /// may throw to abandon the export). Image elements are read through
-  /// [readBlob]. [onRasterized] hears the index of each page whose PDF
+  /// may throw to abandon the export). Image elements and user fonts are
+  /// read through [readBlob]. [onRasterized] hears the index of each page whose PDF
   /// background had to be embedded as an image. [report] collects what was
   /// left out or simplified. [bookmarks] become the document's outline,
   /// shown by readers when it opens.
@@ -87,7 +88,14 @@ abstract final class PdfExporter {
   }) async {
     final doc = PdfDocument(pageMode: bookmarks.isEmpty ? PdfPageMode.none : PdfPageMode.outlines);
     PdfInfo(doc, title: title, creator: 'Len', producer: 'Len'); // Registers itself.
-    final text = PdfTextWriter(doc, load: loadFont);
+    final text = PdfTextWriter(
+      doc,
+      load: loadFont,
+      userFont: (font) async {
+        final blob = TextFonts.userFont(font)?.blob;
+        return blob == null ? null : await readBlob?.call(blob);
+      },
+    );
     final writer = _Writer(
       doc,
       PdfImageWriter(doc, readBlob ?? (_) async => null),

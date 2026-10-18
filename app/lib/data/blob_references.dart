@@ -11,8 +11,8 @@ import 'tombstone_payloads.dart';
 /// collection").
 ///
 /// A blob is referenced by every live (not tombstoned) page background,
-/// image template of a page, element, recording (audio parts and waveform) and user
-/// template, and every blob a live version names: its table blobs, and
+/// image template of a page, element, recording (audio parts and waveform), user
+/// template and user font, and every blob a live version names: its table blobs, and
 /// through them ([BlobLinks]) the packs, backgrounds, images and audio of
 /// its rows (format 1: packs, backgrounds and images in the record).
 /// Pages, elements and recordings of notebooks in
@@ -46,6 +46,7 @@ class BlobReferences {
           'OR EXISTS (SELECT 1 FROM recordings WHERE $kept AND '
           '(instr(audio, ?2) > 0 OR waveform = ?3)) '
           'OR EXISTS (SELECT 1 FROM templates WHERE deleted = 0 AND blob = ?3) '
+          'OR EXISTS (SELECT 1 FROM fonts WHERE deleted = 0 AND blob = ?3) '
           'OR EXISTS (SELECT 1 FROM versions WHERE deleted = 0 AND instr(data, ?2) > 0) '
           'OR EXISTS (SELECT 1 FROM blob_links l WHERE l.child = ?3 AND EXISTS ('
           "  SELECT 1 FROM versions WHERE deleted = 0 AND instr(data, '\"' || l.parent || '\"') > 0"
@@ -92,6 +93,8 @@ class BlobReferences {
       ))
         row['waveform'] as String,
       for (final row in database.db.select('SELECT DISTINCT blob FROM templates WHERE deleted = 0'))
+        row['blob'] as String,
+      for (final row in database.db.select('SELECT blob FROM fonts WHERE deleted = 0'))
         row['blob'] as String,
     };
   }

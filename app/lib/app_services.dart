@@ -40,6 +40,7 @@ import 'features/editor/shared/shared_notebooks.dart';
 import 'features/editor/tabs/open_notebooks.dart';
 import 'features/editor/tabs/workspace_memory.dart';
 import 'features/storage/storage_overview.dart';
+import 'ink/fonts/user_font_library.dart';
 import 'ink/images/element_images.dart';
 import 'ink/input/palm_guard.dart';
 import 'ink/recognition/handwriting_recognizer.dart';
@@ -342,6 +343,7 @@ class AppServices {
     tables: [
       folders,
       templates,
+      sync.engine.repositories.fonts,
       notebookStyles,
       notebooks,
       pages,
@@ -358,6 +360,15 @@ class AppServices {
     fetchBlob: sync.fetchBlob,
   );
 
+  /// The fonts the user imported for text boxes; loaded by the app at
+  /// launch ([UserFontLibrary.refresh]).
+  late final UserFontLibrary fonts = UserFontLibrary(
+    repository: sync.engine.repositories.fonts,
+    blobs: blobs,
+    fetch: sync.fetchBlob,
+    remoteChanges: sync.remoteChanges,
+  );
+
   /// Decoded bitmaps of image elements, shared by editors and previews.
   late final ElementImages images = ElementImages(read: blobs.read, fetch: sync.fetchBlob);
 
@@ -366,6 +377,7 @@ class AppServices {
     sharedNotebooks.dispose();
     incomingFiles.dispose();
     images.dispose();
+    fonts.dispose();
     storage.dispose();
     workspace.dispose();
     openNotebooks.dispose();

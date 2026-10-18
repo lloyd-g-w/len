@@ -6,6 +6,7 @@ import '../data/deletion_conflicts.dart';
 import '../data/edit_origins.dart';
 import '../data/element_repository.dart';
 import '../data/folder_repository.dart';
+import '../data/font_repository.dart';
 import '../data/notebook_repository.dart';
 import '../data/outline_repository.dart';
 import '../data/page_repository.dart';
@@ -132,6 +133,8 @@ class PullApplier {
           changes.libraryWrites++;
         case TemplateRepository():
           changes.templates = true;
+        case FontRepository():
+          changes.fonts = true;
         case NotebookRepository():
           changes.notebooks = true;
           changes.libraryWrites++;

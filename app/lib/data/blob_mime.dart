@@ -9,7 +9,7 @@ abstract final class BlobMime {
   static const String unknown = 'application/octet-stream';
 
   /// The MIME type of [bytes]: the kinds of blob Len stores (PDFs, images,
-  /// recorded audio, waveforms), else [unknown].
+  /// recorded audio, waveforms, fonts), else [unknown].
   static String sniff(Uint8List bytes) {
     bool at(int offset, List<int> sig) {
       if (bytes.length < offset + sig.length) return false;
@@ -38,6 +38,9 @@ abstract final class BlobMime {
     // ADTS (raw AAC): a 12-bit sync word, then MPEG-4, layer 0.
     if (bytes.length >= 2 && bytes[0] == 0xFF && bytes[1] & 0xF6 == 0xF0) return 'audio/aac';
     if (at(0, const [0x4C, 0x57, 1])) return Waveform.mime; // See [Waveform.encode].
+    // Fonts the user imported.
+    if (at(0, const [0, 1, 0, 0]) || at(0, 'true'.codeUnits)) return 'font/ttf';
+    if (at(0, 'OTTO'.codeUnits)) return 'font/otf';
     return unknown;
   }
 }

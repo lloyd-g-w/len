@@ -222,7 +222,7 @@ TextData _anyText(math.Random r) {
     text: text,
     spans: StyledRange.compact(chars),
     paras: [for (var i = 0; i < lines; i++) _para(r)],
-    font: TextFont.values[r.nextInt(TextFont.values.length)],
+    font: TextFont.bundled[r.nextInt(TextFont.bundled.length)],
     color: _colors[r.nextInt(_colors.length)],
     align: TextAlignment.values[r.nextInt(TextAlignment.values.length)],
   );
@@ -238,7 +238,7 @@ SpanStyle _style(math.Random r) {
     color: r.nextDouble() < 0.4 ? _colors[r.nextInt(_colors.length)] : null,
     highlight: r.nextDouble() < 0.3 ? textHighlights[r.nextInt(textHighlights.length)] : null,
     size: r.nextDouble() < 0.2 ? 30 : null,
-    font: r.nextDouble() < 0.3 ? TextFont.values[r.nextInt(TextFont.values.length)] : null,
+    font: r.nextDouble() < 0.3 ? TextFont.bundled[r.nextInt(TextFont.bundled.length)] : null,
   );
 }
 

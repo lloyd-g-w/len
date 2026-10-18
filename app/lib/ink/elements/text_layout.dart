@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../domain/text/rich_text_buffer.dart';
 import '../../domain/text/text_data.dart';
+import '../fonts/text_fonts.dart';
 import 'list_marker.dart';
 import 'text_box_layout.dart';
 import 'text_insert.dart';
@@ -62,7 +63,7 @@ abstract final class TextLayout {
     final highlight = span.highlight;
     return TextStyle(
       inherit: false,
-      fontFamily: (span.font ?? box.font).family,
+      fontFamily: TextFonts.familyOf(span.font ?? box.font),
       fontFamilyFallback: fallback,
       fontSize: sizeOf(box, span, para),
       height: lineHeight,
