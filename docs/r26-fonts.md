@@ -50,3 +50,10 @@ row's height, so a label that wraps at 2× lost its second line. They are now at
 The format bar's size number (the other auditor's "24" wrapping, phones and tablets alike at 2×)
 no longer wraps either: at least 28 wide, one line, tabular figures (`text_controls_large_text_test`;
 six text goldens moved by the figures).
+
+**R26-F6 P3 · Pasting RTF with a large picture froze Len for about a second.** ✅
+`textFromRtf` trimmed trailing NULs with `RegExp(r'\x00+$')`, which tries every position of
+the string: with WordPad's hex for a 10 MB picture (20 MB of text) that took 0.7 s on the UI
+thread, and the tokenizer copied text a character at a time. A loop trims the NULs and text runs
+are copied whole: 0.07 s (`rtf_text_test`: "a large picture is skipped about as fast as its text
+is read", relative to reading the text once).

@@ -368,6 +368,33 @@ void main() {
       expect(textFromRtf(r"{\rtf1 a}}} b\'zz{", _box)!.text, 'a bzz');
     });
 
+    test('a large picture is skipped about as fast as its text is read', () {
+      // WordPad puts pictures in as hex: 10 MB of image, 20 MB of text.
+      final rtf = _doc('Before {\\pict\\pngblip ${'ab' * (10 << 20)}} after');
+      int best(void Function() run) {
+        var best = 1 << 30;
+        for (var i = 0; i < 3; i++) {
+          final sw = Stopwatch()..start();
+          run();
+          if (sw.elapsedMicroseconds < best) best = sw.elapsedMicroseconds;
+        }
+        return best;
+      }
+
+      // Reading every character once.
+      final read = best(() {
+        var braces = 0;
+        for (var i = 0; i < rtf.length; i++) {
+          if (rtf.codeUnitAt(i) == 0x7B) braces++;
+        }
+        expect(braces, greaterThan(0));
+      });
+      final parse = best(() => expect(textFromRtf(rtf, _box)!.text, 'Before  after'));
+      // (Was some 40 times: trailing NULs were trimmed by a regular
+      // expression, text was copied a character at a time.)
+      expect(parse, lessThan(read * 12));
+    });
+
     test('random RTF-like input never throws', () {
       final random = Random(7);
       const pieces = [

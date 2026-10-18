@@ -21,7 +21,13 @@ import 'text_data.dart';
 /// (East Asian double-byte ones: the plain text then pastes instead).
 TextData? textFromRtf(String rtf, TextData box) {
   var s = rtf.startsWith('\uFEFF') ? rtf.substring(1) : rtf;
-  s = s.replaceFirst(RegExp(r'\x00+$'), '').trimLeft();
+  // Trailing NULs (a loop: a regular expression tries every position of
+  // what may be megabytes of a picture's hex).
+  var end = s.length;
+  while (end > 0 && s.codeUnitAt(end - 1) == 0) {
+    end--;
+  }
+  s = s.substring(0, end).trimLeft();
   if (!s.startsWith(r'{\rtf')) return null;
   final reader = _RtfReader(box.font == TextFont.mono);
   for (final token in tokenizeRtf(s)) {
