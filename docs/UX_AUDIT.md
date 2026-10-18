@@ -34,7 +34,7 @@ non-Western code pages pasted as gibberish; the zoom window right to left
 still pointed and grew as left to right; Escape did nothing once a control
 had focus; a version named with Rename… was thinned away; restores gave no
 sign of running. 43 findings: 0 P1, 18 P2, 25 P3; 33 fixed (16 P2, 17 P3),
-with tests; open: R26-13, R26-14 (P2), R26-15–R26-19, R26-31 (P3).
+with tests; open: R26-13, R26-14 (P2), R26-15–R26-17, R26-19, R26-31 (P3).
 
 ### Tables in text boxes
 
@@ -197,12 +197,14 @@ Delete text box (the whole 844-dp screen; at 2× text the rows truncate, "Insert
 l…", "Small paragrap…"). *Proposal:* one row "Table…" opening the table menu from ⋯ (as
 Version history… holds its commands), keeping ⋯ at 6 rows.
 
-**R26-18 P3 · Column borders are 16 dp grips on touch screens too.** ⬜
-`TableEditorLayer._grip` is 16 screen px for mouse, stylus and finger alike, invisible,
+**R26-18 P3 · Column borders are 16 dp grips on touch screens too.** ✅
+`TableEditorLayer._grip` was 16 screen px for mouse, stylus and finger alike, invisible,
 and there only while a cell is edited: with a finger they are hard to hit, and nothing
-says they are there. *Proposal:* `Targets`-sized grips on touch (24 dp, still clear of
-the cell text's padding), and a short accent tick on each border of the edited row as
-the handle.
+says they are there. *Fix:* grips are 24 dp on touch-first devices (`Targets.touchFirst`,
+as shape handles' reach), 16 with a pointer; a tap on a grip (no drag) still enters the cell
+under it, so the wider grip never keeps a tap off the text beside the border; the edited
+row's borders carry a short accent tick (`table_editor_test`: "column grips are wider on
+touch; a tap on one edits the cell under it", the `table_editing` golden).
 
 #### Large tables
 

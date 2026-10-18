@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../domain/text/text_data.dart';
 import '../../../../ink/elements/text_layout.dart';
+import '../../../../ui/app_theme.dart';
 import 'rich_paste.dart';
 import 'rich_text_controller.dart';
 import 'rich_text_field.dart';
@@ -14,7 +16,8 @@ import 'table_keys.dart';
 /// laid out as the box renders): their cells and grid painted, the cell
 /// being edited in its own [RichTextField] (with [cell]), taps that edit a
 /// cell, drags across cells that select a block of them, and grips on the
-/// column borders that resize columns (stylus, finger or mouse).
+/// column borders that resize columns (stylus, finger or mouse; [gripWidth]
+/// across, a short accent tick on the edited row's marking them).
 class TableEditorLayer extends StatefulWidget {
   const TableEditorLayer({
     super.key,
@@ -45,6 +48,12 @@ class TableEditorLayer extends StatefulWidget {
   final VoidCallback onDone;
   final VoidCallback? onUndo, onRedo;
 
+  /// Width of a column border's grip in screen pixels, by input as shape
+  /// handles are: a fingertip's on touch-first devices, else a pointer's.
+  /// Taps on a grip still go to the cell under it, so a wide grip never
+  /// keeps a tap off the text beside the border.
+  static double get gripWidth => Targets.touchFirst ? 24 : 16;
+
   @override
   State<TableEditorLayer> createState() => _TableEditorLayerState();
 }
@@ -59,6 +68,10 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
 
   /// The cell a pointer went down on (null: none, or a column grip).
   _Hit? _down;
+
+  /// The cell under a column grip a pointer went down on, and where:
+  /// entered on a tap (no drag).
+  ({_Hit? cell, Offset at})? _downOnGrip;
   bool _downInActive = false;
   bool _selecting = false;
 
@@ -69,7 +82,7 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
 
   RichTextController get _box => widget.box;
 
-  double get _grip => 16 / widget.scale;
+  double get _grip => TableEditorLayer.gripWidth / widget.scale;
 
   _Hit? _hit(Offset local) {
     for (final r in _rows) {
@@ -104,8 +117,10 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
 
   void _pointerDown(PointerDownEvent e) {
     _selecting = false;
+    _downOnGrip = null;
     if (_onGrip(e.localPosition)) {
       _down = null;
+      _downOnGrip = (cell: _hit(e.localPosition), at: e.position);
       return;
     }
     _down = _hit(e.localPosition);
@@ -127,6 +142,14 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
   }
 
   void _pointerUp(PointerUpEvent e) {
+    final onGrip = _downOnGrip;
+    _downOnGrip = null;
+    if (onGrip != null) {
+      final cell = onGrip.cell;
+      final tap = (e.position - onGrip.at).distance < computeHitSlop(e.kind, null);
+      if (tap && cell != null) _box.enterCell(cell.line, offset: cell.offset);
+      return;
+    }
     final down = _down;
     _down = null;
     if (down == null || _selecting || _downInActive) return;
@@ -229,6 +252,8 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
                         active: place,
                         range: range,
                         highlight: widget.accent.withValues(alpha: 0.18),
+                        accent: widget.accent,
+                        scale: widget.scale,
                       ),
                     ),
                   ),
@@ -302,8 +327,9 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
   ];
 }
 
-/// Paints the tables' rows (but the cell edited in its field) and the block
-/// of cells selected.
+/// Paints the tables' rows (but the cell edited in its field), the block
+/// of cells selected and a tick on each column border of the edited row
+/// (where its grips are).
 class _TablesPainter extends CustomPainter {
   _TablesPainter(
     this.tables,
@@ -311,13 +337,16 @@ class _TablesPainter extends CustomPainter {
     required this.active,
     required this.range,
     required this.highlight,
+    required this.accent,
+    required this.scale,
   });
 
   final List<TableLayout> tables;
   final List<({Rect rect, int table, int row})> rows;
   final ({int table, int row, int column, Rect rowRect})? active;
   final TableRange? range;
-  final Color highlight;
+  final Color highlight, accent;
+  final double scale;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -326,6 +355,7 @@ class _TablesPainter extends CustomPainter {
       final a = active;
       final skip = a != null && a.table == r.table && a.row == r.row ? a.column : null;
       t.paintRow(canvas, r.rect, r.row, closed: r.row == t.table.rows - 1, skipColumn: skip);
+      if (skip != null) _paintTicks(canvas, t, r.rect);
       final b = range;
       if (b == null || b.table != t.table.line) continue;
       for (var c = 0; c < t.table.columns; c++) {
@@ -333,6 +363,22 @@ class _TablesPainter extends CustomPainter {
           canvas.drawRect(t.cellRect(r.rect, r.row, c), Paint()..color = highlight);
         }
       }
+    }
+  }
+
+  /// A short accent tick on each border between columns of [rowRect].
+  void _paintTicks(Canvas canvas, TableLayout t, Rect rowRect) {
+    final half = math.min(Gaps.md / scale, rowRect.height * 0.6) / 2;
+    final tick = Paint()
+      ..color = accent
+      ..strokeWidth = Hairline.rule / scale;
+    for (var c = 0; c + 1 < t.table.columns; c++) {
+      final x = rowRect.left + t.borderAfter(c);
+      canvas.drawLine(
+        Offset(x, rowRect.center.dy - half),
+        Offset(x, rowRect.center.dy + half),
+        tick,
+      );
     }
   }
 
