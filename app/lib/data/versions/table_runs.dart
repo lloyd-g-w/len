@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../blob_links.dart';
 import '../blob_references.dart';
 import '../blob_store.dart';
+import 'pending_blobs.dart';
 import 'version_table.dart';
 import 'work_slices.dart';
 
@@ -56,6 +57,25 @@ class TableRuns {
     _last[notebookId] = made;
     if (_last.length > _kept) _last.remove(_last.keys.first);
     return [for (final (_, sha) in made) sha];
+  }
+
+  /// [put] in one turn: new blobs go to [pending], stored after it.
+  List<String> putNow(String notebookId, List<Map<String, Object?>> rows, PendingBlobs pending) {
+    final before = <Object?, (List<Map<String, Object?>>, String)>{
+      for (final (run, sha) in _last[notebookId] ?? const <(List<Map<String, Object?>>, String)>[])
+        run.first['id']: (run, sha),
+    };
+    return [
+      for (final run in VersionTable.cut(rows))
+        switch (before[run.first['id']]) {
+          final old? when jsonEquals(old.$1, run) && blobs.reuse(old.$2) => old.$2,
+          _ => pending.put(
+            VersionTable.encode(run),
+            mime: VersionTable.mime,
+            stored: (sha) => links?.add(sha, BlobReferences.inValue(run)),
+          ),
+        },
+    ];
   }
 
   /// How many values [value] holds, counted up to [cap].

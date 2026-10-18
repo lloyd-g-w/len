@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import '../../domain/notebook.dart';
 import '../../domain/notebook_page.dart';
 import '../../domain/notebook_version.dart';
@@ -175,23 +177,46 @@ class VersionRestorer {
   /// The version is made across turns, while sync (or an edit) may write
   /// to the notebook, and the restore would remove what the version lacks.
   /// So it is saved, and the restore run, only if nothing in the notebook
-  /// changed since it began; else it is made again (the last of
-  /// [attempts] goes ahead regardless).
+  /// changed since it began; else it is made again. If it changed on the
+  /// last of [attempts] too, the version is made once more in that
+  /// transaction, in one turn ([VersionSnapshots.buildNow]): a long turn,
+  /// but nothing can write in between, so nothing is lost. Its new blobs
+  /// are stored, and its summary completed, after it.
   Future<NotebookVersion?> _beforeAnd(NotebookVersion version, void Function() restore) async {
     final db = repositories.versions.database;
+    final id = version.notebookId;
     for (var attempt = 1; ; attempt++) {
       db.steps.finish();
-      final mark = _stateOf(version.notebookId);
-      final before = await snapshots.build(version.notebookId, kind: VersionKind.restore);
+      final mark = _stateOf(id);
+      final built = await snapshots.build(id, kind: VersionKind.restore);
+      debugBuilt?.call(attempt);
+      Future<NotebookVersion> Function()? finish;
       final done = db.transaction(() {
-        if (attempt < attempts && _stateOf(version.notebookId) != mark) return false;
+        var before = built;
+        if (_stateOf(id) != mark) {
+          if (attempt < attempts) return null;
+          final now = snapshots.buildNow(id, kind: VersionKind.restore);
+          before = now?.version;
+          finish = now?.finish;
+        }
         if (before != null) repositories.versions.save(before);
         restore();
-        return true;
+        return (before,);
       });
-      if (done) return before;
+      if (done == null) continue;
+      if (finish case final finish?) {
+        final finished = await finish();
+        repositories.versions.save(finished);
+        return finished;
+      }
+      return done.$1;
     }
   }
+
+  /// Told after each try has made its version (and before it is checked);
+  /// tests write to the notebook there.
+  @visibleForTesting
+  void Function(int attempt)? debugBuilt;
 
   /// How often a restore makes the version before it while the notebook
   /// keeps changing.

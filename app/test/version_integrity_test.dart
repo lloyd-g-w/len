@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/core/clock.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/versions/version_restorer.dart';
 import 'package:len/data/versions/versions.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
@@ -137,5 +138,41 @@ void main() {
       ]).isNotEmpty;
       expect(live || (await versionInk(before, p)).contains(id), isTrue, reason: '$id lost');
     }
+  });
+
+  test('when the notebook changes during every try, the last makes the version before the '
+      'restore in its transaction: nothing synced in is lost', () async {
+    final first = page();
+    final notebook = s.pages.notebookOf(first)!;
+    final second = s.pages.addPage(notebook).id;
+    s.strokes.save([for (var i = 0; i < 5; i++) _ink('a$i', first, i)]);
+    final v1 = (await s.versions.save(notebook, name: 'one'))!;
+    s.strokes.save([_ink('x', second, 100)]);
+    // Sync writes to the notebook after every try has made its version.
+    final tries = <int>[];
+    s.versions.restorer.debugBuilt = (attempt) {
+      tries.add(attempt);
+      s.strokes.save([_ink('pulled$attempt', attempt.isEven ? first : second, 200 + attempt)]);
+    };
+    final restored = await s.versions.restore(v1);
+    expect(tries, [for (var i = 1; i <= VersionRestorer.attempts; i++) i]);
+    final before = restored.before!;
+    final ink = {...await versionInk(before, first), ...await versionInk(before, second)};
+    expect(ink, containsAll(['x', for (final i in tries) 'pulled$i']));
+    final live = {
+      for (final row in s.database.db.select(
+        'SELECT id FROM strokes WHERE deleted = 0 AND surface_id IN (?, ?)',
+        [first, second],
+      ))
+        row['id'] as String,
+    };
+    expect(live, {for (var i = 0; i < 5; i++) 'a$i'}, reason: 'restored');
+    // Its blobs were stored after the restore, its summary completed.
+    for (final sha in [...(await s.versions.content.body(before)).packs, ...before.table]) {
+      expect(await s.blobs.has(sha), isTrue, reason: sha);
+    }
+    expect(before.summary.strokesAdded, 1 + VersionRestorer.attempts);
+    expect(s.versions.store.get(before.id)!.summary.strokesAdded, before.summary.strokesAdded);
+    expect(before.size, greaterThan(0));
   });
 }

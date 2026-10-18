@@ -3245,7 +3245,14 @@ shares between versions (and between devices of one platform family).
   every version older than one (named too, after asking).
 - **Restoring** (`VersionRestorer`) first saves the current state as a
   `restore` version ("Before restoring …"), so nothing is lost and Undo (the
-  snack bar's, or that version's Restore) goes back. Then, as local edits
+  snack bar's, or that version's Restore) goes back. That version is made
+  across turns and saved, with the restore in one transaction, only if
+  nothing in the notebook changed meanwhile (sync, an edit); else it is made
+  again. If the last of `attempts` (4) is overtaken too, it is made once more
+  inside that transaction in one turn (`VersionSnapshots.buildNow`: packs
+  hashed there, their blobs stored and its summary completed after it,
+  `PendingBlobs`), so nothing synced in can be removed and kept in no
+  version; a long turn, but only then. Then, as local edits
   that sync like any: the notebook's settings, its pages (kept ids are
   rewritten, missing ones written back under their ids, others deleted with
   their content as `deletePage` does) and every surface's strokes and
