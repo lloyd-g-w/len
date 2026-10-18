@@ -142,12 +142,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    expect(find.text('Medium paragraph spacing'), findsOneWidget);
+    // One row, the box's spacing as its caption, opening the four.
+    expect(find.text('Paragraph spacing'), findsOneWidget);
+    expect(find.text('Medium'), findsOneWidget);
     await expectLater(
       find.byType(Directionality).first,
       matchesGoldenFile('goldens/text_paragraph_spacing.png'),
     );
-    await tester.tap(find.text('Small paragraph spacing'));
+    await tester.tap(find.text('Paragraph spacing'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Small'));
     await tester.pumpAndSettle();
     final session = tester.widget<EditorCanvas>(find.byType(EditorCanvas)).session;
     expect(session.tools.textStyle.spacing, ParagraphSpacing.small);

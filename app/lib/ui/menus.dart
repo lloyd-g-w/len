@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
 import 'package:flutter/material.dart';
@@ -198,6 +199,7 @@ Future<T?> showContextMenuAt<T>(
     context: context,
     position: RelativeRect.fromRect(origin & Size.zero, Offset.zero & overlay.size),
     items: items,
+    constraints: menuConstraints(context),
   );
 }
 
@@ -217,7 +219,18 @@ Future<T?> showMenuBelow<T>(BuildContext anchor, {required List<PopupMenuEntry<T
     context: anchor,
     position: RelativeRect.fromRect(rect, Offset.zero & overlay.size),
     items: items,
+    constraints: menuConstraints(anchor),
   );
+}
+
+/// A popup menu's width: Material's 112 to 280, the most growing with
+/// large text up to the screen's width less margins, so rows at 2× text
+/// show their whole labels on phones too (UX_AUDIT R26-31).
+BoxConstraints menuConstraints(BuildContext context) {
+  const min = 112.0, max = 280.0;
+  final screen = MediaQuery.sizeOf(context).width - 2 * Gaps.sm;
+  final scaled = MediaQuery.textScalerOf(context).scale(max);
+  return BoxConstraints(minWidth: min, maxWidth: math.max(max, math.min(scaled, screen)));
 }
 
 /// [MenuAnchor.reservedPadding] that keeps a tall menu [Gaps.sm] clear of

@@ -141,6 +141,10 @@ class TextData {
 
   int get lineCount => '\n'.allMatches(text).length + 1;
 
+  /// The style of line [line] (as [paras] has it, without counting the
+  /// lines: big tables ask for each cell's).
+  ParaStyle paraOf(int line) => line < _paras.length ? _paras[line] : ParaStyle.body;
+
   /// Whether the box shows nothing: only white space, and no table (an
   /// emptied box is deleted when editing ends).
   bool get isBlank => text.trim().isEmpty && !TextTables.any(paras);

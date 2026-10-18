@@ -9,6 +9,7 @@ import 'package:pdf/pdf.dart';
 import '../../../domain/surface_element.dart';
 import '../../../domain/text/font_file.dart';
 import '../../../domain/text/text_data.dart';
+import '../../../ink/elements/shown_text_layout.dart';
 import '../../../ink/elements/text_layout.dart';
 import '../../../ink/fonts/text_fonts.dart';
 import 'arabic_forms.dart';
@@ -103,6 +104,16 @@ class PdfTextWriter {
       final cells = <(Offset, List<_Run>)>[];
       for (final row in layout.rows) {
         final t = layout.tables[row.table];
+        // The header row repeated above a table going on from a page before.
+        for (var c = 0; row.row == 0 && c < t.headerCells.length; c++) {
+          final cellRuns = await _runs(t.headerCells[c].data, t.headerCells[c]);
+          if (cellRuns == null) return false;
+          final at = row.rect.topLeft + Offset(t.columnLeft(c), 0);
+          cells.add((
+            at + Offset(TableLayout.cellPadX(data), TableLayout.cellPadY(data)),
+            cellRuns,
+          ));
+        }
         for (var c = 0; c < t.table.columns; c++) {
           final cell = t.cells[t.index(row.row, c)];
           final cellRuns = await _runs(cell.data, cell);
@@ -113,6 +124,12 @@ class PdfTextWriter {
       g
         ..saveContext()
         ..setTransform(_boxToPdf(element, pageHeight, k));
+      // A table row taller than a page is cut at its box's frame.
+      if (ShownTextLayout.cutRow(layout, element.rect.height) != null) {
+        g
+          ..drawRect(0, 0, element.rect.width, element.rect.height)
+          ..clipPath();
+      }
       _paint(g, runs);
       await _markers(g, layout);
       for (final (origin, cellRuns) in cells) {

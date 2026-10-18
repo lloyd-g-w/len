@@ -382,6 +382,33 @@ void main() {
     expect(box.canUndo, isFalse);
   });
 
+  testWidgets('column grips are wider on touch; a tap on one edits the cell under it', (
+    tester,
+  ) async {
+    Targets.debugTouchFirst = true;
+    addTearDown(() => Targets.debugTouchFirst = null);
+    final b = RichTextBuffer(const TextData());
+    b.insertTable(0, 2, 2);
+    await openBox(tester, b.toData(const TextData()));
+    final box = boxController(tester);
+    final border = find.byKey(const ValueKey('table-border-0-0-1'));
+    expect(tester.getSize(border).width, 24);
+    // Just right of the border, in the second row's second cell.
+    await tester.tapAt(tester.getCenter(border) + const Offset(8, 0));
+    await tester.pumpAndSettle();
+    expect(box.activeCell, 3);
+    expect(box.data.paras, b.toData(const TextData()).paras, reason: 'no column resized');
+    // Left of it: the first cell of that row.
+    await tester.tapAt(tester.getCenter(border) - const Offset(8, 0));
+    await tester.pumpAndSettle();
+    expect(box.activeCell, 2);
+
+    Targets.debugTouchFirst = false;
+    box.enterCell(0);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(border).width, 16);
+  });
+
   testWidgets('tapping a cell edits it; the table menu adds and removes', (tester) async {
     final b = RichTextBuffer(const TextData(text: 'x'));
     b.insertTable(1, 2, 2);

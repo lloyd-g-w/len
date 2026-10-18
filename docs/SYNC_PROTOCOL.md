@@ -749,13 +749,19 @@ its elements):
   is its first strong character's, see `align` above); it overrides the
   direction this box's own first paragraph would get, so a right-to-left paragraph split between
   pages stays right-to-left (and its marker on the right) whatever word the next part begins with.
+- `header` (optional; absent: none): on a box beginning inside a table whose `tb` has `"h": true`
+  past its first row, that table's header row, `[{"text", "spans"}, …]` one per column (`text`
+  without line breaks, `spans` as a box's), drawn again in bold above the rows here. A copy for
+  display only: not part of the box's text (search, copy and text export read the text alone);
+  clients writing the chain write it again from the first row.
 
-A table splits only between rows: a box beginning inside a table begins with a copy of its first
-cell's `tb`, marked `"k": true` (its own first row is not the header row); joining the parts, a
+A table splits only between rows (a row taller than a page stays whole in the box it begins in,
+whose frame cuts it at the page's end: drawn clipped there): a box beginning inside a table begins with a copy of its first
+cell's `tb`, marked `"k": true` (its own first row is not the header row; `flow.header` repeats that); joining the parts, a
 `k` table right after a cell of the part before goes on as that table (same column count; its own
 `tb` reads as a `tc`).
 
-Every field is required and typed as above: `flow` and `spacing` are the optional keys of text
+Every field is required (but `header`) and typed as above: `flow` and `spacing` are the optional keys of text
 `data` (`TextRecord`), and an `elements` record whose text `data` has a `flow` (or a `spacing`) that
 is not well-formed is malformed and skipped. Clients find a chain by following `from` page by
 page; a box whose `from` is missing, deleted or not on the page before (pages deleted, reordered or

@@ -1,7 +1,12 @@
 import 'dart:ui' show TextDirection;
 
 import 'rich_text_buffer.dart';
+import 'table_cells.dart';
 import 'text_data.dart';
+
+/// A cell of a table's header row as repeated on a page the table goes on
+/// to ([TextFlow.header]): its text and character formatting.
+typedef RepeatedCell = ({String text, List<StyledRange> spans});
 
 /// How a text box continues the box before it in a chain of boxes that
 /// flows across the pages of a notebook (`TextData.flow`): a box reaching
@@ -19,6 +24,7 @@ class TextFlow {
     this.joined = false,
     this.numbers = const [],
     this.direction = TextDirection.ltr,
+    this.header = const [],
   });
 
   /// Id of the box this one continues.
@@ -38,9 +44,29 @@ class TextFlow {
   /// direction it has there, whatever its own first strong character.
   final TextDirection direction;
 
+  /// The header row of the table the box's first line goes on with, when
+  /// that table has one (left on a page before): drawn again above its
+  /// rows here (UX_AUDIT R26-15), for display only — not part of the
+  /// box's text, so not searched, copied or exported as text twice.
+  final List<RepeatedCell> header;
+
   /// A copy continuing the box [from].
   TextFlow withFrom(String from) =>
-      TextFlow(from: from, joined: joined, numbers: numbers, direction: direction);
+      TextFlow(from: from, joined: joined, numbers: numbers, direction: direction, header: header);
+
+  /// The header row repeated on a box whose first line is line [line] of
+  /// [whole]: that of the table [line] is in, if it has a header and
+  /// [line] is past its first row; else none.
+  static List<RepeatedCell> headerAt(TextData whole, int line) {
+    final t = TextTables.at(whole.tables, line);
+    if (t == null || !t.spec.header || t.cellOf(line).row == 0) return const [];
+    final starts = whole.lineStarts;
+    final cells = [
+      for (var c = 0; c < t.columns; c++)
+        whole.cellData(t.lineOf(0, c), start: starts[t.lineOf(0, c)]),
+    ];
+    return [for (final cell in cells) (text: cell.text, spans: cell.spans)];
+  }
 
   /// Parses a stored flow strictly: every field present and well-typed,
   /// else null (the box then stands on its own).
@@ -54,13 +80,41 @@ class TextFlow {
       _ => null,
     };
     if (direction == null) return null;
+    final header = json.containsKey('header') ? _header(json['header']) : const <RepeatedCell>[];
+    if (header == null) return null;
     if (numbers.length > ParaStyle.maxIndent + 1) return null;
     final counts = <int>[];
     for (final n in numbers) {
       if (n is! int || n < 0) return null;
       counts.add(n);
     }
-    return TextFlow(from: from, joined: joined, numbers: _trim(counts), direction: direction);
+    return TextFlow(
+      from: from,
+      joined: joined,
+      numbers: _trim(counts),
+      direction: direction,
+      header: header,
+    );
+  }
+
+  /// Stored [header] cells, strictly: `[{"text": …, "spans": [range, …]}, …]`
+  /// (at most [TableSpec.maxColumns]); null if malformed.
+  static List<RepeatedCell>? _header(Object? json) {
+    if (json is! List || json.isEmpty || json.length > TableSpec.maxColumns) return null;
+    final out = <RepeatedCell>[];
+    for (final c in json) {
+      if (c is! Map) return null;
+      final text = c['text'], spans = c['spans'];
+      if (text is! String || text.contains('\n') || spans is! List) return null;
+      final ranges = <StyledRange>[];
+      for (final s in spans) {
+        final r = StyledRange.tryParse(s);
+        if (r == null || r.start < 0 || r.end <= r.start || r.end > text.length) return null;
+        ranges.add(r);
+      }
+      out.add((text: text, spans: List.unmodifiable(ranges)));
+    }
+    return List.unmodifiable(out);
   }
 
   Map<String, Object?> toJson() => {
@@ -68,6 +122,14 @@ class TextFlow {
     'joined': joined,
     'numbers': numbers,
     'dir': direction.name,
+    if (header.isNotEmpty)
+      'header': [
+        for (final c in header)
+          {
+            'text': c.text,
+            'spans': [for (final s in c.spans) s.toJson()],
+          },
+      ],
   };
 
   static List<int> _trim(List<int> counts) {
@@ -140,10 +202,13 @@ class TextFlow {
         spans.add(StyledRange(s.start + at, s.end + at, s.style));
       }
       final more = joined ? part.paras.skip(1).toList() : [...part.paras];
-      // A table going on from the part before joins its table.
-      if ((more.firstOrNull?.cell, paras.lastOrNull?.cell) case (final cell?, final before?)
-          when cell.spec.continued && before.spec.columns == cell.spec.columns) {
-        more[0] = ParaStyle(cell: TextTableCell(before.spec));
+      // A table going on from the part before joins its table; one that
+      // can't (text or another table before it) is a table of its own.
+      if (more.firstOrNull?.cell case final cell? when cell.spec.continued) {
+        final before = paras.lastOrNull?.cell;
+        more[0] = before != null && before.spec.columns == cell.spec.columns
+            ? ParaStyle(cell: TextTableCell(before.spec))
+            : ParaStyle(cell: TextTableCell(cell.spec.copyWith(continued: false), first: true));
       }
       paras.addAll(more);
     }
@@ -167,10 +232,28 @@ class TextFlow {
       other.joined == joined &&
       other.direction == direction &&
       other.numbers.length == numbers.length &&
-      Iterable<int>.generate(numbers.length).every((i) => other.numbers[i] == numbers[i]);
+      Iterable<int>.generate(numbers.length).every((i) => other.numbers[i] == numbers[i]) &&
+      _sameHeader(other.header, header);
 
   @override
-  int get hashCode => Object.hash(from, joined, direction, Object.hashAll(numbers));
+  int get hashCode => Object.hash(
+    from,
+    joined,
+    direction,
+    Object.hashAll(numbers),
+    Object.hashAll(header.map((c) => c.text)),
+  );
+
+  static bool _sameHeader(List<RepeatedCell> a, List<RepeatedCell> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].text != b[i].text || a[i].spans.length != b[i].spans.length) return false;
+      for (var k = 0; k < a[i].spans.length; k++) {
+        if (a[i].spans[k] != b[i].spans[k]) return false;
+      }
+    }
+    return true;
+  }
 
   @override
   String toString() => 'TextFlow(${toJson()})';

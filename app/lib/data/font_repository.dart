@@ -3,6 +3,7 @@ import 'package:sqlite3/common.dart';
 import '../domain/text/text_font.dart';
 import '../domain/text/user_font.dart';
 import 'blob_store.dart';
+import 'name_order.dart';
 import 'record_fields.dart';
 import 'syncable.dart';
 import 'syncable_table.dart';
@@ -21,11 +22,11 @@ class FontRepository extends SyncableTable {
   @override
   String get table => 'fonts';
 
-  /// Live fonts by name.
-  List<UserFont> list() => db
-      .select('SELECT * FROM fonts WHERE deleted = 0 ORDER BY name COLLATE NOCASE, id')
-      .map(_rowToFont)
-      .toList();
+  /// Live fonts by name, in the library's [NameOrder] ("Font 2" before
+  /// "Font 10", case-insensitive; UX_AUDIT R26-29).
+  List<UserFont> list() =>
+      db.select('SELECT * FROM fonts WHERE deleted = 0').map(_rowToFont).toList()
+        ..sort(NameOrder.comparator((f) => f.name, (f) => f.id));
 
   UserFont? get(String id) {
     final rows = db.select('SELECT * FROM fonts WHERE id = ? AND deleted = 0', [id]);

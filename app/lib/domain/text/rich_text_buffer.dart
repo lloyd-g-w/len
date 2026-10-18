@@ -76,8 +76,19 @@ class RichTextBuffer {
   /// the break before or after them; a text without lines keeps one empty
   /// line).
   void spliceLines(int first, int end, List<BufferLine> lines) {
-    final all = [for (var l = 0; l < _paras.length; l++) lineAt(l)]
-      ..replaceRange(first, end, lines);
+    final all = <BufferLine>[];
+    var start = 0; // (One pass: lineAt would find each line from the start.)
+    for (var l = 0; l < _paras.length; l++) {
+      final nl = _text.indexOf('\n', start);
+      final stop = nl < 0 ? _text.length : nl;
+      all.add((
+        text: _text.substring(start, stop),
+        chars: _chars.sublist(start, stop),
+        para: _paras[l],
+      ));
+      start = stop + 1;
+    }
+    all.replaceRange(first, end, lines);
     if (all.isEmpty) all.add((text: '', chars: const [], para: ParaStyle.body));
     _text = all.map((l) => l.text).join('\n');
     _chars = [

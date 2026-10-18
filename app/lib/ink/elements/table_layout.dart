@@ -1,8 +1,10 @@
+import 'dart:collection';
 import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../domain/text/table_cells.dart';
 import '../../domain/text/text_data.dart';
+import '../fonts/text_fonts.dart';
 import 'text_box_layout.dart';
 import 'text_wraps.dart';
 
@@ -14,11 +16,36 @@ import 'text_wraps.dart';
 ///
 /// Columns run in the box's [direction]: the first on the right of a
 /// right-to-left box.
+///
+/// A table going on from the page before ([TableSpec.continued]) whose
+/// header row the box repeats (`TextFlow.header`) draws that row in a
+/// [band] at the top of its first row, above its cells (display only).
 class TableLayout {
   TableLayout(this.data, this.table, double width, {required this.direction, List<int>? starts})
     : width = width.isFinite ? math.max(1, width - TextWraps.epsilon) : naturalWidth(data, table) {
     final lineStarts = starts ?? data.lineStarts;
     final padX = cellPadX(data), padY = cellPadY(data);
+    final repeat = data.flow?.header ?? const [];
+    if (table.line == 0 && table.spec.continued && table.spec.header) {
+      if (repeat.length == table.columns) {
+        var tallest = 0.0;
+        for (var c = 0; c < table.columns; c++) {
+          final cell = TextData.rich(
+            text: repeat[c].text,
+            spans: repeat[c].spans,
+            paras: const [ParaStyle(bold: true)],
+            font: data.font,
+            fontSize: data.fontSize,
+            color: data.color,
+            align: data.align,
+          );
+          final layout = cellLayout(cell, math.max(1, columnWidth(c) - 2 * padX));
+          headerCells.add(layout);
+          tallest = math.max(tallest, layout.height);
+        }
+        band = tallest + 2 * padY;
+      }
+    }
     for (var r = 0; r < table.rows; r++) {
       var tallest = 0.0;
       for (var c = 0; c < table.columns; c++) {
@@ -26,12 +53,57 @@ class TableLayout {
         final cell = line < table.end
             ? data.cellData(line, start: lineStarts[line])
             : _empty(data, header: table.spec.hasHeaderRow && r == 0);
-        final layout = TextBoxLayout(cell, math.max(1, columnWidth(c) - 2 * padX));
+        final layout = cellLayout(cell, math.max(1, columnWidth(c) - 2 * padX));
         cells.add(layout);
         tallest = math.max(tallest, layout.height);
       }
-      rowHeights.add(tallest + 2 * padY);
+      rowHeights.add(tallest + 2 * padY + (r == 0 ? band : 0));
     }
+  }
+
+  /// The header row repeated above the first row (see the class doc), one
+  /// layout per column; none if not repeated.
+  final List<TextBoxLayout> headerCells = [];
+
+  /// The height of the header row repeated (0: none).
+  double band = 0;
+
+  /// The height of the table's header row, laid out here or repeated
+  /// ([band]); 0 if neither.
+  double get headerHeight => band > 0
+      ? band
+      : table.spec.hasHeaderRow && rowHeights.isNotEmpty
+      ? rowHeights.first
+      : 0;
+
+  /// Cell layouts kept across the layouts of boxes (UX_AUDIT R26-19): a
+  /// keystroke in a cell lays the box out again, and only that cell's
+  /// layout is new (the others are found by their text and width). The
+  /// most recently used [cellCacheSize] are kept; all go when a font
+  /// loads or goes ([TextFonts.changes]).
+  static final LinkedHashMap<(TextData, double), TextBoxLayout> _cellCache = LinkedHashMap();
+  static int _cacheFonts = -1;
+  static const int cellCacheSize = 6000;
+
+  /// Cells laid out anew (for tests).
+  static int debugCellLayouts = 0;
+
+  /// The layout of [cell] at [width], from the cache when it was laid out
+  /// before (shared: never disposed; nothing paints into it).
+  static TextBoxLayout cellLayout(TextData cell, double width) {
+    final fonts = TextFonts.changes.value;
+    if (fonts != _cacheFonts) {
+      _cellCache.clear();
+      _cacheFonts = fonts;
+    }
+    final key = (cell, width);
+    final hit = _cellCache.remove(key);
+    if (hit != null) return _cellCache[key] = hit;
+    debugCellLayouts++;
+    final layout = TextBoxLayout(cell, width);
+    _cellCache[key] = layout;
+    if (_cellCache.length > cellCacheSize) _cellCache.remove(_cellCache.keys.first);
+    return layout;
   }
 
   final TextData data;
@@ -93,13 +165,17 @@ class TableLayout {
       ? columnLeft(column)
       : columnLeft(column) + columnWidth(column);
 
-  /// Cell [row], [column] in a row laid out at [rowRect].
-  Rect cellRect(Rect rowRect, int row, int column) => Rect.fromLTWH(
-    rowRect.left + columnLeft(column),
-    rowRect.top,
-    columnWidth(column),
-    rowRect.height,
-  );
+  /// Cell [row], [column] in a row laid out at [rowRect] (below the
+  /// header [band] in the first row).
+  Rect cellRect(Rect rowRect, int row, int column) {
+    final above = row == 0 ? band : 0.0;
+    return Rect.fromLTWH(
+      rowRect.left + columnLeft(column),
+      rowRect.top + above,
+      columnWidth(column),
+      rowRect.height - above,
+    );
+  }
 
   /// The top left of the text of cell [row], [column] in a row at [rowRect].
   Offset textOrigin(Rect rowRect, int row, int column) =>
@@ -109,6 +185,14 @@ class TableLayout {
   /// [skipColumn]'s), the borders around them, and the line
   /// below unless the next row follows ([closed] false).
   void paintRow(Canvas canvas, Rect rowRect, int row, {required bool closed, int? skipColumn}) {
+    if (row == 0) {
+      for (var c = 0; c < headerCells.length; c++) {
+        final at =
+            Offset(rowRect.left + columnLeft(c), rowRect.top) +
+            Offset(cellPadX(data), cellPadY(data));
+        headerCells[c].paint(canvas, at);
+      }
+    }
     for (var c = 0; c < table.columns; c++) {
       if (c == skipColumn) continue; // (Edited in its own field.)
       cells[index(row, c)].paint(canvas, textOrigin(rowRect, row, c));
@@ -119,6 +203,10 @@ class TableLayout {
       ..style = PaintingStyle.stroke;
     final left = rowRect.left, right = rowRect.left + width;
     canvas.drawLine(Offset(left, rowRect.top), Offset(right, rowRect.top), paint);
+    if (row == 0 && band > 0) {
+      final y = rowRect.top + band;
+      canvas.drawLine(Offset(left, y), Offset(right, y), paint);
+    }
     if (closed) {
       canvas.drawLine(Offset(left, rowRect.bottom), Offset(right, rowRect.bottom), paint);
     }

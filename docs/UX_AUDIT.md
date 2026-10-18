@@ -33,8 +33,9 @@ Settings showed a missing font in Sans as if it were the font; RTF in
 non-Western code pages pasted as gibberish; the zoom window right to left
 still pointed and grew as left to right; Escape did nothing once a control
 had focus; a version named with Rename… was thinned away; restores gave no
-sign of running. 43 findings: 0 P1, 18 P2, 25 P3; 33 fixed (16 P2, 17 P3),
-with tests; open: R26-13, R26-14 (P2), R26-15–R26-19, R26-29–R26-31 (P3).
+sign of running. 43 findings: 0 P1, 18 P2, 25 P3; all 43 fixed, with
+tests (33 on `audit/r26`, the other 10 on `fix/r26-followups`; R26-14 by its fallback,
+a row taller than a page cut at the page's end; R26-41 kept by design).
 
 ### Tables in text boxes
 
@@ -143,7 +144,7 @@ right to left).
   the offset), on the first page and on the pages after
   (`text_flow_session_test`: a tap in a table cell of a chain edits that cell).
 
-**R26-13 P2 · In one-page-at-a-time layouts a column added to (or removed from) half of a split table splits it in two.** ⬜
+**R26-13 P2 · In one-page-at-a-time layouts a column added to (or removed from) half of a split table splits it in two.** ✅
 - *What:* with pages shown one at a time a box of a chain is edited alone
   (`_Flow.alone`). Adding or deleting a column in the part of a table on one page changes
   only that part; `TextFlow.join` joins parts with as many columns only, so the stored
@@ -151,25 +152,40 @@ right to left).
   `TextTable(…c: 2…), TextTable(…c: 3, k: true)`). Column widths dragged and the header
   row toggled on a continued part are silently reverted (`join` keeps the first part's
   spec). Continuous layouts edit the whole chain and are fine.
-- *Proposal (owner decision):* either (a) edit a chain whose table crosses the page as
-  a whole even when pages show one at a time (the head's page is activated, as the
-  continuous layout does), or (b) carry the edited part's widths and header back to the
-  table's other parts on commit (`_commitAlone`, like `_carryFirstLine`) and disable the
-  column commands (insert / delete column) in a table that goes on over a page edited
-  alone, with a hint ("Show pages together to change columns").
+- *Fix (owner: one table):* a table split over pages is one table whichever part is edited.
+  Each table's columns carry ids in memory while edited (`TableSpec.columnIds`: 0, 1, … as
+  read, a new negative one per column inserted, kept through the box's undo); on commit
+  `TableFlow.carry` (`domain/text/table_flow.dart`) gives the edited part's columns, widths
+  and header to the table's parts before and after it (cells kept by id, empty ones for new
+  columns), and drops the empty line the editor keeps after a table that goes on into the
+  next part (typing outside the table there split it too). `TextFlow.join` makes a continued
+  part that can't join (text before it) a table of its own instead of storing a stray
+  continuation (`table_flow_alone_test`). Deleting the table from one part deletes that part
+  only (as deleting its rows does).
 
-**R26-14 P2 · A row taller than a page runs off the page.** ⬜ `TextFlowLayout.split`
+**R26-14 P2 · A row taller than a page runs off the page.** ✅ `TextFlowLayout.split`
 cuts between lines, and a table row is one line: a cell holding a few thousand words
 (probe: a 6 012-unit row, 700 units of room) makes a part as tall as the row, far past
-the page's bottom margin and edge. Plain paragraphs split line by line. *Proposal:* split a row taller than the room between its cells' lines (each
-cell cut at the same height, the row continued as a `continued` table with the rest of
-each cell), or at least clip the part at the page's edge and say "This row is taller than
-a page" when it is edited.
+the page's bottom margin and edge. Plain paragraphs split line by line. *Fix (the fallback; documented):* a row taller than the room is cut at
+the room's end: its part's frame stops at the page's bottom margin (`TextFlowLayout._rowCut`,
+`FlowPart.overflow`), the text after the row goes on on the next page, and the box is drawn
+clipped to its frame with the cut row fading out above a dashed line in the grid's colour
+(`ShownTextLayout.clipped`; PDF export clips there too). The text keeps the row whole; while
+edited it shows whole (the chain's field leaves no gap after it, the box edited alone grows
+past the page). Splitting a row's cells between pages was not done: a part is a stretch of
+the whole text, and a row cut cell by cell is not (the chain's field, carets, joins and
+search all rest on that) (`table_tall_row_test`).
 
-**R26-15 P3 · A table's header row is not repeated on the pages it continues on.** ⬜
+**R26-15 P3 · A table's header row is not repeated on the pages it continues on.** ✅
 By design (`TableSpec.hasHeaderRow` is false for a continued part), unlike Word / Docs'
-"repeat header row". *Owner decision:* repeat the header (bold, read-only copy drawn
-above the continued rows, not in the text) or keep as is.
+"repeat header row". *Fix (owner: repeat it):* a
+box going on with a table that has a header row carries a copy of that row in its flow
+(`TextFlow.header`, set when the chain is split, see SYNC_PROTOCOL): `TableLayout` draws it,
+bold, in a band at the top of the first row (`band`, `headerCells`; PDF export too), and the
+split keeps room for it. Display only: not in the box's text, so search, copy and text export
+don't see it twice. Measuring parts now takes each line's top from the layout (a table row's
+line was a little taller than its metrics said, so long split tables overran their frames by
+about a unit per row) (`table_header_repeat_test`).
 
 #### Screen readers
 
@@ -181,38 +197,53 @@ above the continued rows, not in the text) or keep as is.
   (where that text is laid out) reads the text up to the next table
   (`table_semantics_test`: the text after the table is read after it).
 
-**R26-16 P3 · While a table is edited, screen readers get only the cell being edited.** ⬜
+**R26-16 P3 · While a table is edited, screen readers get only the cell being edited.** ✅
 `TextBoxSemantics` leaves the edited box out; `TableEditorLayer` paints the other cells
 (`_TablesPainter`) without nodes, and its field is named "Row r, column c" but not as a
 header. A screen-reader user on a touch tablet cannot reach another cell except by
-leaving the box. *Proposal:* the layer gives each painted cell a node (`SemanticsRole.cell`
-/ `columnHeader`, its text) whose tap action enters it, as `TextTableSemantics` does for
-committed boxes.
+leaving the box. *Fix:* the layer gives every cell but the edited one a node
+(`TableEditorSemantics`): in a table node and row nodes, `SemanticsRole.cell` or
+`columnHeader`, reading the cell's text with its place as the hint ("Row 2, column 1",
+"Column 1 header"); tapping it edits that cell. The edited cell's field is named alike
+(`table_editor_semantics_test`).
 
 #### Phone and touch
 
-**R26-17 P3 · On phones the text ⋯ in a table holds 13 rows.** ⬜ The docked bar has no
-table button, so its ⋯ gains the 8 table commands, above the 4 paragraph spacings and
+**R26-17 P3 · On phones the text ⋯ in a table holds 13 rows.** ✅ The docked bar has no
+table button, so its ⋯ gained the 8 table commands, above the 4 paragraph spacings and
 Delete text box (the whole 844-dp screen; at 2× text the rows truncate, "Insert column
-l…", "Small paragrap…"). *Proposal:* one row "Table…" opening the table menu from ⋯ (as
-Version history… holds its commands), keeping ⋯ at 6 rows.
+l…", "Small paragrap…"). *Fix:* ⋯ holds three rows: "Table…" (in a table; else "Insert
+table…") opening the tablet's table menu below ⋯, "Paragraph spacing" (R26-31) and Delete text
+box. Menus widen with large text (`menuConstraints`: up to the screen less margins), so the
+table menu's rows are whole at 2× too (`text_controls_large_text_test`: "phones at 2× text:
+the ⋯ in a table has whole rows; Table… opens the table menu").
 
-**R26-18 P3 · Column borders are 16 dp grips on touch screens too.** ⬜
-`TableEditorLayer._grip` is 16 screen px for mouse, stylus and finger alike, invisible,
+**R26-18 P3 · Column borders are 16 dp grips on touch screens too.** ✅
+`TableEditorLayer._grip` was 16 screen px for mouse, stylus and finger alike, invisible,
 and there only while a cell is edited: with a finger they are hard to hit, and nothing
-says they are there. *Proposal:* `Targets`-sized grips on touch (24 dp, still clear of
-the cell text's padding), and a short accent tick on each border of the edited row as
-the handle.
+says they are there. *Fix:* grips are 24 dp on touch-first devices (`Targets.touchFirst`,
+as shape handles' reach), 16 with a pointer; a tap on a grip (no drag) still enters the cell
+under it, so the wider grip never keeps a tap off the text beside the border; the edited
+row's borders carry a short accent tick (`table_editor_test`: "column grips are wider on
+touch; a tap on one edits the cell under it", the `table_editing` golden).
 
 #### Large tables
 
-**R26-19 P3 · Every keystroke in a cell lays out every cell of the box, twice or more.** ⬜
+**R26-19 P3 · Every keystroke in a cell lays out every cell of the box, twice or more.** ✅
 `setCell` → `_relayout` builds a new `TextPlan` (a `TableLayout` per table, a
 `TextBoxLayout` per cell), the layer lays the box out again, and the session measures it
 for the page. Debug-mode probe, 10 keystrokes: 5 × 10 cells 0.8 s, 50 × 10 1.9 s,
 100 × 10 3.4 s (about 2.5 ms per extra row per keystroke, before release-mode speed-up).
-Comfortable to 50 rows; a 200-row table will lag. *Proposal:* keep cell layouts across
-plans keyed by the cell's data and width (only the edited cell changes per keystroke).
+Comfortable to 50 rows; a 200-row table will lag. *Fix:* cell layouts are kept across the box's layouts,
+found by the cell's text and width (`TableLayout.cellLayout`, the 6 000 most recent; cleared
+when a font loads or goes), so a keystroke lays out the edited cell alone; and two hidden
+quadratic costs went: each cell counted the box's lines to find its style
+(`TextData.paraOf`) and looked through all its spans (`cellData` now searches them), and
+`RichTextBuffer.spliceLines` found every line from the start. Benchmark
+(`test/perf/table_typing_perf_test`, debug test build, a keystroke = the controller's
+relayout plus the session's measure, 5 columns): 50 rows 65 → 4.4 ms, 200 rows 342 →
+9.7 ms, 1000 rows 60 ms (before: seconds) (`table_typing_test`: one cell laid out a
+keystroke in a 200-row table).
 
 ### Imported fonts, RTF paste, paragraph spacing
 
@@ -260,18 +291,23 @@ import it again"; Remove → confirm → Undo had no test and now has one (`font
 (Also on this branch: "TrueType" and "OpenType" added to `copy_rules_test`'s names, which
 R26-23's message tripped.)
 
-**R26-29 P3 · Fonts are listed by plain text order: "Font 10" before "Font 2".** ⬜
-`FontRepository.list` sorts `ORDER BY name COLLATE NOCASE` (Settings and the picker). Families
-with numbers ("Source Serif 4", "Font 2 / 10") sort oddly. *Proposal:* a natural order (digit
-runs compared as numbers) in Dart after the query.
+**R26-29 P3 · Fonts are listed by plain text order: "Font 10" before "Font 2".** ✅
+`FontRepository.list` sorted `ORDER BY name COLLATE NOCASE` (Settings and the picker). Families
+with numbers ("Source Serif 4", "Font 2 / 10") sorted oddly. *Fix:* sorted in Dart after the
+query by the library's `NameOrder` (digit runs by value, case-insensitive) (`user_fonts_test`:
+"fonts are listed in natural order").
 
-**R26-30 P3 · Text in a missing font keeps its box's frame from the real font.** ⬜
+**R26-30 P3 · Text in a missing font keeps its box's frame from the real font.** ✅
 A box's rect was measured in its font on the device that wrote it; where the font is missing
-the text is laid out in Sans in that width (`ElementRenderer._drawText`, not clipped), wraps
-differently (Sans is wider than a hand font such as Caveat) and may run past the frame's bottom and
+the text was laid out in Sans in that width (`ElementRenderer._drawText`, not clipped), wrapped
+differently (Sans is wider than a hand font such as Caveat) and could run past the frame's bottom and
 its selection outline. It is right again once the file
-arrives; editing it there saves the Sans height. *Proposal:* accept (the fallback is said in
-the picker), or re-measure missing-font boxes for display only. Owner's call.
+arrives; editing it there saves the Sans height. *Fix (owner: re-measure for display only):*
+such a box that would overflow is fitted into its frame (`ink/elements/shown_text_layout.dart`):
+laid out wider and drawn scaled down so it fills the frame's width and never passes its bottom.
+The frame, selection outline, hit area and stored data (font reference, rect) are unchanged —
+the least invasive way, no other code sees a different size; checkbox and cell taps map
+through the scale (`missing_font_fit_test`).
 
 #### RTF paste
 
@@ -307,11 +343,14 @@ Looked at: the format bar and its menu (phone at 2×, tablet at 1× and 2×), th
 `paragraph_spacing_test`, `paragraph_spacing_ui_test`, `pdf_text_export_test` and
 `rtl_text_golden_test`, read and run; no new findings there.
 
-**R26-31 P3 · On phones at 2× text the ⋯'s spacing rows are cut: "No paragraph s…", "Small paragrap…".** ⬜
-`TextFormatBar`'s docked ⋯ lists the four spacings as "No paragraph spacing", "Small paragraph
-spacing", … (beside Insert table… and Delete text box); at 2× text they truncate to the
-first word. *Proposal:* with R26-17's "Table…", one row "Paragraph spacing" with the current
-one as its caption, opening the four-choice menu the tablet's button shows.
+**R26-31 P3 · On phones at 2× text the ⋯'s spacing rows are cut: "No paragraph s…", "Small paragrap…".** ✅
+`TextFormatBar`'s docked ⋯ listed the four spacings as "No paragraph spacing", "Small paragraph
+spacing", … (beside Insert table… and Delete text box); at 2× text they truncated to the
+first word. *Fix:* with R26-17's "Table…", one row "Paragraph spacing" with the box's spacing
+as its caption, opening the four-choice menu the tablet's button shows; in a table cell the
+caption and the tablet button's check now show the box's spacing, not the cell's
+(`text_controls_large_text_test`: "the ⋯'s Paragraph spacing opens the four and applies one";
+`paragraph_spacing_ui_test`).
 
 **R26-24 P3 · At large text the Text options cut "Paragraph spacing" to "Paragraph".** ✅
 `ParagraphSpacingRow` and `FontMenuRow` (`features/editor/tools/text/`) were fixed at a menu
@@ -440,6 +479,7 @@ the lab with Escape).
   one stray key); else it asks the route to pop. Menus and popovers over
   the page close alone, no double pop (`escape_closes_test`: a focused
   control, a text field, a menu open).
+- *Owner:* the two-step Escape in a text field is kept by design.
 
 #### Tips
 

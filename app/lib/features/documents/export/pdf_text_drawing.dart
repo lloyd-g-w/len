@@ -31,6 +31,7 @@ extension _PdfTextDrawing on PdfTextWriter {
       _fill(g, TableLayout.gridColorOf(t.data));
       g.drawRect(r.left, r.top - w / 2, t.width, w);
       if (row.row == t.table.rows - 1) g.drawRect(r.left, r.bottom - w / 2, t.width, w);
+      if (row.row == 0 && t.band > 0) g.drawRect(r.left, r.top + t.band - w / 2, t.width, w);
       for (var c = 0; c <= t.table.columns; c++) {
         final x = c == t.table.columns ? r.left + t.width : r.left + t.columnLeft(c);
         g.drawRect(x - w / 2, r.top, w, r.height);

@@ -11,8 +11,15 @@ import 'paragraph_style.dart';
 /// "w": [share, …], "h": header}` plus `"k": true` when [continued].
 class TableSpec {
   /// Column [widths] are normalised (each at least [minShare], summing to 1).
-  TableSpec(List<double> widths, {this.header = false, this.continued = false})
-    : widths = List.unmodifiable(_normalized(widths));
+  TableSpec(
+    List<double> widths, {
+    this.header = false,
+    this.continued = false,
+    List<int>? columnIds,
+  }) : widths = List.unmodifiable(_normalized(widths)),
+       _ids = columnIds == null || columnIds.length != math.max(1, widths.length)
+           ? null
+           : List.unmodifiable(columnIds);
 
   /// [columns] columns of equal width.
   factory TableSpec.even(int columns, {bool header = false}) =>
@@ -31,16 +38,39 @@ class TableSpec {
 
   int get columns => widths.length;
 
+  /// Which column is which while the table is edited, in memory only
+  /// (neither stored nor compared): a table read has columns 0, 1, …; a
+  /// column inserted gets a new negative id ([withColumnInserted]). Lets
+  /// columns added to or removed from the part of a table on one page
+  /// change its parts on the other pages alike (`TableFlow`).
+  List<int> get columnIds => _ids ?? List.generate(columns, (c) => c);
+  final List<int>? _ids;
+
+  /// The spec with a column [width] wide inserted before column [at]
+  /// (with a new id); [widths] are the new widths.
+  TableSpec withColumnInserted(int at, List<double> widths) {
+    final ids = columnIds;
+    final fresh = ids.fold(0, math.min) - 1;
+    return copyWith(widths: widths, columnIds: [...ids]..insert(at, fresh));
+  }
+
+  /// The spec without column [at].
+  TableSpec withColumnRemoved(int at) =>
+      copyWith(widths: [...widths]..removeAt(at), columnIds: [...columnIds]..removeAt(at));
+
   /// Whether the first row (laid out here) is bold: a header not left on
   /// the page before.
   bool get hasHeaderRow => header && !continued;
 
   /// The table with other widths, header or continuation.
-  TableSpec copyWith({List<double>? widths, bool? header, bool? continued}) => TableSpec(
-    widths ?? this.widths,
-    header: header ?? this.header,
-    continued: continued ?? this.continued,
-  );
+  /// Column ids ([columnIds]) are kept while the columns are.
+  TableSpec copyWith({List<double>? widths, bool? header, bool? continued, List<int>? columnIds}) =>
+      TableSpec(
+        widths ?? this.widths,
+        header: header ?? this.header,
+        continued: continued ?? this.continued,
+        columnIds: columnIds ?? (widths == null || widths.length == columns ? _ids : null),
+      );
 
   static List<double> _normalized(List<double> widths) {
     if (widths.isEmpty) return const [1];

@@ -285,22 +285,28 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
-- ⬜ **A table split over pages, one page at a time** (UX_AUDIT R26-13): a column added to or
+- ✅ **A table split over pages, one page at a time** (UX_AUDIT R26-13): a column added to or
   removed from one page's part of a split table makes two tables; widths and the header row set
   on a continued part are reverted. Options: edit the chain as a whole there too (as continuous
   layouts do), or carry widths / header back to the other parts and disable the column commands
   on a split part ("Show pages together to change columns").
-- ⬜ **Repeat a table's header row** on the pages it continues on (UX_AUDIT R26-15), as Word /
+  Done: one table either way: the edited part's columns (by in-memory id), widths and header
+  go to the table's other parts on commit (`TableFlow.carry`).
+- ✅ **Repeat a table's header row** on the pages it continues on (UX_AUDIT R26-15), as Word /
   Docs can, or keep it on the first page only.
-- ⬜ **Text in a missing font** (UX_AUDIT R26-30): laid out in Sans in the frame measured with the
+  Done: repeated (display only, a copy in the continuing box's flow: `TextFlow.header`).
+- ✅ **Text in a missing font** (UX_AUDIT R26-30): laid out in Sans in the frame measured with the
   real font, it may run past the frame until the file arrives. Accept, or lay such boxes out again
-  for display only.
-- ⬜ **The phone ⋯ of a text box** (UX_AUDIT R26-17, R26-31): in a table it holds 13 rows, and at
+  for display only. Done: for display only, such a box is laid out wider and drawn scaled down to
+  fit its frame (`ShownTextLayout`); the data and frame keep the real font's.
+- ✅ **The phone ⋯ of a text box** (UX_AUDIT R26-17, R26-31): in a table it holds 13 rows, and at
   2× text the four spacing rows truncate. Proposal: one "Table…" row and one "Paragraph spacing"
-  row (current one as caption), each opening the menu the tablet's button shows.
-- ⬜ **Escape in a full-screen page's text field** (UX_AUDIT R26-41): Settings' fields leave the
+  row (current one as caption), each opening the menu the tablet's button shows. Done: ⋯ holds
+  Table… (or Insert table…), Paragraph spacing and Delete text box; menus widen with large text.
+- ✅ **Escape in a full-screen page's text field** (UX_AUDIT R26-41): Settings' fields leave the
   field on the first Escape and close the page on the second, while dialogs close at once. Keep
   (no typed text lost to one key) or close at once everywhere.
+  Done: kept by design: no typed text is lost to one stray key.
 - ✅ **A restore while the notebook keeps changing** (bug hunt 6): `VersionRestorer._beforeAnd`
   makes the version before a restore again while sync writes to the notebook, but its fourth
   attempt goes ahead regardless, so ink synced in during that one is removed and kept in no
