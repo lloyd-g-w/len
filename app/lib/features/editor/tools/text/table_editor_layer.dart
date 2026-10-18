@@ -192,7 +192,7 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
                     rect: r.rect,
                     child: const MouseRegion(
                       cursor: SystemMouseCursors.text,
-                      child: SizedBox.expand(child: ColoredBox(color: Color(0x00000000))),
+                      child: Listener(behavior: HitTestBehavior.opaque, child: SizedBox.expand()),
                     ),
                   ),
                 Positioned.fill(

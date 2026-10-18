@@ -90,6 +90,13 @@ class TableCellController extends RichTextController {
   }
 
   @override
+  bool _pastesCells(TextData rich) {
+    if (_line == null) return false;
+    pasteRich(rich);
+    return true;
+  }
+
+  @override
   void pastePlain(String text) {
     final line = _line;
     final clean = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');

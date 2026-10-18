@@ -251,6 +251,10 @@ class RichTextController extends _RichTextState
         : pasted && _clipPlain == inserted
         ? clip
         : _pastedRich(inserted);
+    if (rich != null && TextTables.any(rich.paras) && _pastesCells(rich)) {
+      super.value = old; // (Filled into the box's cells instead.)
+      return;
+    }
     if (rich != null && TextTables.any(rich.paras)) {
       final after = _buffer.insertFragment(start, end, rich);
       inserted = _buffer.text.substring(start, after);
@@ -299,6 +303,10 @@ class RichTextController extends _RichTextState
     onDataChanged?.call();
     if (typed && inserted == ' ' && rich == null) _autoList(start);
   }
+
+  /// Whether a table pasted by the browser ([rich], web) went into cells
+  /// (a table cell's controller fills the cells from it on).
+  bool _pastesCells(TextData rich) => false;
 
   /// What typed at a plain line's start, before a space, starts a list.
   static const Map<String, ListKind> listPrefixes = {
