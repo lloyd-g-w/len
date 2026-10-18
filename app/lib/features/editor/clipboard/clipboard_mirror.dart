@@ -126,8 +126,10 @@ class ClipboardMirror {
     return boxes == null ? null : _plain(boxes);
   }
 
-  static String _plain(List<TextData> boxes) =>
-      [for (final b in boxes) b.text.trimRight()].join('\n\n');
+  /// Table rows as tab-separated cells.
+  static String _plain(List<TextData> boxes) => [
+    for (final b in boxes) TextTables.plainText(b.text, b.paras).trimRight(),
+  ].join('\n\n');
 
   /// The text boxes among [elements] that hold text, top to bottom (then
   /// left to right); null if there is none, or if [elements] are not all
@@ -140,7 +142,7 @@ class ClipboardMirror {
         return byTop != 0 ? byTop : a.bounds.left.compareTo(b.bounds.left);
       });
     final boxes = [for (final e in sorted) TextData.fromJson(e.data)]
-        .where((t) => t.text.trim().isNotEmpty)
+        .where((t) => !t.isBlank)
         .toList();
     return boxes.isEmpty ? null : boxes;
   }
