@@ -10,6 +10,7 @@ import 'text_plan.dart';
 
 export 'list_marker.dart';
 export 'marker_offsets.dart';
+export 'table_layout.dart';
 export 'text_box_layout.dart';
 export 'text_insert.dart';
 export 'text_plan.dart';
@@ -149,6 +150,7 @@ abstract final class TextLayout {
     InlineSpan Function(Size size) gap = gapSpan,
     InlineSpan Function(double height) room = roomSpan,
     InlineSpan Function(double height) spacing = spacingSpan,
+    InlineSpan Function(InsertPiece row) row = rowSpan,
     TextRange underlined = TextRange.empty,
   }) {
     final text = data.text;
@@ -159,10 +161,11 @@ abstract final class TextLayout {
     var next = 0;
     var start = 0;
     for (var line = 0; line < paras.length; line++) {
-      final para = paras[line];
-      final nl = text.indexOf('\n', start);
-      final end = nl < 0 ? text.length : nl;
+      var para = paras[line];
+      var nl = text.indexOf('\n', start);
+      var end = nl < 0 ? text.length : nl;
       var from = start;
+      var afterRow = false;
       while (next < inserts.length && inserts[next].at <= end) {
         final insert = inserts[next++];
         lineRuns(data, chars, para, from, insert.at, children, underlined: underlined);
@@ -180,22 +183,42 @@ abstract final class TextLayout {
             InsertKind.space => gap(piece.size),
             InsertKind.room => room(piece.size.height),
             InsertKind.spacing => spacing(piece.size.height),
+            InsertKind.row => row(piece),
             InsertKind.roomBreak => const TextSpan(text: '\n', style: _roomStyle),
             _ => TextSpan(text: piece.char, style: around),
           });
+        }
+        if (insert.isRow) {
+          // The row stands for its cells: on after them, on their last line.
+          from = insert.end;
+          while (end < from) {
+            line++;
+            start = end + 1;
+            nl = text.indexOf('\n', start);
+            end = nl < 0 ? text.length : nl;
+          }
+          para = ParaStyle.body;
+          afterRow = true;
         }
       }
       lineRuns(data, chars, para, from, end, children, underlined: underlined);
       if (nl >= 0) {
         // The break takes the line's last style, so an empty line is as
-        // tall as its paragraph.
-        final last = end > start ? chars[end - 1] : SpanStyle.plain;
+        // tall as its paragraph (after a table row: the box's).
+        final last = end > start && !afterRow ? chars[end - 1] : SpanStyle.plain;
         children.add(TextSpan(text: '\n', style: styleFor(data, last, para)));
       }
       start = nl < 0 ? text.length : nl + 1;
     }
     return TextSpan(style: baseStyle(data), children: children);
   }
+
+  /// The placeholder of a table row: as wide as the table, as tall as the
+  /// row (its cells are painted over it, see `TableLayout`).
+  static InlineSpan rowSpan(InsertPiece row) => WidgetSpan(
+    alignment: PlaceholderAlignment.bottom,
+    child: SizedBox.fromSize(size: row.size),
+  );
 
   static final Paint _clear = Paint()..color = const Color(0x00000000);
 

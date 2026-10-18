@@ -1,7 +1,9 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
+import '../../domain/text/table_cells.dart';
 import '../../domain/text/text_data.dart';
 import '../fonts/text_fonts.dart';
 import 'text_layout.dart';
@@ -45,6 +47,10 @@ class TextBoxLayout {
         _spacingSlots.add(dims.length);
         return slot(Size(0, h), PlaceholderAlignment.belowBaseline);
       },
+      row: (piece) {
+        _rowSlots.add((slot: dims.length, table: piece.row!.table, row: piece.row!.row));
+        return slot(piece.size, PlaceholderAlignment.bottom);
+      },
     );
     painter = TextPainter(
       // An empty box still has one line's height.
@@ -81,6 +87,61 @@ class TextBoxLayout {
 
   /// Indexes of the paragraph spacing among the painter's placeholders.
   final List<int> _spacingSlots = [];
+
+  /// The table rows among the painter's placeholders.
+  final List<({int slot, int table, int row})> _rowSlots = [];
+
+  /// The tables laid out (see [TextPlan.tables]).
+  List<TableLayout> get tables => plan.tables;
+
+  /// Each table row laid out (local coordinates), in text order.
+  List<({Rect rect, int table, int row})> get rows {
+    final boxes = painter.inlinePlaceholderBoxes ?? const <TextBox>[];
+    return [
+      for (final r in _rowSlots)
+        if (r.slot < boxes.length) (rect: boxes[r.slot].toRect(), table: r.table, row: r.row),
+    ];
+  }
+
+  /// The cell on model line [line] if it is one: its table, where its
+  /// text starts (local coordinates) and its layout.
+  ({TableLayout table, int row, int column, Offset origin, TextBoxLayout layout})? cellOn(
+    int line,
+  ) {
+    for (final t in tables) {
+      if (!t.table.contains(line)) continue;
+      final (:row, :column) = t.table.cellOf(line);
+      final k = tables.indexOf(t);
+      for (final r in rows) {
+        if (r.table != k || r.row != row) continue;
+        return (
+          table: t,
+          row: row,
+          column: column,
+          origin: t.textOrigin(r.rect, row, column),
+          layout: t.cells[t.index(row, column)],
+        );
+      }
+    }
+    return null;
+  }
+
+  /// The table cell at [local] (box coordinates), if any: its model line
+  /// and the model offset in it nearest [local].
+  ({int line, int offset})? cellAt(Offset local) {
+    for (final r in rows) {
+      if (local.dy < r.rect.top || local.dy >= r.rect.bottom) continue;
+      final t = tables[r.table];
+      final column = t.columnAt(local.dx - r.rect.left);
+      final line = t.table.lineOf(r.row, column);
+      if (line >= t.table.end) return null;
+      final cell = t.cells[t.index(r.row, column)];
+      final origin = t.textOrigin(r.rect, r.row, column);
+      final at = cell.painter.getPositionForOffset(local - origin).offset;
+      return (line: line, offset: cell.offsets.toModel(at));
+    }
+    return null;
+  }
 
   /// The room paragraph spacing leaves below each paragraph but the last
   /// (local coordinates): as wide as nothing, [TextData.paragraphGap] tall,
@@ -127,7 +188,30 @@ class TextBoxLayout {
         TextSelection(baseOffset: from, extentOffset: to),
         boxHeightStyle: boxHeightStyle,
       ),
+    if (tables.isNotEmpty) ..._cellBoxes(start, end, boxHeightStyle),
   ];
+
+  /// [boxesOf] the table cells' text in [start, end).
+  List<TextBox> _cellBoxes(int start, int end, ui.BoxHeightStyle style) {
+    final out = <TextBox>[];
+    final starts = data.lineStarts;
+    for (final t in tables) {
+      for (var line = t.table.line; line < t.table.end; line++) {
+        final from = starts[line];
+        final to = line + 1 < starts.length ? starts[line + 1] - 1 : data.text.length;
+        if (to < start || from >= end || (from == to)) continue;
+        final cell = cellOn(line);
+        if (cell == null) continue;
+        final a = math.max(start, from) - from, b = math.min(end, to) - from;
+        if (b <= a) continue;
+        for (final box in cell.layout.boxesOf(a, b, boxHeightStyle: style)) {
+          final r = box.toRect().shift(cell.origin);
+          out.add(TextBox.fromLTRBD(r.left, r.top, r.right, r.bottom, box.direction));
+        }
+      }
+    }
+    return out;
+  }
 
   double get height => painter.height;
 
@@ -143,6 +227,12 @@ class TextBoxLayout {
   /// Paints the text with its top left at [origin].
   void paint(Canvas canvas, Offset origin) {
     painter.paint(canvas, origin);
+    final laid = rows;
+    for (var i = 0; i < laid.length; i++) {
+      final r = laid[i];
+      final t = tables[r.table];
+      t.paintRow(canvas, r.rect.shift(origin), r.row, closed: r.row == t.table.rows - 1);
+    }
     final boxes = markerBoxes;
     for (var i = 0; i < markers.length && i < boxes.length; i++) {
       markers[i].paint(
