@@ -8,6 +8,7 @@ import '../../app_services.dart';
 import '../../data/versions/versions.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/dialog_actions.dart';
+import '../../ui/escape_closes.dart';
 import 'version_flows.dart';
 import 'version_labels.dart';
 import 'version_surface_view.dart';
@@ -53,24 +54,26 @@ class VersionPreview extends StatelessWidget {
     final heading = _Heading(v, madeOn: VersionLabels.madeOn(v, thisDevice: _thisDevice));
     // Short ("Today, 11:42"), so it keeps one line at large text (R25-7).
     final when = VersionLabels.at(v, now: services.clock.nowDate());
-    return Scaffold(
-      appBar: compact
-          ? _CompactBar(context, title: when)
-          : AppBar(
-              title: _Title(
-                v,
-                when: when,
-                madeOn: VersionLabels.madeOn(v, thisDevice: _thisDevice),
+    return EscapeCloses(
+      child: Scaffold(
+        appBar: compact
+            ? _CompactBar(context, title: when)
+            : AppBar(
+                title: _Title(
+                  v,
+                  when: when,
+                  madeOn: VersionLabels.madeOn(v, thisDevice: _thisDevice),
+                ),
+                actions: [
+                  copy,
+                  const SizedBox(width: Gaps.xs),
+                  restore,
+                  const SizedBox(width: Gaps.lg),
+                ],
               ),
-              actions: [
-                copy,
-                const SizedBox(width: Gaps.xs),
-                restore,
-                const SizedBox(width: Gaps.lg),
-              ],
-            ),
-      bottomNavigationBar: compact ? _ActionBar(children: [copy, restore]) : null,
-      body: v.isCanvas ? _canvas(compact ? heading : null) : _pages(compact ? heading : null),
+        bottomNavigationBar: compact ? _ActionBar(children: [copy, restore]) : null,
+        body: v.isCanvas ? _canvas(compact ? heading : null) : _pages(compact ? heading : null),
+      ),
     );
   }
 
@@ -181,27 +184,29 @@ class VersionPreview extends StatelessWidget {
               },
               child: const Text('Restore this page'),
             );
-            return Scaffold(
-              appBar: compact
-                  ? _CompactBar(pageContext, title: title)
-                  : AppBar(
-                      title: Text(title, style: Theme.of(pageContext).textTheme.titleMedium),
-                      actions: [
-                        restore,
-                        const SizedBox(width: Gaps.lg),
-                      ],
-                    ),
-              bottomNavigationBar: compact ? _ActionBar(children: [restore]) : null,
-              body: Padding(
-                padding: const EdgeInsets.all(Gaps.xl),
-                child: Center(
-                  child: _Zoomable(
-                    (zoom) => VersionSurfaceView(
-                      sheets: sheets,
-                      version: version,
-                      page: page,
-                      images: services.images,
-                      zoom: zoom,
+            return EscapeCloses(
+              child: Scaffold(
+                appBar: compact
+                    ? _CompactBar(pageContext, title: title)
+                    : AppBar(
+                        title: Text(title, style: Theme.of(pageContext).textTheme.titleMedium),
+                        actions: [
+                          restore,
+                          const SizedBox(width: Gaps.lg),
+                        ],
+                      ),
+                bottomNavigationBar: compact ? _ActionBar(children: [restore]) : null,
+                body: Padding(
+                  padding: const EdgeInsets.all(Gaps.xl),
+                  child: Center(
+                    child: _Zoomable(
+                      (zoom) => VersionSurfaceView(
+                        sheets: sheets,
+                        version: version,
+                        page: page,
+                        images: services.images,
+                        zoom: zoom,
+                      ),
                     ),
                   ),
                 ),

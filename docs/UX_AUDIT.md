@@ -104,9 +104,13 @@ form ("Today, 14:02") on one line. At 2× text the page view's "Page 1 of
 bar under the page (`version_preview.dart`; since merged with fix/vh-phone's
 docked bottom bar, which also holds the preview's Copy / Restore).
 
-**R25-8 P3 · Escape does not close the preview or its page view.** ⬜ Keep
+**R25-8 P3 · Escape does not close the preview or its page view.** ✅ Keep
 for now: the page overview and Settings don't either. A route-wide rule
-(Escape pops full-screen routes) would fix all three at once.
+(Escape pops full-screen routes) would fix all three at once. ✅ `ui/escape_closes.dart`
+(`EscapeCloses`) wraps the preview, its page view, the page overview and
+Settings: Escape asks the route to pop (so the overview leaves selecting
+first), nearer Escape handlers still win, and it takes focus when nothing
+has it. Opt-in, not route-wide: the editor keeps Escape for itself.
 
 **R25-9 P3 · Multi-sentence messages lacked their full stop.** ✅ The empty
 history, both restore confirmations and "not on this device yet" end with

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app_services.dart';
 import '../../platform/browser_storage.dart';
 import '../../ui/app_theme.dart';
+import '../../ui/escape_closes.dart';
 import 'about_settings.dart';
 import 'backup_settings.dart';
 import 'general_settings.dart';
@@ -31,8 +32,7 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) => CallbackShortcuts(
     // "Also Ctrl+/ anywhere" (General → Keyboard shortcuts), here too.
     bindings: keyboardShortcutsBinding(() => unawaited(showKeyboardShortcuts(context))),
-    child: Focus(
-      autofocus: true,
+    child: EscapeCloses(
       child: Scaffold(body: _SettingsColumn(showSync: showSync)),
     ),
   );

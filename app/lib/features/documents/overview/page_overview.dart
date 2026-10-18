@@ -7,6 +7,7 @@ import '../../../domain/notebook_page.dart';
 import '../../../domain/pdf_page_numbers.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ui/app_theme.dart';
+import '../../../ui/escape_closes.dart';
 import '../../../ui/fast_scroll.dart';
 import '../../editor/document/page_backgrounds.dart';
 import '../../editor/document/page_thumbnail.dart';
@@ -232,67 +233,70 @@ class _PageOverviewState extends State<PageOverview> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) setState(() => _selection = null);
       },
-      child: Scaffold(
-        // Selecting keeps the bar (the filter still narrows the pages); the
-        // selection's own bar floats at the bottom, as in the library.
-        appBar: OverviewAppBar(
-          pageCount: _pages.length,
-          filter: _filter,
-          compact: compact,
-          outline: widget.outline != null,
-          textScale: MediaQuery.textScalerOf(context).scale(1),
-          onFilter: _setFilter,
-          onSelect: _filter == OverviewFilter.outline || _selecting
-              ? null
-              : () => setState(() => _selection = {}),
-          // Like Select, with the thumbnails (not the outline).
-          onBesidePage: _selecting || _filter == OverviewFilter.outline || widget.besidePage == null
-              ? null
-              : _showBeside,
-        ),
-        bottomNavigationBar: _selecting
-            ? PageSelectionBar(
-                count: _selection!.length,
-                total: shown.length,
-                onClose: () => setState(() => _selection = null),
-                onSelectAll: () => setState(() {
-                  final all = _selection!.length == shown.length;
-                  _selection = all ? {} : {for (final p in _shownPages) p.id};
-                }),
-                allBookmarked: _selected.isNotEmpty && _selected.every((p) => p.bookmarked),
-                offered: {
-                  SelectionAction.bookmark,
-                  SelectionAction.duplicate,
-                  if (widget.handlers.sendMany != null) SelectionAction.send,
-                  if (widget.handlers.templateMany != null) SelectionAction.template,
-                  if (widget.handlers.exportMany != null) SelectionAction.export,
-                  SelectionAction.delete,
-                },
-                onAction: _runOnSelection,
-              )
-            : null,
-        body: _filter == OverviewFilter.outline
-            // A readable column under the filter, its text on the filter's
-            // margin (the outline's own margin is Gaps.lg).
-            ? Align(
-                alignment: AlignmentDirectional.topStart,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 640),
-                  child: Padding(
-                    padding: EdgeInsetsDirectional.only(start: compact ? 0 : Gaps.xxl - Gaps.lg),
-                    child: widget.outline!(context, (page) => Navigator.of(context).pop(page)),
+      child: EscapeCloses(
+        child: Scaffold(
+          // Selecting keeps the bar (the filter still narrows the pages); the
+          // selection's own bar floats at the bottom, as in the library.
+          appBar: OverviewAppBar(
+            pageCount: _pages.length,
+            filter: _filter,
+            compact: compact,
+            outline: widget.outline != null,
+            textScale: MediaQuery.textScalerOf(context).scale(1),
+            onFilter: _setFilter,
+            onSelect: _filter == OverviewFilter.outline || _selecting
+                ? null
+                : () => setState(() => _selection = {}),
+            // Like Select, with the thumbnails (not the outline).
+            onBesidePage:
+                _selecting || _filter == OverviewFilter.outline || widget.besidePage == null
+                ? null
+                : _showBeside,
+          ),
+          bottomNavigationBar: _selecting
+              ? PageSelectionBar(
+                  count: _selection!.length,
+                  total: shown.length,
+                  onClose: () => setState(() => _selection = null),
+                  onSelectAll: () => setState(() {
+                    final all = _selection!.length == shown.length;
+                    _selection = all ? {} : {for (final p in _shownPages) p.id};
+                  }),
+                  allBookmarked: _selected.isNotEmpty && _selected.every((p) => p.bookmarked),
+                  offered: {
+                    SelectionAction.bookmark,
+                    SelectionAction.duplicate,
+                    if (widget.handlers.sendMany != null) SelectionAction.send,
+                    if (widget.handlers.templateMany != null) SelectionAction.template,
+                    if (widget.handlers.exportMany != null) SelectionAction.export,
+                    SelectionAction.delete,
+                  },
+                  onAction: _runOnSelection,
+                )
+              : null,
+          body: _filter == OverviewFilter.outline
+              // A readable column under the filter, its text on the filter's
+              // margin (the outline's own margin is Gaps.lg).
+              ? Align(
+                  alignment: AlignmentDirectional.topStart,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 640),
+                    child: Padding(
+                      padding: EdgeInsetsDirectional.only(start: compact ? 0 : Gaps.xxl - Gaps.lg),
+                      child: widget.outline!(context, (page) => Navigator.of(context).pop(page)),
+                    ),
                   ),
+                )
+              : shown.isEmpty
+              ? _noBookmarks()
+              : OverviewGrid(
+                  controller: _scroll,
+                  count: shown.length + (addTile ? 1 : 0),
+                  compact: compact,
+                  pageAspect: commonPageAspect(_pages),
+                  tile: (context, i, columns) => _tile(shown, numbers, i, columns),
                 ),
-              )
-            : shown.isEmpty
-            ? _noBookmarks()
-            : OverviewGrid(
-                controller: _scroll,
-                count: shown.length + (addTile ? 1 : 0),
-                compact: compact,
-                pageAspect: commonPageAspect(_pages),
-                tile: (context, i, columns) => _tile(shown, numbers, i, columns),
-              ),
+        ),
       ),
     );
   }
