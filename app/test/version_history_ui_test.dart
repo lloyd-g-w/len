@@ -242,8 +242,16 @@ void main() {
     expect(find.text('Version history'), findsNothing, reason: 'back to the notebook');
     expect(s.versions.of(notebook.id).first.kind, VersionKind.restore);
 
+    // A restore or copy running meanwhile: Undo waits for it, then runs.
+    final work = debugVersionWork;
+    addTearDown(() => work.value = null);
+    work.value = VersionWork.copy;
     await tester.tap(find.text('Undo'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(strokesOn(pages.last), isEmpty, reason: 'waits for the copy');
+    work.value = null;
     await pumpUntil(tester, () => strokesOn(pages.last).length == 2, reason: 'undone');
+    await pumpUntil(tester, () => work.value == null);
   });
 
   testWidgets('while a restore runs, the preview says so and takes no other', (tester) async {

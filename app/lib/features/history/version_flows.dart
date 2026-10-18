@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -133,14 +135,18 @@ Future<bool> _restoreNow(
         ? null
         : SnackBarAction(
             label: 'Undo',
-            onPressed: () async {
-              try {
-                final undone = await services.versions.restore(before);
-                announceRestore(services, version.notebookId, undone, whole: true);
-              } on VersionUnavailable {
-                // Made here a moment ago: its packs are here.
-              }
-            },
+            // Waits for a restore or copy started meanwhile, then runs as
+            // one (the buttons say Restoring…): never refused, never twice.
+            onPressed: () => _afterWork(
+              () => _once(VersionWork.restore, null, () async {
+                try {
+                  final undone = await services.versions.restore(before);
+                  announceRestore(services, version.notebookId, undone, whole: true);
+                } on VersionUnavailable {
+                  // Made here a moment ago: its packs are here.
+                }
+              }),
+            ),
           ),
   );
   return true;
@@ -168,6 +174,24 @@ Future<T> _once<T>(VersionWork work, T idle, Future<T> Function() run) async {
   } finally {
     _work.value = null;
   }
+}
+
+/// Runs [run] once no restore or copy runs (at once if none does).
+Future<void> _afterWork(Future<void> Function() run) async {
+  while (_work.value != null) {
+    final idle = Completer<void>();
+    void done() {
+      if (_work.value == null && !idle.isCompleted) idle.complete();
+    }
+
+    _work.addListener(done);
+    try {
+      await idle.future;
+    } finally {
+      _work.removeListener(done);
+    }
+  }
+  await run();
 }
 
 /// "Copy as new notebook": writes [version] as a new notebook next to it.
