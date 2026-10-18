@@ -112,10 +112,13 @@ for now: the page overview and Settings don't either. A route-wide rule
 history, both restore confirmations and "not on this device yet" end with
 one, as other multi-sentence copy does.
 
-**R25-10 P3 · Rename… cannot clear a version's name.** ⬜ The shared
+**R25-10 P3 · Rename… cannot clear a version's name.** ✅ The shared
 `showTextPrompt` disables its button on an empty field but Enter submits
 it; `renameVersionFlow` treats empty as "no name". Make the two agree in
-`ui/text_prompt.dart`, and decide whether clearing a name is wanted.
+`ui/text_prompt.dart`, and decide whether clearing a name is wanted. ✅ Clearing is
+wanted: `showTextPrompt` takes `allowEmpty`, and its button and Enter
+now agree (both refuse an empty answer, or with `allowEmpty` both accept
+it). Rename… and Save version… allow it (empty: no name).
 
 **R25-11 P3 · The preview sits on Board, not Desk.** Keep: so does the page
 overview, its model.

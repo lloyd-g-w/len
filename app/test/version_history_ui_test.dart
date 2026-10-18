@@ -156,6 +156,43 @@ void main() {
     expect(find.text('Before the exam'), findsOneWidget);
   });
 
+  testWidgets('Rename… clears a version\'s name (button and Enter alike)', (tester) async {
+    final (_, recent) = await twoVersions(tester);
+    s.versions.rename(recent.id, 'Draft');
+    await open(tester);
+    Future<void> rename() async {
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(ValueKey('version-${recent.id}')),
+          matching: find.byTooltip('Version options'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Rename…'));
+      await tester.pumpAndSettle();
+    }
+
+    await rename();
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+    expect(
+      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Rename')).enabled,
+      isTrue,
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Rename'));
+    await tester.pumpAndSettle();
+    expect(s.versions.of(notebook.id).first.name, isNull);
+
+    s.versions.rename(recent.id, 'Draft');
+    await tester.pumpAndSettle();
+    await rename();
+    await tester.enterText(find.byType(TextField), '  ');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(find.text('Rename version'), findsNothing);
+    expect(s.versions.of(notebook.id).first.name, isNull);
+  });
+
   testWidgets('preview, restore, and undo through the version saved before', (tester) async {
     final (old, _) = await twoVersions(tester);
     await open(tester);

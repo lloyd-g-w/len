@@ -15,6 +15,7 @@ Future<void> saveVersionFlow(BuildContext context, AppServices services, String 
     title: 'Save version',
     label: 'Name',
     confirmLabel: 'Save',
+    allowEmpty: true,
   );
   if (name == null || !context.mounted) return;
   final saved = await services.versions.save(notebookId, name: name);
@@ -217,6 +218,7 @@ Future<void> renameVersionFlow(
     label: 'Name',
     initialValue: version.name ?? '',
     confirmLabel: 'Rename',
+    allowEmpty: true,
   );
   if (name == null) return;
   services.versions.rename(version.id, name);
