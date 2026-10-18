@@ -5,7 +5,8 @@ part of 'text_format_bar.dart';
 extension _TextFormatGroups on TextFormatBar {
   /// The controls in three groups: font and size; character formats;
   /// paragraph.
-  List<List<Widget>> _groups(BuildContext context) {
+  /// On phones ([docked]) paragraph spacing is in the bar's ⋯ instead.
+  List<List<Widget>> _groups(BuildContext context, {bool docked = false}) {
     final scheme = Theme.of(context).colorScheme;
     final c = controller;
     final style = c.currentStyle;
@@ -132,6 +133,14 @@ extension _TextFormatGroups on TextFormatBar {
           onPressed: () => _box(box.copyWith(align: nextAlign)),
           icon: Icon(_alignIcon(box.align, c.caretDirection), size: Glyphs.bar),
         ),
+        if (!docked)
+          ParagraphSpacingButton(
+            spacing: box.spacing,
+            onSelected: (s) {
+              _box(box.copyWith(spacing: s));
+              refocus();
+            },
+          ),
       ],
     ];
   }

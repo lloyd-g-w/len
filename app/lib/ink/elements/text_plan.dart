@@ -27,6 +27,9 @@ typedef FlowBreak = ({int at, double gap, bool soft});
 /// Canvas, editing field and PDF export share this plan, so they agree to
 /// the pixel.
 ///
+/// Paragraph spacing is a placeholder at each paragraph's end that makes
+/// its last line taller below the text ([TextSpacing]).
+///
 /// The editing field of a chain of boxes flowing across pages adds its
 /// page breaks ([FlowBreak]): a line as tall as the room over the page
 /// edge, and a paragraph the page ends in is laid out in two pieces, as
@@ -85,16 +88,16 @@ class TextPlan {
       }
       start = end + 1;
     }
-    return TextPlan._(
-      base,
-      directions,
-      [
-        for (final m in markers)
-          if (!m.continued) m,
-      ],
-      builder.wraps,
-      builder.inserts,
-    );
+    final drawn = [
+      for (final m in markers)
+        if (!m.continued) m,
+    ];
+    final plan = TextPlan._(base, directions, drawn, builder.wraps, builder.inserts);
+    if (data.paragraphGap <= 0) return plan;
+    final spaced = TextSpacing.insertsOf(data, plan, w);
+    return identical(spaced, plan.inserts)
+        ? plan
+        : TextPlan._(base, directions, drawn, builder.wraps, spaced);
   }
 
   /// The box's direction: its first paragraph's.

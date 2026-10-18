@@ -50,7 +50,7 @@ class FlowPart {
 
 /// Splits a laid-out text box into the parts that fit on successive pages:
 /// at line boundaries, each part at most `room(k)` tall (yet at least one
-/// line). One layout of the whole text serves every part, which lays out
+/// line; paragraph spacing below a part's last line may reach past it). One layout of the whole text serves every part, which lays out
 /// alone as it does here (a part begins at a line start); a part on a page
 /// of another width (`width(k)`) lays out what is left again there.
 abstract final class TextFlowLayout {
@@ -110,7 +110,9 @@ abstract final class TextFlowLayout {
     var first = 0; // The part's first line.
     for (var i = 0; i < lines.length; i++) {
       final bottom = top + lines[i].height;
-      if (i > first && bottom - partTop > room(starts.length - 1)) {
+      // Paragraph spacing below the line's text may run past the room.
+      final text = bottom - layout.spacingAbove(bottom);
+      if (i > first && text - partTop > room(starts.length - 1)) {
         final at = _lineStart(layout, top, lines[i].height);
         if (at > starts.last && at <= length) {
           heights.add(top - partTop);

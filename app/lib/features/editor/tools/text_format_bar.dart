@@ -11,6 +11,7 @@ import '../../../ui/menus.dart';
 import '../../../ui/scroll_fade.dart';
 import '../../settings/keyboard_shortcuts.dart' show modifierLabel;
 import 'colour_sheet.dart';
+import 'text/paragraph_spacing_menus.dart';
 import 'text/rich_text_controller.dart';
 import 'text/text_style_menus.dart';
 
@@ -18,7 +19,7 @@ part 'text_format_bar_groups.dart';
 
 /// Formatting controls for the text box being edited: font, size, bold,
 /// italic, underline, strikethrough, colour, highlight, headings, lists,
-/// alignment, delete and done. Character formats apply to the selection
+/// alignment, paragraph spacing, delete and done. Character formats apply to the selection
 /// (or to what is typed next). Placed above [anchor] (the box's screen
 /// bounds), or below it when there is no room; scrolls when too wide.
 class TextFormatBar extends StatelessWidget {
@@ -80,23 +81,44 @@ class TextFormatBar extends StatelessWidget {
       extent: Targets.barHit(context),
       child: ListenableBuilder(
         listenable: controller,
-        builder: (context, _) =>
-            Row(mainAxisSize: MainAxisSize.min, children: row(_groups(context))),
+        builder: (context, _) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: row(_groups(context, docked: docked)),
+        ),
       ),
     );
-    // Delete in a trailing ⋯ (REDESIGN §2.6): out of the way of ✓.
-    final more = MenuIconButton<bool>(
+    // Delete in a trailing ⋯ (REDESIGN §2.6): out of the way of ✓. On
+    // phones, whose rows have no room left, paragraph spacing too.
+    final more = MenuIconButton<Object>(
       tooltip: 'More',
       icon: const Icon(Symbols.more_horiz_sharp, size: Glyphs.bar),
-      items: () => const [
-        MenuRow(
+      items: () => [
+        if (docked) ...[
+          for (final s in ParagraphSpacing.values)
+            MenuRow<Object>(
+              value: s,
+              label: s == ParagraphSpacing.none
+                  ? 'No paragraph spacing'
+                  : '${s.label} paragraph spacing',
+              checked: s == controller.box.spacing,
+            ),
+          const PopupMenuDivider(),
+        ],
+        const MenuRow<Object>(
           value: true,
           icon: Symbols.delete_sharp,
           label: 'Delete text box',
           destructive: true,
         ),
       ],
-      onSelected: (_) => onDelete(),
+      onSelected: (choice) {
+        if (choice is ParagraphSpacing) {
+          _box(controller.box.copyWith(spacing: choice));
+          refocus();
+        } else {
+          onDelete();
+        }
+      },
     );
     final done = IconButton(
       tooltip: 'Done (Esc)',

@@ -12,6 +12,7 @@ export 'marker_offsets.dart';
 export 'text_box_layout.dart';
 export 'text_insert.dart';
 export 'text_plan.dart';
+export 'text_spacing.dart';
 export 'text_wraps.dart';
 
 /// Builds and lays out text-box content. The renderer, the PDF export and
@@ -137,13 +138,16 @@ abstract final class TextLayout {
 
   /// The styled content of [data] laid out by [plan]: per line its runs
   /// and the plan's inserts: markers (built by [marker]), gaps and padding
-  /// (built by [gap]), breaks and isolates. [underlined] (model offsets)
-  /// is underlined, e.g. the IME composing range.
+  /// (built by [gap]), page-break rooms (by [room]), paragraph spacing (by
+  /// [spacing]), breaks and isolates. [underlined] (model offsets) is
+  /// underlined, e.g. the IME composing range.
   static TextSpan spanOf(
     TextData data,
     TextPlan plan, {
     required InlineSpan Function(ListMarker marker) marker,
     InlineSpan Function(Size size) gap = gapSpan,
+    InlineSpan Function(double height) room = roomSpan,
+    InlineSpan Function(double height) spacing = spacingSpan,
     TextRange underlined = TextRange.empty,
   }) {
     final text = data.text;
@@ -173,7 +177,8 @@ abstract final class TextLayout {
           children.add(switch (piece.kind) {
             InsertKind.marker => marker(piece.marker!),
             InsertKind.space => gap(piece.size),
-            InsertKind.room => roomSpan(piece.size.height),
+            InsertKind.room => room(piece.size.height),
+            InsertKind.spacing => spacing(piece.size.height),
             InsertKind.roomBreak => const TextSpan(text: '\n', style: _roomStyle),
             _ => TextSpan(text: piece.char, style: around),
           });
@@ -197,6 +202,14 @@ abstract final class TextLayout {
   static InlineSpan roomSpan(double gap) => WidgetSpan(
     alignment: PlaceholderAlignment.bottom,
     child: SizedBox(width: 0, height: gap < 0 ? 0 : gap),
+  );
+
+  /// The placeholder of paragraph spacing: from the baseline [height]
+  /// down, no wider than nothing (see `TextSpacing`).
+  static InlineSpan spacingSpan(double height) => WidgetSpan(
+    alignment: PlaceholderAlignment.belowBaseline,
+    baseline: TextBaseline.alphabetic,
+    child: SizedBox(width: 0, height: height),
   );
 
   /// The line break after [roomSpan]: so small the line is as tall as the
