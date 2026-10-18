@@ -25,6 +25,7 @@ abstract final class TextRecord {
     }
     final paras = [for (final p in _field<List<Object?>>(json, 'paras')) _para(p)];
     if (paras.isNotEmpty && paras.length != '\n'.allMatches(text).length + 1) _bad('paras');
+    _checkTables(paras);
     // Only a box continuing another has a flow; when present it is strict.
     final flow = json.containsKey('flow') ? TextFlow.fromJson(json['flow']) ?? _bad('flow') : null;
     // Optional too (boxes without spacing leave it out), strict when present.
@@ -92,8 +93,45 @@ abstract final class TextRecord {
     return style;
   }
 
+  /// Cells continue a table (`tc` after a cell), every table has whole
+  /// rows, and only a box's first line continues a table from the page
+  /// before.
+  static void _checkTables(List<ParaStyle> paras) {
+    for (var l = 0; l < paras.length; l++) {
+      final cell = paras[l].cell;
+      if (cell == null) continue;
+      if (!cell.first && (l == 0 || paras[l - 1].cell == null)) _bad('paras');
+      if (cell.first && cell.spec.continued && l > 0) _bad('paras');
+    }
+    for (final t in TextTables.of(paras)) {
+      if (t.cells % t.columns != 0) _bad('paras');
+    }
+  }
+
+  /// A table cell's paragraph: `{"tb": spec}` or `{"tc": true}` alone.
+  static ParaStyle _cell(Map<String, Object?> p) {
+    if (p.length != 1) _bad('paras');
+    if (p.containsKey('tc')) {
+      return p['tc'] == true ? ParaStyle(cell: TableCell.loose) : _bad('paras');
+    }
+    final spec = p['tb'];
+    if (spec is! Map<String, Object?>) _bad('paras');
+    final c = spec['c'], w = spec['w'], h = spec['h'], k = spec['k'];
+    if (c is! int || c < 1 || c > TableSpec.maxColumns || w is! List || w.length != c) {
+      _bad('paras');
+    }
+    if (h is! bool || (spec.containsKey('k') && k != true)) _bad('paras');
+    final widths = [
+      for (final v in w) v is num && v.isFinite && v > 0 ? v.toDouble() : _bad('paras'),
+    ];
+    return ParaStyle(
+      cell: TableCell(TableSpec(widths, header: h, continued: k == true), first: true),
+    );
+  }
+
   static ParaStyle _para(Object? p) {
     if (p is! Map<String, Object?>) _bad('paras');
+    if (p.containsKey('tb') || p.containsKey('tc')) return _cell(p);
     final h = p['h'], l = p['l'], x = p['x'], n = p['n'];
     if (p.containsKey('h') && h != 1 && h != 2) _bad('paras');
     final list = p.containsKey('l')

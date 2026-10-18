@@ -90,11 +90,17 @@ class TextFlow {
   ]);
 
   /// The part [start, end) of [data]'s text with its formatting and box
-  /// defaults (no flow): the lines it touches keep their paragraph styles.
+  /// defaults (no flow): the lines it touches keep their paragraph styles;
+  /// a part beginning inside a table begins with a copy of it marked
+  /// [TableSpec.continued].
   static TextData slice(TextData data, int start, int end) {
     final text = data.text.substring(start, end);
     final firstLine = '\n'.allMatches(data.text.substring(0, start)).length;
     final lines = '\n'.allMatches(text).length + 1;
+    final paras = data.paras.sublist(firstLine, firstLine + lines);
+    if (paras.first.cell case final cell? when !cell.first) {
+      paras[0] = ParaStyle(cell: TableCell(cell.spec.copyWith(continued: true), first: true));
+    }
     return TextData.rich(
       text: text,
       spans: [
@@ -106,7 +112,7 @@ class TextFlow {
               s.style,
             ),
       ],
-      paras: data.paras.sublist(firstLine, firstLine + lines),
+      paras: paras,
       font: data.font,
       fontSize: data.fontSize,
       color: data.color,
@@ -133,7 +139,13 @@ class TextFlow {
       for (final s in part.spans) {
         spans.add(StyledRange(s.start + at, s.end + at, s.style));
       }
-      paras.addAll(joined ? part.paras.skip(1) : part.paras);
+      final more = joined ? part.paras.skip(1).toList() : [...part.paras];
+      // A table going on from the part before joins its table.
+      if ((more.firstOrNull?.cell, paras.lastOrNull?.cell) case (final cell?, final before?)
+          when cell.spec.continued && before.spec.columns == cell.spec.columns) {
+        more[0] = ParaStyle(cell: TableCell(before.spec));
+      }
+      paras.addAll(more);
     }
     return TextData.rich(
       text: text.toString(),

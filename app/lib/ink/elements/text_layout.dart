@@ -72,7 +72,7 @@ abstract final class TextLayout {
       wordSpacing: 0,
       textBaseline: TextBaseline.alphabetic,
       color: color,
-      fontWeight: span.bold || para.heading > 0 ? FontWeight.w700 : FontWeight.w400,
+      fontWeight: span.bold || para.heading > 0 || para.bold ? FontWeight.w700 : FontWeight.w400,
       fontStyle: span.italic ? FontStyle.italic : FontStyle.normal,
       decoration: TextDecoration.combine([
         if (span.underline) TextDecoration.underline,
