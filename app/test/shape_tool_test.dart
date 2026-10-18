@@ -211,6 +211,38 @@ void main() {
     expect(model.history.takeUndo()!.added.single.shape, square);
   });
 
+  testWidgets('an arrow\'s tip attaches where its snapped or Shift-stepped end is (R25-31)', (
+    tester,
+  ) async {
+    var pointer = 1;
+    ShapeGeometry draw(ShapeKind kind, Offset from, Offset to) {
+      tools.shape = kind;
+      final id = pointer++;
+      const k = PointerDeviceKind.mouse;
+      input
+        ..handleDown(PointerDownEvent(pointer: id, kind: k, position: from))
+        ..handleMove(PointerMoveEvent(pointer: id, kind: k, position: to))
+        ..handleUp(PointerUpEvent(pointer: id, kind: k, position: to));
+      return model.history.takeUndo()!.added.single.shape!;
+    }
+
+    // The pointer ends in a box, 3 under its top; the snapped (level) end
+    // is 22 above it: out of reach, so the arrow stays level and free.
+    draw(ShapeKind.rectangle, const Offset(450, 122), const Offset(560, 200));
+    final level = draw(ShapeKind.arrow, const Offset(100, 100), const Offset(500, 125));
+    expect(level.tip, isNull);
+    expect(level.points.last.dy, 100);
+
+    // With Shift the end steps to level, into a box the pointer is 25
+    // below: that box takes the tip.
+    draw(ShapeKind.rectangle, const Offset(380, 40), const Offset(440, 60));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    final stepped = draw(ShapeKind.arrow, const Offset(100, 50), const Offset(400, 85));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    expect(stepped.tip, isNotNull);
+    expect(stepped.points.last.dy, closeTo(50, 10.01), reason: 'on the box');
+  });
+
   test('a drag shorter than the slop draws nothing; a tap on a shape selects it', () {
     tools.shape = ShapeKind.ellipse;
     const k = PointerDeviceKind.stylus;

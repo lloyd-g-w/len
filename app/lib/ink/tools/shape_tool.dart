@@ -161,11 +161,13 @@ class ShapeTool implements PointerTool {
 
   /// The line or arrow from [start] to [end], its ends attached to the
   /// shapes they start or end on (or in), shown with the selection's
-  /// chrome ([Connectors]).
+  /// chrome ([Connectors]). The tip's target is looked for at [end], the
+  /// Shift- or snap-adjusted end, not the pointer: the end drawn is the
+  /// one that attaches (UX_AUDIT R25-31).
   ShapeGeometry _connected(ShapeKind kind, Offset start, Offset end) {
     final m = model(), reach = LassoTool.attachReach / viewport.scale;
     final from = Connectors.find(m, start, reach: reach, towards: end);
-    final to = Connectors.find(m, _end, reach: reach, towards: start);
+    final to = Connectors.find(m, end, reach: reach, towards: start);
     selection?.attachHint = to ?? from;
     return ShapeGeometry(
       kind,

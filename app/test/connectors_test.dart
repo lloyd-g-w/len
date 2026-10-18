@@ -514,6 +514,19 @@ void main() {
       expect((s.strokes.single.shape!.points[1] - const Offset(200, 160)).distance, lessThan(4));
     });
 
+    test('a dragged end attaches where it snaps to, not at the pointer (R25-31)', () {
+      box();
+      seed(ShapeGeometry(ShapeKind.line, const [Offset(20, 170), Offset(100, 170)]), 'line');
+      final s = content.selection;
+      drag([viewport.toScreen(const Offset(60, 170))]); // selects the line
+      expect(s.shapeStroke?.id, 'line');
+      // The pointer stops 8 above the box's top; the end snaps level, 30 above.
+      drag([const Offset(100, 170), const Offset(250, 185), const Offset(350, 192)]);
+      final line = s.strokes.single.shape!;
+      expect(line.points[1].dy, 170);
+      expect(line.tip, isNull);
+    });
+
     test('a line drawn with the Shape tool from one box to another attaches both ends', () {
       seed(boxShape, 'a');
       seed(boxShape.map((p) => p + const Offset(-250, 0)), 'b');
@@ -532,7 +545,8 @@ void main() {
       expect(arrow.tail!.id, 'b'); // started inside b: its right side, facing the tip
       expect(arrow.points[0].dx, closeTo(150, 1e-6));
       expect(arrow.tip!.id, 'a');
-      expect(arrow.points[1], offsetMoreOrLessEquals(const Offset(300, 252), epsilon: 1e-6));
+      // Where the snapped (level) end meets a's side, not the pointer (R25-31).
+      expect(arrow.points[1], offsetMoreOrLessEquals(const Offset(300, 250), epsilon: 1e-6));
       // Away from shapes: no attachments.
       drag([const Offset(500, 500), const Offset(600, 520)]);
       final free = stored((s) => s.shape!.kind == ShapeKind.arrow && s.bounds.top > 400)!.shape!;
