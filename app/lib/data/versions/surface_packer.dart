@@ -8,6 +8,7 @@ import '../blob_store.dart';
 import '../repositories.dart';
 import '../syncable_table.dart';
 import 'pack_runs.dart';
+import 'pending_blobs.dart';
 import 'version_packs.dart';
 import 'work_slices.dart';
 
@@ -95,6 +96,41 @@ class SurfacePacker {
       ],
     );
     return packed;
+  }
+
+  /// [pack] in one turn (a restore's last try, docs/ARCHITECTURE.md,
+  /// "Version history"): new packs go to [pending], stored after it.
+  PackedSurface packNow(String surfaceId, PendingBlobs pending) {
+    final mark = _markOf(surfaceId);
+    if (_cached(surfaceId, mark) case final packed?) return packed;
+    final items = _elements(surfaceId);
+    final media = <String>{for (final (_, data) in items) ...BlobReferences.inValue(data)};
+    final ink = [
+      for (final row in _db.select(
+        'SELECT id FROM strokes WHERE surface_id = ? AND deleted = 0 ORDER BY created_at, id',
+        [surfaceId],
+      ))
+        row['id'] as String,
+    ];
+    final surface = VersionSurface(
+      ink: [
+        for (final run in VersionPacks.cutBy(ink, (id) => id))
+          switch (PackRuns.strokesKey(run)) {
+            final key => _runs.find(key) ?? _runs.putNow(key, _strokes(run)!, pending),
+          },
+      ],
+      items: [
+        for (final run in VersionPacks.cut(items))
+          switch (PackRuns.elementsKey([for (final (id, data) in run) '$id@${data['_v']}'])) {
+            final key =>
+              _runs.find(key) ??
+                  _runs.putNow(key, [
+                    for (final (id, data) in run) (id, {...data}..remove('_v')),
+                  ], pending),
+          },
+      ],
+    );
+    return (surface: surface, blobs: media.toList()..sort(), strokes: ink.length);
   }
 
   PackedSurface? _cached(String surfaceId, String mark) {

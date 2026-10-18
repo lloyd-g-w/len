@@ -7,6 +7,7 @@ import '../notebook_rows.dart';
 import '../page_rows.dart';
 import '../repositories.dart';
 import '../syncable_table.dart';
+import 'pending_blobs.dart';
 import 'surface_packer.dart';
 import 'table_runs.dart';
 import 'version_content.dart';
@@ -73,20 +74,9 @@ class VersionSnapshots {
     String? name,
   }) async {
     final versions = repositories.versions;
-    // An edit written in steps finishes first (no half of it in a version;
-    // surfaces finish them again as they are packed).
-    versions.database.steps.finish();
-    final rows = _db.select('SELECT * FROM notebooks WHERE id = ? AND deleted = 0', [notebookId]);
-    if (rows.isEmpty) return null;
-    final notebookData = NotebookRows.recordData(rows.first);
-    final notebook = {for (final key in VersionRows.notebookFields) key: notebookData[key]};
-    final canvas = notebook['kind'] == NotebookKind.canvas.name;
-    final pageRows = canvas
-        ? const <Row>[]
-        : _db.select(
-            'SELECT * FROM pages WHERE notebook_id = ? AND deleted = 0 ORDER BY sort_key, id',
-            [notebookId],
-          );
+    final read = _read(notebookId);
+    if (read == null) return null;
+    final (:notebook, :pageRows, :canvas) = read;
     final previous = versions.latest(notebookId);
     var strokes = 0;
     final pages = <VersionPage>[];
@@ -115,21 +105,111 @@ class VersionSnapshots {
       canvasSurface = _withText(packed, notebookId);
     }
     versions.database.steps.finish();
-    final body = VersionBody(
-      pages: pages,
-      canvas: canvasSurface,
-      recordings: _records(
-        repositories.recordings,
-        'SELECT * FROM recordings WHERE notebook_id = ? AND deleted = 0 ORDER BY started_at, id',
-        notebookId,
-      ),
-      outline: _records(
-        repositories.outline,
-        'SELECT * FROM outline WHERE notebook_id = ? AND deleted = 0 ORDER BY created_at, id',
-        notebookId,
-      ),
-    );
+    final body = _body(notebookId, pages, canvasSurface);
     final table = await _tables.put(notebookId, VersionTable.rowsOf(body, notebookId), slices);
+    final made = _made(notebookId, kind, name, notebook, table, body, strokes);
+    return _summed(made, body, previous, counts, slices);
+  }
+
+  /// [build] in one turn, nothing yielding (the version before a restore
+  /// on its last try, made inside the restore's transaction so nothing can
+  /// write to the notebook between them): the version, its summary
+  /// counting only its pages and strokes, and [finish], to run once it is
+  /// saved, which stores its new blobs and returns it with its full
+  /// summary and size. Null when the notebook is gone.
+  ({NotebookVersion version, Future<NotebookVersion> Function() finish})? buildNow(
+    String notebookId, {
+    VersionKind kind = VersionKind.auto,
+    String? name,
+  }) {
+    final versions = repositories.versions;
+    final read = _read(notebookId);
+    if (read == null) return null;
+    final (:notebook, :pageRows, :canvas) = read;
+    final previous = versions.latest(notebookId);
+    final pending = PendingBlobs(blobs);
+    var strokes = 0;
+    final counts = <String, int>{};
+    final pages = <VersionPage>[];
+    for (final row in pageRows) {
+      final id = row['id'] as String;
+      final data = PageRows.recordData(row);
+      final packed = _packer.packNow(id, pending);
+      strokes += counts[id] = packed.strokes;
+      pages.add(
+        VersionPage(
+          id: id,
+          fields: {for (final key in VersionRows.pageFields) key: data[key]},
+          content: _withText(packed, id),
+        ),
+      );
+    }
+    VersionSurface? canvasSurface;
+    if (canvas) {
+      final packed = _packer.packNow(notebookId, pending);
+      strokes = counts[notebookId] = packed.strokes;
+      canvasSurface = _withText(packed, notebookId);
+    }
+    final body = _body(notebookId, pages, canvasSurface);
+    final table = _tables.putNow(notebookId, VersionTable.rowsOf(body, notebookId), pending);
+    final made = _made(notebookId, kind, name, notebook, table, body, strokes);
+    Future<NotebookVersion> finish() async {
+      await pending.write();
+      return _summed(made, body, previous, counts, WorkSlices());
+    }
+
+    return (version: made, finish: finish);
+  }
+
+  /// The notebook's fields and live pages, or null when it is gone.
+  ({Map<String, Object?> notebook, List<Row> pageRows, bool canvas})? _read(String notebookId) {
+    // An edit written in steps finishes first (no half of it in a version;
+    // surfaces finish them again as they are packed).
+    repositories.versions.database.steps.finish();
+    final rows = _db.select('SELECT * FROM notebooks WHERE id = ? AND deleted = 0', [notebookId]);
+    if (rows.isEmpty) return null;
+    final notebookData = NotebookRows.recordData(rows.first);
+    final notebook = {for (final key in VersionRows.notebookFields) key: notebookData[key]};
+    final canvas = notebook['kind'] == NotebookKind.canvas.name;
+    final pageRows = canvas
+        ? const <Row>[]
+        : _db.select(
+            'SELECT * FROM pages WHERE notebook_id = ? AND deleted = 0 ORDER BY sort_key, id',
+            [notebookId],
+          );
+    return (notebook: notebook, pageRows: pageRows, canvas: canvas);
+  }
+
+  /// The body of [pages] or [canvas] with the notebook's recordings and
+  /// outline as stored now.
+  VersionBody _body(String notebookId, List<VersionPage> pages, VersionSurface? canvas) =>
+      VersionBody(
+        pages: pages,
+        canvas: canvas,
+        recordings: _records(
+          repositories.recordings,
+          'SELECT * FROM recordings WHERE notebook_id = ? AND deleted = 0 ORDER BY started_at, id',
+          notebookId,
+        ),
+        outline: _records(
+          repositories.outline,
+          'SELECT * FROM outline WHERE notebook_id = ? AND deleted = 0 ORDER BY created_at, id',
+          notebookId,
+        ),
+      );
+
+  /// A new version of [body] (kept in [content]), its summary counting
+  /// only its pages and [strokes].
+  NotebookVersion _made(
+    String notebookId,
+    VersionKind kind,
+    String? name,
+    Map<String, Object?> notebook,
+    List<String> table,
+    VersionBody body,
+    int strokes,
+  ) {
+    final versions = repositories.versions;
     final made = NotebookVersion(
       id: versions.clock.newId(),
       notebookId: notebookId,
@@ -140,10 +220,22 @@ class VersionSnapshots {
       deviceName: deviceName,
       notebook: notebook,
       table: table,
-      summary: VersionSummary(pages: pages.length, strokes: strokes),
+      summary: VersionSummary(pages: body.pages.length, strokes: strokes),
       size: 0,
     );
     content.remember(made, body);
+    return made;
+  }
+
+  /// [made] with its summary against [previous] (the newest version
+  /// before it) and its size.
+  Future<NotebookVersion> _summed(
+    NotebookVersion made,
+    VersionBody body,
+    NotebookVersion? previous,
+    Map<String, int> counts,
+    WorkSlices slices,
+  ) async {
     VersionBody? before;
     if (previous != null) {
       try {
@@ -155,7 +247,7 @@ class VersionSnapshots {
     final old = {...?before?.packs, ...?previous?.table};
     final size = {
       ...body.packs,
-      ...table,
+      ...made.table,
     }.difference(old).fold(0, (sum, sha) => sum + (blobs.sizeOf(sha) ?? 0));
     return _withSummary(made, body, before, size, counts, slices);
   }

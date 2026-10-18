@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:sqlite3/common.dart';
 
 import '../blob_store.dart';
+import 'pending_blobs.dart';
 import 'version_packs.dart';
 
 /// The packs made before, by what went into them (`version_runs`, local):
@@ -42,7 +43,18 @@ class PackRuns {
   /// Packs [items] (the run [key]) and remembers it.
   Future<String> put(String key, List<PackItem> items) async {
     final sha = await _blobs.putBytes(VersionPacks.encode(items), mime: VersionPacks.mime);
-    _db.execute('INSERT OR REPLACE INTO version_runs (key, sha) VALUES (?, ?)', [key, sha]);
+    remember(key, sha);
     return sha;
   }
+
+  /// Packs [items] (the run [key]) into [pending], remembered once stored.
+  String putNow(String key, List<PackItem> items, PendingBlobs pending) => pending.put(
+    VersionPacks.encode(items),
+    mime: VersionPacks.mime,
+    stored: (sha) => remember(key, sha),
+  );
+
+  /// Notes that run [key] was packed as blob [sha].
+  void remember(String key, String sha) =>
+      _db.execute('INSERT OR REPLACE INTO version_runs (key, sha) VALUES (?, ?)', [key, sha]);
 }
