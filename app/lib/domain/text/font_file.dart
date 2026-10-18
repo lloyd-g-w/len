@@ -65,7 +65,9 @@ class FontFileInfo {
     const needed = ['cmap', 'head', 'hhea', 'hmtx', 'maxp', 'name'];
     if (!needed.every(tables.containsKey)) return null;
     if (outlines == FontOutlines.trueType && !tables.containsKey('glyf')) return null;
-    if (outlines == FontOutlines.cff && !tables.containsKey('CFF ') && !tables.containsKey('CFF2')) {
+    if (outlines == FontOutlines.cff &&
+        !tables.containsKey('CFF ') &&
+        !tables.containsKey('CFF2')) {
       return null;
     }
     final names = _names(b, tables['name']!.offset);
@@ -109,7 +111,6 @@ class FontFileInfo {
     return {for (final MapEntry(:key, :value) in found.entries) key: value.$2};
   }
 
-  static String _utf16(ByteData b, int offset, int length) => String.fromCharCodes([
-    for (var i = 0; i + 1 < length; i += 2) b.getUint16(offset + i),
-  ]);
+  static String _utf16(ByteData b, int offset, int length) =>
+      String.fromCharCodes([for (var i = 0; i + 1 < length; i += 2) b.getUint16(offset + i)]);
 }

@@ -76,12 +76,7 @@ class FontRepository extends SyncableTable {
       );
       return;
     }
-    _write(
-      parse(record),
-      updatedAt: record.updatedAt,
-      deviceId: record.deviceId,
-      dirty: false,
-    );
+    _write(parse(record), updatedAt: record.updatedAt, deviceId: record.deviceId, dirty: false);
   }
 
   /// The font a live `fonts` record holds; throws [FormatException] if it

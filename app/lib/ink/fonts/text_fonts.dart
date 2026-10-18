@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -72,13 +71,13 @@ abstract final class TextFonts {
 
   /// Loads the font file [bytes] as user font [id] (once; later calls
   /// return the first one's result). False if the engine refused it.
-  static Future<bool> load(String id, Uint8List bytes) =>
-      _loading[id] ??= _load(id, bytes);
+  static Future<bool> load(String id, Uint8List bytes) => _loading[id] ??= _load(id, bytes);
 
   static Future<bool> _load(String id, Uint8List bytes) async {
     try {
-      await (FontLoader(TextFont.user(id).family)..addFont(Future.value(ByteData.sublistView(bytes))))
-          .load();
+      await (FontLoader(
+        TextFont.user(id).family,
+      )..addFont(Future.value(ByteData.sublistView(bytes)))).load();
     } on Object catch (e) {
       debugPrint('Font $id could not be loaded: $e');
       return false;

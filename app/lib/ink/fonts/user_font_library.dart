@@ -28,6 +28,7 @@ class UserFontLibrary extends ChangeNotifier {
 
   final FontRepository repository;
   final BlobStore blobs;
+
   /// Fetches a blob through sync (see `SyncController.fetchBlob`).
   final Future<bool> Function(String sha) fetch;
   StreamSubscription<RemoteChanges>? _changes;

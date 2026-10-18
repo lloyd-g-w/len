@@ -42,8 +42,7 @@ typedef UserFontLoader = Future<Uint8List?> Function(TextFont font);
 /// drawn on screen with system fallback fonts) is left to the caller
 /// ([draw] returns false), which embeds it as an image instead.
 class PdfTextWriter {
-  PdfTextWriter(this.doc, {FontAssetLoader? load, this.userFont})
-    : _load = load ?? rootBundle.load;
+  PdfTextWriter(this.doc, {FontAssetLoader? load, this.userFont}) : _load = load ?? rootBundle.load;
 
   final PdfDocument doc;
   final FontAssetLoader _load;

@@ -8,6 +8,7 @@ import '../../ui/app_theme.dart';
 import '../../ui/escape_closes.dart';
 import 'about_settings.dart';
 import 'backup_settings.dart';
+import 'font_settings.dart';
 import 'general_settings.dart';
 import 'handwriting_settings.dart';
 import 'keyboard_shortcuts.dart';
@@ -114,6 +115,7 @@ List<Widget> _sections(BuildContext context, {required bool showSync}) {
   return [
     GeneralSettings(preferences: preferences),
     WritingSettings(preferences: preferences),
+    FontSettings(fonts: services.fonts),
     HandwritingSettings(recognition: services.recognition),
     SyncSettings(reveal: showSync),
     const BackupSettings(),
