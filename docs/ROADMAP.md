@@ -81,7 +81,16 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   and backups, embedded (subset) in PDF exports when TrueType (CFF `.otf` boxes export as
   images); removing a font, or one not on a device yet, shows its text in Sans and says so in the
   picker
-- ⬜ Text: tables
+- ✅ Text: tables — inserted from the format bar (rows × columns picker; phones under ⋯);
+  cells hold rich text; Tab / Shift+Tab between cells (Tab in the last adds a row), Enter to
+  the cell below, arrows across cell borders; rows and columns added and removed, columns
+  resized by dragging their borders (stylus, finger, mouse), an optional bold header row,
+  hairline borders in the text colour; blocks of cells selected (drag, Shift+arrows), copied
+  as an HTML table and tab-separated text, emptied, formatted; HTML tables (browsers, Word,
+  LibreOffice, Google Docs) and simple RTF tables pasted as tables, tab-separated rows fill
+  cells; undo per edit; synced (old clients show the cells as paragraphs); split between rows
+  across pages; PDF export as selectable text; searchable; screen readers get rows and cells.
+  No merged cells
 - ✅ Images: insert from files (top bar), the system clipboard (Ctrl+V), drag and drop (desktop) and
   the camera (Android); downscaled to 4096 px on import; beneath the ink by default with bring to
   front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;
