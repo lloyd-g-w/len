@@ -69,7 +69,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   edited or as a new box on the canvas (Windows, Linux, Android, web); Ctrl+Shift+V pastes plain
   text
 - ✅ Lasso *Style*: font and size of selected text boxes, pen type and width of selected ink
-- ⬜ Text: RTF-only paste (WordPad), font import, paragraph spacing, tables
+- ✅ Text: paragraph spacing (None / Small / Medium / Large below each paragraph, per box: format
+  bar, on phones its ⋯; default in the Text tool's options), synced, flowing across pages, in PDF
+  export, rich copy / paste (`margin-bottom`) and search highlights
+- ⬜ Text: RTF-only paste (WordPad), font import, tables
 - ✅ Images: insert from files (top bar), the system clipboard (Ctrl+V), drag and drop (desktop) and
   the camera (Android); downscaled to 4096 px on import; beneath the ink by default with bring to
   front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;
@@ -85,7 +88,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Zoom window, round 2: frame and box height remembered per notebook, box height dragged at
   its edge (⋯ → Automatic height undoes it), Left-handed (box docked at the top), the frame moved
   by its tab so the pen writes inside it on the page, the advance announced as the zone deepens
-- ⬜ Zoom window: right-to-left advance (right-to-left scripts)
+- ✅ Zoom window: right-to-left advance (box ⋯ → *Right to left*; at first as the device's
+  language runs): the frame advances leftwards from the right margin, a new line returns to the
+  right
 - ✅ Gestures: two-finger tap undo, three-finger tap redo (with a HUD; palm-safe), S Pen side
   button action (eraser / hold to lasso / none), finger long press or right click → canvas menu
   (paste here, select all on page, add text here, page commands)

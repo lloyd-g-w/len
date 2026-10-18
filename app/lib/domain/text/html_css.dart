@@ -109,6 +109,36 @@ class ElementFormat {
   }
 }
 
+/// The larger of the top and bottom margins an inline [css] style gives
+/// a block, in multiples of its font size (`em` / `rem`; `px` and `pt`
+/// taken against a 16 px / 12 pt body), or null where it sets none it
+/// can read.
+double? marginEm(Map<String, String> css) {
+  double? length(String? v) {
+    if (v == null) return null;
+    final m = RegExp(r'^(-?[0-9]*\.?[0-9]+)([a-z%]*)$').firstMatch(v.trim());
+    if (m == null) return null;
+    final n = double.parse(m.group(1)!);
+    if (n == 0) return 0;
+    return switch (m.group(2)) {
+      'em' || 'rem' => n,
+      'px' => n / 16,
+      'pt' => n / 12,
+      _ => null,
+    };
+  }
+
+  final parts = css['margin']?.split(RegExp(r'\s+')) ?? const <String>[];
+  // The shorthand's top and bottom (one, two, three or four values).
+  final top = length(css['margin-top']) ?? (parts.isEmpty ? null : length(parts[0]));
+  final bottom =
+      length(css['margin-bottom']) ??
+      (parts.isEmpty ? null : length(parts.length >= 3 ? parts[2] : parts[0]));
+  if (top == null && bottom == null) return null;
+  final most = [?top, ?bottom].reduce((a, b) => a > b ? a : b);
+  return most < 0 ? 0 : most;
+}
+
 /// Declarations of an inline `style` attribute (lower-case names; values
 /// trimmed, `!important` dropped).
 Map<String, String> parseCss(String style) {

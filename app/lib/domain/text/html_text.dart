@@ -6,8 +6,9 @@ import 'text_data.dart';
 /// LibreOffice): bold, italic, underline, strikethrough, colours that are
 /// not grey, highlights, monospaced code, headings (h1 → heading 1, h2 and
 /// h3 → heading 2), nested bulleted / numbered lists and checklists, one
-/// line per paragraph, whitespace collapsed like a browser. Sizes and
-/// fonts are the [box]'s. Returns null when there is no text.
+/// line per paragraph, whitespace collapsed like a browser, the paragraph
+/// spacing nearest the blocks' largest inline margin (else the [box]'s).
+/// Sizes and fonts are the [box]'s. Returns null when there is no text.
 TextData? textFromHtml(String html, TextData box) {
   final reader = _HtmlReader(box.font == TextFont.mono);
   for (final token in tokenizeHtml(fragmentOf(html))) {
@@ -47,6 +48,9 @@ const _blocks = {
   'fieldset', 'details', 'summary', 'body', 'html', 'caption', 'menu',
 };
 
+/// Blocks whose margins are paragraph spacing.
+const _paragraphs = {'p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li'};
+
 /// One line of the result.
 class _Line {
   final text = StringBuffer();
@@ -69,6 +73,9 @@ class _HtmlReader {
   int _pre = 0;
   int _hidden = 0;
   StringBuffer? _marker;
+
+  /// The largest margin a paragraph's inline style gave (em), if any.
+  double? _margin;
 
   _Line get _line => _lines.last;
 
@@ -114,6 +121,11 @@ class _HtmlReader {
     }
     if (name == 'li' || name == 'p') _closeOpen(name);
     if (_blocks.contains(name)) _softBreak();
+    if (_paragraphs.contains(name)) {
+      if (marginEm(parseCss(attrs['style'] ?? '')) case final em?) {
+        _margin = _margin == null || em > _margin! ? em : _margin;
+      }
+    }
     if (_void.contains(name) || selfClosing) return;
     final format = ElementFormat.of(name, attrs);
     _stack.add(format);
@@ -267,6 +279,7 @@ class _HtmlReader {
       color: box.color,
       align: box.align,
       autoWidth: box.autoWidth,
+      spacing: _margin == null ? box.spacing : ParagraphSpacing.nearest(_margin!),
     );
   }
 

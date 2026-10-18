@@ -1,12 +1,14 @@
 import 'dart:ui' show TextDirection;
 
 import 'paragraph_direction.dart';
+import 'paragraph_spacing.dart';
 import 'paragraph_style.dart';
 import 'span_style.dart';
 import 'text_alignment.dart';
 import 'text_flow.dart';
 import 'text_font.dart';
 
+export 'paragraph_spacing.dart';
 export 'paragraph_style.dart';
 export 'span_style.dart';
 export 'text_alignment.dart';
@@ -15,8 +17,9 @@ export 'text_font.dart';
 
 /// The content and formatting of a text element (`SurfaceElement.data` of
 /// type `text`): plain [text] (lines separated by `\n`), character
-/// formatting as [spans] over it, one [ParaStyle] per line, and the box's
-/// defaults ([font], [fontSize], [color]) that unformatted text uses.
+/// formatting as [spans] over it, one [ParaStyle] per line, the box's
+/// defaults ([font], [fontSize], [color]) that unformatted text uses, and
+/// the box's alignment and [spacing] between paragraphs.
 ///
 /// Keeping the plain text whole makes it directly searchable (the search
 /// index reads `data.text`). Spans are kept normalised: sorted,
@@ -33,6 +36,7 @@ class TextData {
     this.color = defaultColor,
     this.align = TextAlignment.start,
     this.autoWidth = false,
+    this.spacing = ParagraphSpacing.none,
   }) : spans = const [],
        _paras = const [],
        flow = null;
@@ -46,6 +50,7 @@ class TextData {
     required this.color,
     required this.align,
     required this.autoWidth,
+    required this.spacing,
     this.flow,
   });
 
@@ -59,6 +64,7 @@ class TextData {
     int color = defaultColor,
     TextAlignment align = TextAlignment.start,
     bool autoWidth = false,
+    ParagraphSpacing spacing = ParagraphSpacing.none,
     TextFlow? flow,
   }) => TextData._(
     text,
@@ -69,6 +75,7 @@ class TextData {
     color: color,
     align: align,
     autoWidth: autoWidth,
+    spacing: spacing,
     flow: flow,
   );
 
@@ -96,6 +103,12 @@ class TextData {
   /// than wrapping at a width the user chose.
   final bool autoWidth;
 
+  /// The space below each paragraph but the last.
+  final ParagraphSpacing spacing;
+
+  /// [spacing] in world units.
+  double get paragraphGap => fontSize * spacing.factor;
+
   /// Set on a box continuing another one from the page before (see
   /// [TextFlow]); null on a box of its own and on the first of a chain.
   final TextFlow? flow;
@@ -110,6 +123,7 @@ class TextData {
     color: color,
     align: align,
     autoWidth: autoWidth,
+    spacing: spacing,
     flow: flow,
   );
 
@@ -150,6 +164,7 @@ class TextData {
       color: color is int ? color : defaultColor,
       align: TextAlignment.tryParse(json['align']) ?? TextAlignment.start,
       autoWidth: json['autoWidth'] == true,
+      spacing: ParagraphSpacing.tryParse(json['spacing']) ?? ParagraphSpacing.none,
       flow: TextFlow.fromJson(json['flow']),
     );
   }
@@ -158,7 +173,7 @@ class TextData {
   /// an edit made here.
   Map<String, Object?> toJson([Map<String, Object?> base = const {}]) => {
     for (final e in base.entries)
-      if (e.key != 'flow') e.key: e.value,
+      if (e.key != 'flow' && e.key != 'spacing') e.key: e.value,
     'text': text,
     'spans': [for (final s in spans) s.toJson()],
     'paras': [for (final p in _paras) p.toJson()],
@@ -167,6 +182,7 @@ class TextData {
     'color': color,
     'align': align.name,
     'autoWidth': autoWidth,
+    if (spacing != ParagraphSpacing.none) 'spacing': spacing.name,
     if (flow case final flow?) 'flow': flow.toJson(),
   };
 
@@ -179,6 +195,7 @@ class TextData {
     int? color,
     TextAlignment? align,
     bool? autoWidth,
+    ParagraphSpacing? spacing,
   }) {
     final same = text == null || text == this.text;
     return TextData._(
@@ -190,6 +207,7 @@ class TextData {
       color: color ?? this.color,
       align: align ?? this.align,
       autoWidth: autoWidth ?? this.autoWidth,
+      spacing: spacing ?? this.spacing,
       flow: flow,
     );
   }
@@ -204,6 +222,7 @@ class TextData {
     color: color,
     align: align,
     autoWidth: autoWidth,
+    spacing: spacing,
     flow: flow,
   );
 
@@ -226,6 +245,7 @@ class TextData {
       color: color,
       align: align,
       autoWidth: autoWidth,
+      spacing: spacing,
       flow: flow,
     );
   }
@@ -243,6 +263,7 @@ class TextData {
     color: argb,
     align: align,
     autoWidth: autoWidth,
+    spacing: spacing,
     flow: flow,
   );
 
@@ -256,6 +277,7 @@ class TextData {
     color: color,
     align: align,
     autoWidth: autoWidth,
+    spacing: spacing,
     flow: flow,
   );
 
@@ -277,6 +299,7 @@ class TextData {
       other.color == color &&
       other.align == align &&
       other.autoWidth == autoWidth &&
+      other.spacing == spacing &&
       other.flow == flow &&
       _listEquals(other.spans, spans) &&
       _listEquals(other.paras, paras);
@@ -289,6 +312,7 @@ class TextData {
     color,
     align,
     autoWidth,
+    spacing,
     flow,
     Object.hashAll(spans),
     Object.hashAll(paras),

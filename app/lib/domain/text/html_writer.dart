@@ -12,7 +12,8 @@ import 'text_data.dart';
 /// `<li role="checkbox" aria-checked>` with a ☐ / ☑ marked `aria-hidden`,
 /// so apps without checklists still show it); one block per line, spaces
 /// kept with `&nbsp;` where HTML would collapse them; alignment as
-/// `text-align`. Sizes are left to the receiving app (headings carry
+/// `text-align`, paragraph spacing as each block's `margin-bottom` (in
+/// `em`). Sizes are left to the receiving app (headings carry
 /// theirs). Several [boxes] (copied whole, with the lasso) are separated
 /// by an empty line and end at their text, as their plain text does:
 /// blank lines and spaces after it are left out.
@@ -85,9 +86,9 @@ class _BoxWriter {
   /// Each paragraph's direction (its first strong character's).
   late final List<TextDirection> _dirs = data.directions;
 
-  /// The current paragraph's direction and alignment as attributes. Start
-  /// and end become left / right (apps such as Word ignore CSS's logical
-  /// keywords); right-to-left paragraphs say so.
+  /// The current paragraph's direction, alignment and spacing as
+  /// attributes. Start and end become left / right (apps such as Word
+  /// ignore CSS's logical keywords); right-to-left paragraphs say so.
   String _attrs(int i) {
     final rtl = _dirs[i] == TextDirection.rtl;
     final align = switch (data.align) {
@@ -95,7 +96,11 @@ class _BoxWriter {
       TextAlignment.center => 'center',
       TextAlignment.end => rtl ? 'left' : 'right',
     };
-    return '${rtl ? ' dir="rtl"' : ''}${align == null ? '' : ' style="text-align:$align"'}';
+    final css = [
+      if (align != null) 'text-align:$align',
+      if (data.spacing != ParagraphSpacing.none) 'margin-bottom:${data.spacing.factor}em',
+    ];
+    return '${rtl ? ' dir="rtl"' : ''}${css.isEmpty ? '' : ' style="${css.join(';')}"'}';
   }
 
   /// Writes the lines of the text up to [end].
@@ -115,7 +120,7 @@ class _BoxWriter {
         2 => 'h2',
         _ => p.isList ? null : 'div',
       };
-      if (tag != null) out.write('<$tag${p.isList ? '' : _attrs(i)}>');
+      if (tag != null) out.write('<$tag${p.isList ? _spacing() : _attrs(i)}>');
       if (p.list == ListKind.check) {
         out.write('<span aria-hidden="true">${p.checked ? '☑' : '☐'} </span>');
       }
@@ -125,6 +130,12 @@ class _BoxWriter {
     }
     _closeLists(0);
   }
+
+  /// The spacing alone as a style attribute (a heading inside a list
+  /// item, whose item has the rest).
+  String _spacing() => data.spacing == ParagraphSpacing.none
+      ? ''
+      : ' style="margin-bottom:${data.spacing.factor}em"';
 
   /// Opens the list item of [p], closing and opening lists to its level.
   void _item(ParaStyle p, int i) {

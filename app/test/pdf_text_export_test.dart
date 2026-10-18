@@ -281,6 +281,59 @@ void main() {
       expect(second, isNot(contains('1.')));
     },
   );
+
+  test(
+    'paragraph spacing is exported where the app lays it out; highlights stay on the text',
+    skip: pdfium == null ? 'PDFium not built yet (run `flutter build linux` once)' : false,
+    () async {
+      final spaced = note.copyWith(spacing: ParagraphSpacing.large);
+      final nb = services.notebooks.create(
+        title: 'Notes',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
+      final page = services.pages.pagesOf(nb.id).single;
+      const width = 420.0;
+      final height = TextLayout.heightOf(spaced, width);
+      expect(height, greaterThan(TextLayout.heightOf(note, width) + 6 * 22 - 1));
+      final box = SurfaceElement(
+        id: 'note',
+        surfaceId: page.id,
+        type: ElementType.text.name,
+        rect: Rect.fromLTWH(120, 140, width, height),
+        z: 1,
+        createdAt: 1,
+        data: spaced.toJson(),
+      );
+      services.elements.save([box]);
+      final exporter = NotebookExporter(services);
+      final bytes = await exporter.pdf([page]);
+      final png = await exporter.png(page, scale: 1);
+      await exporter.dispose();
+      final doc = await PdfDocument.openData(bytes);
+      final text = (await doc.pages.single.loadText())!;
+      final layout = TextLayout.layout(spaced, width);
+      for (final word in ['milk', 'eggs', 'grandma']) {
+        final m = spaced.text.indexOf(word);
+        final expected = layout.boxesOf(m, m + word.length).single.toRect().shift(box.rect.topLeft);
+        final rect = text.charRects[text.fullText.indexOf(word)];
+        final midY = (page.height * 0.75 - (rect.top + rect.bottom) / 2) / 0.75;
+        expect(midY, inInclusiveRange(expected.top, expected.bottom), reason: word);
+      }
+      layout.dispose();
+      final rendered = (await doc.pages.single.render(fullWidth: 794, fullHeight: 1123))!;
+      final pdfImage = await rendered.createImage();
+      rendered.dispose();
+      await doc.dispose();
+      final pngImage = (await (await ui.instantiateImageCodec(png)).getNextFrame()).image;
+      final a = await _ink(pdfImage, box.rect);
+      final b = await _ink(pngImage, box.rect);
+      // "today" ends its paragraph: its highlight does not take in the space below.
+      expect(a.yellow, closeTo(b.yellow, b.yellow * 0.25));
+      expect(b.yellow, greaterThan(200));
+    },
+  );
 }
 
 /// Counts dark, red and yellow (highlight) pixels inside [area].

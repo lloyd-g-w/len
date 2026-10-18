@@ -5,7 +5,7 @@ import 'text_data.dart';
 /// well-formed, so a malformed record is skipped as a whole instead of
 /// showing a box that is not what its writer meant. `flow` is optional
 /// (only a box continuing another has one) but strict when present
-/// ([TextFlow.fromJson]). Unknown keys are ignored. (`TextData.fromJson` stays tolerant: it reads rows this app
+/// ([TextFlow.fromJson]); so is `spacing` (absent: none). Unknown keys are ignored. (`TextData.fromJson` stays tolerant: it reads rows this app
 /// wrote.)
 abstract final class TextRecord {
   /// [json] as text data; throws [FormatException] if it is malformed.
@@ -27,6 +27,10 @@ abstract final class TextRecord {
     if (paras.isNotEmpty && paras.length != '\n'.allMatches(text).length + 1) _bad('paras');
     // Only a box continuing another has a flow; when present it is strict.
     final flow = json.containsKey('flow') ? TextFlow.fromJson(json['flow']) ?? _bad('flow') : null;
+    // Optional too (boxes without spacing leave it out), strict when present.
+    final spacing = json.containsKey('spacing')
+        ? ParagraphSpacing.tryParse(json['spacing']) ?? _bad('spacing')
+        : ParagraphSpacing.none;
     return TextData.rich(
       text: text,
       spans: spans,
@@ -36,6 +40,7 @@ abstract final class TextRecord {
       color: color,
       align: align,
       autoWidth: _field<bool>(json, 'autoWidth'),
+      spacing: spacing,
       flow: flow,
     );
   }

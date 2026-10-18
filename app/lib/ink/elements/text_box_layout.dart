@@ -8,21 +8,41 @@ import 'text_layout.dart';
 /// [TextLayout] of one text box: a laid-out painter plus its list markers
 /// and its [plan] (hanging indents, paragraphs of the other direction).
 class TextBoxLayout {
-  TextBoxLayout(this.data, double width) : plan = TextPlan.of(data, width) {
+  TextBoxLayout(TextData data, double width) : this.planned(data, width, TextPlan.of(data, width));
+
+  /// [data] laid out by [plan] (made for it at [width]).
+  TextBoxLayout.planned(this.data, double width, this.plan) {
     // Only the placeholders' sizes matter here; markers are painted
-    // separately, gaps and padding stay empty.
-    final sizes = <Size>[];
+    // separately, gaps, padding, rooms and spacing stay empty.
+    final dims = <PlaceholderDimensions>[];
+    InlineSpan slot(Size size, PlaceholderAlignment alignment) {
+      dims.add(
+        PlaceholderDimensions(
+          size: size,
+          alignment: alignment,
+          baseline: TextBaseline.alphabetic,
+          baselineOffset: 0,
+        ),
+      );
+      return WidgetSpan(
+        alignment: alignment,
+        baseline: TextBaseline.alphabetic,
+        child: const SizedBox.shrink(),
+      );
+    }
+
     final span = TextLayout.spanOf(
       data,
       plan,
       marker: (m) {
-        _markerSlots.add(sizes.length);
-        sizes.add(m.size);
-        return const WidgetSpan(alignment: PlaceholderAlignment.middle, child: SizedBox.shrink());
+        _markerSlots.add(dims.length);
+        return slot(m.size, PlaceholderAlignment.middle);
       },
-      gap: (size) {
-        sizes.add(size);
-        return const WidgetSpan(alignment: PlaceholderAlignment.middle, child: SizedBox.shrink());
+      gap: (size) => slot(size, PlaceholderAlignment.middle),
+      room: (h) => slot(Size(0, h), PlaceholderAlignment.bottom),
+      spacing: (h) {
+        _spacingSlots.add(dims.length);
+        return slot(Size(0, h), PlaceholderAlignment.belowBaseline);
       },
     );
     painter = TextPainter(
@@ -32,9 +52,7 @@ class TextBoxLayout {
       textDirection: plan.base,
       strutStyle: TextLayout.strutOf(data),
     );
-    painter.setPlaceholderDimensions([
-      for (final s in sizes) PlaceholderDimensions(size: s, alignment: PlaceholderAlignment.middle),
-    ]);
+    painter.setPlaceholderDimensions(dims);
     if (width.isFinite) {
       final w = width < TextLayout.minWidth ? TextLayout.minWidth : width;
       painter.layout(minWidth: w, maxWidth: w);
@@ -59,6 +77,42 @@ class TextBoxLayout {
 
   /// Indexes of the markers among the painter's placeholders.
   final List<int> _markerSlots = [];
+
+  /// Indexes of the paragraph spacing among the painter's placeholders.
+  final List<int> _spacingSlots = [];
+
+  /// The room paragraph spacing leaves below each paragraph but the last
+  /// (local coordinates): as wide as nothing, [TextData.paragraphGap] tall,
+  /// ending at the bottom of the paragraph's last line.
+  List<Rect> get spacing {
+    final boxes = painter.inlinePlaceholderBoxes ?? const <TextBox>[];
+    final gap = data.paragraphGap;
+    return [
+      for (final i in _spacingSlots)
+        if (i < boxes.length)
+          Rect.fromLTRB(boxes[i].left, boxes[i].bottom - gap, boxes[i].right, boxes[i].bottom),
+    ];
+  }
+
+  /// How much of the line ending at [bottom] (local y) is paragraph
+  /// spacing below its text (0 for most lines).
+  double spacingAbove(double bottom) {
+    for (final r in spacing) {
+      if ((r.bottom - bottom).abs() < 0.5) return r.height;
+    }
+    return 0;
+  }
+
+  /// [box] (local coordinates, of text on one line) without the paragraph
+  /// spacing below its line, which line-height boxes take in.
+  Rect withoutSpacing(Rect box) {
+    for (final r in spacing) {
+      if (box.top < r.top && box.bottom > r.top) {
+        return Rect.fromLTRB(box.left, box.top, box.right, r.top);
+      }
+    }
+    return box;
+  }
 
   /// The laid-out boxes of the model text [start, end) (without what the
   /// plan inserts into it).

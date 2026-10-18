@@ -10,7 +10,9 @@ import 'zoom_window.dart';
 /// little deeper, a tab on its top edge and a square at its corner. Drag
 /// the tab to move the frame (lines then start there), the square to size
 /// it (a smaller frame magnifies more). Only these take pointers: the pen
-/// writes inside the frame on the page as anywhere else.
+/// writes inside the frame on the page as anywhere else. Right to left,
+/// all of it is mirrored: the zone at the left, the tab at the right (the
+/// line's start), the square at the bottom-left.
 class ZoomFrameOverlay extends StatefulWidget {
   const ZoomFrameOverlay({super.key, required this.zoom});
 
@@ -28,9 +30,9 @@ class ZoomFrameOverlay extends StatefulWidget {
   State<ZoomFrameOverlay> createState() => _ZoomFrameOverlayState();
 }
 
-/// The frame on screen: its rectangle, where its advance zone starts and
-/// its move tab.
-typedef _Geometry = ({Rect frame, double? zoneX, Rect tab});
+/// The frame on screen: its rectangle, where its advance zone starts, its
+/// move tab, and whether lines run right to left.
+typedef _Geometry = ({Rect frame, double? zoneX, Rect tab, bool rtl});
 
 class _ZoomFrameOverlayState extends State<ZoomFrameOverlay> {
   ZoomWindow get _zoom => widget.zoom;
@@ -80,7 +82,8 @@ class _ZoomFrameOverlayState extends State<ZoomFrameOverlay> {
     final screen = _zoom.host.onScreen(frame.surfaceId, rect);
     if (screen == null) return null;
     final zone = screen.left + (_zoom.zoneStart! - rect.left) * screen.width / rect.width;
-    return (frame: screen, zoneX: zone, tab: _tabRect(screen));
+    final rtl = _zoom.rightToLeft;
+    return (frame: screen, zoneX: zone, tab: _tabRect(screen, rtl: rtl), rtl: rtl);
   }
 
   @override
@@ -128,8 +131,10 @@ class _ZoomFrameOverlayState extends State<ZoomFrameOverlay> {
                             onPanStart: (_) => _width = _zoom.frameRect?.width,
                             onPanUpdate: (d) => _resize(d.delta, _geometry()?.frame.size),
                             onPanEnd: (_) => _width = null,
-                            child: const MouseRegion(
-                              cursor: SystemMouseCursors.resizeUpLeftDownRight,
+                            child: MouseRegion(
+                              cursor: _zoom.rightToLeft
+                                  ? SystemMouseCursors.resizeUpRightDownLeft
+                                  : SystemMouseCursors.resizeUpLeftDownRight,
                             ),
                           ),
                         ),
@@ -142,12 +147,13 @@ class _ZoomFrameOverlayState extends State<ZoomFrameOverlay> {
     );
   }
 
-  /// The move tab on [frame]'s top edge, at its left (the start of the
-  /// line), kept within a narrow frame.
-  static Rect _tabRect(Rect frame) {
+  /// The move tab on [frame]'s top edge, at the start of the line (its
+  /// left, or right to left its right), kept within a narrow frame.
+  static Rect _tabRect(Rect frame, {required bool rtl}) {
     const tab = ZoomFrameOverlay.tab;
     final width = math.min(tab.width, frame.width);
-    final left = frame.left + math.min(Gaps.md, math.max(0.0, frame.width - width));
+    final inset = math.min(Gaps.md, math.max(0.0, frame.width - width));
+    final left = rtl ? frame.right - inset - width : frame.left + inset;
     return Rect.fromLTWH(left, frame.top - tab.height, width, tab.height);
   }
 
@@ -156,7 +162,9 @@ class _ZoomFrameOverlayState extends State<ZoomFrameOverlay> {
     final width = _width;
     if (width == null || screen == null || screen.isEmpty) return;
     final diagonal = screen.width * screen.width + screen.height * screen.height;
-    final grow = (delta.dx * screen.width + delta.dy * screen.height) / diagonal;
+    // Its handle is at the bottom-left right to left: dragging left grows it.
+    final dx = _zoom.rightToLeft ? -delta.dx : delta.dx;
+    final grow = (dx * screen.width + delta.dy * screen.height) / diagonal;
     _width = width * (1 + grow);
     _zoom.resizeTo(_width!);
   }
@@ -165,8 +173,8 @@ class _ZoomFrameOverlayState extends State<ZoomFrameOverlay> {
 enum _Handle { move, size }
 
 /// Places the handles' targets on the frame: the move tab's above the tab
-/// (on the top edge at the left), the size square's at the bottom-right
-/// corner; again whenever [relayout] notifies (the view moved).
+/// (on the top edge at the line's start), the size square's at the bottom
+/// corner at its end; again whenever [relayout] notifies (the view moved).
 class _HandlesLayout extends MultiChildLayoutDelegate {
   _HandlesLayout(this.geometry, {required this.hit, super.relayout});
 
@@ -184,7 +192,10 @@ class _HandlesLayout extends MultiChildLayoutDelegate {
     final tab = at?.tab ?? screen;
     final targets = {
       _Handle.move: Offset(tab.center.dx - hit / 2, screen.top + into - hit),
-      _Handle.size: Offset(screen.right - into, screen.bottom - into),
+      _Handle.size: Offset(
+        at?.rtl ?? false ? screen.left + into - hit : screen.right - into,
+        screen.bottom - into,
+      ),
     };
     for (final MapEntry(key: id, value: topLeft) in targets.entries) {
       layoutChild(id, BoxConstraints.tight(Size.square(hit)));
@@ -209,12 +220,14 @@ class _FramePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final at = geometry();
     if (at == null) return;
-    final (:frame, :zoneX, :tab) = at;
+    final (:frame, :zoneX, :tab, :rtl) = at;
     canvas.drawRect(frame, Paint()..color = color.withValues(alpha: wash));
     final x = zoneX;
     if (x != null && x > frame.left && x < frame.right) {
       canvas.drawRect(
-        Rect.fromLTRB(x, frame.top, frame.right, frame.bottom),
+        rtl
+            ? Rect.fromLTRB(frame.left, frame.top, x, frame.bottom)
+            : Rect.fromLTRB(x, frame.top, frame.right, frame.bottom),
         Paint()..color = color.withValues(alpha: zoneWash),
       );
     }
@@ -234,7 +247,7 @@ class _FramePainter extends CustomPainter {
       );
     const h = ZoomFrameOverlay.handle;
     canvas.drawRect(
-      Rect.fromCenter(center: frame.bottomRight, width: h, height: h),
+      Rect.fromCenter(center: rtl ? frame.bottomLeft : frame.bottomRight, width: h, height: h),
       Paint()..color = color,
     );
   }

@@ -5,10 +5,11 @@ import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_picker/color_choices.dart';
 import '../pen/option_controls.dart';
+import 'text/paragraph_spacing_menus.dart';
 import 'text/text_style_menus.dart';
 
-/// Default formatting for new text boxes: colour, size and font (in the
-/// ink popovers' order).
+/// Default formatting for new text boxes: colour, size, font and
+/// paragraph spacing (in the ink popovers' order).
 class TextOptionsPanel extends StatelessWidget {
   const TextOptionsPanel({super.key, required this.tools});
 
@@ -50,6 +51,10 @@ class TextOptionsPanel extends StatelessWidget {
             FontMenuRow(
               font: style.font,
               onSelected: (f) => tools.textStyle = style.copyWith(font: f),
+            ),
+            ParagraphSpacingRow(
+              spacing: style.spacing,
+              onSelected: (s) => tools.textStyle = style.copyWith(spacing: s),
             ),
             const SizedBox(height: Gaps.xs),
             Text(

@@ -35,15 +35,22 @@ mixin _ZoomHandMoves on _ZoomMoves {
   }
 
   /// Sizes the frame [width] surface units wide (its handle on the page),
-  /// keeping its top-left corner.
+  /// keeping its top corner at the line's start: the top-left, or (right
+  /// to left) the top-right.
   void resizeTo(double width) {
     final frame = _frame;
     if (frame == null || _box.isEmpty) return;
     final scale = _rules.scaleForWidth(math.max(width, ZoomRules.minCanvasWidth));
     final sized = frame.copyWith(scale: scale);
-    _set(sized.copyWith(origin: _rules.clamp(sized, frame.origin)));
+    final right = frame.origin.dx + _box.width / frame.scale;
+    final origin = _rtl ? Offset(right - _box.width / scale, frame.origin.dy) : frame.origin;
+    _set(sized.copyWith(origin: _rules.clamp(sized, origin)));
     final rect = frameRect!;
-    if (_lineEnd < rect.right) _lineEnd = rect.right;
+    if (_rtl) {
+      if (_lineEnd > rect.left) _lineEnd = rect.left;
+    } else if (_lineEnd < rect.right) {
+      _lineEnd = rect.right;
+    }
   }
 
   /// Fingers panned the box: the frame moves the other way.
@@ -54,7 +61,12 @@ mixin _ZoomHandMoves on _ZoomMoves {
     _finishGlide();
     final origin = _rules.clamp(frame, frame.origin - screenDelta / frame.scale);
     _set(frame.copyWith(origin: origin));
-    if (origin.dx < _lineStart) _lineStart = origin.dx;
+    if (_rtl) {
+      final right = origin.dx + _box.width / frame.scale;
+      if (right > _lineStart) _lineStart = right;
+    } else if (origin.dx < _lineStart) {
+      _lineStart = origin.dx;
+    }
     _reveal();
   }
 

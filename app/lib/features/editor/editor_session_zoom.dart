@@ -20,7 +20,11 @@ mixin _EditorSessionZoom {
   /// The zoom window: writing small through a magnified box.
   late final ZoomWindow zoomWindow = () {
     _zoomCreated = true;
-    return ZoomWindow(host: _zoomHost(), input: _zoomInput);
+    return ZoomWindow(
+      host: _zoomHost(),
+      input: _zoomInput,
+      writesRightToLeft: () => services.preferences.zoomWritesRightToLeft,
+    );
   }();
   bool _zoomCreated = false;
 

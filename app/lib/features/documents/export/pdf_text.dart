@@ -144,9 +144,11 @@ class PdfTextWriter {
   }
 
   /// Laid-out boxes of the text [start, end) (model offsets, one line of
-  /// the box's text), without what the layout inserts (breaks, gaps).
+  /// the box's text), without what the layout inserts (breaks, gaps) and
+  /// without paragraph spacing below them (highlights end at the text, as
+  /// on the canvas).
   static List<Rect> _boxes(TextBoxLayout layout, int start, int end) => [
-    for (final b in _textBoxes(layout, start, end)) b.toRect(),
+    for (final b in _textBoxes(layout, start, end)) layout.withoutSpacing(b.toRect()),
   ];
 
   static List<TextBox> _textBoxes(TextBoxLayout layout, int start, int end) =>

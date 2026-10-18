@@ -29,6 +29,11 @@ enum InsertKind {
   /// The line break after a [room], so small the line is as tall as the
   /// room.
   roomBreak,
+
+  /// Paragraph spacing (U+FFFC, no wider than nothing): hung below the
+  /// baseline of a paragraph's last line, [InsertPiece.size] tall, so the
+  /// line reaches that far below its text (see `TextSpacing`).
+  spacing,
 }
 
 /// One character of a [TextInsert].
@@ -55,6 +60,13 @@ class InsertPiece {
 
   static const InsertPiece roomBreak = InsertPiece._(InsertKind.roomBreak);
 
+  /// Paragraph spacing reaching [height] below the baseline.
+  InsertPiece.spacing(double height)
+    : kind = InsertKind.spacing,
+      size = Size(0, height < 0 ? 0 : height),
+      marker = null,
+      direction = null;
+
   const InsertPiece.isolate(TextDirection this.direction)
     : kind = InsertKind.isolate,
       size = Size.zero,
@@ -62,22 +74,25 @@ class InsertPiece {
 
   final InsertKind kind;
 
-  /// The placeholder size of [InsertKind.marker], [InsertKind.space] and
-  /// [InsertKind.room].
+  /// The placeholder size of [InsertKind.marker], [InsertKind.space],
+  /// [InsertKind.room] and [InsertKind.spacing].
   final Size size;
   final ListMarker? marker;
   final TextDirection? direction;
 
   /// The character it stands for in the laid-out text.
   String get char => switch (kind) {
-    InsertKind.marker || InsertKind.space || InsertKind.room => '\uFFFC',
+    InsertKind.marker || InsertKind.space || InsertKind.room || InsertKind.spacing => '\uFFFC',
     InsertKind.lineBreak || InsertKind.roomBreak => '\n',
     InsertKind.isolate => direction == TextDirection.rtl ? '\u2067' : '\u2066',
     InsertKind.pop => '\u2069',
   };
 
   bool get isPlaceholder =>
-      kind == InsertKind.marker || kind == InsertKind.space || kind == InsertKind.room;
+      kind == InsertKind.marker ||
+      kind == InsertKind.space ||
+      kind == InsertKind.room ||
+      kind == InsertKind.spacing;
 
   /// Whether it belongs to a page break's room ([InsertKind.room] or
   /// [InsertKind.roomBreak]).
@@ -98,8 +113,9 @@ class InsertPiece {
 /// Characters the layout inserts into a text box's text before model
 /// offset [at]: list markers, hanging-indent breaks and gaps, around
 /// paragraphs running against the box's direction their isolates and the
-/// padding that aligns them, and in the editing field of a box flowing
-/// across pages the rooms over the page edges (see `TextPlan`).
+/// padding that aligns them, paragraph spacing, and in the editing field of
+/// a box flowing across pages the rooms over the page edges (see
+/// `TextPlan`).
 ///
 /// The caret never rests inside an insert except at [allowed] positions
 /// (0 = before its first character, [length] = after its last); model

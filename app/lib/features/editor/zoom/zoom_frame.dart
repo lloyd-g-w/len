@@ -70,8 +70,19 @@ class ZoomNextPage extends ZoomMove {
 /// moves the frame on so that ink sits [keep] into it; once the frame
 /// stands at the end of the line, it wraps: back to [lineStart], down by a
 /// line. At the bottom of a page it goes on to the next page's top.
+///
+/// [rightToLeft] mirrors all that across: lines start at the frame's right
+/// edge ([lineStart] is then that edge) and run leftwards to [lineEnd]
+/// (the page's left edge), the advance zone is the frame's left part, and
+/// a new line goes back to the right.
 class ZoomRules {
-  const ZoomRules({required this.box, required this.lineStart, required this.lineEnd, this.page});
+  const ZoomRules({
+    required this.box,
+    required this.lineStart,
+    required this.lineEnd,
+    this.page,
+    this.rightToLeft = false,
+  });
 
   /// The box's size (screen pixels).
   final Size box;
@@ -79,11 +90,16 @@ class ZoomRules {
   /// The page's bounds (surface coordinates), or null on a canvas.
   final Rect? page;
 
-  /// Where lines begin and end (surface x).
+  /// Where lines begin and end (surface x): the frame's left edge at the
+  /// start of a line and the right end of the line, or (right to left) its
+  /// right edge at the start and the left end.
   final double lineStart, lineEnd;
 
-  /// The right part of the frame (a fraction of its width) where lifted
-  /// ink advances the frame.
+  /// Whether lines run right to left.
+  final bool rightToLeft;
+
+  /// The part of the frame at its line end (a fraction of its width) where
+  /// lifted ink advances the frame.
   static const double advanceZone = 0.3;
 
   /// Ink lifted this far across the frame advances it at once (no pause).
@@ -125,20 +141,29 @@ class ZoomRules {
     return box.width / math.max(minCanvasWidth, width);
   }
 
-  /// Where the advance zone begins on the surface.
-  double zoneStart(ZoomFrame frame) {
+  /// Where the advance zone begins on the surface (it runs from there to
+  /// the frame's right edge, or right to left to its left edge).
+  double zoneStart(ZoomFrame frame) => _across(frame, 1 - advanceZone);
+
+  /// The surface x [fraction] of the frame's width along the line from
+  /// its start edge.
+  double _across(ZoomFrame frame, double fraction) {
     final rect = frame.rectFor(box);
-    return rect.left + rect.width * (1 - advanceZone);
+    return rightToLeft ? rect.right - rect.width * fraction : rect.left + rect.width * fraction;
   }
 
-  /// Whether ink ending at [inkRight] lies in the advance zone.
-  bool inZone(ZoomFrame frame, double inkRight) => inkRight >= zoneStart(frame);
+  /// Where [ink] ends along the line: its right edge, or (right to left)
+  /// its left edge.
+  double inkEnd(Rect ink) => rightToLeft ? ink.left : ink.right;
 
-  /// Whether ink ending at [inkRight] advances the frame without a pause.
-  bool advancesNow(ZoomFrame frame, double inkRight) {
-    final rect = frame.rectFor(box);
-    return inkRight >= rect.left + rect.width * advanceNow;
-  }
+  /// Whether [a] lies at or past [b] along the line.
+  bool _past(double a, double b) => rightToLeft ? a <= b : a >= b;
+
+  /// Whether ink ending at [inkEnd] lies in the advance zone.
+  bool inZone(ZoomFrame frame, double inkEnd) => _past(inkEnd, zoneStart(frame));
+
+  /// Whether ink ending at [inkEnd] advances the frame without a pause.
+  bool advancesNow(ZoomFrame frame, double inkEnd) => _past(inkEnd, _across(frame, advanceNow));
 
   /// [frame] moved to [origin], kept on the page (centred on an axis the
   /// page is narrower than the frame along).
@@ -165,15 +190,26 @@ class ZoomRules {
     return box.width / math.max(1, w);
   }
 
-  /// Where the frame goes once ink lifted at [inkRight] in the zone: on
+  /// The frame's left edge at the start of a line when it is [width] wide.
+  double _lineLeft(double width) => rightToLeft ? lineStart - width : lineStart;
+
+  /// Where the frame goes once ink lifted at [inkEnd] in the zone: on
   /// along the line, or (at its end) to the next line, [lineStep] down.
-  ZoomMove advance(ZoomFrame frame, double inkRight, {required double lineStep}) {
+  ZoomMove advance(ZoomFrame frame, double inkEnd, {required double lineStep}) {
     final width = box.width / frame.scale;
+    final x = frame.origin.dx;
+    if (rightToLeft) {
+      final end = math.min(lineEnd, lineStart - width);
+      if (x <= end + width * 0.05) return newLine(frame, lineStep: lineStep);
+      final left = math.max(inkEnd + width * keep - width, end);
+      if (left >= x) return ZoomMoveTo(frame.origin);
+      return ZoomMoveTo(clamp(frame, Offset(left, frame.origin.dy)));
+    }
     final end = math.max(lineEnd - width, lineStart);
     // Already at the end of the line (give or take a little): wrap.
-    if (frame.origin.dx >= end - width * 0.05) return newLine(frame, lineStep: lineStep);
-    final left = math.min(inkRight - width * keep, end);
-    if (left <= frame.origin.dx) return ZoomMoveTo(frame.origin);
+    if (x >= end - width * 0.05) return newLine(frame, lineStep: lineStep);
+    final left = math.min(inkEnd - width * keep, end);
+    if (left <= x) return ZoomMoveTo(frame.origin);
     return ZoomMoveTo(clamp(frame, Offset(left, frame.origin.dy)));
   }
 
@@ -182,14 +218,15 @@ class ZoomRules {
   ZoomMove newLine(ZoomFrame frame, {required double lineStep}) {
     final page = this.page;
     final top = frame.origin.dy + lineStep;
-    if (page == null) return ZoomMoveTo(Offset(lineStart, top));
+    final x = _lineLeft(box.width / frame.scale);
+    if (page == null) return ZoomMoveTo(Offset(x, top));
     final height = box.height / frame.scale;
     final bottom = page.bottom - height;
     if (frame.origin.dy >= bottom - 0.5) {
-      final next = Offset(lineStart, page.top + page.height * topMargin);
+      final next = Offset(x, page.top + page.height * topMargin);
       return ZoomNextPage(clamp(frame, next));
     }
-    return ZoomMoveTo(clamp(frame, Offset(lineStart, math.min(top, bottom))));
+    return ZoomMoveTo(clamp(frame, Offset(x, math.min(top, bottom))));
   }
 
   /// How far a new line moves down: whole ruled lines (or grid rows) of

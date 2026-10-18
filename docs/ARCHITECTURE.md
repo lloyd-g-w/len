@@ -670,9 +670,20 @@ again. Text being typed reads once its write lands. The nodes take no pointers.
   the bottom) opens the box's own menu (`zoom_box_menu.dart`): *Left-handed* docks the box
   under the top chrome (`AppPreferences.zoomBoxAtTop`, `ChromeLayout.zoomBoxAtTop`, counted in
   `covered.top`; the grip moves to its bottom edge) so a left arm writing in it hides none of
-  the page and the frame (GoodNotes' answer for left-handers; the advance stays at the right,
-  as writing runs left to right whichever hand holds the pen), and *Automatic height* undoes a
-  dragged one. Palm: a stylus in the box tells the page's input
+  the page and the frame (GoodNotes' answer for left-handers; the advance stays where the
+  writing direction puts it, whichever hand holds the pen), *Right to left* mirrors the advance
+  (below), and *Automatic height* undoes a dragged one. **Right to left**
+  (`AppPreferences.zoomWritesRightToLeft`: the choice kept as `zoom_rtl`, else the device
+  locale's direction via `Bidi.isRtlLanguage`; `toggleZoomRightToLeft` drops the choice when it
+  matches the device again, so the setting follows the device until set otherwise): `ZoomRules
+  .rightToLeft` mirrors the geometry — `lineStart` is the frame's right edge where a line
+  began, `lineEnd` the page's left edge (on a canvas, the view's left), the zone the frame's
+  left 30 % judged by the ink's left edge (`inkEnd`), a new line back to the right; placed on
+  open at the ink's right or as far in from the page's right edge as the margin rule is from
+  its left. The window reads the setting as each line starts (`ZoomWindow.writesRightToLeft`;
+  a line keeps its direction, `directionChanged` restarts the line where the frame is), and the
+  zone band, the frame's wash, its tab (top right) and size square (bottom left, sizing keeps
+  the top-right corner) mirror with it. Palm: a stylus in the box tells the page's input
   (`InkInputController.stylusElsewhere`: a finger drawing or panning there stops, new ones
   are ignored as between strokes) and `ZoomWindow.blocksPage` absorbs new page touches for
   `palmQuiet` after the pen lifts. Each notebook keeps its window (`ZoomWindowState`: the frame
@@ -2341,6 +2352,23 @@ GoodNotes-style rich text inside a box.
   Mixed-direction text inside a paragraph is ordered by Flutter's bidi.
   Limits: a paragraph's direction cannot be set by hand (type an RLM / LRM
   mark first), and selecting across a padded line highlights its padding.
+- **Paragraph spacing** (`domain/text/paragraph_spacing.dart`,
+  `ink/elements/text_spacing.dart`): `TextData.spacing` (None / Small / Medium /
+  Large = 0, ¼, ½, 1 × the box's size, so lasso scaling scales it) is the space
+  below each paragraph but the last, per box. A box is one Flutter paragraph,
+  so `TextSpacing` adds to the plan, at each paragraph's end (where its caret
+  rests: inside a reversed paragraph's isolate, after an empty item's marker),
+  an `InsertKind.spacing` placeholder as wide as nothing hung below the
+  baseline as far as that line reaches plus the gap (measured on a layout
+  without spacing). The line grows below its text; wrapping, alignment, glyph
+  boxes and search highlights are unchanged, and canvas, editing field and PDF
+  export agree. Line-height boxes take the spacing in, so PDF highlights trim
+  it (`TextBoxLayout.withoutSpacing`); `TextFlowLayout.split` lets a part's
+  last line's spacing run past its room. Set in the format bar (on phones its
+  ⋯), the Text tool's default in its options (`ParagraphSpacingRow`); undone
+  as a box edit. Rich copy writes it as each block's `margin-bottom` in `em`;
+  paste maps the blocks' largest inline margin to the nearest spacing
+  (`marginEm`), else keeps the box's.
 - **Editing** (`features/editor/tools/text/`): `RichTextController` (a
   `TextEditingController`) renders the spans and maps the field's edits back
   onto the buffer (common prefix/suffix diff, the caret disambiguating repeated
@@ -2357,8 +2385,8 @@ GoodNotes-style rich text inside a box.
   pasting the same text into a box (`insertRich`) or onto the canvas keeps
   it — Len's own format, which wins over the clipboard's HTML.
   `TextFormatBar`: font, size, B / I / U / S, colour, highlight, paragraph style,
-  bullet / numbered / checklist, alignment (scrolls on phones; delete and done
-  stay). Shortcuts: Ctrl/⌘+B / I / U, Ctrl+Shift+X strikethrough, Ctrl+Shift+7 /
+  bullet / numbered / checklist, alignment, paragraph spacing (scrolls on phones,
+  spacing then in its ⋯ beside delete; done stays). Shortcuts: Ctrl/⌘+B / I / U, Ctrl+Shift+X strikethrough, Ctrl+Shift+7 /
   8 / 9 lists, Ctrl+Alt+1 / 2 headings (Ctrl+Alt+0 body), Tab / Shift+Tab indent,
   Ctrl+Enter ticks, Esc finishes. `TextBoxReveal` pans the view so the caret stays clear of
   the soft keyboard and the phone's docked bar (the whole box while it fits). While a box is edited the editor's Undo / Redo (bar

@@ -29,6 +29,7 @@ class RichTextBuffer {
     color: box.color,
     align: box.align,
     autoWidth: box.autoWidth,
+    spacing: box.spacing,
     flow: box.flow,
   );
 
@@ -52,6 +53,7 @@ class RichTextBuffer {
       color: box.color,
       align: box.align,
       autoWidth: box.autoWidth,
+      spacing: box.spacing,
     );
   }
 

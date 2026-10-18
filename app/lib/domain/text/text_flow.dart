@@ -112,6 +112,7 @@ class TextFlow {
       color: data.color,
       align: data.align,
       autoWidth: data.autoWidth,
+      spacing: data.spacing,
     );
   }
 
@@ -143,6 +144,7 @@ class TextFlow {
       color: head.color,
       align: head.align,
       autoWidth: head.autoWidth,
+      spacing: head.spacing,
     );
   }
 
