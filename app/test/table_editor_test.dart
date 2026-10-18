@@ -203,6 +203,40 @@ void main() {
     expect(cells(box.data), ['ab', 'cd', 'ef', 'gh']);
   });
 
+  testWidgets('Ctrl+V with a block of cells selected pastes from its top left cell on', (
+    tester,
+  ) async {
+    final b = RichTextBuffer(const TextData());
+    final t = b.insertTable(0, 2, 2);
+    for (final (k, s) in ['ab', 'cd', 'ef', 'gh'].indexed) {
+      b.setCell(t.line + k, s, List.filled(2, SpanStyle.plain));
+    }
+    await openBox(tester, b.toData(const TextData()));
+    final box = boxController(tester);
+    Future<void> selectSecondRow() async {
+      box.enterCell(2, atEnd: true);
+      await tester.pumpAndSettle();
+      await press(tester, LogicalKeyboardKey.arrowRight, shift: true);
+      expect(box.cellRange, isNotNull);
+    }
+
+    mockClipboardText('1\t2');
+    await selectSecondRow();
+    await paste(tester);
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['ab', 'cd', '1', '2']);
+    // One value replaces the top left cell.
+    mockClipboardText('z');
+    await selectSecondRow();
+    await paste(tester);
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['ab', 'cd', 'z', '2']);
+    expect(box.activeCell, 2);
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['ab', 'cd', '1', '2'], reason: 'one undo step');
+  });
+
   testWidgets('rows of tab-separated text pasted into a cell fill cells, adding rows', (
     tester,
   ) async {

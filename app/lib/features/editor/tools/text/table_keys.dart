@@ -16,8 +16,9 @@ import 'rich_text_controller.dart';
 ///   they select a block of cells;
 /// - with a block selected: Ctrl+C / Ctrl+X copy and cut it (an HTML table
 ///   and tab-separated text), Delete / Backspace empty its cells, Shift +
-///   arrows grow it, arrows or Esc go back to editing a cell, Ctrl+B / I /
-///   U format every cell, Ctrl+Z undoes.
+///   arrows grow it, arrows or Esc go back to editing a cell, Ctrl+V
+///   pastes from its top left cell on, Ctrl+B / I / U format every cell,
+///   Ctrl+Z undoes.
 abstract final class TableKeys {
   static bool get _shift => HardwareKeyboard.instance.isShiftPressed;
   static bool get _command =>
@@ -149,12 +150,13 @@ abstract final class TableKeys {
   }
 
   /// A key while a block of cells of [box] is selected; Ctrl+Z / Ctrl+Y
-  /// [undo] and [redo].
+  /// [undo] and [redo], Ctrl+V (Ctrl+Shift+V: plain) [paste].
   static KeyEventResult range(
     RichTextController box,
     KeyEvent event, {
     required VoidCallback undo,
     required VoidCallback redo,
+    required void Function({required bool plain}) paste,
   }) {
     final r = box.cellRange;
     if (r == null || (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
@@ -169,6 +171,8 @@ abstract final class TableKeys {
           box.copySelection();
         case LogicalKeyboardKey.keyX:
           box.copySelection(cut: true);
+        case LogicalKeyboardKey.keyV:
+          paste(plain: _shift);
         case LogicalKeyboardKey.keyB:
           box.toggleBold();
         case LogicalKeyboardKey.keyI:

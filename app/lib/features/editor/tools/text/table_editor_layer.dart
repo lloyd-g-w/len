@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../domain/text/text_data.dart';
 import '../../../../ink/elements/text_layout.dart';
+import 'rich_paste.dart';
 import 'rich_text_controller.dart';
 import 'rich_text_field.dart';
 import 'table_keys.dart';
@@ -177,6 +178,7 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
             event,
             undo: widget.onUndo ?? () => _box.undo(),
             redo: widget.onRedo ?? () => _box.redo(),
+            paste: ({required plain}) => pasteIntoCells(widget.cell, plain: plain),
           ),
           child: Listener(
             behavior: HitTestBehavior.translucent,

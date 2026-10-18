@@ -51,15 +51,41 @@ class RichPasteAction extends Action<PasteTextIntent> {
   Future<void> invoke(PasteTextIntent intent) async {
     // Only set while this runs synchronously.
     final fallback = callingAction;
-    if (await pasteClipboardRich(controller)) return;
-    // In a table cell, cells copied here and rows of tab-separated text
-    // fill cells.
-    final text = controller is TableCellController ? await _clipboardText() : null;
-    final own = text == null ? null : RichTextController.ownClip(text);
-    if (own != null && TextTables.any(own.paras)) return controller.pasteRich(own);
-    if (text != null && (text.contains('\t') || text.trimRight().contains('\n'))) {
-      return controller.pastePlain(text);
-    }
+    if (await pasteClipboardFormatted(controller)) return;
     fallback?.invoke(intent);
   }
+}
+
+/// Ctrl+V's paste into [controller] but for plain text of one line (false:
+/// the caller pastes it, see [RichPasteAction]): HTML or RTF formatted; in
+/// a table cell, cells copied here and rows of tab-separated text fill
+/// cells.
+Future<bool> pasteClipboardFormatted(RichTextController controller) async {
+  if (await pasteClipboardRich(controller)) return true;
+  final text = controller is TableCellController ? await _clipboardText() : null;
+  final own = text == null ? null : RichTextController.ownClip(text);
+  if (own != null && TextTables.any(own.paras)) {
+    controller.pasteRich(own);
+    return true;
+  }
+  if (text != null && (text.contains('\t') || text.trimRight().contains('\n'))) {
+    controller.pastePlain(text);
+    return true;
+  }
+  return false;
+}
+
+/// Ctrl+V (Ctrl+Shift+V: [plain]) with a block of cells selected: the
+/// clipboard replaces its top left cell, which [cell] then edits, and goes
+/// on rightwards and down as a paste into that cell does.
+Future<void> pasteIntoCells(TableCellController cell, {bool plain = false}) async {
+  final box = cell.owner;
+  final r = box.cellRange;
+  final t = r == null ? null : box.tableAt(r.table);
+  if (r == null || t == null) return;
+  box.enterCell(t.lineOf(r.top, r.left));
+  if (cell.line == null) return;
+  cell.selection = TextSelection(baseOffset: 0, extentOffset: cell.text.length);
+  if (!plain && await pasteClipboardFormatted(cell)) return;
+  await pasteClipboardPlain(cell);
 }
