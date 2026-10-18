@@ -56,3 +56,12 @@ into: after "Title" (a heading) the next thing typed was a heading, after a list
 empty bullet showed. A line the table adds is now plain text; a heading or item split by
 the table goes on below it (`text_table_test`: the line a table adds after it is plain
 text).
+
+### Right to left
+
+**R26-T7 P3 · A right-to-left table copied to another app came out left to right.** ✅
+In a Hebrew or Arabic box the first column is on the right (`TableLayout`, by the box's
+direction), but the HTML copy (`htmlFromText`) wrote a plain `<table>`: Word or Docs put
+the first column on the left, mirroring the table. A right-to-left box's table is now
+written `<table dir="rtl">` (`table_clipboard_test`: a right-to-left box writes its table
+right to left).

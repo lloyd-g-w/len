@@ -167,7 +167,10 @@ class _BoxWriter {
     if (_table != t) {
       _closeTable();
       _closeLists(0);
-      out.write('<table style="border-collapse:collapse">');
+      // Columns run in the box's direction (its first paragraph's), as
+      // the canvas lays them out.
+      final rtl = _dirs.first == TextDirection.rtl;
+      out.write('<table${rtl ? ' dir="rtl"' : ''} style="border-collapse:collapse">');
       _table = t;
       _cells = 0;
     }
