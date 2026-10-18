@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -19,6 +20,7 @@ import 'version_sheets.dart';
 export 'version_sheets.dart';
 
 part 'version_sheet_painter.dart';
+part 'version_zoom_detail.dart';
 
 /// A read-only picture of a version's page (or canvas): paper, ink and
 /// elements, as a piece of paper resting on the desk.
@@ -29,6 +31,7 @@ class VersionSurfaceView extends StatefulWidget {
     required this.version,
     this.page,
     required this.images,
+    this.zoom,
   });
 
   final VersionSheets sheets;
@@ -38,6 +41,10 @@ class VersionSurfaceView extends StatefulWidget {
   /// changed first (its thumbnail).
   final VersionPage? page;
   final ElementImages images;
+
+  /// The zoom of the [InteractiveViewer] it is shown in (a preview): a
+  /// large sheet's part zoomed into is rendered sharp ([_ZoomDetail]).
+  final TransformationController? zoom;
 
   @override
   State<VersionSurfaceView> createState() => VersionSurfaceViewState();
@@ -49,7 +56,8 @@ class VersionSurfaceView extends StatefulWidget {
 /// Kept light, as the history builds a screen of them when it jumps: what
 /// loads later (the sheet, its ink image, element images) repaints the
 /// picture ([_SheetPicture]) instead of rebuilding it, and the ink image a
-/// thumbnail needs is asked for when it is first painted, at its size.
+/// large sheet needs (a thumbnail, a preview) is asked for when it is first
+/// painted, at its size.
 class VersionSurfaceViewState extends State<VersionSurfaceView> {
   final _picture = _SheetPicture();
   bool _loading = true;
@@ -60,19 +68,30 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
   InkImageKey? _inkKey;
   var _inkPending = false;
 
+  /// The size and pixel ratio it was last painted at.
+  ({Size size, double dpr})? _paintedAt;
+
+  late final _detail = _ZoomDetail(this);
+
   /// Whether the version's page is shown (not the blank sheet shown while
   /// it loads, nor the one marked as not on this device).
-  bool get loaded => !_loading && _picture.sheet != null && _picture.painted && !_inkPending;
+  bool get loaded =>
+      !_loading && _picture.sheet != null && _picture.painted && !_inkPending && !_detail.pending;
 
   /// Whether its ink is drawn from a rendered image ([VersionInkImages]).
   @visibleForTesting
   bool get showsInkImage => _picture.ink != null;
+
+  /// Whether the part zoomed into is drawn sharp ([_ZoomDetail]).
+  @visibleForTesting
+  bool get showsZoomedPart => _picture.detail != null;
 
   @override
   void initState() {
     super.initState();
     _load();
     _images = widget.images.changes.listen((_) => _picture.imagesChanged());
+    _detail.follow(widget.zoom);
   }
 
   @override
@@ -80,6 +99,7 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
     super.didUpdateWidget(oldWidget);
     final old = oldWidget;
     if (old.version.id != widget.version.id || old.page?.id != widget.page?.id) _load();
+    _detail.follow(widget.zoom);
   }
 
   void _load() {
@@ -103,28 +123,34 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
     return page == null ? 0.75 : VersionContent.pageOf(widget.version, page).size.aspectRatio;
   }
 
-  /// The ink image a thumbnail of [sheet] [size] logical pixels large
-  /// draws, or null when it paints its strokes (small content, a preview).
+  /// The ink image a picture of [sheet] [size] logical pixels large
+  /// draws (at most [maxInkPixels] a side), or null when it paints its
+  /// strokes (small content).
   static InkImageKey? _inkFor(VersionSheet sheet, Size size, double dpr) {
-    if (size.width > _SheetPainter.thumbnailWidth || size.isEmpty) return null;
-    if (sheet.strokes.length < VersionInkImages.minStrokes) return null;
+    if (size.isEmpty || sheet.strokes.length < VersionInkImages.minStrokes) return null;
+    final pixels = math.min(dpr, maxInkPixels / math.max(size.width, size.height));
     return (
       strokes: sheet.strokes,
       frame: (sheet.origin ?? Offset.zero) & sheet.page.size,
-      width: (size.width * dpr).ceil(),
-      height: (size.height * dpr).ceil(),
+      width: (size.width * pixels).ceil(),
+      height: (size.height * pixels).ceil(),
     );
   }
+
+  /// The largest side of a picture's ink image (a preview on a large
+  /// screen; zoomed in, its part is rendered apart).
+  static const maxInkPixels = 4096.0;
 
   /// The ink image to draw [sheet] with at [size] (asked for when it
   /// changes; null while it renders), or null when it paints its strokes.
   ({ui.Image? image, InkImageKey key})? _inkAt(VersionSheet sheet, Size size, double dpr) {
+    _paintedAt = (size: size, dpr: dpr);
     final key = _inkFor(sheet, size, dpr);
     if (key != _inkKey) _askInk(key);
     return key == null ? null : (image: _picture.ink, key: key);
   }
 
-  /// Asks for [key]'s image (when the thumbnail is painted at a new size).
+  /// Asks for [key]'s image (when the picture is painted at a new size).
   void _askInk(InkImageKey? key) {
     _inkKey = key;
     _inkPending = key != null;
@@ -144,6 +170,7 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
   @override
   void dispose() {
     unawaited(_images?.cancel());
+    _detail.dispose();
     _picture.dispose();
     super.dispose();
   }
@@ -211,12 +238,25 @@ class _SheetPicture extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The sharp part of a zoomed-in preview, drawn over [ink] at [frame]
+  /// (world units).
+  ({ui.Image image, Rect frame})? detail;
+
+  void showDetail(({ui.Image image, Rect frame})? part) {
+    if (part == null && detail == null) return;
+    detail?.image.dispose();
+    detail = part;
+    notifyListeners();
+  }
+
   void imagesChanged() => notifyListeners();
 
   @override
   void dispose() {
     ink?.dispose();
     ink = null;
+    detail?.image.dispose();
+    detail = null;
     super.dispose();
   }
 }

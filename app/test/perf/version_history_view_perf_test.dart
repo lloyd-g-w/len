@@ -13,6 +13,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/history/version_history_sheet.dart';
 import 'package:len/features/history/version_ink_images.dart';
+import 'package:len/features/history/version_preview.dart';
 import 'package:len/features/history/version_surface_view.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -92,6 +93,7 @@ void main() {
     });
     expect(s.versions.of(nb.id), hasLength(12));
     await _open(tester, s, nb.id, 'canvas 50k, 12 versions');
+    await _preview(tester, s, nb.id, 'canvas 50k');
   }, timeout: const Timeout(Duration(minutes: 10)));
 }
 
@@ -215,6 +217,55 @@ Future<void> _open(WidgetTester tester, AppServices s, String notebookId, String
     '(pumps median ${pumps[pumps.length ~/ 2]}, max ${pumps.last} ms); '
     '${find.byType(VersionSurfaceView).evaluate().length} thumbnails built at the end',
   );
+}
+
+/// The oldest version's full-size preview (opened from the history
+/// [_open] left open): the frames until its picture shows, then until it
+/// is sharp at 4× (where the preview zooms).
+Future<void> _preview(WidgetTester tester, AppServices s, String notebookId, String label) async {
+  // The oldest: the history was left scrolled to it.
+  final oldest = s.versions.of(notebookId).last;
+  await tester.tap(find.byKey(ValueKey('version-${oldest.id}')));
+  Future<String> frames(String what) async {
+    final open = Stopwatch()..start();
+    final times = <int>[];
+    while (true) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 2)));
+      times.add(await _frameMs(tester, () => tester.pump(const Duration(milliseconds: 16))));
+      final views = find.descendant(
+        of: find.byType(VersionPreview),
+        matching: find.byType(VersionSurfaceView),
+      );
+      if (views.evaluate().isNotEmpty &&
+          tester.state<VersionSurfaceViewState>(views).loaded &&
+          times.length > 2) {
+        break;
+      }
+      if (open.elapsed > const Duration(minutes: 3)) fail('the preview did not load');
+    }
+    final ms = open.elapsedMilliseconds;
+    final inOrder = times.join(', ');
+    times.sort();
+    return '$label: preview $what in $ms ms over ${times.length} frames, '
+        'median ${times[times.length ~/ 2]} ms, longest ${times.last} ms ($inOrder)';
+  }
+
+  report(await frames('shown'));
+  // Again (the JIT compiled the preview's code the first time; the image
+  // is kept).
+  await tester.pageBack();
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(ValueKey('version-${oldest.id}')));
+  report(await frames('shown again'));
+  final viewer = tester.widget<InteractiveViewer>(find.byType(InteractiveViewer));
+  final zoom = viewer.transformationController;
+  if (zoom == null) return;
+  final box = tester.getSize(find.byType(InteractiveViewer));
+  zoom.value = Matrix4.identity()
+    ..translateByDouble(box.width / 2, box.height / 2, 0, 1)
+    ..scaleByDouble(4, 4, 1, 1)
+    ..translateByDouble(-box.width / 2, -box.height / 2, 0, 1);
+  report(await frames('sharp at 4×'));
 }
 
 /// How long the frame [pump] draws takes (ms): from its first frame

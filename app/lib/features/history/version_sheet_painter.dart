@@ -189,10 +189,13 @@ class _SheetPainter extends CustomPainter {
       pixelScale: scale,
     );
     elements(true);
-    if (image != null) {
+    void draw(ui.Image image, Rect frame) {
       final source = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
       canvas.drawImageRect(image, source, frame, Paint()..filterQuality = FilterQuality.low);
     }
+
+    if (image != null) draw(image, frame);
+    if (picture.detail case (:final image, frame: final part)) draw(image, part);
     elements(false);
   }
 

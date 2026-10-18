@@ -85,9 +85,13 @@ class VersionPreview extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(Gaps.xl),
           child: Center(
-            child: InteractiveViewer(
-              maxScale: 8,
-              child: VersionSurfaceView(sheets: sheets, version: version, images: services.images),
+            child: _Zoomable(
+              (zoom) => VersionSurfaceView(
+                sheets: sheets,
+                version: version,
+                images: services.images,
+                zoom: zoom,
+              ),
             ),
           ),
         ),
@@ -191,13 +195,13 @@ class VersionPreview extends StatelessWidget {
               body: Padding(
                 padding: const EdgeInsets.all(Gaps.xl),
                 child: Center(
-                  child: InteractiveViewer(
-                    maxScale: 8,
-                    child: VersionSurfaceView(
+                  child: _Zoomable(
+                    (zoom) => VersionSurfaceView(
                       sheets: sheets,
                       version: version,
                       page: page,
                       images: services.images,
+                      zoom: zoom,
                     ),
                   ),
                 ),
