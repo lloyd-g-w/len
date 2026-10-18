@@ -5,6 +5,8 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/element_repository.dart';
 import 'package:len/data/stroke_repository.dart';
 import 'package:len/domain/surface_element.dart';
+import 'package:len/domain/text/rich_text_buffer.dart';
+import 'package:len/domain/text/table_edits.dart';
 import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/editor/document/page_models.dart';
 import 'package:len/ink/elements/text_edit_session.dart';
@@ -146,6 +148,25 @@ void main() {
     expect(next.rect.width, head.rect.width);
     expect(stored().text, lines(12));
     expect(textOn('p2'), isEmpty);
+  });
+
+  test('a table reaching the bottom margin goes on between rows on the next page', () {
+    final b = RichTextBuffer(const TextData(text: 'Intro'));
+    final t = b.insertTable(5, 12, 2, header: true);
+    for (var k = 0; k < t.cells; k++) {
+      b.setCell(t.line + k, 'cell $k', List.filled('cell $k'.length, SpanStyle.plain));
+    }
+    final whole = b.toData(const TextData());
+    session.create(const Offset(40, 500), style: const TextData(), width: 300);
+    session.setData(whole);
+    session.end();
+    final next = TextData.fromJson(textOn('p1').single.data);
+    final first = next.paras.first.cell!;
+    expect(first.first && first.spec.continued, isTrue);
+    expect(first.header, isFalse);
+    expect(next.text.split('\n').first, matches(RegExp(r'cell \d*[02468]$')), reason: 'a row');
+    expect(stored(), whole);
+    expect(TextTables.of(stored().paras).single.rows, 12);
   });
 
   test('the whole chain is one undo step; so is redo', () {
