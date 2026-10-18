@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app_services.dart';
@@ -101,7 +102,11 @@ Future<bool> _restore(
   Future<Restored> Function() restore,
   String when, {
   bool page = false,
-}) => _once(false, () => _restoreNow(context, services, version, restore, when, page: page));
+}) => _once(
+  VersionWork.restore,
+  false,
+  () => _restoreNow(context, services, version, restore, when, page: page),
+);
 
 Future<bool> _restoreNow(
   BuildContext context,
@@ -141,23 +146,33 @@ Future<bool> _restoreNow(
   return true;
 }
 
-/// Whether a restore or copy is running: a second tap (on Copy, on
-/// Restore while the first writes) is ignored rather than run twice.
-bool _busy = false;
+/// A restore or a copy of a version, while it runs ([versionWork]).
+enum VersionWork { restore, copy }
 
-Future<T> _once<T>(T idle, Future<T> Function() run) async {
-  if (_busy) return idle;
-  _busy = true;
+/// The restore or copy running now (null: none). One runs at a time: a
+/// second tap (on Copy, on Restore while the first writes) is ignored
+/// rather than run twice, and the buttons say what runs meanwhile (a large
+/// notebook takes a while).
+ValueListenable<VersionWork?> get versionWork => _work;
+final _work = ValueNotifier<VersionWork?>(null);
+
+/// [versionWork], to set in tests.
+@visibleForTesting
+ValueNotifier<VersionWork?> get debugVersionWork => _work;
+
+Future<T> _once<T>(VersionWork work, T idle, Future<T> Function() run) async {
+  if (_work.value != null) return idle;
+  _work.value = work;
   try {
     return await run();
   } finally {
-    _busy = false;
+    _work.value = null;
   }
 }
 
 /// "Copy as new notebook": writes [version] as a new notebook next to it.
 Future<void> copyVersionFlow(BuildContext context, AppServices services, NotebookVersion version) =>
-    _once(null, () => _copy(context, services, version));
+    _once(VersionWork.copy, null, () => _copy(context, services, version));
 
 Future<void> _copy(BuildContext context, AppServices services, NotebookVersion version) async {
   final title = '${version.title} (${VersionLabels.when(version)})';

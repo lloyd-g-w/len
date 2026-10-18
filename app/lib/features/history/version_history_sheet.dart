@@ -107,7 +107,13 @@ class _VersionHistoryState extends State<VersionHistory> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(Gaps.lg, widget.wide ? Gaps.lg : 0, Gaps.lg, Gaps.sm),
+              // The progress bar below takes the rest of the gap.
+              padding: EdgeInsets.fromLTRB(
+                Gaps.lg,
+                widget.wide ? Gaps.lg : 0,
+                Gaps.lg,
+                Gaps.sm - Hairline.rule,
+              ),
               child: LayoutBuilder(
                 builder: (context, box) => SheetHeader(
                   title: 'Version history',
@@ -115,6 +121,14 @@ class _VersionHistoryState extends State<VersionHistory> {
                   onClose: () => Navigator.of(context).pop(),
                   trailing: _saveButton(context, box.maxWidth),
                 ),
+              ),
+            ),
+            // A restore or copy from a row's ⋯ runs with the list in view.
+            ValueListenableBuilder(
+              valueListenable: versionWork,
+              builder: (context, running, _) => SizedBox(
+                height: Hairline.rule,
+                child: running == null ? null : const LinearProgressIndicator(),
               ),
             ),
             Flexible(

@@ -11,6 +11,7 @@ import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/chrome/editor_menu_actions.dart';
 import 'package:len/features/editor/chrome/editor_more_menu.dart';
+import 'package:len/features/history/version_flows.dart';
 import 'package:len/features/history/version_history_sheet.dart';
 import 'package:len/features/history/version_row_text.dart';
 import 'package:len/features/library/library_menus.dart';
@@ -220,6 +221,37 @@ void main() {
 
     await tester.tap(find.text('Undo'));
     await pumpUntil(tester, () => strokesOn(pages.last).length == 2, reason: 'undone');
+  });
+
+  testWidgets('while a restore runs, the preview says so and takes no other', (tester) async {
+    final (old, _) = await twoVersions(tester);
+    await open(tester);
+    final work = debugVersionWork;
+    addTearDown(() => work.value = null);
+    // A copy from a row's ⋯ runs with the list in view: the sheet shows progress.
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    work.value = VersionWork.copy;
+    await tester.pump();
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    work.value = null;
+    await tester.pump();
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    await tester.tap(find.byKey(ValueKey('version-${old.id}')));
+    await tester.pumpAndSettle();
+    work.value = VersionWork.restore;
+    await tester.pump();
+    // A large notebook takes a while.
+    final restoring = find.widgetWithText(FilledButton, 'Restoring…');
+    expect(tester.widget<FilledButton>(restoring).onPressed, isNull);
+    final copy = find.widgetWithText(TextButton, 'Copy as new notebook');
+    expect(tester.widget<TextButton>(copy).onPressed, isNull);
+    work.value = null;
+    await tester.pump();
+    expect(
+      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Restore')).onPressed,
+      isNotNull,
+    );
+    expect(tester.widget<TextButton>(copy).onPressed, isNotNull);
   });
 
   testWidgets('Escape closes the page view, then the preview (R25-8)', (tester) async {
