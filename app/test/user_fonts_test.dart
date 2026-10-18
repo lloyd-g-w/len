@@ -162,6 +162,20 @@ void main() {
       expect(refs.all(), isNot(contains(font.blob)));
       expect(refs.keeps(font.blob, 0), isFalse);
     });
+    test('fonts are listed in natural order: "Font 2" before "Font 10", any case', () {
+      final s = _services();
+      addTearDown(s.dispose);
+      for (final name in ['Font 10', 'font 2', 'Source Serif 4', 'Font 1', 'caveat']) {
+        _repo(s).add(name: name, blob: sha256.convert(utf8.encode(name)).toString());
+      }
+      expect(_repo(s).list().map((f) => f.name), [
+        'caveat',
+        'Font 1',
+        'font 2',
+        'Font 10',
+        'Source Serif 4',
+      ]);
+    });
   });
 
   group('sync', () {
