@@ -31,3 +31,21 @@
 - *Fix:* it adds columns too, up to `TableSpec.maxColumns` (12; only cells past that are
   dropped, as a pasted HTML table's are) (`table_editor_test`: rows of tab-separated text
   pasted into a cell fill cells, adding rows and columns).
+
+### Inserting a table
+
+**R26-T4 P2 · On touch screens the size picker's last column was cut off and could not be picked.** ✅
+- *What:* the picker padded itself (`Gaps.md`) inside the popover's own padding, leaving
+  224 dp for a grid of 8 × 30 dp touch cells: the eighth column was painted past the
+  grid's box, half of it, and taps there missed it (an Android tablet could pick at most
+  7 columns from the grid). The phone sheet had the same doubled margin.
+- *Fix:* the picker no longer pads itself (as the other popovers' contents); the grid is
+  whole (`table_editor_test`: the size picker shows its whole grid).
+
+**R26-T5 P3 · The size picker's grid could not be used from the keyboard or a screen reader.** ✅
+Only three preset buttons (2 × 2, 3 × 3, 4 × 3) were reachable; the grid was a bare
+`GestureDetector` with no semantics. The grid now takes the focus when the picker opens
+(a focus ring in the accent when the keyboard is used), arrows size the table, Enter
+inserts it; screen readers read it as "Table size", its value "2 × 3", a tap inserts it
+(`table_editor_test`: the size picker takes the keyboard). The unused
+`TableSpec.maxPickerRows` went.

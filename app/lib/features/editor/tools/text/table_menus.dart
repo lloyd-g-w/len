@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../domain/text/text_data.dart';
@@ -123,6 +124,9 @@ class TablePicker extends StatefulWidget {
 class _TablePickerState extends State<TablePicker> {
   int _rows = 2, _columns = 2;
 
+  /// Whether the grid shows the keyboard's focus.
+  bool _highlight = false;
+
   void _mark(Offset local, double cell) {
     final r = (local.dy ~/ cell + 1).clamp(1, TablePicker.rows);
     final c = (local.dx ~/ cell + 1).clamp(1, TablePicker.columns);
@@ -135,61 +139,90 @@ class _TablePickerState extends State<TablePicker> {
 
   void _pick() => Navigator.of(context).pop((rows: _rows, columns: _columns));
 
+  static const Map<ShortcutActivator, Intent> _keys = {
+    SingleActivator(LogicalKeyboardKey.arrowUp): _GrowIntent(-1, 0),
+    SingleActivator(LogicalKeyboardKey.arrowDown): _GrowIntent(1, 0),
+    SingleActivator(LogicalKeyboardKey.arrowLeft): _GrowIntent(0, -1),
+    SingleActivator(LogicalKeyboardKey.arrowRight): _GrowIntent(0, 1),
+  };
+
+  void _grow(_GrowIntent g) => setState(() {
+    _rows = (_rows + g.rows).clamp(1, TablePicker.rows);
+    _columns = (_columns + g.columns).clamp(1, TablePicker.columns);
+  });
+
+  Widget _grid(double cell, ColorScheme scheme) => MouseRegion(
+    onHover: (e) => _mark(e.localPosition, cell),
+    child: GestureDetector(
+      key: const ValueKey('table-picker-grid'),
+      onTapDown: (d) => _mark(d.localPosition, cell),
+      onTapUp: (_) => _pick(),
+      onPanUpdate: (d) => _mark(d.localPosition, cell),
+      onPanEnd: (_) => _pick(),
+      child: SizedBox(
+        width: cell * TablePicker.columns,
+        height: cell * TablePicker.rows,
+        child: CustomPaint(
+          painter: _GridPainter(
+            rows: _rows,
+            columns: _columns,
+            cell: cell,
+            line: scheme.outlineVariant,
+            fill: Surfaces.selected(scheme),
+            mark: scheme.onSurface,
+            focus: _highlight ? scheme.primary : null,
+          ),
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final cell = Targets.touchFirst ? 30.0 : 26.0;
-    return Padding(
-      padding: const EdgeInsets.all(Gaps.md),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '$_rows × $_columns table',
-            key: const ValueKey('table-picker-size'),
-            style: theme.textTheme.labelLarge?.copyWith(fontFeatures: AppTheme.tabularFigures),
+    // (The popover or sheet gives the room around it.)
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$_rows × $_columns table',
+          key: const ValueKey('table-picker-size'),
+          style: theme.textTheme.labelLarge?.copyWith(fontFeatures: AppTheme.tabularFigures),
+        ),
+        const SizedBox(height: Gaps.sm),
+        // Keyboards: arrows size the table, Enter picks it.
+        FocusableActionDetector(
+          autofocus: true,
+          onShowFocusHighlight: (on) => setState(() => _highlight = on),
+          shortcuts: _keys,
+          actions: {
+            _GrowIntent: CallbackAction<_GrowIntent>(onInvoke: _grow),
+            ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => _pick()),
+          },
+          child: Semantics(
+            label: 'Table size',
+            value: '$_rows × $_columns',
+            onTap: _pick,
+            excludeSemantics: true,
+            child: _grid(cell, scheme),
           ),
-          const SizedBox(height: Gaps.sm),
-          MouseRegion(
-            onHover: (e) => _mark(e.localPosition, cell),
-            child: GestureDetector(
-              key: const ValueKey('table-picker-grid'),
-              onTapDown: (d) => _mark(d.localPosition, cell),
-              onTapUp: (_) => _pick(),
-              onPanUpdate: (d) => _mark(d.localPosition, cell),
-              onPanEnd: (_) => _pick(),
-              child: SizedBox(
-                width: cell * TablePicker.columns,
-                height: cell * TablePicker.rows,
-                child: CustomPaint(
-                  painter: _GridPainter(
-                    rows: _rows,
-                    columns: _columns,
-                    cell: cell,
-                    line: scheme.outlineVariant,
-                    fill: Surfaces.selected(scheme),
-                    mark: scheme.onSurface,
-                  ),
-                ),
+        ),
+        const SizedBox(height: Gaps.sm),
+        // Screen readers and keyboards: common sizes as buttons.
+        Wrap(
+          spacing: Gaps.xs,
+          children: [
+            for (final (r, c) in const [(2, 2), (3, 3), (4, 3)])
+              TextButton(
+                onPressed: () => Navigator.of(context).pop((rows: r, columns: c)),
+                child: Text('$r × $c'),
               ),
-            ),
-          ),
-          const SizedBox(height: Gaps.sm),
-          // Screen readers and keyboards: common sizes as buttons.
-          Wrap(
-            spacing: Gaps.xs,
-            children: [
-              for (final (r, c) in const [(2, 2), (3, 3), (4, 3)])
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop((rows: r, columns: c)),
-                  child: Text('$r × $c'),
-                ),
-            ],
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -202,11 +235,15 @@ class _GridPainter extends CustomPainter {
     required this.line,
     required this.fill,
     required this.mark,
+    this.focus,
   });
 
   final int rows, columns;
   final double cell;
   final Color line, fill, mark;
+
+  /// The keyboard focus ring's colour, when it shows.
+  final Color? focus;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -227,8 +264,25 @@ class _GridPainter extends CustomPainter {
         canvas.drawRect(rect, picked ? edge : stroke);
       }
     }
+    final ring = focus;
+    if (ring != null) {
+      canvas.drawRect(
+        (Offset.zero & size).deflate(Hairline.rule / 2),
+        Paint()
+          ..color = ring
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = Hairline.rule,
+      );
+    }
   }
 
   @override
-  bool shouldRepaint(_GridPainter old) => old.rows != rows || old.columns != columns;
+  bool shouldRepaint(_GridPainter old) =>
+      old.rows != rows || old.columns != columns || old.focus != focus;
+}
+
+class _GrowIntent extends Intent {
+  const _GrowIntent(this.rows, this.columns);
+
+  final int rows, columns;
 }

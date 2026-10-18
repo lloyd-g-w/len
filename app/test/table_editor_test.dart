@@ -141,6 +141,42 @@ void main() {
     expect(cells(stored), ['a', 'b', '', '', '', '']);
   });
 
+  testWidgets('the size picker takes the keyboard: arrows size the table, Enter inserts it', (
+    tester,
+  ) async {
+    await openBox(tester, const TextData());
+    await tester.tap(find.byTooltip('Insert table'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 × 2 table'), findsOneWidget);
+    await press(tester, LogicalKeyboardKey.arrowRight);
+    await press(tester, LogicalKeyboardKey.arrowRight);
+    await press(tester, LogicalKeyboardKey.arrowDown);
+    expect(find.text('3 × 4 table'), findsOneWidget);
+    await press(tester, LogicalKeyboardKey.arrowUp);
+    await press(tester, LogicalKeyboardKey.arrowUp);
+    await press(tester, LogicalKeyboardKey.arrowUp);
+    expect(find.text('1 × 4 table'), findsOneWidget, reason: 'one row at least');
+    await press(tester, LogicalKeyboardKey.enter);
+    final t = TextTables.of(boxController(tester).data.paras).single;
+    expect((t.rows, t.columns), (1, 4));
+    expect(boxController(tester).activeCell, t.line);
+  });
+
+  testWidgets('the size picker shows its whole grid: the last column can be picked', (
+    tester,
+  ) async {
+    await openBox(tester, const TextData());
+    await tester.tap(find.byTooltip('Insert table'));
+    await tester.pumpAndSettle();
+    final grid = find.byKey(const ValueKey('table-picker-grid'));
+    final size = tester.getSize(grid);
+    expect(size.width, size.height, reason: 'eight columns as wide as eight rows are tall');
+    await tester.tapAt(tester.getTopRight(grid) + Offset(-size.width / 16, size.height / 16));
+    await tester.pumpAndSettle();
+    final t = TextTables.of(boxController(tester).data.paras).single;
+    expect((t.rows, t.columns), (1, 8));
+  });
+
   testWidgets('arrows cross cell borders and leave the table', (tester) async {
     final b = RichTextBuffer(const TextData(text: 'top\nend'));
     final t = b.insertTable(4, 2, 2);

@@ -21,10 +21,6 @@ class TableSpec {
   /// The most columns a table has.
   static const int maxColumns = 12;
 
-  /// The most rows a table inserted from the picker has (more come by
-  /// adding rows).
-  static const int maxPickerRows = 10;
-
   /// The narrowest a column gets, as a share of the table.
   static const double minShare = 0.04;
 
