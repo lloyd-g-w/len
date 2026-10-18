@@ -12,3 +12,12 @@
   the fonts not loaded yet again after each sync that worked and each change sync brings
   (`user_fonts_test`: the Len files case now checks the library; "a font whose file couldn't be
   had is tried again after a sync that worked").
+
+**R26-F2 P2 · Settings → Fonts showed a font that isn't on this device with a Sans sample, as if it were the font.** ✅
+- *What:* `features/settings/font_settings.dart` drew each font's pangram through
+  `fontSample`, which falls back to Inter while the file isn't here (not synced yet, offline):
+  the row looked fine but showed the wrong typeface, without a word (the picker says "Not on
+  this device yet"). It also listened only to the library, so a sample drawn before the file
+  loaded stayed in Sans; and screen readers read the pangram after every font's name.
+- *Fix:* such a row says "Not on this device yet" and has no sample; the section rebuilds on
+  `TextFonts.changes`; the sample is left out of semantics (`font_settings_test`).
