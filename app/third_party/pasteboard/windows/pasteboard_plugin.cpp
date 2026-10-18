@@ -643,6 +643,8 @@ void PasteboardPlugin::HandleMethodCall(
     if (IsClipboardFormatAvailable(CF_UNICODETEXT)) kinds.emplace_back(std::string("text"));
     const UINT html_format = RegisterClipboardFormatA("HTML Format");
     if (html_format && IsClipboardFormatAvailable(html_format)) kinds.emplace_back(std::string("html"));
+    const UINT rtf_format = RegisterClipboardFormatA("Rich Text Format");
+    if (rtf_format && IsClipboardFormatAvailable(rtf_format)) kinds.emplace_back(std::string("rtf"));
     if (IsClipboardFormatAvailable(CF_HDROP)) kinds.emplace_back(std::string("files"));
     result->Success(flutter::EncodableValue(kinds));
   }
@@ -707,6 +709,34 @@ void PasteboardPlugin::HandleMethodCall(
 		GlobalUnlock(hClipboardData);
 	}
 	CloseClipboard();
+  }
+  else if (method_call.method_name() == "rtf") {
+    // Len's addition: the "Rich Text Format" data (WordPad, Word) as bytes
+    // (RTF is 7-bit ASCII with escapes, but may hold raw 8-bit bytes),
+    // up to its terminating NUL; null when there is none.
+    const UINT rtf_format = RegisterClipboardFormatA("Rich Text Format");
+    if (!rtf_format || !IsClipboardFormatAvailable(rtf_format)) {
+      result->Success();
+      return;
+    }
+    if (!OpenClipboard(nullptr)) {
+      result->Error("0", "open clipboard failed");
+      return;
+    }
+    HANDLE data = GetClipboardData(rtf_format);
+    const uint8_t *p = data ? static_cast<const uint8_t *>(GlobalLock(data)) : nullptr;
+    if (p == nullptr) {
+      CloseClipboard();
+      result->Success();
+      return;
+    }
+    SIZE_T size = GlobalSize(data);
+    const void *nul = std::memchr(p, 0, size);
+    if (nul) size = static_cast<SIZE_T>(static_cast<const uint8_t *>(nul) - p);
+    std::vector<uint8_t> bytes(p, p + size);
+    GlobalUnlock(data);
+    CloseClipboard();
+    result->Success(flutter::EncodableValue(bytes));
   }
   else {
   result->NotImplemented();

@@ -12,6 +12,9 @@ enum PasteboardKind {
   /// HTML (rich text).
   html,
 
+  /// RTF (rich text: WordPad, LibreOffice; Windows and Linux).
+  rtf,
+
   /// Files or URIs (desktop file managers).
   files;
 
@@ -31,6 +34,9 @@ abstract class PasteboardPlatform {
   Future<Uint8List?> get image;
 
   Future<String?> get html;
+
+  /// The clipboard's RTF (Windows "Rich Text Format", GTK `text/rtf`).
+  Future<String?> get rtf;
 
   Future<void> writeImage(Uint8List? image);
 

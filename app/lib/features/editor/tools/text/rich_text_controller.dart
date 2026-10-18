@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../../../domain/text/html_text.dart';
 import '../../../../domain/text/html_writer.dart';
 import '../../../../domain/text/rich_text_buffer.dart';
 import '../../../../domain/text/text_data.dart';
@@ -11,6 +10,7 @@ import '../../../../ink/elements/text_edit_session.dart' show BoxHistory;
 import '../../../../ink/elements/text_layout.dart';
 import '../../../../platform/clipboard_html.dart';
 import '../../clipboard/rich_clipboard.dart';
+import 'clipboard_rich_text.dart';
 
 part 'rich_text_clipboard.dart';
 part 'rich_text_formatting.dart';
@@ -167,13 +167,13 @@ class RichTextController extends _RichTextState
     // Text copied from a box here keeps its formatting (a paste: more
     // than one character at once, not composed by the keyboard, so what
     // is typed or swiped is never taken for it); a browser paste (web) of
-    // HTML from another app is formatted.
+    // HTML or RTF from another app is formatted.
     final pasted = inserted.length > 1 && !(next.composing.isValid && !next.composing.isCollapsed);
     final rich = inserted.isEmpty
         ? null
         : pasted && clip?.text == inserted
         ? clip
-        : _pastedHtml(inserted);
+        : _pastedRich(inserted);
     if (rich != null) {
       _buffer.insertRich(start, end, rich, style, exact: identical(rich, clip));
       inserted = rich.text;

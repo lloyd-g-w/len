@@ -1,19 +1,19 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../../../domain/text/html_text.dart';
 import '../../../../platform/clipboard_html.dart';
+import 'clipboard_rich_text.dart';
 import 'rich_text_controller.dart';
 
-/// Pastes the clipboard's HTML (from a browser, Google Docs, Word, …) into
-/// [controller] as formatted text. False — the caller pastes plain text —
-/// when there is no HTML, or the text was copied from a box here (whose
-/// remembered formatting the plain paste restores).
-Future<bool> pasteClipboardHtml(RichTextController controller) async {
+/// Pastes the clipboard's HTML (from a browser, Google Docs, Word, …) or,
+/// without HTML, its RTF (WordPad, …) into [controller] as formatted text.
+/// False — the caller pastes plain text — when there is neither, or the
+/// text was copied from a box here (whose remembered formatting the plain
+/// paste restores).
+Future<bool> pasteClipboardRich(RichTextController controller) async {
   final text = await _clipboardText();
   if (text != null && RichTextController.isOwnClip(text)) return false;
-  final html = await readClipboardHtml();
-  final rich = html == null ? null : textFromHtml(html, controller.box);
+  final rich = richTextOf(await readClipboardRich(), controller.box);
   if (rich == null) return false;
   controller.pasteRich(rich);
   return true;
@@ -34,7 +34,7 @@ Future<String?> _clipboardText() async {
 }
 
 /// Overrides the text field's paste ([PasteTextIntent], Ctrl+V): formatted
-/// HTML when the clipboard has it, else the field's own paste.
+/// text when the clipboard has HTML or RTF, else the field's own paste.
 class RichPasteAction extends Action<PasteTextIntent> {
   RichPasteAction(this.controller);
 
@@ -50,6 +50,6 @@ class RichPasteAction extends Action<PasteTextIntent> {
   Future<void> invoke(PasteTextIntent intent) async {
     // Only set while this runs synchronously.
     final fallback = callingAction;
-    if (!await pasteClipboardHtml(controller)) fallback?.invoke(intent);
+    if (!await pasteClipboardRich(controller)) fallback?.invoke(intent);
   }
 }

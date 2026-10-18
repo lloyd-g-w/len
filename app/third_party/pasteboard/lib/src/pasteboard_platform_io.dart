@@ -48,6 +48,13 @@ class PasteboardPlatformIO implements PasteboardPlatform {
   }
 
   @override
+  Future<String?> get rtf async {
+    if (!(Platform.isWindows || Platform.isLinux)) return null;
+    final bytes = await _channel.invokeMethod<Uint8List>('rtf');
+    return bytes == null ? null : decodeRtfBytes(bytes);
+  }
+
+  @override
   Future<Uint8List?> get image async {
     final image = await _channel.invokeMethod<Object>('image');
 
@@ -160,4 +167,21 @@ String decodeHtmlBytes(Uint8List bytes) {
     ]);
   }
   return utf8.decode(bytes, allowMalformed: true);
+}
+
+/// RTF bytes from the clipboard: 7-bit ASCII with escapes, so read as
+/// Latin-1 (raw 8-bit bytes keep their value) unless they are valid UTF-8
+/// (some Linux apps); trailing NULs (Windows) are dropped.
+@visibleForTesting
+String decodeRtfBytes(Uint8List bytes) {
+  var end = bytes.length;
+  while (end > 0 && bytes[end - 1] == 0) {
+    end--;
+  }
+  final data = Uint8List.sublistView(bytes, 0, end);
+  try {
+    return utf8.decode(data);
+  } on FormatException {
+    return latin1.decode(data);
+  }
 }

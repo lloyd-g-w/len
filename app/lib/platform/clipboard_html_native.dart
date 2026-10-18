@@ -1,20 +1,29 @@
 import 'package:flutter/foundation.dart';
 import 'package:pasteboard/pasteboard.dart';
 
-/// The clipboard's HTML, or null (none, or the platform cannot tell).
-Future<String?> readClipboardHtml() async {
+import 'rich_clip.dart';
+
+/// The clipboard's formatted text: its HTML, or (only when it has none)
+/// its RTF; empty where the platform cannot tell.
+Future<RichClip> readClipboardRich() async {
+  final html = await _read('HTML', () => Pasteboard.html);
+  if (html != null) return (html: html, rtf: null);
+  return (html: null, rtf: await _read('RTF', () => Pasteboard.rtf));
+}
+
+Future<String?> _read(String kind, Future<String?> Function() read) async {
   try {
-    final html = await Pasteboard.html;
-    return html == null || html.isEmpty ? null : html;
+    final text = await read();
+    return text == null || text.isEmpty ? null : text;
   } catch (e) {
-    debugPrint('Clipboard HTML unavailable: $e');
+    debugPrint('Clipboard $kind unavailable: $e');
     return null;
   }
 }
 
-/// The HTML of a browser paste that just inserted [plain] into a text
-/// field: web only.
-String? htmlPastedAs(String plain) => null;
+/// The formatted text of a browser paste that just inserted [plain] into a
+/// text field: web only.
+RichClip? richPastedAs(String plain) => null;
 
 /// Starts watching browser paste events: web only.
 void watchClipboardPastes() {}
