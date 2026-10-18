@@ -41,3 +41,12 @@
 added), and a file that is no font said "Couldn’t import “x.otf”" with the reason only under
 Details. Now "“Caveat” is already in your fonts" and "“notes.otf” isn’t a TrueType or OpenType
 font" (`NotAFontException`); Details stays for files the engine refuses (`font_import_test`).
+
+### Paragraph spacing
+
+**R26-F5 P3 · At large text the Text options cut "Paragraph spacing" to "Paragraph".** ✅
+`ParagraphSpacingRow` and `FontMenuRow` (`features/editor/tools/text/`) were fixed at a menu
+row's height, so a label that wraps at 2× lost its second line. They are now at least that high.
+The format bar's size number (the other auditor's "24" wrapping, phones and tablets alike at 2×)
+no longer wraps either: at least 28 wide, one line, tabular figures (`text_controls_large_text_test`;
+six text goldens moved by the figures).

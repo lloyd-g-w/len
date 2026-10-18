@@ -138,8 +138,9 @@ class FontMenuRow extends StatelessWidget {
       tooltip: 'Font',
       onSelected: (v) => unawaited(_choose(context, v, onSelected)),
       items: () => _fontItems(context, current),
-      child: SizedBox(
-        height: Targets.menuRowHeight(context),
+      // (At least a row's height: large text wraps the label.)
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: Targets.menuRowHeight(context)),
         child: Row(
           children: [
             Expanded(child: Text('Font', style: theme.textTheme.labelLarge)),

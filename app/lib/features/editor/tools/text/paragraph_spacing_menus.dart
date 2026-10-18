@@ -49,8 +49,9 @@ class ParagraphSpacingRow extends StatelessWidget {
       tooltip: 'Paragraph spacing',
       onSelected: onSelected,
       items: () => paragraphSpacingItems(spacing),
-      child: SizedBox(
-        height: Targets.menuRowHeight(context),
+      // (At least a row's height: large text wraps the label.)
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: Targets.menuRowHeight(context)),
         child: Row(
           children: [
             Expanded(child: Text('Paragraph spacing', style: theme.textTheme.labelLarge)),
