@@ -68,11 +68,14 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   italic, underline, strikethrough, colours, headings and nested lists / checklists, in a box being
   edited or as a new box on the canvas (Windows, Linux, Android, web); Ctrl+Shift+V pastes plain
   text
+- ✅ Text: RTF-only paste (WordPad, TextEdit-style RTF, LibreOffice / AbiWord on Linux) — formatting,
+  colours, mono fonts, relative font sizes, headings and lists from a pure-Dart RTF reader (Windows,
+  Linux; web where the browser passes RTF in its paste event)
 - ✅ Lasso *Style*: font and size of selected text boxes, pen type and width of selected ink
 - ✅ Text: paragraph spacing (None / Small / Medium / Large below each paragraph, per box: format
   bar, on phones its ⋯; default in the Text tool's options), synced, flowing across pages, in PDF
   export, rich copy / paste (`margin-bottom`) and search highlights
-- ⬜ Text: RTF-only paste (WordPad), font import, tables
+- ⬜ Text: font import, tables
 - ✅ Images: insert from files (top bar), the system clipboard (Ctrl+V), drag and drop (desktop) and
   the camera (Android); downscaled to 4096 px on import; beneath the ink by default with bring to
   front / send to back; move, resize, rotate, crop, duplicate, copy/paste (across notebooks), undo;

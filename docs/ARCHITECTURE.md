@@ -2492,9 +2492,39 @@ GoodNotes-style rich text inside a box.
   is matched by its plain text in `RichTextController._applyEdit`; Ctrl+Shift+V
   there is the browser's plain paste) or else the async Clipboard API (may ask
   for permission). macOS / iOS are not targets (`pasteboard` returns no HTML
-  there). RTF-only clipboards (WordPad) paste as plain text. Content marked
+  there). Content marked
   `aria-hidden="true"` is skipped (icon glyphs; the ☐ / ☑ Len writes); an
   empty list item or heading (`<li><br></li>`) keeps its style.
+  **RTF-only clipboards** (WordPad; apps offering both get the HTML read)
+  go through `textFromRtf` (`domain/text/rtf_text.dart`, pure Dart: a
+  tokenizer, `rtf_tokens.dart`; group state, `rtf_state.dart`; the header
+  tables, `rtf_tables.dart`; lines and the result, `rtf_lines.dart`; Windows
+  code pages 1252 / 1250 / 1251 for `\'hh`, `rtf_code_pages.dart`, others
+  read as Latin-1): `\b` `\i` `\ul…` `\strike`, `\cf` / `\highlight` /
+  `\cb` colours from `\colortbl` that are not grey (`isGreyish`, as HTML),
+  monospaced fonts (`\fmodern`, `\fprq1` or a Courier / Consolas / Menlo /
+  … name) as mono, Cocoa's bold / italic faces (`Helvetica-Bold`) as bold /
+  italic, `\u` with `\uc` fallbacks and surrogate pairs, field results
+  (not instructions), `\outlinelevel` or stylesheet "heading 1/2/3" styles
+  → headings, lists from Word's `\listtable` (`\levelnfc` 23 bullet, 255
+  none, else number; `\ls` via `\listoverridetable`, `\ilvl` → indent),
+  else the `\listtext` / `\pntext` marker ("1." / "a)" → number) or
+  WordPad's `\pn`; non-text destinations (`\*…`, pictures, objects,
+  headers, info, theme data, `\bin`) are skipped. Unlike HTML, font sizes
+  are kept *relative*: the size most body characters have is the box's,
+  runs more than 10 % off it get the box size × their ratio (headings
+  keep theirs). `\sa` / `\sb` of most paragraphs, relative to that body
+  size, pick the paragraph spacing (else the box's). `richTextOf`
+  (`clipboard_rich_text.dart`) chooses HTML, else RTF, for the three paste
+  paths (`pasteClipboardRich`, the web paste event in the field,
+  `EditorImages.paste`, whose `readRich` is injectable). RTF comes from
+  `readClipboardRich`: **Windows** the "Rich Text Format" clipboard format,
+  **Linux** the first of the GTK targets `text/rtf`, `application/rtf`,
+  `text/richtext` (LibreOffice, AbiWord) — both added to our `pasteboard`
+  (`Pasteboard.rtf`, bytes read as Latin-1 unless valid UTF-8) and only
+  asked when there is no HTML —, **web** the paste event's `text/rtf`
+  where the browser passes it (Chromium on Windows, Firefox; not Safari;
+  the async Clipboard API has none). **Android** clips carry no RTF.
 - **Rich copy to other apps**: `htmlFromTexts` (`domain/text/html_writer.dart`)
   is the inverse of `textFromHtml`: one block per line (`<div>`, `<h1>` /
   `<h2>`, `<br>` when empty), list items as nested `<ul>` / `<ol>` (a
@@ -4052,8 +4082,10 @@ again.
   (each a small GPU read-back).
 - Pixel-erasing a long stroke, or moving a selection, rewrites strokes as
   new records (simple and sync-safe, but more rows than a delta).
-- Text boxes: paste keeps formatting from HTML only (RTF-only sources such as
-  WordPad paste plain); PDF export places glyphs
+- Text boxes: paste keeps formatting from HTML and RTF; RTF in code pages
+  other than 1252 / 1250 / 1251 (raw `\'hh` bytes; `\u` is fine), RTF
+  tables (cells joined by spaces) and Android (clips carry no RTF) fall back
+  to less; PDF export places glyphs
   word by word without kerning; boxes with characters outside the bundled
   fonts' subsets export as images.
 - Android: historical stylus samples are merged from a platform channel;
