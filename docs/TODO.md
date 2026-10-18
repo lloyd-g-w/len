@@ -282,6 +282,22 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
+- ⬜ **A table split over pages, one page at a time** (UX_AUDIT R26-13): a column added to or
+  removed from one page's part of a split table makes two tables; widths and the header row set
+  on a continued part are reverted. Options: edit the chain as a whole there too (as continuous
+  layouts do), or carry widths / header back to the other parts and disable the column commands
+  on a split part ("Show pages together to change columns").
+- ⬜ **Repeat a table's header row** on the pages it continues on (UX_AUDIT R26-15), as Word /
+  Docs can, or keep it on the first page only.
+- ⬜ **Text in a missing font** (UX_AUDIT R26-30): laid out in Sans in the frame measured with the
+  real font, it may run past the frame until the file arrives. Accept, or lay such boxes out again
+  for display only.
+- ⬜ **The phone ⋯ of a text box** (UX_AUDIT R26-17, R26-31): in a table it holds 13 rows, and at
+  2× text the four spacing rows truncate. Proposal: one "Table…" row and one "Paragraph spacing"
+  row (current one as caption), each opening the menu the tablet's button shows.
+- ⬜ **Escape in a full-screen page's text field** (UX_AUDIT R26-41): Settings' fields leave the
+  field on the first Escape and close the page on the second, while dialogs close at once. Keep
+  (no typed text lost to one key) or close at once everywhere.
 - ✅ **A restore while the notebook keeps changing** (bug hunt 6): `VersionRestorer._beforeAnd`
   makes the version before a restore again while sync writes to the notebook, but its fourth
   attempt goes ahead regardless, so ink synced in during that one is removed and kept in no

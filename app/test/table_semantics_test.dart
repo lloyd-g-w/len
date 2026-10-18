@@ -14,7 +14,7 @@ void main() {
   ) async {
     final handle = tester.ensureSemantics();
     final data = shopping();
-    expect(TextTableSemantics.textOutside(data), 'Shopping\nTotal is fine');
+    expect(TextTableSemantics.textBefore(data), 'Shopping');
     await tester.pumpWidget(
       Directionality(
         textDirection: TextDirection.ltr,
@@ -28,7 +28,7 @@ void main() {
               child: Semantics(
                 container: true,
                 explicitChildNodes: true,
-                label: TextTableSemantics.textOutside(data),
+                label: TextTableSemantics.textBefore(data),
                 child: TextTableSemantics(data: data, width: 320, offset: Offset.zero, scale: 1),
               ),
             ),
@@ -49,6 +49,12 @@ void main() {
     expect(roles.take(3), [SemanticsRole.cell, SemanticsRole.row, SemanticsRole.table]);
     // Cells sit where they are laid out: Milk left of its price.
     expect(milk.rect.width, lessThan(200));
+    // The text after the table is read after it, not with the text before.
+    final read = [
+      for (final n in tester.semantics.simulatedAccessibilityTraversal())
+        if (n.label.isNotEmpty) n.label,
+    ];
+    expect(read, ['Shopping', 'Item', 'Price', anything, '3.20', 'Milk', '1.10', 'Total is fine']);
     handle.dispose();
   });
 }

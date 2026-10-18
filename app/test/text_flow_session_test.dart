@@ -11,6 +11,7 @@ import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/editor/document/page_models.dart';
 import 'package:len/ink/elements/text_edit_session.dart';
 import 'package:len/ink/elements/text_flow_chains.dart';
+import 'package:len/ink/elements/text_hit_test.dart';
 import 'package:len/ink/elements/text_layout.dart';
 import 'package:len/ink/elements/text_layout_cache.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
@@ -207,6 +208,36 @@ void main() {
     expect(pages.modelOf('p1').isHidden(next.id), isFalse);
     expect(textOn('p1'), isEmpty);
     expect(TextData.fromJson(textOn('p0').single.data).text, lines(3));
+  });
+
+  test('a tap in a table cell of a chain edits that cell, on either page', () {
+    final b = RichTextBuffer(const TextData(text: 'Intro'));
+    final t = b.insertTable(5, 12, 2);
+    for (var k = 0; k < t.cells; k++) {
+      b.setCell(t.line + k, 'cell $k', List.filled('cell $k'.length, SpanStyle.plain));
+    }
+    session.create(const Offset(40, 500), style: const TextData(), width: 300);
+    session.setData(b.toData(const TextData()));
+    session.end();
+    String tapped(SurfaceElement box, Offset at) {
+      session.model = pages.modelOf(box.surfaceId);
+      session.edit(box, caret: TextHitTest.cellAt(box, box.rect.topLeft + at));
+      final text = session.data.text;
+      final line = text.substring(0, session.startCaret).split('\n').length - 1;
+      session.end();
+      return text.split('\n')[line];
+    }
+
+    // The second column of the first row, on the first page.
+    final layout = TextLayout.layout(TextData.fromJson(textOn('p0').single.data), 300);
+    final row = layout.rows.first.rect.center.dy;
+    layout.dispose();
+    expect(tapped(textOn('p0').single, Offset(225, row)), 'cell 1');
+    // The second column of the first row on the next page.
+    final next = textOn('p1').single;
+    final first = TextData.fromJson(next.data).text.split('\n').first;
+    final k = int.parse(first.substring(5));
+    expect(tapped(next, const Offset(225, 8)), 'cell ${k + 1}');
   });
 
   test('moving the first box reflows the chain', () {

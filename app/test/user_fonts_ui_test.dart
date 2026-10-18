@@ -112,6 +112,40 @@ void main() {
     expect(find.widgetWithText(MenuRow<String>, 'My hand'), findsOneWidget);
   });
 
+  testWidgets('with many fonts the picker opens scrolled to the current one', (tester) async {
+    tester.view
+      ..physicalSize = const Size(390, 844)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final fonts = [
+      for (var i = 0; i < 40; i++)
+        UserFont(
+          id: TextFont.userIdOf(i.toRadixString(16).padLeft(2, '0') * 32),
+          name: 'Font ${String.fromCharCode(65 + i ~/ 26)}${String.fromCharCode(65 + i % 26)}',
+          blob: i.toRadixString(16).padLeft(2, '0') * 32,
+          createdAt: 1,
+        ),
+    ];
+    TextFonts.setLibrary(fonts);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topCenter,
+            child: FontMenuButton(font: fonts.last.font, onSelected: (_) {}),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('font-menu')));
+    await tester.pumpAndSettle();
+    final current = find.widgetWithText(MenuRow<String>, fonts.last.name);
+    expect(tester.getRect(current).bottom, lessThanOrEqualTo(844));
+    expect(current.hitTestable(), findsOneWidget);
+    expect(find.widgetWithText(MenuRow<String>, 'Sans').hitTestable(), findsNothing);
+  });
+
   group('PDF export', () {
     test('embeds a TrueType user font (subset) as the text\'s font', () async {
       final font = await _caveatAsUserFont();

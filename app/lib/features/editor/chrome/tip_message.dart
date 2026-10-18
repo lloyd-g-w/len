@@ -49,13 +49,15 @@ class TipMessage {
 }
 
 /// [tip] phrased for the side button's action ([penButton]), the lasso's
-/// [lasso] shape (a loop is circled, a rectangle dragged) and the notebook
-/// ([pdf]: it has PDF pages); null if it doesn't apply.
+/// [lasso] shape (a loop is circled, a rectangle dragged), the notebook
+/// ([pdf]: it has PDF pages) and the input ([touch]: taps, else clicks);
+/// null if it doesn't apply.
 TipMessage? tipMessage(
   EditorTip tip, {
   required PenButtonAction penButton,
   LassoShape lasso = LassoShape.freehand,
   bool pdf = false,
+  bool touch = true,
 }) => switch (tip) {
   EditorTip.reading => TipMessage(
     tip,
@@ -94,7 +96,9 @@ TipMessage? tipMessage(
   EditorTip.curve => TipMessage(
     tip,
     Symbols.conversion_path_sharp,
-    'Tap the curve to add a point; double-tap a point to remove it',
+    touch
+        ? 'Tap the curve to add a point; double-tap a point to remove it'
+        : 'Click the curve to add a point; double-click a point to remove it',
   ),
   EditorTip.attach => TipMessage(
     tip,

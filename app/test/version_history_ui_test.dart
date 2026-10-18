@@ -11,10 +11,12 @@ import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/chrome/editor_menu_actions.dart';
 import 'package:len/features/editor/chrome/editor_more_menu.dart';
+import 'package:len/features/history/version_flows.dart';
 import 'package:len/features/history/version_history_sheet.dart';
 import 'package:len/features/history/version_row_text.dart';
 import 'package:len/features/library/library_menus.dart';
 import 'package:len/ui/app_theme.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'support/real_async.dart';
 
@@ -194,6 +196,28 @@ void main() {
     expect(s.versions.of(notebook.id).first.name, isNull);
   });
 
+  testWidgets('a version given a name shows it is kept; its name cleared, it says Edited again', (
+    tester,
+  ) async {
+    final (_, recent) = await twoVersions(tester);
+    await open(tester);
+    final row = find.byKey(ValueKey('version-${recent.id}'));
+    Finder mark() => find.descendant(of: row, matching: find.byIcon(Symbols.bookmark_sharp));
+    String title() => tester
+        .widget<VersionRowText>(find.descendant(of: row, matching: find.byType(VersionRowText)))
+        .title;
+    expect(mark(), findsNothing);
+    s.versions.rename(recent.id, 'Draft');
+    await tester.pumpAndSettle();
+    // Kept until deleted, as a saved version is (R26-M1): it has the mark.
+    expect(mark(), findsOneWidget);
+    expect(find.descendant(of: row, matching: find.text('Draft')), findsOneWidget);
+    s.versions.rename(recent.id, '');
+    await tester.pumpAndSettle();
+    expect(mark(), findsNothing);
+    expect(title(), 'Edited');
+  });
+
   testWidgets('preview, restore, and undo through the version saved before', (tester) async {
     final (old, _) = await twoVersions(tester);
     await open(tester);
@@ -218,8 +242,48 @@ void main() {
     expect(find.text('Version history'), findsNothing, reason: 'back to the notebook');
     expect(s.versions.of(notebook.id).first.kind, VersionKind.restore);
 
+    // A restore or copy running meanwhile: Undo waits for it, then runs.
+    final work = debugVersionWork;
+    addTearDown(() => work.value = null);
+    work.value = VersionWork.copy;
     await tester.tap(find.text('Undo'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(strokesOn(pages.last), isEmpty, reason: 'waits for the copy');
+    work.value = null;
     await pumpUntil(tester, () => strokesOn(pages.last).length == 2, reason: 'undone');
+    await pumpUntil(tester, () => work.value == null);
+  });
+
+  testWidgets('while a restore runs, the preview says so and takes no other', (tester) async {
+    final (old, _) = await twoVersions(tester);
+    await open(tester);
+    final work = debugVersionWork;
+    addTearDown(() => work.value = null);
+    // A copy from a row's ⋯ runs with the list in view: the sheet shows progress.
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    work.value = VersionWork.copy;
+    await tester.pump();
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.bySemanticsLabel('Copying…'), findsOneWidget, reason: 'for screen readers');
+    work.value = null;
+    await tester.pump();
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    await tester.tap(find.byKey(ValueKey('version-${old.id}')));
+    await tester.pumpAndSettle();
+    work.value = VersionWork.restore;
+    await tester.pump();
+    // A large notebook takes a while.
+    final restoring = find.widgetWithText(FilledButton, 'Restoring…');
+    expect(tester.widget<FilledButton>(restoring).onPressed, isNull);
+    final copy = find.widgetWithText(TextButton, 'Copy as new notebook');
+    expect(tester.widget<TextButton>(copy).onPressed, isNull);
+    work.value = null;
+    await tester.pump();
+    expect(
+      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Restore')).onPressed,
+      isNotNull,
+    );
+    expect(tester.widget<TextButton>(copy).onPressed, isNotNull);
   });
 
   testWidgets('Escape closes the page view, then the preview (R25-8)', (tester) async {

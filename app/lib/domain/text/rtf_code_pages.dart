@@ -1,21 +1,31 @@
-/// Single-byte Windows code pages for RTF's `\'hh` escapes: Western
-/// (1252), Central European (1250) and Cyrillic (1251); any other code page
-/// is read as Latin-1.
+/// Code pages for RTF's `\'hh` escapes: the single-byte Windows ones
+/// (Western 1252, Central European 1250, Cyrillic 1251 here; Greek,
+/// Turkish, Hebrew, Arabic, Baltic, Vietnamese and Thai in
+/// [codePageTables]), Mac Roman and the DOS ones. The double-byte East Asian
+/// code pages ([isDoubleByte]) are not read.
 library;
 
-/// The character byte [b] stands for in Windows code page [codePage]
-/// (Symbol-font bytes, code page 42, keep their Latin-1 value except the
-/// bullet).
-String decodeCodePageByte(int b, int codePage) {
+import 'rtf_code_page_tables.dart';
+
+/// The character byte [b] stands for in code page [codePage] (Symbol-font
+/// bytes, code page 42, keep their Latin-1 value except the bullet); null
+/// for a byte of a double-byte code page (half a character, not read). An
+/// unknown code page is read as Latin-1.
+String? decodeCodePageByte(int b, int codePage) {
   if (b < 0x80) return String.fromCharCode(b);
+  if (isDoubleByte(codePage)) return null;
   return switch (codePage) {
     1252 when b < 0xA0 => _cp1252[b - 0x80],
     1250 => _cp1250[b - 0x80],
     1251 => _cp1251[b - 0x80],
     42 when b == 0xB7 => '\u2022',
-    _ => String.fromCharCode(b),
+    _ => codePageTables[codePage]?[b - 0x80] ?? String.fromCharCode(b),
   };
 }
+
+/// Whether [codePage] is a double-byte East Asian one (Shift JIS, GBK,
+/// Korean, Big5, Johab), whose characters take two `\'hh` escapes.
+bool isDoubleByte(int codePage) => const {932, 936, 949, 950, 1361}.contains(codePage);
 
 /// The Windows code page of an RTF `\fcharset`, or null where it is the
 /// document's (`\ansicpg`).
@@ -23,6 +33,11 @@ int? codePageOfCharset(int charset) => switch (charset) {
   0 || 1 => null,
   2 => 42,
   77 => 10000,
+  128 => 932,
+  129 => 949,
+  130 => 1361,
+  134 => 936,
+  136 => 950,
   161 => 1253,
   162 => 1254,
   163 => 1258,

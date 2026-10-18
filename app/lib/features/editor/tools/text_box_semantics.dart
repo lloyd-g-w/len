@@ -84,7 +84,7 @@ class _TextBoxSemanticsState extends State<TextBoxSemantics> {
         container: true,
         explicitChildNodes: tables,
         sortKey: OrdinalSortKey(i.toDouble()),
-        label: tables ? TextTableSemantics.textOutside(data) : data.text,
+        label: tables ? TextTableSemantics.textBefore(data) : data.text,
         hint: 'Text box',
         onTap: () => widget.content.editText(e),
         child: tables

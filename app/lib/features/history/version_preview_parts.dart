@@ -218,3 +218,34 @@ class _ZoomableState extends State<_Zoomable> {
   Widget build(BuildContext context) =>
       InteractiveViewer(maxScale: 8, transformationController: _zoom, child: widget.child(_zoom));
 }
+
+/// Restore or Copy: off while a restore or copy runs ([versionWork]), and
+/// saying so ([busyLabel]) while it is its own [work].
+class _WorkButton extends StatelessWidget {
+  const _WorkButton({
+    required this.work,
+    required this.label,
+    required this.busyLabel,
+    required this.onPressed,
+    this.filled = false,
+  });
+
+  final VersionWork work;
+  final String label, busyLabel;
+  final VoidCallback onPressed;
+
+  /// The primary command (a [FilledButton]), else a [TextButton].
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: versionWork,
+    builder: (context, running, _) {
+      final text = Text(running == work ? busyLabel : label);
+      final onPressed = running == null ? this.onPressed : null;
+      return filled
+          ? FilledButton(onPressed: onPressed, child: text)
+          : TextButton(onPressed: onPressed, child: text);
+    },
+  );
+}

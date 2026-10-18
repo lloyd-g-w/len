@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../domain/text/text_data.dart';
 import '../../../../ink/elements/text_layout.dart';
+import 'rich_paste.dart';
 import 'rich_text_controller.dart';
 import 'rich_text_field.dart';
 import 'table_keys.dart';
@@ -62,6 +64,7 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
 
   /// Column resizing: the table's widths when the drag began, and where.
   List<double>? _dragWidths;
+  int _dragTable = 0;
   double _dragX = 0;
 
   RichTextController get _box => widget.box;
@@ -132,6 +135,7 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
 
   void _dragStart(TableLayout t, DragStartDetails d) {
     _dragWidths = [...t.table.spec.widths];
+    _dragTable = t.table.line;
     _dragX = _local(d.globalPosition).dx;
   }
 
@@ -149,9 +153,28 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
   }
 
   void _dragEnd() {
-    if (_dragWidths == null) return;
+    final start = _dragWidths;
+    if (start == null) return;
     _dragWidths = null;
+    // A border dragged back where it was is no step to undo.
+    final now = _box.tableAt(_dragTable)?.spec.widths;
+    if (now != null && listEquals(now, start)) return;
     _box.commitWidths();
+  }
+
+  /// [character] typed with a block of cells selected: it replaces the
+  /// block's first cell, which is then edited.
+  void _typeOver(String character) {
+    final r = _box.cellRange;
+    final t = r == null ? null : _box.tableAt(r.table);
+    if (r == null || t == null) return;
+    _box.enterCell(t.lineOf(r.top, r.left));
+    final cell = widget.cell;
+    if (cell.line == null) return;
+    cell.value = TextEditingValue(
+      text: character,
+      selection: TextSelection.collapsed(offset: character.length),
+    );
   }
 
   Offset _local(Offset global) => (context.findRenderObject()! as RenderBox).globalToLocal(global);
@@ -177,6 +200,8 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
             event,
             undo: widget.onUndo ?? () => _box.undo(),
             redo: widget.onRedo ?? () => _box.redo(),
+            paste: ({required plain}) => pasteIntoCells(widget.cell, plain: plain),
+            type: _typeOver,
           ),
           child: Listener(
             behavior: HitTestBehavior.translucent,

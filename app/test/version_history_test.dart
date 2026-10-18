@@ -214,7 +214,7 @@ void main() {
 
   group('thinning', () {
     VersionInfo info(String id, int at, [VersionKind kind = VersionKind.auto, int size = 1]) =>
-        (id: id, createdAt: at, kind: kind, size: size);
+        (id: id, createdAt: at, kind: kind, named: false, size: size);
     const hour = 3600 * 1000;
     const day = 24 * hour;
 
@@ -232,6 +232,23 @@ void main() {
       expect(count(day, 7 * day), inInclusiveRange(6 * 24 - 1, 6 * 24 + 1));
       expect(count(7 * day, 30 * day), inInclusiveRange(22, 24));
       expect(count(30 * day, 61 * day), inInclusiveRange(4, 6));
+    });
+
+    test('an automatic version given a name stays; its name cleared, it thins again', () async {
+      final n = paged();
+      final [first, _] = pageIds(n);
+      s.strokes.save([_ink('a', first)]);
+      final kept = (await versions().record(n.id))!;
+      clock.advance(const Duration(minutes: 5));
+      s.strokes.save([_ink('b', first, x: 40)]);
+      final newer = (await versions().record(n.id))!;
+      versions().rename(kept.id, 'Before the exam');
+      clock.advance(const Duration(days: 3)); // Both in one hour's bucket.
+      versions().thin(n.id);
+      expect({for (final v in versions().of(n.id)) v.id}, {kept.id, newer.id});
+      versions().rename(kept.id, '');
+      versions().thin(n.id);
+      expect({for (final v in versions().of(n.id)) v.id}, {newer.id});
     });
 
     test('named versions stay; the budget drops the oldest automatic ones', () {

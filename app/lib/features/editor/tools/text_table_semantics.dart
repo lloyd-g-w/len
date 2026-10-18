@@ -25,21 +25,23 @@ class TextTableSemantics extends StatelessWidget {
   final Offset offset;
   final double scale;
 
-  /// [data]'s text without its tables (what the box's node reads).
-  static String textOutside(TextData data) {
-    final lines = data.text.split('\n');
-    final paras = data.paras;
-    return [
-      for (var l = 0; l < lines.length; l++)
-        if (!paras[l].isCell) lines[l],
-    ].join('\n').trim();
+  /// [data]'s text before its first table (what the box's node reads; the
+  /// text after each table is a node of its own after the table's).
+  static String textBefore(TextData data) {
+    final first = TextTables.of(data.paras).firstOrNull?.line ?? data.lineCount;
+    return data.text.split('\n').take(first).join('\n').trim();
   }
+
+  /// The text of [lines] from [from] up to [to] (between tables).
+  static String _between(List<String> lines, int from, int to) =>
+      lines.sublist(from, to).join('\n').trim();
 
   @override
   Widget build(BuildContext context) {
     final layout = TextLayout.layout(data, width);
     final rows = layout.rows;
     final tables = layout.tables;
+    final height = layout.height;
     layout.dispose();
     final lines = data.text.split('\n');
     Rect screen(Rect r) =>
@@ -88,6 +90,26 @@ class TextTableSemantics extends StatelessWidget {
                 ),
               ),
             ),
+        // The text after each table, read after it.
+        for (final (k, t) in tables.indexed)
+          if (_between(
+                lines,
+                t.table.end,
+                k + 1 < tables.length ? tables[k + 1].table.line : lines.length,
+              )
+              case final after when after.isNotEmpty)
+            if (rows.where((r) => r.table == k).lastOrNull?.rect.bottom case final top?)
+              Positioned.fromRect(
+                rect: screen(
+                  Rect.fromLTRB(
+                    0,
+                    top,
+                    width,
+                    rows.where((r) => r.table == k + 1).firstOrNull?.rect.top ?? height,
+                  ),
+                ).shift(offset),
+                child: Semantics(container: true, label: after, child: const SizedBox.expand()),
+              ),
       ],
     );
   }

@@ -25,9 +25,11 @@ extension _SessionFlow on TextEditSession {
     return chains.pages.offsetOf(_model.surfaceId, 1) != null ? _Flow.whole : _Flow.alone;
   }
 
-  /// Opens the chain of [element] when it is edited as a whole (true);
-  /// otherwise only sets how [element] flows (false: edit it as a box).
-  bool _editChain(SurfaceElement element) {
+  /// Opens the chain of [element] when it is edited as a whole (true),
+  /// the caret at [caret] (an offset in [element]'s own text, e.g. the
+  /// table cell tapped; null: the end of [element]'s part); otherwise only
+  /// sets how [element] flows (false: edit it as a box).
+  bool _editChain(SurfaceElement element, {int? caret}) {
     _flow = _flowFor(element);
     if (_flow == _Flow.none) return false;
     final chains = flows!;
@@ -47,7 +49,10 @@ extension _SessionFlow on TextEditSession {
     }
     _rest = rest;
     final whole = TextFlowChains.wholeOf(head.box, rest);
-    startCaret = _caretAt(element.id, head.box, rest);
+    final start = _startOf(element.id, head.box, rest);
+    startCaret = caret != null && start != null
+        ? start + caret
+        : _caretAt(element.id, head.box, rest);
     _original = head.box;
     _startWidth = head.box.rect.width;
     _edited = false;
@@ -66,6 +71,21 @@ extension _SessionFlow on TextEditSession {
       if (!(part.flow?.joined ?? false)) at++;
       at += part.text.length;
       if (r.box.id == id) return at;
+    }
+    return null;
+  }
+
+  /// Where box [id]'s text starts in the whole text of a chain (null:
+  /// not in it). A part's text is the whole text's from there on (a
+  /// table going on keeps its text, only its first cell's style differs).
+  static int? _startOf(String id, SurfaceElement head, List<FlowBox> rest) {
+    if (id == head.id) return 0;
+    var at = TextData.fromJson(head.data).text.length;
+    for (final r in rest) {
+      final part = TextData.fromJson(r.box.data);
+      if (!(part.flow?.joined ?? false)) at++;
+      if (r.box.id == id) return at;
+      at += part.text.length;
     }
     return null;
   }

@@ -5,6 +5,7 @@ import '../../app_services.dart';
 import '../../domain/paper.dart';
 import '../../ink/ink_surface.dart';
 import '../../ink/lab/input_recording.dart';
+import '../../ui/escape_closes.dart';
 import '../../ui/menus.dart';
 import '../../ui/messages.dart';
 import 'inklab_files.dart';
@@ -116,6 +117,11 @@ class _InkLabScreenState extends State<InkLabScreen> with TickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     final session = _session;
+    // Escape closes it, as it closes Settings around it (R25-8).
+    return EscapeCloses(child: _scaffold(session));
+  }
+
+  Widget _scaffold(InkLabSession? session) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Ink Lab'),

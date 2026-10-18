@@ -2629,16 +2629,19 @@ GoodNotes-style rich text inside a box.
   grips on column borders that resize columns (one step per drag, `previewWidths` /
   `commitWidths`). `TableKeys`: Tab / Shift+Tab next / previous cell (Tab in the last adds a
   row), Enter the cell below (from the last row, the line after), arrows at a cell's edge
-  the cell beyond or the text around the table. The format bar formats the cell edited;
+  the cell on their side of the table or the text around it; with a block selected a
+  typed character replaces its first cell and Tab / Enter edit it. The format bar formats the cell edited;
   its table button picks a new table's size (`TablePicker`) or, in a table, opens the table
   menu (insert row above / below, column left / right, header row, delete row / column /
   table); on phones both are in its ⋯. A table copied here, or tab-separated rows (a
-  spreadsheet), pasted into a cell fill the cells from it on, adding rows (`pasteGrid`).
+  spreadsheet), pasted into a cell fill the cells from it on, adding rows and columns
+  (`pasteGrid`); Ctrl+V with a block of cells selected pastes from its top left cell.
   *Flow*: a part beginning inside a table starts with a copy of its spec marked
   `continued` (`TextFlow.slice`); `TextFlow.join` merges it back. *Export*: `PdfTextWriter`
   writes each cell with its own layout at its place, then the grid. *Screen readers*:
   `TextBoxSemantics` gives a box with tables a table node with row and cell nodes (header
-  cells as column headers, `SemanticsRole`), the box's node reading the rest; the cell
+  cells as column headers, `SemanticsRole`), the box's node reading the text before the
+  first table and a node after each table reading the text up to the next; the cell
   edited is named "Row r, column c".
 - **Export**: `PdfTextWriter` writes boxes as real text in the embedded
   (subsetted) fonts (TrueType user fonts too), each word at the position the app's layout gives it, with
@@ -3237,7 +3240,9 @@ shares between versions (and between devices of one platform family).
   are kept all for the last day, then the newest per hour for a week, per
   day for a month and per week after that (buckets aligned to the epoch, so
   every device keeps the same ones and what a later clock keeps is a subset
-  of what an earlier one kept); named versions are kept until deleted. A
+  of what an earlier one kept); named versions (saved by hand, or any version
+  given a name with Rename…; clearing the name lets it thin again) are kept
+  until deleted. A
   notebook's budget (200 automatic versions, 64 MB of packs they added)
   drops its oldest automatic versions beyond it. Thinning runs after a
   version is made and with blob garbage collection; removed versions are

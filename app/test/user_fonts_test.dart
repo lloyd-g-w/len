@@ -1,8 +1,9 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:archive/archive.dart';
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
@@ -191,6 +192,45 @@ void main() {
       expect(TextFonts.isShown(font.font), isFalse);
     });
 
+    test('a font whose file couldn\'t be had is tried again after a sync that worked', () async {
+      final s = _services();
+      addTearDown(s.dispose);
+      // Another file than the other tests' (they load theirs for good).
+      final bytes = Uint8List.fromList([...caveatFile(), 0, 0, 0, 0]);
+      final sha = sha256.convert(bytes).toString();
+      final font = _repo(s).add(name: 'Later', blob: sha);
+      var online = false;
+      var lastSync = 0;
+      final status = ChangeNotifier();
+      addTearDown(status.dispose);
+      final library = UserFontLibrary(
+        repository: _repo(s),
+        blobs: s.blobs,
+        fetch: (_) async {
+          if (!online) return false;
+          await s.blobs.putBytes(bytes, mime: 'font/ttf');
+          return true;
+        },
+        syncStatus: status,
+        syncMark: () => lastSync,
+      );
+      addTearDown(library.dispose);
+      await library.refresh();
+      expect(TextFonts.isShown(font.font), isFalse);
+
+      online = true;
+      // A sync state change that is no new success: nothing tried.
+      status.notifyListeners();
+      await pumpEventQueue();
+      expect(await s.blobs.read(sha), isNull);
+      lastSync = 1;
+      status.notifyListeners();
+      for (var i = 0; i < 100 && !TextFonts.isShown(font.font); i++) {
+        await pumpEventQueue();
+      }
+      expect(TextFonts.isShown(font.font), isTrue);
+    });
+
     test('the same file imported on two devices is one font', () async {
       final (a, b) = twoDevices();
       final fa = await a.s.fonts.import(caveatFile());
@@ -239,7 +279,10 @@ void main() {
       final names = [for (final f in ZipDecoder().decodeBytes(bytes)) f.name];
       expect(names, contains('blobs/${used.blob}'));
 
+      final library = target.fonts; // (As the app's, listening.)
       await _import(target, bytes);
+      // Shown at once, without a restart.
+      expect(library.fonts.map((f) => f.id), [used.id]);
       final imported = _repo(target).list().single;
       expect(imported.id, used.id);
       expect(imported.name, 'Caveat');

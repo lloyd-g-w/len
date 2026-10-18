@@ -305,12 +305,20 @@ mixin _RichTextTables on _RichTextState, _RichTextFormatting {
 
   /// Pastes [grid] (rows of cells: their text and character styles) into
   /// the table from the cell on [line] rightwards and down, adding rows
-  /// as needed (cells past the last column are dropped); one step.
+  /// and columns as needed (cells past [TableSpec.maxColumns] are
+  /// dropped); one step.
   void pasteGrid(int line, List<List<({String text, List<SpanStyle> chars})>> grid) {
     var t = _buffer.tableAt(line);
     if (t == null || grid.isEmpty) return;
     final (:row, :column) = t.cellOf(line);
     final table = t.line;
+    final wide = math.min(
+      column + grid.map((r) => r.length).reduce(math.max),
+      TableSpec.maxColumns,
+    );
+    while (t != null && t.columns < wide) {
+      t = _buffer.insertColumn(t, t.columns);
+    }
     while (t != null && t.rows < row + grid.length) {
       t = _buffer.insertRow(t, t.rows);
     }

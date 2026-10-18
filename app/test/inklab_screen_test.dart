@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/features/inklab/inklab_screen.dart';
 import 'package:len/features/inklab/inklab_stats_bar.dart';
@@ -64,8 +65,8 @@ void main() {
     expect(_stat(tester, 'strokes'), 0);
     expect(_stat(tester, 'contacts'), 0);
 
-    // Leave the lab so its timers and recorder are released.
-    await tester.pageBack();
+    // Leave the lab (Escape, as Settings) so its timers and recorder are released.
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(InkLabScreen), findsNothing);

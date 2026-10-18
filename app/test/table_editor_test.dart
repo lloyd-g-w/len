@@ -141,6 +141,42 @@ void main() {
     expect(cells(stored), ['a', 'b', '', '', '', '']);
   });
 
+  testWidgets('the size picker takes the keyboard: arrows size the table, Enter inserts it', (
+    tester,
+  ) async {
+    await openBox(tester, const TextData());
+    await tester.tap(find.byTooltip('Insert table'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 × 2 table'), findsOneWidget);
+    await press(tester, LogicalKeyboardKey.arrowRight);
+    await press(tester, LogicalKeyboardKey.arrowRight);
+    await press(tester, LogicalKeyboardKey.arrowDown);
+    expect(find.text('3 × 4 table'), findsOneWidget);
+    await press(tester, LogicalKeyboardKey.arrowUp);
+    await press(tester, LogicalKeyboardKey.arrowUp);
+    await press(tester, LogicalKeyboardKey.arrowUp);
+    expect(find.text('1 × 4 table'), findsOneWidget, reason: 'one row at least');
+    await press(tester, LogicalKeyboardKey.enter);
+    final t = TextTables.of(boxController(tester).data.paras).single;
+    expect((t.rows, t.columns), (1, 4));
+    expect(boxController(tester).activeCell, t.line);
+  });
+
+  testWidgets('the size picker shows its whole grid: the last column can be picked', (
+    tester,
+  ) async {
+    await openBox(tester, const TextData());
+    await tester.tap(find.byTooltip('Insert table'));
+    await tester.pumpAndSettle();
+    final grid = find.byKey(const ValueKey('table-picker-grid'));
+    final size = tester.getSize(grid);
+    expect(size.width, size.height, reason: 'eight columns as wide as eight rows are tall');
+    await tester.tapAt(tester.getTopRight(grid) + Offset(-size.width / 16, size.height / 16));
+    await tester.pumpAndSettle();
+    final t = TextTables.of(boxController(tester).data.paras).single;
+    expect((t.rows, t.columns), (1, 8));
+  });
+
   testWidgets('arrows cross cell borders and leave the table', (tester) async {
     final b = RichTextBuffer(const TextData(text: 'top\nend'));
     final t = b.insertTable(4, 2, 2);
@@ -166,6 +202,32 @@ void main() {
     await press(tester, LogicalKeyboardKey.arrowUp);
     expect(box.activeCell, isNull);
     expect(box.modelSelection.start, lessThanOrEqualTo(3));
+  });
+
+  testWidgets('in a right-to-left table arrows go to the cell on their side, numbers too', (
+    tester,
+  ) async {
+    final b = RichTextBuffer(const TextData(text: 'שלום'));
+    final t = b.insertTable(4, 1, 3);
+    for (final (k, s) in ['אב', '12', 'הו'].indexed) {
+      b.setCell(t.line + k, s, List.filled(s.length, SpanStyle.plain));
+    }
+    await openBox(tester, b.toData(const TextData()));
+    final box = boxController(tester);
+    // The first column is on the right; "12" runs left to right in its cell.
+    box.enterCell(t.line + 1, atEnd: true);
+    await tester.pumpAndSettle();
+    await press(tester, LogicalKeyboardKey.arrowRight);
+    expect(box.activeCell, t.line, reason: '→ at the right end of 12: the cell on the right');
+    box.enterCell(t.line + 1);
+    await tester.pumpAndSettle();
+    await press(tester, LogicalKeyboardKey.arrowLeft);
+    expect(box.activeCell, t.line + 2, reason: '← at the left end of 12: the cell on the left');
+    // Hebrew runs right to left: its end is on the left.
+    box.enterCell(t.line, atEnd: true);
+    await tester.pumpAndSettle();
+    await press(tester, LogicalKeyboardKey.arrowLeft);
+    expect(box.activeCell, t.line + 1);
   });
 
   testWidgets('a block of cells: Shift+arrow selects, copy as table, delete clears', (
@@ -203,7 +265,80 @@ void main() {
     expect(cells(box.data), ['ab', 'cd', 'ef', 'gh']);
   });
 
-  testWidgets('rows of tab-separated text pasted into a cell fill cells, adding rows', (
+  testWidgets('Ctrl+V with a block of cells selected pastes from its top left cell on', (
+    tester,
+  ) async {
+    final b = RichTextBuffer(const TextData());
+    final t = b.insertTable(0, 2, 2);
+    for (final (k, s) in ['ab', 'cd', 'ef', 'gh'].indexed) {
+      b.setCell(t.line + k, s, List.filled(2, SpanStyle.plain));
+    }
+    await openBox(tester, b.toData(const TextData()));
+    final box = boxController(tester);
+    Future<void> selectSecondRow() async {
+      box.enterCell(2, atEnd: true);
+      await tester.pumpAndSettle();
+      await press(tester, LogicalKeyboardKey.arrowRight, shift: true);
+      expect(box.cellRange, isNotNull);
+    }
+
+    mockClipboardText('1\t2');
+    await selectSecondRow();
+    await paste(tester);
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['ab', 'cd', '1', '2']);
+    // One value replaces the top left cell.
+    mockClipboardText('z');
+    await selectSecondRow();
+    await paste(tester);
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['ab', 'cd', 'z', '2']);
+    expect(box.activeCell, 2);
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['ab', 'cd', '1', '2'], reason: 'one undo step');
+  });
+
+  testWidgets('with a block selected a character replaces its first cell; Tab edits it', (
+    tester,
+  ) async {
+    final b = RichTextBuffer(const TextData());
+    final t = b.insertTable(0, 2, 2);
+    for (final (k, s) in ['ab', 'cd', 'ef', 'gh'].indexed) {
+      b.setCell(t.line + k, s, List.filled(2, SpanStyle.plain));
+    }
+    await openBox(tester, b.toData(const TextData()));
+    final box = boxController(tester);
+    Future<void> selectBlock() async {
+      box.enterCell(3);
+      await tester.pumpAndSettle();
+      await press(tester, LogicalKeyboardKey.arrowLeft, shift: true);
+      await press(tester, LogicalKeyboardKey.arrowUp, shift: true);
+      expect(box.cellRange, isNotNull);
+    }
+
+    await selectBlock();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyQ, character: 'q');
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['q', 'cd', 'ef', 'gh']);
+    expect(box.activeCell, 0);
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['ab', 'cd', 'ef', 'gh']);
+    await selectBlock();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyQ, character: 'q');
+    await tester.pumpAndSettle();
+    await typeInCell(tester, 'qr');
+    expect(cells(box.data).first, 'qr', reason: 'typing goes on in that cell');
+    await selectBlock();
+    await press(tester, LogicalKeyboardKey.tab);
+    expect(box.activeCell, 0);
+    await selectBlock();
+    await press(tester, LogicalKeyboardKey.tab, shift: true);
+    expect(box.activeCell, 3);
+  });
+
+  testWidgets('rows of tab-separated text pasted into a cell fill cells, adding rows and columns', (
     tester,
   ) async {
     mockClipboardText('1\t2\t3\n4\t5\t6\n');
@@ -215,7 +350,7 @@ void main() {
     await tester.pumpAndSettle();
     await paste(tester);
     await tester.pumpAndSettle();
-    expect(cells(box.data), ['1', '2', '4', '5'], reason: 'the third column dropped');
+    expect(cells(box.data), ['1', '2', '3', '4', '5', '6'], reason: 'a third column added');
     await ctrl(tester, LogicalKeyboardKey.keyZ);
     await tester.pumpAndSettle();
     expect(cells(box.data), ['', '']);
@@ -235,6 +370,16 @@ void main() {
     await ctrl(tester, LogicalKeyboardKey.keyZ);
     await tester.pumpAndSettle();
     expect(TextTables.of(box.data.paras).single.spec.widths.first, closeTo(0.5, 0.001));
+    expect(box.canUndo, isFalse);
+    // Dragged back where it was: no step.
+    final g = await tester.startGesture(tester.getCenter(border));
+    await g.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await g.moveBy(const Offset(-40, 0));
+    await tester.pump();
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(box.canUndo, isFalse);
   });
 
   testWidgets('tapping a cell edits it; the table menu adds and removes', (tester) async {
@@ -265,6 +410,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(TextTables.of(box.data.paras), isEmpty);
     expect(box.activeCell, isNull);
+  });
+
+  testWidgets('with a block of rows selected the menu deletes rows, in one undo step', (
+    tester,
+  ) async {
+    final b = RichTextBuffer(const TextData());
+    final t = b.insertTable(0, 3, 2);
+    for (var k = 0; k < t.cells; k++) {
+      b.setCell(t.line + k, 'c$k', List.filled(2, SpanStyle.plain));
+    }
+    await openBox(tester, b.toData(const TextData()));
+    final box = boxController(tester);
+    box.enterCell(0, atEnd: true);
+    await tester.pumpAndSettle();
+    await press(tester, LogicalKeyboardKey.arrowDown, shift: true);
+    await tester.tap(find.byTooltip('Table'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete column'), findsOneWidget, reason: 'one column selected');
+    await tester.tap(find.text('Delete rows'));
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['c4', 'c5']);
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
+    await tester.pumpAndSettle();
+    expect(cells(box.data), ['c0', 'c1', 'c2', 'c3', 'c4', 'c5']);
   });
 
   testWidgets('a table being edited (golden): the cell field over the painted cells', (

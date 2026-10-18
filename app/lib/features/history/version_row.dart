@@ -128,10 +128,11 @@ class VersionRow extends StatelessWidget {
   }
 
   /// The title, time and details: one render object ([VersionRowText])
-  /// but for a named version's mark.
+  /// but for a kept version's mark: saved by hand, or given a name with
+  /// Rename… (thinning keeps both until deleted).
   Widget _words(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    if (version.kind != VersionKind.named) {
+    if (version.kind != VersionKind.named && version.name == null) {
       return VersionRowText(
         title: labels.title,
         time: labels.time,

@@ -6,8 +6,8 @@ import '../../../../ui/app_theme.dart';
 import '../../../../ui/group_header.dart';
 import '../../../../ui/menus.dart';
 
-/// The choices of paragraph spacing, [current] checked.
-List<PopupMenuEntry<ParagraphSpacing>> paragraphSpacingItems(ParagraphSpacing current) => [
+/// The choices of paragraph spacing, [current] checked (none: mixed).
+List<PopupMenuEntry<ParagraphSpacing>> paragraphSpacingItems(ParagraphSpacing? current) => [
   for (final s in ParagraphSpacing.values) MenuRow(value: s, label: s.label, checked: s == current),
 ];
 
@@ -38,7 +38,8 @@ class ParagraphSpacingButton extends StatelessWidget {
 class ParagraphSpacingRow extends StatelessWidget {
   const ParagraphSpacingRow({super.key, required this.spacing, required this.onSelected});
 
-  final ParagraphSpacing spacing;
+  /// Null: "Mixed" (text boxes spaced differently).
+  final ParagraphSpacing? spacing;
   final ValueChanged<ParagraphSpacing> onSelected;
 
   @override
@@ -49,12 +50,13 @@ class ParagraphSpacingRow extends StatelessWidget {
       tooltip: 'Paragraph spacing',
       onSelected: onSelected,
       items: () => paragraphSpacingItems(spacing),
-      child: SizedBox(
-        height: Targets.menuRowHeight(context),
+      // (At least a row's height: large text wraps the label.)
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: Targets.menuRowHeight(context)),
         child: Row(
           children: [
             Expanded(child: Text('Paragraph spacing', style: theme.textTheme.labelLarge)),
-            Text(spacing.label, style: theme.textTheme.bodyMedium),
+            Text(spacing?.label ?? 'Mixed', style: theme.textTheme.bodyMedium),
             const SizedBox(width: Gaps.xs),
             EndChevron(
               child: Icon(

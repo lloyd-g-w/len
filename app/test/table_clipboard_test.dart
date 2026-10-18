@@ -48,6 +48,14 @@ void main() {
       );
     });
 
+    test('a right-to-left box writes its table right to left, as it lays it out', () {
+      final b = RichTextBuffer(const TextData(text: 'שלום'));
+      final t = b.insertTable(4, 1, 2);
+      b.setCell(t.line, 'אב', List.filled(2, SpanStyle.plain));
+      expect(htmlFromText(b.toData(const TextData())), contains('<table dir="rtl" style='));
+      expect(htmlFromText(_table(['a', 'b'], 1)), isNot(contains('dir="rtl"')));
+    });
+
     test('cells keep inline formatting; lists close before a table', () {
       final b = RichTextBuffer(const TextData(text: 'item\n'));
       b.updateParas(0, 0, (_) => const ParaStyle(list: ListKind.bullet));

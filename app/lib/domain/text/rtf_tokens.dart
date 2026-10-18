@@ -40,6 +40,9 @@ bool _isLetter(int c) => (c >= 0x61 && c <= 0x7A) || (c >= 0x41 && c <= 0x5A);
 
 bool _isDigit(int c) => c >= 0x30 && c <= 0x39;
 
+/// `\\`, braces, line breaks and NUL: where a run of text ends.
+bool _isSpecial(int c) => c == 0x5C || c == 0x7B || c == 0x7D || c == 0x0A || c == 0x0D || c == 0;
+
 bool _isHex(int c) => _isDigit(c) || (c | 0x20) >= 0x61 && (c | 0x20) <= 0x66;
 
 /// The tokens of [rtf], tolerantly: `\binN` data is skipped, a stray `\` at
@@ -51,8 +54,16 @@ Iterable<RtfToken> tokenizeRtf(String rtf) sync* {
   while (i < n) {
     final c = rtf.codeUnitAt(i);
     if (c != 0x5C && c != 0x7B && c != 0x7D) {
-      if (c != 0x0A && c != 0x0D && c != 0) text.writeCharCode(c);
-      i++;
+      // A run of text at once (a picture's hex can be megabytes).
+      final start = i;
+      while (i < n && !_isSpecial(rtf.codeUnitAt(i))) {
+        i++;
+      }
+      if (i > start) {
+        text.write(rtf.substring(start, i));
+      } else {
+        i++; // A line break or NUL, dropped.
+      }
       continue;
     }
     if (text.isNotEmpty) {

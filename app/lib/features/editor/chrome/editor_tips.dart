@@ -7,6 +7,7 @@ import '../../../domain/preferences.dart';
 import '../../../ink/input/live_ink.dart';
 import '../../../ink/selection/lasso_path.dart';
 import '../../../ink/tool_settings.dart';
+import '../../../ui/app_theme.dart';
 import '../../../ui/messages.dart';
 import 'tip_message.dart';
 
@@ -148,6 +149,9 @@ class TipsController extends ValueNotifier<TipMessage?> {
     // The user did what the lasso tip says.
     if (value?.tip == EditorTip.lasso && _selected()) _hide(done: true);
     if (value?.tip == EditorTip.curve && !_curveSelected()) _hide();
+    // Dragging an end is the pen (or finger) at work, as drawing is: the
+    // attach tip waits for the drag to rest too.
+    if (_attaching() || _due.contains(EditorTip.attach)) _restAgain();
     if (_attaching()) offer(EditorTip.attach);
     if (_curveSelected()) offer(EditorTip.curve);
   }
@@ -157,6 +161,11 @@ class TipsController extends ValueNotifier<TipMessage?> {
     // Writing on puts hold to snap off to the next shape.
     if (down && !_writing.value) _due.remove(EditorTip.holdToSnap);
     _writing.value = down;
+    _restAgain();
+  }
+
+  /// Something moved under the pen: due tips wait until it rests [calmFor].
+  void _restAgain() {
     _rested = false;
     _rest?.cancel();
     _rest = Timer(calmFor, () {
@@ -226,6 +235,7 @@ class TipsController extends ValueNotifier<TipMessage?> {
         penButton: _penButton(),
         lasso: _tools?.lasso.shape ?? LassoShape.freehand,
         pdf: _pdf,
+        touch: Targets.touchFirst,
       );
       if (message == null) continue;
       _spent = true;

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../app_services.dart';
 import '../../domain/text/user_font.dart';
+import '../../ink/fonts/user_font_library.dart';
 import '../../ui/app_dialogs.dart';
 import '../../ui/error_details.dart';
 import '../../ui/messages.dart';
@@ -31,16 +32,28 @@ abstract final class FontImport {
     ),
   ];
 
-  /// Picks a TTF or OTF file and adds it to the fonts; returns it, or null
-  /// if cancelled or refused (the user has been told why).
-  static Future<UserFont?> pick(BuildContext context) async {
-    final file = await openFile(acceptedTypeGroups: _types);
+  /// Picks a TTF or OTF file ([file] instead: tests) and adds it to the
+  /// fonts; returns it (also one already here), or null if cancelled or
+  /// refused (the user has been told why).
+  static Future<UserFont?> pick(BuildContext context, {XFile? file}) async {
+    file ??= await openFile(acceptedTypeGroups: _types);
     if (file == null || !context.mounted) return null;
-    final services = AppScope.read(context);
+    final fonts = AppScope.read(context).fonts;
+    final known = {for (final f in fonts.fonts) f.id};
     try {
-      final font = await services.fonts.import(await file.readAsBytes());
-      if (context.mounted) showMessage(context, 'Added “${font.name}”');
+      final font = await fonts.import(await file.readAsBytes());
+      if (context.mounted) {
+        showMessage(
+          context,
+          known.contains(font.id)
+              ? '“${font.name}” is already in your fonts'
+              : 'Added “${font.name}”',
+        );
+      }
       return font;
+    } on NotAFontException {
+      if (context.mounted) showMessage(context, '“${file.name}” isn’t a TrueType or OpenType font');
+      return null;
     } on Exception catch (e) {
       if (context.mounted) {
         showMessage(
@@ -68,7 +81,7 @@ abstract final class FontImport {
     final confirmed = await confirmAction(
       context,
       title: 'Remove “${font.name}”?',
-      message: 'Text in this font is shown in Sans until you import it again',
+      message: 'Text in this font is shown in Sans on all your devices until you import it again',
       confirmLabel: 'Remove',
       destructive: true,
     );

@@ -8,7 +8,9 @@ import '../syncable_table.dart';
 import 'version_rows.dart';
 
 /// What thinning needs to know of a version.
-typedef VersionInfo = ({String id, int createdAt, VersionKind kind, int size});
+/// What thinning needs of a version: [named] when it has a name (Rename…
+/// on any version, or Save version…), which keeps it until deleted.
+typedef VersionInfo = ({String id, int createdAt, VersionKind kind, bool named, int size});
 
 /// The versions of notebooks (collection `versions`, docs/SYNC_PROTOCOL.md
 /// "Version history"). A version's content is in packs (blobs); its row
@@ -58,13 +60,14 @@ class VersionRepository extends SyncableTable {
   /// What thinning needs of the live versions of [notebookId].
   List<VersionInfo> infosOf(String notebookId) => [
     for (final row in db.select(
-      'SELECT id, created_at, kind, size FROM versions WHERE notebook_id = ? AND deleted = 0',
+      'SELECT id, created_at, kind, name, size FROM versions WHERE notebook_id = ? AND deleted = 0',
       [notebookId],
     ))
       (
         id: row['id'] as String,
         createdAt: row['created_at'] as int,
         kind: VersionKind.values.asNameMap()[row['kind']] ?? VersionKind.auto,
+        named: row['name'] != null,
         size: row['size'] as int,
       ),
   ];
