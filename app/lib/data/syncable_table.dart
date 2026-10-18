@@ -169,8 +169,16 @@ abstract class SyncableTable implements SyncableStore {
     [nextVersion(id), deviceId, id],
   );
 
+  /// Writes still running in steps ([AppDatabase.steps]) finish first, so a
+  /// push never carries half an edit (new lines without the old ones'
+  /// tombstones, or the reverse).
   @override
-  List<SyncRecord> dirtyRecords(int limit, {String? after, bool? deleted}) => database
+  List<SyncRecord> dirtyRecords(int limit, {String? after, bool? deleted}) {
+    database.steps.finish();
+    return _dirtyRecords(limit, after: after, deleted: deleted);
+  }
+
+  List<SyncRecord> _dirtyRecords(int limit, {String? after, bool? deleted}) => database
       .select(
         'SELECT * FROM $table WHERE dirty = 1 AND id > ? '
         '${deleted == null ? '' : 'AND deleted = ${deleted ? 1 : 0} '}'

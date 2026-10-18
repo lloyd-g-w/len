@@ -1,6 +1,8 @@
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
+import 'package:len/data/stroke_repository.dart';
+import 'package:len/domain/stroke.dart';
 
 /// [SteppedWrites]: steps across turns in one transaction.
 void main() {
@@ -42,6 +44,37 @@ void main() {
         throwsStateError,
       );
       expect(count(d), 3);
+      async.flushTimers();
+      d.close();
+    });
+  });
+
+  test('a push reads no half edit: dirty rows finish the steps first', () {
+    fakeAsync((async) {
+      final d = AppDatabase.inMemory();
+      final strokes = StrokeRepository(d, deviceId: 'd');
+      Stroke stroke(int i) => Stroke(
+        id: 's$i',
+        surfaceId: 'p',
+        tool: InkTool.ballpoint,
+        color: 0xFF000000,
+        width: 2,
+        points: const [StrokePoint(0, 0, 0.5), StrokePoint(10, 10, 0.5)],
+        createdAt: i,
+      );
+      final steps = strokes.editSteps(const [], [for (var i = 0; i < 200; i++) stroke(i)]);
+      expect(steps.length, greaterThan(1));
+      d.steps.add([
+        for (final step in steps)
+          () {
+            final watch = Stopwatch()..start();
+            while (watch.elapsedMicroseconds < 5000) {}
+            step();
+          },
+      ]);
+      expect(d.steps.isOpen, isTrue, reason: 'more steps than a turn');
+      expect(strokes.dirtyRecords(1000), hasLength(200));
+      expect(d.steps.isOpen, isFalse);
       async.flushTimers();
       d.close();
     });
