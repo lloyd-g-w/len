@@ -9,13 +9,15 @@ import '../../domain/stroke.dart';
 import '../../ink/render/ink_sketch.dart';
 
 /// What [VersionInkImages] renders: a sheet's [strokes], the part of the
-/// world at [frame] (world units) scaled to [width] × [height] pixels.
+/// world at [frame] (world units) scaled to [width] × [height] pixels (a
+/// thumbnail, a preview, a zoomed-in part of one).
 typedef InkImageKey = ({List<Stroke> strokes, Rect frame, int width, int height});
 
-/// The ink of the history's thumbnails of large content (a canvas of
-/// tens of thousands of strokes), rendered at thumbnail resolution into
+/// The ink of the history's pictures of large content (a canvas of tens
+/// of thousands of strokes), rendered at the pixel size they show at into
 /// images, one after another in slices of work ([InkSketch]) as rows come
-/// into view: so a frame draws an image, not 50,000 strokes.
+/// into view, or a preview opens or zooms: so a frame draws an image, not
+/// 50,000 strokes.
 ///
 /// Keeps the [maxCount] / [maxBytes] most recently used images, disposing
 /// those it drops, and all of them on [dispose]. Callers get their own
@@ -91,6 +93,7 @@ class VersionInkImages {
       key.strokes,
       pixelScale: scale,
       slices: _slices,
+      within: key.frame,
       cancelled: cancelled,
     );
     final picture = recorder.endRecording();

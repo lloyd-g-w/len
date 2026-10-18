@@ -3,6 +3,10 @@ part of 'surface_model.dart';
 /// Models with edits waiting for [_SurfaceState.writeBehind].
 final Set<_SurfaceState> _withUnsaved = {};
 
+/// Databases surfaces have started writing edits to (see
+/// `SurfaceModel.startWriting`), perhaps not finished.
+final Set<AppDatabase> _writingTo = {};
+
 /// What a [SurfaceModel] holds: its settings, the loaded strokes and
 /// elements with their chunk indexes, and the change stream; plus the
 /// internals its parts share.

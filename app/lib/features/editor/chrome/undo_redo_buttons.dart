@@ -17,9 +17,9 @@ class UndoRedoButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: target,
-      builder: (context, _) => Row(
+    return UndoStateBuilder(
+      target: target,
+      builder: (context) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           BarButton(
@@ -36,5 +36,55 @@ class UndoRedoButtons extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Builds with [target]'s state, again only when [UndoTarget.canUndo] or
+/// [UndoTarget.canRedo] changes: the target notifies on every edit of the
+/// surface (each stroke), which the buttons need not rebuild for.
+class UndoStateBuilder extends StatefulWidget {
+  const UndoStateBuilder({super.key, required this.target, required this.builder});
+
+  final UndoTarget target;
+  final WidgetBuilder builder;
+
+  @override
+  State<UndoStateBuilder> createState() => _UndoStateBuilderState();
+}
+
+class _UndoStateBuilderState extends State<UndoStateBuilder> {
+  (bool, bool) _state = (false, false);
+
+  (bool, bool) _read() => (widget.target.canUndo, widget.target.canRedo);
+
+  @override
+  void initState() {
+    super.initState();
+    widget.target.addListener(_onChange);
+  }
+
+  @override
+  void didUpdateWidget(UndoStateBuilder old) {
+    super.didUpdateWidget(old);
+    if (old.target == widget.target) return;
+    old.target.removeListener(_onChange);
+    widget.target.addListener(_onChange);
+  }
+
+  @override
+  void dispose() {
+    widget.target.removeListener(_onChange);
+    super.dispose();
+  }
+
+  void _onChange() {
+    final state = _read();
+    if (state != _state) setState(() => _state = state);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _state = _read(); // What this build shows.
+    return widget.builder(context);
   }
 }

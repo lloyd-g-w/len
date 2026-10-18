@@ -7,6 +7,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/history/version_history_sheet.dart';
 import 'package:len/features/history/version_ink_images.dart';
+import 'package:len/features/history/version_preview.dart';
 import 'package:len/features/history/version_surface_view.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -71,6 +72,30 @@ void main() {
       reason: 'the thumbnail',
     );
     expect(_views().single.showsInkImage, isTrue);
+    // Its preview too, at its size, and the part zoomed into sharp.
+    await tester.tap(find.byKey(ValueKey('version-${s.versions.of(nb.id).single.id}')));
+    await tester.pumpAndSettle();
+    final preview = find.descendant(
+      of: find.byType(VersionPreview),
+      matching: find.byType(VersionSurfaceView),
+    );
+    VersionSurfaceViewState view() => tester.state(preview);
+    await pumpUntil(tester, () => view().loaded, reason: 'the preview');
+    expect(view().showsInkImage, isTrue);
+    expect(view().showsZoomedPart, isFalse);
+    final zoom = tester.widget<InteractiveViewer>(find.byType(InteractiveViewer));
+    zoom.transformationController!.value = Matrix4.diagonal3Values(4, 4, 1);
+    await tester.pump();
+    expect(view().loaded, isFalse, reason: 'its part comes when the zoom rests');
+    await tester.pump(const Duration(milliseconds: 200));
+    await pumpUntil(tester, () => view().loaded, reason: 'the part zoomed into');
+    expect(view().showsZoomedPart, isTrue);
+    zoom.transformationController!.value = Matrix4.identity();
+    await tester.pump(const Duration(milliseconds: 200));
+    await pumpUntil(tester, () => view().loaded, reason: 'zoomed out');
+    expect(view().showsZoomedPart, isFalse);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     // Closing disposes the images with the history (VersionSheets).
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();

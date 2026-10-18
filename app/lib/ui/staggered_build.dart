@@ -67,12 +67,21 @@ class _StaggeredBuildState extends State<StaggeredBuild> {
     _schedule();
   }
 
-  /// Whether the enclosing scrollable is scrolling; then this waits until
-  /// it stops.
+  /// Where the enclosing scrollable was when this last looked.
+  double? _seenAt;
+
+  /// Whether the enclosing scrollable is scrolling, or has moved since the
+  /// frame before (a jump, a drag that ended before the frame); then this
+  /// waits until it stops and a frame finds it where it was.
   bool _waitsForScrolling() {
     if (_scrolling != null) return true;
     final scrolling = context.findAncestorStateOfType<ScrollableState>()?.position;
-    if (scrolling == null || !scrolling.isScrollingNotifier.value) return false;
+    if (scrolling == null) return false;
+    if (!scrolling.isScrollingNotifier.value) {
+      if (!scrolling.hasPixels || _seenAt == scrolling.pixels) return false;
+      _seenAt = scrolling.pixels;
+      return true;
+    }
     _scrolling = scrolling.isScrollingNotifier..addListener(_scrolled);
     return true;
   }

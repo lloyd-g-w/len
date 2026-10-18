@@ -8,6 +8,7 @@ import '../toolbar/insert_menu.dart';
 import '../toolbar/tool_switcher.dart';
 import '../toolbar/toolbar_metrics.dart';
 import 'bar_button.dart';
+import 'undo_redo_buttons.dart';
 
 /// Focus mode's only tools (REDESIGN §2.7): the active tool, which opens
 /// the tool switcher (long press: its options), and undo. Hosted in a
@@ -28,9 +29,9 @@ class ToolPuck extends StatelessWidget {
       children: [
         ToolSwitcherButton(tools: tools, insert: insert),
         ToolbarAxis.gap(context, Gaps.xxs),
-        ListenableBuilder(
-          listenable: undo,
-          builder: (context, _) => BarButton(
+        UndoStateBuilder(
+          target: undo,
+          builder: (context) => BarButton(
             tooltip: 'Undo (Ctrl+Z)',
             onPressed: undo.canUndo ? undo.undo : null,
             icon: Symbols.undo_sharp,

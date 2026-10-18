@@ -514,6 +514,74 @@ What remains:
 
 All slow tests of the four files pass.
 
+## Leftovers of round 14 (branch perf/r15, Oct 2026)
+
+The "What remains" items above, on their benchmarks. Debug JIT in the
+harness on the shared 6-core machine (load ~1), run file by file.
+
+| Scenario | Before | After |
+|---|---|---|
+| Paged history, 200 versions: scrolling (a screen a frame) | median 55–59 ms, max 79–89 ms; first frame 341–366 ms | median 30 ms, max 46–56 ms; first frame 250–257 ms |
+| History, 50k canvas: the oldest version's full-size preview | shown in 14,721 ms (one 14,603 ms frame) | shown in 150–198 ms over 3 frames (the first opening compiles; again 24, 8, 2 ms); sharp at 4× in 112–156 ms, frames 1–17 ms |
+| Editor, the first frames after pen-up (1,200 / 20,000 moves) | 7.5–9.3 / 9.5–11.5 ms, then 2 ms; between them 16 ms of tile snapshots | 2.8 / 4.6 ms, then 1.7 / 2.2 ms; the snapshots unchanged (raster thread in the app) |
+| Connectors, 200-arrow drag commit: the write after the frame | one turn, best 11.0, median 12.4 ms | 3–4 turns, the longest best 4.8, median 4.9, max 5.1 ms (12–13 ms in all) |
+
+- **History rows.** A row built ~100 elements, now ~40: labels worked
+  out once per list, rows built lazily without keep-alives; the ⋯ menu
+  and the row's `InkWell` staggered (`StaggeredBuild`, which also waits
+  for a frame that finds the list where it was); title, time and details
+  one render object (`VersionRowText`); a thumbnail one render object
+  that lays itself out and repaints as its sheet and images arrive, with
+  no rebuild. What is left of a frame (a 500 px jump, ~6 new rows) is
+  framework inflation and layout of those rows (~60 %), semantics
+  (~18 %) and paint; a real scroll builds a row a frame. Not pursued
+  further.
+- **Large previews.** A sheet of 2,000 strokes or more draws its ink in
+  the preview from an image at the size it shows (up to 4,096 px a side),
+  rendered in slices (`VersionInkImages`, `InkSketch`) as thumbnails do;
+  zoomed in, once the zoom rests 150 ms the part in view is rendered at
+  the zoom's pixels over the enlarged whole (`_ZoomDetail`).
+- **Frames after pen-up.** The benchmark (`mouse_ink_perf_test`, "the
+  frames after pen-up") times the four frames after a 1,200- and a
+  20,000-move pen-up. The VM timeline (`CpuProfile.startTimeline` /
+  `dumpTimeline`, now with the engine's events) showed what the old
+  numbers mixed: the frame itself (build and layout 4.8 ms, paint 1.5,
+  semantics 1.5, the write-behind 1.7 after it) and, before the second
+  frame, four `DoMakeRasterSnapshot`s of 3–4 ms each: the tiles the long
+  stroke crosses, rendered with it (`Picture.toImage`). The harness runs
+  the engine's raster tasks on the UI thread; the app runs them on the
+  raster thread, where the live stroke shows until the tiles replace it
+  (no frame loses ink, `pen_flicker_*`). No GC events. Most of the frame
+  was the undo and redo buttons rebuilding on every edit (~70 widgets,
+  their tooltips and semantics): `UndoStateBuilder` rebuilds them only
+  when undo or redo becomes possible or impossible. The frames no longer
+  depend much on the stroke's length (budget: the longest within twice
+  the short stroke's + 4 ms).
+- **Drag commit's write.** `SteppedWrites` (on `AppDatabase.steps`) runs
+  writes as steps across turns inside one `BEGIN IMMEDIATE` transaction:
+  each turn runs steps for 4 ms (at least one), the last commits; a
+  failing step rolls it all back. Write-behind surfaces
+  (`SurfaceModel.startWriting`, after the frame) give it their edits as
+  `StrokeRepository.editSteps` (tombstones, then rows with their chunk
+  index, 32 strokes a step, ~1.5 ms); a pen stroke fits one turn as
+  before. `flush`, `flushAll`, `AppDatabase.transaction` and `close`
+  finish open steps first, so reads that flush and other transactions
+  never see or join half an edit (raw reads between the turns see the
+  steps so far). The SQLite work itself is unchanged: the tombstones
+  ~3.5 ms, the rows ~3.6, the chunk index ~2.3, encoding ~1.8 for 201
+  lines.
+
+What remains:
+
+- **Tile snapshots after a long stroke**: 4 × 3–4 ms of raster-thread
+  work after a 58k-point pen-up, each tile drawing the whole outline
+  clipped. Drawing only the part in a tile would need outlines split by
+  region (their smoothing and tapers span the stroke).
+- **Paged history scroll** at ~30 ms a 500 px jump in the harness
+  (framework work for ~6 new rows).
+- **Semantics** cost 1.3–1.5 ms a frame after pen-up and ~18 % of a
+  history scroll frame while a screen reader (or the harness) is on.
+
 ## Current numbers (debug, harness)
 
 - **Library, 1,000 notebooks:** first frame 400–450 ms (a warm 20-notebook

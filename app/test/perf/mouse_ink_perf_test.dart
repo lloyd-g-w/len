@@ -195,6 +195,54 @@ void main() {
     await gesture.up();
     await tester.pump(const Duration(seconds: 3));
   });
+
+  testWidgets('editor: the frames after pen-up, a short and a 20,000-move stroke', (tester) async {
+    await openCanvas(tester);
+    final frames = <int, List<double>>{};
+    final pumps = <int, List<double>>{};
+    // A short and a long stroke to warm up, then the same measured.
+    for (final (round, moves) in [(0, 1200), (1, 20000), (2, 1200), (3, 20000)]) {
+      // Each stroke lower than the last, on a fresh part of the canvas.
+      Offset where(int i) => at(i) + Offset(0, round * 60.0);
+      final gesture = await tester.startGesture(where(0), kind: PointerDeviceKind.mouse);
+      for (var i = 1; i <= moves; i++) {
+        await gesture.moveTo(where(i), timeStamp: Duration(milliseconds: i));
+        if (i % 4 == 0) await tester.pump(const Duration(milliseconds: 4));
+      }
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.up(timeStamp: Duration(milliseconds: moves + 1));
+      final f = frames[moves] = [], p = pumps[moves] = [];
+      for (var i = 0; i < 4; i++) {
+        final pump = Stopwatch()..start();
+        f.add(await _frameMs(tester));
+        p.add(pump.elapsedMicroseconds / 1000);
+      }
+      await tester.pump(const Duration(seconds: 1));
+    }
+    String list(List<double> ms) => ms.map((m) => m.toStringAsFixed(1)).join(', ');
+    _report(
+      'editor, the first four frames after pen-up: after 1,200 moves ${list(frames[1200]!)} ms '
+      '(pumps ${list(pumps[1200]!)}), after 20,000 moves ${list(frames[20000]!)} ms '
+      '(pumps ${list(pumps[20000]!)}; between the frames the harness runs the engine\'s '
+      'snapshots of the stroke\'s tiles, on the raster thread in the app)',
+    );
+    // The frames after pen-up do not grow with the stroke's length.
+    final short = frames[1200]!.reduce(math.max), long = frames[20000]!.reduce(math.max);
+    expect(long, lessThan(short * 2 + 4));
+  });
+}
+
+/// The frame a 16 ms pump draws (ms): from its first frame callback to
+/// the end of drawing it, without the timers the pump runs before it.
+Future<double> _frameMs(WidgetTester tester) async {
+  final frame = Stopwatch();
+  var us = 0;
+  tester.binding
+    ..scheduleFrameCallback((_) => frame.start())
+    ..addPostFrameCallback((_) => us = frame.elapsedMicroseconds)
+    ..scheduleFrame();
+  await tester.pump(const Duration(milliseconds: 16));
+  return us / 1000;
 }
 
 /// The input pipeline of a canvas, without widgets, drawing with the

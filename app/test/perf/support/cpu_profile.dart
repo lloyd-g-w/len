@@ -79,5 +79,63 @@ class CpuProfile {
     }
   }
 
+  /// Records the VM's timeline ([streams]: garbage collection, the
+  /// compiler, Dart's own events such as the frame's phases, and the
+  /// engine's, such as `DoMakeRasterSnapshot` for `Picture.toImage`) from
+  /// now on; [dumpTimeline] prints it. The test harness runs the engine's
+  /// raster tasks on the UI thread: CPU samples without Dart frames are
+  /// mostly those.
+  Future<void> startTimeline({
+    List<String> streams = const ['GC', 'Compiler', 'Dart', 'Embedder'],
+  }) async {
+    await _service.setVMTimelineFlags(streams);
+    await _service.clearVMTimeline();
+    _timelineStart = (await _service.getVMTimelineMicros()).timestamp!;
+  }
+
+  int _timelineStart = 0;
+
+  /// Prints the timeline events since [startTimeline] that took at least
+  /// [minMs], in order (start relative to it, duration, stream, name).
+  Future<void> dumpTimeline(String label, {double minMs = 1}) async {
+    final now = (await _service.getVMTimelineMicros()).timestamp!;
+    final timeline = await _service.getVMTimeline(
+      timeOriginMicros: _timelineStart,
+      timeExtentMicros: now - _timelineStart,
+    );
+    // Complete events, and begin/end pairs (per thread; async ones by id).
+    final raw = [
+      for (final e in timeline.traceEvents ?? const <TimelineEvent>[])
+        if (e.json case final j? when j['ts'] != null) j,
+    ]..sort((a, b) => (a['ts'] as num).compareTo(b['ts'] as num));
+    final open = <String, List<Map<String, dynamic>>>{};
+    final events = <Map<String, dynamic>>[];
+    for (final j in raw) {
+      final ph = j['ph'];
+      final key = ph == 'b' || ph == 'e' ? 'a${j['id']}' : 't${j['tid']}';
+      if (ph == 'X') {
+        events.add(j);
+      } else if (ph == 'B' || ph == 'b') {
+        (open[key] ??= []).add(j);
+      } else if ((ph == 'E' || ph == 'e') && (open[key]?.isNotEmpty ?? false)) {
+        final b = open[key]!.removeLast();
+        events.add({...b, 'dur': (j['ts'] as num) - (b['ts'] as num)});
+      }
+    }
+    events
+      ..retainWhere((j) => (j['dur'] as num? ?? 0) >= minMs * 1000)
+      ..sort((a, b) => (a['ts'] as num).compareTo(b['ts'] as num));
+    // ignore: avoid_print
+    print('=== timeline $label: ${events.length} events ≥ $minMs ms');
+    for (final e in events) {
+      final at = ((e['ts'] as num) - _timelineStart) / 1000;
+      final ms = (e['dur'] as num) / 1000;
+      // ignore: avoid_print
+      print(
+        '  +${at.toStringAsFixed(1)} ms  ${ms.toStringAsFixed(1)} ms  ${e['cat']} ${e['name']}',
+      );
+    }
+  }
+
   Future<void> close() => _service.dispose();
 }

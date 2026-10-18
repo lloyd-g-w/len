@@ -22,12 +22,14 @@ abstract final class InkSketch {
 
   /// Draws [strokes] in their draw order ([Stroke.drawOrder]) onto
   /// [canvas] (world units, [pixelScale] pixels per unit), yielding
-  /// through [slices]. Stops early, returning false, once [cancelled].
+  /// through [slices]; only those meeting [within] if given (a zoomed-in
+  /// part). Stops early, returning false, once [cancelled].
   static Future<bool> draw(
     Canvas canvas,
     List<Stroke> strokes, {
     required double pixelScale,
     required WorkSlices slices,
+    Rect? within,
     bool Function()? cancelled,
   }) async {
     final ink = await _inDrawOrder(strokes, slices);
@@ -38,6 +40,7 @@ abstract final class InkSketch {
         if (cancelled?.call() ?? false) return false;
       }
       final s = ink[i];
+      if (within != null && !s.bounds.overlaps(within)) continue;
       if (s.fill != null) {
         run.flush();
         StrokeRenderer.drawFill(canvas, s);

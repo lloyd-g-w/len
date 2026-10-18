@@ -11,6 +11,7 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/chrome/editor_menu_actions.dart';
 import 'package:len/features/editor/chrome/editor_more_menu.dart';
 import 'package:len/features/history/version_history_sheet.dart';
+import 'package:len/features/history/version_row_text.dart';
 import 'package:len/features/library/library_menus.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -108,9 +109,13 @@ void main() {
     expect(find.text('Today'), findsOneWidget);
     expect(find.text('Yesterday'), findsOneWidget);
     expect(find.byKey(ValueKey('version-${recent.id}')), findsOneWidget);
-    expect(find.text('This device, 1 page edited, 2 strokes added'), findsOneWidget);
-    expect(find.text('This device, 2 pages, 1 stroke'), findsOneWidget, reason: 'the first');
-    expect(find.text('14:02'), findsNWidgets(2));
+    // A row's words are one render object (VersionRowText).
+    Finder words({String? time, String? details}) => find.byWidgetPredicate(
+      (w) => w is VersionRowText && (w.time == time || w.details == details),
+    );
+    expect(words(details: 'This device, 1 page edited, 2 strokes added'), findsOneWidget);
+    expect(words(details: 'This device, 2 pages, 1 stroke'), findsOneWidget, reason: 'the first');
+    expect(words(time: '14:02'), findsNWidgets(2));
     // Newest first.
     expect(
       tester.getTopLeft(find.byKey(ValueKey('version-${recent.id}'))).dy,

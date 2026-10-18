@@ -8,7 +8,6 @@ import '../../data/versions/versions.dart';
 import '../../sync/remote_changes.dart';
 import '../../ui/app_theme.dart';
 import '../../ui/dialog_or_sheet.dart';
-import '../../ui/menus.dart';
 import '../../ui/section_label.dart';
 import '../../ui/sheet_parts.dart';
 import '../documents/pdf/pdf_background_cache.dart';
@@ -16,6 +15,7 @@ import '../editor/document/notebook_backgrounds.dart';
 import 'version_flows.dart';
 import 'version_labels.dart';
 import 'version_preview.dart';
+import 'version_row.dart';
 import 'version_surface_view.dart';
 
 /// "Version history…" (docs/ARCHITECTURE.md, "Version history"): the
@@ -101,32 +101,7 @@ class _VersionHistoryState extends State<VersionHistory> {
         final versions = services.versions.of(widget.notebookId);
         final title = services.notebooks.get(widget.notebookId)?.title;
         final now = services.clock.nowDate();
-        final rows = <Widget>[];
-        String? day;
-        for (final (i, v) in versions.indexed) {
-          final label = VersionLabels.day(v.createdAt, now: now);
-          if (label != day) {
-            day = label;
-            rows.add(
-              Padding(
-                padding: const EdgeInsets.fromLTRB(Gaps.lg, Gaps.md, Gaps.lg, Gaps.xs),
-                child: SectionLabel(label),
-              ),
-            );
-          }
-          rows.add(
-            _VersionRow(
-              key: ValueKey('version-${v.id}'),
-              version: v,
-              first: i == versions.length - 1,
-              hasOlder: i < versions.length - 1,
-              sheets: _sheets,
-              services: services,
-              onOpen: () => _open(v),
-              onAction: (a) => _act(a, v),
-            ),
-          );
-        }
+        final entries = _entries(versions, now);
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -145,15 +120,67 @@ class _VersionHistoryState extends State<VersionHistory> {
             Flexible(
               child: versions.isEmpty
                   ? _empty(context)
-                  : ListView(
+                  : ListView.builder(
                       shrinkWrap: true,
                       padding: const EdgeInsets.only(bottom: Gaps.lg),
-                      children: rows,
+                      itemCount: entries.length,
+                      // Nothing in a row keeps it alive scrolled away.
+                      addAutomaticKeepAlives: false,
+                      itemBuilder: (context, i) => _entry(entries[i]),
+                      findChildIndexCallback: (key) {
+                        final i = entries.indexWhere((e) => ValueKey(e.key) == key);
+                        return i < 0 ? null : i;
+                      },
                     ),
             ),
           ],
         );
       },
+    );
+  }
+
+  /// The list's rows: a heading for each day, then its versions, newest
+  /// first (with what their rows say worked out here, once).
+  List<_Entry> _entries(List<NotebookVersion> versions, DateTime now) {
+    final thisDevice = widget.services.strokes.deviceId;
+    final entries = <_Entry>[];
+    String? day;
+    for (final (i, v) in versions.indexed) {
+      final label = VersionLabels.day(v.createdAt, now: now);
+      if (label != day) {
+        day = label;
+        entries.add((key: 'day-$label', day: label, version: null, labels: null, hasOlder: false));
+      }
+      final last = i == versions.length - 1;
+      entries.add((
+        key: 'version-${v.id}',
+        day: null,
+        version: v,
+        labels: VersionRowLabels(v, first: last, thisDevice: thisDevice),
+        hasOlder: !last,
+      ));
+    }
+    return entries;
+  }
+
+  Widget _entry(_Entry e) {
+    final v = e.version;
+    if (v == null) {
+      return Padding(
+        key: ValueKey(e.key),
+        padding: const EdgeInsets.fromLTRB(Gaps.lg, Gaps.md, Gaps.lg, Gaps.xs),
+        child: SectionLabel(e.day!),
+      );
+    }
+    return VersionRow(
+      key: ValueKey(e.key),
+      version: v,
+      labels: e.labels!,
+      hasOlder: e.hasOlder,
+      sheets: _sheets,
+      services: widget.services,
+      onOpen: () => _open(v),
+      onAction: (a) => _act(a, v),
     );
   }
 
@@ -220,161 +247,28 @@ class _VersionHistoryState extends State<VersionHistory> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  Future<void> _act(_VersionAction action, NotebookVersion v) async {
+  Future<void> _act(VersionAction action, NotebookVersion v) async {
     final services = widget.services;
     switch (action) {
-      case _VersionAction.restore:
+      case VersionAction.restore:
         if (await restoreVersionFlow(context, services, v, message: widget.message)) _close();
-      case _VersionAction.copy:
+      case VersionAction.copy:
         await copyVersionFlow(context, services, v);
-      case _VersionAction.rename:
+      case VersionAction.rename:
         await renameVersionFlow(context, services, v);
-      case _VersionAction.delete:
+      case VersionAction.delete:
         deleteVersionFlow(context, services, v);
-      case _VersionAction.deleteOlder:
+      case VersionAction.deleteOlder:
         await deleteOlderFlow(context, services, v);
     }
   }
 }
 
-enum _VersionAction { restore, copy, rename, delete, deleteOlder }
-
-/// One version: a thumbnail of the page it changed first, its name or
-/// what made it, the time, the device and what changed.
-class _VersionRow extends StatelessWidget {
-  const _VersionRow({
-    super.key,
-    required this.version,
-    required this.first,
-    required this.hasOlder,
-    required this.sheets,
-    required this.services,
-    required this.onOpen,
-    required this.onAction,
-  });
-
-  final NotebookVersion version;
-
-  /// The oldest version: its summary counts what it holds.
-  final bool first;
-  final bool hasOlder;
-  final VersionSheets sheets;
-  final AppServices services;
-  final VoidCallback onOpen;
-  final ValueChanged<_VersionAction> onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final v = version;
-    final device = VersionLabels.device(v, thisDevice: services.strokes.deviceId);
-    final title = VersionLabels.title(v);
-    final summary = VersionLabels.summary(v, first: first);
-    return Row(
-      children: [
-        Expanded(
-          child: Semantics(
-            button: true,
-            label: '$title, ${VersionLabels.time(v)}, $device. $summary',
-            onTap: onOpen,
-            excludeSemantics: true,
-            child: InkWell(
-              onTap: onOpen,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(Gaps.lg, Gaps.sm, Gaps.xs, Gaps.sm),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 48,
-                      child: !v.isCanvas && v.summary.pages == 0
-                          ? const SizedBox.shrink()
-                          : VersionSurfaceView(sheets: sheets, version: v, images: services.images),
-                    ),
-                    const SizedBox(width: Gaps.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              if (v.kind == VersionKind.named) ...[
-                                const Icon(Symbols.bookmark_sharp, size: Glyphs.menu, fill: 1),
-                                const SizedBox(width: Gaps.xs),
-                              ],
-                              Flexible(
-                                child: Text(
-                                  title,
-                                  style: theme.textTheme.labelLarge,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: Gaps.sm),
-                              Text(
-                                VersionLabels.time(v),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontFeatures: AppTheme.tabularFigures,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            '$device, ${summary[0].toLowerCase()}${summary.substring(1)}',
-                            style: theme.textTheme.bodySmall,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(right: Gaps.lg),
-          child: PopupMenuButton<_VersionAction>(
-            tooltip: 'Version options',
-            icon: const Icon(Symbols.more_horiz_sharp),
-            onSelected: onAction,
-            itemBuilder: (_) => [
-              const MenuRow(
-                value: _VersionAction.restore,
-                icon: Symbols.restore_sharp,
-                label: 'Restore…',
-              ),
-              const MenuRow(
-                value: _VersionAction.copy,
-                icon: Symbols.library_add_sharp,
-                label: 'Copy as new notebook',
-              ),
-              const MenuRow(
-                value: _VersionAction.rename,
-                icon: Symbols.edit_sharp,
-                label: 'Rename…',
-              ),
-              const PopupMenuDivider(),
-              const MenuRow(
-                value: _VersionAction.delete,
-                icon: Symbols.delete_sharp,
-                label: 'Delete version',
-                destructive: true,
-              ),
-              if (hasOlder)
-                const MenuRow(
-                  value: _VersionAction.deleteOlder,
-                  icon: Symbols.delete_sweep_sharp,
-                  label: 'Delete older versions…',
-                  destructive: true,
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
+/// A row of the history: a day's heading ([day]) or a [version].
+typedef _Entry = ({
+  String key,
+  String? day,
+  NotebookVersion? version,
+  VersionRowLabels? labels,
+  bool hasOlder,
+});

@@ -117,7 +117,7 @@ void main() {
     await setUpNotebook(tester);
     await open(tester, const Size(1200, 900));
     expect(
-      tester.getSemantics(find.bySemanticsLabel(RegExp('^Edited, 14:04'))),
+      tester.getSemantics(find.bySemanticsLabel(RegExp('^Edited, 14:04')).first),
       isSemantics(isButton: true, hasTapAction: true),
     );
     expect(

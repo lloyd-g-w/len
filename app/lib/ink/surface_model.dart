@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../core/clock.dart';
+import '../data/app_database.dart';
 import '../data/element_repository.dart';
 import '../data/raster_store.dart';
 import '../data/stroke_reader.dart';
@@ -226,6 +227,10 @@ class SurfaceModel extends _SurfaceState
     for (final model in List.of(_withUnsaved)) {
       model.flush();
     }
+    for (final database in _writingTo) {
+      if (!database.isClosed) database.steps.finish();
+    }
+    _writingTo.clear();
   }
 
   @override

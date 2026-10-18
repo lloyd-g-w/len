@@ -193,3 +193,28 @@ class _PageTile extends StatelessWidget {
     ),
   );
 }
+
+/// A version's surface shown large, zoomable up to 8×; [child] gets the
+/// zoom (a large sheet renders the part zoomed into sharp).
+class _Zoomable extends StatefulWidget {
+  const _Zoomable(this.child);
+
+  final Widget Function(TransformationController zoom) child;
+
+  @override
+  State<_Zoomable> createState() => _ZoomableState();
+}
+
+class _ZoomableState extends State<_Zoomable> {
+  final _zoom = TransformationController();
+
+  @override
+  void dispose() {
+    _zoom.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      InteractiveViewer(maxScale: 8, transformationController: _zoom, child: widget.child(_zoom));
+}

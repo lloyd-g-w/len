@@ -7,6 +7,7 @@ import '../platform/sqlite_connection.dart';
 
 import 'schema_migrations.dart';
 import 'schema_reset.dart';
+import 'stepped_writes.dart';
 import 'write_back.dart';
 
 /// Owns the SQLite connection and creates and migrates the schema (see
@@ -74,7 +75,10 @@ class AppDatabase {
   /// writing once the other had committed (`SQLITE_BUSY`, which no waiting
   /// cures). Waiting for the other's transaction is bounded by
   /// [busyTimeoutMs].
+  ///
+  /// [steps] still running finish first.
   T transaction<T>(T Function() action) {
+    if (_steps case final steps? when !steps.isRunning) steps.finish();
     if (!db.autocommit) return action();
     final signal = writeSignal?..begin();
     try {
@@ -93,6 +97,11 @@ class AppDatabase {
       signal?.end();
     }
   }
+
+  /// Writes run in steps across turns, in one transaction (see
+  /// [SteppedWrites]).
+  SteppedWrites get steps => _steps ??= SteppedWrites(this);
+  SteppedWrites? _steps;
 
   /// Told when this connection's transactions begin and end, while a
   /// second writer (a pull worker) yields to them.
@@ -150,6 +159,7 @@ class AppDatabase {
   bool _closed = false;
 
   void close() {
+    _steps?.finish();
     _closed = true;
     for (final statement in _statements.values) {
       statement.close();
