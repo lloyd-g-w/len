@@ -15,10 +15,38 @@ abstract class _RichTextState extends TextEditingController {
   /// The text and selection now, for [_history].
   _Snapshot get _snapshot => (
     data: data,
-    selection: selection.isValid
-        ? _modelSelection(selection)
-        : TextSelection.collapsed(offset: _buffer.length),
+    selection:
+        _cellSelection ??
+        (selection.isValid
+            ? _modelSelection(selection)
+            : TextSelection.collapsed(offset: _buffer.length)),
   );
+
+  /// The selection in the table cell being edited (model offsets, inside
+  /// one cell), null when the field's own selection is the box's.
+  TextSelection? _cellSelection;
+
+  /// The block of table cells selected, if any.
+  TableRange? _range;
+
+  /// The model ranges of the cells selected ([_range]).
+  List<TextRange> get _rangeTargets {
+    final r = _range;
+    final t = r == null ? null : _buffer.tableAt(r.table);
+    if (r == null || t == null) return const [];
+    return [
+      for (final line in r.lines(t))
+        TextRange(start: _buffer.lineStart(line), end: _buffer.lineEnd(line)),
+    ];
+  }
+
+  /// What formatting acts on: the cells selected, the selection in the
+  /// cell edited, or the field's selection.
+  List<TextRange> get _targets {
+    if (_range != null) return _rangeTargets;
+    final s = _cellSelection;
+    return [if (s != null) TextRange(start: s.start, end: s.end) else modelSelection];
+  }
 
   TextData _box;
   RichTextBuffer _buffer;
@@ -136,7 +164,12 @@ abstract class _RichTextState extends TextEditingController {
     _box = data;
     _buffer = RichTextBuffer(data);
     _pending = null;
-    _sync(TextSelection.collapsed(offset: (caret ?? data.text.length).clamp(0, data.text.length)));
+    _cellSelection = null;
+    _range = null;
+    final at = (caret ?? data.text.length).clamp(0, data.text.length);
+    _sync(TextSelection.collapsed(offset: at));
+    // A caret in a table edits its cell.
+    if (_offsets.isInRow(at)) _cellSelection = TextSelection.collapsed(offset: at);
     _history.reset(_snapshot);
   }
 

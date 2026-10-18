@@ -7,7 +7,9 @@ mixin _RichTextFormatting on _RichTextState {
   /// The format at the caret (or of the selection's first character), as
   /// the toolbar shows it.
   SpanStyle get currentStyle {
-    final r = modelSelection;
+    final targets = _targets;
+    if (targets.isEmpty) return SpanStyle.plain;
+    final r = targets.first;
     if (r.isCollapsed) {
       if (_pending != null && _pendingAt == r.start) return _pending!;
       return _buffer.styleAt(r.start);
@@ -40,13 +42,24 @@ mixin _RichTextFormatting on _RichTextState {
 
   /// Whether the selection (or the caret's typing style) passes [test].
   bool selectionHas(bool Function(SpanStyle) test) {
-    final r = modelSelection;
+    final targets = _targets;
+    if (_range != null) {
+      final full = targets.where((r) => !r.isCollapsed);
+      return full.isNotEmpty && full.every((r) => _buffer.everyChar(r.start, r.end, test));
+    }
+    final r = targets.first;
     if (r.isCollapsed) return test(currentStyle);
     return _buffer.everyChar(r.start, r.end, test);
   }
 
   /// Applies [update] to the selected characters, or to what is typed next.
   void updateStyle(SpanStyle Function(SpanStyle) update) {
+    if (_range != null) {
+      for (final r in _rangeTargets) {
+        _buffer.updateChars(r.start, r.end, update);
+      }
+      return _changedKeeping(modelSelection);
+    }
     final r = modelSelection;
     if (r.isCollapsed) {
       _pending = update(currentStyle);

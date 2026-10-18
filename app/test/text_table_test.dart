@@ -12,10 +12,10 @@ TextData sample({bool header = false}) {
     spans: const [StyledRange(6, 7, SpanStyle(bold: true))],
     paras: [
       ParaStyle.body,
-      ParaStyle(cell: TableCell(spec, first: true)),
-      ParaStyle(cell: TableCell(spec)),
-      ParaStyle(cell: TableCell(spec)),
-      ParaStyle(cell: TableCell(spec)),
+      ParaStyle(cell: TextTableCell(spec, first: true)),
+      ParaStyle(cell: TextTableCell(spec)),
+      ParaStyle(cell: TextTableCell(spec)),
+      ParaStyle(cell: TextTableCell(spec)),
       ParaStyle.body,
     ],
   );
@@ -167,8 +167,8 @@ void main() {
       final end = TextData.rich(
         text: 'a\nb',
         paras: [
-          ParaStyle(cell: TableCell(TableSpec.even(2), first: true)),
-          ParaStyle(cell: TableCell(TableSpec.even(2))),
+          ParaStyle(cell: TextTableCell(TableSpec.even(2), first: true)),
+          ParaStyle(cell: TextTableCell(TableSpec.even(2))),
         ],
       );
       expect(TextTables.plainText(end.text, end.paras), 'a\tb');
@@ -254,9 +254,9 @@ void main() {
         TextData.rich(
           text: 'a\nb\nc',
           paras: [
-            ParaStyle(cell: TableCell(spec, first: true)),
-            ParaStyle(cell: TableCell(spec)),
-            ParaStyle(cell: TableCell(spec)),
+            ParaStyle(cell: TextTableCell(spec, first: true)),
+            ParaStyle(cell: TextTableCell(spec)),
+            ParaStyle(cell: TextTableCell(spec)),
           ],
         ),
       );
@@ -268,7 +268,7 @@ void main() {
     });
 
     test('list and heading commands leave cells alone', () {
-      final p = ParaStyle(cell: TableCell(TableSpec.even(1), first: true));
+      final p = ParaStyle(cell: TextTableCell(TableSpec.even(1), first: true));
       expect(p.copyWith(heading: 1, list: ListKind.bullet), p);
     });
   });

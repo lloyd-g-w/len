@@ -30,6 +30,7 @@ class RichTextField extends StatelessWidget {
     required this.onDone,
     this.onUndo,
     this.onRedo,
+    this.onKey,
   });
 
   final RichTextController controller;
@@ -40,6 +41,10 @@ class RichTextField extends StatelessWidget {
 
   /// Undo and redo; the [controller]'s own by default.
   final VoidCallback? onUndo, onRedo;
+
+  /// Sees keys before the field and its shortcuts (a table cell's field
+  /// moves between cells with Tab, Enter and arrows at its edges).
+  final FocusOnKeyEventCallback? onKey;
 
   /// Extra width the field needs beyond the text for its caret (see
   /// `RenderEditable`), so it wraps exactly where the box does.
@@ -134,6 +139,7 @@ class RichTextField extends StatelessWidget {
         child: Focus(
           canRequestFocus: false,
           skipTraversal: true,
+          onKeyEvent: onKey,
           onFocusChange: (focused) => focused
               ? claimFieldCopies(
                   controller,

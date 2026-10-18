@@ -2,15 +2,12 @@ part of 'rich_text_controller.dart';
 
 /// Copying, cutting and pasting in a [RichTextController]: plain text, HTML
 /// for other apps, and Len's own formatting for text copied from a box here.
-mixin _RichTextClipboard on _RichTextState, _RichTextFormatting {
+mixin _RichTextClipboard on _RichTextState, _RichTextFormatting, _RichTextTables {
   /// Copies the selected text — plain, and as HTML for other apps — and
   /// remembers its formatting; [cut] also deletes it.
   Future<void> copySelection({bool cut = false}) async {
-    final r = modelSelection;
-    if (r.isCollapsed) return;
-    final clip = RichTextController._clip = _buffer.slice(r.start, r.end, _box);
-    await writeRichClipboard(clip.text, htmlFromText(clip));
-    if (cut) _cut(r);
+    final copied = copyNow(cut: cut);
+    if (copied != null) await writeRichClipboard(copied.plain, copied.html);
   }
 
   /// The selected text, plain and as HTML, for a browser's copy or cut
@@ -18,11 +15,20 @@ mixin _RichTextClipboard on _RichTextState, _RichTextFormatting {
   /// answer); remembers its formatting, and [cut] deletes it. Null when
   /// nothing is selected.
   ({String plain, String html})? copyNow({bool cut = false}) {
-    final r = modelSelection;
-    if (r.isCollapsed) return null;
-    final clip = RichTextController._clip = _buffer.slice(r.start, r.end, _box);
-    if (cut) _cut(r);
-    return (plain: clip.text, html: htmlFromText(clip));
+    final TextData clip;
+    if (_range != null) {
+      // A block of cells: a table of them; cutting empties them.
+      final block = rangeData;
+      if (block == null) return null;
+      clip = RichTextController._clip = block;
+      if (cut) clearCells();
+    } else {
+      final r = modelSelection;
+      if (r.isCollapsed) return null;
+      clip = RichTextController._clip = _buffer.slice(r.start, r.end, _box);
+      if (cut) _cut(r);
+    }
+    return (plain: TextTables.plainText(clip.text, clip.paras), html: htmlFromText(clip));
   }
 
   void _cut(TextRange r) {
@@ -40,6 +46,12 @@ mixin _RichTextClipboard on _RichTextState, _RichTextFormatting {
   /// Pastes formatted text from another app over the selection.
   void pasteRich(TextData fragment) {
     final r = modelSelection;
+    if (TextTables.any(fragment.paras)) {
+      // Tables go in as whole lines.
+      final after = _buffer.insertFragment(r.start, r.end, fragment);
+      _pending = null;
+      return _changedKeeping(TextRange.collapsed(after));
+    }
     _buffer.insertRich(r.start, r.end, fragment, _buffer.styleAt(r.start));
     _pending = null;
     _changedKeeping(TextRange.collapsed(r.start + fragment.text.length));

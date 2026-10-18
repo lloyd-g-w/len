@@ -4,6 +4,11 @@ part of 'rich_text_controller.dart';
 /// (box-text offsets).
 typedef _Snapshot = ({TextData data, TextSelection selection});
 
+/// How a change goes into the history (see [_TextHistory.changed]): a
+/// typing run's ends, whether it deletes, an IME composition open, a
+/// command.
+typedef HistoryStep = ({int runFrom, int runTo, bool deletes, bool composing, bool command});
+
 /// Undo and redo inside the box being edited, formatting included (the
 /// text field's own undo only knows plain text). A run of typed characters
 /// up to a space or line break, or of characters deleted one by one, is one
@@ -27,6 +32,10 @@ class _TextHistory {
 
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
+
+  /// Told of every change (a table cell's controller passes its changes on
+  /// to the box's history).
+  void Function(HistoryStep step)? onChanged;
 
   /// Starts over at [state] (another box loaded).
   void reset(_Snapshot state) {
@@ -71,6 +80,13 @@ class _TextHistory {
     _last = state;
     _runAt = runTo;
     _runDeletes = deletes;
+    onChanged?.call((
+      runFrom: runFrom,
+      runTo: runTo,
+      deletes: deletes,
+      composing: composing,
+      command: command,
+    ));
   }
 
   /// The state to go back to from [now], or null.
@@ -111,7 +127,14 @@ mixin _RichTextUndo on _RichTextState implements BoxHistory {
     _box = state.data.copyWith(autoWidth: _box.autoWidth);
     _buffer = RichTextBuffer(state.data);
     _pending = null;
+    _range = null;
     _sync(state.selection);
+    // A step made in a table cell goes back to editing that cell.
+    final at = state.selection.start;
+    _cellSelection = _offsets.isInRow(at) && _buffer.tableAt(_buffer.lineOf(at)) != null
+        ? state.selection
+        : null;
+    notifyListeners();
     onDataChanged?.call();
     return true;
   }

@@ -99,7 +99,7 @@ class TextFlow {
     final lines = '\n'.allMatches(text).length + 1;
     final paras = data.paras.sublist(firstLine, firstLine + lines);
     if (paras.first.cell case final cell? when !cell.first) {
-      paras[0] = ParaStyle(cell: TableCell(cell.spec.copyWith(continued: true), first: true));
+      paras[0] = ParaStyle(cell: TextTableCell(cell.spec.copyWith(continued: true), first: true));
     }
     return TextData.rich(
       text: text,
@@ -143,7 +143,7 @@ class TextFlow {
       // A table going on from the part before joins its table.
       if ((more.firstOrNull?.cell, paras.lastOrNull?.cell) case (final cell?, final before?)
           when cell.spec.continued && before.spec.columns == cell.spec.columns) {
-        more[0] = ParaStyle(cell: TableCell(before.spec));
+        more[0] = ParaStyle(cell: TextTableCell(before.spec));
       }
       paras.addAll(more);
     }

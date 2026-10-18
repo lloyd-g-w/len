@@ -2580,7 +2580,7 @@ GoodNotes-style rich text inside a box.
   lines of the box's text, one line per cell in row-major order, so the
   plain text stays whole (search, old clients: cells read as paragraphs)
   and cells take character formatting like any line. Each cell's
-  `ParaStyle.cell` (`TableCell`) holds the table's `TableSpec` (columns,
+  `ParaStyle.cell` (`TextTableCell`) holds the table's `TableSpec` (columns,
   column widths as shares of the box width, bold header row, `continued`:
   goes on from the box on the page before) and whether it starts the
   table; stored compactly on the first cell only (see SYNC_PROTOCOL).

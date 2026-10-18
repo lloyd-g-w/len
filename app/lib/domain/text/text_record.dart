@@ -112,7 +112,7 @@ abstract final class TextRecord {
   static ParaStyle _cell(Map<String, Object?> p) {
     if (p.length != 1) _bad('paras');
     if (p.containsKey('tc')) {
-      return p['tc'] == true ? ParaStyle(cell: TableCell.loose) : _bad('paras');
+      return p['tc'] == true ? ParaStyle(cell: TextTableCell.loose) : _bad('paras');
     }
     final spec = p['tb'];
     if (spec is! Map<String, Object?>) _bad('paras');
@@ -125,7 +125,7 @@ abstract final class TextRecord {
       for (final v in w) v is num && v.isFinite && v > 0 ? v.toDouble() : _bad('paras'),
     ];
     return ParaStyle(
-      cell: TableCell(TableSpec(widths, header: h, continued: k == true), first: true),
+      cell: TextTableCell(TableSpec(widths, header: h, continued: k == true), first: true),
     );
   }
 

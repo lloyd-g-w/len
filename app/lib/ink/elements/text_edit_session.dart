@@ -231,7 +231,7 @@ class TextEditSession extends ChangeNotifier {
     _original = null;
     _current = null;
     final data = TextData.fromJson(current.data);
-    final empty = data.text.trim().isEmpty;
+    final empty = data.isBlank;
     lastBox = empty || _parts.length > 1
         ? null
         : (surfaceId: current.surfaceId, rect: current.rect);

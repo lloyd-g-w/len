@@ -104,6 +104,33 @@ extension TableEdits on RichTextBuffer {
     _ensureLineAfterTables();
   }
 
+  /// Replaces [start, end) (outside tables) with [fragment], formatted
+  /// text holding tables, as whole lines: the line is split at [start] and
+  /// the fragment's lines go between its halves (into an empty line, in
+  /// its place). Returns the offset after the fragment.
+  int insertFragment(int start, int end, TextData fragment) {
+    replace(start, end, '', SpanStyle.plain);
+    var line = lineOf(start);
+    if (start > lineStart(line)) {
+      replace(start, start, '\n', styleAt(start));
+      line++;
+    }
+    final texts = fragment.text.split('\n');
+    final chars = fragment.charStyles();
+    final paras = fragment.paras;
+    final lines = <BufferLine>[];
+    var o = 0;
+    for (var k = 0; k < texts.length; k++) {
+      lines.add((text: texts[k], chars: chars.sublist(o, o + texts[k].length), para: paras[k]));
+      o += texts[k].length + 1;
+    }
+    final replaceEmpty = lineAt(line).text.isEmpty && !paras.last.isCell;
+    spliceLines(line, replaceEmpty ? line + 1 : line, lines);
+    final last = line + lines.length - 1;
+    repairTables();
+    return lineEnd(last);
+  }
+
   /// Replaces the text of the cell on [line] (its breaks become spaces).
   void setCell(int line, String text, List<SpanStyle> chars) {
     final l = lineAt(line);
@@ -168,7 +195,11 @@ extension TableEdits on RichTextBuffer {
   /// table of [spec] (first cell, header row).
   TextTable _respec(int first, int cells, TableSpec spec) {
     for (var k = 0; k < cells; k++) {
-      final cell = TableCell(spec, first: k == 0, header: spec.hasHeaderRow && k < spec.columns);
+      final cell = TextTableCell(
+        spec,
+        first: k == 0,
+        header: spec.hasHeaderRow && k < spec.columns,
+      );
       updateParas(first + k, first + k, (_) => ParaStyle(cell: cell));
     }
     return TextTable(first, cells, spec);
@@ -176,7 +207,7 @@ extension TableEdits on RichTextBuffer {
 
   static List<BufferLine> _cells(TableSpec spec, int n) => [
     for (var k = 0; k < n; k++)
-      (text: '', chars: const <SpanStyle>[], para: ParaStyle(cell: TableCell(spec))),
+      (text: '', chars: const <SpanStyle>[], para: ParaStyle(cell: TextTableCell(spec))),
   ];
 
   static BufferLine _empty(ParaStyle para) =>

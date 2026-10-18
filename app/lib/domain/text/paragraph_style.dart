@@ -47,8 +47,8 @@ class ParaStyle {
   /// Nesting level of a list item, 0..[maxIndent].
   final int indent;
 
-  /// Set on a table cell (see [TableCell]; a cell has no other format).
-  final TableCell? cell;
+  /// Set on a table cell (see [TextTableCell]; a cell has no other format).
+  final TextTableCell? cell;
 
   /// The whole paragraph is bold: a header cell laid out on its own (not
   /// stored).
@@ -69,9 +69,9 @@ class ParaStyle {
     if (json is! Map) return body;
     if (json.containsKey('tb')) {
       final spec = TableSpec.fromJson(json['tb']);
-      if (spec != null) return ParaStyle(cell: TableCell(spec, first: true));
+      if (spec != null) return ParaStyle(cell: TextTableCell(spec, first: true));
     }
-    if (json['tc'] == true) return ParaStyle(cell: TableCell.loose);
+    if (json['tc'] == true) return ParaStyle(cell: TextTableCell.loose);
     final h = json['h'], n = json['n'];
     final list = ListKind.parse(json['l']);
     return ParaStyle(
@@ -122,7 +122,7 @@ class ParaStyle {
   }
 
   /// A table cell [cell] (no other format), or body text when null.
-  ParaStyle withCell(TableCell? cell) => cell == null ? body : ParaStyle(cell: cell);
+  ParaStyle withCell(TextTableCell? cell) => cell == null ? body : ParaStyle(cell: cell);
 
   @override
   bool operator ==(Object other) =>

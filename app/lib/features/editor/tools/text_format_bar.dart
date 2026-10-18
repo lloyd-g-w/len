@@ -13,6 +13,7 @@ import '../../settings/keyboard_shortcuts.dart' show modifierLabel;
 import 'colour_sheet.dart';
 import 'text/paragraph_spacing_menus.dart';
 import 'text/rich_text_controller.dart';
+import 'text/table_menus.dart';
 import 'text/text_style_menus.dart';
 
 part 'text_format_bar_groups.dart';
@@ -53,6 +54,9 @@ class TextFormatBar extends StatelessWidget {
 
   static const List<double> sizes = [12, 16, 20, 24, 32, 40, 56, 72, 96];
 
+  /// The ⋯ menu's "Insert table…" (phones).
+  static const Object _insertTable = #insertTable;
+
   /// Narrower screens (phones) dock the bar at the bottom.
   static const double dockBelowWidth = 600;
 
@@ -88,12 +92,23 @@ class TextFormatBar extends StatelessWidget {
       ),
     );
     // Delete in a trailing ⋯ (REDESIGN §2.6): out of the way of ✓. On
-    // phones, whose rows have no room left, paragraph spacing too.
+    // phones, whose rows have no room left, tables and paragraph spacing
+    // too.
+    final box = controller.boxController;
     final more = MenuIconButton<Object>(
       tooltip: 'More',
       icon: const Icon(Symbols.more_horiz_sharp, size: Glyphs.bar),
       items: () => [
         if (docked) ...[
+          if (box.inTable)
+            ...tableMenuItems(box)
+          else
+            const MenuRow<Object>(
+              value: _insertTable,
+              icon: Symbols.table_sharp,
+              label: 'Insert table…',
+            ),
+          const PopupMenuDivider(),
           for (final s in ParagraphSpacing.values)
             MenuRow<Object>(
               value: s,
@@ -112,7 +127,12 @@ class TextFormatBar extends StatelessWidget {
         ),
       ],
       onSelected: (choice) {
-        if (choice is ParagraphSpacing) {
+        if (choice == _insertTable) {
+          insertTableFromPicker(context, box, refocus);
+        } else if (choice is TableCommand) {
+          choice.run(box);
+          refocus();
+        } else if (choice is ParagraphSpacing) {
           _box(controller.box.copyWith(spacing: choice));
           refocus();
         } else {

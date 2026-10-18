@@ -106,8 +106,8 @@ class TableSpec {
 /// cell in memory, stored on the first only) and whether it is the table's
 /// [first] cell. [header]: in the bold first row of a table with a header
 /// (derived, not stored).
-class TableCell {
-  const TableCell(this.spec, {this.first = false, this.header = false});
+class TextTableCell {
+  const TextTableCell(this.spec, {this.first = false, this.header = false});
 
   final TableSpec spec;
   final bool first;
@@ -115,14 +115,17 @@ class TableCell {
 
   /// A cell read before its table's spec is known (`{"tc": true}`), linked
   /// by [TextTables.normalize].
-  static final TableCell loose = TableCell(TableSpec(const [1]));
+  static final TextTableCell loose = TextTableCell(TableSpec(const [1]));
 
-  TableCell copyWith({TableSpec? spec, bool? first, bool? header}) =>
-      TableCell(spec ?? this.spec, first: first ?? this.first, header: header ?? this.header);
+  TextTableCell copyWith({TableSpec? spec, bool? first, bool? header}) =>
+      TextTableCell(spec ?? this.spec, first: first ?? this.first, header: header ?? this.header);
 
   @override
   bool operator ==(Object other) =>
-      other is TableCell && other.spec == spec && other.first == first && other.header == header;
+      other is TextTableCell &&
+      other.spec == spec &&
+      other.first == first &&
+      other.header == header;
 
   @override
   int get hashCode => Object.hash(spec, first, header);
@@ -204,7 +207,7 @@ abstract final class TextTables {
   /// [paras] with every table consistent: a cell not following a cell
   /// starts a table, cells take the spec of their table's first cell (so
   /// loose cells read from storage get theirs), cells of a header row are
-  /// marked [TableCell.header], and cells have no other paragraph format.
+  /// marked [TextTableCell.header], and cells have no other paragraph format.
   /// [paras] itself when nothing changes.
   static List<ParaStyle> normalize(List<ParaStyle> paras) {
     if (!any(paras)) return paras;
@@ -222,7 +225,7 @@ abstract final class TextTables {
       final first = cell.first || spec == null;
       final TableSpec current;
       if (first) {
-        current = identical(cell, TableCell.loose) ? TableSpec(const [1]) : cell.spec;
+        current = identical(cell, TextTableCell.loose) ? TableSpec(const [1]) : cell.spec;
         index = 0;
       } else {
         current = spec;
@@ -230,7 +233,7 @@ abstract final class TextTables {
       spec = current;
       final header = current.hasHeaderRow && index < current.columns;
       final next = ParaStyle(
-        cell: TableCell(current, first: first, header: header),
+        cell: TextTableCell(current, first: first, header: header),
       );
       changed = changed || next != p;
       out.add(next);

@@ -105,10 +105,12 @@ class TableLayout {
   Offset textOrigin(Rect rowRect, int row, int column) =>
       cellRect(rowRect, row, column).topLeft + Offset(cellPadX(data), cellPadY(data));
 
-  /// Paints row [row] laid out at [rowRect]: its cells' text, the borders around them, and the line
+  /// Paints row [row] laid out at [rowRect]: its cells' text (but
+  /// [skipColumn]'s), the borders around them, and the line
   /// below unless the next row follows ([closed] false).
-  void paintRow(Canvas canvas, Rect rowRect, int row, {required bool closed}) {
+  void paintRow(Canvas canvas, Rect rowRect, int row, {required bool closed, int? skipColumn}) {
     for (var c = 0; c < table.columns; c++) {
+      if (c == skipColumn) continue; // (Edited in its own field.)
       cells[index(row, c)].paint(canvas, textOrigin(rowRect, row, c));
     }
     final paint = Paint()

@@ -66,6 +66,28 @@ extension _TextBoxEditorLayout on _TextBoxEditorState {
                   ),
                 ),
               ),
+              Positioned.fill(
+                child: TextSelectionTheme(
+                  data: TextSelectionThemeData(
+                    selectionColor: accent.withValues(alpha: 0.25),
+                    selectionHandleColor: accent,
+                  ),
+                  child: DefaultTextEditingShortcuts(
+                    child: TableEditorLayer(
+                      box: _text,
+                      cell: _cell,
+                      cellFocus: _cellFocus,
+                      rangeFocus: _rangeFocus,
+                      scale: scale,
+                      cursorWidth: cursor,
+                      accent: accent,
+                      onDone: _session.end,
+                      onUndo: _session.undo,
+                      onRedo: _session.redo,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -135,18 +157,22 @@ extension _TextBoxEditorLayout on _TextBoxEditorState {
               Semantics(
                 container: true,
                 sortKey: const OrdinalSortKey(1),
-                child: TextFormatBar(
-                  anchor: bounds,
-                  dockedKey: _dockedBar,
-                  controller: _text,
-                  tools: widget.tools,
-                  onBoxChanged: (box) => widget.tools.textStyle = box.withFlow(null),
-                  onDelete: () {
-                    _session.setData(const TextData());
-                    _session.end();
-                  },
-                  onDone: _session.end,
-                  refocus: _focus.requestFocus,
+                // The bar formats the cell edited, if any.
+                child: ListenableBuilder(
+                  listenable: _text,
+                  builder: (context, _) => TextFormatBar(
+                    anchor: bounds,
+                    dockedKey: _dockedBar,
+                    controller: _formatted,
+                    tools: widget.tools,
+                    onBoxChanged: (box) => widget.tools.textStyle = box.withFlow(null),
+                    onDelete: () {
+                      _session.setData(const TextData());
+                      _session.end();
+                    },
+                    onDone: _session.end,
+                    refocus: _refocus,
+                  ),
                 ),
               ),
             ],
