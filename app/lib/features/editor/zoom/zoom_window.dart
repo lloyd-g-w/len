@@ -33,11 +33,19 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves, _ZoomHandMoves {
   ZoomWindow({
     required this.host,
     required InkInputController Function(SurfaceModel model, ZoomBoxViewport view) input,
+    this.writesRightToLeft,
   }) : _inputFor = input;
 
   @override
   final ZoomHost host;
   final InkInputController Function(SurfaceModel, ZoomBoxViewport) _inputFor;
+
+  /// Whether lines should run right to left (the setting; read as each
+  /// line starts). Left to right without one.
+  final bool Function()? writesRightToLeft;
+
+  @override
+  bool _wantsRightToLeft() => writesRightToLeft?.call() ?? false;
 
   /// The box as a viewport onto the frame's surface.
   @override
@@ -124,6 +132,16 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves, _ZoomHandMoves {
 
   void toggle() => isOpen ? close() : open();
 
+  /// The writing direction was changed: the line starts again where the
+  /// frame is, in the new direction.
+  void directionChanged() {
+    if (!isOpen || !_placed || _box.isEmpty) return;
+    _disarm();
+    _finishGlide();
+    _startLine();
+    notifyListeners();
+  }
+
   /// Scrolls the main view to show the frame clear of the chrome (after
   /// the box moved to the other edge).
   void showFrame() {
@@ -165,9 +183,10 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves, _ZoomHandMoves {
     if (frame == null || ink == null) return;
     _lineInk = _lineInk?.expandToInclude(ink) ?? ink;
     final rules = _rules;
-    if (!rules.inZone(frame, ink.right)) return;
-    if (rules.advancesNow(frame, ink.right)) return _advance(ink.right);
-    _arm(ink.right, pause);
+    final end = rules.inkEnd(ink);
+    if (!rules.inZone(frame, end)) return;
+    if (rules.advancesNow(frame, end)) return _advance(end);
+    _arm(end, pause);
   }
 
   void _contact(bool down) {

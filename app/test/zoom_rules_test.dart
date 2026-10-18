@@ -101,4 +101,50 @@ void main() {
       expect(ZoomRules.lineStep(frameHeight: 90, inkHeight: 10), 30);
     });
   });
+
+  group('ZoomRules right to left', () {
+    // Lines start at x 540 (the frame's right edge) and end at the page's left.
+    const rtl = ZoomRules(box: box, lineStart: 540, lineEnd: 0, page: page, rightToLeft: true);
+    // The frame at the line's start: 340 – 540.
+    const start = ZoomFrame(surfaceId: 'p', origin: Offset(340, 100), scale: 3);
+
+    test('the advance zone is the frame\'s left part, where the ink ends at its left', () {
+      expect(rtl.zoneStart(start), closeTo(540 - 200 * 0.7, 1e-9));
+      expect(rtl.inkEnd(const Rect.fromLTRB(380, 0, 420, 10)), 380);
+      expect(rtl.inZone(start, 410), isFalse);
+      expect(rtl.inZone(start, 395), isTrue);
+      expect(rtl.advancesNow(start, 395), isFalse);
+      expect(rtl.advancesNow(start, 355), isTrue);
+    });
+
+    test('advancing moves leftwards, the last ink a quarter into the frame', () {
+      final move = rtl.advance(start, 370, lineStep: 20) as ZoomMoveTo;
+      expect(move.origin.dx + 200 - 370, closeTo(200 * ZoomRules.keep, 1e-9));
+      expect(move.origin.dy, 100);
+    });
+
+    test('the frame never runs past the page\'s left edge', () {
+      const late = ZoomFrame(surfaceId: 'p', origin: Offset(50, 100), scale: 3);
+      final move = rtl.advance(late, 10, lineStep: 20) as ZoomMoveTo;
+      expect(move.origin, const Offset(0, 100));
+    });
+
+    test('at the end of the line it wraps back to the right', () {
+      const end = ZoomFrame(surfaceId: 'p', origin: Offset(0, 100), scale: 3);
+      final move = rtl.advance(end, 5, lineStep: 20) as ZoomMoveTo;
+      expect(move.origin, const Offset(340, 120));
+    });
+
+    test('a new line past a page\'s bottom starts the next page at the right', () {
+      final bottom = 800 - 200 / 3;
+      final next = rtl.newLine(start.copyWith(origin: Offset(10, bottom)), lineStep: 20);
+      expect((next as ZoomNextPage).origin, Offset(340, 800 * ZoomRules.topMargin));
+    });
+
+    test('ink lifted behind the frame (to its right) leaves it where it is', () {
+      const mid = ZoomFrame(surfaceId: 'p', origin: Offset(200, 100), scale: 3);
+      final move = rtl.advance(mid, 380, lineStep: 20) as ZoomMoveTo;
+      expect(move.origin, mid.origin);
+    });
+  });
 }

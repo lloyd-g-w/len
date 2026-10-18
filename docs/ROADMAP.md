@@ -85,7 +85,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
 - ✅ Zoom window, round 2: frame and box height remembered per notebook, box height dragged at
   its edge (⋯ → Automatic height undoes it), Left-handed (box docked at the top), the frame moved
   by its tab so the pen writes inside it on the page, the advance announced as the zone deepens
-- ⬜ Zoom window: right-to-left advance (right-to-left scripts)
+- ✅ Zoom window: right-to-left advance (box ⋯ → *Right to left*; at first as the device's
+  language runs): the frame advances leftwards from the right margin, a new line returns to the
+  right
 - ✅ Gestures: two-finger tap undo, three-finger tap redo (with a HUD; palm-safe), S Pen side
   button action (eraser / hold to lasso / none), finger long press or right click → canvas menu
   (paste here, select all on page, add text here, page commands)

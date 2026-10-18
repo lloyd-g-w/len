@@ -670,9 +670,20 @@ again. Text being typed reads once its write lands. The nodes take no pointers.
   the bottom) opens the box's own menu (`zoom_box_menu.dart`): *Left-handed* docks the box
   under the top chrome (`AppPreferences.zoomBoxAtTop`, `ChromeLayout.zoomBoxAtTop`, counted in
   `covered.top`; the grip moves to its bottom edge) so a left arm writing in it hides none of
-  the page and the frame (GoodNotes' answer for left-handers; the advance stays at the right,
-  as writing runs left to right whichever hand holds the pen), and *Automatic height* undoes a
-  dragged one. Palm: a stylus in the box tells the page's input
+  the page and the frame (GoodNotes' answer for left-handers; the advance stays where the
+  writing direction puts it, whichever hand holds the pen), *Right to left* mirrors the advance
+  (below), and *Automatic height* undoes a dragged one. **Right to left**
+  (`AppPreferences.zoomWritesRightToLeft`: the choice kept as `zoom_rtl`, else the device
+  locale's direction via `Bidi.isRtlLanguage`; `toggleZoomRightToLeft` drops the choice when it
+  matches the device again, so the setting follows the device until set otherwise): `ZoomRules
+  .rightToLeft` mirrors the geometry — `lineStart` is the frame's right edge where a line
+  began, `lineEnd` the page's left edge (on a canvas, the view's left), the zone the frame's
+  left 30 % judged by the ink's left edge (`inkEnd`), a new line back to the right; placed on
+  open at the ink's right or as far in from the page's right edge as the margin rule is from
+  its left. The window reads the setting as each line starts (`ZoomWindow.writesRightToLeft`;
+  a line keeps its direction, `directionChanged` restarts the line where the frame is), and the
+  zone band, the frame's wash, its tab (top right) and size square (bottom left, sizing keeps
+  the top-right corner) mirror with it. Palm: a stylus in the box tells the page's input
   (`InkInputController.stylusElsewhere`: a finger drawing or panning there stops, new ones
   are ignored as between strokes) and `ZoomWindow.blocksPage` absorbs new page touches for
   `palmQuiet` after the pen lifts. Each notebook keeps its window (`ZoomWindowState`: the frame

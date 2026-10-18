@@ -1,6 +1,10 @@
 import 'dart:convert';
 
+import 'dart:ui' show Locale;
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show ServicesBinding;
+import 'package:intl/intl.dart' show Bidi;
 
 import '../domain/notebook_style.dart';
 import '../domain/preferences.dart';
@@ -45,6 +49,30 @@ class AppPreferences extends ChangeNotifier {
   /// the bottom: a left hand writing in it then hides none of the page.
   bool get zoomBoxAtTop => _settings.zoomBoxAtTop;
   set zoomBoxAtTop(bool value) => _update(() => _settings.zoomBoxAtTop = value);
+
+  /// The zoom window's writing direction chosen by hand: true right to
+  /// left, false left to right; null follows the device's language
+  /// ([zoomWritesRightToLeft]).
+  bool? get zoomRightToLeft => _settings.zoomRightToLeft;
+  set zoomRightToLeft(bool? value) => _update(() => _settings.zoomRightToLeft = value);
+
+  /// Whether the zoom window's lines run right to left: as chosen, else
+  /// as the device's language runs (Arabic, Hebrew, Persian, Urdu…).
+  bool get zoomWritesRightToLeft => zoomRightToLeft ?? deviceRightToLeft;
+
+  /// Turns the zoom window's direction over: an explicit choice, unless it
+  /// is the device language's direction again (then it follows that).
+  void toggleZoomRightToLeft() {
+    final rtl = !zoomWritesRightToLeft;
+    zoomRightToLeft = rtl == deviceRightToLeft ? null : rtl;
+  }
+
+  /// Whether the device's language is written right to left.
+  static bool get deviceRightToLeft =>
+      localeRightToLeft(ServicesBinding.instance.platformDispatcher.locale);
+
+  /// Whether [locale]'s language is written right to left.
+  static bool localeRightToLeft(Locale locale) => Bidi.isRtlLanguage(locale.toLanguageTag());
 
   /// Where the editor toolbar sits.
   ToolbarPlacement get toolbarPlacement => _settings.toolbarPlacement;

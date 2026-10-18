@@ -43,16 +43,24 @@ CustomPainter zoomPaperPainter(
   );
 }
 
-/// The advance zone at the box's right: ink lifted there moves the frame
-/// on. A faint band in the paper's own pattern colour, with a hairline at
+/// The advance zone at the box's right (left when lines run right to
+/// left): ink lifted there moves the frame on. A faint band in the paper's own pattern colour, with a hairline at
 /// its start, so it reads as part of the paper rather than of the chrome.
 /// While an advance waits for the pen to rest ([armed] rising to 1) it
 /// deepens, so the move that follows is expected.
 class ZoneBandPainter extends CustomPainter {
-  ZoneBandPainter({required this.start, required this.paper, this.armed = 0});
+  ZoneBandPainter({
+    required this.start,
+    required this.paper,
+    this.armed = 0,
+    this.rightToLeft = false,
+  });
 
   /// Where the zone starts (box pixels from the left).
   final double start;
+
+  /// Whether the zone runs from [start] to the box's left edge.
+  final bool rightToLeft;
   final PaperColor paper;
 
   /// How far a waiting advance has come (0 – 1).
@@ -63,25 +71,35 @@ class ZoneBandPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (start >= size.width) return;
+    if (rightToLeft ? start <= 0 : start >= size.width) return;
     final colour = paper.pattern;
+    final band = rightToLeft
+        ? Rect.fromLTRB(0, 0, start, size.height)
+        : Rect.fromLTRB(start, 0, size.width, size.height);
+    final edge = rightToLeft ? start - Hairline.width : start;
     canvas
-      ..drawRect(
-        Rect.fromLTRB(start, 0, size.width, size.height),
-        Paint()..color = colour.withValues(alpha: tint + (armedTint - tint) * armed),
-      )
-      ..drawRect(Rect.fromLTWH(start, 0, Hairline.width, size.height), Paint()..color = colour);
+      ..drawRect(band, Paint()..color = colour.withValues(alpha: tint + (armedTint - tint) * armed))
+      ..drawRect(Rect.fromLTWH(edge, 0, Hairline.width, size.height), Paint()..color = colour);
   }
 
   @override
   bool shouldRepaint(ZoneBandPainter old) =>
-      old.start != start || old.paper != paper || old.armed != armed;
+      old.start != start ||
+      old.paper != paper ||
+      old.armed != armed ||
+      old.rightToLeft != rightToLeft;
 }
 
 /// The advance zone's band, deepening over [ZoomWindow.pause] while an
 /// advance waits (at once with reduced motion) and clearing quickly.
 class ZoneBand extends StatelessWidget {
-  const ZoneBand({super.key, required this.armed, required this.start, required this.paper});
+  const ZoneBand({
+    super.key,
+    required this.armed,
+    required this.start,
+    required this.paper,
+    this.rightToLeft = false,
+  });
 
   /// Whether an advance waits ([ZoomWindow.armed]).
   final ValueListenable<bool> armed;
@@ -89,6 +107,9 @@ class ZoneBand extends StatelessWidget {
   /// Where the zone starts (box pixels from the left).
   final double start;
   final PaperColor paper;
+
+  /// Whether the zone lies left of [start] (lines run right to left).
+  final bool rightToLeft;
 
   @override
   Widget build(BuildContext context) => ValueListenableBuilder(
@@ -101,7 +122,7 @@ class ZoneBand extends StatelessWidget {
           ? ZoomWindow.pause
           : Motion.fast,
       builder: (context, t, _) => CustomPaint(
-        painter: ZoneBandPainter(start: start, paper: paper, armed: t),
+        painter: ZoneBandPainter(start: start, paper: paper, armed: t, rightToLeft: rightToLeft),
       ),
     ),
   );

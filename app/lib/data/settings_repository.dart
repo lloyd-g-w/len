@@ -161,6 +161,16 @@ class SettingsRepository {
   bool get zoomBoxAtTop => _get('zoom_box_top') == 'true';
   set zoomBoxAtTop(bool value) => _set('zoom_box_top', '$value');
 
+  /// Whether the zoom window writes right to left; null = as the device's
+  /// language runs.
+  bool? get zoomRightToLeft => switch (_get('zoom_rtl')) {
+    'true' => true,
+    'false' => false,
+    _ => null,
+  };
+  set zoomRightToLeft(bool? value) =>
+      value == null ? _remove('zoom_rtl') : _set('zoom_rtl', '$value');
+
   ToolbarPlacement get toolbarPlacement => ToolbarPlacement.parse(_get('toolbar_placement'));
   set toolbarPlacement(ToolbarPlacement value) => _set('toolbar_placement', value.name);
 

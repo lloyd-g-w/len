@@ -100,6 +100,7 @@ class _ZoomBoxPaperState extends State<ZoomBoxPaper> {
                 armed: _zoom.armed,
                 start: view.toScreen(Offset(zone, 0)).dx,
                 paper: _paperColour(frame.surfaceId),
+                rightToLeft: _zoom.rightToLeft,
               ),
             if (live)
               RepaintBoundary(
