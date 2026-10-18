@@ -53,7 +53,7 @@ class UndoStateBuilder extends StatefulWidget {
 }
 
 class _UndoStateBuilderState extends State<UndoStateBuilder> {
-  late (bool, bool) _state = _read();
+  (bool, bool) _state = (false, false);
 
   (bool, bool) _read() => (widget.target.canUndo, widget.target.canRedo);
 
@@ -69,7 +69,6 @@ class _UndoStateBuilderState extends State<UndoStateBuilder> {
     if (old.target == widget.target) return;
     old.target.removeListener(_onChange);
     widget.target.addListener(_onChange);
-    _state = _read();
   }
 
   @override
@@ -84,5 +83,8 @@ class _UndoStateBuilderState extends State<UndoStateBuilder> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.builder(context);
+  Widget build(BuildContext context) {
+    _state = _read(); // What this build shows.
+    return widget.builder(context);
+  }
 }
