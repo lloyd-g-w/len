@@ -148,8 +148,8 @@ class _RtfReader {
       case 'cell' || 'nestcell':
         if (!lines.current.isEmpty) _text(' ');
       case 'u':
-        final v = param ?? 0;
-        _text(String.fromCharCode(v < 0 ? v + 65536 : v & 0xFFFF));
+        // (Signed 16-bit: negative values are 65536 less.)
+        _text(String.fromCharCode((param ?? 0) % 0x10000));
         _skip = _state.uc;
       case 'ansicpg':
         tables.codePage = param ?? 1252;

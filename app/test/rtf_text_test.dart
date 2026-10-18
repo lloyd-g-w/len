@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/text/rtf_text.dart';
@@ -335,6 +336,19 @@ void main() {
       expect(textFromRtf(r'{\rtf1 \', _box), isNull);
       expect(textFromRtf(r'{\rtf1 }}}}{{{\x', _box), isNull);
       expect(textFromRtf(r"{\rtf1 a}}} b\'zz{", _box)!.text, 'a bzz');
+    });
+
+    test('random RTF-like input never throws', () {
+      final random = Random(7);
+      const pieces = [
+        '{', '}', r'\', 'a', ' ', ';', r'\u-99999 ', r'\uc5', r"\'", 'f9', r'\par', r'\ls', //
+        r'\ilvl-3', r'\fs0', r'\fs99999', r'\cf-1', r'\*', r'\fonttbl', r'\colortbl',
+        r'\listtable', r'\listtext', r'\pn', r'\bin9', r'\levelnfc', r'\f', '7', r'\s',
+      ];
+      for (var i = 0; i < 300; i++) {
+        final body = [for (var j = 0; j < 40; j++) pieces[random.nextInt(pieces.length)]].join();
+        expect(() => textFromRtf('{\\rtf1 $body', _box), returnsNormally, reason: body);
+      }
     });
 
     test('tokens: words with params, symbols, bytes, \\bin data', () {
