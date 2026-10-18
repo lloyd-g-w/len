@@ -445,6 +445,7 @@ the lab with Escape).
   one stray key); else it asks the route to pop. Menus and popovers over
   the page close alone, no double pop (`escape_closes_test`: a focused
   control, a text field, a menu open).
+- *Owner:* the two-step Escape in a text field is kept by design.
 
 #### Tips
 
