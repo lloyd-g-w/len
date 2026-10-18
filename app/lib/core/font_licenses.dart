@@ -7,7 +7,7 @@ import '../domain/text/text_font.dart';
 /// 1.1, `assets/fonts/*-OFL.txt`) to the app's licence page.
 void registerFontLicenses() {
   LicenseRegistry.addLicense(() async* {
-    for (final font in TextFont.values) {
+    for (final font in TextFont.bundled) {
       final text = await rootBundle.loadString(font.licenseAsset);
       yield LicenseEntryWithLineBreaks(['${font.family} font'], text);
     }

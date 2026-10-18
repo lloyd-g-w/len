@@ -2,6 +2,7 @@ import '../core/clock.dart';
 import 'app_database.dart';
 import 'element_repository.dart';
 import 'folder_repository.dart';
+import 'font_repository.dart';
 import 'notebook_repository.dart';
 import 'notebook_style_repository.dart';
 import 'outline_repository.dart';
@@ -48,6 +49,7 @@ class Repositories {
       ),
       folders: FolderRepository(database, deviceId: deviceId, clock: clock),
       templates: TemplateRepository(database, deviceId: deviceId, clock: clock),
+      fonts: FontRepository(database, deviceId: deviceId, clock: clock),
       notebookStyles: NotebookStyleRepository(database, deviceId: deviceId, clock: clock),
       versions: VersionRepository(database, deviceId: deviceId, clock: clock),
     );
@@ -63,6 +65,7 @@ class Repositories {
     required this.notebooks,
     required this.folders,
     required this.templates,
+    required this.fonts,
     required this.notebookStyles,
     required this.versions,
   });
@@ -76,6 +79,9 @@ class Repositories {
   final NotebookRepository notebooks;
   final FolderRepository folders;
   final TemplateRepository templates;
+
+  /// The fonts the user imported for text boxes.
+  final FontRepository fonts;
   final NotebookStyleRepository notebookStyles;
 
   /// Version history (after the content it holds, so its packs' blobs
@@ -87,6 +93,7 @@ class Repositories {
     for (final s in <SyncableStore>[
       folders,
       templates,
+      fonts,
       notebookStyles,
       notebooks,
       pages,

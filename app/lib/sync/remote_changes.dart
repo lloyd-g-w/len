@@ -17,6 +17,9 @@ class RemoteChanges {
   /// Whether any of the user's templates changed.
   bool templates = false;
 
+  /// Whether any of the user's fonts changed.
+  bool fonts = false;
+
   /// Notebooks whose page list changed.
   final Set<String> pagesOfNotebooks = {};
 
@@ -116,6 +119,7 @@ class RemoteChanges {
     folders |= other.folders;
     libraryWrites += other.libraryWrites;
     templates |= other.templates;
+    fonts |= other.fonts;
     revived |= other.revived;
     undoneNotebooks.addAll(other.undoneNotebooks);
     _addPages(other.undonePages);
@@ -141,6 +145,7 @@ class RemoteChanges {
       !notebooks &&
       !folders &&
       !templates &&
+      !fonts &&
       pagesOfNotebooks.isEmpty &&
       strokeSurfaces.isEmpty &&
       recordingsOfNotebooks.isEmpty &&

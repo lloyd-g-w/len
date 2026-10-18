@@ -96,6 +96,7 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
   StartupTrace.mark('services');
   if (PerfProbe.requested) PerfProbe.start();
   services.versionRecorder.enabled = true;
+  unawaited(services.fonts.refresh()); // Imported fonts, before text shows.
   runApp(LenApp(services: services));
   StartupTrace.mark('runApp');
   StartupTrace.watchTurns();

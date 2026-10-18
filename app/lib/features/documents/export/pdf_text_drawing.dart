@@ -20,8 +20,15 @@ extension _PdfTextDrawing on PdfTextWriter {
 
   void _text(PdfGraphics g, _Run r) {
     if (r.words.isEmpty) return;
-    _fill(g, r.style.color!);
+    final color = r.style.color!;
+    _fill(g, color);
     final size = r.style.fontSize!;
+    if (r.words.any((w) => w.bold)) {
+      g
+        ..setStrokeColor(PdfColor.fromInt(color.toARGB32() | 0xFF000000))
+        ..setGraphicState(PdfGraphicState(fillOpacity: color.a, strokeOpacity: color.a))
+        ..setLineWidth(size * PdfTextWriter._embolden);
+    }
     for (final w in r.words) {
       final glyph = Matrix4.identity()
         ..translateByDouble(w.x, w.baseline, 0, 1)
@@ -30,7 +37,14 @@ extension _PdfTextDrawing on PdfTextWriter {
       g
         ..saveContext()
         ..setTransform(glyph)
-        ..drawString(w.font, size, w.text, 0, 0)
+        ..drawString(
+          w.font,
+          size,
+          w.text,
+          0,
+          0,
+          mode: w.bold ? PdfTextRenderingMode.fillAndStroke : PdfTextRenderingMode.fill,
+        )
         ..restoreContext();
     }
   }

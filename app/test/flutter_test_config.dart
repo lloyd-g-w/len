@@ -43,7 +43,7 @@ void mockEmptyClipboard() => TestDefaultBinaryMessengerBinding.instance.defaultB
 /// the Material Symbols Sharp icon font, so goldens show real text and
 /// icons.
 Future<void> loadTextFonts() async {
-  for (final font in TextFont.values) {
+  for (final font in TextFont.bundled) {
     final loader = FontLoader(font.family);
     for (final (bold, italic) in [(false, false), (true, false), (false, true), (true, true)]) {
       if (italic && !font.hasItalic) continue;

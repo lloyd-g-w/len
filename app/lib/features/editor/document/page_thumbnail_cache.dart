@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../../data/surface_copier.dart';
 import '../../../domain/image_data.dart';
 import '../../../domain/surface_element.dart';
+import '../../../ink/fonts/text_fonts.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/render/content_painter.dart';
 import '../../../ink/render/raster_batch.dart';
@@ -22,6 +23,7 @@ class ThumbnailCache extends ChangeNotifier {
     : batch = batch ?? RasterBatch.shared {
     _imageChanges = images?.changes.listen(_onImage);
     defer?.addListener(_deferChanged);
+    TextFonts.changes.addListener(_onFonts);
   }
 
   final SurfaceCopier copier;
@@ -282,11 +284,20 @@ class ThumbnailCache extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// A user font loaded or went: pages are recorded again (text in it may
+  /// be on any).
+  void _onFonts() {
+    if (_disposed) return;
+    [..._ink.keys].forEach(invalidate);
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _disposed = true;
     _loading?.cancel();
     defer?.removeListener(_deferChanged);
+    TextFonts.changes.removeListener(_onFonts);
     unawaited(_imageChanges?.cancel());
     for (final p in _ink.values) {
       p.dispose();

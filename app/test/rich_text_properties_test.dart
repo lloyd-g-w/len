@@ -38,7 +38,7 @@ SpanStyle _style(math.Random r, {bool sizes = true}) {
     color: r.nextInt(3) == 0 ? _colour(r) : null,
     highlight: r.nextInt(4) == 0 ? _colour(r) : null,
     size: sizes && r.nextInt(4) == 0 ? 8.0 + r.nextInt(30) : null,
-    font: r.nextInt(4) == 0 ? (sizes ? TextFont.values[r.nextInt(4)] : TextFont.mono) : null,
+    font: r.nextInt(4) == 0 ? (sizes ? TextFont.bundled[r.nextInt(4)] : TextFont.mono) : null,
   );
 }
 

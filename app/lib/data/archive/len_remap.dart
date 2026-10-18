@@ -90,6 +90,9 @@ class LenRemap {
       case 'folders' || 'notebooks' || 'templates' || 'notebook_styles':
         // Parents (folder, folder of a notebook) are set once all are known.
         id = idOf(record.id);
+      case 'fonts':
+        // Named by their file (text refers to them by it): the same font here.
+        id = record.id;
       case 'pages' || 'recordings':
         id = map(record.id);
         if (record.collection == 'pages' && notebook is String) _notebookOf[record.id] = notebook;

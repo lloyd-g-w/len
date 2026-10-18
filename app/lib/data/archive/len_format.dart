@@ -43,6 +43,7 @@ abstract final class LenFormat {
   static const collections = [
     'folders',
     'templates',
+    'fonts',
     'notebook_styles',
     'notebooks',
     'pages',
@@ -65,7 +66,7 @@ enum LenArchiveKind {
   notebooks,
 
   /// The whole library: every folder and notebook (not the Trash) and the
-  /// user's templates and notebook styles.
+  /// user's templates, fonts and notebook styles.
   library,
 }
 

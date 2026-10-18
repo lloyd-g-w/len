@@ -98,7 +98,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('font-menu')));
     await tester.pumpAndSettle();
-    for (final f in TextFont.values) {
+    for (final f in TextFont.bundled) {
       expect(find.text(f.label), findsWidgets);
     }
     await expectLater(

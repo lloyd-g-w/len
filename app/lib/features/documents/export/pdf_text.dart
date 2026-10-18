@@ -7,8 +7,10 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 
 import '../../../domain/surface_element.dart';
+import '../../../domain/text/font_file.dart';
 import '../../../domain/text/text_data.dart';
 import '../../../ink/elements/text_layout.dart';
+import '../../../ink/fonts/text_fonts.dart';
 import 'arabic_forms.dart';
 
 part 'pdf_glyph_placer.dart';
@@ -17,8 +19,14 @@ part 'pdf_text_drawing.dart';
 /// Loads a bundled font file (an asset path, see [TextFont.asset]).
 typedef FontAssetLoader = Future<ByteData> Function(String asset);
 
+/// The file of a user font (null: not to be had).
+typedef UserFontLoader = Future<Uint8List?> Function(TextFont font);
+
 /// Writes text boxes into a PDF as real, selectable text in the embedded
-/// (subsetted) bundled fonts.
+/// (subsetted) bundled fonts, and the user's fonts that have TrueType
+/// outlines (CFF ones, most `.otf` files, the pdf package cannot embed:
+/// their boxes are images). A user font is one face: bold is drawn with
+/// a stroke around the glyphs, italic slanted, as on screen.
 ///
 /// Glyph positions come from the app's own layout ([TextLayout]): every
 /// word is placed where the canvas draws it, so wrapping, alignment, mixed
@@ -34,20 +42,48 @@ typedef FontAssetLoader = Future<ByteData> Function(String asset);
 /// drawn on screen with system fallback fonts) is left to the caller
 /// ([draw] returns false), which embeds it as an image instead.
 class PdfTextWriter {
-  PdfTextWriter(this.doc, {FontAssetLoader? load}) : _load = load ?? rootBundle.load;
+  PdfTextWriter(this.doc, {FontAssetLoader? load, this.userFont})
+    : _load = load ?? rootBundle.load;
 
   final PdfDocument doc;
   final FontAssetLoader _load;
+
+  /// Reads the files of user fonts (none: their boxes are images).
+  final UserFontLoader? userFont;
   final Map<String, Future<PdfTtfFont>> _fonts = {};
+  final Map<String, Future<PdfTtfFont?>> _userFonts = {};
 
   /// Slant of synthetic italics (fonts without an italic face).
   static const double _slant = 0.2;
+
+  /// Stroke width of synthetic bold (user fonts), per unit of font size.
+  static const double _embolden = 0.04;
 
   /// The embedded face of a bundled [font], loaded once per document
   /// (also used for template labels, see `PdfTemplateWriter`).
   Future<PdfTtfFont> font(TextFont font, {required bool bold, required bool italic}) {
     final asset = font.asset(bold: bold, italic: italic);
     return _fonts[asset] ??= _load(asset).then((bytes) => PdfTtfFont(doc, bytes));
+  }
+
+  /// The embedded face of [font] as text in it is drawn: a bundled font's,
+  /// or a user font's own file while it is shown (else the default font,
+  /// as on screen); null for a user font that cannot be embedded.
+  Future<PdfTtfFont?> _face(TextFont font, {required bool bold, required bool italic}) {
+    if (!TextFonts.isShown(font)) font = TextFont.inter;
+    if (!font.isUser) return this.font(font, bold: bold, italic: italic);
+    return _userFonts[font.name] ??= _embedUser(font);
+  }
+
+  Future<PdfTtfFont?> _embedUser(TextFont font) async {
+    final bytes = await userFont?.call(font);
+    if (bytes == null || FontFileInfo.read(bytes)?.outlines != FontOutlines.trueType) return null;
+    try {
+      return PdfTtfFont(doc, ByteData.sublistView(bytes));
+    } on Object catch (e) {
+      debugPrint('Font ${font.name} cannot be embedded: $e');
+      return null;
+    }
   }
 
   /// Draws text box [element]; [toPdf] maps world units to PDF points
@@ -117,11 +153,16 @@ class PdfTextWriter {
         final span = chars[i];
         final bold = span.bold || para.heading > 0;
         final run = _Run(style: TextLayout.styleFor(data, span, para), boxes: _boxes(layout, i, j));
+        final chosen = span.font ?? data.font;
+        final shown = TextFonts.isShown(chosen) ? chosen : TextFont.inter;
+        final primary = await _face(shown, bold: bold, italic: span.italic);
+        if (primary == null) return null;
         final fonts = _Fonts(
-          await font(span.font ?? data.font, bold: bold, italic: span.italic),
+          primary,
           [for (final f in FallbackFont.values) await fallback(f, bold: bold)],
           italic: span.italic,
-          hasItalic: (span.font ?? data.font).hasItalic,
+          hasItalic: shown.hasItalic,
+          embolden: bold && shown.isUser,
         );
         // Each word separately, at its laid-out position.
         for (final m in RegExp(r'\S+').allMatches(text.substring(i, j))) {
@@ -176,6 +217,8 @@ class _Run {
   final List<Rect> boxes;
 
   /// Words (or single glyphs) with their face, left edge and baseline (box
-  /// coordinates), and whether they are slanted (synthetic italic).
-  final List<({String text, PdfTtfFont font, double x, double baseline, bool slant})> words = [];
+  /// coordinates), and whether they are slanted (synthetic italic) and
+  /// stroked (synthetic bold).
+  final List<({String text, PdfTtfFont font, double x, double baseline, bool slant, bool bold})>
+  words = [];
 }

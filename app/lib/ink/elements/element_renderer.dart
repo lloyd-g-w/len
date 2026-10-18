@@ -3,6 +3,7 @@ import 'package:flutter/painting.dart';
 import '../../domain/image_data.dart';
 import '../../domain/surface_element.dart';
 import '../../domain/text/text_data.dart';
+import '../fonts/text_fonts.dart';
 import '../images/element_images.dart';
 import 'text_layout.dart';
 
@@ -14,7 +15,9 @@ import 'text_layout.dart';
 /// (device pixels per world unit); until a bitmap is decoded — or when its
 /// blob is unavailable — a placeholder is drawn instead.
 abstract final class ElementRenderer {
-  static final Expando<TextBoxLayout> _layouts = Expando('element layouts');
+  /// Text layouts by element, with the [TextFonts.changes] they were made
+  /// at (a user font loaded or removed since lays them out again).
+  static final Expando<(int, TextBoxLayout)> _layouts = Expando('element layouts');
 
   static void draw(
     Canvas canvas,
@@ -46,8 +49,12 @@ abstract final class ElementRenderer {
   }
 
   static void _drawText(Canvas canvas, SurfaceElement e) {
-    final layout = _layouts[e] ??= TextLayout.layout(TextData.fromJson(e.data), e.rect.width);
-    layout.paint(canvas, e.rect.topLeft);
+    final fonts = TextFonts.changes.value;
+    var cached = _layouts[e];
+    if (cached == null || cached.$1 != fonts) {
+      cached = _layouts[e] = (fonts, TextLayout.layout(TextData.fromJson(e.data), e.rect.width));
+    }
+    cached.$2.paint(canvas, e.rect.topLeft);
   }
 
   static final Paint _imagePaint = Paint()
@@ -56,8 +63,10 @@ abstract final class ElementRenderer {
 
   /// Whether [draw] draws [element] at [pixelScale] the same every time:
   /// not an image whose bitmap is still decoding (or missing), drawn from a
-  /// stand-in.
+  /// stand-in, nor text in a user font (which may be loaded later, or
+  /// removed).
   static bool isSettled(SurfaceElement element, ElementImages? images, double pixelScale) {
+    if (element.knownType == ElementType.text) return !TextFonts.usesUserFonts(element.data);
     if (element.knownType != ElementType.image) return true;
     final data = ImageData.fromJson(element.data);
     return images?.isSharp(data, _pixelWidth(element, data, pixelScale)) ?? false;

@@ -86,7 +86,7 @@ class LenSource {
           case 'notebooks':
             final title = r.data?['title'];
             notebooks[r.id] = title is String ? title : '';
-          case 'templates' || 'notebook_styles':
+          case 'templates' || 'fonts' || 'notebook_styles':
             break;
           default:
             return (folders: folders, notebooks: notebooks);

@@ -12,8 +12,8 @@ import 'len_stores.dart';
 
 /// Writes the records of a Len file being imported ([LenArchiveReader]):
 /// content right away but clean (so sync leaves it alone) and under
-/// notebooks that don't exist yet (so nothing shows it); folders, templates
-/// and notebooks at [finish], in one transaction that also marks everything
+/// notebooks that don't exist yet (so nothing shows it); folders, templates,
+/// fonts and notebooks at [finish], in one transaction that also marks everything
 /// for sync. [discard] removes what was written.
 class LenImportCommit {
   LenImportCommit(this.stores, this.remap);
@@ -22,7 +22,10 @@ class LenImportCommit {
   final LenRemap remap;
 
   final List<(String, SyncRecord)> _folders = [], _notebooks = [];
-  final List<SyncRecord> _templates = [], _styles = [];
+  final List<SyncRecord> _templates = [], _fonts = [], _styles = [];
+
+  /// The fonts [finish] added (marked for sync).
+  final List<String> _addedFonts = [];
 
   /// The folder [finish] made to hold the import, if any.
   String? _holder;
@@ -53,6 +56,8 @@ class LenImportCommit {
         _notebooks.add((old is String ? old : '', copy));
       case 'templates':
         _templates.add(copy);
+      case 'fonts':
+        _fonts.add(copy);
       case 'notebook_styles':
         _styles.add(copy);
       default:
@@ -125,6 +130,7 @@ class LenImportCommit {
         ]).isNotEmpty;
         if (!known && !_write(template)) skipped++;
       }
+      skipped += _addFonts();
       skipped += _addStyles();
       for (final (old, notebook) in _notebooks) {
         if (_write(_with(notebook, 'folderId', place(old)))) {
@@ -148,6 +154,24 @@ class LenImportCommit {
     for (final surface in remap.surfaces) {
       TextFlowRelinks.apply(_db, surface, (from) => here(from) ? from : null);
     }
+  }
+
+  /// Adds the fonts not here yet (a removed one comes back: its text is
+  /// in the file). Returns how many were malformed.
+  int _addFonts() {
+    var skipped = 0;
+    for (final font in _fonts) {
+      final known = _db.select('SELECT 1 FROM fonts WHERE deleted = 0 AND id = ?', [font.id]);
+      if (known.isNotEmpty) continue;
+      // After a tombstone here, so the font comes back everywhere.
+      final version = stores.of('fonts').nextVersion(font.id, font.updatedAt);
+      if (_write(_stamped(font, version))) {
+        _addedFonts.add(font.id);
+      } else {
+        skipped++;
+      }
+    }
+    return skipped;
   }
 
   /// Adds the notebook styles but those already here (same name and
@@ -307,7 +331,7 @@ class LenImportCommit {
   }
 
   void _markDirty() => _withIds(() {
-    for (final table in ['folders', 'templates', 'notebook_styles', 'notebooks']) {
+    for (final table in ['folders', 'templates', 'fonts', 'notebook_styles', 'notebooks']) {
       _db.execute('UPDATE $table SET dirty = 1 WHERE id IN $_rows');
     }
     for (final table in ['pages', 'outline', 'recordings']) {
@@ -342,6 +366,7 @@ class LenImportCommit {
         ?_holder,
         for (final (_, f) in _folders) f.id,
         for (final t in _templates) t.id,
+        ..._addedFonts,
         for (final s in _styles) s.id,
         for (final (_, n) in _notebooks) n.id,
       ]) {
@@ -371,6 +396,15 @@ class LenImportCommit {
     }
     return false;
   }
+
+  static SyncRecord _stamped(SyncRecord r, int updatedAt) => SyncRecord(
+    collection: r.collection,
+    id: r.id,
+    updatedAt: updatedAt,
+    deviceId: r.deviceId,
+    deleted: false,
+    data: r.data,
+  );
 
   static SyncRecord _with(SyncRecord r, String field, Object? value) => SyncRecord(
     collection: r.collection,

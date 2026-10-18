@@ -35,7 +35,7 @@ class FontMenuButton extends StatelessWidget {
       onSelected: onSelected,
       // Each font in itself.
       items: () => [
-        for (final f in TextFont.values)
+        for (final f in TextFont.bundled)
           MenuRow(value: f, label: f.label, labelStyle: sample(f), checked: f == current),
       ],
       child: Padding(
@@ -84,7 +84,7 @@ class FontMenuRow extends StatelessWidget {
       tooltip: 'Font',
       onSelected: onSelected,
       items: () => [
-        for (final f in TextFont.values)
+        for (final f in TextFont.bundled)
           MenuRow(
             value: f,
             label: f.label,
