@@ -449,17 +449,26 @@ void main() {
       });
     });
 
-    test('a line end that would attach: ends attach to shapes (R25-30)', () {
+    test('a line end that would attach: ends attach to shapes, once the drag rests (R25-30)', () {
       fakeAsync((async) {
         final d = _Device(async);
         final tips = d.open();
         d.selected.value = true;
         async.flushMicrotasks();
         expect(tips.value, isNull);
+        // The end dragged onto a shape, on over it and off it again, then dropped.
         d
           ..attaching = true
           ..selected.value = false;
-        async.flushMicrotasks();
+        async.elapse(rest - const Duration(milliseconds: 100));
+        d.selected.value = true;
+        async.elapse(rest - const Duration(milliseconds: 100));
+        d
+          ..attaching = false
+          ..selected.value = false;
+        async.elapse(rest - const Duration(milliseconds: 100));
+        expect(tips.value, isNull, reason: 'never mid-drag');
+        async.elapse(const Duration(milliseconds: 100));
         expect(tips.value?.tip, EditorTip.attach);
         expect(tips.value?.text, 'Drop a line or arrow end on a shape to attach it');
         tips.dispose();
