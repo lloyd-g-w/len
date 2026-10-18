@@ -449,6 +449,24 @@ void main() {
       });
     });
 
+    test('with a mouse, the curve tip says click', () {
+      Targets.debugTouchFirst = false;
+      addTearDown(() => Targets.debugTouchFirst = null);
+      fakeAsync((async) {
+        final d = _Device(async);
+        final tips = d.open();
+        d
+          ..curve = true
+          ..selected.value = true;
+        async.flushMicrotasks();
+        expect(
+          tips.value?.text,
+          'Click the curve to add a point; double-click a point to remove it',
+        );
+        tips.dispose();
+      });
+    });
+
     test('a line end that would attach: ends attach to shapes, once the drag rests (R25-30)', () {
       fakeAsync((async) {
         final d = _Device(async);
