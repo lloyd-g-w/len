@@ -242,8 +242,38 @@ void main() {
     test("\\'hh by the font's charset or \\ansicpg", () {
       expect(_parse(r"caf\'e9 \'93q\'94 \'80").text, 'café “q” €');
       expect(_parse(r"\f2 \'9e\'e8\f0  \f3\'cf\'f0").text, 'žč Пр');
-      final latin1 = textFromRtf(r"{\rtf1\ansi\ansicpg1253 \'e1}", _box)!;
+      // Code pages without a table here read as Latin-1.
+      final latin1 = textFromRtf(r"{\rtf1\ansi\ansicpg1259 \'e1}", _box)!;
       expect(latin1.text, '\u00E1');
+    });
+
+    test("\\'hh in Greek, Turkish, Hebrew, Arabic, Baltic, Thai and Mac code pages", () {
+      // WordPad writes text its font's charset covers as bytes of it.
+      String wordPad(int charset, String bytes) => textFromRtf(
+        '{\\rtf1\\ansi\\ansicpg1252\\deff0{\\fonttbl{\\f0\\fnil\\fcharset$charset Calibri;}}'
+        '\\f0 $bytes\\par}',
+        _box,
+      )!.text;
+      expect(wordPad(161, r"\'e1\'e2\'e3"), 'αβγ');
+      expect(wordPad(162, r"\'f0\'fd\'fe"), 'ğış');
+      expect(wordPad(177, r"\'f9\'ec\'e5\'ed"), 'שלום');
+      expect(wordPad(178, r"\'d3\'e1\'c7\'e3"), 'سلام');
+      expect(wordPad(186, r"\'e0\'e8"), 'ąč');
+      expect(wordPad(222, r"\'ca\'c7"), 'สว');
+      expect(textFromRtf(r"{\rtf1\mac caf\'8e}", _box)!.text, 'café');
+    });
+
+    test('East Asian double-byte text is not read (the plain text pastes instead)', () {
+      // WordPad on a Japanese system: Shift JIS bytes.
+      const jp =
+          r"{\rtf1\ansi\ansicpg932\deff0{\fonttbl{\f0\fnil\fcharset128 \'82\'6c\'82\'72 Gothic;}}"
+          r"\f0 \'82\'a0\'82\'a2\par}";
+      expect(textFromRtf(jp, _box), isNull);
+      // Word: \u with double-byte fallbacks, and such a font name, read.
+      const word =
+          r"{\rtf1\ansi\ansicpg932\deff0{\fonttbl{\f0\fnil\fcharset128 \'82\'6c\'82\'72;}}"
+          r"\f0\uc2 \u12354\'82\'a0\par}";
+      expect(textFromRtf(word, _box)!.text, 'あ');
     });
 
     test('hidden destinations and text are skipped; field results kept', () {

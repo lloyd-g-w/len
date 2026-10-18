@@ -21,3 +21,17 @@
   loaded stayed in Sans; and screen readers read the pangram after every font's name.
 - *Fix:* such a row says "Not on this device yet" and has no sample; the section rebuilds on
   `TextFonts.changes`; the sample is left out of semantics (`font_settings_test`).
+
+### RTF paste
+
+**R26-F3 P2 · RTF in Greek, Turkish, Hebrew, Arabic, Baltic, Vietnamese, Thai or East Asian code pages pasted as gibberish.** ✅
+- *What:* `domain/text/rtf_code_pages.dart` decoded `\'hh` bytes only for code pages 1250, 1251
+  and 1252 and read every other as Latin-1. WordPad writes text its font's charset covers as
+  bytes of that charset (`\fcharset161` Greek: `\'e1\'e2\'e3`), so a Greek line pasted as
+  "áâã", Hebrew or Arabic as accented Latin, and Japanese / Chinese / Korean (double-byte, also
+  unmapped charsets 128 / 129 / 134 / 136) as control characters — worse than the plain text
+  the clipboard also holds.
+- *Fix:* tables for 874, 1253–1258, Mac Roman, 437 and 850 (`rtf_code_page_tables.dart`,
+  generated from Python's codecs); text in a double-byte code page makes `textFromRtf` give up,
+  so the plain text pastes instead (Word's `\u` with double-byte fallbacks still reads)
+  (`rtf_text_test`: "\'hh in Greek, Turkish, …", "East Asian double-byte text is not read").
