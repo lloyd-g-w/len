@@ -104,6 +104,16 @@ class PdfTextWriter {
       final cells = <(Offset, List<_Run>)>[];
       for (final row in layout.rows) {
         final t = layout.tables[row.table];
+        // The header row repeated above a table going on from a page before.
+        for (var c = 0; row.row == 0 && c < t.headerCells.length; c++) {
+          final cellRuns = await _runs(t.headerCells[c].data, t.headerCells[c]);
+          if (cellRuns == null) return false;
+          final at = row.rect.topLeft + Offset(t.columnLeft(c), 0);
+          cells.add((
+            at + Offset(TableLayout.cellPadX(data), TableLayout.cellPadY(data)),
+            cellRuns,
+          ));
+        }
         for (var c = 0; c < t.table.columns; c++) {
           final cell = t.cells[t.index(row.row, c)];
           final cellRuns = await _runs(cell.data, cell);

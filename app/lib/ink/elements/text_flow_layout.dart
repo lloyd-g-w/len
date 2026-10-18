@@ -14,6 +14,8 @@ class FlowPart {
     this.numbers = const [],
     this.direction = TextDirection.ltr,
     this.overflow = 0,
+    this.header = const [],
+    this.band = 0,
   });
 
   /// Where the part begins in the whole text. After a paragraph break the
@@ -39,6 +41,12 @@ class FlowPart {
   /// [TextFlowLayout]).
   final double overflow;
 
+  /// See [TextFlow.header].
+  final List<RepeatedCell> header;
+
+  /// How much of [height] the [header] repeated above its rows takes.
+  final double band;
+
   /// The part's text out of [whole]; continuing the box [from] (null for
   /// the first part).
   TextData dataOf(TextData whole, {String? from}) {
@@ -46,7 +54,13 @@ class FlowPart {
     return from == null
         ? data
         : data.withFlow(
-            TextFlow(from: from, joined: joined, numbers: numbers, direction: direction),
+            TextFlow(
+              from: from,
+              joined: joined,
+              numbers: numbers,
+              direction: direction,
+              header: header,
+            ),
           );
   }
 
@@ -61,7 +75,9 @@ class FlowPart {
 /// paragraphs' worth of words) makes a part of its own (unless it begins
 /// the text) cut at the room ([FlowPart.overflow]), the box drawn clipped
 /// there with a sign that the row goes on (`ShownTextLayout`) and shown
-/// whole while edited. One layout of the whole text serves every part, which lays out
+/// whole while edited. A part going on with a table that has a header
+/// row repeats that row above its rows ([FlowPart.header]): room for it is
+/// kept. One layout of the whole text serves every part, which lays out
 /// alone as it does here (a part begins at a line start); a part on a page
 /// of another width (`width(k)`) lays out what is left again there.
 abstract final class TextFlowLayout {
@@ -121,25 +137,31 @@ abstract final class TextFlowLayout {
     final starts = <int>[0];
     final heights = <double>[];
     final overflows = <double>[];
+    var band = 0.0; // The header row repeated above the part's rows.
     void close(double partTop, double bottom) {
-      final cut = _rowCut(layout, partTop, bottom, room(heights.length));
-      heights.add(cut - partTop);
+      final cut = _rowCut(layout, partTop, bottom, room(heights.length) - band);
+      heights.add(cut - partTop + band);
       overflows.add(bottom - cut);
     }
 
     var partTop = 0.0, top = 0.0;
     var first = 0; // The part's first line.
     for (var i = 0; i < lines.length; i++) {
-      final bottom = top + lines[i].height;
+      // (The next line's top: a table row's line is a little taller than
+      // its metrics' height says.)
+      final bottom = i + 1 < lines.length
+          ? lines[i + 1].baseline - lines[i + 1].ascent
+          : layout.painter.height;
       // Paragraph spacing below the line's text may run past the room.
       final text = bottom - layout.spacingAbove(bottom);
-      if (i > first && text - partTop > room(starts.length - 1)) {
+      if (i > first && text - partTop + band > room(starts.length - 1)) {
         final at = _lineStart(layout, top, lines[i].height);
         if (at > starts.last && at <= length) {
           close(partTop, top);
           starts.add(at);
           partTop = top;
           first = i;
+          band = _headerAbove(layout, at);
         }
       }
       top = bottom;
@@ -162,6 +184,15 @@ abstract final class TextFlowLayout {
 
   static const double _slack = 0.5;
 
+  /// The height of the header row repeated above a part beginning at
+  /// model offset [at] of [layout]: that of the table whose row (not its
+  /// first) begins there, if it has a header; else 0.
+  static double _headerAbove(TextBoxLayout layout, int at) {
+    final data = layout.data;
+    final line = '\n'.allMatches(data.text.substring(0, at)).length;
+    return TextFlow.headerAt(data, line).isEmpty ? 0 : _headerOf(layout, line);
+  }
+
   /// Part [k] of [layout]'s text, from [start] to the next part's start
   /// [next] (the end of the text when [last]), [height] tall.
   static FlowPart _part(
@@ -178,6 +209,7 @@ abstract final class TextFlowLayout {
     final hard = start > 0 && text.codeUnitAt(start - 1) == 0x0A;
     final nextHard = !last && text.codeUnitAt(next - 1) == 0x0A;
     final line = '\n'.allMatches(text.substring(0, start)).length;
+    final header = k == 0 ? const <RepeatedCell>[] : TextFlow.headerAt(whole, line);
     return FlowPart(
       start: start,
       end: nextHard ? next - 1 : next,
@@ -186,7 +218,17 @@ abstract final class TextFlowLayout {
       numbers: k == 0 ? const [] : TextFlow.numbersAfter(whole.paras.sublist(0, line)),
       direction: layout.plan.directions[line],
       overflow: overflow,
+      header: header,
+      band: header.isEmpty ? 0 : _headerOf(layout, line),
     );
+  }
+
+  /// The height of the header row of [layout]'s table holding [line].
+  static double _headerOf(TextBoxLayout layout, int line) {
+    for (final t in layout.tables) {
+      if (t.table.contains(line)) return t.headerHeight;
+    }
+    return 0;
   }
 
   /// The model offset where the line at [top] (of [height]) begins: at

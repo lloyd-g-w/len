@@ -197,15 +197,18 @@ extension _SessionFlow on TextEditSession {
     // The field lays the whole text out as wide as the first box: a part on
     // a page of another width is as tall there as its text is at that width.
     final width = frames.first.width;
-    // (A row cut at a page's end is shown whole while edited.)
-    double shown(int k) => frames[k].width == width
-        ? frames[k].height + m.parts[k].overflow
-        : TextLayout.heightOf(m.parts[k].dataOf(data, from: '-'), width);
+    // (A row cut at a page's end is shown whole while edited; a header
+    // row repeated on a page is not shown: room is left for it.)
+    double shown(int k) =>
+        (frames[k].width == width
+            ? frames[k].height + m.parts[k].overflow
+            : TextLayout.heightOf(m.parts[k].dataOf(data, from: '-'), width)) -
+        m.parts[k].band;
     return [
       for (var k = 1; k < m.parts.length; k++)
         (
           at: m.parts[k].start,
-          gap: math.max(0.0, frames[k].top - frames[k - 1].top - shown(k - 1)),
+          gap: math.max(0.0, frames[k].top + m.parts[k].band - frames[k - 1].top - shown(k - 1)),
           soft: m.parts[k].joined,
         ),
     ];

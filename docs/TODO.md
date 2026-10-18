@@ -289,8 +289,9 @@ From the reports; the owner picks. Status as above.
   on a split part ("Show pages together to change columns").
   Done: one table either way: the edited part's columns (by in-memory id), widths and header
   go to the table's other parts on commit (`TableFlow.carry`).
-- ⬜ **Repeat a table's header row** on the pages it continues on (UX_AUDIT R26-15), as Word /
+- ✅ **Repeat a table's header row** on the pages it continues on (UX_AUDIT R26-15), as Word /
   Docs can, or keep it on the first page only.
+  Done: repeated (display only, a copy in the continuing box's flow: `TextFlow.header`).
 - ✅ **Text in a missing font** (UX_AUDIT R26-30): laid out in Sans in the frame measured with the
   real font, it may run past the frame until the file arrives. Accept, or lay such boxes out again
   for display only. Done: for display only, such a box is laid out wider and drawn scaled down to

@@ -34,7 +34,7 @@ non-Western code pages pasted as gibberish; the zoom window right to left
 still pointed and grew as left to right; Escape did nothing once a control
 had focus; a version named with Rename… was thinned away; restores gave no
 sign of running. 43 findings: 0 P1, 18 P2, 25 P3; 33 fixed (16 P2, 17 P3),
-with tests; open: R26-15, R26-16, R26-19 (P3).
+with tests; open: R26-16, R26-19 (P3).
 
 ### Tables in text boxes
 
@@ -175,10 +175,16 @@ past the page). Splitting a row's cells between pages was not done: a part is a 
 the whole text, and a row cut cell by cell is not (the chain's field, carets, joins and
 search all rest on that) (`table_tall_row_test`).
 
-**R26-15 P3 · A table's header row is not repeated on the pages it continues on.** ⬜
+**R26-15 P3 · A table's header row is not repeated on the pages it continues on.** ✅
 By design (`TableSpec.hasHeaderRow` is false for a continued part), unlike Word / Docs'
-"repeat header row". *Owner decision:* repeat the header (bold, read-only copy drawn
-above the continued rows, not in the text) or keep as is.
+"repeat header row". *Fix (owner: repeat it):* a
+box going on with a table that has a header row carries a copy of that row in its flow
+(`TextFlow.header`, set when the chain is split, see SYNC_PROTOCOL): `TableLayout` draws it,
+bold, in a band at the top of the first row (`band`, `headerCells`; PDF export too), and the
+split keeps room for it. Display only: not in the box's text, so search, copy and text export
+don't see it twice. Measuring parts now takes each line's top from the layout (a table row's
+line was a little taller than its metrics said, so long split tables overran their frames by
+about a unit per row) (`table_header_repeat_test`).
 
 #### Screen readers
 

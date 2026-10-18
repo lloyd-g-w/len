@@ -95,7 +95,12 @@ extension _SessionCommit on TextEditSession {
         final flow = next?.flow;
         if (_aloneIndex > 0 && flow != null && flow.joined && !(gone.flow?.joined ?? false)) {
           parts[_aloneIndex] = next!.withFlow(
-            TextFlow(from: flow.from, numbers: flow.numbers, direction: flow.direction),
+            TextFlow(
+              from: flow.from,
+              numbers: flow.numbers,
+              direction: flow.direction,
+              header: flow.header,
+            ),
           );
         }
       }
