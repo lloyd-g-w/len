@@ -2633,7 +2633,8 @@ GoodNotes-style rich text inside a box.
   its table button picks a new table's size (`TablePicker`) or, in a table, opens the table
   menu (insert row above / below, column left / right, header row, delete row / column /
   table); on phones both are in its ⋯. A table copied here, or tab-separated rows (a
-  spreadsheet), pasted into a cell fill the cells from it on, adding rows (`pasteGrid`).
+  spreadsheet), pasted into a cell fill the cells from it on, adding rows and columns
+  (`pasteGrid`); Ctrl+V with a block of cells selected pastes from its top left cell.
   *Flow*: a part beginning inside a table starts with a copy of its spec marked
   `continued` (`TextFlow.slice`); `TextFlow.join` merges it back. *Export*: `PdfTextWriter`
   writes each cell with its own layout at its place, then the grid. *Screen readers*:

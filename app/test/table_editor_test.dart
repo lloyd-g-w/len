@@ -237,7 +237,7 @@ void main() {
     expect(cells(box.data), ['ab', 'cd', '1', '2'], reason: 'one undo step');
   });
 
-  testWidgets('rows of tab-separated text pasted into a cell fill cells, adding rows', (
+  testWidgets('rows of tab-separated text pasted into a cell fill cells, adding rows and columns', (
     tester,
   ) async {
     mockClipboardText('1\t2\t3\n4\t5\t6\n');
@@ -249,7 +249,7 @@ void main() {
     await tester.pumpAndSettle();
     await paste(tester);
     await tester.pumpAndSettle();
-    expect(cells(box.data), ['1', '2', '4', '5'], reason: 'the third column dropped');
+    expect(cells(box.data), ['1', '2', '3', '4', '5', '6'], reason: 'a third column added');
     await ctrl(tester, LogicalKeyboardKey.keyZ);
     await tester.pumpAndSettle();
     expect(cells(box.data), ['', '']);
