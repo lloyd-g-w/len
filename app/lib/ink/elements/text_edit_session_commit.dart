@@ -38,6 +38,7 @@ extension _SessionCommit on TextEditSession {
     _rest = const [];
     _aloneHead = null;
     _aloneIndex = 0;
+    _typed = null;
     _parts = const [];
     _frames = null;
     startCaret = null;
@@ -80,7 +81,11 @@ extension _SessionCommit on TextEditSession {
     if (head != null) {
       if (!empty) {
         _carryFirstLine(parts, data);
-        parts[_aloneIndex] = data;
+        final typed = _typed;
+        parts[_aloneIndex] = typed != null && typed.text == data.text
+            ? data.withFormatting(paras: typed.paras)
+            : data;
+        TableFlow.carry(parts, _aloneIndex);
       } else {
         final gone = parts.removeAt(_aloneIndex);
         // What went on with the emptied part's last paragraph now goes on

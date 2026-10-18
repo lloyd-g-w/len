@@ -282,11 +282,13 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
-- ⬜ **A table split over pages, one page at a time** (UX_AUDIT R26-13): a column added to or
+- ✅ **A table split over pages, one page at a time** (UX_AUDIT R26-13): a column added to or
   removed from one page's part of a split table makes two tables; widths and the header row set
   on a continued part are reverted. Options: edit the chain as a whole there too (as continuous
   layouts do), or carry widths / header back to the other parts and disable the column commands
   on a split part ("Show pages together to change columns").
+  Done: one table either way: the edited part's columns (by in-memory id), widths and header
+  go to the table's other parts on commit (`TableFlow.carry`).
 - ⬜ **Repeat a table's header row** on the pages it continues on (UX_AUDIT R26-15), as Word /
   Docs can, or keep it on the first page only.
 - ✅ **Text in a missing font** (UX_AUDIT R26-30): laid out in Sans in the frame measured with the

@@ -75,7 +75,7 @@ extension TableEdits on RichTextBuffer {
     final c = at.clamp(0, t.columns);
     final n = t.columns + 1;
     final widths = [for (final w in t.spec.widths) w * t.columns / n]..insert(c, 1 / n);
-    final spec = t.spec.copyWith(widths: widths);
+    final spec = t.spec.withColumnInserted(c, widths);
     for (var r = t.rows - 1; r >= 0; r--) {
       final line = t.lineOf(r, c);
       spliceLines(line, line, _cells(spec, 1));
@@ -94,7 +94,7 @@ extension TableEdits on RichTextBuffer {
       final line = t.lineOf(r, column);
       spliceLines(line, line + 1, const []);
     }
-    final spec = t.spec.copyWith(widths: [...t.spec.widths]..removeAt(column));
+    final spec = t.spec.withColumnRemoved(column);
     return _respec(t.line, t.rows * (t.columns - 1), spec);
   }
 

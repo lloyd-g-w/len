@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/clock.dart';
 import '../../domain/surface_element.dart';
+import '../../domain/text/table_flow.dart';
 import '../../domain/text/text_data.dart';
 import '../render/content_painter.dart';
 import '../surface_model.dart';
@@ -184,8 +185,13 @@ class TextEditSession extends ChangeNotifier {
   void setData(TextData data) {
     final current = _current;
     if (current == null) return;
+    _typed = data;
     _update(current.copyWith(data: data.toJson(current.data)));
   }
+
+  /// The text last set ([setData]): in memory, its tables know which
+  /// column is which ([TableSpec.columnIds]).
+  TextData? _typed;
 
   /// Moves the box.
   void setRect(Rect rect) {

@@ -140,10 +140,13 @@ class TextFlow {
         spans.add(StyledRange(s.start + at, s.end + at, s.style));
       }
       final more = joined ? part.paras.skip(1).toList() : [...part.paras];
-      // A table going on from the part before joins its table.
-      if ((more.firstOrNull?.cell, paras.lastOrNull?.cell) case (final cell?, final before?)
-          when cell.spec.continued && before.spec.columns == cell.spec.columns) {
-        more[0] = ParaStyle(cell: TextTableCell(before.spec));
+      // A table going on from the part before joins its table; one that
+      // can't (text or another table before it) is a table of its own.
+      if (more.firstOrNull?.cell case final cell? when cell.spec.continued) {
+        final before = paras.lastOrNull?.cell;
+        more[0] = before != null && before.spec.columns == cell.spec.columns
+            ? ParaStyle(cell: TextTableCell(before.spec))
+            : ParaStyle(cell: TextTableCell(cell.spec.copyWith(continued: false), first: true));
       }
       paras.addAll(more);
     }

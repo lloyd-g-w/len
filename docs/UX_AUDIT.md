@@ -34,7 +34,7 @@ non-Western code pages pasted as gibberish; the zoom window right to left
 still pointed and grew as left to right; Escape did nothing once a control
 had focus; a version named with Rename… was thinned away; restores gave no
 sign of running. 43 findings: 0 P1, 18 P2, 25 P3; 33 fixed (16 P2, 17 P3),
-with tests; open: R26-13, R26-14 (P2), R26-15, R26-16, R26-19 (P3).
+with tests; open: R26-14 (P2), R26-15, R26-16, R26-19 (P3).
 
 ### Tables in text boxes
 
@@ -143,7 +143,7 @@ right to left).
   the offset), on the first page and on the pages after
   (`text_flow_session_test`: a tap in a table cell of a chain edits that cell).
 
-**R26-13 P2 · In one-page-at-a-time layouts a column added to (or removed from) half of a split table splits it in two.** ⬜
+**R26-13 P2 · In one-page-at-a-time layouts a column added to (or removed from) half of a split table splits it in two.** ✅
 - *What:* with pages shown one at a time a box of a chain is edited alone
   (`_Flow.alone`). Adding or deleting a column in the part of a table on one page changes
   only that part; `TextFlow.join` joins parts with as many columns only, so the stored
@@ -151,12 +151,16 @@ right to left).
   `TextTable(…c: 2…), TextTable(…c: 3, k: true)`). Column widths dragged and the header
   row toggled on a continued part are silently reverted (`join` keeps the first part's
   spec). Continuous layouts edit the whole chain and are fine.
-- *Proposal (owner decision):* either (a) edit a chain whose table crosses the page as
-  a whole even when pages show one at a time (the head's page is activated, as the
-  continuous layout does), or (b) carry the edited part's widths and header back to the
-  table's other parts on commit (`_commitAlone`, like `_carryFirstLine`) and disable the
-  column commands (insert / delete column) in a table that goes on over a page edited
-  alone, with a hint ("Show pages together to change columns").
+- *Fix (owner: one table):* a table split over pages is one table whichever part is edited.
+  Each table's columns carry ids in memory while edited (`TableSpec.columnIds`: 0, 1, … as
+  read, a new negative one per column inserted, kept through the box's undo); on commit
+  `TableFlow.carry` (`domain/text/table_flow.dart`) gives the edited part's columns, widths
+  and header to the table's parts before and after it (cells kept by id, empty ones for new
+  columns), and drops the empty line the editor keeps after a table that goes on into the
+  next part (typing outside the table there split it too). `TextFlow.join` makes a continued
+  part that can't join (text before it) a table of its own instead of storing a stray
+  continuation (`table_flow_alone_test`). Deleting the table from one part deletes that part
+  only (as deleting its rows does).
 
 **R26-14 P2 · A row taller than a page runs off the page.** ⬜ `TextFlowLayout.split`
 cuts between lines, and a table row is one line: a cell holding a few thousand words
