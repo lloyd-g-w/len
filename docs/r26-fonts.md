@@ -57,3 +57,10 @@ the string: with WordPad's hex for a 10 MB picture (20 MB of text) that took 0.7
 thread, and the tokenizer copied text a character at a time. A loop trims the NULs and text runs
 are copied whole: 0.07 s (`rtf_text_test`: "a large picture is skipped about as fast as its text
 is read", relative to reading the text once).
+
+**R26-F7 P3 · The lasso's style panel set text boxes' font and size but not their paragraph spacing.** ✅
+`features/editor/tools/selection_style_panel.dart` had Font and Size for selected text boxes;
+spacing could only be set one box at a time while editing. It now has the Text options' row
+("Mixed" when the boxes differ), one undo step, boxes resized
+(`paragraph_spacing_ui_test`: "the lasso's style panel spaces the selected boxes…";
+`text_lasso_style.png` updated).

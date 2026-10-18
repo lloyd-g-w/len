@@ -51,6 +51,52 @@ void main() {
     expect(TextData.fromJson(liveElements(s, nb.id).single.data).spacing, ParagraphSpacing.none);
   });
 
+  testWidgets('the lasso\'s style panel spaces the selected boxes in one undo step', (
+    tester,
+  ) async {
+    final (s, nb) = await openCanvas(
+      tester,
+      seed: (s, nb) => s.elements.save([
+        text(nb.id, const Offset(100, 120), TextData.rich(text: 'A\nB'), width: 200),
+        text(
+          nb.id,
+          const Offset(100, 300),
+          TextData.rich(text: 'C\nD', spacing: ParagraphSpacing.small),
+          width: 200,
+        ),
+      ]),
+    );
+    List<ParagraphSpacing> spacings() => [
+      for (final e in liveElements(s, nb.id)) TextData.fromJson(e.data).spacing,
+    ];
+    await key(tester, LogicalKeyboardKey.keyL);
+    await mouseDrag(tester, const [
+      Offset(60, 80),
+      Offset(400, 80),
+      Offset(400, 460),
+      Offset(60, 460),
+      Offset(60, 85),
+    ]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Style'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mixed'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('paragraph-spacing-row')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Large'));
+    await tester.pumpAndSettle();
+    expect(spacings(), everyElement(ParagraphSpacing.large));
+    // The boxes grew to hold it.
+    for (final e in liveElements(s, nb.id)) {
+      expect(e.rect.height, closeTo(TextLayout.heightOf(TextData.fromJson(e.data), 200), 0.5));
+    }
+    await key(tester, LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await ctrl(tester, LogicalKeyboardKey.keyZ);
+    await tester.pumpAndSettle();
+    expect(spacings().toSet(), {ParagraphSpacing.none, ParagraphSpacing.small});
+  });
+
   testWidgets('the Text tool\'s options set the spacing of new boxes', (tester) async {
     final tools = ToolSettings();
     addTearDown(tools.dispose);
