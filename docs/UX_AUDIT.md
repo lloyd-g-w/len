@@ -1714,6 +1714,9 @@ away, and a palm is only a palm on the canvas it rests on.
   is near (Android caps them at 200 dp per edge); needs the tablet to
   see whether One UI routes stylus edge swipes at all. Effort M with
   device checks: TODO "Next".
+- *Still open (checked 2026-10-18, `fix/audit-backlog`):* nothing sets
+  gesture exclusion rects yet; whether it is needed at all can only be
+  seen on the tablet, so it stays ⬜ until then.
 
 Checked and sound: the side button with every tool (erase or lasso win
 over the tool; "nothing" writes); the eraser end; the overlay armed on
