@@ -35,3 +35,9 @@
   generated from Python's codecs); text in a double-byte code page makes `textFromRtf` give up,
   so the plain text pastes instead (Word's `\u` with double-byte fallbacks still reads)
   (`rtf_text_test`: "\'hh in Greek, Turkish, …", "East Asian double-byte text is not read").
+
+**R26-F4 P3 · Importing a font already there said "Added"; a refused file's reason hid behind Details.** ✅
+`features/fonts/font_import.dart`: the same file again said "Added “Caveat”" (nothing was
+added), and a file that is no font said "Couldn’t import “x.otf”" with the reason only under
+Details. Now "“Caveat” is already in your fonts" and "“notes.otf” isn’t a TrueType or OpenType
+font" (`NotAFontException`); Details stays for files the engine refuses (`font_import_test`).

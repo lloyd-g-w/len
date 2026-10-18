@@ -107,11 +107,12 @@ class UserFontLibrary extends ChangeNotifier {
 
   /// Imports the font file [bytes]: stored as a blob, added to the library
   /// under the name its name table gives, and loaded. The same file again
-  /// gives the font already here. Throws [FormatException] if [bytes] is
-  /// not a TrueType / OpenType font, or the engine can't load it.
+  /// gives the font already here. Throws [NotAFontException] if [bytes] is
+  /// not a TrueType / OpenType font, [FormatException] if the engine can't
+  /// load it.
   Future<UserFont> import(Uint8List bytes) async {
     final info = FontFileInfo.read(bytes);
-    if (info == null) throw const FormatException('Not a TrueType or OpenType font');
+    if (info == null) throw const NotAFontException();
     final mime = info.outlines == FontOutlines.cff ? 'font/otf' : 'font/ttf';
     final sha = await blobs.putBytes(bytes, mime: mime);
     if (!await TextFonts.load(TextFont.userIdOf(sha), bytes)) {
@@ -142,4 +143,10 @@ class UserFontLibrary extends ChangeNotifier {
     syncStatus?.removeListener(_onSyncStatus);
     super.dispose();
   }
+}
+
+/// What [UserFontLibrary.import] throws for a file that is no TrueType or
+/// OpenType font (a collection, WOFF, anything else).
+class NotAFontException extends FormatException {
+  const NotAFontException() : super('Not a TrueType or OpenType font');
 }
