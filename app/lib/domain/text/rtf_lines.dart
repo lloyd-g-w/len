@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'rtf_table_rows.dart';
 import 'text_data.dart';
 
 /// An RTF paragraph's formatting, as read when its text started or ended.
@@ -49,6 +50,9 @@ class RtfLine {
   /// The text of its list marker (`\listtext`), if any.
   StringBuffer? marker;
 
+  /// Set on a table cell: its paragraph style.
+  ParaStyle? cell;
+
   bool get isEmpty => styles.isEmpty;
 }
 
@@ -56,7 +60,45 @@ class RtfLine {
 class RtfLines {
   final _lines = [RtfLine()];
 
-  RtfLine get current => _lines.last;
+  /// The current row definition.
+  final row = RtfRowDef();
+
+  /// The table being read, if any.
+  RtfTableRows? _table;
+
+  /// The line text goes to: the current cell's in a table.
+  RtfLine get current => _table?.cell ?? _lines.last;
+
+  /// Whether a table is being read.
+  bool get inTable => _table != null;
+
+  /// Text of a table paragraph (`\intbl`) follows: a table starts if none
+  /// is being read.
+  void startTable() => _table ??= RtfTableRows();
+
+  /// `\cell` in a table.
+  void endCell() => (_table ??= RtfTableRows()).endCell();
+
+  /// `\row` in a table.
+  void endRow() => _table?.endRow(row);
+
+  /// A paragraph break in a table's cell: a space.
+  void cellSpace() => _table?.space();
+
+  /// Ends the table being read (if any), its cells becoming lines; the
+  /// (empty) line before it is left out unless it parts it from a table.
+  void endTable() {
+    final table = _table;
+    if (table == null) return;
+    _table = null;
+    final cells = table.lines(row);
+    if (cells.isEmpty) return;
+    final before = _lines.length > 1 ? _lines[_lines.length - 2].cell : null;
+    if (_lines.last.isEmpty && before == null) _lines.removeLast();
+    _lines
+      ..addAll(cells)
+      ..add(RtfLine());
+  }
 
   /// Appends [text] in [style] at [half] points / 2 to the current line
   /// (no-break spaces as spaces); [para] tells the line's formatting
@@ -89,16 +131,19 @@ class RtfLines {
   /// the body size (that of most characters) as the [box]'s, its font,
   /// colour, alignment and width; null when there is no text.
   TextData? result(TextData box) {
+    endTable();
     var lines = _lines;
+    bool blank(RtfLine l) => l.cell == null && l.text.toString().trim().isEmpty;
     var start = 0, end = lines.length;
-    while (end > start && lines[end - 1].text.toString().trim().isEmpty) {
+    while (end > start && blank(lines[end - 1])) {
       end--;
     }
-    while (start < end && lines[start].text.toString().trim().isEmpty) {
+    while (start < end && blank(lines[start])) {
       start++;
     }
     if (start == end) return null;
     lines = lines.sublist(start, end);
+    if (lines.last.cell != null) lines.add(RtfLine());
     final paras = [for (final l in lines) _finalPara(l)];
     final body = _bodyHalf(lines, paras);
     final chars = <SpanStyle>[];
@@ -147,7 +192,7 @@ class RtfLines {
     final counts = <int, int>{};
     for (final l in lines) {
       final space = l.para?.space;
-      if (l.isEmpty || space == null) continue;
+      if (l.isEmpty || space == null || l.cell != null) continue;
       counts[space] = (counts[space] ?? 0) + 1;
     }
     if (counts.isEmpty) return null;
@@ -156,6 +201,7 @@ class RtfLines {
   }
 
   static ParaStyle _finalPara(RtfLine l) {
+    if (l.cell case final cell?) return cell;
     final p = l.para;
     final marker = l.marker?.toString().trim();
     final markerKind = marker == null

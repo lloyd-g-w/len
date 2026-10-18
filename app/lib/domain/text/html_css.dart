@@ -81,8 +81,11 @@ class ElementFormat {
           family.contains('consolas'),
       pre: tag == 'pre' || (css['white-space']?.startsWith('pre') ?? false),
       color: parseColor(css['color'] ?? (tag == 'font' ? attrs['color'] : null)),
+      // (A table's shading is not a highlight of its text.)
       highlight: tag == 'mark'
           ? 0xFFFFF176
+          : _tableTags.contains(tag)
+          ? null
           : parseColor(css['background-color'] ?? css['background']),
       heading: switch (tag) {
         'h1' => 1,
@@ -101,6 +104,8 @@ class ElementFormat {
       hidden: attrs['aria-hidden']?.toLowerCase() == 'true',
     );
   }
+
+  static const _tableTags = {'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th'};
 
   static bool _isBold(String weight) {
     final n = int.tryParse(weight);
@@ -137,6 +142,31 @@ double? marginEm(Map<String, String> css) {
   if (top == null && bottom == null) return null;
   final most = [?top, ?bottom].reduce((a, b) => a > b ? a : b);
   return most < 0 ? 0 : most;
+}
+
+/// A width from HTML: a [percent]age, else a length in px.
+typedef HtmlLength = ({double value, bool percent});
+
+/// The width [v] (a CSS `width` or a `width` attribute) as a percentage
+/// or a length in px (`pt`, `cm`, `mm`, `in` converted; a bare number and
+/// LibreOffice's relative `3*` taken as px); null for `auto`, zero and
+/// what it can't read.
+HtmlLength? parseLength(String? v) {
+  if (v == null) return null;
+  final m = RegExp(r'^([0-9]*\.?[0-9]+)\s*(%|px|pt|cm|mm|in|\*)?$')
+      .firstMatch(v.trim().toLowerCase());
+  if (m == null) return null;
+  final n = double.parse(m.group(1)!);
+  if (n <= 0) return null;
+  final unit = m.group(2);
+  final px = switch (unit) {
+    'pt' => n * 4 / 3,
+    'cm' => n * 96 / 2.54,
+    'mm' => n * 96 / 25.4,
+    'in' => n * 96,
+    _ => n,
+  };
+  return (value: px, percent: unit == '%');
 }
 
 /// Declarations of an inline `style` attribute (lower-case names; values

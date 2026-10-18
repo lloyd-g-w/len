@@ -2525,6 +2525,14 @@ GoodNotes-style rich text inside a box.
   there). Content marked
   `aria-hidden="true"` is skipped (icon glyphs; the ☐ / ☑ Len writes); an
   empty list item or heading (`<li><br></li>`) keeps its style.
+  Tables (`html_table.dart`, `html_text_tables.dart`) become tables: one
+  cell line per `<td>` / `<th>` with its inline content (inner blocks and
+  `<br>` as spaces, a table inside a cell flattened into its text), the
+  widest row's columns (at most 12; a `colspan` cell followed by empty
+  ones, short rows padded), widths from the first row's or `<col>`s'
+  `width` (%, px, pt), a header when the first row is `<thead>` or all
+  `<th>`; cell shading is no highlight, Word's misaligned-columns row is
+  skipped.
   **RTF-only clipboards** (WordPad; apps offering both get the HTML read)
   go through `textFromRtf` (`domain/text/rtf_text.dart`, pure Dart: a
   tokenizer, `rtf_tokens.dart`; group state, `rtf_state.dart`; the header
@@ -2539,7 +2547,10 @@ GoodNotes-style rich text inside a box.
   → headings, lists from Word's `\listtable` (`\levelnfc` 23 bullet, 255
   none, else number; `\ls` via `\listoverridetable`, `\ilvl` → indent),
   else the `\listtext` / `\pntext` marker ("1." / "a)" → number) or
-  WordPad's `\pn`; non-text destinations (`\*…`, pictures, objects,
+  WordPad's `\pn`; tables from `\intbl` paragraphs, `\cell` and `\row`
+  (`rtf_table_rows.dart`: widths from the first row's `\cellx`, a header
+  from its `\trhdr`, `\par` in a cell a space, nested tables' `\nestcell`
+  text flattened into the outer cell); non-text destinations (`\*…`, pictures, objects,
   headers, info, theme data, `\bin`) are skipped. Unlike HTML, font sizes
   are kept *relative*: the size most body characters have is the box's,
   runs more than 10 % off it get the box size × their ratio (headings
@@ -2567,7 +2578,10 @@ GoodNotes-style rich text inside a box.
   red boxes stay red, Len's default ink stays the app's text colour),
   highlights blended onto white (`htmlHighlight`; Len's are translucent),
   fonts other than Inter as CSS stacks, alignment as `text-align`; sizes
-  are left to the receiving app. Spaces HTML would collapse (at a line's
+  are left to the receiving app. A table is a `<table>` of bordered
+  cells (its header row `<th>`, which reads as bold elsewhere), each
+  `<td>` carrying its column's width in percent, so it reads back the same
+  (`table_clipboard_test.dart`). Spaces HTML would collapse (at a line's
   ends, after another) become `&nbsp;`, tabs a `white-space:pre` span. A
   property test writes random boxes and reads them back: the same text,
   spans and paragraphs, up to what the reader keeps (no sizes, fonts other

@@ -31,6 +31,9 @@ class RtfState {
   /// `\ls` (0: not a list item) and `\ilvl` (0-based).
   int ls = 0, ilvl = 0;
 
+  /// In a table (`\intbl`, `\itap` above 0).
+  bool intbl = false;
+
   /// `\sa` / `\sb` in twips, null where not set.
   int? spaceAfter, spaceBefore;
 
@@ -57,6 +60,7 @@ class RtfState {
     ..style = style
     ..ls = ls
     ..ilvl = ilvl
+    ..intbl = intbl
     ..spaceAfter = spaceAfter
     ..spaceBefore = spaceBefore
     ..pn = pn
@@ -76,6 +80,7 @@ class RtfState {
   void resetParagraph() {
     outline = -1;
     style = ls = ilvl = pnLevel = 0;
+    intbl = false;
     spaceAfter = spaceBefore = null;
     pn = null;
   }
@@ -120,6 +125,11 @@ class RtfState {
         ls = param ?? 0;
       case 'ilvl':
         ilvl = param ?? 0;
+      case 'intbl':
+        intbl = on;
+      case 'itap':
+        // (`\itap0` is body text, but only `\pard` leaves a table.)
+        if ((param ?? 1) > 0) intbl = true;
       case 'sa':
         spaceAfter = param;
       case 'sb':
