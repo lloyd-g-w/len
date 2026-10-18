@@ -60,6 +60,16 @@ class BlobStore with _BlobCleanup {
       database.db.select('SELECT size FROM blobs WHERE sha256 = ?', [sha]).firstOrNull?['size']
           as int?;
 
+  /// Whether blob [sha] is stored here; if so, it counts as stored again
+  /// (its grace period restarts, as with the `put`s), so garbage collection
+  /// leaves it while what reuses it (a version being made) is not saved
+  /// yet.
+  bool reuse(String sha) {
+    if (sizeOf(sha) == null) return false;
+    _setUnreferencedSince(sha, null);
+    return true;
+  }
+
   /// The blob's MIME type as stored, or `application/octet-stream`.
   String mimeOf(String sha) =>
       database.db.select('SELECT mime FROM blobs WHERE sha256 = ?', [sha]).firstOrNull?['mime']

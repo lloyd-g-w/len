@@ -73,6 +73,9 @@ class VersionSnapshots {
     String? name,
   }) async {
     final versions = repositories.versions;
+    // An edit written in steps finishes first (no half of it in a version;
+    // surfaces finish them again as they are packed).
+    versions.database.steps.finish();
     final rows = _db.select('SELECT * FROM notebooks WHERE id = ? AND deleted = 0', [notebookId]);
     if (rows.isEmpty) return null;
     final notebookData = NotebookRows.recordData(rows.first);
@@ -111,6 +114,7 @@ class VersionSnapshots {
       strokes = counts[notebookId] = packed.strokes;
       canvasSurface = _withText(packed, notebookId);
     }
+    versions.database.steps.finish();
     final body = VersionBody(
       pages: pages,
       canvas: canvasSurface,

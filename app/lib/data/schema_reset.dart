@@ -69,20 +69,33 @@ abstract final class SchemaCheck {
   static bool isEmpty(CommonDatabase db) =>
       db.select("SELECT 1 FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' LIMIT 1").isEmpty;
 
-  /// Copies the database at [path] aside (`<path>.schema-<version>-<time>.bak`;
-  /// skipped when [path] is null) and drops everything, leaving
-  /// `user_version` 0. Returns the [keptSettings] found, to write back once
-  /// the schema is created again.
-  static (String?, Map<String, String>) reset(
-    CommonDatabase db, {
-    required String? path,
-    required int version,
-  }) {
-    String? backup;
-    if (path != null) {
-      backup = '$path.schema-$version-${DateTime.now().millisecondsSinceEpoch}.bak';
-      db.execute("VACUUM INTO '${backup.replaceAll("'", "''")}'");
-    }
+  /// Copies the database at [path] aside (`<path>.schema-<version>-<time>.bak`)
+  /// and returns where; null when [path] is null (in memory, browsers).
+  static String? backUp(CommonDatabase db, {required String? path, required int version}) {
+    if (path == null) return null;
+    final backup = '$path.schema-$version-${DateTime.now().millisecondsSinceEpoch}.bak';
+    db.execute("VACUUM INTO '${backup.replaceAll("'", "''")}'");
+    return backup;
+  }
+
+  /// Whether [e] is a passing failure (busy, locked, out of memory or
+  /// disk, I/O, read-only, interrupted), no sign of an unusable schema.
+  static bool isTransient(SqliteException e) => const {
+    5, // SQLITE_BUSY
+    6, // SQLITE_LOCKED
+    7, // SQLITE_NOMEM
+    8, // SQLITE_READONLY
+    9, // SQLITE_INTERRUPT
+    10, // SQLITE_IOERR
+    13, // SQLITE_FULL
+    14, // SQLITE_CANTOPEN
+    15, // SQLITE_PROTOCOL
+  }.contains(e.resultCode);
+
+  /// Drops everything in [db], leaving `user_version` 0 (run it in a
+  /// transaction). Returns the [keptSettings] found, to write back once the
+  /// schema is created again.
+  static Map<String, String> reset(CommonDatabase db) {
     final kept = <String, String>{};
     try {
       final rows = db.select(
@@ -111,6 +124,6 @@ abstract final class SchemaCheck {
       db.execute('DROP ${o['type'] == 'view' ? 'VIEW' : 'TABLE'} IF EXISTS "$name"');
     }
     db.execute('PRAGMA user_version = 0');
-    return (backup, kept);
+    return kept;
   }
 }

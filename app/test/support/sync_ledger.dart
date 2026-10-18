@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:len/app_services.dart';
 
 import 'package:len/data/syncable_table.dart';
+import 'package:len/domain/notebook_version.dart';
 
 import 'fault_devices.dart';
 
@@ -58,13 +59,56 @@ class SyncLedger {
         ),
   };
 
+  /// What the versions [s] saved since [before] as the state before a
+  /// restore hold (`table/id` of pages, strokes, elements, recordings
+  /// and outline entries): a restore
+  /// removes what synced in while it ran, kept in that version.
+  static Future<Set<String>> savedBeforeRestores(
+    AppServices s,
+    Map<String, (RowVersion, bool)> before,
+  ) async {
+    final out = <String>{};
+    final versions = s.versions;
+    for (final row in s.database.db.select('SELECT id FROM versions WHERE deleted = 0')) {
+      final id = row['id'] as String;
+      if (before.containsKey('versions/$id')) continue;
+      final version = versions.store.get(id);
+      if (version == null || version.kind != VersionKind.restore) continue;
+      final body = await versions.content.body(version);
+      out.addAll([
+        for (final page in body.pages) 'pages/${page.id}',
+        for (final r in body.recordings ?? const <VersionRecord>[]) 'recordings/${r.id}',
+        for (final e in body.outline ?? const <VersionRecord>[]) 'outline/${e.id}',
+      ]);
+      for (final surface in [for (final p in body.pages) p.content, ?body.canvas]) {
+        for (final item in await versions.content.itemIds(surface)) {
+          out.addAll(['strokes/$item', 'elements/$item']);
+        }
+      }
+    }
+    return out;
+  }
+
   /// Records what one local edit on [s] did: [before] and the state now.
-  void record(Map<String, (RowVersion, bool)> before, AppServices s) {
-    final after = snapshot(s);
+  /// [saved]: rows a restore of the edit kept in the version it saved
+  /// before ([savedBeforeRestores]); deleting them deletes knowingly what
+  /// the device held (which may have synced in during the edit). [after]:
+  /// the state [snapshot] took when the edit ended (else now).
+  void record(
+    Map<String, (RowVersion, bool)> before,
+    AppServices s, {
+    Set<String> saved = const {},
+    Map<String, (RowVersion, bool)>? after,
+  }) {
+    after ??= snapshot(s);
     for (final MapEntry(:key, value: (version, live)) in after.entries) {
       final old = before[key];
       if (old != null && old.$1 == version) continue;
       final known = newest[key];
+      if (!live && saved.contains(key) && known != null) {
+        deleted.add(key);
+        _deletions.putIfAbsent(key, () => []).add((known: known));
+      }
       if (known == null || _newer(version, known)) newest[key] = version;
       if (live) {
         _edits.putIfAbsent(key, () => []).add(version);
@@ -80,6 +124,14 @@ class SyncLedger {
         created.add(key);
         if (key.startsWith('strokes/')) {
           final id = key.substring('strokes/'.length);
+          final line = s.database.db.select(
+            "SELECT surface_id, coalesce(json_extract(style, '\$.sh.o'), id) AS shape "
+            "FROM strokes WHERE id = ? AND json_extract(style, '\$.sh.a') IS NOT NULL",
+            [id],
+          );
+          if (line.isNotEmpty) {
+            _lines[id] = (line.single['surface_id'] as String, line.single['shape'] as String);
+          }
           points[id] = base64Encode(
             s.database.db.select('SELECT points FROM strokes WHERE id = ?', [id]).single['points']
                 as List<int>,
@@ -89,6 +141,24 @@ class SyncLedger {
       if (!live && wasLive) deleted.add(key);
     }
   }
+
+  /// Whether line [id] (deleted) was replaced by a connector repair
+  /// (`ConnectorRepair`): it was attached, and another line of its shape
+  /// id is on its surface (live, or deleted since with the page).
+  bool _repaired(Iterable<AppServices> devices, String id) {
+    final (surface, shape) = _lines[id] ?? (null, null);
+    if (surface == null) return false;
+    return devices.any(
+      (s) => s.database.db.select(
+        'SELECT 1 FROM strokes WHERE surface_id = ? AND id <> ? '
+        "AND json_extract(style, '\$.sh.o') = ?",
+        [surface, id, shape],
+      ).isNotEmpty,
+    );
+  }
+
+  /// Attached lines created: id → (surface, shape id).
+  final Map<String, (String, String)> _lines = {};
 
   /// What live row [key] (`table/id`) of [s] holds: its record's data, as
   /// JSON; null if it is not live.
@@ -104,7 +174,8 @@ class SyncLedger {
   /// What [s] (a converged device) lost of what was written: rows behind
   /// a version some device wrote, rows created and never knowingly deleted
   /// that are not live, strokes whose points changed.
-  List<String> losses(AppServices s) {
+  /// [witnesses]: other devices, whose tombstones keep what they deleted.
+  List<String> losses(AppServices s, {List<AppServices> witnesses = const []}) {
     final now = snapshot(s);
     final out = <String>[];
     for (final MapEntry(:key, value: version) in newest.entries) {
@@ -155,7 +226,13 @@ class SyncLedger {
       );
     }
     for (final key in created.difference(deleted)) {
-      if (!(now[key]?.$2 ?? false)) out.add('$key: deleted, but nobody deleted it knowingly');
+      final stroke = key.startsWith('strokes/') ? key.substring('strokes/'.length) : null;
+      if (stroke != null && _repaired([s, ...witnesses], stroke)) continue;
+      if (now[key] case final row? when !row.$2) {
+        out.add('$key: deleted at ${row.$1.at}/${row.$1.device}, but nobody deleted it knowingly');
+      } else if (now[key] == null) {
+        out.add('$key: missing, but nobody deleted it');
+      }
     }
     for (final MapEntry(key: id, value: written) in points.entries) {
       final rows = s.database.db.select('SELECT points, deleted FROM strokes WHERE id = ?', [id]);

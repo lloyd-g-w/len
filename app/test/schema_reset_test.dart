@@ -94,6 +94,29 @@ void main() {
     expect(backups().single, contains('.schema-6-'));
   });
 
+  test('a migration failing for a busy database fails the start, resetting nothing', () {
+    prepare(
+      (d) => d.db
+        ..execute('DROP TABLE fonts')
+        ..execute('PRAGMA user_version = ${AppDatabase.latestVersion - 1}'),
+    );
+    // Another connection (a worker, a second window) holds the write lock.
+    final other = sqlite3.open(path)..execute('BEGIN IMMEDIATE');
+    expect(
+      () => AppDatabase.open(path),
+      throwsA(isA<SqliteException>().having((e) => e.resultCode, 'code', 5)),
+    );
+    other
+      ..execute('COMMIT')
+      ..close();
+    expect(backups(), isEmpty);
+    final db = AppDatabase.open(path);
+    addTearDown(db.close);
+    expect(db.schemaReset, isNull);
+    expect(notebookCount(db.db), 1, reason: 'the data is still here');
+    expect(db.db.select('PRAGMA user_version').first.columnAt(0), AppDatabase.latestVersion);
+  });
+
   test('tables at user_version 0 reset instead of failing', () {
     prepare((d) => d.db.execute('PRAGMA user_version = 0'));
     final db = AppDatabase.open(path);

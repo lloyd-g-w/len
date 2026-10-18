@@ -116,7 +116,8 @@ abstract final class Connectors {
     return pick;
   }
 
-  /// [line] stroke rebuilt as [shape], with id [id].
+  /// [line] stroke rebuilt as [shape], with id [id]: an edit of it, so it
+  /// keeps its shape id ([Stroke.shapeId]; docs/SYNC_PROTOCOL.md, `sh.o`).
   static Stroke rebuilt(Stroke line, ShapeGeometry shape, {required String id}) =>
-      ShapeBuilder.reshaped(line, shape, id: id);
+      ShapeBuilder.reshaped(line, shape.withOrigin(line.shapeId), id: id);
 }

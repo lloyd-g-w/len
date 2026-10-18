@@ -70,6 +70,23 @@ class LenArchiveWriter {
   final BlobFetcher? fetchBlob;
   final Clock clock;
 
+  /// Whether [record] belongs in the file with the [notebooks] and
+  /// [surfaces] written before it (noting its own).
+  static bool _inFile(SyncRecord record, Set<String> notebooks, Set<String> surfaces) {
+    final data = record.data;
+    switch (record.collection) {
+      case 'notebooks':
+        notebooks.add(record.id);
+        surfaces.add(record.id);
+      case 'pages' || 'outline' || 'recordings':
+        if (!notebooks.contains(data?['notebookId'])) return false;
+        if (record.collection == 'pages') surfaces.add(record.id);
+      case 'strokes' || 'elements':
+        return surfaces.contains(data?['surfaceId']);
+    }
+    return true;
+  }
+
   /// Rows read from the database at a time.
   static const _pageSize = 500;
 
@@ -93,6 +110,10 @@ class LenArchiveWriter {
     final parts = _PartWriter(zip);
     var records = 0;
     final total = resolved.estimate + 1;
+    // The notebooks and surfaces (notebooks, pages) written: the database
+    // changes while the file is written (sync, edits), and what came after
+    // its notebook or page was read would be on none in the file.
+    final notebooks = <String>{}, surfaces = <String>{};
     for (final (collection, where, args) in resolved.queries()) {
       final store = stores.of(collection);
       String? after;
@@ -107,6 +128,7 @@ class LenArchiveWriter {
         after = rows.last['id'] as String;
         for (final row in rows) {
           final record = resolved.adjust(store.rowToRecord(row));
+          if (!_inFile(record, notebooks, surfaces)) continue;
           referenced.addAll(BlobReferences.inValue(record.data));
           parts.add(record);
           records++;

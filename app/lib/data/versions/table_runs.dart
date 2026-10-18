@@ -42,7 +42,7 @@ class TableRuns {
     for (final run in VersionTable.cut(rows)) {
       await slices.yieldIfDue();
       final old = before[run.first['id']];
-      if (old != null && blobs.sizeOf(old.$2) != null && jsonEquals(old.$1, run)) {
+      if (old != null && jsonEquals(old.$1, run) && blobs.reuse(old.$2)) {
         made.add((run, old.$2));
         continue;
       }
