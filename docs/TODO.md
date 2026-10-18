@@ -279,6 +279,9 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   frame (now steps across 3–4 turns of ≤ 5 ms in one transaction, `SteppedWrites`). See
   PERFORMANCE "Leftovers of round 14".
 
+- ⬜ **"Stylus detected" on phones at large text** (round 26 aside): at 2× text the snack bar
+  covers much of the page; keep it to one line (or a smaller notice) there.
+
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
 
