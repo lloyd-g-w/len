@@ -33,8 +33,9 @@ Settings showed a missing font in Sans as if it were the font; RTF in
 non-Western code pages pasted as gibberish; the zoom window right to left
 still pointed and grew as left to right; Escape did nothing once a control
 had focus; a version named with Rename… was thinned away; restores gave no
-sign of running. 43 findings: 0 P1, 18 P2, 25 P3; 33 fixed (16 P2, 17 P3),
-with tests; open: R26-16 (P3).
+sign of running. 43 findings: 0 P1, 18 P2, 25 P3; all 43 fixed, with
+tests (33 on `audit/r26`, the other 10 on `fix/r26-followups`; R26-14 by its fallback,
+a row taller than a page cut at the page's end; R26-41 kept by design).
 
 ### Tables in text boxes
 
@@ -196,13 +197,15 @@ about a unit per row) (`table_header_repeat_test`).
   (where that text is laid out) reads the text up to the next table
   (`table_semantics_test`: the text after the table is read after it).
 
-**R26-16 P3 · While a table is edited, screen readers get only the cell being edited.** ⬜
+**R26-16 P3 · While a table is edited, screen readers get only the cell being edited.** ✅
 `TextBoxSemantics` leaves the edited box out; `TableEditorLayer` paints the other cells
 (`_TablesPainter`) without nodes, and its field is named "Row r, column c" but not as a
 header. A screen-reader user on a touch tablet cannot reach another cell except by
-leaving the box. *Proposal:* the layer gives each painted cell a node (`SemanticsRole.cell`
-/ `columnHeader`, its text) whose tap action enters it, as `TextTableSemantics` does for
-committed boxes.
+leaving the box. *Fix:* the layer gives every cell but the edited one a node
+(`TableEditorSemantics`): in a table node and row nodes, `SemanticsRole.cell` or
+`columnHeader`, reading the cell's text with its place as the hint ("Row 2, column 1",
+"Column 1 header"); tapping it edits that cell. The edited cell's field is named alike
+(`table_editor_semantics_test`).
 
 #### Phone and touch
 

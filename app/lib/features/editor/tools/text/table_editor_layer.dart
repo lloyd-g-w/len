@@ -10,6 +10,7 @@ import '../../../../ui/app_theme.dart';
 import 'rich_paste.dart';
 import 'rich_text_controller.dart';
 import 'rich_text_field.dart';
+import 'table_editor_semantics.dart';
 import 'table_keys.dart';
 
 /// The tables of the box being edited, over its field (in world units,
@@ -234,6 +235,13 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
+                TableEditorSemantics(
+                  tables: _tables,
+                  rows: _rows,
+                  lines: _box.data.text.split('\n'),
+                  active: active,
+                  onEnter: (line) => _box.enterCell(line),
+                ),
                 // The rows take their own taps (not the field below).
                 for (final r in _rows)
                   Positioned.fromRect(
@@ -288,7 +296,11 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
       top: origin.dy,
       width: width + RichTextField.caretMargin(widget.cursorWidth),
       child: Semantics(
-        label: 'Row ${p.row + 1}, column ${p.column + 1}',
+        label: TableEditorSemantics.cellLabel(
+          p.row,
+          p.column,
+          header: t.table.spec.hasHeaderRow && p.row == 0,
+        ),
         child: RichTextField(
           controller: widget.cell,
           focusNode: widget.cellFocus,
