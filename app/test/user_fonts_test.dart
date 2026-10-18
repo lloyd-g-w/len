@@ -246,7 +246,7 @@ void main() {
       expect(await target.blobs.read(used.blob), caveatFile());
       expect(_repo(target).dirtyRecords(10).map((r) => r.id), [used.id]);
       final box = target.elements.db.select("SELECT data FROM elements WHERE type = 'text'");
-      expect(jsonDecode(box.single['data'] as String)['font'], used.id);
+      expect((jsonDecode(box.single['data'] as String) as Map)['font'], used.id);
 
       // Again: still one font.
       await _import(target, bytes);
