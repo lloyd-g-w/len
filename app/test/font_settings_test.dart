@@ -41,4 +41,40 @@ void main() {
     // Screen readers hear the font's name, not the pangram.
     expect(find.bySemanticsLabel(sample), findsNothing);
   });
+
+  testWidgets('Remove asks, says it is for every device, and Undo brings the font back', (
+    tester,
+  ) async {
+    final s = AppServices.create(AppDatabase.inMemory(), blobBackend: MemoryBlobBackend());
+    addTearDown(s.dispose);
+    s.sync.engine.repositories.fonts.add(name: 'Gone soon', blob: '6' * 64);
+    await tester.runAsync(s.fonts.refresh);
+    await tester.pumpWidget(
+      AppScope(
+        services: s,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: SingleChildScrollView(child: FontSettings(fonts: s.fonts)),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Remove “Gone soon”'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove “Gone soon”?'), findsOneWidget);
+    expect(find.textContaining('shown in Sans on all your devices'), findsOneWidget);
+    await tester.tap(find.text('Remove'));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    expect(s.fonts.fonts, isEmpty);
+    expect(find.text('Gone soon'), findsNothing);
+    expect(find.text('Removed “Gone soon”'), findsOneWidget);
+
+    await tester.tap(find.text('Undo'));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    expect(s.fonts.fonts.map((f) => f.name), ['Gone soon']);
+    expect(find.text('Gone soon'), findsOneWidget);
+  });
 }

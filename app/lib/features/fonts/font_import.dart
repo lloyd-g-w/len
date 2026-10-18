@@ -81,7 +81,7 @@ abstract final class FontImport {
     final confirmed = await confirmAction(
       context,
       title: 'Remove “${font.name}”?',
-      message: 'Text in this font is shown in Sans until you import it again',
+      message: 'Text in this font is shown in Sans on all your devices until you import it again',
       confirmLabel: 'Remove',
       destructive: true,
     );
