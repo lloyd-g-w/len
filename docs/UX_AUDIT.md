@@ -1,5 +1,20 @@
 # Len — UX/UI audit
 
+## Round 26 audit — tables, imported fonts and the rest since round 25 (`audit/r26`)
+
+Lens: do the features merged since round 25 feel finished and consistent
+with the rest of Len (copy, tokens, menus, popovers, phone layouts, dark
+mode, large text, keyboard, screen readers), and do they break at the edges
+(undo / redo, multi-page flow, canvas vs paged, split view, zoom window,
+phone, web, offline, huge tables and many fonts, right-to-left text in
+tables)? Features: tables in text boxes; imported fonts; RTF paste;
+paragraph spacing; the zoom window right to left; the stylus edge guard;
+Escape closing previews, the overview and Settings; Rename clearing a
+version's name; the curve and attaching tips; version restore changes.
+Paths are under `app/lib/`. ⬜ open, ✅ fixed on this branch.
+
+*In progress.*
+
 ## Round 25 audit — the last day's features together (`audit/r13`)
 
 Lens: do the features merged in one day feel finished and consistent with
