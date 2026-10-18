@@ -270,10 +270,14 @@ Status: ⬜ open · 🚧 an agent is on it (branch) · ✅ merged into main.
   opening, 17 ms scrolling, RSS flat); presence repaints 25 objects; pen-up 2 ms; repair warm max
   5.5 ms, reload 7.5 ms, drag commit 5–6 ms (its write behind, 11 ms, after the frame).
 
-- 🚧 (perf/r15) **Performance, round 15 leftovers**: the 200-version paged history scrolls at ~100 ms a
-  frame (building ~12 rows a step); the full-size preview of a 50k-stroke canvas draws it all in
-  one frame; the two frames after a 58k-point pen-up (12–16 ms, ~28 ms, cause unknown); a
-  200-arrow drag commit's write right after its frame (~11 ms).
+- 🚧 (perf/r15) **Performance, round 15 leftovers**: the 200-version paged history scrolled at
+  ~57 ms a frame (now 30: rows of ~40 elements, built lazily, menus staggered); the full-size
+  preview of a 50k-stroke canvas drew it all in one 14.6 s frame (now from sliced images, no
+  frame over 24 ms); the frames after a 58k-point pen-up were the undo buttons rebuilding on
+  every edit (now only when undo changes: 9.5–11.5 → 4.6 ms) plus the stroke's tile snapshots
+  (raster thread in the app); a 200-arrow drag commit's write took one ~11 ms turn after its
+  frame (now steps across 3–4 turns of ≤ 5 ms in one transaction, `SteppedWrites`). See
+  PERFORMANCE "Leftovers of round 14".
 
 ## Next (open follow-ups, not yet asked for)
 From the reports; the owner picks. Status as above.
