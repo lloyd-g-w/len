@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../../../data/app_preferences.dart';
 import '../../../ink/input/stylus_buttons.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
@@ -82,8 +83,23 @@ class _ZoomBoxState extends State<ZoomBox> {
 
   void _onTickerMode() => _zoom.ticking = _tickerMode?.value.enabled ?? true;
 
+  AppPreferences get _preferences => widget.session.services.preferences;
+
+  @override
+  void initState() {
+    super.initState();
+    _preferences.addListener(_onPreferences);
+  }
+
+  /// The direction was turned over (here, or in the other pane's box): the
+  /// line starts again from where the frame is, in the new direction.
+  void _onPreferences() {
+    if (_preferences.zoomWritesRightToLeft != _zoom.rightToLeft) _zoom.directionChanged();
+  }
+
   @override
   void dispose() {
+    _preferences.removeListener(_onPreferences);
     _tickerMode?.removeListener(_onTickerMode);
     _zoom.ticking = true;
     super.dispose();
@@ -232,11 +248,15 @@ class _ZoomBoxState extends State<ZoomBox> {
                 },
               ),
             ),
-            ZoomBoxRail(
-              onClose: _zoom.close,
-              onNewLine: _zoom.newLine,
-              menu: () => zoomBoxMenu(widget.session),
-              onMenu: (choice) => onZoomBoxMenu(widget.session, choice),
+            ListenableBuilder(
+              listenable: _zoom,
+              builder: (context, _) => ZoomBoxRail(
+                onClose: _zoom.close,
+                onNewLine: _zoom.newLine,
+                menu: () => zoomBoxMenu(widget.session),
+                onMenu: (choice) => onZoomBoxMenu(widget.session, choice),
+                rightToLeft: _zoom.rightToLeft,
+              ),
             ),
           ],
         ),

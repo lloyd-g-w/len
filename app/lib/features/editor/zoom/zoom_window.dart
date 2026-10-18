@@ -149,13 +149,20 @@ class ZoomWindow extends ChangeNotifier with _ZoomMoves, _ZoomHandMoves {
   }
 
   /// The box was laid out at [size] (rotation, resize): the frame keeps
-  /// its place and magnification and takes the box's new shape.
+  /// its place and magnification and takes the box's new shape, its corner
+  /// at the line's start staying put (the top-left; right to left, the
+  /// top-right).
   void setBox(Size size) {
     if (size == _box || size.isEmpty) return;
+    final was = _box;
     _box = size;
     if (!isOpen) return;
     if (!_placed) return _layOut();
-    _set(_frame!.copyWith(origin: _rules.clamp(_frame!, _frame!.origin)));
+    final frame = _frame!;
+    final origin = _rtl
+        ? frame.origin.translate((was.width - size.width) / frame.scale, 0)
+        : frame.origin;
+    _set(frame.copyWith(origin: _rules.clamp(frame, origin)));
     _reveal();
   }
 

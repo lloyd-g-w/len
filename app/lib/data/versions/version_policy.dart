@@ -4,7 +4,7 @@ import 'version_repository.dart';
 /// history"): every automatic version of the last [keepAllFor], then the
 /// newest per hour for a week, per day for a month and per week after
 /// that, within a budget of [maxVersions] and [maxBytes]; named versions
-/// until deleted.
+/// (saved by hand, or given a name later with Rename…) until deleted.
 ///
 /// Buckets are aligned to the epoch (UTC), so every device keeps the same
 /// versions, and the versions a later clock keeps are among those an
@@ -34,7 +34,7 @@ abstract final class VersionPolicy {
   }) {
     final thinned = [
       for (final v in versions)
-        if (v.kind.thinned) v,
+        if (v.kind.thinned && !v.named) v,
     ]..sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Newest first.
     final remove = <String>{};
     // Buckets (size, index) holding a newer version: a version goes when

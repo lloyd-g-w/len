@@ -10,7 +10,8 @@ import '../chrome/bar_button.dart';
 /// The zoom window's rail at the box's right: ✕ (close) and ⋯ (the box's
 /// menu) at the top, ↵ (next line) at the bottom, under the writing
 /// hand's reach. A box too short for all three keeps ✕ and ↵ (↵ also
-/// comes by writing on), then ✕ alone.
+/// comes by writing on), then ✕ alone. Right to left, ↵ points the way a
+/// new line goes: back to the right.
 class ZoomBoxRail<T> extends StatelessWidget {
   const ZoomBoxRail({
     super.key,
@@ -18,9 +19,13 @@ class ZoomBoxRail<T> extends StatelessWidget {
     required this.onNewLine,
     required this.menu,
     required this.onMenu,
+    this.rightToLeft = false,
   });
 
   final VoidCallback onClose, onNewLine;
+
+  /// Whether lines run right to left (↵ is mirrored).
+  final bool rightToLeft;
 
   /// The rows of the box's menu, and what to do with the one chosen.
   final List<PopupMenuEntry<T>> Function() menu;
@@ -41,10 +46,13 @@ class ZoomBoxRail<T> extends StatelessWidget {
         onPressed: () => unawaited(_openMenu(anchor)),
       ),
     );
-    final newLine = BarButton(
-      icon: Symbols.keyboard_return_sharp,
-      tooltip: 'Next line',
-      onPressed: onNewLine,
+    final newLine = Transform.flip(
+      flipX: rightToLeft,
+      child: BarButton(
+        icon: Symbols.keyboard_return_sharp,
+        tooltip: 'Next line',
+        onPressed: onNewLine,
+      ),
     );
     return DecoratedBox(
       decoration: BoxDecoration(border: Border(left: Surfaces.chromeEdge(scheme))),

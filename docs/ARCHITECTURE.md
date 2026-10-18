@@ -3240,7 +3240,9 @@ shares between versions (and between devices of one platform family).
   are kept all for the last day, then the newest per hour for a week, per
   day for a month and per week after that (buckets aligned to the epoch, so
   every device keeps the same ones and what a later clock keeps is a subset
-  of what an earlier one kept); named versions are kept until deleted. A
+  of what an earlier one kept); named versions (saved by hand, or any version
+  given a name with Rename…; clearing the name lets it thin again) are kept
+  until deleted. A
   notebook's budget (200 automatic versions, 64 MB of packs they added)
   drops its oldest automatic versions beyond it. Thinning runs after a
   version is made and with blob garbage collection; removed versions are

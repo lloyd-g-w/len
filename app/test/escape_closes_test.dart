@@ -76,4 +76,77 @@ void main() {
     expect(find.text('Select'), findsNothing);
     expect(find.text('Open'), findsOneWidget);
   });
+
+  testWidgets('with a control in the page focused, Escape still closes it', (tester) async {
+    await pushOver(
+      tester,
+      (_) => EscapeCloses(
+        child: Scaffold(
+          appBar: AppBar(title: const Text('Page')),
+          body: TextButton(onPressed: () {}, child: const Text('Button')),
+        ),
+      ),
+    );
+    // Tab to the button: the focus is inside the Scaffold, whose drawer
+    // action (off without a drawer) used to swallow Escape.
+    FocusManager.instance.primaryFocus!.nextFocus();
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus!.context!.widget, isNot(isA<EscapeCloses>()));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Page'), findsNothing);
+  });
+
+  testWidgets('in a text field, Escape leaves the field first, then closes', (tester) async {
+    await pushOver(
+      tester,
+      (_) => const EscapeCloses(
+        child: Scaffold(appBar: null, body: Column(children: [Text('Page'), TextField()])),
+      ),
+    );
+    await tester.showKeyboard(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'typed');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Page'), findsOneWidget, reason: 'what was typed is not lost to a stray key');
+    expect(tester.testTextInput.hasAnyClients, isFalse);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Page'), findsNothing);
+  });
+
+  testWidgets('a menu open over the page: Escape closes the menu only', (tester) async {
+    await pushOver(
+      tester,
+      (_) => EscapeCloses(
+        child: Scaffold(
+          body: Builder(
+            builder: (context) => Column(
+              children: [
+                const Text('Page'),
+                TextButton(
+                  onPressed: () => showMenu<int>(
+                    context: context,
+                    position: RelativeRect.fill,
+                    items: const [PopupMenuItem(value: 1, child: Text('Row'))],
+                  ),
+                  child: const Text('Menu'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Menu'));
+    await tester.pumpAndSettle();
+    expect(find.text('Row'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Row'), findsNothing);
+    expect(find.text('Page'), findsOneWidget, reason: 'not popped twice');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Page'), findsNothing);
+  });
 }

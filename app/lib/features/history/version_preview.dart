@@ -43,13 +43,18 @@ class VersionPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final v = version;
     final compact = MediaQuery.sizeOf(context).width < Breakpoints.medium;
-    final copy = TextButton(
+    final copy = _WorkButton(
+      work: VersionWork.copy,
+      label: 'Copy as new notebook',
+      busyLabel: 'Copying…',
       onPressed: () => unawaited(copyVersionFlow(message, services, v)),
-      child: const Text('Copy as new notebook'),
     );
-    final restore = FilledButton(
+    final restore = _WorkButton(
+      work: VersionWork.restore,
+      label: 'Restore',
+      busyLabel: 'Restoring…',
+      filled: true,
       onPressed: () => unawaited(_restore(context)),
-      child: const Text('Restore'),
     );
     final heading = _Heading(v, madeOn: VersionLabels.madeOn(v, thisDevice: _thisDevice));
     // Short ("Today, 11:42"), so it keeps one line at large text (R25-7).
@@ -165,7 +170,11 @@ class VersionPreview extends StatelessWidget {
             // keeps its row at large text sizes (UX_AUDIT R25-7).
             final compact = MediaQuery.sizeOf(pageContext).width < Breakpoints.medium;
             final title = 'Page ${index + 1} of $count';
-            final restore = FilledButton(
+            final restore = _WorkButton(
+              work: VersionWork.restore,
+              label: 'Restore this page',
+              busyLabel: 'Restoring…',
+              filled: true,
               onPressed: () async {
                 if (!await restorePageFlow(
                   pageContext,
@@ -182,7 +191,6 @@ class VersionPreview extends StatelessWidget {
                   ..pop();
                 onRestored?.call();
               },
-              child: const Text('Restore this page'),
             );
             return EscapeCloses(
               child: Scaffold(
