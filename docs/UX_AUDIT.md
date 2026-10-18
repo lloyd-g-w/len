@@ -1642,7 +1642,7 @@ away, and a palm is only a palm on the canvas it rests on.
 | Palm before the pen | the pen hovering 1–2 cm above counts; a stylus down stops a palm's pan or stroke | same | Keep |
 | Palm on chrome / another pane | a palm resting on a toolbar button, the Add page footer or the other split pane taps or pans it | system palm rejection (iPadOS); Samsung Notes ignores touches while writing | R15-4 |
 | Contact cancelled mid-stroke (rotation, notification shade, a system gesture, a dialog) | the stroke is thrown away | the ink written stays | R15-5 |
-| Stylus edge swipe (gesture navigation) | a stroke from the screen's edge may become Back | apps exclude the writing area | R15-6 |
+| Stylus edge swipe (gesture navigation) | a 200-dp band around a near stylus is kept from Back at both edges | apps exclude the writing area | R15-6 |
 | Near page edges / between pages | a pen in the gap writes on the nearest page; ink is clipped to the page it began on | GoodNotes: same | Keep |
 | Writing at the bottom of the screen | no auto-scroll; a finger pans | none of the three auto-scroll in continuous view | Keep (moving paper under the nib is worse) |
 | Page gliding when the pen lands | the glide stops, the stroke goes to the page under the nib | same | Keep |
@@ -1706,7 +1706,7 @@ away, and a palm is only a palm on the canvas it rests on.
   a lift. Erasing and tools still cancel, fingers still drop their
   stroke (a pinch or palm). Effort S.
 
-**R15-6 P3 · A stroke from the screen's edge can become Back.** ⬜
+**R15-6 P3 · A stroke from the screen's edge can become Back.** 🚧 (fix/edge-swipes)
 - *What:* with gesture navigation, Android may take a stylus swipe from
   the left or right edge as Back (and cancel the stroke, now kept by
   R15-5). Writing zoomed in to the page's edge starts there.
@@ -1714,9 +1714,14 @@ away, and a palm is only a palm on the canvas it rests on.
   is near (Android caps them at 200 dp per edge); needs the tablet to
   see whether One UI routes stylus edge swipes at all. Effort M with
   device checks: TODO "Next".
-- *Still open (checked 2026-10-18, `fix/audit-backlog`):* nothing sets
-  gesture exclusion rects yet; whether it is needed at all can only be
-  seen on the tablet, so it stays ⬜ until then.
+- *Implemented (`fix/edge-swipes`):* while an editor shows (route
+  current, pane not parked), `StylusEdgeGuard.kt` excludes a 200-dp
+  band centred on the stylus's y at both edges while it hovers or
+  touches (native, from `MainActivity`'s dispatch; follows past 24 dp;
+  goes 250 ms after the pen leaves); never for a finger or a mouse.
+  ARCHITECTURE *Stylus edge swipes*. *Still to verify on the tablet:*
+  whether One UI routes stylus edge swipes to Back at all, and that the
+  band stops it while a finger's Back still works.
 
 Checked and sound: the side button with every tool (erase or lasso win
 over the tool; "nothing" writes); the eraser end; the overlay armed on

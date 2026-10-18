@@ -1797,6 +1797,22 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   changes (rotation, split screen, resume). A pen-up Dart never ends is
   dropped after 1 s.
 
+**Stylus edge swipes** (UX_AUDIT R15-6): with gesture navigation, a pen
+stroke starting at the screen's left or right edge could become Back.
+While an editor shows (`StylusEdgeGuard` around the editor screen: its
+route current, its split-view pane not parked; `platform/stylus_edges.dart`
+counts the editors and sends `[edges, on]` on `len/low_latency_ink`),
+`StylusEdgeGuard.kt` watches the stylus natively, without a round trip:
+`MainActivity.dispatchGenericMotionEvent` (hover) and `dispatchTouchEvent`
+hand it every event, and while a stylus hovers or touches, a 200-dp band
+(Android's cap per edge; `StylusEdgeBand`, unit tested on the JVM) centred
+on its y is excluded from system gestures across the Flutter view
+(`View.setSystemGestureExclusionRects`, Android 10+). Hover comes before
+contact, so the band is in place when the system sees the pen's down. It
+moves only once the pen is 24 dp from where it was placed, and goes 250 ms
+after the stylus leaves or lifts (a landing pen leaves hover just before
+its down). Fingers and mice never set it: a finger's Back keeps working.
+
 Markers for system traces (atrace app `dev.len.len`; event times are
 `CLOCK_MONOTONIC`): `len.wet <eventTimeNs>` (recording a frame),
 `len.wetDone <eventTimeNs>` (frame rendered), `len.progress <eventTimeNs>`.
@@ -3144,7 +3160,7 @@ the web:
 | Page lifecycle (`page_lifecycle`) | nothing (writes are synchronous) | flush on hide / `pagehide`, `beforeunload` guard while a write is pending |
 | Incoming files (`incoming_files`) | Android: intents via `IncomingFiles.kt`; Linux / Windows: command line + forwarding from a second instance | PWA `launchQueue` (File Handling API) |
 | Handwriting (`handwriting_recognizer`) | ML Kit Digital Ink on Android; none on Linux / Windows | none |
-| Stylus samples (`stylus_samples`, `low_latency_ink`) | Android: historical `MotionEvent` samples + low-latency overlay; others: none | none (browsers deliver all samples) |
+| Stylus samples (`stylus_samples`, `low_latency_ink`, `stylus_edges`) | Android: historical `MotionEvent` samples + low-latency overlay + stylus edge-swipe exclusion; others: none | none (browsers deliver all samples) |
 | Secrets (`secure_store`) | `flutter_secure_storage`: Android Keystore-wrapped keys, Linux Secret Service via libsecret (the desktop keyring; in a Flatpak the secret portal), Windows DPAPI | none: the sync token stays in the database (see *Sync token*) |
 | Audio (`audio_files`) | capture to a temp file, play the blob file; Android: microphone permission, MediaPlayer, foreground service for background recording; Linux: `parecord` + `ffmpeg` on the `PATH` to record, GStreamer to play; Windows: Media Foundation | `MediaRecorder` into memory (secure origins only), playback from a blob URL |
 | Camera (`camera_capture`, one file: `image_picker` needs no `dart:io`) | Android: the camera app through `image_picker`, and the photo of one cut off by a kill (`retrieveLostData`); Linux / Windows: none | none |
