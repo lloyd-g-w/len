@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:len/app_services.dart';
 
 import 'package:len/data/syncable_table.dart';
+import 'package:len/domain/notebook_version.dart';
 
 import 'fault_devices.dart';
 
@@ -58,13 +59,53 @@ class SyncLedger {
         ),
   };
 
+  /// What the versions [s] saved since [before] as the state before a
+  /// restore hold (`table/id` of pages, strokes and elements): a restore
+  /// removes what synced in while it ran, kept in that version.
+  static Future<Set<String>> savedBeforeRestores(
+    AppServices s,
+    Map<String, (RowVersion, bool)> before,
+  ) async {
+    final out = <String>{};
+    final versions = s.versions;
+    for (final row in s.database.db.select('SELECT id FROM versions WHERE deleted = 0')) {
+      final id = row['id'] as String;
+      if (before.containsKey('versions/$id')) continue;
+      final version = versions.store.get(id);
+      if (version == null || version.kind != VersionKind.restore) continue;
+      final body = await versions.content.body(version);
+      for (final page in body.pages) {
+        out.add('pages/${page.id}');
+      }
+      for (final surface in [for (final p in body.pages) p.content, ?body.canvas]) {
+        for (final item in await versions.content.itemIds(surface)) {
+          out.addAll(['strokes/$item', 'elements/$item']);
+        }
+      }
+    }
+    return out;
+  }
+
   /// Records what one local edit on [s] did: [before] and the state now.
-  void record(Map<String, (RowVersion, bool)> before, AppServices s) {
-    final after = snapshot(s);
+  /// [saved]: rows a restore of the edit kept in the version it saved
+  /// before ([savedBeforeRestores]); deleting them deletes knowingly what
+  /// the device held (which may have synced in during the edit). [after]:
+  /// the state [snapshot] took when the edit ended (else now).
+  void record(
+    Map<String, (RowVersion, bool)> before,
+    AppServices s, {
+    Set<String> saved = const {},
+    Map<String, (RowVersion, bool)>? after,
+  }) {
+    after ??= snapshot(s);
     for (final MapEntry(:key, value: (version, live)) in after.entries) {
       final old = before[key];
       if (old != null && old.$1 == version) continue;
       final known = newest[key];
+      if (!live && saved.contains(key) && known != null) {
+        deleted.add(key);
+        _deletions.putIfAbsent(key, () => []).add((known: known));
+      }
       if (known == null || _newer(version, known)) newest[key] = version;
       if (live) {
         _edits.putIfAbsent(key, () => []).add(version);

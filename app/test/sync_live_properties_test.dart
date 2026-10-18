@@ -75,7 +75,12 @@ Future<void> _pause(int ms) => Future<void>.delayed(Duration(milliseconds: ms));
 
 /// One run: [steps] random edits and failures on [deviceCount] devices
 /// connected live, then a final sync of all; returns what went wrong.
+/// What each step of the last run did, and when on its device's clock
+/// (printed when the run fails).
+final _log = <String>[];
+
 Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 150}) async {
+  _log.clear();
   final r = math.Random(seed);
   RandomEdits.backups.clear();
   RandomEdits.fontFiles.clear();
@@ -101,12 +106,13 @@ Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 150}) asyn
   final trace = Platform.environment['LEN_FAULT_TRACE']?.split('/');
   final traced = <String, String>{};
   var what = '';
+  FaultDevice? last;
   void traceRow(int step) {
     if (trace == null) return;
     for (final d in devices) {
       if (!d.alive) continue;
       final rows = d.s.database.db.select(
-        'SELECT updated_at, device_id, deleted, dirty, base_at, origin_at, origin_for '
+        'SELECT updated_at, device_id, deleted, dirty '
         'FROM ${trace[0]} WHERE id = ?',
         [trace[1]],
       );
@@ -120,9 +126,13 @@ Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 150}) asyn
   try {
     await _pause(50);
     for (var step = 0; step < steps; step++) {
-      if (step > 0) traceRow(step - 1);
+      if (step > 0) {
+        traceRow(step - 1);
+        _log.add('step ${step - 1} until ${last?.clock.nowMs()}: $what');
+      }
       time.now += r.nextInt(2000);
       final d = up(devices[r.nextInt(devices.length)]);
+      last = d;
       final roll = r.nextInt(100);
       what = '${d.prefix} roll $roll';
       if (roll < 60) {
@@ -137,13 +147,18 @@ Future<List<String>> _run(int seed, {int deviceCount = 3, int steps = 150}) asyn
           await edit;
         } on StateError {
           if (d.alive && identical(s, d.s)) rethrow;
-          continue;
         } finally {
           killer?.cancel();
         }
         what = '${d.prefix} ${RandomEdits.lastEdit}';
-        if (!d.alive || !identical(s, d.s)) continue;
-        ledger.record(before, s);
+        // Killed: what the edit wrote before is kept (the app started
+        // again holds it, before it pulls anything).
+        final now = d.alive && identical(s, d.s) ? s : up(d).s;
+        final after = SyncLedger.snapshot(now);
+        final saved = RandomEdits.lastEdit == 'version'
+            ? await SyncLedger.savedBeforeRestores(now, before)
+            : const <String>{};
+        ledger.record(before, now, saved: saved, after: after);
       } else if (roll < 68) {
         final s = d.s;
         final before = SyncLedger.snapshot(s);
@@ -210,6 +225,7 @@ Future<void> _runs(int first, int count) async {
     final seed = Platform.environment['LEN_FAULT_REPEAT'] == null ? first + run : first;
     final problems = await _run(seed, deviceCount: 2 + seed % 2);
     if (problems.isNotEmpty) {
+      debugPrint(_log.join('\n'));
       fail('Seed $seed: ${problems.length} problems:\n${problems.take(40).join('\n')}');
     }
   }
