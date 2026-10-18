@@ -3,6 +3,7 @@ package dev.len.len
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
 import io.flutter.embedding.android.FlutterActivity
@@ -11,6 +12,7 @@ import io.flutter.embedding.engine.FlutterEngine
 class MainActivity : FlutterActivity(), WetInkOverlay.Host {
     private var stylus: StylusCapture? = null
     private var wetInk: WetInkOverlay? = null
+    private val edges = StylusEdgeGuard(this)
     private var incoming: IncomingFiles? = null
     private val location = IntArray(2)
 
@@ -18,7 +20,7 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         stylus = StylusCapture(messenger)
-        wetInk = WetInkOverlay(this, messenger)
+        wetInk = WetInkOverlay(this, messenger) { on -> edges.enabled = on }
         incoming = IncomingFiles(applicationContext, messenger)
         // Background audio recording (RecordingService.kt).
         flutterEngine.plugins.add(RecordingServicePlugin())
@@ -68,6 +70,7 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         stylus = null
+        edges.enabled = false
         wetInk?.dispose()
         wetInk = null
         incoming?.dispose()
@@ -102,6 +105,7 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
                     view.getLocationInWindow(location)
                     val dx = -location[0].toFloat()
                     val dy = -location[1].toFloat()
+                    edges.onMotion(ev, dy)
                     capture.capture(ev, dx, dy)
                     if (ev.actionMasked == MotionEvent.ACTION_DOWN) wetInk?.attach()
                     wetInk?.onTouch(ev, dx, dy, capture)
@@ -112,5 +116,19 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
             }
         }
         return super.dispatchTouchEvent(ev)
+    }
+
+    /** Sees hover first: a stylus near the screen's edge keeps Back off it. */
+    override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {
+        try {
+            val view = flutterView()
+            if (view != null && ev.isFromSource(InputDevice.SOURCE_STYLUS)) {
+                view.getLocationInWindow(location)
+                edges.onMotion(ev, -location[1].toFloat())
+            }
+        } catch (e: RuntimeException) {
+            Log.w("Len", "stylus edge guard failed", e)
+        }
+        return super.dispatchGenericMotionEvent(ev)
     }
 }
