@@ -16,6 +16,7 @@ class EditorSearchLayer extends StatelessWidget {
     required this.controller,
     required this.onClose,
     this.covered = const EdgeInsets.only(top: 72),
+    this.darkPaper = false,
   });
 
   /// Ctrl+F (Cmd+F) opens the search.
@@ -33,6 +34,10 @@ class EditorSearchLayer extends StatelessWidget {
   /// top, and revealed matches stay clear of both the chrome and the bar.
   final EdgeInsets covered;
 
+  /// Whether the notebook's paper is dark. Highlights are on the paper,
+  /// which keeps its colour in both themes: they follow it, not the theme.
+  final bool darkPaper;
+
   /// Room the bar's field row takes until the bar has been measured.
   static const double _barRow = 64;
 
@@ -41,7 +46,7 @@ class EditorSearchLayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final paper = darkPaper ? Brightness.dark : Brightness.light;
     final top = covered.top;
     // Until the bar reports its height (with the result list, if shown).
     if (!controller.isOpen) controller.clear = covered.copyWith(top: top + Gaps.sm + _barRow);
@@ -54,8 +59,8 @@ class EditorSearchLayer extends StatelessWidget {
                 painter: SearchHighlightPainter(
                   controller: controller,
                   host: controller.host,
-                  matchColor: Palette.searchMatch(scheme.brightness),
-                  currentColor: Tones.light.accent,
+                  matchColor: Palette.searchMatch(paper),
+                  currentColor: Tones.of(paper).accent,
                 ),
               ),
             ),

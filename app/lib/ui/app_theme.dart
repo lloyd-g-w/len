@@ -236,9 +236,10 @@ abstract final class Palette {
   static Color pointerOn({required bool darkPaper}) =>
       darkPaper ? const Color(0xFFF4F5F7) : const Color(0xFF16181D);
 
-  /// Search matches: marker yellow (a warmer amber in dark mode); the
-  /// current match is ringed in the light theme's ruling blue, as pages are
-  /// light in both themes.
+  /// Search matches: marker yellow (a warmer amber on dark: snippets in the
+  /// dark theme, dark paper). Marks on a page follow its paper, which keeps
+  /// its colour in both themes, as does the ruling blue ring of the current
+  /// match.
   static Color searchMatch(Brightness b) =>
       b == Brightness.light ? const Color(0xFFFFD43B) : const Color(0xFFFFB020);
 
