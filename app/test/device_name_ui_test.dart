@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/data/app_database.dart';
@@ -65,6 +66,41 @@ void main() {
     await tester.pumpAndSettle();
     expect(s.settings.deviceName, isNull);
     expect(find.text('Galaxy Tab S9'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('on a phone at large text the prompt says the suggested name whole', (tester) async {
+    await loadFonts();
+    tester.view
+      ..physicalSize = const Size(390, 844)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final s = AppServices.create(AppDatabase.inMemory());
+    addTearDown(s.dispose);
+    await s.sync.deviceName.detect(ask: () async => 'Galaxy Tab S9');
+    await tester.pumpWidget(
+      AppScope(
+        services: s,
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light(),
+          home: const Scaffold(body: SingleChildScrollView(child: SyncSettings())),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Device name'));
+    await tester.pumpAndSettle();
+    final helper = tester.renderObject<RenderParagraph>(
+      find.textContaining('leave it empty for “Galaxy Tab S9”'),
+    );
+    expect(helper.didExceedMaxLines, isFalse, reason: 'not cut off');
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/device_name_rename_phone_2x.png'),
+    );
     await tester.pumpWidget(const SizedBox());
   });
 }

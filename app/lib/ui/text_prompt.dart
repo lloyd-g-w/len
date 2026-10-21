@@ -89,7 +89,8 @@ class _TextPromptDialogState extends State<_TextPromptDialog> {
           decoration: InputDecoration(
             labelText: widget.label,
             helperText: widget.helper,
-            helperMaxLines: 3,
+            // Whole at any text size (the dialog scrolls).
+            helperMaxLines: 8,
             // The limit is a guard, not something to watch.
             counterText: widget.maxLength == null ? null : '',
           ),
