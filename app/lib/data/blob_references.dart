@@ -56,6 +56,20 @@ class BlobReferences {
         1;
   }
 
+  /// Whether a live version names blob [sha], in its record or through its
+  /// table blobs ([BlobLinks]; one this device never read is not known):
+  /// it is kept for the version whatever the notebook holds now (audio a
+  /// trim's Free up dropped, `releasableBytes`).
+  bool namedByVersions(String sha) =>
+      database.db.select(
+        'SELECT EXISTS (SELECT 1 FROM versions WHERE deleted = 0 AND instr(data, ?1) > 0) '
+        'OR EXISTS (SELECT 1 FROM blob_links l WHERE l.child = ?2 AND EXISTS ('
+        "  SELECT 1 FROM versions WHERE deleted = 0 AND instr(data, '\"' || l.parent || '\"') > 0"
+        ')) AS found',
+        ['"$sha"', sha],
+      ).single['found'] ==
+      1;
+
   /// Ids of all blobs live rows reference, and with [tombstonesSince] (ms)
   /// also those of pages, elements and recordings tombstoned since then:
   /// sync may still bring them back ([TombstonePayloads.retention]).

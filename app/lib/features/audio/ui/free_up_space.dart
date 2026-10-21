@@ -7,31 +7,36 @@ import '../../../ui/messages.dart';
 import '../notebook_audio.dart';
 import '../recording_controller.dart';
 
-/// "Free up 12 MB…" (or "Free up space…" when none of it is on this
-/// device): the label of the command releasing [recording]'s audio outside
-/// its trim, or null when no part lies wholly outside it.
+/// "Free up 12 MB…" (or "Free up space…" when none of it is freed on this
+/// device now: not here, or kept by versions): the label of the command
+/// releasing [recording]'s audio outside its trim, or null when no part
+/// lies wholly outside it.
 String? freeUpSpaceLabel(NotebookAudio audio, Recording recording) {
   final bytes = audio.releasableSize(recording);
   if (bytes == null) return null;
-  return bytes > 0 ? 'Free up ${formatBytes(bytes)}…' : 'Free up space…';
+  return bytes.freed > 0 ? 'Free up ${formatBytes(bytes.freed)}…' : 'Free up space…';
 }
 
 /// Asks, then drops [recording]'s parts lying wholly outside its trim on
 /// every device (trimming stays adjustable until then). [context] is in
 /// the recordings list, which closes so that the message's Undo can be
 /// reached: the dropped blobs are kept until garbage collection's grace
-/// period has passed.
+/// period has passed. Audio a version of the notebook names stays while
+/// one does (restoring it brings the audio back), and both messages say
+/// so.
 Future<void> freeUpSpace(BuildContext context, NotebookAudio audio, Recording recording) async {
   final bytes = audio.releasableSize(recording);
   if (bytes == null) return;
+  final (:freed, :held) = bytes;
   const partMinutes = RecordingController.defaultPartMs ~/ 60000;
   final confirmed = await confirmAction(
     context,
-    title: bytes > 0 ? 'Free up ${formatBytes(bytes)}?' : 'Free up space?',
+    title: freed > 0 ? 'Free up ${formatBytes(freed)}?' : 'Free up space?',
     message:
         'Deletes the audio trimmed away from “${recording.title}” on all your devices, '
         'in whole $partMinutes-minute parts (a little next to the trim stays). '
-        'The trim can’t be widened past what’s left, and the space is released after a week.',
+        'The trim can’t be widened past what’s left, and the space is released after a week.'
+        '${held > 0 ? ' ${_heldNote(held, all: freed == 0)}' : ''}',
     confirmLabel: 'Free up',
     destructive: true,
   );
@@ -43,9 +48,19 @@ Future<void> freeUpSpace(BuildContext context, NotebookAudio audio, Recording re
   if (before == null || !host.mounted) return;
   showMessage(
     host,
-    bytes > 0
-        ? 'Deleted ${formatBytes(bytes)} of audio from “${recording.title}”'
+    held > 0
+        ? 'Deleted the audio trimmed away from “${recording.title}”; '
+              'older versions keep ${formatBytes(held)} of it'
+        : freed > 0
+        ? 'Deleted ${formatBytes(freed)} of audio from “${recording.title}”'
         : 'Deleted the audio trimmed away from “${recording.title}”',
     action: SnackBarAction(label: 'Undo', onPressed: () => audio.restore(before)),
   );
 }
+
+/// What the confirmation adds when versions keep [held] bytes of the
+/// audio ([all]: all of what this device holds of it).
+String _heldNote(int held, {required bool all}) =>
+    '${all ? 'Older versions of this notebook keep this audio (${formatBytes(held)})' : 'Older versions of this notebook keep ${formatBytes(held)} of it'}, '
+    'so restoring them brings it back: that space is released once they are thinned out '
+    'or deleted in Version history.';

@@ -6,17 +6,34 @@ import '../../domain/recording.dart';
 import '../../domain/recording_release.dart';
 import '../../domain/waveform.dart';
 
-/// The bytes on this device that dropping [recording]'s parts outside its
-/// trim frees: the parts' blobs present here and not [shared] with other
-/// recordings (a duplicated notebook's). Null when no part lies wholly
-/// outside the trim.
-int? releasableBytes(Recording recording, {required BlobStore blobs, required Set<String> shared}) {
+/// What dropping [recording]'s parts outside its trim frees on this
+/// device: their blobs present here and not [shared] with other recordings
+/// (a duplicated notebook's). Of those, the ones a version of the notebook
+/// names ([namedByVersions]) stay until no version does (thinned or
+/// deleted: versions restore the audio they were made with), [held]; the
+/// rest go after garbage collection's grace, [freed]. Null when no part
+/// lies wholly outside the trim.
+({int freed, int held})? releasableBytes(
+  Recording recording, {
+  required BlobStore blobs,
+  required Set<String> shared,
+  bool Function(String sha)? namedByVersions,
+}) {
   final outside = recording.partsOutsideTrim;
   if (outside.isEmpty) return null;
-  return {
+  var freed = 0, held = 0;
+  for (final sha in {
     for (final p in outside)
       if (!shared.contains(p.blob)) p.blob,
-  }.fold<int>(0, (sum, sha) => sum + (blobs.sizeOf(sha) ?? 0));
+  }) {
+    final size = blobs.sizeOf(sha) ?? 0;
+    if (namedByVersions?.call(sha) ?? false) {
+      held += size;
+    } else {
+      freed += size;
+    }
+  }
+  return (freed: freed, held: held);
 }
 
 /// Drops recording [id]'s parts lying wholly outside its trim, for good

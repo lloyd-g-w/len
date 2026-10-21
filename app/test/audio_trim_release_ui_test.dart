@@ -143,4 +143,35 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
   });
+
+  testWidgets('audio a version keeps: Free up says it stays until versions go', (tester) async {
+    final (services, id, shas) = await _pump(tester);
+    final notebook = services.recordings.get(id)!.notebookId;
+    // A version made before the trim names all three parts.
+    await tester.runAsync(() => services.versions.save(notebook, name: 'Before'));
+    expect(services.sync.engine.blobReferences.namedByVersions(shas[0]), isTrue);
+
+    await _menu(tester);
+    await tester.tap(find.text('Free up space…'));
+    await tester.pumpAndSettle();
+    expect(find.text('Free up space?'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'Older versions of this notebook keep this audio (3 MB), so restoring them brings it '
+        'back: that space is released once they are thinned out or deleted in Version history.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Free up'));
+    await tester.pumpAndSettle();
+    expect(services.recordings.get(id)!.parts.map((p) => p.blob), [shas[1]]);
+    expect(
+      find.text('Deleted the audio trimmed away from “Mitosis”; older versions keep 3 MB of it'),
+      findsOneWidget,
+    );
+    // Still kept for the version (garbage collection asks the same).
+    expect(services.sync.engine.blobReferences.keeps(shas[0], services.clock.nowMs()), isTrue);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
 }

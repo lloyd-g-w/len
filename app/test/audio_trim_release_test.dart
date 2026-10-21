@@ -91,10 +91,10 @@ void main() {
       expect([for (final g in exportGroups(trimmed)) (g.blobs, g.fromMs, g.toMs)].single.$1, [
         'bb' * 32,
       ]);
-      expect((exportGroups(trimmed).single.fromMs, exportGroups(trimmed).single.toMs), (
-        10000,
-        290000,
-      ));
+      expect(
+        (exportGroups(trimmed).single.fromMs, exportGroups(trimmed).single.toMs),
+        (10000, 290000),
+      );
       // Raw AAC joins and is cut in the whole audio.
       final adts = _lecture(trimStart: 310000, trimEnd: 590000, mime: Recording.adtsMime);
       expect(exportGroups(adts).single.blobs.length, 3);
@@ -130,9 +130,19 @@ void main() {
       );
       expect(releasableBytes(saved, blobs: s.blobs, shared: {}), isNull);
       final trimmed = s.recordings.trim(saved.id, 310000, 590000)!;
-      expect(releasableBytes(trimmed, blobs: s.blobs, shared: {}), 5000);
+      expect(releasableBytes(trimmed, blobs: s.blobs, shared: {}), (freed: 5000, held: 0));
       // A blob another recording shares is not freed.
-      expect(releasableBytes(trimmed, blobs: s.blobs, shared: {shas[2]}), 1000);
+      expect(releasableBytes(trimmed, blobs: s.blobs, shared: {shas[2]}), (freed: 1000, held: 0));
+      // What a version names stays while it does.
+      expect(
+        releasableBytes(
+          trimmed,
+          blobs: s.blobs,
+          shared: {},
+          namedByVersions: (sha) => sha == shas[0],
+        ),
+        (freed: 4000, held: 1000),
+      );
 
       final released = (await releaseOutsideTrim(
         saved.id,
