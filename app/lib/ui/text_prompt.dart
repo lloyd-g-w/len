@@ -5,7 +5,8 @@ import 'app_dialogs.dart';
 /// Asks for a single line of text. Returns the trimmed text, or null if
 /// cancelled. [label] names the field (e.g. "Title"). An empty answer is
 /// only accepted (button and Enter alike) with [allowEmpty], for fields
-/// where empty means "no name".
+/// where empty means "no name". [helper] says more under the field;
+/// [maxLength] limits the text.
 Future<String?> showTextPrompt(
   BuildContext context, {
   required String title,
@@ -14,6 +15,8 @@ Future<String?> showTextPrompt(
   String? label,
   TextInputType? keyboardType,
   bool allowEmpty = false,
+  String? helper,
+  int? maxLength,
 }) {
   return showDialog<String>(
     context: context,
@@ -24,6 +27,8 @@ Future<String?> showTextPrompt(
       label: label,
       keyboardType: keyboardType,
       allowEmpty: allowEmpty,
+      helper: helper,
+      maxLength: maxLength,
     ),
   );
 }
@@ -36,6 +41,8 @@ class _TextPromptDialog extends StatefulWidget {
     this.label,
     this.keyboardType,
     this.allowEmpty = false,
+    this.helper,
+    this.maxLength,
   });
 
   final String title;
@@ -44,6 +51,8 @@ class _TextPromptDialog extends StatefulWidget {
   final String? label;
   final TextInputType? keyboardType;
   final bool allowEmpty;
+  final String? helper;
+  final int? maxLength;
 
   @override
   State<_TextPromptDialog> createState() => _TextPromptDialogState();
@@ -76,7 +85,14 @@ class _TextPromptDialogState extends State<_TextPromptDialog> {
           keyboardType: widget.keyboardType,
           textCapitalization: TextCapitalization.sentences,
           onSubmitted: (_) => _submit(),
-          decoration: InputDecoration(labelText: widget.label),
+          maxLength: widget.maxLength,
+          decoration: InputDecoration(
+            labelText: widget.label,
+            helperText: widget.helper,
+            helperMaxLines: 3,
+            // The limit is a guard, not something to watch.
+            counterText: widget.maxLength == null ? null : '',
+          ),
         ),
       ),
       actions: [

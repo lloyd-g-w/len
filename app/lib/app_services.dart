@@ -338,7 +338,7 @@ class AppServices {
   late final Versions versions = Versions(
     repositories: sync.engine.repositories,
     blobs: blobs,
-    deviceName: SyncController.deviceName,
+    deviceName: () => sync.deviceName.value,
     fetch: sync.fetchBlob,
     hold: () => pointerActivity.isActive,
   );

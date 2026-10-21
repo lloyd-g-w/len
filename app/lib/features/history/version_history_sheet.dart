@@ -163,7 +163,11 @@ class _VersionHistoryState extends State<VersionHistory> {
   /// The list's rows: a heading for each day, then its versions, newest
   /// first (with what their rows say worked out here, once).
   List<_Entry> _entries(List<NotebookVersion> versions, DateTime now) {
-    final thisDevice = widget.services.strokes.deviceId;
+    final services = widget.services;
+    final devices = (
+      thisDevice: services.strokes.deviceId,
+      names: services.versions.store.deviceNames(),
+    );
     final entries = <_Entry>[];
     String? day;
     for (final (i, v) in versions.indexed) {
@@ -177,7 +181,7 @@ class _VersionHistoryState extends State<VersionHistory> {
         key: 'version-${v.id}',
         day: null,
         version: v,
-        labels: VersionRowLabels(v, first: last, thisDevice: thisDevice),
+        labels: VersionRowLabels(v, first: last, devices: devices),
         hasOlder: !last,
       ));
     }

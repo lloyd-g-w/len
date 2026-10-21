@@ -149,6 +149,14 @@ class LiveLink {
     if (rooms.contains(room)) _send({'type': 'ephemeral', 'room': room, 'data': data});
   }
 
+  /// Tells the server who this device is ([identity], `hello`): when
+  /// greeted, and again when its name changed (rooms then show the new one).
+  void introduce() {
+    if (identity?.call() case final me?) {
+      _send({'type': 'hello', 'deviceId': me.deviceId, 'name': ?me.name});
+    }
+  }
+
   void _send(Map<String, Object?> message) {
     if (_healthy) _channel?.send(jsonEncode(message));
   }
@@ -197,9 +205,7 @@ class LiveLink {
         _healthy = true;
         _attempt = 0;
         _failures = 0;
-        if (identity?.call() case final me?) {
-          _send({'type': 'hello', 'deviceId': me.deviceId, 'name': ?me.name});
-        }
+        introduce();
         for (final room in rooms) {
           _send({'type': 'join', 'room': room});
         }

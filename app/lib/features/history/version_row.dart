@@ -16,11 +16,11 @@ enum VersionAction { restore, copy, rename, delete, deleteOlder }
 /// What a row of the history says, worked out once when the list is
 /// (not with every build of the row as it scrolls into view).
 class VersionRowLabels {
-  VersionRowLabels(NotebookVersion v, {required bool first, required String thisDevice})
+  VersionRowLabels(NotebookVersion v, {required bool first, required VersionDevices devices})
     : title = VersionLabels.title(v),
       time = VersionLabels.time(v),
-      details = _details(v, first: first, thisDevice: thisDevice),
-      semantics = _semantics(v, first: first, thisDevice: thisDevice);
+      details = _details(v, first: first, devices: devices),
+      semantics = _semantics(v, first: first, devices: devices);
 
   /// Its name, or what made it.
   final String title;
@@ -34,15 +34,23 @@ class VersionRowLabels {
   /// All of it, for screen readers.
   final String semantics;
 
-  static String _details(NotebookVersion v, {required bool first, required String thisDevice}) {
+  static String _details(
+    NotebookVersion v, {
+    required bool first,
+    required VersionDevices devices,
+  }) {
     final summary = VersionLabels.summary(v, first: first);
-    final device = VersionLabels.device(v, thisDevice: thisDevice);
+    final device = VersionLabels.device(v, devices);
     return '$device, ${summary[0].toLowerCase()}${summary.substring(1)}';
   }
 
-  static String _semantics(NotebookVersion v, {required bool first, required String thisDevice}) =>
+  static String _semantics(
+    NotebookVersion v, {
+    required bool first,
+    required VersionDevices devices,
+  }) =>
       '${VersionLabels.title(v)}, ${VersionLabels.time(v)}, '
-      '${VersionLabels.device(v, thisDevice: thisDevice)}. '
+      '${VersionLabels.device(v, devices)}. '
       '${VersionLabels.summary(v, first: first)}';
 }
 

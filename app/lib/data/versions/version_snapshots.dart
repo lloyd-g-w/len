@@ -38,8 +38,9 @@ class VersionSnapshots {
   /// the body of a version made here.
   final VersionContent content;
 
-  /// How this device names itself (`Android`).
-  final String deviceName;
+  /// What this device is called now (`DeviceName`), for the versions it
+  /// makes.
+  final String Function() deviceName;
 
   /// Whether to pause making an automatic version (a pointer is down:
   /// writing).
@@ -234,7 +235,7 @@ class VersionSnapshots {
       kind: kind,
       name: name,
       deviceId: versions.deviceId,
-      deviceName: deviceName,
+      deviceName: deviceName(),
       notebook: notebook,
       table: table,
       summary: VersionSummary(pages: body.pages.length, strokes: strokes),

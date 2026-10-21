@@ -27,6 +27,8 @@ class MainActivity : FlutterActivity(), WetInkOverlay.Host {
         incoming = IncomingFiles(applicationContext, messenger)
         // The system's stylus pointer hides over a canvas's own preview.
         pointer = StylusPointerChannel(messenger) { pointerFrame }
+        // This device's name, suggested to the user (device_label_native.dart).
+        DeviceNameChannel.register(applicationContext, messenger)
         // Background audio recording (RecordingService.kt).
         flutterEngine.plugins.add(RecordingServicePlugin())
         // Background playback with media controls (PlaybackService.kt).
