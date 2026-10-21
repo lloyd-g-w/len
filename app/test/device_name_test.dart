@@ -7,6 +7,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/notebook_version.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/history/version_labels.dart';
+import 'package:len/features/history/version_row.dart';
 import 'package:len/sync/device_name.dart';
 
 NotebookVersion _version(String device, String name) => NotebookVersion(
@@ -96,6 +97,20 @@ void main() {
     expect(VersionLabels.device(_version('d2', 'Android'), devices), 'Android');
     expect(VersionLabels.device(_version('d3', ''), devices), 'Another device');
     expect(VersionLabels.madeOn(_version('d1', 'Linux'), devices), 'on Studio laptop');
+  });
+
+  test('a row cuts a long device name so what changed still shows; screen readers hear it all', () {
+    const long = 'Lloyd’s Galaxy Tab S9 Ultra in the study by the window';
+    final devices = (thisDevice: 'me', names: {'d1': long});
+    final labels = VersionRowLabels(_version('d1', long), first: true, devices: devices);
+    expect(labels.details, 'Lloyd’s Galaxy Tab S9 Ultra…, 1 page, 0 strokes');
+    expect(labels.semantics, contains(long));
+    final short = VersionRowLabels(
+      _version('d1', 'Studio laptop'),
+      first: true,
+      devices: (thisDevice: 'me', names: const {}),
+    );
+    expect(short.details, 'Studio laptop, 1 page, 0 strokes');
   });
 
   test('versions carry the name; a device is called what its newest version says', () async {

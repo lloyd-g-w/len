@@ -40,8 +40,17 @@ class VersionRowLabels {
     required VersionDevices devices,
   }) {
     final summary = VersionLabels.summary(v, first: first);
-    final device = VersionLabels.device(v, devices);
+    final device = _shortened(VersionLabels.device(v, devices));
     return '$device, ${summary[0].toLowerCase()}${summary.substring(1)}';
+  }
+
+  /// The longest device name a row shows whole (a longer one is cut, so
+  /// what changed still shows; screen readers hear it all).
+  static const deviceMax = 28;
+
+  static String _shortened(String device) {
+    final chars = device.characters;
+    return chars.length <= deviceMax ? device : '${chars.take(deviceMax - 1).string.trimRight()}…';
   }
 
   static String _semantics(
