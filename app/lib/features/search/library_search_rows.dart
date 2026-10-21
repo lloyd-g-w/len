@@ -7,11 +7,15 @@ class _NotebookResults extends StatefulWidget {
     required this.group,
     required this.query,
     required this.onOpen,
+    this.location,
   });
 
   final NotebookHits group;
   final SearchQuery query;
   final OpenSearchResult onOpen;
+
+  /// The notebook's folder path, under its title.
+  final String? location;
 
   @override
   State<_NotebookResults> createState() => _NotebookResultsState();
@@ -55,10 +59,22 @@ class _NotebookResultsState extends State<_NotebookResults> {
                   ),
                   const SizedBox(width: Gaps.md),
                   Expanded(
-                    child: HighlightedText.of(
-                      notebook.title,
-                      group.titleMatches ? widget.query : SearchQuery(''),
-                      style: theme.textTheme.labelLarge,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        HighlightedText.of(
+                          notebook.title,
+                          group.titleMatches ? widget.query : SearchQuery(''),
+                          style: theme.textTheme.labelLarge,
+                        ),
+                        if (widget.location case final location?)
+                          Text(
+                            location,
+                            style: theme.textTheme.bodySmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
                     ),
                   ),
                   // Rows below show a single match.

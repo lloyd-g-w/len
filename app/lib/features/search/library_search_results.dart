@@ -45,10 +45,16 @@ class LibrarySearchResults extends StatefulWidget {
     required this.onOpen,
     this.padding = EdgeInsets.zero,
     this.whenEmpty,
+    this.locationOf,
   });
 
   final String query;
   final OpenSearchResult onOpen;
+
+  /// Where a notebook is ("School › Maths", "Library"), shown under its
+  /// title: notebooks of the same name in different folders (a "Lecture 4"
+  /// per course) are told apart.
+  final String Function(Notebook)? locationOf;
   final EdgeInsets padding;
   final Widget? whenEmpty;
 
@@ -154,6 +160,7 @@ class _LibrarySearchResultsState extends State<LibrarySearchResults> {
               group: _groups[i],
               query: _query,
               onOpen: widget.onOpen,
+              location: widget.locationOf?.call(_groups[i].notebook),
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 120)), // Clear of the FAB.
