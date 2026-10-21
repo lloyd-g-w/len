@@ -69,4 +69,31 @@ void main() {
     );
     expect(tester.getSize(row.first).height, greaterThanOrEqualTo(Targets.touch));
   });
+
+  testWidgets('at large text on a phone the page goes above the snippet', (tester) async {
+    await loadFonts();
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await pumpLibrary(tester, services: lectures(), size: const Size(390, 844));
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
+    await search(tester, 'integration');
+    final page = tester.getRect(find.text('Page 1').first);
+    final snippet = tester.getRect(find.textContaining('by parts', findRichText: true));
+    expect(page.bottom, lessThanOrEqualTo(snippet.top), reason: 'on a line of its own');
+    expect(snippet.left, page.left, reason: 'the snippet takes the whole width');
+    await expectLater(
+      find.byType(LibraryScreen),
+      matchesGoldenFile('goldens/search_library_phone_large_text.png'),
+    );
+
+    // At 1× the page keeps its column beside the snippet.
+    tester.platformDispatcher.textScaleFactorTestValue = 1;
+    await tester.pumpAndSettle();
+    final beside = tester.getRect(find.text('Page 1').first);
+    expect(
+      beside.right,
+      lessThan(tester.getRect(find.textContaining('by parts', findRichText: true)).left),
+    );
+  });
 }

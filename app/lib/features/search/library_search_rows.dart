@@ -119,6 +119,9 @@ class _HitRow extends StatelessWidget {
   /// Room for "Page 12" or "Canvas" before the snippet.
   static const double _locationWidth = 48;
 
+  /// The share of the row past which the location goes above the snippet.
+  static const double _stackedAbove = 0.25;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -132,35 +135,50 @@ class _HitRow extends StatelessWidget {
         constraints: BoxConstraints(minHeight: Targets.menuRowHeight(context)),
         alignment: AlignmentDirectional.centerStart,
         padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.sm),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(width: 28, child: SearchHitIcon(hit: hit)),
-            const SizedBox(width: Gaps.md),
-            // Where the match is, as a plain label in a column of its own
-            // (no plate), so snippets line up.
-            Container(
-              constraints: BoxConstraints(
-                minWidth: MediaQuery.textScalerOf(context).scale(_locationWidth),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final locationWidth = MediaQuery.textScalerOf(context).scale(_locationWidth);
+            // Large text on a phone: the location column would leave the
+            // snippet a word or two a line, so it goes above the snippet.
+            final stacked = locationWidth > constraints.maxWidth * _stackedAbove;
+            final location = Text(
+              hitLocation(hit),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontFeatures: AppTheme.tabularFigures,
               ),
-              // On the snippet's first line (16-dp label, 20-dp line).
-              padding: const EdgeInsets.only(top: Gaps.xxs),
-              child: Text(
-                hitLocation(hit),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontFeatures: AppTheme.tabularFigures,
-                ),
-              ),
-            ),
-            const SizedBox(width: Gaps.sm),
-            Expanded(
-              child: HighlightedText(
-                SearchSnippet.of(hit.body, query),
-                style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-            ),
-          ],
+            );
+            final snippet = HighlightedText(
+              SearchSnippet.of(hit.body, query),
+              style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+            );
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: 28, child: SearchHitIcon(hit: hit)),
+                const SizedBox(width: Gaps.md),
+                if (stacked)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [location, snippet],
+                    ),
+                  )
+                else ...[
+                  // Where the match is, as a plain label in a column of its
+                  // own (no plate), so snippets line up.
+                  Container(
+                    constraints: BoxConstraints(minWidth: locationWidth),
+                    // On the snippet's first line (16-dp label, 20-dp line).
+                    padding: const EdgeInsets.only(top: Gaps.xxs),
+                    child: location,
+                  ),
+                  const SizedBox(width: Gaps.sm),
+                  Expanded(child: snippet),
+                ],
+              ],
+            );
+          },
         ),
       ),
     );
