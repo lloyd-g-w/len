@@ -256,6 +256,39 @@ Future<(List<_Device>, Set<String>)> _run(List<int> skews, List<_Step> steps) as
   return (devices, written.difference(knowinglyDeleted));
 }
 
+/// Devices editing and deleting concurrently (one [_scenario]) converge and
+/// lose no edit.
+Future<void> _converges(({List<int> skews, List<_Step> steps}) scenario) async {
+  final (devices, kept) = await _run(scenario.skews, scenario.steps);
+  final first = _state(devices.first.s);
+  for (final d in devices) {
+    expect(d.clean, isTrue, reason: 'unpushed changes left');
+    expect(_state(d.s), first);
+  }
+  // Content written without knowing about a deletion survives it.
+  final db = devices.first.s.database.db;
+  for (final id in kept) {
+    final rows = db.select('SELECT deleted FROM strokes WHERE id = ?', [id]);
+    expect(rows.single['deleted'], 0, reason: 'stroke $id was lost');
+  }
+  // No live content is left on a deleted page or in a deleted notebook.
+  expect(
+    db.select('''
+        SELECT p.id FROM pages p WHERE p.deleted = 1 AND EXISTS
+          (SELECT 1 FROM strokes WHERE surface_id = p.id AND deleted = 0)'''),
+    isEmpty,
+  );
+  expect(
+    db.select('''
+        SELECT n.id FROM notebooks n WHERE n.deleted = 1 AND EXISTS
+          (SELECT 1 FROM pages WHERE notebook_id = n.id AND deleted = 0)'''),
+    isEmpty,
+  );
+}
+
+String _showScenario(({List<int> skews, List<_Step> steps}) s) =>
+    'skews ${s.skews}\n${s.steps.join('\n')}';
+
 void main() {
   test('applying remote changes keeps the last writer of each row, in any order', () async {
     await forAll(
@@ -295,38 +328,18 @@ void main() {
     );
   });
 
-  test('devices editing and deleting concurrently converge and lose no edit', () async {
-    await forAll(
-      _scenario,
-      (scenario) async {
-        final (devices, kept) = await _run(scenario.skews, scenario.steps);
-        final first = _state(devices.first.s);
-        for (final d in devices) {
-          expect(d.clean, isTrue, reason: 'unpushed changes left');
-          expect(_state(d.s), first);
-        }
-        // Content written without knowing about a deletion survives it.
-        final db = devices.first.s.database.db;
-        for (final id in kept) {
-          final rows = db.select('SELECT deleted FROM strokes WHERE id = ?', [id]);
-          expect(rows.single['deleted'], 0, reason: 'stroke $id was lost');
-        }
-        // No live content is left on a deleted page or in a deleted notebook.
-        expect(
-          db.select('''
-            SELECT p.id FROM pages p WHERE p.deleted = 1 AND EXISTS
-              (SELECT 1 FROM strokes WHERE surface_id = p.id AND deleted = 0)'''),
-          isEmpty,
-        );
-        expect(
-          db.select('''
-            SELECT n.id FROM notebooks n WHERE n.deleted = 1 AND EXISTS
-              (SELECT 1 FROM pages WHERE notebook_id = n.id AND deleted = 0)'''),
-          isEmpty,
-        );
-      },
-      runs: 40,
-      describe: (s) => 'skews ${s.skews}\n${s.steps.join('\n')}',
-    );
-  });
+  // 40 scenarios in all, ~0.2 s each alone (0.3 s with pulls in a worker,
+  // `sync_worker_test.dart`), many times that beside a full run: the default
+  // tier checks the first 20, the slow tier the other 20.
+  test(
+    'devices editing and deleting concurrently converge and lose no edit',
+    () => forAll(_scenario, _converges, runs: 20, describe: _showScenario),
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+  test(
+    'devices editing and deleting concurrently converge and lose no edit (20 more scenarios)',
+    () => forAll(_scenario, _converges, runs: 20, seed: 21, describe: _showScenario),
+    tags: ['slow'],
+    timeout: const Timeout(Duration(minutes: 5)),
+  );
 }

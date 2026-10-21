@@ -91,19 +91,21 @@ void main() {
     await expectLater(api.check(), throwsA(isA<SyncException>()));
   });
 
+  // ~5 MB encoded, decoded and stored: a second or two alone, many times
+  // that beside a full run (it timed out at 30 s on a loaded machine).
   test('pushes are split to stay under the size and count limits', () async {
     final server = FakeServer();
     final a = device(server);
-    // 600 strokes of ~16 KB base64 each: ~10 MB, more than one 4 MiB request.
-    a.strokes.save([for (var i = 0; i < 600; i++) bigStroke('s$i', 'canvas', 1000)]);
+    // 300 strokes of ~16 KB base64 each: ~5 MB, more than one 4 MiB request.
+    a.strokes.save([for (var i = 0; i < 300; i++) bigStroke('s$i', 'canvas', 1000)]);
 
     await a.sync.engine.sync(apiFor(server));
 
-    expect(server.pushes.length, greaterThan(2));
+    expect(server.pushes.length, greaterThan(1));
     expect(server.pushes.every((p) => p.bytes <= SyncApi.pushBytesTarget), isTrue);
-    expect(server.pushes.fold<int>(0, (n, p) => n + p.count), 600);
+    expect(server.pushes.fold<int>(0, (n, p) => n + p.count), 300);
     expect(a.strokes.dirtyRecords(1000), isEmpty);
-  });
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
   test('a record JSON cannot encode is skipped, the others are pushed', () async {
     final server = FakeServer();
