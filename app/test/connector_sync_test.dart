@@ -17,7 +17,8 @@ import 'support/connector_devices.dart';
 // they replace (`sh.r`), and every device applying the other's changes
 // merges two edits of one shape into one stroke (`ShapeMerge`) and brings
 // ends left off it back on (`ConnectorRepair`): the same everywhere,
-// written once, no undo step, no back and forth.
+// written once, no undo step, no back and forth. An undo or redo does the
+// same at once, in its own step.
 
 void main() {
   test('a box moved on one device while its arrow is recoloured on the other', () async {
@@ -177,6 +178,68 @@ void main() {
       expect(d.box.shape!.points, moved);
       expect(d.box.shapeId, 'box');
       expect(d.arrows, hasLength(1));
+      expectOnBox(d);
+    }
+    await expectSettled([a, b]);
+  });
+
+  test('an undone deletion brings the arrow back onto the box moved since', () async {
+    final [a, b] = await connectorDevices();
+    b.edit(() => b.arrows.single, (c) => c.selection.delete());
+    await b.sync();
+    await a.sync();
+    a.edit(() => a.box, (c) => a.move(const Offset(60, 90))); // No arrow follows.
+    await a.sync();
+    await b.sync();
+    final steps = b.model.history.recorded;
+
+    b.model.undo(); // In one step: back, and on the box.
+    expect(b.model.history.recorded, steps);
+    final back = b.arrows.single;
+    expect(back.shapeId, 'arrow');
+    expectOnBox(b);
+    expect(b.model.strokeById(back.id), isNotNull);
+    expect(b.model.strokeById('arrow'), isNull);
+
+    b.model.redo(); // Gone again.
+    expect(b.arrows, isEmpty);
+    expect(b.model.strokeById(back.id), isNull);
+    b.model.undo();
+    expect(b.arrows.single.id, back.id);
+
+    await b.sync();
+    await a.sync();
+    expectOnBox(a);
+    expect(a.arrows.single.id, back.id);
+    await expectSettled([a, b]);
+  });
+
+  test('an undone box move takes the arrow recoloured since along', () async {
+    final [a, b] = await connectorDevices();
+    a.edit(() => a.box, (c) => a.move(const Offset(0, 60)));
+    await a.sync();
+    await b.sync();
+    b.edit(() => b.arrows.single, (c) => c.selection.recolor(0xFFE03131));
+    await b.sync();
+    await a.sync();
+
+    a.model.undo(); // The box back where it was, with its (recoloured) arrow.
+    expect(a.box.id, 'box');
+    final arrow = a.arrows.single;
+    expect(arrow.color, 0xFFE03131);
+    expectOnBox(a);
+    expect(arrow.shape!.points[1], const Offset(300, 250));
+
+    a.model.redo();
+    expect(a.box.id, isNot('box'));
+    a.model.undo();
+    expect(a.arrows.single.id, arrow.id);
+    expectOnBox(a);
+
+    await a.sync();
+    await b.sync();
+    for (final d in [a, b]) {
+      expect(d.arrows.single.color, 0xFFE03131);
       expectOnBox(d);
     }
     await expectSettled([a, b]);
