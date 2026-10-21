@@ -73,11 +73,11 @@ extension LiveSyncEngine on SyncEngine {
   /// first, then, as `current` pushes (applied only while this device has
   /// every change the server has, so it judged what they race as a pull
   /// would), rows edited in place and tombstones (children first). Rows
-  /// referencing a blob not uploaded yet, and more rows than one push
+  /// referencing a blob not uploaded (or stored) yet, and more rows than one push
   /// carries, are left to a run.
   Future<LivePushOutcome> pushLive(LivePush send, {CancelCheck? isCancelled}) async {
     final cancelled = isCancelled ?? () => false;
-    final pending = blobs?.pendingUploads().toSet() ?? const <String>{};
+    final pending = {...?blobs?.pendingUploads(), ...?blobs?.coming};
     var left = false;
     List<SyncRecord> collect(Iterable<SyncableStore> stores, {required bool deleted}) {
       final out = <SyncRecord>[];

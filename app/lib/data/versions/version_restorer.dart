@@ -191,25 +191,34 @@ class VersionRestorer {
       final built = await snapshots.build(id, kind: VersionKind.restore);
       debugBuilt?.call(attempt);
       Future<NotebookVersion> Function()? finish;
-      final done = db.transaction(() {
-        var before = built;
-        if (_stateOf(id) != mark) {
-          if (attempt < attempts) return null;
-          final now = snapshots.buildNow(id, kind: VersionKind.restore);
-          before = now?.version;
-          finish = now?.finish;
-        }
-        if (before != null) repositories.versions.save(before);
-        restore();
-        return (before,);
-      });
+      void Function()? discard;
+      final ({NotebookVersion? before})? done;
+      try {
+        done = db.transaction(() {
+          var before = built;
+          if (_stateOf(id) != mark) {
+            if (attempt < attempts) return null;
+            final now = snapshots.buildNow(id, kind: VersionKind.restore);
+            before = now?.version;
+            finish = now?.finish;
+            discard = now?.discard;
+          }
+          if (before != null) repositories.versions.save(before);
+          restore();
+          return (before: before);
+        });
+      } on Object {
+        // Rolled back: its blobs are not coming.
+        discard?.call();
+        rethrow;
+      }
       if (done == null) continue;
       if (finish case final finish?) {
         final finished = await finish();
         repositories.versions.save(finished);
         return finished;
       }
-      return done.$1;
+      return done.before;
     }
   }
 

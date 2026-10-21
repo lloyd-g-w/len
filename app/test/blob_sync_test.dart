@@ -301,6 +301,29 @@ void main() {
     });
   });
 
+  test('a version made in one turn (a restore overtaken by sync) is not pushed before its '
+      'blobs are stored and uploaded', () async {
+    final notebook = a.notebooks.create(
+      title: 'N',
+      kind: NotebookKind.paged,
+      paper: PaperStyle.blank,
+      coverColor: 0,
+    );
+    await a.sync.syncNow();
+    // As `VersionRestorer` does on its last try: saved in the restore's
+    // transaction, its blobs stored after it (across turns).
+    final made = a.versions.snapshots.buildNow(notebook.id)!;
+    a.versions.store.save(made.version);
+    expect(await a.blobs.has(made.version.table.first), isFalse);
+    await a.sync.syncNow();
+    expect(server.stored('versions', made.version.id), isNull, reason: 'its blobs are not there');
+    final finished = await made.finish();
+    a.versions.store.save(finished);
+    await a.sync.syncNow();
+    expect(server.stored('versions', made.version.id), isNotNull);
+    expect(server.blobs.keys, containsAll(finished.table));
+  });
+
   test('unreferenced blobs are not uploaded', () async {
     await a.blobs.putBytes(Uint8List.fromList(utf8.encode('deleted image')), mime: 'image/png');
     await a.sync.syncNow();

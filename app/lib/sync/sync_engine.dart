@@ -287,11 +287,12 @@ class SyncEngine {
 
   /// Blobs whose records must wait: blobs still pending (a failed upload,
   /// or stored since the upload phase), unless their upload has failed too
-  /// often. Read again for every page of records, so a record written
+  /// often, and blobs not stored yet ([BlobStore.coming]). Read again for every page of records, so a record written
   /// during the push cannot overtake a blob stored with it.
   Set<String> _heldBackBlobs() => {
     for (final sha in blobs?.pendingUploads() ?? const <String>[])
       if ((_uploadFailures[sha] ?? 0) < maxHoldBackAttempts) sha,
+    ...?blobs?.coming,
   };
 
   /// Pushes live rows parents first and tombstones children first: however
