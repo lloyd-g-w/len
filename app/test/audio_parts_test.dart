@@ -128,7 +128,7 @@ void main() {
     final webm = r('Talk', 'audio/webm', 2);
     expect(aac.joinable, isTrue);
     expect(webm.joinable, isFalse);
-    expect(exportGroups(aac), [aac.blobs.toList()]);
+    expect(exportGroups(aac).single.blobs, aac.blobs.toList());
     expect(exportGroups(webm), hasLength(2));
     expect(recordingFileNames([aac, webm]), ['Lecture.aac', 'Talk.webm', 'Talk (part 2).webm']);
   });

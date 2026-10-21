@@ -102,7 +102,8 @@ void main() {
     expect(recording().parts.length, 3);
     expect((recording().trimStartMs, recording().trimEndMs), (310000, 590000));
 
-    // Export keeps to the parts the trim touches and says so.
+    // The fake audio can't be cut: export falls back to the parts the trim
+    // touches and says so.
     await tester.tap(find.byTooltip('Recordings'));
     await tester.pumpAndSettle();
     final list = tester.widget<RecordingsList>(find.byType(RecordingsList));
