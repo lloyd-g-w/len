@@ -4231,7 +4231,7 @@ dialog on tablets / desktops, bottom sheet on phones; `sheet_parts.dart`: `Sheet
 left-aligned Heading and ✕, `SheetActions` with Cancel and one filled primary, stacked on
 phones), confirms (`app_dialogs.dart`: `confirmAction`, `AppDialog` with a left-aligned title
 and a tinted `DialogIcon` only when destructive or in progress, `DialogBody` width) and
-messages (`messages.dart`: `showMessage`; `MessageQueue` counts the snack bars up per messenger,
+messages (`messages.dart`: `showMessage`, with optional `short` copy shown on one line beside the action on phones at large text, `shortMessages`; `MessageQueue` counts the snack bars up per messenger,
 keeps app-wide whether one is up and when one last was (`MessageQueue.activity`) and `MessageQueue.stepAside` fades standing notices such as the missing-PDF card while one shows,
 so one message shows at a time), segmented buttons that stack rather than shrink when they
 don't fit (`fit_segments.dart`: `FitSegments`). Floating chrome: `floating_panel.dart`
