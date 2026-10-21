@@ -32,10 +32,12 @@ extension _SearchResults on _EditorSearchBarState {
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: (height * 0.45).clamp(120, 360)),
       child: ListView.builder(
+        controller: _list,
         shrinkWrap: true,
         padding: EdgeInsets.zero,
         itemCount: matches.length,
         itemBuilder: (context, i) => _MatchTile(
+          key: i == _c.current ? _currentRow : null,
           match: matches[i],
           query: _c.parsedQuery,
           selected: i == _c.current,
@@ -49,6 +51,7 @@ extension _SearchResults on _EditorSearchBarState {
 /// A match in the list: kind, snippet and page.
 class _MatchTile extends StatelessWidget {
   const _MatchTile({
+    super.key,
     required this.match,
     required this.query,
     required this.selected,

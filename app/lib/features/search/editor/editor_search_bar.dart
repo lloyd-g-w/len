@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -32,6 +34,11 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
   late final TextEditingController _text = TextEditingController(text: _c.query);
   final FocusNode _focus = FocusNode(debugLabel: 'Notebook search');
 
+  /// The match list's scroll position, and the current match's row in it.
+  final ScrollController _list = ScrollController();
+  final GlobalKey _currentRow = GlobalKey(debugLabel: 'Current match');
+  late int _listedCurrent = _c.current;
+
   /// Whether the match list shows; null: only on wider screens.
   bool? _showList;
   late int _focusRequests = _c.focusRequests;
@@ -50,6 +57,7 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
     _c.removeListener(_sync);
     _text.dispose();
     _focus.dispose();
+    _list.dispose();
     super.dispose();
   }
 
@@ -64,6 +72,41 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
       _focusRequests = _c.focusRequests;
       _focusField();
     }
+    if (_c.current != _listedCurrent) {
+      final down = _c.current > _listedCurrent;
+      _listedCurrent = _c.current;
+      if (_c.current >= 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _showCurrentRow(down: down));
+      }
+    }
+  }
+
+  /// Scrolls the match list so the current match's row shows (stepping
+  /// with Enter or F3 would else leave the list behind), as little as
+  /// needed. A row not built yet is first scrolled near by its index.
+  void _showCurrentRow({required bool down, int tries = 3}) {
+    if (!mounted || !_list.hasClients) return;
+    final row = _currentRow.currentContext;
+    if (row != null) {
+      unawaited(
+        Scrollable.ensureVisible(
+          row,
+          alignmentPolicy: down
+              ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
+              : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+        ),
+      );
+      return;
+    }
+    final count = _c.matches.length;
+    if (tries == 0 || count == 0) return;
+    final position = _list.position;
+    final extent = position.maxScrollExtent + position.viewportDimension;
+    final at = extent * _c.current / count - position.viewportDimension / 2;
+    _list.jumpTo(at.clamp(0, position.maxScrollExtent));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _showCurrentRow(down: down, tries: tries - 1),
+    );
   }
 
   void _focusField() {
@@ -186,7 +229,13 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
         tooltip: showList ? 'Hide results' : 'Show results',
         visualDensity: density,
         isSelected: showList,
-        onPressed: () => setState(() => _showList = !showList),
+        onPressed: () {
+          setState(() => _showList = !showList);
+          // A list shown again opens at the current match.
+          if (!showList && _c.current >= 0) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _showCurrentRow(down: true));
+          }
+        },
         style: ButtonStyle(
           backgroundColor: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.selected) ? Surfaces.selected(scheme) : null,
