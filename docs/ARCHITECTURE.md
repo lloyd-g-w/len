@@ -869,7 +869,9 @@ button and in Settings → Sync (with Retry); a raised server limit is noticed
 automatically. Any other failed upload is retried next sync, and records
 referencing a still-pending blob are held back for up to
 `SyncEngine.maxHoldBackAttempts` syncs, so a record normally never reaches the
-server before its blob. Blobs are fetched lazily when a page needs them
+server before its blob; so are, over the live connection too, records naming a blob
+not stored yet (`BlobStore.coming`: a version made in one turn, saved before its
+blobs, `PendingBlobs`). Blobs are fetched lazily when a page needs them
 (`SyncController.fetchBlob`).
 
 `BlobReferences` is the reference graph (live page backgrounds, elements,
@@ -2653,7 +2655,9 @@ GoodNotes-style rich text inside a box.
   narrower page shows wider while edited, its room measured at the field's width). The other pages' boxes are hidden meanwhile and drawn as
   typed in other views (lifted content). One page at a time (single-page flow) the box tapped
   is edited alone and its chain flows again when it ends (a style given to its first line, when
-  that line goes on with the page before, goes to the parts holding the paragraph's start). Either way the end is one
+  that line goes on with the page before, goes to the parts holding the paragraph's start; a
+  table in it going on from or into other pages gives its columns, widths and header to its
+  parts there, `TableFlow.carry`, all the way along a table over three or more pages). Either way the end is one
   notebook-wide undo step (`PageModels.group`; pages added for the text are recorded last, so
   undo deletes them with their text and redo restores both). The session lays the text out
   once per keystroke (`TextLayoutCache`: width, height, split and the field's breaks read one
@@ -3646,7 +3650,8 @@ shares between versions (and between devices of one platform family).
   again. If the last of `attempts` (4) is overtaken too, it is made once more
   inside that transaction in one turn (`VersionSnapshots.buildNow`: packs
   hashed there, their blobs stored and its summary completed after it,
-  `PendingBlobs`), so nothing synced in can be removed and kept in no
+  `PendingBlobs`; until they are stored, `BlobStore.coming`, sync holds that version
+  back), so nothing synced in can be removed and kept in no
   version; a long turn, but only then. Then, as local edits
   that sync like any: the notebook's settings, its pages (kept ids are
   rewritten, missing ones written back under their ids, others deleted with
@@ -4491,7 +4496,8 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   stroke in (`test/live_pointers_test.dart` checks every frame on a canvas whose reads answer
   late). A record that overtakes its `end` is remembered for 2 s. It also
   goes on `end` without strokes, 2 s after `end` without the records (afresh once they arrived
-  on a surface still reloading), 3 s after the last points, or when the writer is no longer in
+  on a surface still reloading), 3 s after the last points (or after its first message, if
+  that was not taken: its start missed), or when the writer is no longer in
   the room's presence (left, or this device's connection dropped).
 - **Pointers** (same section): `PointerRelay` (`features/editor/live_ink/`, one per
   `EditorSession`) shows where this editor points: `InkEvents.hovered` (the input's hover, in
