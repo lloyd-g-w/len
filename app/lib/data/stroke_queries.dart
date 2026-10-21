@@ -189,8 +189,9 @@ class StrokeQueries implements StrokeReader {
       ).first['found'] ==
       1;
 
-  /// Whether a stroke [id] was ever stored here (live or deleted).
-  bool knowsStroke(String id) => _db.select('SELECT 1 FROM strokes WHERE id = ?', [id]).isNotEmpty;
+  /// Whether a live stroke [id] is stored here.
+  bool hasLiveStroke(String id) =>
+      _db.select('SELECT 1 FROM strokes WHERE id = ? AND deleted = 0', [id]).isNotEmpty;
 
   /// Bounds of all live strokes and elements.
   @override
