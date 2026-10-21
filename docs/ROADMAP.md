@@ -299,9 +299,15 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   PDF layer, selection handles, zoom frame), minimap and zoom window behind repaint boundaries;
   web restores unpacked by the browser and written in 8 ms slices (the walk-through fails any
   task over 500 ms in WebAssembly builds)
-- ⬜ Web (JavaScript build): CanvasKit's main-thread GL work still makes long tasks (shader
-  compiles, a pixel read-back per ink tile, thumbnail and LOD raster; PERFORMANCE *Known costs*);
-  the WebAssembly build has none over 200 ms once started
+- ⬜ Web (JavaScript build): CanvasKit's main-thread GL work still makes long tasks under
+  software GL: a dense ink tile's read-back (0.15–0.8 s, its GPU work) and the first use of
+  each draw combination (a shader compile, 0.1–0.3 s; long tail); the WebAssembly build has
+  none over 200 ms once started. Done so far (perf/web-js-long-tasks): the shared surface is
+  never resized (covers, previews, copies, exports and the eyedropper cut from atlases or
+  stitched from slices: no read-back task over 200 ms outside the big notebook, none on the
+  first stroke), the tile surface and common programs warmed at start (18 % fewer compiles
+  after it); smaller tiles, fewer repaints and CPU-only CanvasKit measured and dropped
+  (PERFORMANCE "Web long tasks 2"). What is left is GPU time a real GPU does in milliseconds
 - ✅ Theme mode (system/light/dark)
 - ✅ App shell: sidebar (tablet/desktop), drawer (phone), context menus,
   keyboard shortcuts (a grouped reference: Ctrl/⌘+/ or Settings → General), redesigned settings

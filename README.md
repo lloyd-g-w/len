@@ -103,7 +103,8 @@ window, a scan and version history (save, preview) — by label through the sema
 uncaught exception, failed request or failed check fails it, as does a task
 over 500 ms in a WebAssembly build once the page has started; long tasks
 (with `LEN_EXPLORE_PROFILE=1`, where each one's time went, and the GPU
-read-backs, surface resizes and shader compiles of each step) and the JS heap
+read-backs, surface resizes and shader compiles of each step, the programs
+linked per WebGL context and their GLSL in `<step>.glsl`) and the JS heap
 are reported. Screenshots of each step and `report.json` go to `$LEN_EXPLORE_OUT` (default
 `/tmp/len-web-explore`); options are at the top of `tool/web_explore.py`.
 
