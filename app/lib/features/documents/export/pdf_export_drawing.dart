@@ -62,7 +62,7 @@ Future<void> _drawElement(PdfDocument doc, _Pen pen, SurfaceElement element) asy
     ..translate(-bounds.left, -bounds.top);
   ElementRenderer.draw(canvas, element);
   final picture = recorder.endRecording();
-  final image = await picture.toImage(width, height);
+  final image = await RasterBatch.shared.image(picture, width, height);
   picture.dispose();
   try {
     final rgba = await image.toByteData(format: ui.ImageByteFormat.rawStraightRgba);

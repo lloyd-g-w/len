@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import '../../domain/image_data.dart';
+import '../render/raster_batch.dart';
 import 'element_images.dart';
 
 /// Reads single pixels of decoded images (the eyedropper's `ImagePixel`):
@@ -38,7 +39,7 @@ abstract final class ImagePixels {
       ui.Paint()..blendMode = ui.BlendMode.src,
     );
     final picture = recorder.endRecording();
-    final pixel = await picture.toImage(1, 1);
+    final pixel = await RasterBatch.shared.image(picture, 1, 1);
     picture.dispose();
     try {
       final bytes = await pixel.toByteData(format: ui.ImageByteFormat.rawStraightRgba);

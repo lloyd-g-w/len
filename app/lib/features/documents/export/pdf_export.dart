@@ -15,6 +15,7 @@ import '../../../ink/elements/element_renderer.dart';
 import '../../../ink/fonts/text_fonts.dart';
 import '../../../ink/render/outline_sink.dart';
 import '../../../ink/render/paper_painter.dart';
+import '../../../ink/render/raster_batch.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import 'export_page.dart';
 import 'export_report.dart';
