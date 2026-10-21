@@ -111,9 +111,14 @@ class SyncLedger {
       }
       if (known == null || _newer(version, known)) newest[key] = version;
       if (live) {
-        _edits.putIfAbsent(key, () => []).add(version);
+        // A row edited in place may hold an older edit at a newer version
+        // (a copy a deletion conflict brought back, an edit kept over a
+        // deletion): the edit is the one its content comes from, which a
+        // deletion knowing it may delete again (`EditOrigins`).
+        final edit = _originOf(s, key) ?? version;
+        _edits.putIfAbsent(key, () => []).add(edit);
         if (_content.contains(key.split('/').first)) {
-          _contents.putIfAbsent(key, () => {})[version] = content(s, key)!;
+          _contents.putIfAbsent(key, () => {})[edit] = content(s, key)!;
         }
       }
       if (!live && old != null && old.$2) {
@@ -140,6 +145,20 @@ class SyncLedger {
       }
       if (!live && wasLive) deleted.add(key);
     }
+  }
+
+  /// The edit whose content row [key] (`table/id`, live) of [s] holds when
+  /// it is an older one than its version (`EditOrigins`), else null.
+  static RowVersion? _originOf(AppServices s, String key) {
+    final [table, id] = key.split('/');
+    if (!_content.contains(table)) return null;
+    final rows = s.database.db.select(
+      'SELECT origin_at, origin_device FROM $table '
+      'WHERE id = ? AND origin_for = updated_at AND origin_at IS NOT NULL',
+      [id],
+    );
+    if (rows.isEmpty) return null;
+    return (at: rows.single['origin_at'] as int, device: rows.single['origin_device'] as String);
   }
 
   /// Whether line [id] (deleted) was replaced by a connector repair
