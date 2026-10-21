@@ -5,6 +5,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/library/library_screen.dart';
+import 'package:len/ui/app_theme.dart';
 
 import 'content_golden_test.dart' show loadFonts;
 import 'search_ui_test.dart' show textBox;
@@ -55,5 +56,17 @@ void main() {
       find.byType(LibraryScreen),
       matchesGoldenFile('goldens/search_library_paths.png'),
     );
+  });
+
+  testWidgets('page matches are touch targets', (tester) async {
+    Targets.debugTouchFirst = true;
+    addTearDown(() => Targets.debugTouchFirst = null);
+    await pumpLibrary(tester, services: lectures(), size: const Size(1024, 600));
+    await search(tester, 'integration');
+    final row = find.ancestor(
+      of: find.textContaining('by parts', findRichText: true),
+      matching: find.byType(InkWell),
+    );
+    expect(tester.getSize(row.first).height, greaterThanOrEqualTo(Targets.touch));
   });
 }

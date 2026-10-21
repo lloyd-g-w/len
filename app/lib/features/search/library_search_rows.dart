@@ -126,7 +126,11 @@ class _HitRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(Radii.xs),
-      child: Padding(
+      // A touch target, like menu rows and the editor's matches (R5-16);
+      // longer snippets grow it.
+      child: Container(
+        constraints: BoxConstraints(minHeight: Targets.menuRowHeight(context)),
+        alignment: AlignmentDirectional.centerStart,
         padding: const EdgeInsets.symmetric(horizontal: Gaps.sm, vertical: Gaps.sm),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
