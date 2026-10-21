@@ -10,7 +10,8 @@ import '../../../ink/input/live_ink.dart';
 /// Sends the stroke this editor is writing to the other devices in its
 /// notebook's room as it grows (live ink, docs/SYNC_PROTOCOL.md "Room
 /// data"): its new points at most every [every], and its end with the ids
-/// of the strokes it became, so they draw it until those strokes arrive.
+/// of the strokes it became and the points not sent yet (the last [every]
+/// of it), so they draw all of it until those strokes arrive.
 /// A device joining the room mid-stroke gets the stroke again from its
 /// start, so it shows it live too.
 class LiveInkRelay {
@@ -70,6 +71,9 @@ class LiveInkRelay {
 
   String? _id;
   String? _surface; // Of the stroke being written (sent or not).
+  // The live stroke's points: handed over, not cleared, when it finishes,
+  // so its end still has the last ones.
+  List<StrokePoint> _points = const [];
   Set<String> _members = const {};
   int _sent = 0;
   int _generation = 0;
@@ -118,6 +122,7 @@ class LiveInkRelay {
 
   void _changed() {
     if (_id == null || !live.isDrawing) return;
+    _points = live.points;
     if (_timer != null) {
       _due = true;
       return;
@@ -130,7 +135,7 @@ class LiveInkRelay {
     final id = _id;
     if (id == null) return;
     _due = false;
-    final points = live.points;
+    final points = _points = live.points;
     if (live.generation != _generation) {
       _generation = live.generation;
       _sent = 0; // Replaced (straightened, snapped): again from the start.
@@ -150,22 +155,25 @@ class LiveInkRelay {
   /// Sends the points [p] (flattened) from [_sent] on, and tells the
   /// stroke again after [keepAlive] if nothing else was sent meanwhile.
   void _send(String id, List<num> p) {
-    send({
-      'k': 'ink',
-      's': id,
-      'page': _surface,
-      'tool': live.tool.name,
-      'color': live.color,
-      'width': live.width,
-      'style': live.style.toJson(),
-      'from': _sent,
-      'p': p,
-    });
+    send(_message(id, p));
     _alive?.cancel();
     _alive = Timer(keepAlive, () {
       if (_id == id && live.isDrawing) _send(id, const []);
     });
   }
+
+  /// A message of stroke [id] with points [p] (flattened) from [_sent] on.
+  Map<String, Object?> _message(String id, List<num> p) => {
+    'k': 'ink',
+    's': id,
+    'page': _surface,
+    'tool': live.tool.name,
+    'color': live.color,
+    'width': live.width,
+    'style': live.style.toJson(),
+    'from': _sent,
+    'p': p,
+  };
 
   /// [p] as sent: positions to a hundredth of a world unit, pressure to a
   /// thousandth (enough to draw it; the stroke's record follows).
@@ -175,15 +183,37 @@ class LiveInkRelay {
     (p.pressure * 1000).round() / 1000,
   ];
 
+  /// The stroke ended as [strokeIds] (none: dropped). Its points not sent
+  /// yet (those of the last [every], held back by the rate) go with the
+  /// end, so other devices draw all of it until its records arrive.
   void _ended(List<String> strokeIds) {
     final id = _id;
-    _id = null;
-    _surface = null;
     _timer?.cancel();
     _timer = null;
     _alive?.cancel();
-    if (id == null) return;
-    send({'k': 'ink', 's': id, 'end': true, if (strokeIds.isNotEmpty) 'strokes': strokeIds});
+    final end = <String, Object?>{
+      'k': 'ink',
+      's': id,
+      'end': true,
+      if (strokeIds.isNotEmpty) 'strokes': strokeIds,
+    };
+    if (id != null && strokeIds.isNotEmpty) {
+      final points = _points;
+      if (live.generation != _generation) _sent = 0; // Replaced since: from the start.
+      // Beyond one message: the first in messages of their own.
+      while (points.length - _sent > maxPoints) {
+        final to = _sent + maxPoints;
+        send(_message(id, [for (final p in points.sublist(_sent, to)) ..._rounded(p)]));
+        _sent = to;
+      }
+      if (points.length > _sent) {
+        end.addAll(_message(id, [for (final p in points.sublist(_sent)) ..._rounded(p)]));
+      }
+    }
+    _id = null;
+    _surface = null;
+    _points = const [];
+    if (id != null) send(end);
   }
 
   void dispose() {

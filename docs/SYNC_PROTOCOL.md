@@ -229,7 +229,11 @@ again from 0 (as a stroke replaced whole: in messages of at most 300 points), so
 shows it live; devices that showed it already replace its points. Then `{"k":
 "ink", "s": "<id>", "end": true, "strokes": ["<stroke id>", …]}` when it ends: `strokes` names the
 stroke records it became — one, or several for a highlight snapped to text (one per line it
-covers) — and is absent when it was dropped. Other devices draw it as provisional ink over the
+covers) — and is absent when it was dropped. An end naming strokes also carries the points not
+sent yet (held back by the 50 ms rate when the pen lifted), with the fields of a points message
+(`page` … `from`, `p`; points beyond one message go just before it in messages of their own), so
+other devices draw the whole stroke, not a shorter tail, until its records arrive; a receiver takes
+them as a points message, then the end. Other devices draw it as provisional ink over the
 page until every one of those records arrived and shows (at once if they came first; a page
 reloading whole, as for 500+ changes or a selection in the way, first finishes loading them),
 without `strokes` at once, and drop it after 2 s waiting for the records (counted afresh once

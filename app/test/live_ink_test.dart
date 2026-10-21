@@ -173,6 +173,79 @@ void main() {
     expect(b.s.sync.rooms.othersIn('nb'), hasLength(1));
   });
 
+  liveTest('the points of its last moments go with its end, so all of it shows', (l) {
+    final (:a, :b, :live, :events, :remote) = _pair(l);
+    _write(l, live, events, 'page-1', end: false);
+    l.wait(const Duration(milliseconds: 100));
+    // A point sent, then the pen moves on and lifts within the rate's 50 ms:
+    // those points were not sent yet, and go with the end.
+    live.add(const StrokePoint(99, 50, 0.5));
+    const soon = Duration(milliseconds: 10);
+    l.wait(soon, step: soon);
+    live.addAll([for (var i = 0; i < 5; i++) StrokePoint(100.0 + i, 50, 0.5)]);
+    final written = [...live.points];
+    live.finish();
+    events.inkEnded?.call(const ['s1']);
+    l.wait(const Duration(milliseconds: 100));
+    final shown = remote.strokesOn('page-1').single.points;
+    expect(shown, hasLength(written.length));
+    expect(shown.last.x, closeTo(written.last.x, 0.01));
+    remote.landed(RemoteChanges()..addItem('page-1', 's1'));
+    expect(remote.strokesOn('page-1'), isEmpty);
+
+    // Replaced whole as it lifted (snapped), longer than one message: all
+    // of it again, the rest of it before the end.
+    _write(l, live, events, 'page-1', end: false);
+    l.wait(const Duration(milliseconds: 100));
+    live.replaceAll([for (var i = 0; i < 350; i++) StrokePoint(i * 1.0, 10, 0.5)]);
+    live.finish();
+    events.inkEnded?.call(const ['s2']);
+    l.wait(const Duration(milliseconds: 100));
+    final snapped = remote.strokesOn('page-1').single.points;
+    expect(snapped, hasLength(350));
+    expect(snapped.last.x, 349);
+
+    // Dropped (no stroke): nothing more is sent, it goes at once.
+    _write(l, live, events, 'page-1', end: false);
+    l.wait(const Duration(milliseconds: 100));
+    live
+      ..add(const StrokePoint(1, 1, 0.5))
+      ..finish();
+    events.inkEnded?.call(const []);
+    l.wait(const Duration(milliseconds: 100));
+    expect(remote.strokesOn('page-1').where((s) => s.points.length != 350), isEmpty);
+  });
+
+  test('an end carrying points draws them even when it is all that came', () {
+    final rooms = LiveRooms(LiveLink(connect: () => throw UnimplementedError(), onMessage: (_) {}))
+      ..join('nb');
+    final remote = RemoteInk(rooms, room: 'nb');
+    addTearDown(remote.dispose);
+    rooms.receive(
+      const LiveEphemeral(
+        room: 'nb',
+        from: 'c1',
+        deviceId: 'd',
+        data: {
+          'k': 'ink',
+          's': 'x',
+          'end': true,
+          'strokes': ['s1'],
+          'page': 'page-1',
+          'tool': 'ballpoint',
+          'color': 0xFF000000,
+          'width': 2,
+          'style': {},
+          'from': 0,
+          'p': [1, 2, 0.5, 3, 4, 0.5],
+        },
+      ),
+    );
+    expect(remote.strokesOn('page-1').single.points, hasLength(2));
+    remote.landed(RemoteChanges()..addItem('page-1', 's1'));
+    expect(remote.strokesOn('page-1'), isEmpty);
+  });
+
   liveTest('ink goes at once when its writer leaves or the connection drops', (l) {
     final (:a, :b, :live, :events, :remote) = _pair(l);
     _write(l, live, events, 'page-1', end: false);

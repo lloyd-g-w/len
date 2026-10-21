@@ -79,6 +79,8 @@ class RemoteInk extends ChangeNotifier {
     if (message.room != room || data['k'] != 'ink' || data['s'] is! String) return;
     final key = '${message.from}/${data['s']}';
     if (data['end'] == true) {
+      // With the points not sent before (those of its last moments).
+      if (data.containsKey('p')) _addPoints(key, message.from, data);
       final w = _writing[key];
       if (w == null) return;
       final strokes = data['strokes'];
@@ -94,7 +96,12 @@ class RemoteInk extends ChangeNotifier {
       }
       return;
     }
-    final w = _writing[key] ?? _begin(key, message.from, data);
+    _addPoints(key, message.from, data);
+  }
+
+  /// Takes the points of a message of stroke [key] by [writer] ([data]).
+  void _addPoints(String key, String writer, Map<String, Object?> data) {
+    final w = _writing[key] ?? _begin(key, writer, data);
     if (w == null) return;
     final from = data['from'];
     final p = data['p'];

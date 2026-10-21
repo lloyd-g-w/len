@@ -297,7 +297,17 @@ Two more things keep pen-up and first show off the frame:
   inserts and deletes reach SQLite in a post-frame callback after the frame
   that shows them (`len.persistStrokes`), not inside the pointer-up
   handler. Reads, `reload`, `dispose` and `SurfaceModel.flushAll()`
-  (exports, page copies and deletions) flush first.
+  (exports, page copies and deletions) flush first. A large edit is written in steps across
+  turns inside one transaction (`SteppedWrites`, `AppDatabase.steps`: 4 ms of steps a turn, a
+  move's tombstones before its new rows); other transactions and pushes finish it first, but a
+  raw read between two turns sees the steps so far. Tests reading storage after an edit in an
+  editor go through `storedStrokes` (`test/support/stored.dart`, which finishes them as the app's
+  readers do): a bare `pump` runs only the first turn, and a JIT-cold first step (the first test
+  of a file, a busy machine) can use up the turn after the tombstones, so the
+  arrow-nudge test in `editor_keyboard_test.dart` and the shape-handle test in
+  `shape_edit_test.dart` found the moved strokes gone. They read storage straight after a bare
+  pump since the stepped writes came in (perf round 15) and failed more and more as the app grew
+  (one run in four or five of the keyboard file alone on main); the app was right.
 - **Outlines off the frame** (`OutlinePreparer`, `platform/
   outline_preparer*`): strokes read from storage get their outlines built
   before the model adds them — on up to three worker isolates
@@ -4498,7 +4508,12 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   there, a list slice and a small JSON message 20 times a second, never per point (about 0.15 µs a
   point on average, `test/perf/live_ink_relay_perf_test.dart`). It follows the room's presence too:
   a device joining mid-stroke (another view opening the notebook, a reconnect) gets the stroke
-  again from its start, in messages of at most 300 points, even one begun while nobody was there. On the
+  again from its start, in messages of at most 300 points, even one begun while nobody was there.
+  The `end` carries the points not sent yet (those of the last 50 ms, the rate held back; the
+  relay keeps the live stroke's list, which `LiveInk.finish` hands over rather than clears), so
+  other devices draw the whole stroke until its records land, not a stroke missing its tail
+  until then; a stroke replaced as it ends (snapped) goes whole again, its points beyond one
+  message in messages just before the end. On the
   other side `RemoteInk` (`ink/remote_ink.dart`, one per `SharedNotebook`) keeps the strokes
   being written per writer connection, each with a `LiveStrokeBuilder` that extends its outline
   by the points a message adds (as the writer's own live ink is built; whole again only when
@@ -4561,6 +4576,13 @@ server (`server/lib/src/live_hub.dart`) fans a push's records out once encoded t
 connection; it upgrades the socket itself (`live_api.dart`, not `shelf_web_socket`, whose channel
 writes without backpressure), so a client that does not read is seen (the socket's `addStream`
 pauses) and bounded: past 1 MiB waiting, its records become one `resync`.
+
+Sync tests on a busy machine (green-suite round): the push-splitting test encodes, decodes and
+stores ~5 MB (300 strokes of 1 000 points, two requests; it was 10 MB) with a 2-minute timeout,
+and the concurrent-convergence property (`sync_properties_test.dart`, again with pulls in a
+worker in `sync_worker_test.dart`, ~0.3 s a scenario there) checks 20 scenarios in the default
+tier and 20 more in the slow tier: both timed out at 30 s beside a loaded full run, and passed
+alone; nothing in them waited on real time, the work was only slower.
 
 Why SSE (as the fallback) rather than long-polling `/v1/pull?wait=…`: one request per change
 instead of one per change and per timeout, an event costs a few bytes on an
