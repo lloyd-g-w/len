@@ -26,6 +26,7 @@ import 'content_golden_test.dart' show loadFonts;
 import 'data_test.dart' show FakeClock;
 import 'support/fake_audio.dart';
 import 'support/handwriting.dart';
+import 'support/stored.dart';
 
 /// Recording starts at this wall time in these tests.
 const _t0 = 1000000;
@@ -529,4 +530,5 @@ void main() {
 Offset _screenOf(ViewportController viewport, Stroke stroke) =>
     viewport.toScreen(stroke.points[stroke.points.length ~/ 2].offset);
 
-List<Stroke> _inkOf(AppServices s, String surface) => SurfaceCopier(s.strokes).loadAll(surface);
+List<Stroke> _inkOf(AppServices s, String surface) =>
+    SurfaceCopier(storedStrokes(s)).loadAll(surface);

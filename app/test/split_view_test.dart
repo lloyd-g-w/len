@@ -23,6 +23,7 @@ import 'package:len/ui/app_theme.dart';
 
 import 'document_editor_test.dart' show closeEditor, drawAt, pumpEditor;
 import 'editor_tabs_test.dart' show notebook;
+import 'support/stored.dart';
 
 /// A desktop workspace with two notebooks open: "Physics" (active) and
 /// "Chemistry", both paged unless [kind] says otherwise.
@@ -67,7 +68,7 @@ Future<(AppServices, Notebook, Notebook)> pumpWorkspace(
 }
 
 List<Stroke> inkOfNotebook(AppServices s, Notebook n) =>
-    SurfaceCopier(s.strokes).loadAll(s.pages.pagesOf(n.id).first.id);
+    SurfaceCopier(storedStrokes(s)).loadAll(s.pages.pagesOf(n.id).first.id);
 
 Finder paneOf(int index) => find.byType(PagedDocumentView).at(index);
 
