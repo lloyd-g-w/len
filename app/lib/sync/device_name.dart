@@ -32,8 +32,7 @@ class DeviceName extends ChangeNotifier {
   /// Names this device [name] (trimmed, cut to [maxLength]); empty or
   /// [suggested] goes back to the suggested name.
   void rename(String name) {
-    var trimmed = name.trim();
-    if (trimmed.length > maxLength) trimmed = trimmed.substring(0, maxLength).trimRight();
+    final trimmed = cut(name.trim());
     final custom = trimmed.isEmpty || trimmed == suggested ? null : trimmed;
     if (custom == this.custom) return;
     _settings.deviceName = custom;
@@ -52,15 +51,25 @@ class DeviceName extends ChangeNotifier {
     }
     if (name == null || name == _settings.systemDeviceName) return;
     if (_disposed) return;
-    final cut = name.length > maxLength ? name.substring(0, maxLength).trimRight() : name;
     try {
-      _settings.systemDeviceName = cut;
+      _settings.systemDeviceName = cut(name);
     } on Object catch (e) {
       // The database closed meanwhile (the app or a test ended).
       debugPrint('Device name not kept: $e');
       return;
     }
     if (custom == null && !_disposed) notifyListeners();
+  }
+
+  /// [name] cut to [maxLength] UTF-16 units (the live connection counts
+  /// them), never between the two halves of an emoji or other character
+  /// beyond the Basic Multilingual Plane.
+  @visibleForTesting
+  static String cut(String name) {
+    if (name.length <= maxLength) return name;
+    final last = name.codeUnitAt(maxLength - 1);
+    final end = last >= 0xD800 && last <= 0xDBFF ? maxLength - 1 : maxLength;
+    return name.substring(0, end).trimRight();
   }
 
   bool _disposed = false;

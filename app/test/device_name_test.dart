@@ -47,6 +47,16 @@ void main() {
     expect(name.value.length, DeviceName.maxLength);
   });
 
+  test('a long name is cut to the limit, never inside an emoji', () {
+    name.rename('a' * 70);
+    expect(name.value, 'a' * DeviceName.maxLength);
+    // 63 letters then an emoji (two UTF-16 units) would end on half of it.
+    name.rename('${'b' * 63}😀 tablet');
+    expect(name.value, 'b' * 63);
+    name.rename('${'c' * 62}😀 tablet');
+    expect(name.value, '${'c' * 62}😀');
+  });
+
   test('the system\'s name, once known, is the suggestion from then on', () async {
     var told = 0;
     name.addListener(() => told++);
