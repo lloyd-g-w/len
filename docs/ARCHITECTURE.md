@@ -1549,11 +1549,24 @@ replayed in step with the ink.
   "Keep all", Cancel, Save. Saving is not an editor undo step (recordings
   are not part of a surface, like renaming): its message offers Undo, and
   "Reset trim" in the list restores the whole recording at any time.
-  Export of raw AAC keeps the whole frames overlapping the range
-  (`AdtsReader.cut`, ≈ 23 ms at 44.1 kHz, exact sample counting); browser
-  recordings (MP4 / WebM files, which would need remuxing) export the whole
-  parts the trim touches (`exportGroups`; the message says so when that is
-  wider, `exportsWider`).
+  Export keeps to the trim without decoding (`cutAudio` in
+  `recording_export.dart`; `exportGroups` gives each exported file its
+  blobs and the cut in them). Raw AAC joins all parts and keeps the whole
+  frames overlapping the range (`AdtsReader.cut`, ≈ 23 ms at 44.1 kHz,
+  exact sample counting). Browser recordings export one file per part the
+  trim touches, the first and last cut inside: WebM (`webm_cut.dart` on
+  `ebml.dart`) keeps the EBML header, Info (Duration rewritten) and Tracks,
+  and the blocks overlapping the range, timecodes rebased to 0 and
+  regrouped into clusters of known size (browsers write unknown sizes);
+  Cues and SeekHead are dropped. Fragmented MP4 (`mp4_cut.dart`) keeps
+  `ftyp` and `moov` (`mvhd` / `tkhd` / `mdhd` / `mehd` / edit-list
+  durations rewritten where set) and the samples overlapping the range,
+  each fragment rewritten with explicit `trun` tables and its `tfdt`
+  rebased; `sidx` / `mfra` are dropped. Opus and AAC packets are all
+  keyframes, so the cut is exact to a packet (20–60 ms). Input the cutters
+  don't understand (malformed, several tracks, plain MP4, encryption)
+  exports the whole part, and only then does the message say the audio
+  may start earlier or end later than the trim.
 - **Freeing a trim's storage** (`domain/recording_release.dart`,
   `trim_release.dart`, `ui/free_up_space.dart`). The trim stays adjustable
   until the user frees it: a recording whose trim leaves parts wholly
@@ -4600,8 +4613,8 @@ again.
   meter (≈ the loudness of the last buffer every 100 ms), not from decoding
   the audio; recordings without one show a flat scrubber. Trimming is
   non-destructive (parts wholly outside the trim keep their storage until
-  "Free up …"), trimmed browser recordings export the whole parts the trim
-  touches, and Windows has no system media controls (SMTC; media keys only
+  "Free up …"), trimmed browser recordings export one file per
+  part the trim touches (cut exactly; the parts are not joined), and Windows has no system media controls (SMTC; media keys only
   while Len is in front); exporting reads the whole audio into memory.
 - Planners: fixed headings ("Week", "Schedule", "Priorities", "To do", "Notes") are English
   whatever the planner's language; the language list is curated (scripts the bundled Inter

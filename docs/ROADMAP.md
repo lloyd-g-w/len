@@ -144,8 +144,10 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   parts wholly outside the trim on every device (confirmed, Undo in the message; blob GC frees
   them after its grace). Trimmed browser recordings export only the parts the trim touches
   (the message says they may start earlier or end later)
-- ⬜ Exact trimmed export of browser recordings (cut WebM clusters / fragmented-MP4 fragments
-  in Dart instead of whole parts)
+- ✅ Exact trimmed export of browser recordings (cut WebM clusters / fragmented-MP4 fragments
+  in Dart instead of whole parts). Done: WebM and fragmented MP4 are cut to the packets
+  overlapping the trim (timecodes / `tfdt` rebased, durations rewritten, Cues / SeekHead /
+  `sidx` dropped), checked with ffprobe; files that don't parse export whole, with the caveat
 
 ## Pages & documents
 - ✅ Templates: blank, narrow/college/wide ruled, small/large grid, dotted, isometric, Cornell,
