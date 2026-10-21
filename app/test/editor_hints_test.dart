@@ -135,6 +135,24 @@ void main() {
     await closeEditor(tester);
   });
 
+  testWidgets('a phone at 2× text: "Stylus detected" is one line whose Undo draws again', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final (s, _) = await pumpEditor(tester, size: const Size(390, 844));
+    await penStroke(tester, const Offset(200, 400));
+    await tester.pumpAndSettle();
+    expect(s.preferences.stylusOnly, isTrue);
+    final text = find.text('Fingers now pan');
+    expect(text, findsOneWidget);
+    expect(tester.getSize(text).height, lessThan(15 * 2 * 1.6), reason: 'one line');
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(s.preferences.stylusOnly, isFalse);
+    await closeEditor(tester);
+  });
+
   testWidgets('no tip within a minute of a snack bar, by the app clock', (tester) async {
     const tip = 'Hold the pen’s side button to erase';
     Future<void> reopenAndWrite() async {
