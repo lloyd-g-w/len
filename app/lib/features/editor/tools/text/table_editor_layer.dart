@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../domain/text/table_cells.dart';
 import '../../../../domain/text/text_data.dart';
 import '../../../../ink/elements/text_layout.dart';
 import '../../../../ui/app_theme.dart';
@@ -55,6 +56,35 @@ class TableEditorLayer extends StatefulWidget {
   /// keeps a tap off the text beside the border.
   static double get gripWidth => Targets.touchFirst ? 24 : 16;
 
+  /// The bands where the field shows a table's header row again while a
+  /// box flowing across pages is edited (UX_AUDIT R27-8), as the part on
+  /// that page draws it at rest (`TextFlow.header`): at each page break
+  /// of [breaks] that a row (not the first) of a table with a header row
+  /// begins at, the bottom of the break's room (kept for it), just above
+  /// that row of [rows]. Display only; painted from the header row's own
+  /// cell layouts, so a keystroke lays out nothing more.
+  static List<({Rect rect, int table})> repeatedHeaders(
+    TextData data,
+    List<TableLayout> tables,
+    List<({Rect rect, int table, int row})> rows,
+    List<FlowBreak> breaks,
+  ) {
+    if (breaks.isEmpty) return const [];
+    final gaps = {for (final b in breaks) b.at: b.gap};
+    final starts = data.lineStarts;
+    final out = <({Rect rect, int table})>[];
+    for (final r in rows) {
+      final t = tables[r.table];
+      if (r.row == 0 || !t.table.spec.header) continue;
+      final gap = gaps[starts[t.table.lineOf(r.row, 0)]];
+      if (gap == null) continue;
+      final band = math.min(gap, t.rowHeights.first);
+      if (band <= 0) continue;
+      out.add((rect: Rect.fromLTWH(r.rect.left, r.rect.top - band, t.width, band), table: r.table));
+    }
+    return out;
+  }
+
   @override
   State<TableEditorLayer> createState() => _TableEditorLayerState();
 }
@@ -66,6 +96,10 @@ typedef _Hit = ({int table, int row, int column, int line, int offset});
 class _TableEditorLayerState extends State<TableEditorLayer> {
   List<({Rect rect, int table, int row})> _rows = const [];
   List<TableLayout> _tables = const [];
+
+  /// Where a table's header row is repeated above its rows on a page it
+  /// goes on to (see [TableEditorLayer.repeatedHeaders]).
+  List<({Rect rect, int table})> _headers = const [];
 
   /// The cell a pointer went down on (null: none, or a column grip).
   _Hit? _down;
@@ -213,6 +247,7 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
       _rows = layout.rows;
       layout.dispose();
       _tables = plan.tables;
+      _headers = TableEditorLayer.repeatedHeaders(_box.data, _tables, _rows, _box.breaks);
       final active = _box.activeCell;
       final place = active == null ? null : _placeOf(active);
       final range = _box.cellRange;
@@ -257,6 +292,7 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
                       painter: _TablesPainter(
                         _tables,
                         _rows,
+                        headers: _headers,
                         active: place,
                         range: range,
                         highlight: widget.accent.withValues(alpha: 0.18),
@@ -339,13 +375,15 @@ class _TableEditorLayerState extends State<TableEditorLayer> {
   ];
 }
 
-/// Paints the tables' rows (but the cell edited in its field), the block
+/// Paints the tables' rows (but the cell edited in its field), the header
+/// rows repeated over page breaks, the block
 /// of cells selected and a tick on each column border of the edited row
 /// (where its grips are).
 class _TablesPainter extends CustomPainter {
   _TablesPainter(
     this.tables,
     this.rows, {
+    required this.headers,
     required this.active,
     required this.range,
     required this.highlight,
@@ -355,6 +393,7 @@ class _TablesPainter extends CustomPainter {
 
   final List<TableLayout> tables;
   final List<({Rect rect, int table, int row})> rows;
+  final List<({Rect rect, int table})> headers;
   final ({int table, int row, int column, Rect rowRect})? active;
   final TableRange? range;
   final Color highlight, accent;
@@ -362,6 +401,9 @@ class _TablesPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    for (final h in headers) {
+      tables[h.table].paintRow(canvas, h.rect, 0, closed: false); // (The row below closes it.)
+    }
     for (final r in rows) {
       final t = tables[r.table];
       final a = active;

@@ -2688,7 +2688,11 @@ GoodNotes-style rich text inside a box.
   natively and each part shows where it will be stored (the editor measures the field's room
   line once and corrects the placeholders by what the field adds,
   `RichTextController.roomExtra`; the field is as wide as the first box, so a part on a
-  narrower page shows wider while edited, its room measured at the field's width). The other pages' boxes are hidden meanwhile and drawn as
+  narrower page shows wider while edited, its room measured at the field's width). A table's
+  header row repeated on the pages it goes on to (`TextFlow.header`, display only, drawn by
+  `TableLayout` in a band above a part's rows) is kept room for at the break and painted
+  there by the field's table layer while edited (`TableEditorLayer.repeatedHeaders`, from the
+  header row's own cell layouts: typed in live, nothing more laid out). The other pages' boxes are hidden meanwhile and drawn as
   typed in other views (lifted content). One page at a time (single-page flow) the box tapped
   is edited alone and its chain flows again when it ends (a style given to its first line, when
   that line goes on with the page before, goes to the parts holding the paragraph's start; a
