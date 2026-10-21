@@ -2371,7 +2371,9 @@ surface.
   shape is a new stroke; attachments name the shape by its identity
   across edits, `Stroke.shapeId` (`ShapeGeometry.origin`, synced `sh.o`:
   the id of the stroke it was first drawn as; absent, the stroke's own
-  id). Following: every selection edit goes through `_replace`, where
+  id), and every edit names the strokes it replaced, nearest first
+  (`ShapeGeometry.replaces`, synced `sh.r`, at most 8; `editing`; a copy
+  or a shape moved to another page has none, `detached`). Following: every selection edit goes through `_replace`, where
   `_SelectionConnectors._connect` gives each edited shape its old shape
   id (`_identified`; one moved to another page becomes a shape of its
   own there, and a selected line landing on that page with it is
@@ -2413,8 +2415,29 @@ surface.
   from theirs, so two devices repairing at once write one record, and a
   repaired line sits: no loop. A reference to a shape not on the line's
   surface (deleted, erased, moved to another page) is ignored and the end
-  stays put; undoing a deletion restores the attachment. Only closed
-  shapes are targets, so connectors never chain.
+  stays put; undoing a deletion restores the attachment. Two edits of one
+  stroke made at once (box moved here, arrow recoloured there: both
+  devices replaced the arrow) leave two live strokes of one shape
+  ("twins"); the repair first merges them (`ShapeMerge`, reading the
+  changed shapes' strokes, `ConnectorShapes.edited`): a twin another
+  names in its lineage is superseded and only deleted; the rest become
+  one stroke carrying each twin's changes against the version they
+  started from (the nearest common lineage entry, read live or deleted,
+  `ConnectorQueries.versions`): look parts, each end of a line with its
+  attachment, its bend, else the outline whole; the least id wins a part
+  both changed, and everything without a known base (edits by clients
+  before lineages). Its id is a UUID v5 of the twins' ids, so merges made
+  at once are one record; then it is repaired like any line. Undo and
+  redo do the same (`SurfaceModel._applyConnected`, `ConnectorRepair
+  .fixesFor` on what the step put back): a line restored whose shape
+  moved since (synced in) goes back onto it, and a version restored
+  beside a later edit of its shape yields to it, all in the same undo
+  step (`UndoHistory.amendTaken`), so redo and undo again take it along.
+  Clients before lineages ignore `sh.r`, do not merge, and still repair
+  (docs/SYNC_PROTOCOL.md). Tests: `connector_sync_test` (scenarios),
+  `connector_convergence_test` (three devices, random edits, undo, an
+  old client among them: one stroke a shape, every end on its shape,
+  settled). Only closed shapes are targets, so connectors never chain.
 - **Selections across pages** (paged notebooks, continuous flow): the
   selection stays bound to the active page's surface, but
   `SelectionController.surfaces` (a `SelectionSurfaces`, given by
@@ -4348,8 +4371,9 @@ deletion, so the pull can tell an edit and a deletion that did not know each
 other (`PullApplier`: the edit is kept, see "Deletion conflicts" below). Remote records are parsed strictly
 (`RecordFields`): every field of the collection's format is required, and a
 malformed record is skipped. Fix-ups derived from what was applied run
-right after it, before the next push (`SyncEngine.afterApply`: connectors left off
-their shapes by concurrent edits, `ConnectorRepair`, see "Editing tools"), and add
+right after it, before the next push (`SyncEngine.afterApply`: shapes edited twice at
+once merged and connectors left off their shapes by concurrent edits, `ConnectorRepair`, see
+"Editing tools"), and add
 what they wrote to the changes. Open screens subscribe to
 `SyncController.remoteChanges` and reload only the affected surfaces.
 
