@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -333,6 +334,36 @@ void main() {
     painter.paint(Canvas(recorder), const Size(800, 600));
     recorder.endRecording().dispose();
     expect(shown, ['p1']);
+  });
+
+  test('a stroke first heard of mid-way (its start missed) goes when it goes quiet', () {
+    fakeAsync((async) {
+      final rooms = LiveRooms(
+        LiveLink(connect: () => throw UnimplementedError(), onMessage: (_) {}),
+      )..join('nb');
+      final remote = RemoteInk(rooms, room: 'nb');
+      rooms.receive(
+        const LiveEphemeral(
+          room: 'nb',
+          from: 'c2',
+          deviceId: 'd',
+          data: {
+            'k': 'ink',
+            's': 'x',
+            'page': 'p1',
+            'tool': 'ballpoint',
+            'color': 0xFF000000,
+            'width': 4,
+            'from': 40, // Joined mid-stroke: waits for it from its start.
+            'p': [10, 10, 0.5, 60, 40, 0.5],
+          },
+        ),
+      );
+      async.elapse(RemoteInk.silence + const Duration(seconds: 1));
+      expect(remote.isEmpty, isTrue, reason: 'its writer never sent it again');
+      remote.dispose();
+      async.flushTimers();
+    });
   });
 
   test('remote ink outlines grow with each message and start again when replaced', () {

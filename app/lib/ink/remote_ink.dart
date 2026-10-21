@@ -111,7 +111,6 @@ class RemoteInk extends ChangeNotifier {
     w
       ..heard = _now
       ..revision += 1;
-    _sweep ??= Timer.periodic(const Duration(milliseconds: 500), (_) => _expire());
     notifyListeners();
   }
 
@@ -127,6 +126,9 @@ class RemoteInk extends ChangeNotifier {
     } on Object {
       style = StrokeStyle.defaultsFor(tool);
     }
+    // Swept from now on: a stroke whose first message is not taken (its
+    // start missed, joining mid-stroke) still goes if nothing follows.
+    _sweep ??= Timer.periodic(const Duration(milliseconds: 500), (_) => _expire());
     return _writing[key] = _Writing(from, surface, tool, color, width.toDouble(), style)
       ..heard = _now;
   }
