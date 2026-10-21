@@ -35,8 +35,7 @@ Future<void> freeUpSpace(BuildContext context, NotebookAudio audio, Recording re
     message:
         'Deletes the audio trimmed away from “${recording.title}” on all your devices, '
         'in whole $partMinutes-minute parts (a little next to the trim stays). '
-        'The trim can’t be widened past what’s left, and the space is released after a week.'
-        '${held > 0 ? ' ${_heldNote(held, all: freed == 0)}' : ''}',
+        'The trim can’t be widened past what’s left${_released(held, all: freed == 0)}',
     confirmLabel: 'Free up',
     destructive: true,
   );
@@ -54,13 +53,20 @@ Future<void> freeUpSpace(BuildContext context, NotebookAudio audio, Recording re
         : freed > 0
         ? 'Deleted ${formatBytes(freed)} of audio from “${recording.title}”'
         : 'Deleted the audio trimmed away from “${recording.title}”',
+    // A phone at large text: one line, not a sentence over half the page.
+    short: 'Trimmed audio deleted',
     action: SnackBarAction(label: 'Undo', onPressed: () => audio.restore(before)),
   );
 }
 
-/// What the confirmation adds when versions keep [held] bytes of the
-/// audio ([all]: all of what this device holds of it).
-String _heldNote(int held, {required bool all}) =>
-    '${all ? 'Older versions of this notebook keep this audio (${formatBytes(held)})' : 'Older versions of this notebook keep ${formatBytes(held)} of it'}, '
-    'so restoring them brings it back: that space is released once they are thinned out '
-    'or deleted in Version history.';
+/// How the confirmation ends: when the space is released, and what older
+/// versions keep of it ([held] bytes; [all]: all this device holds of it)
+/// until they go.
+String _released(int held, {required bool all}) {
+  const until = 'until they are thinned out or deleted';
+  if (held == 0) return ', and the space is released after a week.';
+  final size = formatBytes(held);
+  return all
+      ? '. Older versions keep this audio ($size) $until.'
+      : ', and the space is released after a week; older versions keep $size of it $until.';
+}
