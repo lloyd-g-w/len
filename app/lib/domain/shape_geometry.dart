@@ -50,9 +50,11 @@ class ShapeGeometry {
     this.origin,
     List<Offset>? through,
     List<int> corners = const [],
+    List<String> replaces = const [],
   }) : points = List.unmodifiable(points),
        through = through == null ? null : List.unmodifiable(through),
        corners = List.unmodifiable(corners),
+       replaces = List.unmodifiable(replaces),
        assert(
          (through == null && corners.isEmpty) || kind == ShapeKind.curve,
          'Only curves pass through points',
@@ -66,9 +68,20 @@ class ShapeGeometry {
   /// The ellipse around [centre] with conjugate semi-axes [u] and [v] (any
   /// affine image of a circle), as its perpendicular semi-axes: the pair
   /// nearest [u] and [v].
-  factory ShapeGeometry.ellipse(Offset centre, Offset u, Offset v, {String? origin}) {
+  factory ShapeGeometry.ellipse(
+    Offset centre,
+    Offset u,
+    Offset v, {
+    String? origin,
+    List<String> replaces = const [],
+  }) {
     final (a, b) = principalAxes(u, v);
-    return ShapeGeometry(ShapeKind.ellipse, [centre, centre + a, centre + b], origin: origin);
+    return ShapeGeometry(
+      ShapeKind.ellipse,
+      [centre, centre + a, centre + b],
+      origin: origin,
+      replaces: replaces,
+    );
   }
 
   final ShapeKind kind;
@@ -104,6 +117,18 @@ class ShapeGeometry {
   /// meet.
   final String? origin;
 
+  /// The strokes this one replaced, nearest first (at most [maxLineage]):
+  /// the stroke an edit was made from, then the one that was made from,
+  /// …; for a merge of edits made at once on several devices
+  /// (`ShapeMerge`), the strokes merged, then their common predecessor's
+  /// line. Empty for a shape never edited (or edited by a client that
+  /// does not write it). Two live strokes of one shape find the version
+  /// they both started from here.
+  final List<String> replaces;
+
+  /// The most predecessors [replaces] holds.
+  static const int maxLineage = 8;
+
   /// This shape with identity [origin] (see [ShapeGeometry.origin]).
   ShapeGeometry withOrigin(String? origin) => origin == this.origin
       ? this
@@ -117,7 +142,36 @@ class ShapeGeometry {
           origin: origin,
           through: through,
           corners: corners,
+          replaces: replaces,
         );
+
+  /// This shape with identity [origin] and predecessors [replaces] (at
+  /// most [maxLineage] of them kept).
+  ShapeGeometry withLineage(String? origin, Iterable<String> replaces) {
+    final kept = replaces.toSet().take(maxLineage).toList();
+    if (origin == this.origin && listEquals(kept, this.replaces)) return this;
+    return ShapeGeometry(
+      kind,
+      points,
+      inner: inner,
+      tips: tips,
+      tail: tail,
+      tip: tip,
+      origin: origin,
+      through: through,
+      corners: corners,
+      replaces: kept,
+    );
+  }
+
+  /// This shape as an edit of stroke [id], whose shape was [old]: [old]'s
+  /// identity (its origin, else [id]) and lineage, [id] nearest.
+  ShapeGeometry editing(String id, ShapeGeometry old) =>
+      withLineage(old.origin ?? id, [id, ...old.replaces]);
+
+  /// This shape as a shape of its own (a copy, or moved to another
+  /// surface): no identity but its stroke's, no predecessors.
+  ShapeGeometry get detached => withLineage(null, const []);
 
   /// The attachment of end [index] (0: tail, 1: tip).
   ShapeAttachment? attachmentOf(int index) => index == 0 ? tail : tip;
@@ -133,6 +187,7 @@ class ShapeGeometry {
     tail: index == 0 ? attachment : tail,
     tip: index == 1 ? attachment : tip,
     origin: origin,
+    replaces: replaces,
   );
 
   /// This shape with its attachments changed by [f] (null: detached).
@@ -141,7 +196,7 @@ class ShapeGeometry {
     final a = tail == null ? null : f(tail!), b = tip == null ? null : f(tip!);
     return a == tail && b == tip
         ? this
-        : ShapeGeometry(kind, points, tail: a, tip: b, origin: origin);
+        : ShapeGeometry(kind, points, tail: a, tip: b, origin: origin, replaces: replaces);
   }
 
   static const double defaultInner = 0.42;
@@ -189,11 +244,17 @@ class ShapeGeometry {
             (u2.distance - v2.distance).abs() <= 1e-9 * (u2.distance + v2.distance) &&
             (u2.dx * v2.dx + u2.dy * v2.dy).abs() <= 1e-9 * u2.distanceSquared;
         return round
-            ? ShapeGeometry(kind, [c2, c2 + u2], origin: origin)
-            : ShapeGeometry.ellipse(c2, u2, v2, origin: origin);
+            ? ShapeGeometry(kind, [c2, c2 + u2], origin: origin, replaces: replaces)
+            : ShapeGeometry.ellipse(c2, u2, v2, origin: origin, replaces: replaces);
       case ShapeKind.ellipse:
         final c2 = f(points[0]);
-        return ShapeGeometry.ellipse(c2, f(points[1]) - c2, f(points[2]) - c2, origin: origin);
+        return ShapeGeometry.ellipse(
+          c2,
+          f(points[1]) - c2,
+          f(points[2]) - c2,
+          origin: origin,
+          replaces: replaces,
+        );
       default:
         return ShapeGeometry(
           kind,
@@ -205,6 +266,7 @@ class ShapeGeometry {
           origin: origin,
           through: through == null ? null : [for (final p in through!) f(p)],
           corners: corners,
+          replaces: replaces,
         );
     }
   }
@@ -215,8 +277,16 @@ class ShapeGeometry {
   /// This shape (same kind, star parameters, attachments, origin) with
   /// other [points]; a curve's [through] points go (it is a plain spline
   /// now).
-  ShapeGeometry withPoints(List<Offset> points) =>
-      ShapeGeometry(kind, points, inner: inner, tips: tips, tail: tail, tip: tip, origin: origin);
+  ShapeGeometry withPoints(List<Offset> points) => ShapeGeometry(
+    kind,
+    points,
+    inner: inner,
+    tips: tips,
+    tail: tail,
+    tip: tip,
+    origin: origin,
+    replaces: replaces,
+  );
 
   /// This star with another [inner] radius or number of [tips].
   ShapeGeometry withStar({double? inner, int? tips}) => ShapeGeometry(
@@ -225,6 +295,7 @@ class ShapeGeometry {
     inner: inner ?? this.inner,
     tips: tips ?? this.tips,
     origin: origin,
+    replaces: replaces,
   );
 
   /// The perpendicular semi-axes of the ellipse `u·cos t + v·sin t`: the
@@ -247,7 +318,8 @@ class ShapeGeometry {
   /// (each `{id, t}` or null; absent when neither end is attached), `o`
   /// the [origin] (absent when null), `t` a curve's [through] points as
   /// `[x0, y0, …]` and `c` its [corners] (both absent for a plain spline,
-  /// `c` also when it has none).
+  /// `c` also when it has none), `r` the strokes it [replaces] (absent
+  /// when none).
   Map<String, Object?> toJson() => {
     'k': kind.name,
     'p': [
@@ -261,6 +333,7 @@ class ShapeGeometry {
         for (final p in t) ...[p.dx, p.dy],
       ],
     if (corners.isNotEmpty) 'c': corners,
+    if (replaces.isNotEmpty) 'r': replaces,
   };
 
   /// Parses [json] strictly (see [toJson]); throws [FormatException] when
@@ -272,7 +345,22 @@ class ShapeGeometry {
     if (origin != null && (origin is! String || origin.isEmpty)) {
       throw const FormatException('Malformed shape: o');
     }
-    return _fromJson(json).withOrigin(origin as String?);
+    return _fromJson(json).withLineage(origin as String?, _replacesOf(json['r']));
+  }
+
+  /// `r`: absent, or 1..[maxLineage] stroke ids (non-empty strings).
+  static List<String> _replacesOf(Object? r) {
+    if (r == null) return const [];
+    if (r is! List || r.isEmpty || r.length > maxLineage) {
+      throw const FormatException('Malformed shape: r');
+    }
+    return [
+      for (final id in r)
+        if (id is String && id.isNotEmpty)
+          id
+        else
+          throw const FormatException('Malformed shape: r'),
+    ];
   }
 
   static ShapeGeometry _fromJson(Map<Object?, Object?> json) {
@@ -372,6 +460,7 @@ class ShapeGeometry {
       other.tail == tail &&
       other.tip == tip &&
       other.origin == origin &&
+      listEquals(other.replaces, replaces) &&
       listEquals(other.points, points) &&
       listEquals(other.through, through) &&
       listEquals(other.corners, corners);
@@ -384,6 +473,7 @@ class ShapeGeometry {
     tail,
     tip,
     origin,
+    Object.hashAll(replaces),
     Object.hashAll(points),
     through == null ? null : Object.hashAll(through!),
     Object.hashAll(corners),

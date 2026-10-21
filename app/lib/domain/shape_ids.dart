@@ -20,8 +20,10 @@ abstract final class ShapeIds {
   static bool mayName(String style) => style.contains('"o":') || style.contains('"a":');
 
   /// The decoded stroke `style` [style] with the names in its shape (`sh`:
-  /// `o` and the attachments' `id`s) mapped by [idOf]; null when it names
-  /// none. Anything else is kept as it is (strict parsing is the reader's).
+  /// `o` and the attachments' `id`s) mapped by [idOf], and its lineage
+  /// (`r`, the strokes it replaced) dropped: a copy has no predecessors.
+  /// Null when it names none. Anything else is kept as it is (strict
+  /// parsing is the reader's).
   static Map<String, Object?>? remapStyle(Object? style, String Function(String old) idOf) {
     if (style is! Map<String, Object?>) return null;
     final sh = style['sh'];
@@ -35,7 +37,8 @@ abstract final class ShapeIds {
     return {
       ...style,
       'sh': {
-        ...sh,
+        for (final MapEntry(:key, :value) in sh.entries)
+          if (key != 'r') key: value,
         if (origin is String) 'o': idOf(origin),
         if (ends is List) 'a': [for (final e in ends) end(e)],
       },

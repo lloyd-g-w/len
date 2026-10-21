@@ -157,7 +157,7 @@ extension _ContentEdits on RandomEdits {
         // line attached to it moved along, in one change.
         final box = _pick(shapes);
         final by = Offset(r.nextDouble() * 80 - 40, r.nextDouble() * 80 - 40);
-        final moved = box.shape!.map((p) => p + by).withOrigin(box.shapeId);
+        final moved = box.shape!.map((p) => p + by).editing(box.id, box.shape!);
         final newBox = ShapeBuilder.reshaped(box, moved, id: s.clock.newId());
         final lines = [
           for (final line in _linesOn(surface))
@@ -167,7 +167,7 @@ extension _ContentEdits on RandomEdits {
           for (final line in lines)
             Connectors.rebuilt(
               line,
-              Connectors.follow(line.shape!, {box.shapeId: moved}).withOrigin(line.shapeId),
+              Connectors.follow(line.shape!, {box.shapeId: moved}),
               id: s.clock.newId(),
             ),
         ];
@@ -188,7 +188,7 @@ extension _ContentEdits on RandomEdits {
           points: line.points,
           createdAt: line.createdAt,
           style: line.style,
-          shape: line.shape!.withOrigin(line.shapeId),
+          shape: line.shape!.editing(line.id, line.shape!),
         );
         s.database.transaction(() {
           s.strokes.delete([line.id]);

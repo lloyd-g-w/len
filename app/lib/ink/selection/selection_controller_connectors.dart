@@ -84,14 +84,15 @@ extension _SelectionConnectors on _SelectionCore {
   }
 
   /// [now], the edit of shape [old] going to surface [to], with [old]'s
-  /// identity ([Stroke.shapeId]) when it stays on its surface; moved to
+  /// identity ([Stroke.shapeId]) and lineage, [old] nearest
+  /// ([ShapeGeometry.replaces]), when it stays on its surface; moved to
   /// another, it is a shape of its own there.
   Stroke _identified(Stroke old, Stroke now, SurfaceModel to) {
     final shape = now.shape;
     if (shape == null || old.shape == null || now.id == old.id) return now;
-    final origin = to == _sourceOf(old).model ? old.shapeId : null;
-    if (shape.origin == origin) return now;
-    final named = now.withPoints(now.points, shape: shape.withOrigin(origin));
+    final lineage = to == _sourceOf(old).model ? shape.editing(old.id, old.shape!) : shape.detached;
+    if (lineage == shape) return now;
+    final named = now.withPoints(now.points, shape: lineage);
     // The same points and style: the same outline, if built.
     if (StrokeRenderer.hasPath(now)) StrokeRenderer.adopt(named, StrokeRenderer.pathOf(now));
     return named;
@@ -136,6 +137,7 @@ extension _SelectionConnectors on _SelectionCore {
       tail: kept(0),
       tip: kept(1),
       origin: line.origin,
+      replaces: line.replaces,
     );
     return shape == line ? s : s.withPoints(s.points, shape: shape);
   }
@@ -146,13 +148,16 @@ extension _SelectionConnectors on _SelectionCore {
     for (final (model, line, shape) in _followersOf(replaced, moved: moved)) {
       // As the gesture showed it (built for its last move), under a new id.
       final shown = model == _model ? _followerStrokes[line.id] : null;
-      plan.replaceUnselected(
-        model,
-        line,
-        shown != null && shown.shape == shape
-            ? shown.withId(clock.newId())
-            : Connectors.rebuilt(line, shape, id: clock.newId()),
-      );
+      final id = clock.newId();
+      final reused =
+          shown != null && shown.shape == shape.withLineage(line.shapeId, line.shape!.replaces);
+      final now = reused
+          ? shown.withPoints(shown.points, id: id, shape: shape.editing(line.id, line.shape!))
+          : Connectors.rebuilt(line, shape, id: id);
+      if (reused && StrokeRenderer.hasPath(shown)) {
+        StrokeRenderer.adopt(now, StrokeRenderer.pathOf(shown));
+      }
+      plan.replaceUnselected(model, line, now);
     }
   }
 
@@ -259,9 +264,9 @@ extension _SelectionConnectors on _SelectionCore {
         if (s.shape case final shape?)
           s.withPoints(
             s.points,
-            shape: shape
-                .withOrigin(null)
-                .withAttachments((a) => ids[a.id] == null ? null : a.withId(ids[a.id]!)),
+            shape: shape.detached.withAttachments(
+              (a) => ids[a.id] == null ? null : a.withId(ids[a.id]!),
+            ),
           )
         else
           s,
