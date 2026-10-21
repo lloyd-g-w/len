@@ -510,7 +510,8 @@ again. Text being typed reads once its write lands. The nodes take no pointers.
   canvas background), `editorScreenShortcuts` and `canvasMenuAt`. It composes
   `EditorCanvas` (surface, "Add page" footer, content layer) with `EditorChrome`
   (`chrome/`): `EditorTopBar` (fixed clusters: navigation — back, ▦ pages, the title,
-  start-aligned, tap to rename, with the folder as a quiet subtitle — then the tools when
+  start-aligned, tap to rename, with the folder as a quiet subtitle, left out (for screen
+  readers only) where both lines don't fit the bar at large text — then the tools when
   they are docked inside the bar, then actions — the 🎙▾ audio split button, undo/redo and
   "⋯" `EditorMoreMenu`; phones keep back, the title, undo/redo and ⋯), the toolbar
   (inside the bar, attached under it, the phone's bottom row — which gives way while the soft
@@ -3693,7 +3694,9 @@ shares between versions (and between devices of one platform family).
   with); a trim's Free up counts those bytes apart
   (`BlobReferences.namedByVersions`, `releasableBytes` → `(freed, held)`)
   and its dialog and message say older versions keep them until thinned or
-  deleted.
+  deleted (one clause; with all of it kept, no "released after a week"). On a
+  phone at large text its message is one line ("Trimmed audio deleted", Undo;
+  `showMessage(short:)`).
 - **Device names** (`sync/device_name.dart`, `platform/device_label*.dart`):
   `SyncController.deviceName` is what this device is called — the user's
   name (Settings → Sync → *Device name*, `DeviceNameTile`; local setting
@@ -3701,11 +3704,14 @@ shares between versions (and between devices of one platform family).
   channel, `DeviceNameChannel.kt`; asked at start, kept as
   `system_device_name`), else the platform with the host name
   (`Linux (studio)`) or the browser (`browserDeviceName`: `Firefox on
-  Linux`). Versions are made with it; the live `hello` carries it, sent again
+  Linux`), cut to 64 UTF-16 units never inside a surrogate pair
+  (`DeviceName.cut`). Versions are made with it; the live `hello` carries it, sent again
   on a rename (`LiveLink.introduce`), so presence plates and name tags
   follow. History rows and the preview call another device what its newest
   version says (`VersionRepository.deviceNames`, `VersionDevices`), falling
-  back to the version's own name (old records: platform names).
+  back to the version's own name (old records: platform names); a row cuts
+  a name past 28 characters ("…", so what changed still shows), screen
+  readers hear it whole.
 - **UI** (`features/history/`): "Version history…" in the editor's ⋯ menu
   and the library's notebook menu opens `showVersionHistory`
   (`showDialogOrSheet` + `SheetHeader`): the versions newest first, grouped
@@ -4139,14 +4145,21 @@ boxes, the text of imported PDF pages and recognised handwriting (see
   results are in reading order.
 - **Library.** While searching the library section, `LibrarySearchResults`
   (a sliver below the title matches) lists content matches grouped by
-  notebook, with page chips and highlighted snippets. Tapping one files a
+  notebook (its folder path under the title, as the Notebooks rows), with
+  page labels and highlighted snippets in rows of `Targets.menuRowHeight`
+  (at large text on a phone the page goes above the snippet). It lists 300
+  hits at most and says "300+ matches" past them. Tapping one files a
   `SearchJump` with `SearchService` and opens the notebook the usual way;
   the editor's search takes the jump, fills in the query and reveals and
   highlights the match.
 - **Editor (Ctrl+F or the search button).** `EditorSearchController` holds
   the query, matches (one per occurrence in a text box — highlighted where the
   box's layout puts the words, `textMatchRects` — or in PDF text) and
-  the current one; Enter/F3 and Shift+Enter/Shift+F3 move, Esc closes.
+  the current one; Enter/F3 and Shift+Enter/Shift+F3 move, Esc closes. It
+  reads up to 1000 index hits and lists 1000 matches at most ("1000+
+  matches", "1 of 1000+" past them); the match list keeps the current match
+  in view as it moves. Marks on a page follow its paper, not the theme
+  (`Palette.searchMatch` of the paper's brightness).
   It reaches the editor only through `EditorSearchHost` (document: page
   frames + `goToPage` + pan; canvas: viewport pan, zooming out if needed),
   so the editor hook is a controller, a shortcut, a button (the top bar's
