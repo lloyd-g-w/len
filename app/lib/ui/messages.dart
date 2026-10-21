@@ -70,23 +70,44 @@ class _MessagePaneState extends State<MessagePane> {
   Widget build(BuildContext context) => widget.child;
 }
 
+/// Whether messages on [context] use their short copy: a phone (below
+/// [Breakpoints.medium]) at large text, where a sentence and its action
+/// would stack over much of the page.
+bool shortMessages(BuildContext context) =>
+    MediaQuery.sizeOf(context).width < Breakpoints.medium &&
+    MediaQuery.textScalerOf(context).scale(1) > 1.15;
+
 /// The app's snack bar: floating, at most [messageMaxWidth] wide, clear of
 /// [MessageInsets] and centred on the [MessagePane] if any. Copy is a short sentence; a single fragment ("Page 3
 /// deleted") has no full stop.
+///
+/// With [short] copy, a phone at large text ([shortMessages]) shows that
+/// instead, on one line beside the action (shrunk a little rather than
+/// wrapped where even it is too wide); screen readers still hear [message].
 SnackBar appSnackBar(
   BuildContext context,
   String message, {
+  String? short,
   SnackBarAction? action,
   Duration? duration,
 }) {
   final width = MediaQuery.sizeOf(context).width;
+  final oneLine = short != null && shortMessages(context);
   final pane = MessagePane.rectOf(context);
   final left = pane == null ? 0.0 : pane.left.clamp(0.0, width);
   final right = pane == null ? width : pane.right.clamp(left, width);
   final side = ((right - left - messageMaxWidth) / 2).clamp(Gaps.lg, double.infinity);
   return SnackBar(
-    content: Text(message),
+    content: oneLine
+        ? FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(short, maxLines: 1, softWrap: false, semanticsLabel: message),
+          )
+        : Text(message),
     action: action,
+    // The action stays on the line rather than dropping below it.
+    actionOverflowThreshold: oneLine ? 1 : null,
     behavior: SnackBarBehavior.floating,
     duration: duration ?? const Duration(milliseconds: 4000),
     // Flutter keeps snack bars with an action until dismissed; ours are
@@ -101,16 +122,21 @@ SnackBar appSnackBar(
   );
 }
 
-/// Shows a short message at the bottom of the screen (replacing any shown).
+/// Shows a short message at the bottom of the screen (replacing any shown);
+/// [short] copy for phones at large text as in [appSnackBar].
 void showMessage(
   BuildContext context,
   String message, {
+  String? short,
   SnackBarAction? action,
   Duration? duration,
 }) {
   final messenger = ScaffoldMessenger.maybeOf(context)?..removeCurrentSnackBar();
   if (messenger == null) return;
-  MessageQueue.show(messenger, appSnackBar(context, message, action: action, duration: duration));
+  MessageQueue.show(
+    messenger,
+    appSnackBar(context, message, short: short, action: action, duration: duration),
+  );
 }
 
 /// Whether a snack bar is up anywhere in the app ([value]), and when one
