@@ -279,7 +279,9 @@ connection; a push unanswered for 15 s too). After `hello`:
   what the client knows), `resync`, a new `serverId`, or `hello`'s `seq` beyond what the client
   knows makes a cycle (a pull) instead. Messages are applied between cycles, never during one.
 - **Rooms.** Len joins the room of every open notebook (once, however many views show it), and
-  sends `hello` with its device id and platform name; presence shows the others.
+  sends `hello` with its device id and the device's name (the user's, Settings → Sync → Device
+  name; suggested from the system: Android's device name, the host name, the browser), again
+  when the user renames it; presence shows the others.
 
 ### Errors
 `401` missing/bad token, `400` malformed request (body `{"error": "…"}`, plus `index` for an
@@ -593,8 +595,10 @@ recordings and outline) and *packs* (the strokes and elements of a surface).
 
 - `createdAt` (int, ms) when it was made; `kind` ∈ `auto` (made after editing), `named` (saved by
   hand), `restore` (the state before a restore); `name` the user's name for it (`null`: none);
-  `deviceId` (non-empty) and `deviceName` (a platform name such as `Android`, may be `""`) the
-  device that made it — not the record's `deviceId`, which names the last writer (a rename).
+  `deviceId` (non-empty) and `deviceName` (what the device was called then, e.g. `Studio laptop`
+  or, from before devices had names, a platform name such as `Android`; may be `""`) the device
+  that made it — clients show a device by the name on its newest version, so a rename reaches its
+  older versions once it made another — not the record's `deviceId`, which names the last writer (a rename).
 - `notebook` = `{title, kind, paper, paperData, paperColor, coverColor}` as on `notebooks`.
 - `table` = `[<sha256>, …]`: its table blobs in order; their rows, concatenated, are its body.
 - `summary` = `{pages, strokes, pagesAdded, pagesRemoved, pagesEdited, strokesAdded,

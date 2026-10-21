@@ -1574,7 +1574,9 @@ replayed in step with the ink.
   until the user frees it: a recording whose trim leaves parts wholly
   outside offers "Free up 12 MB…" in its menu (the bytes of those parts on
   this device not shared with another recording, e.g. a duplicated
-  notebook's — `NotebookAudio.releasableSize`). Confirmed, the row is
+  notebook's, nor named by a version of the notebook: those stay while one
+  does, and the dialog and message say how much — `NotebookAudio.releasableSize`,
+  see "Version history"). Confirmed, the row is
   rewritten without them (`withoutPartsOutsideTrim`): the kept parts, their
   duration, the trim and the timeline (`RecordingTimeline.slice`, wall times
   kept, so ink maps to the same moments) moved to begin at the first kept
@@ -3676,7 +3678,24 @@ shares between versions (and between devices of one platform family).
   Steps on other surfaces (another notebook in split view) stay.
 - **Audio** is kept by blob reference: a version names a recording's parts
   and waveform, so audio freed after a trim ("Free space") stays on the
-  server and devices until no version names it (thinned or deleted).
+  server and devices until no version names it (thinned or deleted). That
+  is deliberate (restoring a version brings back the recording it was made
+  with); a trim's Free up counts those bytes apart
+  (`BlobReferences.namedByVersions`, `releasableBytes` → `(freed, held)`)
+  and its dialog and message say older versions keep them until thinned or
+  deleted.
+- **Device names** (`sync/device_name.dart`, `platform/device_label*.dart`):
+  `SyncController.deviceName` is what this device is called — the user's
+  name (Settings → Sync → *Device name*, `DeviceNameTile`; local setting
+  `device_name`), else the suggestion: Android's device name (`len/device`
+  channel, `DeviceNameChannel.kt`; asked at start, kept as
+  `system_device_name`), else the platform with the host name
+  (`Linux (studio)`) or the browser (`browserDeviceName`: `Firefox on
+  Linux`). Versions are made with it; the live `hello` carries it, sent again
+  on a rename (`LiveLink.introduce`), so presence plates and name tags
+  follow. History rows and the preview call another device what its newest
+  version says (`VersionRepository.deviceNames`, `VersionDevices`), falling
+  back to the version's own name (old records: platform names).
 - **UI** (`features/history/`): "Version history…" in the editor's ⋯ menu
   and the library's notebook menu opens `showVersionHistory`
   (`showDialogOrSheet` + `SheetHeader`): the versions newest first, grouped
@@ -4462,7 +4481,8 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   bodies, and unlike `EventSource` it sends the `Authorization` header.
 - **Rooms and presence** (`LiveRooms`, `SyncController.rooms`): `SharedNotebook` joins the
   room of its notebook (counted: two views, one join; left on dispose; joined again by
-  `LiveLink` after a reconnect). Presence lists the other devices there; `RoomPresence`
+  `LiveLink` after a reconnect). Presence lists the other devices there (by the names they
+  gave, see "Device names"); `RoomPresence`
   (`features/editor/live_ink/`) shows a plate with each one's initial before the sync alert in
   the editor's bar. A dropped connection empties every room's presence (`disconnected`).
   The editor's chrome (View → Name tags) and `PointerRelay` follow
