@@ -132,13 +132,14 @@ class RasterBatch {
       picture.dispose();
     }
     await Future<void>.delayed(Duration.zero);
+    final half = atlasSize / 2;
     recorder = ui.PictureRecorder();
     ui.Canvas(recorder)
       ..drawImage(image, ui.Offset.zero, ui.Paint()..filterQuality = ui.FilterQuality.none)
       ..drawImageRect(
         image,
-        const ui.Rect.fromLTWH(0, 0, 256, 256),
-        const ui.Rect.fromLTWH(256, 256, 128, 128),
+        ui.Rect.fromLTWH(0, 0, half, half),
+        ui.Rect.fromLTWH(half, half, half / 2, half / 2),
         ui.Paint()..filterQuality = ui.FilterQuality.medium,
       );
     picture = recorder.endRecording();
