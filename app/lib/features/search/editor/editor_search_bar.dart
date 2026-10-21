@@ -183,12 +183,14 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
     final scheme = theme.colorScheme;
     final count = _c.matches.length;
     final hasMatches = count > 0;
+    // The first of more: "1 of 1000+".
+    final total = _c.truncated ? '$count+' : '$count';
     // Nothing while the list below says "No matches"; one format everywhere.
     final counter = _c.query.trim().isEmpty || (count == 0 && showList)
         ? ''
         : _c.current >= 0
-        ? '${_c.current + 1} of $count'
-        : (count == 1 ? '1 match' : '$count matches');
+        ? '${_c.current + 1} of $total'
+        : (count == 1 ? '1 match' : '$total matches');
     final counterStyle = theme.textTheme.bodySmall?.copyWith(fontFeatures: AppTheme.tabularFigures);
     // Compact buttons save room on narrow windows, but not under fingers
     // (they would drop below 48 dp).

@@ -100,6 +100,7 @@ class EditorSearchController extends ChangeNotifier {
   String _query = '';
   SearchQuery _parsed = SearchQuery('');
   List<EditorSearchMatch> _matches = const [];
+  bool _truncated = false;
   int _current = -1;
   int _focusRequests = 0;
   Timer? _timer;
@@ -111,6 +112,10 @@ class EditorSearchController extends ChangeNotifier {
   String get query => _query;
   SearchQuery get parsedQuery => _parsed;
   List<EditorSearchMatch> get matches => _matches;
+
+  /// Whether there were more than [maxMatches] matches ([matches] lists
+  /// the first).
+  bool get truncated => _truncated;
 
   /// Index of the current match in [matches], or -1 before navigating.
   int get current => _current;

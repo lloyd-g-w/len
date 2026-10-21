@@ -44,14 +44,14 @@ class SearchService extends ChangeNotifier {
 
   SearchJump? _pendingJump;
 
-  /// Content and title hits for [query] (see [SearchIndex.search]). Also
-  /// starts extracting text from PDFs not indexed yet; results grow as it
-  /// progresses (listen to this service).
-  List<SearchHit> search(String query, {String? notebookId}) {
+  /// Content and title hits for [query], at most [limit] (see
+  /// [SearchIndex.search]). Also starts extracting text from PDFs not
+  /// indexed yet; results grow as it progresses (listen to this service).
+  List<SearchHit> search(String query, {String? notebookId, int limit = SearchIndex.defaultLimit}) {
     final parsed = SearchQuery(query);
     if (parsed.isEmpty) return const [];
     indexPdfs();
-    return index.search(parsed, notebookId: notebookId);
+    return index.search(parsed, notebookId: notebookId, limit: limit);
   }
 
   /// Extracts text from any PDF pages not indexed yet, in the background.

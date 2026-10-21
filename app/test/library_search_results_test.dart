@@ -39,7 +39,8 @@ AppServices lectures() {
 
 Future<void> search(WidgetTester tester, String query) async {
   await tester.enterText(find.widgetWithText(TextField, 'Search'), query);
-  await tester.pump(const Duration(milliseconds: 200)); // Debounce.
+  await tester.pump(); // The library rebuilds the results…
+  await tester.pump(const Duration(milliseconds: 200)); // …which wait for typing to pause.
   await tester.pumpAndSettle();
 }
 
@@ -95,5 +96,24 @@ void main() {
       beside.right,
       lessThan(tester.getRect(find.textContaining('by parts', findRichText: true)).left),
     );
+  });
+
+  testWidgets('more page matches than are listed say so', (tester) async {
+    final services = AppServices.create(AppDatabase.inMemory());
+    for (var i = 0; i < 320; i++) {
+      final n = services.notebooks.create(
+        title: 'Notes $i',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.blank,
+        coverColor: 0,
+      );
+      final page = services.pages.pagesOf(n.id).single.id;
+      services.elements.save([textBox('g$i', page, 'Gluon $i', Offset.zero)]);
+    }
+    await pumpLibrary(tester, services: services, size: const Size(1024, 600));
+    await search(tester, 'gluon');
+    expect(find.text('300+ matches'), findsOneWidget, reason: 'the best 300 of 320');
+    await search(tester, 'gluon 123');
+    expect(find.text('1 match'), findsOneWidget);
   });
 }

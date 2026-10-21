@@ -107,6 +107,7 @@ int currentPage(WidgetTester tester) =>
 void main() {
   searchBarClearsTheFirstMatch();
   matchListFollowsTheCurrentMatch();
+  tooManyMatchesSaySo();
   testWidgets('library: full-text results grouped by notebook open the page and highlight', (
     tester,
   ) async {
@@ -410,6 +411,31 @@ void matchListFollowsTheCurrentMatch() {
     await tester.tap(find.byTooltip('Show results'));
     await tester.pumpAndSettle();
     expectCurrentRowShown();
+  });
+}
+
+void tooManyMatchesSaySo() {
+  testWidgets('editor: more matches than are listed say so', (tester) async {
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    final nb = manyMatches(services, 2);
+    final page = services.pages.pagesOf(nb.id).first;
+    final many = List.filled(EditorSearchController.maxMatches + 5, 'quark').join(' ');
+    services.elements.save([textBox('many', page.id, many, const Offset(90, 300))]);
+    await pumpEditorFor(tester, services, nb);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    await typeSearch(tester, 'quark');
+    final search = tester.widget<EditorSearchBar>(find.byType(EditorSearchBar)).controller;
+    expect(search.matches, hasLength(EditorSearchController.maxMatches));
+    expect(find.text('1000+ matches'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f3);
+    await tester.pumpAndSettle();
+    expect(find.text('1 of 1000+'), findsOneWidget);
+    await typeSearch(tester, 'item');
+    expect(find.text('2 matches'), findsOneWidget);
   });
 }
 
