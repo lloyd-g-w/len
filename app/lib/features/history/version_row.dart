@@ -161,29 +161,57 @@ class VersionRow extends StatelessWidget {
         textDirection: Directionality.of(context),
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
+    // The bookmark and its gap take this much of the title line.
+    const mark = Glyphs.menu + Gaps.xs;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // As in [VersionRowText]: the time begins the details line when a
+        // word of the name has no room beside it (UX_AUDIT R27-7).
+        final below = VersionRowText.timeBelow(
+          title: labels.title,
+          titleStyle: VersionRowText.styleOf(context, text.labelLarge),
+          time: labels.time,
+          timeStyle: VersionRowText.styleOf(context, _timeStyle(text)),
+          scaler: MediaQuery.textScalerOf(context),
+          width: constraints.maxWidth - mark,
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Symbols.bookmark_rounded, size: Glyphs.menu, fill: 1),
-            const SizedBox(width: Gaps.xs),
-            Flexible(
-              child: Text(
-                labels.title,
-                style: text.labelLarge,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                const Icon(Symbols.bookmark_rounded, size: Glyphs.menu, fill: 1),
+                const SizedBox(width: Gaps.xs),
+                Flexible(
+                  child: Text(
+                    labels.title,
+                    style: text.labelLarge,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (!below) ...[
+                  const SizedBox(width: Gaps.sm),
+                  Text(labels.time, style: _timeStyle(text)),
+                ],
+              ],
             ),
-            const SizedBox(width: Gaps.sm),
-            Text(labels.time, style: _timeStyle(text)),
+            Text.rich(
+              TextSpan(
+                children: [
+                  if (below) TextSpan(text: labels.time, style: _timeStyle(text)),
+                  TextSpan(text: below ? ' · ${labels.details}' : labels.details),
+                ],
+              ),
+              style: text.bodySmall,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
-        ),
-        Text(labels.details, style: text.bodySmall, maxLines: 3, overflow: TextOverflow.ellipsis),
-      ],
+        );
+      },
     );
   }
 

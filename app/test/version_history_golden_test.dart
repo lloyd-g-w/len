@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/app_services.dart';
 import 'package:len/core/clock.dart';
@@ -9,6 +10,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/text/text_data.dart';
 import 'package:len/features/history/version_history_sheet.dart';
+import 'package:len/features/history/version_labels.dart';
 import 'package:len/features/history/version_surface_view.dart';
 import 'package:len/ui/app_theme.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -133,6 +135,7 @@ void main() {
     required Size size,
     required bool dark,
     double textScale = 1,
+    int? thumbnails = 3,
   }) async {
     await loadFonts();
     tester.view
@@ -159,7 +162,7 @@ void main() {
     );
     await tester.tap(find.text('History'));
     await tester.pumpAndSettle();
-    await pumpUntil(tester, () => loaded(count: 3), stable: 2, reason: 'the thumbnails');
+    await pumpUntil(tester, () => loaded(count: thumbnails), stable: 2, reason: 'the thumbnails');
     await tester.pumpAndSettle();
   }
 
@@ -199,4 +202,27 @@ void main() {
       );
     });
   }
+
+  // UX_AUDIT R27-7: on a 320-dp phone at 2× text a name's first word has
+  // no room beside the time: the time goes on the details line and the
+  // name wraps between words.
+  testWidgets('version history on a 320-dp phone at 2× text', (tester) async {
+    await threeVersions(tester, name: 'Before exam');
+    await open(tester, size: const Size(320, 640), dark: false, textScale: 2, thumbnails: null);
+    final title = tester.renderObject<RenderParagraph>(find.text('Before exam'));
+    final lines = title.getBoxesForSelection(
+      const TextSelection(baseOffset: 0, extentOffset: 'Before exam'.length),
+    );
+    final tops = {for (final b in lines) b.top.round()};
+    expect(tops, hasLength(2), reason: 'one word a line');
+    final first = title.getBoxesForSelection(const TextSelection(baseOffset: 0, extentOffset: 6));
+    expect({for (final b in first) b.top.round()}, hasLength(1), reason: '"Before" whole');
+    final time = VersionLabels.time(named);
+    expect(find.text(time), findsNothing, reason: 'not beside the name');
+    expect(find.textContaining(time, findRichText: true), findsOneWidget);
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/version_history_phone_320_2.0.png'),
+    );
+  });
 }
