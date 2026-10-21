@@ -42,7 +42,16 @@ void main() {
 
     final best = <String, double>{};
     void keep(String key, double ms) => best[key] = math.min(best[key] ?? double.infinity, ms);
-    for (var round = 0; round < 4; round++) {
+    bool within(String what, double factor, double slack) =>
+        best['big $what']! < best['small $what']! * factor + slack;
+    // Best of interleaved rounds; on a busy machine (the slow tier runs
+    // files side by side) more rounds until the bests settle, up to 10.
+    bool settled() =>
+        within('open', 1.5, 15) &&
+        within('services', 1.5, 10) &&
+        within('restore frame', 1.3, 15) &&
+        within('library frame', 1.3, 15);
+    for (var round = 0; round < 10 && (round < 4 || !settled()); round++) {
       for (final (name, library) in [('big', big), ('small', small)]) {
         for (final restore in [true, false]) {
           final t = await _launch(tester, library, restore: restore);
