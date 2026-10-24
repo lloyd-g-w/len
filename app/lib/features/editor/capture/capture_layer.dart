@@ -9,6 +9,7 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/floating_panel.dart';
 import 'area_capture.dart';
 import 'area_capturer.dart';
+import 'capture_painting.dart';
 import 'capture_result_bar.dart';
 
 /// The area capture's layer over the whole app: it takes every pointer
@@ -192,7 +193,7 @@ class _CaptureLayerState extends State<CaptureLayer> {
                   onPointerCancel: _cancel,
                   child: CustomPaint(
                     key: const ValueKey('capture-area'),
-                    painter: _AreaPainter(
+                    painter: CaptureAreaPainter(
                       area: area,
                       scrim: Surfaces.scrim(scheme.brightness),
                       edge: scheme.primary,
@@ -213,7 +214,7 @@ class _CaptureLayerState extends State<CaptureLayer> {
               )
             else if (area != null)
               CustomSingleChildLayout(
-                delegate: _BarLayout(area, free),
+                delegate: CaptureBarLayout(area, free),
                 child: CaptureResultBar(
                   result: _result,
                   onSave: _result?.shot == null ? null : () => widget.onSave(_result!.shot!),
@@ -226,69 +227,6 @@ class _CaptureLayerState extends State<CaptureLayer> {
       ),
     );
   }
-}
-
-/// Dims all but the [area] marked, edged in the accent.
-class _AreaPainter extends CustomPainter {
-  _AreaPainter({required this.area, required this.scrim, required this.edge});
-
-  final Rect? area;
-  final Color scrim;
-  final Color edge;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final all = Offset.zero & size;
-    final area = this.area;
-    final path = Path()..addRect(all);
-    if (area != null) {
-      path
-        ..addRect(area)
-        ..fillType = PathFillType.evenOdd;
-    }
-    canvas.drawPath(path, Paint()..color = scrim);
-    if (area == null) return;
-    canvas.drawRect(
-      area,
-      Paint()
-        ..color = edge
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = Hairline.rule,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_AreaPainter old) =>
-      old.area != area || old.scrim != scrim || old.edge != edge;
-}
-
-/// Places the result bar centred below the area, else above it, else
-/// inside its bottom; always within [free].
-class _BarLayout extends SingleChildLayoutDelegate {
-  _BarLayout(this.area, this.free);
-
-  final Rect area;
-  final Rect free;
-
-  @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) => constraints.loosen();
-
-  @override
-  Offset getPositionForChild(Size size, Size child) {
-    final room = free.deflate(Gaps.sm);
-    final maxX = room.right - child.width;
-    final x = (area.center.dx - child.width / 2).clamp(
-      room.left,
-      maxX < room.left ? room.left : maxX,
-    );
-    var y = area.bottom + Gaps.sm;
-    if (y + child.height > room.bottom) y = area.top - Gaps.sm - child.height;
-    if (y < room.top) y = (area.bottom - Gaps.sm - child.height).clamp(room.top, room.bottom);
-    return Offset(x, y);
-  }
-
-  @override
-  bool shouldRelayout(_BarLayout old) => old.area != area || old.free != free;
 }
 
 class _Hint extends StatelessWidget {
