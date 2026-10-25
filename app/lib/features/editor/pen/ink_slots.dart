@@ -38,7 +38,7 @@ class ColorSlots extends StatelessWidget {
 }
 
 /// An ink's quick sizes (stroke widths, [SizeSlotRow]), shown as neutral
-/// dots at (scaled) real size. Tap the selected one again (or long-press /
+/// lines of (scaled) real thickness. Tap the selected one again (or long-press /
 /// right-click any) to change that size ([editWidthSlot]).
 class WidthSlots extends StatelessWidget {
   const WidthSlots({super.key, required this.tools, required this.ink});
@@ -58,6 +58,7 @@ class WidthSlots extends StatelessWidget {
       diameters: [for (final w in config.widths) dotSize(ink, w)],
       selected: active ? config.widthIndex : null,
       describe: (i) => formatWidth(config.widths[i]),
+      lines: true,
       onSelect: _select,
       onEdit: (anchor, i) => editWidthSlot(anchor, tools: tools, ink: ink, index: i),
     );

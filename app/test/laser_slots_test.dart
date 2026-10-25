@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/pen/option_controls.dart' show percent;
 import 'package:len/features/editor/toolbar/tool_options_popover.dart';
+import 'package:len/features/editor/toolbar/tool_sub_bar.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
 import 'package:len/features/editor/tools/laser_options_panel.dart';
 import 'package:len/features/editor/tools/laser_preview.dart';
@@ -28,9 +29,15 @@ void main() {
         home: Scaffold(
           body: Align(
             alignment: Alignment.topCenter,
-            child: EditorToolbar(
-              tools: tools,
-              dock: size.width < 600 ? ToolbarDock.bottom : ToolbarDock.row,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                EditorToolbar(
+                  tools: tools,
+                  dock: size.width < 600 ? ToolbarDock.bottom : ToolbarDock.row,
+                ),
+                ToolSubBar(tools: tools),
+              ],
             ),
           ),
         ),
@@ -53,7 +60,6 @@ void main() {
     expect(tools.laser.color, LaserConfig.defaultColors[1]);
     expect(tools.laser.size, LaserConfig.defaultSizes[0]);
     expect(find.byType(ToolOptionsPopover), findsNothing);
-    expect(tester.getSize(find.byType(LaserStrip)).width, LaserStrip.widthFor(tools.laser, 44));
   });
 
   testWidgets('tapping the selected colour edits that slot; a new colour becomes recent', (

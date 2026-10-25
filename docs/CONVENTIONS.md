@@ -37,7 +37,7 @@ hairlines, one accent, depth only for paper).
   inside controls). **Radii:** `xs` 2 (chips, badges, plates, tooltips, the
   selected-tool plate), `sm` 4 (buttons, fields, segmented controls, covers,
   thumbnails), `md` 6 (menus, popovers, floating panels, snack bars), `lg` 8
-  (dialogs, sheets), `pill` (colour dots, the page indicator only).
+  (dialogs, sheets), `pill` (colour dots, the page indicator, the floating palette and its sub-bar only).
   **Hairlines:** `Hairline.width` 1 (dividers, chrome edges, surface borders),
   `Hairline.rule` 2 (the margin rule, a focused field's rule).
 - **Type:** Sofia Sans (`AppTheme.fontFamily`) only, six roles from

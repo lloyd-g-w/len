@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/domain/stroke.dart';
 import 'package:len/features/documents/export/export_sheet.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/chrome/editor_top_bar.dart';
@@ -9,6 +10,7 @@ import 'package:len/features/editor/editor_canvas.dart';
 import 'package:len/features/editor/editor_layers.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/pen/slot_button.dart';
+import 'package:len/features/editor/toolbar/tool_cluster.dart';
 import 'package:len/features/editor/toolbar/tool_options_popover.dart';
 import 'package:len/features/editor/tools/laser_strip.dart';
 import 'package:len/ink/tool_settings.dart';
@@ -157,12 +159,14 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('a narrow tool row (a split pane on touch) shrinks its cells; everything shows', (
+  testWidgets('a narrow tool row (a split pane on touch) shrinks its cells; every tool shows', (
     tester,
   ) async {
+    Targets.debugTouchFirst = true;
+    addTearDown(() => Targets.debugTouchFirst = null);
     final tools = ToolSettings();
     addTearDown(tools.dispose);
-    for (final width in [634.0, 700.0, 900.0]) {
+    for (final (width, cell) in [(300.0, 40.0), (634.0, 48.0), (900.0, 48.0)]) {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -176,51 +180,40 @@ void main() {
         ),
       );
       final row = tester.getRect(find.byType(EditorToolbar));
-      for (final key in ['color-0', 'width-2']) {
-        final slot = tester.getRect(find.byKey(ValueKey(key)));
-        expect(row.contains(slot.topLeft) && row.contains(slot.bottomRight), isTrue, reason: key);
-      }
-      expect(tester.getRect(find.byTooltip('Pen (P)')).left, greaterThanOrEqualTo(row.left));
+      final pen = tester.getRect(find.byTooltip('Pen (P)'));
+      final laser = tester.getRect(find.byTooltip('Laser pointer (K)'));
+      expect(pen.left, greaterThanOrEqualTo(row.left), reason: '$width');
+      expect(laser.right, lessThanOrEqualTo(row.right), reason: '$width');
+      expect(laser.center.dx - pen.center.dx, 6 * cell, reason: '$width');
+      // The tools alone, centred: no quick controls in the main bar.
+      expect(find.byKey(const ValueKey('color-0')), findsNothing);
+      final cluster = tester.getRect(find.byType(ToolCluster));
+      expect(cluster.center.dx, closeTo(row.center.dx, 0.5), reason: '$width');
     }
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('phones: the bottom row fits 3 + 3 slots down to 320 dp, touch-sized when it can '
-      '(beside the previous tool when the slots keep 40 dp)', (tester) async {
-    final tools = ToolSettings();
-    addTearDown(tools.dispose);
-    for (final (width, cell, previous) in [
-      (430.0, 44.0, true),
-      (390.0, 41.0, true),
-      (320.0, 36.0, false),
-    ]) {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.bottomCenter,
-              child: SizedBox(
-                width: width,
-                child: EditorToolbar(tools: tools, dock: ToolbarDock.bottom),
-              ),
-            ),
-          ),
-        ),
-      );
-      for (final tool in [EditorTool.pen, EditorTool.shape]) {
-        tools.tool = tool;
-        await tester.pumpAndSettle();
-        final slot = tester.getRect(find.byKey(const ValueKey('width-2')));
-        final row = tester.getRect(find.byType(EditorToolbar));
-        expect(slot.right, lessThanOrEqualTo(row.right), reason: '$width ${tool.name}');
-        expect(slot.width, cell, reason: '$width ${tool.name}');
-        expect(
-          find.byKey(const ValueKey('previous-tool')),
-          previous ? findsOneWidget : findsNothing,
-          reason: '$width',
-        );
-      }
-    }
+  testWidgets('phones: the switcher and the previous tool at the bottom, the sub-bar above them '
+      'scrolling when its slots do not fit', (tester) async {
+    await pumpEditor(tester, size: const Size(320, 640));
+    final tools = toolsOf(tester);
+    final screen = tester.getRect(find.byType(EditorChrome));
+    final switcher = tester.getRect(find.byKey(const ValueKey('tool-switcher')));
+    expect(find.byKey(const ValueKey('previous-tool')), findsOneWidget);
+    final pill = tester.getRect(find.byKey(const ValueKey('tool-sub-bar')));
+    expect(pill.bottom, lessThan(switcher.top));
+    expect(pill.center.dx, closeTo(screen.center.dx, 0.5));
+    tools.updateConfig(
+      InkTool.ballpoint,
+      (c) => c.addColor(0xFF00AA00).addColor(0xFF7048E8).addWidth(6).addWidth(8),
+    );
+    await tester.pumpAndSettle();
+    final wide = tester.getRect(find.byKey(const ValueKey('tool-sub-bar')));
+    expect(wide.left, greaterThanOrEqualTo(screen.left));
+    expect(wide.right, lessThanOrEqualTo(screen.right));
+    expect(find.byKey(const ValueKey('scroll-fade')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await closeEditor(tester);
   });
 
   testWidgets('the laser has colour and size slots; picking one sets its colour', (tester) async {

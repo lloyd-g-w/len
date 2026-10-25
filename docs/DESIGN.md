@@ -114,7 +114,7 @@ slightly worn):
 | `sm` | 4 | buttons, fields, segmented controls, covers, thumbnails, focus ring |
 | `md` | 6 | menus, popovers, the floating palette, snack bars |
 | `lg` | 8 | dialogs, the top of sheets |
-| `pill` | 999 | colour dots and the page indicator only |
+| `pill` | 999 | colour dots, the page indicator, the floating palette and the tool sub-bar |
 
 **Hairlines.** 1 dp, Rule colour; Pencil where a control's edge must read.
 The docked bar has one hairline on the edge facing the page; the library
@@ -284,22 +284,35 @@ shadow.
 ### 6.2 Editor chrome
 
 ```
-Docked, one bar (≥ 1040): Board, 52 dp, hairline under it
+Docked, one bar (when it fits, ≥ ~780): Board, 52 dp, hairline under it; tools only
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ ←  ▦  Biology lecture  │ ✎ ▭ ◇ ⌒ △ T ✦ ⊕ │ ● ● ●  · • ● │  🎙  ↶  ↷  ⋯         │
-│       Science          │ ▔▔ (ink plate)   │               │                    │
+│ ←  ▦  Biology lecture      │ ✎ ▭ ◇ ⌒ △ T ✦ ⊕ │              🎙  ↶  ↷  ⋯     │
+│       Science              │ ▔▔ (ink plate)   │                              │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ Desk                ┌──────────────────────────────┐                         │
+│ Desk               ╭──────────────────────────────╮  sub-bar: Sheet pill,     │
+│                    │ ━  ━━  ▬▬ │ ● ● ● │ ⚙       │  hairline, contact shadow,│
+│                    ╰─────▔▔───────────────────────╯  8 dp under the bar,     │
+│                         (accent rule under          centred on the tools    │
+│                          the chosen width)                                   │
+│                     ┌──────────────────────────────┐                         │
 │                     │ page (brightest), contact     │                        │
 Two rows (600–1039): the tool row (48) joins the bar, one hairline under both.
 With tabs, ← ▦ and 🎙 ↶ ↷ ⋯ sit at the ends of the tab strip (never three rows).
 Short windows (< 480 high, a phone held sideways): one row, ← ▦ title, the
-phone's switcher and quick controls, ↶ ⋯; tabs and audio in ⋯.
-Phone: tool row at the bottom, hairline on its top edge.
+phone's switcher and previous tool, ↶ ⋯; tabs and audio in ⋯; the sub-bar
+under the bar, centred on the switcher (kept on screen).
+Phone: tool row at the bottom (switcher and previous tool, centred),
+hairline on its top edge; the sub-bar 8 dp over it, centred, scrolling with
+fading ends when its slots don't fit.
 
-Floating palette: Sheet, radius md, hairline, contact shadow, grip of 2 ticks
+Floating palette: Sheet pill, hairline, contact shadow, grip of 2 ticks;
+its sub-bar the same pill, smaller, 8 dp under it (over it in the lower
+half of the editor, beside it toward the page when it runs down a side)
+        ╭────────────────────────────────╮
+        │ ━  ━━  ▬▬ │ ◉ ● ● │ ⚙          │
+        ╰───────▔▔───────────────────────╯
 ╭──────────────────────────────────────────────────╮
-│ ⁞⁞  ✎ ▭ ◇ ⌒ △ T ✦ ⊕ │ ● ● ● │ · • ●               │
+│ ⁞⁞  ✎ ▭ ◇ ⌒ △ T ✦ ⊕                              │
 ╰──────────────────────────────────────────────────╯
 
 Popover (tool options): Sheet, md, hairline, lifted, 4 dp below its anchor
@@ -320,7 +333,14 @@ panel, no colours (the strip's slots), no size, nothing collapsed
 └───────────────────────────────────────┘
 ```
 The selected tool keeps its Ink plate (radius `xs`); colour underlines under
-tools stay (they are ink). While the editor reads (fingers draw, no stylus:
+tools stay (they are ink). **The main bar holds tools only; the active tool's
+quick controls are its sub-bar** (as Notewise's): widths drawn as square-ended
+lines of their thickness (Pencil grey, Ink when chosen, the accent's margin
+rule under the chosen one), a hairline, the colour dots (the chosen one
+ringed), a hairline, ⚙ tune for the tool's options. The eraser's: sizes
+(rings) | whole stroke, partial | ⚙. Lasso and text have none and show no
+sub-bar. Its band is reserved under the bar (over the phone's row), so the
+page and the pills around it never shift as tools change. While the editor reads (fingers draw, no stylus:
 one finger scrolls) no tool is in hand: the active tool sits in a Pencil
 outline instead, and no quick slot is selected. Page indicator: Sheet pill with tabular figures.
 

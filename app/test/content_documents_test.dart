@@ -11,6 +11,7 @@ import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/domain/surface_element.dart';
 import 'package:len/domain/text/text_data.dart';
+import 'package:len/features/editor/chrome/chrome_layout.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/document/page_actions.dart';
 import 'package:len/features/library/thumbnails/thumbnail_renderer.dart';
@@ -50,7 +51,10 @@ Future<void> ctrl(WidgetTester tester, LogicalKeyboardKey k) async {
 double _up = 0;
 List<Offset> up(List<Offset> points) => [for (final p in points) p.translate(0, -_up)];
 Future<void> _measure(WidgetTester tester) async =>
-    _up = 72 - tester.widget<EditorChrome>(find.byType(EditorChrome)).layout.toolRowHeight;
+    _up = 72 - _rows(tester.widget<EditorChrome>(find.byType(EditorChrome)).layout);
+
+/// The room under the bar: the tool row and the sub-bar's band.
+double _rows(ChromeLayout layout) => layout.toolRowHeight + layout.subBarAbove;
 
 void main() {
   testWidgets('continuous scrolling: text and lasso work on the page under the pointer, '

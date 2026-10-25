@@ -75,8 +75,8 @@ const size = 'Size 0.65 mm';
 
 void main() {
   group('editor chrome', () {
-    keyboardTest('Tab: bar, the chosen tool, Insert, quick slots, actions, page; '
-        'Shift+Tab back', (tester) async {
+    keyboardTest('Tab: bar, the chosen tool, Insert, the sub-bar (size, colour, options), '
+        'actions, page; Shift+Tab back', (tester) async {
       await pumpEditor(tester);
       expect(focused(tester), 'canvas', reason: 'the page has focus when the editor opens');
       const order = [
@@ -85,18 +85,19 @@ void main() {
         'Rename',
         'Pen (P)',
         'Insert',
-        colour,
         size,
+        colour,
+        'Pen options',
         'Record audio',
         'More options',
         'canvas',
       ];
       expect(await tabs(tester, order.length), order);
-      expect(await tabs(tester, 3, shift: true), ['More options', 'Record audio', size]);
+      expect(await tabs(tester, 3, shift: true), ['More options', 'Record audio', 'Pen options']);
     });
 
-    keyboardTest('arrows run along the toolbar, past the tools to the slots, and stop '
-        'at its ends', (tester) async {
+    keyboardTest('arrows run along the toolbar and stop at its ends; the sub-bar is a row '
+        'of its own', (tester) async {
       await pumpEditor(tester);
       await tabTo(tester, 'Pen (P)');
       final right = <String?>[];
@@ -113,8 +114,23 @@ void main() {
         'Text (T)',
         'Laser pointer (K)',
         'Insert',
+        'Insert',
+        'Insert',
+      ]);
+      await tabTo(tester, size);
+      final along = <String?>[];
+      for (var i = 0; i < 6; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pump();
+        along.add(focused(tester));
+      }
+      expect(along.first, startsWith('Size'));
+      expect(along.sublist(1), [
         colour,
         'Colour 2 (2)',
+        'Colour 3 (3)',
+        'Pen options',
+        'Pen options',
       ]);
       await tabTo(tester, 'Pen (P)');
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);

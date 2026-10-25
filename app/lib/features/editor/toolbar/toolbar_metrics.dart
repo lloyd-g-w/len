@@ -1,17 +1,14 @@
-import 'dart:math' as math;
-
 import 'package:flutter/widgets.dart';
 
-import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../chrome/bar_button.dart';
 import '../chrome/chrome_metrics.dart';
-import '../editor_tools.dart';
 import 'tool_switcher.dart';
 
 /// Sizes of the toolbar's parts, so the chrome can decide (before laying
-/// anything out) whether the tools fit inside the top bar on one row.
+/// anything out) whether the tools fit inside the top bar on one row, and
+/// how much room the sub-bar under them takes.
 ///
 /// Cells are wider on touch-first devices (48-dp tool and 44-dp slot hit
 /// areas, [Targets]); visuals stay 40 and 36. Inside a [ToolbarDensity]
@@ -36,14 +33,11 @@ abstract final class ToolbarMetrics {
 
   /// The slot cell where [context] is.
   static double slotOf(BuildContext context) =>
-      ToolbarDensity.slotOf(context) ?? slotCell(compact: ToolbarDensity.compactOf(context));
+      slotCell(compact: ToolbarDensity.compactOf(context));
 
   /// The tool cell where [context] is.
   static double toolOf(BuildContext context) =>
       toolCell(compact: ToolbarDensity.compactOf(context));
-
-  /// The gap between two groups of slots (colours, widths).
-  static const double groupGap = Gaps.md;
 
   /// A cluster divider: 1 px with 6 on each side (clusters sit 12 apart).
   static const double divider = 13;
@@ -54,49 +48,32 @@ abstract final class ToolbarMetrics {
   /// Height of the phone's bottom tool row (without the gesture inset).
   static const double bottomHeight = 56;
 
-  /// Width of the tool cluster: every tool plus Insert ⊕.
+  /// Width of the tool cluster: every tool plus Insert ⊕. The main bar
+  /// holds the tools alone (the active tool's quick controls are in its
+  /// sub-bar), so its width never changes with the tool or the slots.
   static double cluster({bool compact = false}) =>
       (EditorTool.values.length + 1) * toolCell(compact: compact);
 
-  /// Width of the widest quick-control strip any tool shows, so the strip
-  /// keeps one place (and the tools never move) as tools change.
-  static double strip(ToolSettings tools, {bool compact = false}) =>
-      stripAt(tools, slotCell(compact: compact));
+  /// The switcher and the previous tool: what a short window's bar
+  /// carries ([ToolbarDock.slim]).
+  static double get slim => ToolSwitcherButton.width + PreviousToolButton.width;
 
-  /// [strip] with [slot] cells.
-  static double stripAt(ToolSettings tools, double slot) {
-    var widest = 0.0;
-    for (final d in editorTools(tools)) {
-      final w = d.stripWidth?.call(slot) ?? 0;
-      if (w > widest) widest = w;
-    }
-    return widest;
-  }
+  /// The sub-bar's padding around its controls, across the bar.
+  static const double subBarPadding = Gaps.xs;
 
-  /// The widest strip of quick colours and sizes (the pen's, the
-  /// highlighter's or the laser's slots): what a minimal strip needs at
-  /// most.
-  static double inkStrip(ToolSettings tools, {bool compact = false}) {
-    final slot = slotCell(compact: compact);
-    double of(int colors, int sizes) => (colors + sizes) * slot + groupGap;
-    final pen = tools.configOf(InkTool.ballpoint),
-        highlighter = tools.configOf(InkTool.highlighter);
-    return [
-      of(pen.colors.length, pen.widths.length),
-      of(highlighter.colors.length, highlighter.widths.length),
-      of(tools.laser.colors.length, tools.laser.sizes.length),
-    ].reduce(math.max);
-  }
+  /// The sub-bar's padding at its rounded ends.
+  static const double subBarEnd = Gaps.sm;
 
-  /// Tools, a divider and the reserved strip: the group shown in the bar,
-  /// the attached row or the floating palette.
-  static double group(ToolSettings tools, {bool compact = false}) =>
-      cluster(compact: compact) + divider + strip(tools, compact: compact);
+  /// Height of the sub-bar (the active tool's quick controls): a slot
+  /// cell and its padding.
+  static double get subBarHeight => slot + 2 * subBarPadding;
 
-  /// The switcher, the previous tool, a divider and the reserved strip:
-  /// the group a short window's bar carries ([ToolbarDock.slim]).
-  static double slim(ToolSettings tools) =>
-      ToolSwitcherButton.width + PreviousToolButton.width + divider + strip(tools);
+  /// The gap between the main bar and its sub-bar.
+  static const double subBarGap = Gaps.sm;
+
+  /// The room the sub-bar takes beside the main bar's edge: the gap and
+  /// the sub-bar.
+  static double get subBarBand => subBarGap + subBarHeight;
 
   /// The narrowest the title may get before the bar becomes two rows.
   static const double minTitle = 120;
@@ -108,49 +85,27 @@ abstract final class ToolbarMetrics {
   static double get actions => 4 * barButton + 20;
 
   /// Width of the top bar with the tools inside it (one row).
-  static double oneRow(ToolSettings tools, {required bool paged}) =>
-      nav(paged: paged) + divider + group(tools) + divider + actions + 2 * Gaps.xs;
+  static double oneRow({required bool paged}) =>
+      nav(paged: paged) + divider + cluster() + divider + actions + 2 * Gaps.xs;
 
   /// Whether a pane [width] wide shows the tools inside the top bar.
-  static bool fitsOneRow(double width, ToolSettings tools, {required bool paged}) =>
-      width >= ChromeMetrics.compactWidth && oneRow(tools, paged: paged) <= width;
+  static bool fitsOneRow(double width, {required bool paged}) =>
+      width >= ChromeMetrics.compactWidth && oneRow(paged: paged) <= width;
 }
 
 /// Marks a toolbar laid out with compact cells (40-dp tools, 36-dp slots)
-/// because its row is short of room, and a [minimal] one (the phone's
-/// bottom row) that leaves out secondary controls (the shape kind button:
-/// the switcher shows the kind, and its options list them).
+/// because its row is short of room.
 class ToolbarDensity extends InheritedWidget {
-  const ToolbarDensity({
-    super.key,
-    required this.compact,
-    this.minimal = false,
-    this.slot,
-    required super.child,
-  });
+  const ToolbarDensity({super.key, required this.compact, required super.child});
 
   final bool compact;
-  final bool minimal;
-
-  /// A slot cell between the compact and the full one, when the row fits
-  /// exactly that (the phone row with its previous-tool button).
-  final double? slot;
-
-  /// The slot cell set at [context], if any.
-  static double? slotOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<ToolbarDensity>()?.slot;
 
   /// Whether the toolbar at [context] is compact.
   static bool compactOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<ToolbarDensity>()?.compact ?? false;
 
-  /// Whether the toolbar at [context] is minimal.
-  static bool minimalOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<ToolbarDensity>()?.minimal ?? false;
-
   @override
-  bool updateShouldNotify(ToolbarDensity oldWidget) =>
-      oldWidget.compact != compact || oldWidget.minimal != minimal || oldWidget.slot != slot;
+  bool updateShouldNotify(ToolbarDensity oldWidget) => oldWidget.compact != compact;
 }
 
 /// The direction a toolbar runs: across (docked, floating) or down (a

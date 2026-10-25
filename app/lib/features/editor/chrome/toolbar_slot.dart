@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/chrome_fade.dart';
 import '../../../ui/floating_panel.dart';
+import '../toolbar/tool_sub_bar.dart';
 import '../toolbar/toolbar_metrics.dart';
 import 'chrome_metrics.dart';
 import 'puck_clearance.dart';
@@ -23,9 +24,17 @@ class ToolbarSlot extends StatefulWidget {
     this.onFloatMoved,
     this.visible = true,
     this.blocked,
+    this.subBar,
   });
 
   final Widget toolbar;
+
+  /// The palette's sub-bar (the active tool's quick controls), attached
+  /// [ToolbarMetrics.subBarGap] from it: under it in the upper half of the
+  /// editor, over it in the lower half; beside a palette running down a
+  /// side, toward the page. It moves with the palette, kept inside the
+  /// free area, and never moves the palette.
+  final SubBarBuilder? subBar;
 
   /// Whether something the palette must not cover lies under a rectangle
   /// (in this slot's coordinates, which are the editor's). Released over
@@ -139,40 +148,78 @@ class _ToolbarSlotState extends State<ToolbarSlot> {
     final axis = ToolbarSlot.isVertical(widget.floatAt) ? Axis.vertical : Axis.horizontal;
     return Padding(
       padding: padding,
-      child: LayoutBuilder(
-        builder: (context, constraints) => AnimatedAlign(
-          alignment: _alignment,
-          duration: _dragging != null ? Duration.zero : Motion.slow,
-          curve: Motion.emphasized,
-          child: ChromeFade(
-            visible: widget.visible,
-            edge: const Offset(0, 1),
-            child: IgnorePointer(
-              ignoring: !widget.visible,
-              child: ConstrainedBox(
-                key: _panel,
-                constraints: BoxConstraints(
-                  maxWidth: constraints.maxWidth,
-                  maxHeight: constraints.maxHeight,
-                ),
-                child: ToolbarAxis(axis: axis, child: _capsule(axis, constraints.biggest)),
+      child: TweenAnimationBuilder<Alignment>(
+        tween: AlignmentTween(end: _alignment),
+        duration: _dragging != null ? Duration.zero : Motion.slow,
+        curve: Motion.emphasized,
+        builder: (context, alignment, _) => LayoutBuilder(
+          builder: (context, constraints) {
+            final side = _subBarSide(axis, alignment);
+            Widget faded(Widget child) => ChromeFade(
+              visible: widget.visible,
+              edge: const Offset(0, 1),
+              child: IgnorePointer(
+                ignoring: !widget.visible,
+                child: ToolbarAxis(axis: axis, child: child),
               ),
-            ),
-          ),
+            );
+            final subBar = widget.subBar;
+            // The palette first, then its sub-bar, wherever that is.
+            return FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
+              child: CustomMultiChildLayout(
+                delegate: _PaletteLayout(alignment: alignment, side: side),
+                children: [
+                  LayoutId(
+                    id: _Part.palette,
+                    child: FocusTraversalOrder(
+                      order: const NumericFocusOrder(1),
+                      child: faded(
+                        ConstrainedBox(
+                          key: _panel,
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth,
+                            maxHeight: constraints.maxHeight,
+                          ),
+                          child: _capsule(axis, constraints.biggest),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (subBar != null)
+                    LayoutId(
+                      id: _Part.subBar,
+                      child: FocusTraversalOrder(
+                        order: const NumericFocusOrder(2),
+                        child: faded(subBar(-side)),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
   }
+
+  /// Which way from the palette at [alignment] its sub-bar goes (a unit
+  /// offset): toward the middle of the editor.
+  static Offset _subBarSide(Axis axis, Alignment alignment) => axis == Axis.horizontal
+      ? Offset(0, alignment.y <= 0 ? 1 : -1)
+      : Offset(alignment.x <= 0 ? 1 : -1, 0);
 
   /// The palette: one raised panel (DESIGN §6.2) with the grip leading
   /// the bare [ToolbarSlot.toolbar].
   Widget _capsule(Axis axis, Size area) {
     final horizontal = axis == Axis.horizontal;
     return FloatingPanel(
-      // The grip is the leading edge's padding.
+      radius: Radii.pill,
+      // The grip is the leading edge's padding; the trailing end keeps the
+      // last button's plate clear of the round end.
       padding: horizontal
-          ? const EdgeInsets.fromLTRB(0, Gaps.xs, Gaps.xs + Gaps.xxs, Gaps.xs)
-          : const EdgeInsets.fromLTRB(Gaps.xs, 0, Gaps.xs, Gaps.xs + Gaps.xxs),
+          ? const EdgeInsets.fromLTRB(0, Gaps.xs, Gaps.md, Gaps.xs)
+          : const EdgeInsets.fromLTRB(Gaps.xs, 0, Gaps.xs, Gaps.md),
       child: Flex(
         direction: axis,
         mainAxisSize: MainAxisSize.min,
@@ -183,6 +230,43 @@ class _ToolbarSlotState extends State<ToolbarSlot> {
       ),
     );
   }
+}
+
+enum _Part { palette, subBar }
+
+/// Places the palette at its [alignment] in the free area, and its
+/// sub-bar on [side] of it, centred on it and kept inside the area.
+class _PaletteLayout extends MultiChildLayoutDelegate {
+  _PaletteLayout({required this.alignment, required this.side});
+
+  final Alignment alignment;
+  final Offset side;
+
+  @override
+  void performLayout(Size size) {
+    final palette = layoutChild(_Part.palette, BoxConstraints.loose(size));
+    final at = alignment.alongOffset(size - palette as Offset);
+    positionChild(_Part.palette, at);
+    if (!hasChild(_Part.subBar)) return;
+    final sub = layoutChild(_Part.subBar, BoxConstraints.loose(size));
+    const gap = ToolbarMetrics.subBarGap;
+    final centre = at + palette.center(Offset.zero);
+    var x = centre.dx - sub.width / 2, y = centre.dy - sub.height / 2;
+    if (side.dy > 0) y = at.dy + palette.height + gap;
+    if (side.dy < 0) y = at.dy - gap - sub.height;
+    if (side.dx > 0) x = at.dx + palette.width + gap;
+    if (side.dx < 0) x = at.dx - gap - sub.width;
+    positionChild(
+      _Part.subBar,
+      Offset(
+        x.clamp(0, math.max(0, size.width - sub.width)),
+        y.clamp(0, math.max(0, size.height - sub.height)),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRelayout(_PaletteLayout old) => old.alignment != alignment || old.side != side;
 }
 
 /// The handle by which the floating palette is dragged: two Graphite ticks

@@ -326,6 +326,10 @@ void main() {
       find.byType(Directionality).first,
       matchesGoldenFile('goldens/content_fill_style.png'),
     );
+    // (The panel scrolls: it opens under the selection's menu, which
+    // keeps clear of the sub-bar's band.)
+    await tester.ensureVisible(find.byTooltip('Solid colour'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Solid colour'));
     await tester.pumpAndSettle();
     expect(fillOf('0xFF1C7ED6'), 0xFF1C7ED6);

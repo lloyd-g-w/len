@@ -9,8 +9,9 @@ import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/document/add_page_footer.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
-import 'package:len/features/editor/toolbar/tool_strip.dart';
+import 'package:len/features/editor/toolbar/tool_cluster.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
+import 'package:len/features/editor/toolbar/toolbar_metrics.dart';
 import 'package:len/ui/design_tokens.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -319,6 +320,11 @@ void main() {
     await pumpEditor(tester, size: const Size(1280, 900));
     expect(dock(), ToolbarDock.inline);
     expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, lessThan(60));
+    // The sub-bar hangs centred under the tools.
+    Rect pillRect() => tester.getRect(find.byKey(const ValueKey('tool-sub-bar')));
+    final tools = tester.getRect(find.byType(ToolCluster));
+    expect(pillRect().center.dx, closeTo(tools.center.dx, 0.5));
+    expect(pillRect().top, greaterThan(tools.bottom));
     await closeEditor(tester);
 
     await pumpEditor(tester, size: const Size(800, 1300));
@@ -326,6 +332,8 @@ void main() {
     final bar = tester.getRect(find.byTooltip('Undo (Ctrl+Z)'));
     expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, greaterThan(bar.bottom));
     expect(tester.getCenter(find.byTooltip('Pen (P)')).dy, lessThan(120));
+    expect(pillRect().center.dx, closeTo(400, 0.5));
+    expect(pillRect().top, greaterThan(tester.getRect(find.byType(ToolCluster)).bottom));
     await closeEditor(tester);
 
     await pumpEditor(tester, size: const Size(390, 844));
@@ -338,7 +346,14 @@ void main() {
     await pumpEditor(tester, size: const Size(844, 390));
     expect(dock(), ToolbarDock.slim);
     expect(tester.getCenter(find.byType(ToolSwitcherButton)).dy, lessThan(60));
-    expect(tester.widget<EditorChrome>(find.byType(EditorChrome)).layout.covered.top, 52);
+    // The bar and the sub-bar hanging under it.
+    final pill = tester.getRect(find.byKey(const ValueKey('tool-sub-bar')));
+    expect(pill.top, 52 + ToolbarMetrics.subBarGap);
+    expect(
+      tester.widget<EditorChrome>(find.byType(EditorChrome)).layout.covered.top,
+      52 + ToolbarMetrics.subBarBand,
+    );
+    expect(pill.bottom, lessThanOrEqualTo(52 + ToolbarMetrics.subBarBand));
     await closeEditor(tester);
   });
 
@@ -355,17 +370,13 @@ void main() {
     await closeEditor(tester);
   });
 
-  testWidgets('no divider trails the tools when the tool has no quick controls', (tester) async {
+  testWidgets('a tool with no quick controls shows no sub-bar', (tester) async {
     await pumpEditor(tester, size: const Size(390, 844));
-    double opacity() => tester
-        .widget<Opacity>(
-          find.descendant(of: find.byType(StripDivider), matching: find.byType(Opacity)),
-        )
-        .opacity;
-    expect(opacity(), 1); // The pen: its colour and width slots follow.
-    await tester.sendKeyEvent(LogicalKeyboardKey.keyL); // Lasso: nothing follows.
+    final pill = find.byKey(const ValueKey('tool-sub-bar'));
+    expect(pill, findsOneWidget); // The pen: its width and colour slots.
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyL); // Lasso: nothing to show.
     await tester.pumpAndSettle();
-    expect(opacity(), 0);
+    expect(pill, findsNothing);
     await closeEditor(tester);
   });
 

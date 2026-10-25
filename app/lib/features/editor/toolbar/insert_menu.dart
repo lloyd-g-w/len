@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/app_theme.dart';
 import '../../../ui/menus.dart';
+import '../../../ui/roving_focus.dart';
 import '../chrome/canvas_guard.dart';
 import '../tools/tool_icons.dart';
 
@@ -66,21 +67,25 @@ class InsertButton extends StatelessWidget {
       builder: (context, menu, _) => SizedBox.square(
         dimension: size,
         child: Center(
-          child: IconButton(
-            tooltip: tooltip,
-            onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-            iconSize: Glyphs.bar,
-            constraints: const BoxConstraints.tightFor(width: Targets.bar, height: Targets.bar),
-            padding: EdgeInsets.zero,
-            style: IconButton.styleFrom(
-              foregroundColor: scheme.onSurfaceVariant,
-              // A 48-dp hit area on touch around the 40-dp visual.
-              tapTargetSize: Targets.touchFirst
-                  ? MaterialTapTargetSize.padded
-                  : MaterialTapTargetSize.shrinkWrap,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
+          // Always a Tab stop; the toolbar's arrows reach it.
+          child: RovingItem(
+            stop: true,
+            child: IconButton(
+              tooltip: tooltip,
+              onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+              iconSize: Glyphs.bar,
+              constraints: const BoxConstraints.tightFor(width: Targets.bar, height: Targets.bar),
+              padding: EdgeInsets.zero,
+              style: IconButton.styleFrom(
+                foregroundColor: scheme.onSurfaceVariant,
+                // A 48-dp hit area on touch around the 40-dp visual.
+                tapTargetSize: Targets.touchFirst
+                    ? MaterialTapTargetSize.padded
+                    : MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
+              ),
+              icon: const ToolIcon(ToolIconKind.insert),
             ),
-            icon: const ToolIcon(ToolIconKind.insert),
           ),
         ),
       ),
