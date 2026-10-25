@@ -72,18 +72,22 @@ void main() {
     const box = [Offset(100, 100), Offset(300, 100), Offset(300, 220), Offset(100, 220)];
     await drawAndHold(tester, sketch(loop(box)), moveAfter: true);
     final stroke = model.history.takeUndo()!.added.single;
-    final xs = stroke.points.map((p) => p.x).toSet();
-    // Every point lies on one of the rectangle's sides.
-    final left = xs.reduce(math.min), right = xs.reduce(math.max);
-    final ys = stroke.points.map((p) => p.y);
-    final top = ys.reduce(math.min), bottom = ys.reduce(math.max);
+    // Moving on after the snap turned and scaled it: still a rectangle.
+    final shape = stroke.shape!;
+    expect(shape.kind, ShapeKind.rectangle);
+    final c = shape.points;
+    for (var i = 0; i < 4; i++) {
+      final a = c[(i + 3) % 4] - c[i], b = c[(i + 1) % 4] - c[i];
+      expect((a.dx * b.dx + a.dy * b.dy).abs(), lessThan(1e-6 * a.distance * b.distance));
+    }
+    // Every point lies on one of its sides.
     for (final p in stroke.points) {
-      final onSide = [p.x - left, right - p.x, p.y - top, bottom - p.y].any((d) => d.abs() < 1e-3);
-      expect(onSide, isTrue);
+      final onSide = [
+        for (var i = 0; i < 4; i++) Polyline.distanceToSegment(p.offset, c[i], c[(i + 1) % 4]),
+      ].reduce(math.min);
+      expect(onSide, lessThan(1e-6));
     }
     expect(stroke.style.streamline, 0);
-    // Moving after the snap did not distort it.
-    expect(right, lessThan(320));
   });
 
   testWidgets('a held scribble stays freehand', (tester) async {
