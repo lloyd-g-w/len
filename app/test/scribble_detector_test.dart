@@ -16,15 +16,18 @@ bool scribbles(List<Offset> points, List<int> times) {
   for (var i = 1; i < points.length; i++) {
     d.add(points[i], times[i]);
   }
-  return d.isScribble;
+  return (d..finish()).isScribble;
 }
 
-/// [motion] sampled at a 240 Hz digitiser, scaled by [scale].
-bool motionScribbles(PenMotion motion, {double scale = 1}) {
+/// [motion] sampled at a 240 Hz digitiser, scaled by [scale], with up
+/// to [jitter] px of noise on each sample.
+bool motionScribbles(PenMotion motion, {double scale = 1, double jitter = 0, int seed = 1}) {
   final points = <Offset>[], times = <int>[];
   final origin = motion.at(0);
+  final random = math.Random(seed);
+  double noise() => jitter * (2 * random.nextDouble() - 1);
   for (var t = 0.0; t <= motion.duration; t += 1 / 240) {
-    points.add(origin + (motion.at(t) - origin) * scale);
+    points.add(origin + (motion.at(t) - origin) * scale + Offset(noise(), noise()));
     times.add((t * 1000).round());
   }
   return points.length > 1 && scribbles(points, times);
@@ -99,6 +102,63 @@ void main() {
       }
     });
 
+    test('three quick passes are enough (there, back and there again)', () {
+      // 20 to 150 px wide, drifting up to 5 % of that a pass, 50 to
+      // 160 ms a pass, at any angle, with sharp or round turns and the
+      // pen's jitter.
+      var seed = 0;
+      for (final width in [20.0, 30.0, 50.0, 80.0, 120.0, 150.0]) {
+        for (final drift in [0.0, 0.025 * width, 0.05 * width]) {
+          for (final ms in [50.0, 80.0, 120.0, 160.0]) {
+            for (final angle in [0.0, 0.5, math.pi / 2, 2.5]) {
+              final reason = '$width × $drift in $ms ms at $angle';
+              final z = scribble(passes: 3, width: width, drift: drift, passMs: ms, angle: angle);
+              expect(motionScribbles(z, jitter: 0.5, seed: seed++), isTrue, reason: reason);
+            }
+            final omega = math.pi / (ms / 1000);
+            final motion = PenMotion(
+              duration: 3 * ms / 1000,
+              at: (t) => Offset(width / 2 * (1 - math.cos(omega * t)), drift * t * 1000 / ms),
+              pressure: (_) => 0.5,
+            );
+            expect(
+              motionScribbles(motion, jitter: 0.5, seed: seed++),
+              isTrue,
+              reason: 'oscillating $width × $drift in $ms ms',
+            );
+          }
+        }
+      }
+    });
+
+    test('three passes count once the third is over: at pen-up or another turn', () {
+      final points = <Offset>[], times = <int>[];
+      final motion = scribble(passes: 3, passMs: 80);
+      for (var t = 0.0; t <= motion.duration; t += 1 / 240) {
+        points.add(motion.at(t));
+        times.add((t * 1000).round());
+      }
+      final d = ScribbleDetector()..begin(points.first, times.first);
+      for (var i = 1; i < points.length; i++) {
+        d.add(points[i], times[i]);
+      }
+      expect(d.isScribble, isFalse, reason: 'the third pass may still run on');
+      d.finish();
+      expect(d.isScribble, isTrue);
+      // A letter's stem retraced (up, down, up) that runs on into its bowl
+      // ("P", as in real_spen_01): the third pass is no straight pass.
+      final p = polyline([
+        const Offset(300, 400),
+        const Offset(300, 300),
+        const Offset(301, 400),
+        const Offset(302, 300),
+        const Offset(340, 315),
+        const Offset(345, 340),
+        const Offset(305, 350),
+      ], segmentSeconds: 0.08);
+      expect(motionScribbles(p), isFalse);
+    });
+
     test('but not letters written up and down, then the next ("ll", real_spen_01)', () {
       // Two ascenders, each retraced, joined at the bottom, 0.24 of their
       // height apart, as in a real "hello" at half size: as narrow as a
@@ -125,7 +185,15 @@ void main() {
     });
 
     test('but not too few passes, slow ones, tiny ones or ones moving on', () {
-      expect(motionScribbles(scribble(passes: 3)), isFalse, reason: 'two reversals');
+      expect(motionScribbles(scribble(passes: 2)), isFalse, reason: 'one reversal');
+      expect(motionScribbles(scribble(passes: 2, passMs: 40)), isFalse, reason: 'one, quick');
+      expect(motionScribbles(scribble(passes: 3)), isTrue, reason: 'two reversals');
+      expect(motionScribbles(scribble(passes: 3, passMs: 220)), isFalse, reason: 'three, slow');
+      expect(
+        motionScribbles(scribble(passes: 3, width: 60, drift: 6)),
+        isFalse,
+        reason: 'three, as wide apart as hatching',
+      );
       expect(motionScribbles(scribble(passMs: 300)), isFalse, reason: 'slow');
       expect(motionScribbles(scribble(width: 10, drift: 1)), isFalse, reason: 'jitter-sized');
       expect(motionScribbles(scribble(width: 30, drift: 12)), isFalse, reason: 'a zigzag line');

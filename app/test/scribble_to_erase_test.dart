@@ -72,9 +72,10 @@ void main() {
     return [for (var i = 0; i <= n; i++) Offset.lerp(a, b, i / n)!];
   }
 
-  /// Eight quick passes between x = [x0] and [x1], drifting down from [y].
-  List<Offset> scribble(double x0, double x1, double y) => [
-    for (var k = 0; k < 8; k++)
+  /// [passes] quick passes between x = [x0] and [x1], drifting down
+  /// from [y].
+  List<Offset> scribble(double x0, double x1, double y, {int passes = 8}) => [
+    for (var k = 0; k < passes; k++)
       ...line(
         Offset(k.isEven ? x0 : x1, y + k * 2),
         Offset(k.isEven ? x1 : x0, y + k * 2 + 2),
@@ -89,6 +90,23 @@ void main() {
     expect(model.loadedStrokeCount, 1, reason: 'the word under it went, the other stayed');
     model.undo();
     expect(model.loadedStrokeCount, 2);
+  });
+
+  testWidgets('three passes (there, back, there) erase at pen-up', (tester) async {
+    draw(line(const Offset(100, 105), const Offset(160, 110)));
+    draw(scribble(90, 170, 100, passes: 3), stepMs: 4, lift: false);
+    expect(model.loadedStrokeCount, 1);
+    input.handleUp(
+      PointerUpEvent(
+        pointer: 1,
+        kind: PointerDeviceKind.stylus,
+        timeStamp: Duration(milliseconds: clockMs += 4),
+      ),
+    );
+    expect(model.loadedStrokeCount, 0);
+    draw(line(const Offset(100, 105), const Offset(160, 110)));
+    draw(scribble(90, 170, 100, passes: 2), stepMs: 4);
+    expect(model.loadedStrokeCount, 2, reason: 'one back and forth is ink');
   });
 
   testWidgets('a long line under a scribbled word stays', (tester) async {

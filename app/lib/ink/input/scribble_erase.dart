@@ -19,7 +19,8 @@ import 'scribble_detector.dart';
 /// nothing, it is ink (shading, say); over a text box or image only, it is
 /// dropped ([onMissed]: the scribble erases ink only).
 ///
-/// Once the stroke is recognised as a scribble, the strokes it will erase
+/// Once the stroke is recognised as a scribble (a three-pass one only
+/// at pen-up, [ScribbleDetector.finish]), the strokes it will erase
 /// dim (fading in [fade]) while it goes on; they come back if the stroke
 /// ends otherwise (cancelled, say). The preview is no edit: only the
 /// erasing at pen-up is, one undo step.
@@ -91,7 +92,9 @@ class ScribbleErase {
   bool erase(SurfaceModel model, {bool snapped = false}) {
     end(); // What it dimmed counts again, and goes now.
     _snapped = _snapped || snapped;
-    if (!_enabled || !_detector.isScribble) return false;
+    if (!_enabled) return false;
+    _detector.finish();
+    if (!_detector.isScribble) return false;
     final paths = _worldPaths;
     if (model.eraseScribbled(paths, _reach) == 0) {
       if (!model.scribbledOnElements(paths)) return false;

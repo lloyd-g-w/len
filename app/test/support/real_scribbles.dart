@@ -11,7 +11,7 @@ bool scribbles(List<RawSample> samples) {
   for (final s in samples.skip(1)) {
     d.add(s.position, s.timeUs ~/ 1000);
   }
-  return d.isScribble;
+  return (d..finish()).isScribble;
 }
 
 /// [samples] scaled by [scale] about their start and drawn at [pace]
