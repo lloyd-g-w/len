@@ -98,7 +98,7 @@ void main() {
     return strokes().single;
   }
 
-  test('undo takes back the last anchor while a curve is drawn; redo puts it back', () {
+  test('undo takes back the last point while a curve is drawn; redo puts it back', () {
     final rect = rectangle();
     var notified = 0;
     undo.addListener(() => notified++);
@@ -106,35 +106,42 @@ void main() {
     drag(const [Offset(250, 200), Offset(270, 200), Offset(300, 200)]);
     drag(const [Offset(400, 300)]);
     final three = live.shape!;
-    expect(three.anchorCount, 3);
+    expect(three.through, const [Offset(100, 300), Offset(300, 200), Offset(400, 300)]);
     expect(undo.canUndo, isTrue);
     expect(undo.canRedo, isFalse);
     expect(notified, greaterThan(0));
 
     undo.undo();
-    expect(live.shape!.anchorCount, 2);
-    expect(live.shape!.points, three.points.sublist(0, 4));
+    expect(live.shape!.through, three.through!.sublist(0, 2));
     expect(strokes(), [rect], reason: 'earlier strokes are untouched');
     expect(undo.canRedo, isTrue);
     undo.redo();
     expect(live.shape, three);
     expect(undo.canRedo, isFalse);
 
-    // The smooth anchor's tangents go with it.
     undo
       ..undo()
       ..undo();
-    expect(live.shape, isNull, reason: 'one anchor: a dot');
+    expect(live.shape, isNull, reason: 'one point: a dot');
     expect(live.isDrawing, isTrue);
     undo.redo();
-    expect(live.shape!.points, three.points.sublist(0, 4));
+    expect(live.shape!.through, three.through!.sublist(0, 2));
 
-    // A new anchor drops what was undone.
+    // A new point drops what was undone.
     undo.undo();
     drag(const [Offset(200, 400)]);
     expect(undo.canRedo, isFalse);
-    expect(live.shape!.anchorCount, 2);
-    expect(live.shape!.points.last, const Offset(200, 400));
+    expect(live.shape!.through, const [Offset(100, 300), Offset(200, 400)]);
+
+    // Making a point a corner is a step of its own.
+    drag(const [Offset(201, 401)]);
+    drag(const [Offset(300, 300)]);
+    expect(live.shape!.corners, [1]);
+    undo
+      ..undo()
+      ..undo();
+    expect(live.shape!.corners, isEmpty);
+    expect(live.shape!.through, hasLength(2));
   });
 
   test('undoing the first anchor drops the curve; redo brings it back until something else', () {
@@ -171,19 +178,20 @@ void main() {
     expect(undo.canRedo, isFalse);
   });
 
-  test('undo mid-gesture takes back the anchor being placed', () {
+  test('undo mid-gesture takes back the point being placed', () {
     drag(const [Offset(100, 300)]);
     drag(const [Offset(300, 100)]);
     final id = ++pointer;
     const kind = PointerDeviceKind.mouse;
     input.handleDown(PointerDownEvent(pointer: id, kind: kind, position: const Offset(500, 300)));
     input.handleMove(PointerMoveEvent(pointer: id, kind: kind, position: const Offset(540, 300)));
-    expect(live.shape!.anchorCount, 3);
+    expect(live.shape!.through, hasLength(3));
+    expect(live.shape!.through!.last, const Offset(540, 300));
     undo.undo();
-    expect(live.shape!.anchorCount, 2);
+    expect(live.shape!.through, hasLength(2));
     input.handleMove(PointerMoveEvent(pointer: id, kind: kind, position: const Offset(580, 300)));
     input.handleUp(PointerUpEvent(pointer: id, kind: kind, position: const Offset(580, 300)));
-    expect(live.shape!.anchorCount, 2);
+    expect(live.shape!.through, hasLength(2));
     expect(undo.canRedo, isFalse);
   });
 
@@ -206,17 +214,14 @@ void main() {
     expect(live.isDrawing, isFalse);
     content.selection.clear();
 
-    // A drag from the outline: a smooth first anchor there.
+    // A drag from the outline: the first point, where the drag ends.
     drag(const [Offset(700, 450), Offset(710, 450), Offset(740, 450)]);
     expect(content.selection.isEmpty, isTrue);
     expect(content.shape.curve.active, isTrue);
-    // Mid-curve, taps on the shape place anchors.
+    // Mid-curve, taps on the shape place points.
     drag(const [Offset(600, 500)]);
     final shape = live.shape!;
-    expect(shape.anchorCount, 2);
-    expect(shape.points.first, const Offset(700, 450));
-    expect(shape.points[1], const Offset(740, 450));
-    expect(shape.points.last, const Offset(600, 500));
+    expect(shape.through, const [Offset(740, 450), Offset(600, 500)]);
     expect(content.selection.isEmpty, isTrue);
   });
 }

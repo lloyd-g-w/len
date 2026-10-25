@@ -79,7 +79,7 @@ class ShapeOptionsPanel extends StatelessWidget {
           ),
           const SizedBox(height: Gaps.md),
           if (tools.shape == ShapeKind.curve) ...[
-            Text('Tap for corners, drag for smooth points', style: text.bodySmall),
+            Text('Tap points to pass through, the last again for a corner', style: text.bodySmall),
             Text('Tap the first point to close, tap twice to finish', style: text.bodySmall),
             Text('Tap a shape to edit it; undo takes back a point', style: text.bodySmall),
           ] else

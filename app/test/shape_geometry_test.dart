@@ -10,6 +10,7 @@ import 'package:len/domain/stroke.dart';
 import 'package:len/ink/geometry/affine.dart';
 import 'package:len/ink/geometry/stroke_splitter.dart';
 import 'package:len/ink/selection/transform_items.dart';
+import 'package:len/ink/shapes/kappa_curve.dart';
 import 'package:len/ink/shapes/polyline.dart';
 import 'package:len/ink/shapes/shape_builder.dart';
 
@@ -40,6 +41,12 @@ void main() {
     ShapeGeometry(ShapeKind.line, const [Offset(0, 0), Offset(100, 0), Offset(40, 30)]),
     ShapeGeometry(ShapeKind.arrow, const [Offset(0, 0), Offset(100, 0), Offset(40, -30)]),
     ShapeBuilder.dragged(ShapeKind.star, Offset.zero, const Offset(90, 90)).withStar(tips: 7),
+    KappaCurve.geometry(
+      const [Offset(0, 0), Offset(60, -40), Offset(120, 10), Offset(90, 80), Offset(20, 60)],
+      closed: true,
+      corners: const [3],
+    ),
+    KappaCurve.geometry(const [Offset(0, 0), Offset(60, -40), Offset(120, 10)], closed: false),
     ShapeGeometry(ShapeKind.curve, const [
       Offset(0, 0),
       Offset(30, -20),
@@ -117,6 +124,23 @@ void main() {
       });
       expect(line.isBent, isFalse);
       expect(ShapeBuilder.outline(line).first, Offset.zero);
+      // A curve stored as a spline alone (before curves through points)
+      // is that spline, drawn exactly as it was.
+      final spline = ShapeGeometry.fromJson({
+        'k': 'curve',
+        'p': [0, 0, 30, -20, 70, -20, 100, 0],
+      });
+      expect(spline.passesThrough, isFalse);
+      expect(ShapeBuilder.outline(spline).last, const Offset(100, 0));
+      // Points to pass through on another kind are malformed.
+      expect(
+        () => ShapeGeometry.fromJson({
+          'k': 'line',
+          'p': [0, 0, 100, 0],
+          't': [0, 0, 100, 0],
+        }),
+        throwsFormatException,
+      );
     });
 
     test('an ellipse keeps perpendicular radii; a circle turned stays one', () {

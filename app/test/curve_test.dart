@@ -13,8 +13,8 @@ import 'package:len/ink/input/live_ink.dart';
 import 'package:len/ink/selection/ink_clipboard.dart';
 import 'package:len/ink/selection/selection_chrome.dart';
 import 'package:len/ink/shapes/bezier.dart';
-import 'package:len/ink/shapes/curve_fit.dart';
 import 'package:len/ink/shapes/curve_recognizer.dart';
+import 'package:len/ink/shapes/kappa_curve.dart';
 import 'package:len/ink/shapes/polyline.dart';
 import 'package:len/ink/shapes/shape_builder.dart';
 import 'package:len/ink/shapes/shape_handles.dart';
@@ -111,42 +111,6 @@ void main() {
         outline.map((o) => (o - p).distance).reduce(math.min),
         greaterThan(hit.distance - 0.01),
       );
-    });
-  });
-
-  group('CurveFit', () {
-    test('a sampled cubic is fitted with few segments, within the error', () {
-      final pts = [
-        for (var i = 0; i <= 50; i++)
-          Bezier.cubicAt(
-            const Offset(0, 0),
-            const Offset(40, -80),
-            const Offset(160, 80),
-            const Offset(200, 0),
-            i / 50,
-          ),
-      ];
-      final fit = CurveFit.fit(pts, 0.5);
-      expect(fit.length, lessThanOrEqualTo(10)); // three segments at most
-      expect(_farthest(pts, Bezier.flatten(fit, closed: false, spacing: 0.5)), lessThan(0.6));
-    });
-
-    test('a sine wave and a closed blob take few anchors', () {
-      final wave = [
-        for (var i = 0; i <= 100; i++) Offset(i * 4.0, 50 * math.sin(i / 100 * 4 * math.pi)),
-      ];
-      final fit = CurveFit.fit(wave, 2);
-      final curve = ShapeGeometry(ShapeKind.curve, fit);
-      expect(curve.anchorCount, lessThanOrEqualTo(6));
-      expect(_farthest(wave, Bezier.flatten(fit, closed: false)), lessThan(2.5));
-      final blob = [
-        for (var i = 0; i < 80; i++)
-          Offset.fromDirection(i / 80 * 2 * math.pi, 100 + 25 * math.cos(3 * i / 80 * 2 * math.pi)),
-      ];
-      final closed = ShapeGeometry(ShapeKind.curve, CurveFit.fit(blob, 2, closed: true));
-      expect(closed.isClosed, isTrue);
-      expect(closed.anchorCount, lessThanOrEqualTo(8));
-      expect(_farthest(blob, ShapeBuilder.outline(closed)), lessThan(2.5));
     });
   });
 
@@ -353,31 +317,35 @@ void main() {
 
     List<Stroke> strokes() => [...model.strokesNear(const Rect.fromLTWH(-1000, -1000, 3000, 3000))];
 
-    test('taps place corners, drags smooth points; a double tap finishes it open', () {
+    test('taps place points it passes through, a drag places one where it ends, a tap on the '
+        'last makes it a corner; a double tap finishes it open', () {
       drag([const Offset(100, 300)]);
       expect(live.isDrawing, isTrue);
       expect(strokes(), isEmpty);
       drag([const Offset(250, 200), const Offset(270, 200), const Offset(300, 200)]);
-      expect(live.shape?.anchorCount, 2);
+      expect(live.shape?.through, const [Offset(100, 300), Offset(300, 200)]);
       drag([const Offset(400, 300)]);
+      // A tap on the last point (not a double tap): a corner there.
+      drag([const Offset(401, 301)]);
+      expect(live.shape!.through, hasLength(3));
+      drag([const Offset(500, 200)]);
       // A second tap on the last point, quickly: finished.
       clock.now -= 1000;
       clock.now += 200;
-      drag([const Offset(401, 301)]);
+      drag([const Offset(501, 201)]);
       expect(live.isDrawing, isFalse);
       final curve = strokes().single;
       final shape = curve.shape!;
       expect(shape.kind, ShapeKind.curve);
       expect(shape.isClosed, isFalse);
-      expect(shape.points, const [
-        Offset(100, 300),
-        Offset(100, 300), // a tapped point: a corner
-        Offset(200, 200), // the drag pulled the tangents out symmetrically
-        Offset(250, 200),
-        Offset(300, 200),
-        Offset(400, 300),
-        Offset(400, 300),
-      ]);
+      const through = [Offset(100, 300), Offset(300, 200), Offset(400, 300), Offset(500, 200)];
+      expect(shape.through, through);
+      expect(shape.corners, [2]);
+      expect(shape.points, KappaCurve.spline(through, closed: false, corners: const [2]));
+      // It passes through every point; the corner is an anchor of its spline.
+      final line = Bezier.flatten(shape.points, closed: false, spacing: 0.25);
+      expect(_farthest(through, line), lessThan(0.1));
+      expect(shape.points, contains(const Offset(400, 300)));
       expect(curve.points, ShapeBuilder.pointsOf(shape, spacing: 2));
       expect(curve.fill, isNull);
       // One undo step.
@@ -530,6 +498,64 @@ void main() {
       // Two steps back: as it was.
       model.undo();
       model.undo();
+      expect(model.strokesNear(const Rect.fromLTWH(0, 0, 800, 600)).single.shape, shape);
+    });
+
+    test('a curve through points: its points are its handles; dragged, added, removed', () {
+      const through = [Offset(100, 300), Offset(250, 180), Offset(400, 300), Offset(550, 200)];
+      final shape = KappaCurve.geometry(through, closed: false);
+      model.addStroke(
+        Stroke(
+          id: 'k',
+          surfaceId: 's',
+          tool: InkTool.ballpoint,
+          color: 0xFF000000,
+          width: 2,
+          points: ShapeBuilder.pointsOf(shape),
+          createdAt: 1,
+          style: ShapeBuilder.styleFor(const StrokeStyle(unit: 1)),
+          shape: shape,
+        ),
+      );
+      model.history.takeUndo();
+      tap(through[1]);
+      expect(content.selection.shape, shape);
+      expect([for (final h in ShapeHandles.of(shape)) h.at], through);
+      // Its second point dragged: the curve runs through it there.
+      final id = ++pointer;
+      const k = PointerDeviceKind.mouse;
+      input.handleDown(PointerDownEvent(pointer: id, kind: k, position: through[1]));
+      input.handleMove(
+        PointerMoveEvent(pointer: id, kind: k, position: through[1] + const Offset(10, -20)),
+      );
+      input.handleMove(
+        PointerMoveEvent(pointer: id, kind: k, position: through[1] + const Offset(20, -40)),
+      );
+      input.handleUp(
+        PointerUpEvent(pointer: id, kind: k, position: through[1] + const Offset(20, -40)),
+      );
+      clock.now += 1000;
+      final moved = content.selection.shape!;
+      expect(moved.through![1], through[1] + const Offset(20, -40));
+      final line = Bezier.flatten(moved.points, closed: false, spacing: 0.25);
+      expect(_farthest(moved.through!, line), lessThan(0.1));
+      // A tap on its line, between the third and fourth points: a point there.
+      final between = Bezier.nearest(moved.points, const Offset(480, 240), closed: false);
+      final q = moved.points.sublist(3 * between.segment, 3 * between.segment + 4);
+      final onLine = Bezier.cubicAt(q[0], q[1], q[2], q[3], between.t);
+      tap(onLine);
+      final added = content.selection.shape!;
+      expect(added.through, hasLength(5));
+      expect(added.through![3], offsetMoreOrLessEquals(onLine, epsilon: 0.5));
+      // A double tap on it removes it again.
+      tap(added.through![3], after: 100);
+      tap(added.through![3]);
+      expect(content.selection.shape!.through, hasLength(4));
+      // Every edit one undo step: back to as it was.
+      model
+        ..undo()
+        ..undo()
+        ..undo();
       expect(model.strokesNear(const Rect.fromLTWH(0, 0, 800, 600)).single.shape, shape);
     });
 

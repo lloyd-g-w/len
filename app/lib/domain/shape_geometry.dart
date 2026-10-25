@@ -30,7 +30,10 @@ export 'shape_kind.dart';
 ///  * curve: a cubic Bézier spline: anchor, its outgoing handle, the next
 ///    anchor's incoming handle, the next anchor, … — `3n − 2` points for
 ///    `n` anchors when open; closed, `3n`, the last being the first
-///    anchor's incoming handle.
+///    anchor's incoming handle. A curve drawn through points (a κ-curve,
+///    `ink/shapes/kappa_curve.dart`) also keeps those: [through], with its
+///    [corners]; its spline is then built from them (and edited through
+///    them), and readers that know only the spline still draw it.
 ///
 /// Every kind is described by points an affine map takes to the same kind
 /// (a circle squashed becomes an ellipse), so moving, scaling or rotating
@@ -45,7 +48,15 @@ class ShapeGeometry {
     this.tail,
     this.tip,
     this.origin,
+    List<Offset>? through,
+    List<int> corners = const [],
   }) : points = List.unmodifiable(points),
+       through = through == null ? null : List.unmodifiable(through),
+       corners = List.unmodifiable(corners),
+       assert(
+         (through == null && corners.isEmpty) || kind == ShapeKind.curve,
+         'Only curves pass through points',
+       ),
        assert(isValidCount(kind, points.length), 'Wrong number of points for $kind'),
        assert(
          (tail == null && tip == null) || kind == ShapeKind.line || kind == ShapeKind.arrow,
@@ -62,6 +73,18 @@ class ShapeGeometry {
 
   final ShapeKind kind;
   final List<Offset> points;
+
+  /// The points a curve drawn through points passes through, in order
+  /// (its spline, [points], is built from them); null for a plain spline
+  /// and other kinds.
+  final List<Offset>? through;
+
+  /// Which of [through] are corners (indices, ascending): the curve turns
+  /// sharply there instead of passing smoothly.
+  final List<int> corners;
+
+  /// Whether this is a curve drawn through points ([through]).
+  bool get passesThrough => through != null;
 
   /// A star's inner radius as a share of its outer one (0 < inner < 1).
   final double inner;
@@ -84,7 +107,17 @@ class ShapeGeometry {
   /// This shape with identity [origin] (see [ShapeGeometry.origin]).
   ShapeGeometry withOrigin(String? origin) => origin == this.origin
       ? this
-      : ShapeGeometry(kind, points, inner: inner, tips: tips, tail: tail, tip: tip, origin: origin);
+      : ShapeGeometry(
+          kind,
+          points,
+          inner: inner,
+          tips: tips,
+          tail: tail,
+          tip: tip,
+          origin: origin,
+          through: through,
+          corners: corners,
+        );
 
   /// The attachment of end [index] (0: tail, 1: tip).
   ShapeAttachment? attachmentOf(int index) => index == 0 ? tail : tip;
@@ -162,7 +195,17 @@ class ShapeGeometry {
         final c2 = f(points[0]);
         return ShapeGeometry.ellipse(c2, f(points[1]) - c2, f(points[2]) - c2, origin: origin);
       default:
-        return withPoints([for (final p in points) f(p)]);
+        return ShapeGeometry(
+          kind,
+          [for (final p in points) f(p)],
+          inner: inner,
+          tips: tips,
+          tail: tail,
+          tip: tip,
+          origin: origin,
+          through: through == null ? null : [for (final p in through!) f(p)],
+          corners: corners,
+        );
     }
   }
 
@@ -170,7 +213,8 @@ class ShapeGeometry {
   ShapeGeometry withPoint(int index, Offset p) => withPoints([...points]..[index] = p);
 
   /// This shape (same kind, star parameters, attachments, origin) with
-  /// other [points].
+  /// other [points]; a curve's [through] points go (it is a plain spline
+  /// now).
   ShapeGeometry withPoints(List<Offset> points) =>
       ShapeGeometry(kind, points, inner: inner, tips: tips, tail: tail, tip: tip, origin: origin);
 
@@ -201,7 +245,9 @@ class ShapeGeometry {
   /// `[x0, y0, x1, y1, …]`, `i` a star's [inner] radius and `n` its
   /// [tips] (stars only), `a` a line's or arrow's attachments `[tail, tip]`
   /// (each `{id, t}` or null; absent when neither end is attached), `o`
-  /// the [origin] (absent when null).
+  /// the [origin] (absent when null), `t` a curve's [through] points as
+  /// `[x0, y0, …]` and `c` its [corners] (both absent for a plain spline,
+  /// `c` also when it has none).
   Map<String, Object?> toJson() => {
     'k': kind.name,
     'p': [
@@ -210,6 +256,11 @@ class ShapeGeometry {
     if (kind == ShapeKind.star) ...{'i': inner, 'n': tips},
     if (isAttached) 'a': [tail?.toJson(), tip?.toJson()],
     'o': ?origin,
+    if (through case final t?)
+      't': [
+        for (final p in t) ...[p.dx, p.dy],
+      ],
+    if (corners.isNotEmpty) 'c': corners,
   };
 
   /// Parses [json] strictly (see [toJson]); throws [FormatException] when
@@ -237,6 +288,9 @@ class ShapeGeometry {
         throw const FormatException('Malformed shape: p');
       }
       points.add(Offset(x.toDouble(), y.toDouble()));
+    }
+    if (kind != ShapeKind.curve && (json['t'] != null || json['c'] != null)) {
+      throw const FormatException('Malformed shape: t or c on a shape other than a curve');
     }
     final inner = json['i'], tips = json['n'];
     if (kind == ShapeKind.star) {
@@ -268,7 +322,45 @@ class ShapeGeometry {
     if (kind == ShapeKind.ellipse) {
       return ShapeGeometry.ellipse(points[0], points[1] - points[0], points[2] - points[0]);
     }
+    if (kind == ShapeKind.curve && json['t'] != null) {
+      final closed = points.length % 3 == 0;
+      final through = _offsets(json['t'], min: closed ? 3 : 2, max: maxAnchors, key: 't');
+      final c = json['c'] ?? const <Object?>[];
+      if (c is! List) throw const FormatException('Malformed shape: c');
+      var last = -1;
+      for (final i in c) {
+        if (i is! int || i <= last || i >= through.length) {
+          throw const FormatException('Malformed shape: c');
+        }
+        last = i;
+      }
+      return ShapeGeometry(kind, points, through: through, corners: c.cast<int>());
+    }
+    if (json['c'] != null) throw const FormatException('Malformed shape: c without t');
     return ShapeGeometry(kind, points);
+  }
+
+  /// The points of flat coordinate list [value] (`[x0, y0, …]`), [min] to
+  /// [max] of them; throws [FormatException] (naming [key]) otherwise.
+  static List<Offset> _offsets(
+    Object? value, {
+    required int min,
+    required int max,
+    required String key,
+  }) {
+    if (value is! List || value.length.isOdd) throw FormatException('Malformed shape: $key');
+    final n = value.length ~/ 2;
+    if (n < min || n > max) throw FormatException('Malformed shape: $key');
+    return [
+      for (var i = 0; i < value.length; i += 2)
+        switch ((value[i], value[i + 1])) {
+          (final num x, final num y) when x.isFinite && y.isFinite => Offset(
+            x.toDouble(),
+            y.toDouble(),
+          ),
+          _ => throw FormatException('Malformed shape: $key'),
+        },
+    ];
   }
 
   @override
@@ -280,10 +372,22 @@ class ShapeGeometry {
       other.tail == tail &&
       other.tip == tip &&
       other.origin == origin &&
-      listEquals(other.points, points);
+      listEquals(other.points, points) &&
+      listEquals(other.through, through) &&
+      listEquals(other.corners, corners);
 
   @override
-  int get hashCode => Object.hash(kind, inner, tips, tail, tip, origin, Object.hashAll(points));
+  int get hashCode => Object.hash(
+    kind,
+    inner,
+    tips,
+    tail,
+    tip,
+    origin,
+    Object.hashAll(points),
+    through == null ? null : Object.hashAll(through!),
+    Object.hashAll(corners),
+  );
 
   @override
   String toString() => 'ShapeGeometry(${toJson()})';
