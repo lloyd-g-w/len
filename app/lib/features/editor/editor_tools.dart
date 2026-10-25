@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/stroke.dart';
 import '../../ink/tool_settings.dart';
 import '../../ui/app_theme.dart';
-import 'pen/eraser_icon.dart';
 import 'pen/eraser_options_panel.dart';
 import 'pen/eraser_strip.dart';
 import 'pen/highlighter_options_panel.dart';
@@ -88,7 +86,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
   final pen = ToolDescriptor(
     settings: tools,
     tool: EditorTool.pen,
-    icon: const Icon(Symbols.edit_sharp),
+    icon: const ToolIcon(ToolIconKind.pen),
     label: 'Pen',
     shortcut: 'P',
     inkColor: () => tools.configOf(InkTool.ballpoint).color,
@@ -107,7 +105,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
     ToolDescriptor(
       settings: tools,
       tool: EditorTool.highlighter,
-      icon: const Icon(Symbols.border_color_sharp),
+      icon: const ToolIcon(ToolIconKind.highlighter),
       label: 'Highlighter',
       shortcut: 'H',
       inkColor: () => tools.configOf(InkTool.highlighter).color,
@@ -124,7 +122,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
     ToolDescriptor(
       settings: tools,
       tool: EditorTool.eraser,
-      icon: const EraserIcon(),
+      icon: const ToolIcon(ToolIconKind.eraser),
       label: 'Eraser',
       shortcut: 'E',
       strip: (_, open) => EraserStrip(tools: tools, onEdit: open),
@@ -134,7 +132,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
     ToolDescriptor(
       settings: tools,
       tool: EditorTool.lasso,
-      icon: const Icon(lassoIcon),
+      icon: const ToolIcon(ToolIconKind.lasso),
       label: 'Lasso',
       shortcut: 'L',
       options: (_) => LassoOptionsPanel(tools: tools),
@@ -154,7 +152,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
     ToolDescriptor(
       settings: tools,
       tool: EditorTool.text,
-      icon: const Icon(textIcon),
+      icon: const ToolIcon(ToolIconKind.text),
       label: 'Text',
       shortcut: 'T',
       inkColor: () => tools.textStyle.color,
@@ -163,7 +161,7 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
     ToolDescriptor(
       settings: tools,
       tool: EditorTool.laser,
-      icon: const Icon(laserIcon),
+      icon: const ToolIcon(ToolIconKind.laser),
       label: 'Laser pointer',
       shortLabel: 'Laser',
       shortcut: 'K',

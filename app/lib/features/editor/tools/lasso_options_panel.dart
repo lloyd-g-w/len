@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
@@ -7,6 +6,7 @@ import '../../../ui/group_header.dart';
 import '../../../ui/roving_focus.dart';
 import '../../documents/templates/even_choices.dart';
 import '../pen/option_controls.dart';
+import 'tool_icons.dart';
 
 /// The lasso's options: its shape (freehand loop or rectangle; unlabelled,
 /// as the laser's Dot / Trail), how much of an item it must cover
@@ -46,9 +46,9 @@ class LassoOptionsPanel extends StatelessWidget {
                   for (final shape in LassoShape.values)
                     ButtonSegment(
                       value: shape,
-                      icon: Icon(switch (shape) {
-                        LassoShape.freehand => Symbols.lasso_select_sharp,
-                        LassoShape.rectangle => Symbols.select_sharp,
+                      icon: ToolIcon(switch (shape) {
+                        LassoShape.freehand => ToolIconKind.lasso,
+                        LassoShape.rectangle => ToolIconKind.lassoRectangle,
                       }),
                       label: Text(shape.label),
                     ),

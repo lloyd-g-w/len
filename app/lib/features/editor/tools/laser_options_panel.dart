@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ink/tool_settings.dart';
 import '../../../ui/adaptive_popover.dart';
@@ -13,6 +12,7 @@ import '../pen/option_sections.dart';
 import '../pen/pen_ends_options.dart';
 import 'laser_preview.dart';
 import 'laser_slots.dart';
+import 'tool_icons.dart';
 
 /// The laser pointer's settings, laid out as the pen's: a title with Reset
 /// (puts dot / trail, the trail's feel and the fading back to the defaults,
@@ -77,12 +77,12 @@ class _LaserOptionsPanelState extends State<LaserOptionsPanel> {
                 segments: const [
                   ButtonSegment(
                     value: LaserMode.dot,
-                    icon: Icon(Symbols.circle_sharp, fill: 1, size: 12),
+                    icon: ToolIcon(ToolIconKind.laserDot),
                     label: Text('Dot'),
                   ),
                   ButtonSegment(
                     value: LaserMode.trail,
-                    icon: Icon(Symbols.gesture_sharp),
+                    icon: ToolIcon(ToolIconKind.laserTrail),
                     label: Text('Trail'),
                   ),
                 ],

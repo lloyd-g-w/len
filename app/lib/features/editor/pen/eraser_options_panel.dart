@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/roving_focus.dart';
+import '../tools/tool_icons.dart';
 import 'option_controls.dart';
 import 'slot_button.dart';
 
@@ -40,12 +40,12 @@ class EraserOptionsPanel extends StatelessWidget {
                 segments: const [
                   ButtonSegment(
                     value: EraserMode.stroke,
-                    icon: Icon(Symbols.gesture_sharp),
+                    icon: ToolIcon(ToolIconKind.eraseStroke),
                     label: Text('Whole stroke'),
                   ),
                   ButtonSegment(
                     value: EraserMode.pixel,
-                    icon: Icon(Symbols.blur_on_sharp),
+                    icon: ToolIcon(ToolIconKind.erasePartial),
                     label: Text('Partial'),
                   ),
                 ],
