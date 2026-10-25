@@ -1855,10 +1855,11 @@ corners are RDP vertices (two closer than 10 % of the diagonal are one
 rounded corner) moved to where the sides, fitted as lines, meet
 (`Polyline.fitCorners`: a hand rounds corners off), less any corner a fit
 with one fewer matches within 0.4 % of the diagonal (a bowed side, the
-overshoot closing the loop: long rectangles stay rectangles), and no
-polygon at all when a corner's rounding (judged from how far the stroke
-passes from it) is over 20 % of its longer side (`maxRounding`: a smooth
-blob fits a polygon whose corners lie far outside it), then 3 → triangle, 4
+overshoot closing the loop: long rectangles stay rectangles), and a
+triangle or quadrilateral with a corner rounded by over 20 % of its
+longer side (`maxRounding`, judged from how far the stroke passes from
+it: a smooth blob fits a polygon whose corners lie far outside it) must
+beat the ellipse clearly, as five or more corners must (below), then 3 → triangle, 4
 → diamond (diagonals along the axes), rectangle (right angles; rotated or,
 within 6°, axis-aligned, each side midway between its corners), else
 polygon (five or more corners must have half the ellipse's error: a ring

@@ -107,15 +107,18 @@ abstract final class ShapeRecognizer {
     // More corners than a polygon has: a scribble.
     final polygon = corners.length >= 3 && corners.length <= 8;
     if (polygon) corners = _fewest(loop, corners, diagonal);
-    final polygonError = polygon && _cornered(loop, corners)
+    final polygonError = polygon
         ? Polyline.meanDistanceToPolygon(loop, corners) / diagonal
         : double.infinity;
     final ellipseError = ellipse == null ? double.infinity : ellipse.error / diagonal;
     if (math.min(polygonError, ellipseError) > maxError) return null;
     // Noisy ellipses fit many-cornered polygons too; those must win clearly
     // (half the ellipse's error: a real S Pen ring around a word fits a
-    // hexagon with 0.58 of it, hand-drawn pentagons and hexagons far less).
-    final bias = corners.length >= 5 ? 0.5 : 1.0;
+    // hexagon with 0.58 of it, hand-drawn pentagons and hexagons far less),
+    // and so must polygons whose corners the stroke rounds off by much (a
+    // smooth blob fits a quadrilateral whose corners lie far outside it).
+    final clear = corners.length >= 5 || !_cornered(loop, corners);
+    final bias = clear ? 0.5 : 1.0;
     if (ellipseError * bias <= polygonError) return ellipse!.shape;
     return _polygonShape(corners);
   }
@@ -146,7 +149,8 @@ abstract final class ShapeRecognizer {
     return best;
   }
 
-  /// Whether the hand turned at each of [corners] (on [loop]) as at a
+  /// Whether the hand turned at each of [corners] (on [loop]: a triangle's
+  /// or quadrilateral's; obtuse corners say little) as at a
   /// corner rounded off a little, not round a bend: the corner's rounding
   /// radius, judged from how far the stroke passes from it, is at most
   /// [maxRounding] of its longer side. A smooth blob fits a polygon whose
@@ -171,10 +175,16 @@ abstract final class ShapeRecognizer {
     return true;
   }
 
-  /// The largest rounding of a polygon's corners, as a share of the
-  /// longer side at the corner (hand-drawn polygons: at most 0.15; smooth
-  /// closed curves fitted as polygons: mostly 0.3 or more).
+  /// The largest rounding of a triangle's or quadrilateral's corners, as a
+  /// share of the longer side at the corner, before it must beat the
+  /// ellipse clearly (hand-drawn ones: at most 0.15, real S Pen strokes
+  /// 60 px across more; smooth closed curves fitted as polygons: mostly 0.3
+  /// or more).
   static const double maxRounding = 0.2;
+
+  /// A polygon of five or more corners must fit with at most this share
+  /// of the ellipse's error.
+  static double polygonBias = 0.95;
 
   /// How much worse (mean distance, share of the diagonal) a fit with one
   /// corner fewer may be and still be preferred.
@@ -267,17 +277,27 @@ abstract final class ShapeRecognizer {
     if (fit == null) return null;
     var (rx, ry, angle) = (fit.rx, fit.ry, fit.angle);
     if (ry > rx) (rx, ry, angle) = (ry, rx, angle + math.pi / 2);
+    final c = fit.centre;
+    var error = 0.0;
+    for (final p in loop) {
+      // Distance along the ray from the centre: |q| (1 − 1/ρ).
+      final q = _rotate(p - c, -angle);
+      final rho = math.sqrt(math.pow(q.dx / rx, 2) + math.pow(q.dy / ry, 2));
+      error += rho == 0 ? ry : (q.distance * (1 - 1 / rho)).abs();
+    }
+    error /= loop.length;
     if (ry >= (1 - circleTolerance) * rx) {
       final circle = ConicFit.circle(loop);
       if (circle != null) {
-        final c = circle.centre, r = circle.radius;
-        var error = 0.0;
+        final centre = circle.centre, r = circle.radius;
+        var off = 0.0;
         for (final p in loop) {
-          error += ((p - c).distance - r).abs();
+          off += ((p - centre).distance - r).abs();
         }
+        // Judged as the round shape it is (against polygons), whichever fits.
         return (
-          shape: ShapeGeometry(ShapeKind.circle, [c, c + Offset(r, 0)]),
-          error: error / loop.length,
+          shape: ShapeGeometry(ShapeKind.circle, [centre, centre + Offset(r, 0)]),
+          error: math.min(error, off / loop.length),
         );
       }
     }
@@ -290,16 +310,7 @@ abstract final class ShapeRecognizer {
     final (w, h) = turns.isOdd ? (ry, rx) : (rx, ry);
     final u = level ? Offset(w, 0) : _rotate(Offset(rx, 0), angle);
     final v = level ? Offset(0, h) : _rotate(Offset(0, ry), angle);
-    final c = fit.centre;
-    var error = 0.0;
-    for (final p in loop) {
-      // Distance along the ray from the centre: |q| (1 − 1/ρ).
-      final q = _rotate(p - c, -angle);
-      final rho = math.sqrt(math.pow(q.dx / rx, 2) + math.pow(q.dy / ry, 2));
-      error += rho == 0 ? ry : (q.distance * (1 - 1 / rho)).abs();
-    }
-    final shape = ShapeGeometry(ShapeKind.ellipse, [c, c + u, c + v]);
-    return (shape: shape, error: error / loop.length);
+    return (shape: ShapeGeometry(ShapeKind.ellipse, [c, c + u, c + v]), error: error);
   }
 
   static Offset _rotate(Offset v, double a) =>
