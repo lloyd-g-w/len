@@ -585,7 +585,8 @@ void main() {
     expect(find.text('Theme'), findsOneWidget);
     expect(find.text('Tap to undo and redo'), findsOneWidget);
     expect(find.text('Side button'), findsOneWidget); // Tests run as Android.
-    expect(find.text('Toolbar'), findsNothing, reason: 'set in the editor, ⋯ → View');
+    // Where the toolbar sits is set in the editor (⋯ → View), not here.
+    expect(find.text('Floating'), findsNothing);
   });
 
   testWidgets('desktops show the side button only for stylus users', (tester) async {

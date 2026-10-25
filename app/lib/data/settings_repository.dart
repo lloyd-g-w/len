@@ -133,6 +133,12 @@ class SettingsRepository {
   bool get scribbleToErase => _get('scribble_to_erase') != 'false';
   set scribbleToErase(bool value) => _set('scribble_to_erase', '$value');
 
+  /// How many quick colours and sizes [tool]'s toolbar strip shows
+  /// (default three and three).
+  SlotCounts slotCounts(SlotTool tool) => SlotCounts.parse(_get('quick_slots_${tool.name}'));
+  void setSlotCounts(SlotTool tool, SlotCounts counts) =>
+      _set('quick_slots_${tool.name}', '$counts');
+
   /// What holding the stylus side button does (default: eraser).
   PenButtonAction get penButtonAction => PenButtonAction.parse(_get(_penButtonAction));
   set penButtonAction(PenButtonAction value) => _set(_penButtonAction, value.name);
