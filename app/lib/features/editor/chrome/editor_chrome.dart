@@ -216,31 +216,41 @@ class EditorChrome extends StatelessWidget {
                   ),
                 ),
               ),
+            // The top bar and, docked there, the sub-bar hanging under it
+            // (read right after the tools).
             Positioned(
               top: 0,
               left: 0,
               right: 0,
-              child: ChromeFade(visible: !focus, edge: const Offset(0, -1), child: topBar),
-            ),
-            // Read after the bar (reading order: it is under it).
-            if (subBar case final subBar? when layout.dock.underTopBar)
-              Positioned(
-                top: layout.barBottom + ToolbarMetrics.subBarGap,
-                left: 0,
-                right: 0,
-                height: ToolbarMetrics.subBarHeight,
-                child: ChromeFade(
-                  visible: !focus,
-                  edge: const Offset(0, -1),
-                  child: SubBarHanger(
-                    margin: EdgeInsets.only(
-                      left: safe.left + aside.left + ChromeMetrics.edge,
-                      right: safe.right + aside.right + ChromeMetrics.edge,
-                    ),
-                    child: subBar(const Offset(0, -1)),
-                  ),
+              child: FocusTraversalGroup(
+                policy: SubBarAfterTools(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ChromeFade(visible: !focus, edge: const Offset(0, -1), child: topBar),
+                    if (subBar case final subBar? when layout.dock.underTopBar)
+                      Padding(
+                        padding: const EdgeInsets.only(top: ToolbarMetrics.subBarGap),
+                        child: SizedBox(
+                          height: ToolbarMetrics.subBarHeight,
+                          child: ChromeFade(
+                            visible: !focus,
+                            edge: const Offset(0, -1),
+                            child: SubBarHanger(
+                              margin: EdgeInsets.only(
+                                left: safe.left + aside.left + ChromeMetrics.edge,
+                                right: safe.right + aside.right + ChromeMetrics.edge,
+                              ),
+                              child: subBar(const Offset(0, -1)),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
+            ),
             Positioned(
               top: layout.covered.top + Gaps.xl,
               left: aside.left,
@@ -297,5 +307,28 @@ class EditorChrome extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Reading order, except that the toolbar's sub-bar comes right after the
+/// main toolbar's controls (before the bar's actions beside them).
+class SubBarAfterTools extends ReadingOrderTraversalPolicy {
+  @override
+  Iterable<FocusNode> sortDescendants(Iterable<FocusNode> descendants, FocusNode currentNode) {
+    final sorted = super.sortDescendants(descendants, currentNode).toList();
+    bool inside<T extends Widget>(FocusNode node) =>
+        node.context?.findAncestorWidgetOfExactType<T>() != null;
+    final sub = [
+      for (final n in sorted)
+        if (inside<ToolSubBar>(n)) n,
+    ];
+    if (sub.isEmpty) return sorted;
+    final rest = [
+      for (final n in sorted)
+        if (!inside<ToolSubBar>(n)) n,
+    ];
+    final at = rest.lastIndexWhere(inside<EditorToolbar>);
+    if (at < 0) return sorted;
+    return rest..insertAll(at + 1, sub);
   }
 }

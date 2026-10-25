@@ -2879,8 +2879,11 @@ greyed out meanwhile.
 ### Toolbar (`features/editor/`, `toolbar/`)
 
 `EditorToolbar` is built from `ToolDescriptor`s (`editor_tools.dart`, a fixed
-order): icon, label, shortcut, ink colour, a quick-control *strip* (with its
-width) and its section of the options popover. More tools slot in by adding an
+order): icon, label, shortcut, ink colour, a quick-control *strip* (shown in
+the sub-bar) and its section of the options popover. As in Notewise, the
+toolbar is two bars: the **main bar** holds the tools alone (every dock and
+size), and the active tool's quick controls hang beside it in a smaller
+**sub-bar** (`ToolSubBar`). More tools slot in by adding an
 `EditorTool` value and a descriptor. The tools are Pen (P), Highlighter (H),
 Eraser (E), Lasso (L), Shapes (S; its icon is the current shape), Text (T) and
 Laser pointer (K), then **Insert ⊕** (`toolbar/insert_menu.dart`; a button, not
@@ -2895,18 +2898,35 @@ with a template is "Add page after" held down in the page menu).
   submenu; tapping it again, or anywhere else, or Esc closes them), a long press
   or a right click opens its options. A screen reader activates the selected
   tool to open them; there is no separate options button.
-- **`ToolStrip`** (`toolbar/tool_strip.dart`): the active tool's quick
-  controls, cross-fading as it changes: Pen and Highlighter, their **colour
-  slots then width slots** (`pen/ink_strip.dart`; 3 + 3 by default, 1–5 each,
-  independent, set in Settings → Toolbar); Eraser, three size slots; Shapes, the pen's slots (the kind
-  is picked in its options; the Shapes button shows it); Laser, its own colour
-  slots then size slots (`tools/laser_strip.dart`, `tools/laser_slots.dart`; 3 + 3, 1–5
-  each, as the inks', also in Settings → Toolbar); Lasso and Text, none. The rows are the shared
-  `ColorSlotRow` / `SizeSlotRow` (`pen/quick_slots.dart`).
-  Slots (`pen/slot_button.dart`) are 22-dp swatches or neutral dots at real
-  size (4–20 dp) in 36-dp cells (44 on touch); the selected colour gets a
-  2-px `onSurface` ring with a 2-px gap, the selected size (and eraser size)
-  the neutral `Surfaces.pressed` plate, so the two never look alike. Tapping
+- **`ToolSubBar`** (`toolbar/tool_sub_bar.dart`): the active tool's quick
+  controls in a raised pill of their own (`FloatingPanel`, `Radii.pill`, the
+  palette's surface, hairline and contact shadow), as Notewise's pen bar
+  hangs under its toolbar: the tool's strip, a hairline, then ⚙ tune
+  (`SubBarOptionsButton`, "Pen options": the same options popover as tapping
+  the selected tool, anchored to it). Pen and Highlighter: **width slots |
+  colour slots** (`pen/ink_strip.dart`; 3 + 3 by default, 1–5 each,
+  independent, set in Settings → Toolbar, their only home: no + in the
+  sub-bar); Eraser: three size slots | whole stroke, partial
+  (`pen/eraser_strip.dart`; "highlighter only" stays in its options); Shapes,
+  the pen's slots (the kind is picked in its options; the Shapes button shows
+  it); Laser, its own size slots | colour slots (`tools/laser_strip.dart`,
+  `tools/laser_slots.dart`; 3 + 3, 1–5 each, as the inks', also in Settings →
+  Toolbar); Lasso and Text have none, so no sub-bar shows. The rows are the
+  shared `ColorSlotRow` / `SizeSlotRow` (`pen/quick_slots.dart`). It fades in
+  sliding `Motion.chromeSlide` away from the main bar (fades only with
+  reduced motion), keeps one pill as tools change (its controls cross-fade,
+  its size animates) and scrolls with fading ends (`ScrollFade`) where it is
+  too long. It is its own `RovingGroup` (the arrows run along it, stopping at its
+  ends, as the main bar's do: `RovingItem` hands them to its group before a menu
+  anchor's shortcuts can, so Insert ⊕ is an end too); Tab reaches it right after
+  the tools (`SubBarAfterTools`, the top chrome's traversal policy; ordered
+  groups put it after the phone's row and the floating palette).
+  Slots (`pen/slot_button.dart`) are 22-dp swatches, widths drawn as short
+  square-ended lines as thick as the width (`SlotLine`), laser and eraser sizes
+  as dots and rings at real size (4–20 dp), in 36-dp cells (44 on touch); the
+  selected colour gets a 1.5-px `onSurface` ring with a gap, the selected size
+  (and eraser mode) a 12 × 2-dp accent rule under its glyph (the margin rule),
+  so the two never look alike. Tapping
   the selected pen, highlighter or laser slot, a long press or a right click edits
   that slot alone (`pen/slot_editors.dart`, anchored, a compact sheet on
   phones; `showColorSlotEditor` notes a new colour as recent): a colour slot the
@@ -2919,8 +2939,6 @@ with a template is "Add page after" held down in the page menu).
   `ToolSettings.previousTool`, the eraser at first): one tap swaps them. When a
   stylus is in use and its side button erases (`penButtonErases`), the slot skips
   the eraser and starts at the highlighter: pen ↔ highlighter is one tap.
-  The slots give up to 4 dp of their 44-dp cells for it (`ToolbarDensity.slot`)
-  and it steps aside when they would go under 40 (narrow phones, 5 + 5).
 - **Reading** (R20-6, `features/editor/finger_reading.dart`): while fingers draw
   because no stylus was ever seen (`ToolSettings.stylusOnly` null) on a
   touch-first device (`Targets.touchFirst`: phones and tablets alike — it is
@@ -2951,7 +2969,7 @@ with a template is "Add page after" held down in the page menu).
   `showToolOptions`): `showAdaptivePopover`, anchored to the tool button and
   320 dp wide (Text 368 on touch: seven 48-dp swatch cells), a sheet on phones
   (`popoverIsSheet`; it holds the options alone, the quick slots stay in the
-  toolbar under it); the body scrolls with a fading edge (`ScrollFade`); edits
+  sub-bar over it); the body scrolls with a fading edge (`ScrollFade`); edits
   apply live. Each tool's options are **one flat panel**: no colour palette, no
   size slider, no disclosures, no nested popovers. Every panel starts with its
   title and Reset (`OptionHeader`, `ResetButton`: every setting the panel shows
@@ -2986,22 +3004,37 @@ with a template is "Add page after" held down in the page menu).
   the *pane's* width, so split panes lay out on their own): with
   `ToolbarPlacement.docked` it sits **inside the top bar** when the bar fits
   it on one row (`ToolbarMetrics.oneRow`: navigation with a 120-dp title,
-  the tools, the reserved strip, the actions; about 1 040 dp), centred when
-  the clusters beside it have room; else in a **48-dp row attached under the
-  bar** (tools centred, the strip after them; short of room, as in a split
-  pane on touch, its cells shrink to the 40 / 36-dp visuals through
-  `ToolbarDensity`, and shorter still the strip scrolls); in panes under 600 dp in a
-  **56-dp bottom row** (`ToolSwitcherButton` `[✎▾]`, whose popover is a 4 × 2
-  grid of the tools and Insert, then the strip, scrolling if needed). With
-  `ToolbarPlacement.floating` (⋯ → View, its only home) it is a
-  `raised` palette dragged by its grip (`ToolbarSlot`; it covers no edge).
-  The strip's width is reserved at its widest across tools, so switching
-  tools moves nothing and never changes the layout.
-- **Rebuilds**: the cluster, strip and switcher listen to `ToolSettings`
+  the tools, the actions; about 780 dp), centred when the clusters beside it
+  have room; else in a **48-dp row attached under the bar** (tools centred;
+  short of room, as in a split pane on touch, its cells shrink to the 40-dp
+  visuals through `ToolbarDensity`); in short windows the switcher and the
+  previous tool inside the bar (`slim`); in panes under 600 dp in a **56-dp
+  bottom row** (`ToolSwitcherButton` `[✎▾]`, whose popover is a 4 × 2 grid of
+  the tools and Insert, and the previous tool, centred). With
+  `ToolbarPlacement.floating` (⋯ → View, its only home) it is a `raised` pill
+  dragged by its grip (`ToolbarSlot`; it covers no edge). The main bar holds
+  no quick controls, so neither tools nor slot counts ever change its width or
+  the dock.
+- **Where the sub-bar goes**: docked in or under the top bar, it hangs
+  `ToolbarMetrics.subBarGap` (8 dp) under the top chrome, centred on the tools
+  (`SubBarAnchor` around the docked toolbar reports its rect after layout to
+  `SubBarAnchors` around the chrome's stack; `SubBarHanger` centres the pill on
+  it, kept inside the pane, the page sidebar and the safe area); on phones it
+  sits 8 dp over the bottom row, centred (one `FocusTraversalGroup` with the
+  row, so Tab reaches the row first); beside the floating palette `ToolbarSlot`
+  lays both out (`_PaletteLayout`): under it in the upper half of the editor,
+  over it in the lower half, toward the page when it runs down a side, centred
+  on it and kept in the free area; it never moves the palette. Its band
+  (`ToolbarMetrics.subBarBand`) is part of `ChromeLayout.covered` (top for the
+  docks in the bar, bottom on phones) whatever the tool, so the page's scroll
+  bounds, the zoom pill, the page indicator, tips, the zoom window's box and
+  the selection menus sit clear of it and never move as tools change. Focus
+  mode hides it with the bars (`ChromeFade`); so does the phone's row giving
+  way to the soft keyboard.
+- **Rebuilds**: the cluster, sub-bar and switcher listen to `ToolSettings`
   themselves; the chrome host, top bar and canvas never rebuild on a tool
   change (`test/toolbar_test.dart` counts rebuilds). `ToolbarMeasure`
-  notifies only when the reserved strip width changes (slots added or
-  removed), which may move the toolbar between the bar and its row.
+  no longer listens to the tools at all (only the zoom window).
 
 Shortcuts: P / H / E / L / S / T / K, 1–5 colour slots, [ / ] thinner /
 thicker (plus the canvas keys `+` `-` `0` Shift+1 Home Shift+M). Palm rejection is
@@ -3983,7 +4016,7 @@ button use `MenuIconButton` / `showMenuBelow` (`menus.dart`; `MenuRow.shortcut` 
 where a keyboard is likely), never `PopupMenuButton`. The chrome's `MenuAnchor`s (⋯, Insert,
 zoom) sit in `MenuEdgeMargin`, which adds 8-dp side strips as display features (the anchor's
 `MediaQuery` padding never reaches its overlay; display features do). Rows of controls that
-scroll sideways (the text format bar's rows, the toolbar's quick slots in a narrow bar) use
+scroll sideways (the text format bar's rows, the toolbar's sub-bar on a narrow phone) use
 `ScrollFade` (`scroll_fade.dart`): an end fades out while content lies beyond it. The
 keyboard shortcut reference (`settings/keyboard_shortcuts.dart`, Ctrl/⌘+/) is a list of
 `ShortcutGroup`s kept honest by `keyboard_shortcuts_test.dart` (each entry must be bound

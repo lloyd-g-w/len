@@ -129,7 +129,7 @@ void main() {
 
     // Esc goes back to the tool before (the pen); its shortcuts work again.
     await key(tester, LogicalKeyboardKey.escape);
-    await mouseDrag(tester, const [Offset(600, 100), Offset(700, 150)]);
+    await mouseDrag(tester, const [Offset(600, 300), Offset(700, 350)]);
     expect(liveStrokes(services, nb.id), hasLength(1));
     await key(tester, LogicalKeyboardKey.keyP);
     await key(tester, LogicalKeyboardKey.keyH);

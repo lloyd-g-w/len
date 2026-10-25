@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
+import 'package:len/features/editor/chrome/chrome_layout.dart';
 import 'package:len/features/editor/chrome/editor_chrome.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/sync/sync_engine.dart';
@@ -24,7 +25,10 @@ import 'support/zoom_fixtures.dart';
 double _up = 0;
 List<Offset> up(List<Offset> points) => [for (final p in points) p.translate(0, -_up)];
 Future<void> _measure(WidgetTester tester) async =>
-    _up = 72 - tester.widget<EditorChrome>(find.byType(EditorChrome)).layout.toolRowHeight;
+    _up = 72 - _rows(tester.widget<EditorChrome>(find.byType(EditorChrome)).layout);
+
+/// The room under the bar: the tool row and the sub-bar's band.
+double _rows(ChromeLayout layout) => layout.toolRowHeight + layout.subBarAbove;
 
 void main() {
   Future<void> lasso(WidgetTester tester, Rect r) => mouseDrag(tester, [

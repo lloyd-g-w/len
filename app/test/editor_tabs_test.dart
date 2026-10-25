@@ -12,6 +12,7 @@ import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/tabs/editor_workspace.dart';
 import 'package:len/features/editor/tabs/notebook_tab_strip.dart';
 import 'package:len/features/editor/tabs/open_notebooks.dart';
+import 'package:len/features/editor/toolbar/toolbar_metrics.dart';
 import 'package:len/features/library/library_screen.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -202,12 +203,14 @@ void main() {
     expect(find.text('3 / 4'), findsOneWidget);
   });
 
-  for (final (size, strip, top) in const [
+  // The sub-bar's band under the bar.
+  final subBar = ToolbarMetrics.subBarBand;
+  for (final (size, strip, top) in [
     // Tablet portrait: ← ▦ and the actions at the strip's ends, the tools
     // under it; two rows, not three.
-    (Size(800, 1280), true, 52.0 + 48),
+    (const Size(800, 1280), true, 52.0 + 48 + subBar),
     // A phone held sideways: one row; the tabs are in ⋯.
-    (Size(844, 390), false, 52.0),
+    (const Size(844, 390), false, 52.0 + subBar),
   ]) {
     testWidgets('tabs at $size: chrome $top dp tall', (tester) async {
       tester.view

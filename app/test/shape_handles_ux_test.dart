@@ -306,7 +306,9 @@ void main() {
       await seededCanvas(tester);
       expect(painter().handleScale, 1);
       Targets.debugTouchFirst = true;
-      // Rebuilt (a tool change rebuilds the content layer's painters).
+      // Rebuilt (here by a resize, as the app is when the input changes).
+      tester.view.physicalSize += const Offset(0, 1);
+      addTearDown(tester.view.reset);
       await key(tester, LogicalKeyboardKey.keyL);
       await tester.pumpAndSettle();
       expect(painter().handleScale, SelectionPainter.touchScale);

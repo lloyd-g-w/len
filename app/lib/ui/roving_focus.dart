@@ -253,6 +253,9 @@ class _RovingItemState extends State<RovingItem> {
       canRequestFocus: false,
       skipTraversal: true,
       descendantsAreTraversable: widget.stop || group == null || group.widget.single,
+      // The group's keys first, before shortcuts around the item take the
+      // arrows (a menu anchor's).
+      onKeyEvent: group?._onKey,
       child: widget.child,
     );
   }
