@@ -129,7 +129,10 @@ abstract final class ShapeBuilder {
   static List<Offset> ellipse(Offset centre, Offset u, Offset v, {double spacing = 2}) {
     // The point moves at most max(|u|, |v|) per radian of t.
     final speed = math.max(u.distance, v.distance);
-    final n = (2 * math.pi * speed / math.max(spacing, 1e-6)).ceil().clamp(32, maxEllipsePoints);
+    // A multiple of 4, so the ends of both axes are points.
+    final n =
+        4 *
+        (2 * math.pi * speed / math.max(spacing, 1e-6) / 4).ceil().clamp(8, maxEllipsePoints ~/ 4);
     return [
       for (var i = 0; i <= n; i++)
         if (i == n)

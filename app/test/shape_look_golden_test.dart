@@ -113,10 +113,11 @@ List<Stroke> _shapes() {
   return [for (final c in cases) ..._snapped(c)];
 }
 
-/// Curves hold to snap makes of smooth strokes.
+/// Curves hold to snap makes of smooth strokes, with the points they
+/// pass through (red).
 List<Stroke> _curves() {
   final h = HandShapes(5);
-  return [
+  final strokes = [
     ..._snapped(
       h.curve(const [Offset(20, 120), Offset(90, 30), Offset(170, 110), Offset(260, 40)]),
     ),
@@ -138,6 +139,12 @@ List<Stroke> _curves() {
         Offset(310, 280),
       ], closed: true),
     ),
+  ];
+  return [
+    ...strokes,
+    for (final s in strokes)
+      for (final p in s.shape?.through ?? const <Offset>[])
+        _stroke([StrokePoint(p.dx, p.dy, 0.5)], color: 0xFFD03030, width: 4),
   ];
 }
 
@@ -187,7 +194,7 @@ Future<List<Stroke>> _toolCurves() async {
   final dots = <Stroke>[];
   Future<Stroke> curve(List<Object> taps, {bool closed = false}) async {
     for (final t in taps) {
-      final p = t is Offset ? t : (t as (Offset, Offset)).$1;
+      final p = t is Offset ? t : (t as (Offset, Offset)).$2;
       dots.add(_stroke([StrokePoint(p.dx, p.dy, 0.5)], color: 0xFFD03030, width: 6));
     }
     return _shape(await _tapped(taps, closed: closed));

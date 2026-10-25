@@ -6,8 +6,9 @@ import 'curve_drawing.dart';
 
 /// Paints [CurveDrawing.guide] over a curve being drawn, in the look of a
 /// selected curve's handles (`SelectionPainter`): small knobs on the
-/// anchors placed, a larger ring on the first once a tap there closes the
-/// curve, and the last anchor's tangents as arms ending in solid dots.
+/// points placed (square ones on corners), a larger ring on the first once
+/// a tap there closes the curve, and tangents, if any, as arms ending in
+/// solid dots.
 class CurveGuidePainter extends CustomPainter {
   CurveGuidePainter({
     required this.guide,
@@ -51,6 +52,14 @@ class CurveGuidePainter extends CustomPainter {
     for (final (i, a) in g.anchors.indexed) {
       final at = viewport.toScreen(a);
       final r = (i == 0 && g.closes ? 6.5 : 4) * k;
+      if (g.corners.contains(i)) {
+        // A corner: a square knob.
+        final square = Rect.fromCenter(center: at, width: 2 * r, height: 2 * r);
+        canvas
+          ..drawRect(square, fill)
+          ..drawRect(square, ring);
+        continue;
+      }
       canvas
         ..drawCircle(at, r, fill)
         ..drawCircle(at, r, ring);
