@@ -2285,9 +2285,10 @@ surface.
   first; `LaserConfigJson` drops a malformed row to its defaults), the pen's feel for the trail
   (pressure sensitivity and stabiliser 0–1, default off; ends round / tapered / flat as
   `PenEnds`, default flat — the trail as it always looked; a missing or malformed value loads
-  its default, so settings saved before load unchanged; Reset restores them) and when the trail fades (`LaserFade`): each point a set time after it was
+  its default, so settings saved before load unchanged; Reset restores them; a trail has no dot at
+  either end, `LaserTrail.showsDot`: only a hovering mouse shows one, standing in for the cursor) and when the trail fades (`LaserFade`): each point a set time after it was
   drawn (0.3–3 s), or, *when I stop*, all of it together once `hold` (0.5–5 s, default 2 s)
-  has passed since the last lift (`LaserTrail.holding`: the trail and dot stay in full while
+  has passed since the last lift (`LaserTrail.holding`: the trail stays in full while
   writing, a press within the hold keeps everything, then a 400-ms fade; frames during the hold
   repaint nothing, and a hovering mouse doesn't stop the countdown; the same with a mouse,
   pen or finger and presenting with F5, `test/laser_hold_input_test.dart`). Set in the tool's options
