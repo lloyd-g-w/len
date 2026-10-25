@@ -73,6 +73,9 @@ hairlines, one accent, depth only for paper).
   Sizes from `Glyphs`: `bar` 20, `menu` 18, `empty` 40. Always reference
   symbols as `const` members (no lookups by name), so release builds keep
   tree-shaking the icon font.
+  Tool glyphs (the toolbar's tools, Insert ⊕, the tools' option glyphs)
+  are drawn, not symbols: `ToolIcon(ToolIconKind.…)` and `ShapeGlyph` from
+  `features/editor/tools/tool_icons.dart` (DESIGN §4).
 - **Targets:** by input, not width. `Targets.touchFirst` (Android, or a coarse
   pointer on the web); `Targets.of(context, visual)`, `Targets.barHit` (48 on
   touch, 40 with a pointer), `Targets.slotHit` (44 / 36),

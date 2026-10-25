@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/menus.dart';
 import '../chrome/canvas_guard.dart';
+import '../tools/tool_icons.dart';
 
 /// What Insert ⊕ offers: an image, a photo (Android), and in paged
 /// notebooks scanned pages and pages from a PDF. Null entries are left out. (A page with a
@@ -79,7 +80,7 @@ class InsertButton extends StatelessWidget {
                   : MaterialTapTargetSize.shrinkWrap,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
             ),
-            icon: const Icon(Symbols.add_circle_sharp),
+            icon: const ToolIcon(ToolIconKind.insert),
           ),
         ),
       ),
