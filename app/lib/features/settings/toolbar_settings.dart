@@ -59,15 +59,25 @@ class _SlotCountsTile extends StatelessWidget {
   final SlotCounts counts;
   final ValueChanged<SlotCounts> onChanged;
 
+  /// The stacked steppers' column: labels at its start, steppers at its end.
+  static const double _stackedWidth = 280;
+
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final name = tool.label.toLowerCase();
-    Widget stepper(String label, int count, ValueChanged<int> set) => Row(
-      mainAxisSize: MainAxisSize.min,
+    // Beside the title the control is unbounded: the two side by side.
+    // Below it (narrow rows) one under the other, the steppers lined up
+    // at the end of a short column.
+    Widget stepper(String label, int count, ValueChanged<int> set, {required bool stacked}) => Row(
+      mainAxisSize: stacked ? MainAxisSize.max : MainAxisSize.min,
       children: [
-        Text(label, style: text.labelLarge),
-        const SizedBox(width: Gaps.xs),
+        if (stacked)
+          Expanded(child: Text(label, style: text.labelLarge))
+        else ...[
+          Text(label, style: text.labelLarge),
+          const SizedBox(width: Gaps.xs),
+        ],
         CountStepper(
           compact: false,
           noun: '$name ${label.toLowerCase()}',
@@ -79,16 +89,32 @@ class _SlotCountsTile extends StatelessWidget {
         ),
       ],
     );
+    List<Widget> steppers({required bool stacked}) => [
+      stepper(
+        'Colours',
+        counts.colors,
+        (n) => onChanged(counts.copyWith(colors: n)),
+        stacked: stacked,
+      ),
+      stepper('Sizes', counts.sizes, (n) => onChanged(counts.copyWith(sizes: n)), stacked: stacked),
+    ];
     return SettingsTile(
       icon: icon,
       title: tool.label,
-      control: Wrap(
-        spacing: Gaps.lg,
-        runSpacing: Gaps.xs,
-        children: [
-          stepper('Colours', counts.colors, (n) => onChanged(counts.copyWith(colors: n))),
-          stepper('Sizes', counts.sizes, (n) => onChanged(counts.copyWith(sizes: n))),
-        ],
+      control: LayoutBuilder(
+        builder: (context, constraints) => constraints.maxWidth.isInfinite
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: Gaps.lg,
+                children: steppers(stacked: false),
+              )
+            : Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: _stackedWidth),
+                  child: Column(children: steppers(stacked: true)),
+                ),
+              ),
       ),
     );
   }
