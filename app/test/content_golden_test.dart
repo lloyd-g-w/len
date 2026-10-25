@@ -218,6 +218,31 @@ void main() {
     );
   });
 
+  testWidgets('content: a lasso while it is drawn (no fill, ink beneath untouched)', (
+    tester,
+  ) async {
+    await seededCanvas(tester);
+    await key(tester, LogicalKeyboardKey.keyL);
+    await tester.pumpAndSettle();
+    // A hand-drawn loop around the ellipse and the text, not yet closed.
+    final gesture = await tester.startGesture(
+      const Offset(530, 140),
+      kind: PointerDeviceKind.mouse,
+    );
+    for (var i = 1; i <= 60; i++) {
+      final t = i / 64 * 2 * math.pi;
+      await gesture.moveTo(
+        Offset(530 + 160 * math.sin(t) + 3 * math.sin(7 * t), 380 - 240 * math.cos(t)),
+      );
+    }
+    await tester.pump();
+    await expectLater(
+      find.byType(Directionality).first,
+      matchesGoldenFile('goldens/content_lasso_live.png'),
+    );
+    await gesture.up();
+  });
+
   testWidgets('content: rotating a selection previews the transform', (tester) async {
     await seededCanvas(tester);
     await key(tester, LogicalKeyboardKey.keyL);

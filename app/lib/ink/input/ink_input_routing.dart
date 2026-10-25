@@ -35,6 +35,7 @@ extension _InputRouting on InkInputController {
     // cursor would linger; a finger is a good moment to clear it.
     _draw.showEraser(null);
     _draw.showPen(null);
+    _hovering = null;
     // Palm rejection, or reading (one finger scrolls until a tool is chosen).
     if (tools.fingersNavigate) {
       _nav.add(e.pointer, e.localPosition, slop: kTouchSlop);
@@ -53,6 +54,38 @@ extension _InputRouting on InkInputController {
     }
     _nav.add(e.pointer, e.localPosition, slop: kTouchSlop);
   }
+
+  /// Shows what hovering [e] previews, and only that: the eraser's ring
+  /// (the eraser tool, the eraser end, the side button set to erase), the
+  /// pen's or highlighter's ink, or the laser's dot under a mouse
+  /// (presenting with a mouse needs no button held). The system cursor
+  /// hides under a preview ([_pointAt]): the eraser shows no crosshair.
+  void _showHover(PointerEvent e) {
+    final erases = _wantsErase(e);
+    _draw.showEraser(erases ? e.localPosition : null);
+    _draw.showPen(_previewsInk(e) ? e.localPosition : null);
+    if (content?.laser case final laser?) {
+      if (_lasers(e)) {
+        laser.config = tools.laser;
+        laser.hover(viewport.toWorld(e.localPosition));
+      } else {
+        laser.hover(null);
+      }
+    }
+    _pointAt(e);
+  }
+
+  /// Sets [cursor] for a pointer at [e] (see [cursor]).
+  void _pointAt(PointerEvent e) {
+    final previewed = _wantsErase(e) || _previewsInk(e) || _lasers(e);
+    cursor.value = previewed
+        ? SystemMouseCursors.none
+        : content?.cursorAt(tools.tool, e.localPosition) ?? SystemMouseCursors.precise;
+  }
+
+  /// Whether [e] shows the laser's dot: a mouse with the laser tool.
+  bool _lasers(PointerEvent e) =>
+      content != null && e.kind == PointerDeviceKind.mouse && tools.tool == EditorTool.laser;
 
   bool _wantsErase(PointerEvent e) =>
       tools.tool == EditorTool.eraser ||

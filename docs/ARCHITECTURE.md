@@ -1612,7 +1612,16 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   half opaque, so it never reads as ink; at least 2 screen px); with the
   eraser tool, the eraser end or the side button set to erase, the eraser's
   ring (two-tone, a dark line inside a light one, so it shows on dark paper
-  too; also under a mouse). Both go at pen-down, on exit and when a finger
+  too; also under a mouse). Only the active tool's preview shows
+  (`InkInputController._showHover`): the eraser (tool, eraser end or side
+  button) shows its ring alone, and wherever the canvas draws a preview (the
+  ring, the pen's dot, the laser's dot under a mouse) the system cursor is
+  hidden (`SystemMouseCursors.none`), so no drawing crosshair (shown under a
+  hovering stylus too where the platform draws stylus pointers) sits in the eraser;
+  other tools keep their cursor (`ContentTools.cursorAt`, else the
+  crosshair). A tool picked while the pen or mouse rests over the canvas
+  swaps the preview at once (`InkSurface` → `refreshHover`, the last hover
+  event; a stylus only while in range). Both go at pen-down, on exit and when a finger
   touches; a stylus's also 500 ms after its last event (`LiveInk.expireCursorsSoon`:
   Android reports no hover exit when the pen leaves range).
 - **Mouse**: left draws, middle/right drag pans (a right click without dragging opens the
@@ -2014,6 +2023,15 @@ surface.
   (an image beneath the ink is not touched by a lasso drawn within it). A
   tap selects the topmost item of the kinds taken. A rectangle that selects
   no ink and started on PDF text selects the text from corner to corner.
+  **Look** (`SelectionPainter`): the lasso being drawn is a quiet hairline
+  along a smoothed path (quadratic segments through the midpoints of its
+  points; the rectangle as is), no fill, nothing done to the ink it
+  crosses; the selection shows its items as they are (never tinted,
+  outlined or highlighted) inside a hairline frame with flat round handles
+  (paper discs ringed in the accent) and its menu bar. Lasso and frame
+  share one line: a 1.25-px paper-coloured line with accent dashes over it
+  (`dashPath`), clean blue dashes on light paper and marching ants that keep
+  their contrast on dark paper, images and ink (`selection_contrast_test`).
   `SelectionController` hides the selection from the committed layer
   (`SurfaceModel.setHidden`, which only invalidates the affected chunks) and
   records it once into a picture; dragging, resizing (corners keep the

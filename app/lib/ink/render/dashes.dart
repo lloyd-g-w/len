@@ -1,35 +1,18 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
-/// Draws [points] as a dashed polyline (closed back to the start with
-/// [close]); the pattern continues across vertices.
-void drawDashed(
-  Canvas canvas,
-  List<Offset> points,
-  Paint paint, {
-  bool close = false,
-  double dash = 6,
-  double gap = 4,
-}) {
-  if (points.length < 2) return;
-  final pts = close ? [...points, points.first] : points;
-  final path = Path();
+/// [source] cut into dashes along its length ([dash] on, [gap] off), the
+/// pattern running on across its curves and contours.
+Path dashPath(Path source, {double dash = 6, double gap = 4}) {
+  final dashes = Path();
   var drawing = true;
   var remaining = dash;
-  for (var i = 1; i < pts.length; i++) {
-    var a = pts[i - 1];
-    final b = pts[i];
-    var length = (b - a).distance;
-    while (length > 0) {
-      final step = math.min(remaining, length);
-      final next = Offset.lerp(a, b, step / length)!;
-      if (drawing) {
-        path
-          ..moveTo(a.dx, a.dy)
-          ..lineTo(next.dx, next.dy);
-      }
-      a = next;
-      length -= step;
+  for (final metric in source.computeMetrics()) {
+    var at = 0.0;
+    while (at < metric.length) {
+      final step = math.min(remaining, metric.length - at);
+      if (drawing) dashes.addPath(metric.extractPath(at, at + step), Offset.zero);
+      at += step;
       remaining -= step;
       if (remaining <= 0) {
         drawing = !drawing;
@@ -37,5 +20,5 @@ void drawDashed(
       }
     }
   }
-  canvas.drawPath(path, paint);
+  return dashes;
 }
