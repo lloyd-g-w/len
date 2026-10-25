@@ -1,7 +1,7 @@
 # Len: UI overhaul spec
 
 Status: phases 1–5 implemented (see §6 *Progress*); phases 6–8 are the plan.
-The cuts this spec assumes are in [`SIMPLIFY.md`](SIMPLIFY.md); where it conflicts with `UX_AUDIT.md`, this spec wins.
+The cuts this spec assumes are in [`SIMPLIFY.md`](SIMPLIFY.md).
 
 **Goal.** Paper first, with chrome that recedes (GoodNotes 6, Notewise, Apple Notes): one
 slim bar, one home per control, nothing parked over the page. Principles:
@@ -254,7 +254,7 @@ start / overview entries (they move to the zoom pill).
 - **Overview:** ▦ opens it (`documents/overview/`, tokens only). An All / Bookmarked /
   Outline filter (the PDF's outline) replaces the outline panel.
 - **Adding pages:** the "Add page" footer and the overview's add tile, and ⋯ → Page →
-  Add page after (UX_AUDIT R9-3). Held down (or right-clicked), each asks for a template. Single-page flow: swipe, ← / →, Page Up /
+  Add page after. Held down (or right-clicked), each asks for a template. Single-page flow: swipe, ← / →, Page Up /
   Page Down.
 - **Canvases:** the zoom pill (`canvas/zoom_indicator.dart`) peeks the same way. Tap it
   for 50 %, 100 %, 200 %, Fit content or Back to start. Delete `canvas_minimap.dart`,
@@ -443,7 +443,7 @@ dark; 1.3× text).
 | 5 | Navigation | peeking page indicator and zoom pill, Go to page, overview filter, tab strip, no phone tabs | `editor_single`, `editor_continuous`, `page_overview`, `pdf_outline` |
 | 6 | Floating, focus, split | edge snapping, vertical axis, `ToolPuck`, immersive focus with page keys, split focus and dimming | suite `workspace_`; new `focus_puck`, `toolbar_floating_h`, `toolbar_floating_v` |
 | 7 | Library | sidebar or drawer, header, ⇅ menu, folder row, cards, one-column new-notebook sheet | `search_library*`; suites `library_`, `flows_`, `organise_` |
-| 8 | Settings and sweep | single-column settings; grep `features/` for `showModalBottomSheet`, `AlertDialog`, `SimpleDialog`, `PopupMenuButton` until none are left; update `UX_AUDIT.md`, `ARCHITECTURE.md`, `ROADMAP.md` | suite `app_surfaces*` |
+| 8 | Settings and sweep | single-column settings; grep `features/` for `showModalBottomSheet`, `AlertDialog`, `SimpleDialog`, `PopupMenuButton` until none are left; update `ARCHITECTURE.md`, `ROADMAP.md` | suite `app_surfaces*` |
 
 Phase 1 comes first because every later phase then gets smaller.
 

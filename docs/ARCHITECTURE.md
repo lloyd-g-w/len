@@ -453,7 +453,7 @@ names each page edited, undone or redone, and 600 ms after the last edit those p
 flushed to storage and re-recorded (`ThumbnailCache.changed`: only if shown, else forgotten);
 remote stroke changes refresh at once.
 
-**Pages to screen readers** (`document/page_semantics.dart`, UX_AUDIT R23-10): `EditorCanvas`
+**Pages to screen readers** (`document/page_semantics.dart`): `EditorCanvas`
 lays `PageSemantics` over the surface, under the content layer (a text box's own node wins a
 touch). It is one node per page in view (`DocumentLayout.visiblePages` of the visible world, its
 frame on screen clipped to it; continuous and single-page flow alike), named "Page 3 of 12,
@@ -705,7 +705,7 @@ again. Text being typed reads once its write lands. The nodes take no pointers.
   second pane stamps it too). A paged notebook another device wrote in since (its newest
   live stroke or element by another device id, newer than that;
   `SurfaceStats.pageWrittenElsewhere`), or never opened here, opens framed on the page
-  written last instead (`resume_view.dart`, UX_AUDIT R16-4). Nothing of it syncs.
+  written last instead (`resume_view.dart`). Nothing of it syncs.
 - **Page zoom** (`document/page_fit.dart`, "⋯" → View, Shift+1 fit page, Shift+2
   fit width, `0` automatic): `PageFit.width` fills the width, `PageFit.page` shows the
   whole page, `PageFit.auto` fits the width but at most 1.4× and so that ≥ 55 % of the
@@ -872,7 +872,7 @@ worker, or between slices) committing a record that references it while
 earlier blobs are deleted keeps it; one committed later fetches it again. The server has its
 own admin-run collector (server/README.md).
 
-**Storage overview** (Settings → Storage, UX_AUDIT R16-7). `StorageQueries`
+**Storage overview** (Settings → Storage). `StorageQueries`
 (`data/storage_queries.dart`, plain SQL on any connection) measures the database
 (`PRAGMA page_count × page_size`), the stored files by kind (`blobs.size` by MIME:
 PDFs, images, audio and waveforms, other), the largest notebooks (ink and element
@@ -933,8 +933,8 @@ Relink… (`relinkPdfFlow`): the same file restores the blob; a different one,
 once confirmed and only if it has enough pages, replaces it page for page
 (`PageEdits.replacePdf` over `PageRepository.relinkBackground`, synced like
 any page edit, one undo step).
-**Replace PDF…** (the page menu of a PDF page, `replacePdfFlow`, UX_AUDIT
-R18-1) does the same for a PDF that is present — the lecturer's new version
+**Replace PDF…** (the page menu of a PDF page, `replacePdfFlow`)
+does the same for a PDF that is present — the lecturer's new version
 of the slides — as one undoable `PageEdits.replacePdf` step: the pages drawn
 on the old PDF show the same pages of the new one under their notes, and the
 new one's pages beyond the old one's end are added after the last of them
@@ -949,7 +949,7 @@ page); the confirmation says "Pages change shape to
 match" and, when a page getting shorter has notes past its new bottom edge, that they will be hidden (`pdfReshapeNote`). The overview's cells take the shape of
 most of the notebook's pages (`commonPageAspect`), so slide decks get
 landscape cells.
-**Slide numbers** (UX_AUDIT R18-5): page numbers are always the notebook's
+**Slide numbers**: page numbers are always the notebook's
 (indicator, Go to page, links, export). `PdfPageNumbers`
 (`domain/pdf_page_numbers.dart`) maps pages to their PDF page's own number:
 `labelOf` ("Slide 23" when most of that PDF's pages here are landscape, else
@@ -1049,7 +1049,7 @@ collects what was left out (missing PDF pages or images, PDF pages included
 as pictures) for the same message, and failures show their raw text only
 under Details.
 
-**Printing** (`print_flow.dart`, UX_AUDIT R22-8): Print… (editor ⋯, Ctrl+P,
+**Printing** (`print_flow.dart`): Print… (editor ⋯, Ctrl+P,
 the library's notebook menu; canvases print their whole drawing) opens the
 export sheet with `print: true` — PDF only (no format picker; it leaves
 `ExportMemory.format` alone), pages, templates, backgrounds, a Print button —
@@ -1808,7 +1808,7 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   changes (rotation, split screen, resume). A pen-up Dart never ends is
   dropped after 1 s.
 
-**Stylus edge swipes** (UX_AUDIT R15-6): with gesture navigation, a pen
+**Stylus edge swipes**: with gesture navigation, a pen
 stroke starting at the screen's left or right edge could become Back.
 While an editor shows (`StylusEdgeGuard` around the editor screen: its
 route current, its split-view pane not parked; `platform/stylus_edges.dart`
@@ -3168,8 +3168,8 @@ writes as the device it came from.
 
 ## Version history (`data/versions/`, `features/history/`)
 
-A notebook's (or canvas's) past states, to browse and restore (docs/TODO.md
-"Version history"). **Why packs, not row references.** Strokes are
+A notebook's (or canvas's) past states, to browse and restore.
+**Why packs, not row references.** Strokes are
 immutable (an edit tombstones the stroke and adds one under a new id), but
 elements, pages and the notebook row are edited in place, tombstones travel
 as `data: null` and drop their payload after 30 days
@@ -3234,7 +3234,7 @@ shares between versions (and between devices of one platform family).
   version (same packs and fields) is not made. The app turns the recorder
   on (`main.dart`); tests not about it leave it off, so edits start no
   timers. "Save version…" (the history sheet's header; ⋯ has only Version
-  history…, UX_AUDIT R25-33) makes
+  history…) makes
   a `named` one at once.
 - **Thinning** (`VersionPolicy`, pure, deterministic): automatic versions
   are kept all for the last day, then the newest per hour for a week, per
@@ -3879,13 +3879,12 @@ with selection mode; `editor/document/page_overview.dart` re-exports it);
 `progress_dialog.dart` (`runWithSteps` + `TaskProgress`: stage, subject, "Page x of n", optional Cancel).
 Library selection mode: `library/selection/` (`LibrarySelection` on `LibraryActions`, batch
 actions, floating bar). `flows_screenshot_test.dart` and `overview_screenshot_test.dart` cover
-sheets, dialogs, empty states, selection, the page overview and 1.3× text; findings are tracked
-in `docs/UX_AUDIT.md`.
+sheets, dialogs, empty states, selection, the page overview and 1.3× text.
 
 Accessibility: `test/accessibility_test.dart` checks Flutter's guidelines (tap targets,
 labelled tap targets, WCAG text contrast measured in the test font) on the main screens,
 popovers and dialogs at phone and tablet sizes, light and dark, and at 2× text; known
-exceptions are listed there with their `UX_AUDIT` item. Icon-only controls need a tooltip or
+exceptions are listed there. Icon-only controls need a tooltip or
 `semanticLabel`; colours are announced by name (`color_picker/color_names.dart`,
 `colorName`, also `ColorDot`'s default label); selected and expanded states go into
 `Semantics`. `FocusRing` (`focus_ring.dart`, in `MaterialApp.builder`) paints an accent ring
@@ -3965,8 +3964,7 @@ and Settings → Sync say "Syncing… 40%", and at most every 2 s the controller
 notebooks and folders brought so far (a `RemoteChanges` with only those flags), so a new
 device's library fills in while the rest arrives; the whole change set follows at the
 end as usual. While the first sync with a server runs (`firstSyncUnderWay`), an empty
-library says the notebooks are on their way instead of offering to create one
-(UX_AUDIT R16-5).
+library says the notebooks are on their way instead of offering to create one.
 Each cycle starts with `/v1/health`: its `serverId` decides whether this is
 the server last synced with — a new id (another server, or a wiped or
 restored one) resets the feed position and marks every row and blob for
@@ -4005,7 +4003,7 @@ device's tombstone kept). Tombstones are
 pushed children first, so a half-finished push never looks like a conflict. The
 device whose deletion was undone says so once after that sync (`revivalNotices`, through
 `SyncController.notices`: "“Lab book” is back in the trash: another device wrote in it
-after you deleted it", "2 pages you deleted in “Notes” are back: …"; UX_AUDIT R16-6);
+after you deleted it", "2 pages you deleted in “Notes” are back: …");
 the others say nothing, as nothing changed for them.
 
 Presentation and retries (`SyncController`, `ui/sync_status_button.dart`,

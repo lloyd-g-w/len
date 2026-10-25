@@ -309,7 +309,7 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   order, menus and popovers give focus back to their opener
 - ✅ Keyboard: reorder pages with Ctrl+arrows in the overview and the page sidebar
 - ✅ Settings: theme previews, a Writing section (stylus, gestures, toolbar position) with
-  descriptions; everything checked at 1.3× text (see `docs/UX_AUDIT.md`)
+  descriptions; everything checked at 1.3× text
 - ✅ Redesigned editor chrome (GoodNotes-style top bar: back, pages, bookmark, title, undo/redo,
   export, focus, more menu), tool-descriptor toolbar with contextual quick controls, toolbar
   position (docked / floating, draggable), focus mode (F11 / Ctrl+.) with
