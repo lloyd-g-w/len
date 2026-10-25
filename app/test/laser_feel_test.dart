@@ -3,8 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/data/app_database.dart';
 import 'package:len/data/settings_repository.dart';
 import 'package:len/domain/stroke.dart';
-import 'package:len/features/editor/pen/option_controls.dart';
-import 'package:len/features/editor/pen/pen_ends_options.dart';
 import 'package:len/features/editor/tools/laser_options_panel.dart';
 import 'package:len/ink/tool_settings.dart';
 import 'package:len/ui/app_theme.dart';
@@ -112,52 +110,18 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    Slider slider<T extends Widget>(WidgetTester tester) =>
-        tester.widget<Slider>(find.descendant(of: find.byType(T), matching: find.byType(Slider)));
-
-    testWidgets('shows the pen\'s feel and edits it live', (tester) async {
-      final tools = await pumpPanel(tester);
-      expect(find.byType(PressureSlider), findsNothing, reason: 'collapsed, as the pen\'s');
-      await tapText(tester, 'Feel');
-      expect(find.byType(PressureSlider), findsOneWidget);
-      expect(find.byType(StabiliserSlider), findsOneWidget);
-      expect(find.byType(PenEndsOptions), findsOneWidget);
-      for (final label in ['Round', 'Tapered', 'Flat']) {
-        expect(find.text(label), findsOneWidget);
+    testWidgets('the feel is not offered (one flat panel); Reset puts it back', (tester) async {
+      final tools = await pumpPanel(tester, feel);
+      for (final hidden in ['Feel', 'Pressure sensitivity', 'Stabiliser', 'Ends']) {
+        expect(find.text(hidden), findsNothing, reason: hidden);
       }
-      await tapText(tester, 'Round');
-      expect(tools.laser.ends.style, StrokeEnds.round);
-      await tapText(tester, 'Tapered');
-      expect(tools.laser.ends.style, StrokeEnds.tapered);
-      expect(find.text('Taper length'), findsOneWidget);
-      await tapText(tester, 'Start');
-      expect(tools.laser.ends.taperAt, TaperAt.start);
-      slider<PressureSlider>(tester).onChanged!(0.7);
-      slider<StabiliserSlider>(tester).onChanged!(0.5);
-      await tester.pump();
-      expect(tools.laser.thinning, 0.7);
-      expect(tools.laser.streamline, 0.5);
-      expect(find.text('70%'), findsOneWidget);
-      // Reset puts the feel back.
-      await tester.ensureVisible(find.text('Reset'));
+      expect(find.text('Fade'), findsOneWidget);
+      expect(tools.laser.ends, feel.ends, reason: 'the stored feel keeps working');
+      await tapText(tester, 'Dot');
+      expect(find.text('Fade'), findsNothing, reason: 'the dot does not fade');
       await tester.tap(find.text('Reset'));
       await tester.pump();
       expect(tools.laser, const LaserConfig());
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('the dot hides the feel, as it hides Fade', (tester) async {
-      final tools = await pumpPanel(tester, feel);
-      await tapText(tester, 'Feel');
-      expect(slider<PressureSlider>(tester).onChanged, isNotNull);
-      await tapText(tester, 'Dot');
-      expect(tools.laser.mode, LaserMode.dot);
-      for (final hidden in ['Feel', 'Fade', 'Pressure sensitivity', 'Stabiliser', 'Ends']) {
-        expect(find.text(hidden), findsNothing, reason: hidden);
-      }
-      await tapText(tester, 'Trail');
-      expect(find.byType(PressureSlider), findsOneWidget, reason: 'still open');
-      expect(tools.laser.ends, feel.ends);
     });
   });
 }

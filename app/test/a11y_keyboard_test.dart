@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/features/editor/toolbar/tool_options_popover.dart';
 
 import 'accessibility_test.dart' show physics, pumpScreen, tablet;
 import 'screenshots/screenshot_harness.dart' show settle;
@@ -153,12 +154,17 @@ void main() {
       await pumpEditor(tester);
       await tabTo(tester, 'Pen (P)');
       await press(tester, LogicalKeyboardKey.enter);
-      expect(find.text('Size'), findsWidgets, reason: 'the pen options are open');
+      expect(find.text('Stabiliser'), findsOneWidget, reason: 'the pen options are open');
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
-      expect(focused(tester), 'Pick from page', reason: 'focus moved into the popover');
+      final context = FocusManager.instance.primaryFocus!.context!;
+      expect(
+        context.findAncestorWidgetOfExactType<ToolOptionsPopover>(),
+        isNotNull,
+        reason: 'focus moved into the popover',
+      );
       await press(tester, LogicalKeyboardKey.escape);
-      expect(find.text('Custom'), findsNothing);
+      expect(find.text('Stabiliser'), findsNothing);
       expect(focused(tester), 'Pen (P)');
     });
 

@@ -1,49 +1,41 @@
 import 'package:flutter/material.dart';
 
-import '../../../domain/stroke.dart';
 import '../../../ink/tool_settings.dart';
 import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/color_picker/color_choices.dart';
 import '../pen/ink_paper.dart';
 
-/// The tool options popover's width on touch (fits [ColorChoices]).
+/// The width of a popover holding [ColorChoices] on touch (a row of seven
+/// 48-dp swatches): the text options and the colour slot editors.
 const double toolOptionsTouchWidth = colorChoicesTouchWidth;
 
-/// Opens the options of [tool] — the one popover every tool shares — at
-/// [anchor] (the tool's button, or an eraser slot): anchored on
-/// tablets and desktops (320 dp wide, or [toolOptionsTouchWidth] on touch
-/// so a row of seven 48-dp swatches fits), a sheet on phones. Edits apply
-/// live; an outside tap or Esc closes it. The pen's, highlighter's and
-/// laser's quick slots open their own small editors instead
+/// Opens the options of [tool] — the small submenu every tool shares —
+/// anchored to [anchor] (the tool's button) on tablets and desktops, 320 dp
+/// wide ([toolOptionsTouchWidth] for text on touch, whose colours are
+/// here), a sheet on phones. Edits apply live; an outside tap (the tool
+/// button too) or Esc closes it. Colours and sizes are not options: the
+/// quick slots in the strip have their own small editors
 /// (`slot_editors.dart`, `laser_slots.dart`).
 ///
-/// Colours newly put into the ink's or laser's quick slots, or newly given
-/// to text, become recent colours when it closes (not while the custom
-/// picker is dragged).
+/// A colour newly given to text becomes a recent colour when it closes
+/// (not while the custom picker is dragged).
 Future<void> showToolOptions(
   BuildContext anchor, {
   required ToolSettings tools,
   required EditorTool tool,
   required WidgetBuilder body,
 }) async {
-  final ink = tool == EditorTool.highlighter ? InkTool.highlighter : InkTool.ballpoint;
-  List<int> colours() => switch (tool) {
-    EditorTool.text => [tools.textStyle.color],
-    EditorTool.laser => tools.laser.colors,
-    _ when tool.usesInk => tools.configOf(ink).colors,
-    _ => const [],
-  };
-  final before = colours();
+  final text = tool == EditorTool.text;
+  final before = tools.textStyle.color;
   await showAdaptivePopover<void>(
     context: anchor,
-    width: Targets.touchFirst ? toolOptionsTouchWidth : popoverWidth,
+    width: text && Targets.touchFirst ? toolOptionsTouchWidth : popoverWidth,
     // Ink previews show the paper being written on.
     builder: InkPaper.carry(anchor, (context) => ToolOptionsPopover(tool: tool, body: body)),
   );
-  for (final c in colours().reversed) {
-    if (!before.contains(c)) tools.addRecentColor(c);
-  }
+  final after = tools.textStyle.color;
+  if (text && after != before) tools.addRecentColor(after);
 }
 
 /// The tool options popover's content: the active tool's section (its

@@ -7,12 +7,12 @@ import 'option_controls.dart';
 import 'pen_ends_options.dart';
 import 'stroke_preview.dart';
 
-/// The highlighter's settings popover: a live preview, opacity, then the
-/// pen's engine settings that make sense for a marker — pressure
-/// sensitivity, stabiliser, ends (flat like a chisel tip, or round) — then
-/// straight lines (the stabiliser greyed out while every stroke is
-/// straight, as it does not apply) and snapping to PDF text. Edits apply
-/// live; Reset restores the feel defaults.
+/// The highlighter's options (tap the selected highlighter), flat as the
+/// pen's: a title with Reset, a live preview, opacity, stabiliser (greyed
+/// out while every stroke is straight, as it does not apply), the ends
+/// (flat like a chisel tip, or round), straight lines and snapping to PDF
+/// text. Pressure sensitivity (off by default) is not offered: Reset puts
+/// a stored one back to off. Edits apply live.
 class HighlighterOptionsPanel extends StatelessWidget {
   const HighlighterOptionsPanel({super.key, required this.tools});
 
@@ -31,7 +31,7 @@ class HighlighterOptionsPanel extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            FeelHeader('Highlighter settings', tools: tools, ink: ink),
+            InkOptionsHeader('Highlighter', tools: tools, ink: ink),
             const SizedBox(height: Gaps.sm),
             PreviewCard(tool: ink, config: config),
             OptionSlider(
@@ -42,10 +42,6 @@ class HighlighterOptionsPanel extends StatelessWidget {
               display: percent,
               onChanged: (v) => update((c) => c.copyWith(opacity: v)),
             ),
-            PressureSlider(
-              value: config.thinning,
-              onChanged: (v) => update((c) => c.copyWith(thinning: v)),
-            ),
             StabiliserSlider(
               value: config.streamline,
               onChanged: config.straight ? null : (v) => update((c) => c.copyWith(streamline: v)),
@@ -55,9 +51,9 @@ class HighlighterOptionsPanel extends StatelessWidget {
               styles: PenDefaults.highlighter.endStyles,
               onChanged: (ends) => update((c) => c.copyWith(ends: ends)),
             ),
+            const SizedBox(height: Gaps.sm),
             OptionSwitch(
               label: 'Straight lines',
-              subtitle: 'Every stroke is a straight line from where the pen went down',
               value: config.straight,
               onChanged: (v) => update((c) => c.copyWith(straight: v)),
             ),

@@ -5,7 +5,7 @@ import 'package:len/features/editor/pen/pen_options_panel.dart';
 import 'package:len/ink/tool_settings.dart';
 
 void main() {
-  testWidgets('end styles and taper settings update the next stroke and its preview', (
+  testWidgets('the ends, one segmented control, update the next stroke and its preview', (
     tester,
   ) async {
     final tools = ToolSettings();
@@ -29,11 +29,10 @@ void main() {
     expect(tools.styleFor(InkTool.ballpoint).taperStart, greaterThan(0));
     expect(tools.styleFor(InkTool.ballpoint).taperEnd, greaterThan(0));
 
-    await tester.ensureVisible(find.text('End'));
-    await tester.tap(find.text('End'));
-    await tester.pump();
-    expect(tools.styleFor(InkTool.ballpoint).taperStart, 0);
-    expect(tools.styleFor(InkTool.ballpoint).taperEnd, greaterThan(0));
+    // One segmented control: where a taper starts and how long it is are
+    // not offered (the stored values, both ends, keep working).
+    expect(find.text('Taper length'), findsNothing);
+    expect(find.text('Both'), findsNothing);
 
     await tester.ensureVisible(find.text('Flat'));
     await tester.tap(find.text('Flat'));

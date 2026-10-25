@@ -13,29 +13,23 @@ import 'laser_preview.dart';
 /// selected one again (or long-press / right-click any) to change it
 /// ([LaserColorSlotEditor]).
 class LaserColorSlots extends StatelessWidget {
-  const LaserColorSlots({super.key, required this.tools, this.editable = true});
+  const LaserColorSlots({super.key, required this.tools});
 
   final ToolSettings tools;
-
-  /// Whether a slot opens its editor; false for the copy inside the
-  /// options sheet, whose colour block edits the selected slot already.
-  final bool editable;
 
   @override
   Widget build(BuildContext context) {
     final laser = tools.laser;
     return ColorSlotRow(
       colors: laser.colors,
-      selected: !editable || !tools.reading ? laser.colorIndex : null,
+      selected: tools.reading ? null : laser.colorIndex,
       onSelect: (i) => tools.laser = tools.laser.copyWith(colorIndex: i),
-      onEdit: editable
-          ? (anchor, i) => showColorSlotEditor(
-              anchor,
-              tools: tools,
-              colorOf: () => tools.laser.colors.elementAtOrNull(i),
-              builder: (_) => LaserColorSlotEditor(tools: tools, index: i),
-            )
-          : null,
+      onEdit: (anchor, i) => showColorSlotEditor(
+        anchor,
+        tools: tools,
+        colorOf: () => tools.laser.colors.elementAtOrNull(i),
+        builder: (_) => LaserColorSlotEditor(tools: tools, index: i),
+      ),
     );
   }
 }
@@ -43,12 +37,9 @@ class LaserColorSlots extends StatelessWidget {
 /// The laser's quick sizes, as dots; edited as an ink's
 /// ([LaserSizeSlotEditor]).
 class LaserSizeSlots extends StatelessWidget {
-  const LaserSizeSlots({super.key, required this.tools, this.editable = true});
+  const LaserSizeSlots({super.key, required this.tools});
 
   final ToolSettings tools;
-
-  /// As [LaserColorSlots.editable].
-  final bool editable;
 
   /// Dot diameter for a laser [size], in logical pixels (as an ink's: 4–20).
   static double dotSize(double size) => (4 + size).clamp(4.0, 20.0);
@@ -58,19 +49,17 @@ class LaserSizeSlots extends StatelessWidget {
     final laser = tools.laser;
     return SizeSlotRow(
       diameters: [for (final s in laser.sizes) dotSize(s)],
-      selected: !editable || !tools.reading ? laser.sizeIndex : null,
+      selected: tools.reading ? null : laser.sizeIndex,
       // Said as the size slider says it.
       describe: (i) => percent(
         (laser.sizes[i] - LaserConfig.minSize) / (LaserConfig.maxSize - LaserConfig.minSize),
       ),
       onSelect: (i) => tools.laser = tools.laser.copyWith(sizeIndex: i),
-      onEdit: editable
-          ? (anchor, i) => showAdaptivePopover<void>(
-              context: anchor,
-              width: WidthSlotEditor.width,
-              builder: (_) => LaserSizeSlotEditor(tools: tools, index: i),
-            )
-          : null,
+      onEdit: (anchor, i) => showAdaptivePopover<void>(
+        context: anchor,
+        width: WidthSlotEditor.width,
+        builder: (_) => LaserSizeSlotEditor(tools: tools, index: i),
+      ),
     );
   }
 }

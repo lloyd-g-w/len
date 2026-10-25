@@ -28,7 +28,7 @@ class ToolStrip extends StatelessWidget {
         final strip = active.strip;
         final child = strip == null
             ? const SizedBox(key: ValueKey('no-strip'), height: 1)
-            : KeyedSubtree(key: ValueKey(active.tool), child: strip(context, active.openOptions));
+            : KeyedSubtree(key: ValueKey(active.tool), child: strip(context));
         final vertical = ToolbarAxis.of(context) == Axis.vertical;
         final start = vertical ? Alignment.topCenter : AlignmentDirectional.centerStart;
         final switcher = AnimatedSwitcher(
