@@ -10,6 +10,7 @@ import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/pen/pen_options_panel.dart';
 import 'package:len/features/editor/pen/stroke_preview.dart';
 import 'package:len/features/editor/toolbar/tool_options_popover.dart';
+import 'package:len/features/editor/toolbar/tool_sub_bar.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
 import 'package:len/ink/input/hold_to_straighten.dart';
 import 'package:len/ink/input/ink_input_controller.dart';
@@ -101,9 +102,15 @@ void main() {
           home: Scaffold(
             body: Align(
               alignment: Alignment.topCenter,
-              child: EditorToolbar(
-                tools: tools,
-                dock: size.width < 600 ? ToolbarDock.bottom : ToolbarDock.row,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  EditorToolbar(
+                    tools: tools,
+                    dock: size.width < 600 ? ToolbarDock.bottom : ToolbarDock.row,
+                  ),
+                  ToolSubBar(tools: tools),
+                ],
               ),
             ),
           ),
@@ -248,14 +255,13 @@ void main() {
       await tester.tap(previous);
       await tester.pump();
       expect(tools.tool, EditorTool.pen);
-      // Slots stay at least 40 dp beside it; with 5 + 5 it steps aside.
-      expect(tester.getSize(find.byKey(const ValueKey('color-0'))).width, greaterThanOrEqualTo(40));
+      // The slots are in the sub-bar: it stays with 5 + 5 too.
       tools.updateConfig(
         InkTool.ballpoint,
         (c) => c.addColor(0xFF00AA00).addColor(0xFF7048E8).addWidth(6).addWidth(8),
       );
       await tester.pump();
-      expect(previous, findsNothing);
+      expect(previous, findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -368,15 +374,17 @@ void main() {
       }
     });
 
-    testWidgets('eraser options switch to the partial eraser', (tester) async {
+    testWidgets('the eraser sub-bar switches to the partial eraser; its options button opens '
+        'highlighter only', (tester) async {
       final tools = await pumpToolbar(tester, const Size(1280, 800));
       await tester.tap(find.byTooltip('Eraser (E)'));
-      await tester.pump();
-      await tester.tap(find.byTooltip('Eraser (E)'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Partial'));
+      await tester.tap(find.byTooltip('Erase partially'));
       await tester.pump();
       expect(tools.eraser.mode, EraserMode.pixel);
+      await tester.tap(find.byTooltip('Eraser options'));
+      await tester.pumpAndSettle();
+      expect(find.text('Partial'), findsNothing, reason: 'one home: the sub-bar');
       await tester.tap(find.text('Erase highlighter only'));
       await tester.pump();
       expect(tools.eraser.highlighterOnly, isTrue);

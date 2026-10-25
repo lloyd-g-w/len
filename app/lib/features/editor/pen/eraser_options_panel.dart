@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../ink/tool_settings.dart';
 import '../../../ui/app_theme.dart';
-import '../../../ui/roving_focus.dart';
-import '../tools/tool_icons.dart';
 import 'option_controls.dart';
 
-/// The eraser's options (tap the selected eraser), one flat panel: a
-/// title with Reset, whole stroke or partial, and "highlighter only"; with
-/// scribble to erase on, a caption mentions it. Its size is the toolbar's
-/// three size slots (a size set before keeps working until one is picked).
+/// The eraser's options (tap the selected eraser, or its sub-bar's options
+/// button), one flat panel: a title with Reset and "highlighter only";
+/// with scribble to erase on, a caption mentions it. Its size and whole
+/// stroke or partial are in its sub-bar (a size set before keeps working
+/// until one is picked).
 class EraserOptionsPanel extends StatelessWidget {
   const EraserOptionsPanel({super.key, required this.tools});
 
@@ -32,26 +31,6 @@ class EraserOptionsPanel extends StatelessWidget {
                 value: eraser,
                 defaults: const EraserConfig(),
                 onChanged: update,
-              ),
-            ),
-            const SizedBox(height: Gaps.sm),
-            RovingSegments(
-              SegmentedButton<EraserMode>(
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(
-                    value: EraserMode.stroke,
-                    icon: ToolIcon(ToolIconKind.eraseStroke),
-                    label: Text('Whole stroke'),
-                  ),
-                  ButtonSegment(
-                    value: EraserMode.pixel,
-                    icon: ToolIcon(ToolIconKind.erasePartial),
-                    label: Text('Partial'),
-                  ),
-                ],
-                selected: {eraser.mode},
-                onSelectionChanged: (s) => update(eraser.copyWith(mode: s.single)),
               ),
             ),
             const SizedBox(height: Gaps.sm),

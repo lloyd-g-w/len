@@ -127,9 +127,8 @@ class ClipboardMirror {
   }
 
   /// Table rows as tab-separated cells.
-  static String _plain(List<TextData> boxes) => [
-    for (final b in boxes) TextTables.plainText(b.text, b.paras).trimRight(),
-  ].join('\n\n');
+  static String _plain(List<TextData> boxes) =>
+      [for (final b in boxes) TextTables.plainText(b.text, b.paras).trimRight()].join('\n\n');
 
   /// The text boxes among [elements] that hold text, top to bottom (then
   /// left to right); null if there is none, or if [elements] are not all

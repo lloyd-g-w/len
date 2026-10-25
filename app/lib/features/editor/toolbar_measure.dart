@@ -11,28 +11,18 @@ import 'toolbar/toolbar_metrics.dart';
 import 'zoom/zoom_box.dart';
 
 /// Decides where the toolbar goes in a pane of a given width — inside the
-/// top bar when the bar fits it on one row (measured from the tools and
-/// slot counts), else as a row under the bar, at the bottom on phones, or
-/// floating — and notifies when that may change (slots added or removed).
-/// Switching tools never notifies: the reserved strip is the widest any
-/// tool needs.
+/// top bar when the bar fits it on one row, else as a row under the bar,
+/// at the bottom on phones, or floating — and notifies when the zoom
+/// window changes the room left. The main bar holds the tools alone (their
+/// quick controls are in the sub-bar), so neither tools nor slot counts
+/// ever move it.
 class ToolbarMeasure extends ChangeNotifier {
   ToolbarMeasure(this.session) {
-    _strip = ToolbarMetrics.strip(session.tools);
-    session.tools.addListener(_onTools);
     session.zoomWindow.opened.addListener(notifyListeners);
     session.zoomWindow.boxHeight.addListener(notifyListeners);
   }
 
   final EditorSession session;
-  late double _strip;
-
-  void _onTools() {
-    final strip = ToolbarMetrics.strip(session.tools);
-    if (strip == _strip) return;
-    _strip = strip;
-    notifyListeners();
-  }
 
   /// Where the toolbar sits in a pane of [size]: short windows (a phone
   /// held sideways) keep the chrome to one row, with the phone's switcher
@@ -43,7 +33,7 @@ class ToolbarMeasure extends ChangeNotifier {
     }
     if (size.width < ChromeMetrics.compactWidth) return ToolbarDock.bottom;
     final paged = session.doc != null;
-    if (ToolbarMetrics.fitsOneRow(size.width, session.tools, paged: paged)) {
+    if (ToolbarMetrics.fitsOneRow(size.width, paged: paged)) {
       return ToolbarDock.inline;
     }
     return ChromeMetrics.short(size.height) ? ToolbarDock.slim : ToolbarDock.row;
@@ -85,7 +75,6 @@ class ToolbarMeasure extends ChangeNotifier {
 
   @override
   void dispose() {
-    session.tools.removeListener(_onTools);
     session.zoomWindow.opened.removeListener(notifyListeners);
     session.zoomWindow.boxHeight.removeListener(notifyListeners);
     super.dispose();

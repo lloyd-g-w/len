@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:len/domain/preferences.dart';
 import 'package:len/features/editor/chrome/toolbar_slot.dart';
 import 'package:len/features/editor/editor_screen.dart';
+import 'package:len/features/editor/toolbar/tool_cluster.dart';
 
 import 'document_editor_test.dart' show closeEditor, pumpEditor;
 
@@ -57,10 +58,13 @@ void main() {
     expect(tester.getCenter(pen).dx, tester.getCenter(highlighter).dx);
     expect(tester.getCenter(highlighter).dy, greaterThan(tester.getCenter(pen).dy));
     expect(tester.getCenter(pen).dx, lessThan(80));
-    // Its quick slots follow under the tools.
+    // Its sub-bar runs down beside it, toward the page, centred on it.
+    final palette = tester.getRect(find.byType(ToolCluster));
+    final sub = tester.getRect(find.byKey(const ValueKey('tool-sub-bar')));
+    expect(sub.left, greaterThan(palette.right));
     expect(
-      tester.getCenter(find.byKey(const ValueKey('color-0'))).dy,
-      greaterThan(tester.getCenter(find.byTooltip('Laser pointer (K)')).dy),
+      tester.getCenter(find.byKey(const ValueKey('color-0'))).dx,
+      tester.getCenter(find.byKey(const ValueKey('width-0'))).dx,
     );
     expect(tester.takeException(), isNull);
 

@@ -74,13 +74,21 @@ class ChromeLayout {
   /// The box's height under the top chrome (zero when it docks at the bottom).
   double get boxAbove => zoomBoxAtTop ? zoomBox : 0;
 
-  /// Where the zoom window's box sits: on the bottom tool row (in focus
-  /// mode, on the screen's safe edge).
-  double get zoomBoxBottom => safe.bottom + (focus ? 0 : bottomRowHeight);
+  /// Where the zoom window's box sits: over the bottom tool row and its
+  /// sub-bar (in focus mode, on the screen's safe edge).
+  double get zoomBoxBottom => safe.bottom + (focus ? 0 : bottomRowHeight + subBarBelow);
 
   /// Where the box's top lies when it docks at the top: under the top
-  /// chrome (in focus mode, the screen's safe edge).
-  double get zoomBoxTop => focus ? safe.top : barBottom;
+  /// chrome and the sub-bar (in focus mode, the screen's safe edge).
+  double get zoomBoxTop => focus ? safe.top : barBottom + subBarAbove;
+
+  /// The room the toolbar's sub-bar takes under the top chrome (tools in
+  /// or under the bar), whatever the tool: reserved, so the page, the zoom
+  /// pill and the menus keep their places as tools change.
+  double get subBarAbove => !focus && dock.underTopBar ? ToolbarMetrics.subBarBand : 0;
+
+  /// The room the sub-bar takes over the phone's bottom tool row.
+  double get subBarBelow => !focus && hasBottomRow ? ToolbarMetrics.subBarBand : 0;
 
   /// Whether the editor is laid out for a phone.
   bool get phone => width < ChromeMetrics.compactWidth;
@@ -105,15 +113,17 @@ class ChromeLayout {
   double get barBottom => safe.top + barHeight + toolRowHeight;
 
   /// Where the page navigator's bottom edge sits.
-  double get navigatorBottom => safe.bottom + bottomRowHeight + boxBelow + ChromeMetrics.edge;
+  double get navigatorBottom =>
+      safe.bottom + bottomRowHeight + subBarBelow + boxBelow + ChromeMetrics.edge;
 
-  /// Screen space covered by chrome along the top and bottom edges. A
-  /// floating palette covers no edge.
+  /// Screen space covered by chrome along the top and bottom edges, the
+  /// sub-bar's room included. A floating palette (and its sub-bar) covers
+  /// no edge.
   EdgeInsets get covered {
     if (focus) return EdgeInsets.only(top: safe.top + boxAbove, bottom: safe.bottom + boxBelow);
     return EdgeInsets.only(
-      top: barBottom + boxAbove,
-      bottom: safe.bottom + bottomRowHeight + boxBelow,
+      top: barBottom + subBarAbove + boxAbove,
+      bottom: safe.bottom + bottomRowHeight + subBarBelow + boxBelow,
     );
   }
 

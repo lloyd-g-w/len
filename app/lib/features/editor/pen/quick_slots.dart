@@ -59,8 +59,9 @@ class ColorSlotRow extends StatelessWidget {
   }
 }
 
-/// A row of quick size slots, shown as neutral dots ([diameters]) on a
-/// plate when selected; edited as [ColorSlotRow]'s colours.
+/// A row of quick size slots, shown as neutral dots ([diameters]) or, for
+/// stroke widths, as [lines] of increasing thickness; the selected one has
+/// the accent rule under it. Edited as [ColorSlotRow]'s colours.
 class SizeSlotRow extends StatelessWidget {
   const SizeSlotRow({
     super.key,
@@ -69,10 +70,15 @@ class SizeSlotRow extends StatelessWidget {
     required this.onSelect,
     this.describe,
     this.onEdit,
+    this.lines = false,
   });
 
   /// Each slot's dot, in logical pixels.
   final List<double> diameters;
+
+  /// Draws the sizes as lines ([SlotLine.thicknessFor] the dot) rather
+  /// than dots: stroke widths.
+  final bool lines;
 
   /// As [ColorSlotRow.selected].
   final int? selected;
@@ -100,7 +106,7 @@ class SizeSlotRow extends StatelessWidget {
             tooltip: describe == null ? 'Size ${i + 1}' : 'Size ${describe(i)}',
             semanticLabel: describe == null ? 'Size ${i + 1}' : 'Size ${i + 1}, ${describe(i)}',
             editHint: 'Double tap to change this size',
-            plate: true,
+            rule: true,
             onSelect: () => onSelect(i),
             onEdit: edit == null
                 ? null
@@ -108,7 +114,9 @@ class SizeSlotRow extends StatelessWidget {
                     onSelect(i);
                     edit(anchor, i);
                   },
-            child: SlotDot(diameter: diameters[i], selected: i == selected),
+            child: lines
+                ? SlotLine(thickness: SlotLine.thicknessFor(diameters[i]), selected: i == selected)
+                : SlotDot(diameter: diameters[i], selected: i == selected),
           ),
       ],
     );

@@ -24,6 +24,9 @@ import 'split/parked_pane_notice.dart';
 import 'split/split_controller.dart';
 import 'tabs/open_notebooks.dart';
 import 'toolbar/insert_menu.dart';
+import 'toolbar/sub_bar_anchor.dart';
+import 'toolbar/tool_cluster.dart';
+import 'toolbar/tool_sub_bar.dart';
 import 'toolbar/toolbar_metrics.dart';
 
 /// What the chrome's buttons and menus ask of the editor screen (the
@@ -193,6 +196,7 @@ class EditorChromeHost extends StatelessWidget {
           puckBlocked: (rect) => PuckClearance.inkUnder(session, rect),
           bottomStrip: audio.stripHeight,
           toolbar: toolbar,
+          subBar: (towards) => ToolSubBar(tools: session.tools, towards: towards),
           topBar: EditorTopBar(
             title: title,
             subtitle: subtitle,
@@ -229,12 +233,12 @@ class EditorChromeHost extends StatelessWidget {
               ],
             ),
             compactMenuItems: audioMenuItems(context, audio),
-            toolbar: inBar ? toolbar : null,
+            toolbar: inBar ? SubBarAnchor(child: toolbar) : null,
             dock: dock,
             short: layout.short,
             toolbarWidth: dock == ToolbarDock.slim
-                ? ToolbarMetrics.slim(session.tools)
-                : ToolbarMetrics.group(session.tools),
+                ? ToolbarMetrics.slim
+                : ToolCluster.widthFor(insert: true),
             splitMenu: splitMenu,
             secondPane: secondPane,
             split: split?.isSplit ?? false,

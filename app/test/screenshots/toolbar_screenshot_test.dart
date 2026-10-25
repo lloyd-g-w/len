@@ -16,6 +16,7 @@ import 'package:len/features/editor/document/paged_document_view.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
+import 'package:len/features/editor/toolbar/toolbar_metrics.dart';
 
 import '../support/handwriting.dart';
 import 'screenshot_harness.dart';
@@ -96,12 +97,18 @@ Future<AppServices> openEditor(
   return services;
 }
 
-Rect toolbarRect(WidgetTester tester) => tester.getRect(find.byType(EditorToolbar)).inflate(8);
+/// The toolbar and its sub-bar (when the tool has one).
+Rect toolbarRect(WidgetTester tester) {
+  final bar = tester.getRect(find.byType(EditorToolbar));
+  final sub = find.byKey(const ValueKey('tool-sub-bar'));
+  return (sub.evaluate().isEmpty ? bar : bar.expandToInclude(tester.getRect(sub))).inflate(8);
+}
 
-/// The top chrome block (bar and attached tool row).
+/// The top chrome block (bar and attached tool row) and the sub-bar's
+/// band under it.
 Rect topRect(WidgetTester tester) {
   final bar = tester.getRect(find.byType(EditorTopBar));
-  return Rect.fromLTRB(bar.left, bar.top, bar.right, bar.bottom + 8);
+  return Rect.fromLTRB(bar.left, bar.top, bar.right, bar.bottom + ToolbarMetrics.subBarBand + 8);
 }
 
 Future<void> closePopover(WidgetTester tester) async {
