@@ -279,6 +279,18 @@ void main() {
     );
   });
 
+  testWidgets('snapped corners zoomed in', (tester) async {
+    final strokes = _shapes();
+    await _golden(
+      tester,
+      'shapes_corners_4x',
+      strokes,
+      const Size(480, 320),
+      scale: 4,
+      origin: const Offset(290, 140),
+    );
+  });
+
   testWidgets('curves snapped from smooth strokes', (tester) async {
     await _golden(tester, 'curves_snapped', _curves(), const Size(480, 330));
   });

@@ -9,12 +9,12 @@ abstract final class Bezier {
   static Offset quadControl(Offset a, Offset mid, Offset b) => mid * 2 - (a + b) / 2;
 
   /// The quadratic Bézier from [a] through [mid] (at t = ½) to [b] as a
-  /// polyline of at most [maxSegments] segments, fine enough to read as a
-  /// curve at [spacing] (world units).
+  /// polyline of at most [maxSegments] segments, its points on the curve
+  /// about [spacing] (world units) apart.
   static List<Offset> quadThrough(Offset a, Offset mid, Offset b, {double spacing = 2}) {
     final c = quadControl(a, mid, b);
     final length = (c - a).distance + (b - c).distance;
-    final n = (length / (4 * spacing)).ceil().clamp(8, maxSegments);
+    final n = (length / spacing).ceil().clamp(8, maxSegments);
     return [
       for (var i = 0; i <= n; i++)
         () {
@@ -25,7 +25,7 @@ abstract final class Bezier {
   }
 
   /// The most segments a flattened piece gets.
-  static const int maxSegments = 160;
+  static const int maxSegments = 1024;
 
   /// The cubic Bézier [a], [b], [c], [d] at [t].
   static Offset cubicAt(Offset a, Offset b, Offset c, Offset d, double t) {
@@ -40,13 +40,15 @@ abstract final class Bezier {
   }
 
   /// How many segments of a cubic with control polygon [a]–[d] make it
-  /// read as a curve at [spacing].
+  /// read as a curve at [spacing]: points on the curve about [spacing]
+  /// apart (the renderer's spline through them then follows the curve at
+  /// any zoom).
   static int segmentsOf(Offset a, Offset b, Offset c, Offset d, double spacing) {
     final hull = (b - a).distance + (c - b).distance + (d - c).distance;
     final chord = (d - a).distance;
     // Straight segments need one piece; bends more, by how much they bow.
     if (hull - chord <= 1e-9 * (hull + 1)) return 1;
-    return (hull / (3 * spacing)).ceil().clamp(6, maxSegments);
+    return ((hull + chord) / (2 * spacing)).ceil().clamp(6, maxSegments);
   }
 
   /// The segments of spline [points] (anchor, out, in, anchor, …; closed

@@ -63,8 +63,13 @@ abstract final class ShapeBuilder {
       ShapeKind.triangle ||
       ShapeKind.diamond ||
       ShapeKind.polygon => [...p, p.first],
-      ShapeKind.circle => ellipse(p[0], p[1] - p[0], Offset(p[0].dy - p[1].dy, p[1].dx - p[0].dx)),
-      ShapeKind.ellipse => ellipse(p[0], p[1] - p[0], p[2] - p[0]),
+      ShapeKind.circle => ellipse(
+        p[0],
+        p[1] - p[0],
+        Offset(p[0].dy - p[1].dy, p[1].dx - p[0].dx),
+        spacing: spacing,
+      ),
+      ShapeKind.ellipse => ellipse(p[0], p[1] - p[0], p[2] - p[0], spacing: spacing),
       ShapeKind.star => [...starVertices(shape), starVertices(shape).first],
       ShapeKind.curve => Bezier.flatten(p, closed: shape.isClosed, spacing: spacing),
     };
@@ -116,15 +121,26 @@ abstract final class ShapeBuilder {
     return [tail, tip, tip + _turn(back, spread), tip, tip + _turn(back, -spread)];
   }
 
-  /// The ellipse `centre + u·cos t + v·sin t` (u, v: conjugate semi-axes).
-  static List<Offset> ellipse(Offset centre, Offset u, Offset v) {
-    // Enough segments that the polygon reads as a smooth curve.
-    final n = (math.max(u.distance, v.distance) * 0.5).clamp(32, 180).round();
+  /// The ellipse `centre + u·cos t + v·sin t` (u, v: conjugate semi-axes),
+  /// its points on the curve at most [spacing] apart (at least 32,
+  /// at most [maxEllipsePoints]): the stroke's points then lie on the true
+  /// ellipse, which the renderer's spline through them follows at any zoom
+  /// (a coarse polygon densified along its sides would show its facets).
+  static List<Offset> ellipse(Offset centre, Offset u, Offset v, {double spacing = 2}) {
+    // The point moves at most max(|u|, |v|) per radian of t.
+    final speed = math.max(u.distance, v.distance);
+    final n = (2 * math.pi * speed / math.max(spacing, 1e-6)).ceil().clamp(32, maxEllipsePoints);
     return [
       for (var i = 0; i <= n; i++)
-        centre + u * math.cos(2 * math.pi * i / n) + v * math.sin(2 * math.pi * i / n),
+        if (i == n)
+          centre + u
+        else
+          centre + u * math.cos(2 * math.pi * i / n) + v * math.sin(2 * math.pi * i / n),
     ];
   }
+
+  /// The most points an ellipse's outline has.
+  static const int maxEllipsePoints = 4096;
 
   /// The angle (in its frame) of vertex [i] of a star with [tips] points:
   /// even ones are the outer points, from the top, odd ones the inner
