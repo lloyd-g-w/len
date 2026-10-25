@@ -1920,14 +1920,29 @@ snap (`docs/INK_LAB.md`, *Gestures on real ink*).
 
 **Scribble to erase** (`input/scribble_detector.dart`, on by default, a
 switch in Settings → Writing): a pen (ballpoint) stroke holding a fast
-back-and-forth scribble — `ScribbleDetector`: two quick back-and-forths
-(≥ 4 passes within 0.8 s), each nearly reversing the last, ≥ 14 screen
-px, the inner ones at most twice the median, fairly straight, all in a
-band at most 0.3 of their length wide (letters — cursive m / n / u / w,
-printed z / N / M / w — reverse as sharply but move on), drifting pass by
-pass rather than mostly in one jump (cursive "ll" goes up and down one
-letter, then the next) — erases instead
-of becoming ink when it crosses ink. Only the part that zigzags counts
+back-and-forth scribble — `ScribbleDetector`: three passes (there, back,
+there again, a "Z") within 0.6 s, or four within 0.8 s; each pass nearly
+reversing the last, ≥ 14 screen px, the inner ones at most twice the
+median, fairly straight, all in a band at most 0.3 of their length wide
+(letters — cursive m / n / u / w, printed z / N / M / w — reverse as
+sharply but move on), drifting pass by pass rather than mostly in one
+jump (cursive "ll" goes up and down one letter, then the next) — erases
+instead of becoming ink when it crosses ink. Three passes are held to
+more: a band at most 0.2 wide (hatching spaced a
+tenth of its length spreads 0.26, the nearest real writing — a zigzag
+in a sketch — 0.22, and that also moves on; 0.31 failing nothing else;
+scribbles drifting 5 % of their width a pass 0.13–0.16), passes sharing
+≥ 0.7 of the widest one's span along the axis (scribbles 0.88–1), and
+whole passes: the third must have ended, by the pen-up
+(`ScribbleDetector.finish`) or another reversal, so a three-pass
+scribble shows no dimmed preview: it is found as the pen lifts and
+erases then. That last rule is what keeps a retraced
+letter stem (up, down, up into the bowl of a "P", real_spen_01: spread
+0.13, overlap 0.84 while the third pass is under way) from erasing: whole,
+its third pass runs on into the bowl. Reversals are found at the tip of
+each run of sharply turning points (a run may hold two on passes little
+longer than the ±9 px the turn is measured over), so small, quick
+scribbles with the pen's jitter count too. Only the part that zigzags counts
 (`ScribbleDetector.windows`: each run of passes that makes a scribble, its
 outer passes cut to the span of the inner ones, overlapping runs joined),
 so a lead-in or a run-on erases nothing. The detector looks every 4

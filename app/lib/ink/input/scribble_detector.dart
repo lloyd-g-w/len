@@ -4,11 +4,18 @@ import 'dart:ui';
 /// "Scribble to erase": recognises a fast back-and-forth scribble in a
 /// pen stroke (screen pixels and milliseconds, fed as the pen moves).
 ///
-/// Two quick back-and-forths are enough, yet writing never trips it
-/// (checked against the Ink Lab's real S Pen recordings at 0.25–3×, simulated cursive
-/// and printed zigzag letters: z, N, M, w, vvv…). A scribble needs
-/// [minPasses] consecutive passes (so `minPasses - 1` sharp reversals),
-/// all within [maxDuration], where every pass
+/// Three passes are enough (there, back and there again, a "Z"), yet
+/// writing never trips it (checked against the Ink Lab's real S Pen
+/// recordings at 0.25–3×, simulated cursive and printed zigzag letters:
+/// z, N, M, w, vvv…). A scribble is either
+///  * [fullPasses] consecutive passes (so three sharp reversals) within
+///    [maxDuration] (the last may still be under way), or
+///  * [minPasses] whole passes (two reversals; the last ended by the
+///    pen-up or another reversal) within [shortDuration], held to more:
+///    a band at most [shortSpread] wide and passes that overlap along
+///    the axis by at least [minOverlap] (see [_isTight]),
+///
+/// where every pass
 ///  * nearly reverses the one before it (within ~35°),
 ///  * is at least [minAmplitude] long and not much shorter than the others
 ///    (nor, but for the first and last, much longer),
@@ -19,17 +26,47 @@ import 'dart:ui';
 /// spread is large; a scribble drifts a few pixels per pass, not mostly in
 /// one jump as letters written up and down do ("ll", [_movesOn]).
 ///
+/// A three-pass scribble is found only once its third pass is over (the
+/// pen lifts, [finish], or turns back again): a letter's retraced stem
+/// (up, down, up into the bowl of a "P" or "R", real_spen_01 contact 63)
+/// is as tight (spread 0.13, overlap 0.84) while its third pass is under
+/// way, but whole, that pass runs on into the bowl and is no pass. The
+/// nearest real writing then: a zigzag in a sketch (real_spen_02 contact
+/// 19) spreads 0.22 at best (and moves on), 0.31 failing nothing else;
+/// zigzag hatching spaced a tenth of its length, 0.26.
+///
 /// Only the part that zigzags counts ([windows]): what the stroke crossed
 /// before or after doesn't erase.
 class ScribbleDetector {
   /// Spacing (pixels) of the resampled path the reversals are found on.
   static const double spacing = 3;
 
-  /// Passes (each a reversal of the one before) a scribble needs.
-  static const int minPasses = 4;
+  /// Whole passes (each a reversal of the one before) a scribble needs,
+  /// if they are tight ([shortDuration], [shortSpread], [minOverlap]).
+  static const int minPasses = 3;
 
-  /// The time those passes may take.
+  /// Passes that make a scribble under the looser rule ([maxDuration],
+  /// [maxSpread]).
+  static const int fullPasses = 4;
+
+  /// The time [fullPasses] passes may take.
   static const int maxDuration = 800;
+
+  /// The time [minPasses] passes may take (as quick per pass as
+  /// [maxDuration] for [fullPasses]).
+  static const int shortDuration = 600;
+
+  /// How far [minPasses] passes may spread across their axis, relative
+  /// to their amplitude. Hatching spaced a tenth of its length spreads
+  /// 0.26 or more over three lines, real writing 0.22 or more; a scribble
+  /// drifting 5 % of its width a pass, 0.13–0.16.
+  static const double shortSpread = 0.2;
+
+  /// How much of the widest of [minPasses] passes' spans along the axis
+  /// all of them share: a scribble retraces, letters (z, N) move on.
+  /// Synthetic scribbles share 0.88–1; no real writing is held back by
+  /// this alone (the band does it), it is a second guard.
+  static const double minOverlap = 0.7;
 
   /// The shortest pass (pixels): smaller wiggles are jitter or letters.
   static const double minAmplitude = 14;
@@ -66,11 +103,24 @@ class ScribbleDetector {
       ..add(timeMs);
     _windows.clear();
     _looked = 0;
+    _ended = false;
+  }
+
+  /// Whether the stroke has ended ([finish]).
+  bool _ended = false;
+
+  /// The stroke ended (pen-up): its last pass is whole, so a scribble of
+  /// [minPasses] passes may end with it. Call it before asking
+  /// [isScribble] at pen-up; a new [add] starts a new stroke.
+  void finish() {
+    if (_ended || _points.isEmpty) return;
+    _ended = true;
+    _look();
   }
 
   /// The pen moved to [at].
   void add(Offset at, int timeMs) {
-    if (_points.isEmpty) return begin(at, timeMs);
+    if (_points.isEmpty || _ended) return begin(at, timeMs);
     if ((at - _points.last).distance < spacing) return;
     _points.add(at);
     _times.add(timeMs);
@@ -107,7 +157,7 @@ class ScribbleDetector {
     }
     // Room to find the turn at the first pass's start.
     from = math.max(0, from - 2 * _turnReach);
-    for (final w in find(_points, _times, from: from)) {
+    for (final w in find(_points, _times, from: from, ended: _ended)) {
       _merge(w);
     }
   }
@@ -132,20 +182,32 @@ class ScribbleDetector {
   }
 
   /// Whether the path [points] (resampled at about [spacing], with the
-  /// time of each in [times]) holds a scribble.
-  static bool detect(List<Offset> points, List<int> times) => find(points, times).isNotEmpty;
+  /// time of each in [times]), a whole stroke, holds a scribble.
+  static bool detect(List<Offset> points, List<int> times) =>
+      find(points, times, ended: true).isNotEmpty;
 
   /// The scribbles in [points] from index [from] on: each run of
-  /// [minPasses] passes that makes one, as (first, last) point indices,
-  /// with its outer passes cut to the span of the inner ones. When [from]
-  /// is past the start, the part-pass it begins with is no pass.
-  static List<(int, int)> find(List<Offset> points, List<int> times, {int from = 0}) {
+  /// [fullPasses] passes, or of [minPasses] whole ones, that makes one,
+  /// as (first, last) point indices, with its outer passes cut to the
+  /// span of the inner ones. When [from] is past the start, the part-pass
+  /// it begins with is no pass; unless the stroke [ended], the last one
+  /// is no whole pass.
+  static List<(int, int)> find(
+    List<Offset> points,
+    List<int> times, {
+    int from = 0,
+    bool ended = false,
+  }) {
     final passes = _passes(points, from);
     if (from > 0 && passes.isNotEmpty) passes.removeAt(0);
+    final whole = ended ? passes.length : passes.length - 1;
     final found = <(int, int)>[];
     for (var i = 0; i + minPasses <= passes.length; i++) {
-      final window = _scribble(points, times, passes.sublist(i, i + minPasses));
-      if (window != null) found.add(window);
+      for (final n in [fullPasses, minPasses]) {
+        if (i + n > (n == minPasses ? whole : passes.length)) continue;
+        final window = _scribble(points, times, passes.sublist(i, i + n));
+        if (window != null) found.add(window);
+      }
     }
     return found;
   }
@@ -163,12 +225,22 @@ class ScribbleDetector {
         i++;
         continue;
       }
-      // One reversal: the sharpest point of the run of turning points.
-      var best = i, bestCos = _cosTurn(p, i, w);
+      // A reversal: the tip of the run of turning points, the one
+      // farthest on along the way in. On passes not much longer than the
+      // turn's reach every point reverses as sharply, and one run may
+      // hold two tips: a pass back of [minAmplitude] or more between them.
+      final into = p[i] - p[i - w];
+      final unit = into / into.distance;
+      double on(int k) => p[k].dx * unit.dx + p[k].dy * unit.dy;
+      var best = i, sign = 1.0;
       var j = i + 1;
       while (j < p.length - w && _cosTurn(p, j, w) <= _reversal) {
-        final c = _cosTurn(p, j, w);
-        if (c < bestCos) (best, bestCos) = (j, c);
+        if (sign * (on(j) - on(best)) > 0) {
+          best = j;
+        } else if (sign * (on(best) - on(j)) >= minAmplitude) {
+          turns.add(best);
+          (best, sign) = (j, -sign);
+        }
         j++;
       }
       turns.add(best);
@@ -188,7 +260,8 @@ class ScribbleDetector {
   /// The window of [passes], if they make a scribble.
   static (int, int)? _scribble(List<Offset> p, List<int> t, List<(int, int)> passes) {
     final first = passes.first.$1, last = passes.last.$2;
-    if (t[last] - t[first] > maxDuration) return null;
+    final short = passes.length < fullPasses;
+    if (t[last] - t[first] > (short ? shortDuration : maxDuration)) return null;
     final chords = [for (final (a, b) in passes) p[b] - p[a]];
     // Consecutive passes nearly reverse each other.
     for (var k = 1; k < chords.length; k++) {
@@ -226,7 +299,8 @@ class ScribbleDetector {
       lo = math.min(lo, across);
       hi = math.max(hi, across);
     }
-    if (hi - lo > maxSpread * amplitude) return null;
+    if (hi - lo > (short ? shortSpread : maxSpread) * amplitude) return null;
+    if (short && !_isTight(p, passes, u)) return null;
     // Writing that goes up and down one letter, then the next ("ll", "tt"),
     // moves on in one jump between them; a scribble drifts pass by pass.
     if (_movesOn(p, passes, n, amplitude)) return null;
@@ -251,6 +325,24 @@ class ScribbleDetector {
       b--;
     }
     return (a, b);
+  }
+
+  /// Whether [passes] retrace each other along the axis [u]: the span all
+  /// of them cover is at least [minOverlap] of the widest one's.
+  static bool _isTight(List<Offset> p, List<(int, int)> passes, Offset u) {
+    var lo = double.negativeInfinity, hi = double.infinity, widest = 0.0;
+    for (final (a, b) in passes) {
+      var min = double.infinity, max = double.negativeInfinity;
+      for (var i = a; i <= b; i++) {
+        final along = p[i].dx * u.dx + p[i].dy * u.dy;
+        min = math.min(min, along);
+        max = math.max(max, along);
+      }
+      lo = math.max(lo, min);
+      hi = math.min(hi, max);
+      widest = math.max(widest, max - min);
+    }
+    return hi - lo >= minOverlap * widest;
   }
 
   /// Whether [passes] spread across the axis [n] mostly in one jump from
