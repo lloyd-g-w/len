@@ -289,6 +289,9 @@ class ShapeGeometry {
       }
       points.add(Offset(x.toDouble(), y.toDouble()));
     }
+    if (kind != ShapeKind.curve && (json['t'] != null || json['c'] != null)) {
+      throw const FormatException('Malformed shape: t or c on a shape other than a curve');
+    }
     final inner = json['i'], tips = json['n'];
     if (kind == ShapeKind.star) {
       if (inner is! num || !(inner >= minInner && inner <= maxInner)) {
@@ -333,9 +336,7 @@ class ShapeGeometry {
       }
       return ShapeGeometry(kind, points, through: through, corners: c.cast<int>());
     }
-    if (json['t'] != null || json['c'] != null) {
-      throw const FormatException('Malformed shape: t or c without a curve through points');
-    }
+    if (json['c'] != null) throw const FormatException('Malformed shape: c without t');
     return ShapeGeometry(kind, points);
   }
 

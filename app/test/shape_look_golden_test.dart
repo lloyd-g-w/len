@@ -148,6 +148,18 @@ List<Stroke> _curves() {
   ];
 }
 
+/// Every kind the Shape tool draws, dragged corner to corner.
+List<Stroke> _dragged() => [
+  for (final (i, kind) in ShapeKind.drawable.indexed)
+    _shape(
+      ShapeBuilder.dragged(
+        kind,
+        Offset(20 + (i % 4) * 120.0, 20 + (i ~/ 4) * 120.0),
+        Offset(120 + (i % 4) * 120.0, 110 + (i ~/ 4) * 120.0),
+      ),
+    ),
+];
+
 class _Clock extends Clock {
   int now = 0;
   @override
@@ -295,6 +307,18 @@ void main() {
       const Size(480, 320),
       scale: 4,
       origin: const Offset(290, 140),
+    );
+  });
+
+  testWidgets('every kind the Shape tool draws, and zoomed in', (tester) async {
+    await _golden(tester, 'shapes_dragged', _dragged(), const Size(500, 260));
+    await _golden(
+      tester,
+      'shapes_dragged_4x',
+      _dragged(),
+      const Size(480, 320),
+      scale: 4,
+      origin: const Offset(200, 80),
     );
   });
 

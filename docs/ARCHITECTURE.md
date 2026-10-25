@@ -1842,18 +1842,27 @@ events' clock, and only the stroke up to there is recognised (the drift
 would make a line's detour or an arrow's wings). Open
 strokes become an arrow (a straight shaft and a wing on each side of its
 tip) or, if nearly straight already (no point off the chord by more than
-8 % of it, the path at most 1.15 × the chord), a line whose end then
-follows the pen; closed ones (ends within 30 % of the bounding diagonal)
-an ellipse/circle or a polygon, whichever fits better: the polygon's
+8 % of it, the path at most 1.15 × the chord), a line; closed ones (ends
+within 30 % of the bounding diagonal)
+an ellipse/circle or a polygon, whichever fits better. The ellipse is
+Fitzgibbon's direct least-squares fit (`shapes/conic_fit.dart`, in
+Halíř–Flusser's stable form: always an ellipse), level or upright when
+within 10° of it; one whose axes are within 17 % of each other
+(`ShapeRecognizer.circleTolerance`: hand-drawn circles come out 5–15 %
+squashed) is a true circle instead, Taubin's least-squares circle (centre
+and radius, unbiased where Kåsa's shrinks). The polygon's
 corners are RDP vertices (two closer than 10 % of the diagonal are one
 rounded corner) moved to where the sides, fitted as lines, meet
 (`Polyline.fitCorners`: a hand rounds corners off), less any corner a fit
 with one fewer matches within 0.4 % of the diagonal (a bowed side, the
-overshoot closing the loop: long rectangles stay rectangles), then 3 → triangle, 4
+overshoot closing the loop: long rectangles stay rectangles), and no
+polygon at all when a corner's rounding (judged from how far the stroke
+passes from it) is over 20 % of its longer side (`maxRounding`: a smooth
+blob fits a polygon whose corners lie far outside it), then 3 → triangle, 4
 → diamond (diagonals along the axes), rectangle (right angles; rotated or,
 within 6°, axis-aligned, each side midway between its corners), else
 polygon (five or more corners must have half the ellipse's error: a ring
-around a word is no hexagon); a nearly round ellipse is a circle. Strokes
+around a word is no hexagon). Strokes
 under 48 screen px long and closed ones under 48 px across stay as
 written (letters such as "l", "o" or "0"). A stroke that is none of these
 but smooth, at least 128 px across (`HoldToStraighten.minCurve`: a held
@@ -1862,12 +1871,32 @@ but smooth, at least 128 px across (`HoldToStraighten.minCurve`: a held
 must have no turn sharper than 60° over three points each side (letters'
 cusps, zig-zags, corners), no crossing (loops: "e", "l"), at most 360° of
 turning in all (720° closed) and two changes of direction (four closed:
-no waves or spirals), and a cubic spline fitted to it
-(`shapes/curve_fit.dart`, Schneider's algorithm: least squares on
-chord-length parameters, Newton–Raphson refinement, split at the worst
-point with a shared tangent) within 2 % of its diagonal must need at most
-five anchors (six closed). Handwriting and scribbles are never
-recognised.
+no waves or spirals), and a curve through points (a κ-curve, below)
+within 1.5 % of its diagonal must need at most five points (six
+closed): its ends and the peaks of its turning (where it bends most, as a
+κ-curve bends most at its points; closed: three at least), each slid
+along the stroke a few samples at a time while that fits better (so a
+bend found from noisy turning sits where the curve bends, not in a kink
+beside it), then where the curve misses most added while it misses by
+more, then any it does without (within 60 % of the error) dropped.
+Handwriting and scribbles are never recognised.
+**Still holding after the snap**, moving the pen transforms the shape
+live until it lifts (`shapes/held_shape.dart`, as Apple Notes, GoodNotes
+and Notewise do), against where the pen was at the snap: a line's end
+follows the pen and an arrow's tip moves with it (both turn and stretch
+about their start; level, upright and diagonal within 4° snap); any other
+shape turns by the angle the pen turns through about the shape's centre
+and scales evenly by how much its distance from the centre changes
+(`HeldShape.at`). A rectangle's, diamond's or ellipse's own angle snaps
+level, upright or diagonal within 5° (exactly: sides and axes square
+again), other shapes' turn to multiples of 45°; any turn to 15° steps
+within 2°, the size as snapped within 3 % (the pen sliding a little
+changes nothing), and nothing moves until the pen is 4 px from where it
+snapped or if it snapped within 12 px of the centre. Circles stay
+circles. Each move rebuilds the live stroke from the transformed
+geometry (`LiveInk.replaceAll`, the whole outline, so no stale piece
+shows); the stroke, the snap and the transform are one stroke, one undo
+step, synced as the final shape.
 Snapped shapes have the shape look (`ShapeBuilder.styleFor`) and their
 geometry (`LiveInk.shape` → `Stroke.shape`); only the clean shape is
 committed. The recogniser is tested on hand-drawn samples
@@ -1950,15 +1979,19 @@ surface.
   vertices, a circle's centre and rim point, an ellipse's centre and
   perpendicular semi-axes, a star's frame, inner radius and number of
   points, a curve's anchors and tangent handles (a cubic Bézier spline,
-  `shapes/bezier.dart`)), so they stay editable.
+  `shapes/bezier.dart`) and, for a curve through points, those points and
+  its corners (`through`, `corners`; synced `sh.t`, `sh.c`)), so they stay
+  editable.
   Every kind is described by points an affine map takes to the same kind
   (a squashed circle becomes an ellipse; an ellipse's semi-axes are made
   perpendicular again, `ShapeGeometry.map`), so moving, scaling and
   rotating a selection maps them (`TransformItems.stroke`); the pixel
   eraser's pieces are free-hand ink. Curved outlines (bends, ellipses,
-  curves) are flattened finely enough to read as curves at the zoom they
-  are built at (`ShapeBuilder.outline`); PDF export, hit tests and fills
-  use the points, like any stroke's.
+  curves) are flattened to points on the true curve 2 px apart at the zoom
+  they are built at (`ShapeBuilder.outline`; an ellipse's include its axes'
+  ends), never a coarse polygon densified along its sides, so the
+  renderer's spline through them follows the curve at any zoom; PDF
+  export, hit tests and fills use the points, like any stroke's.
   A shape's look is the pen's colour, width and opacity as an even line
   with round ends (`ShapeBuilder.styleFor`: no pressure, taper, flat ends
   or stabiliser). An arrowhead is 18 % of the arrow within 12–20 units
@@ -1973,21 +2006,76 @@ surface.
   rectangle's corner handle) and commits exactly the shape last shown (an
   ellipse dragged square is a circle); a tap on a shape selects it (with
   Curve picked too: a drag from it starts a curve, and the hint says so).
-  **Curves** (`tools/curve_drawing.dart`) are drawn a gesture at a time:
-  a tap places an anchor (a corner), a press-drag places one and pulls its
-  tangents out symmetrically, a tap on the first anchor closes the curve
-  (with the tool's fill) and finishes it, a second tap on the last anchor
-  (within 400 ms) finishes it open, as do Enter and another tool or page
+  **Curves** (`tools/curve_drawing.dart`) are drawn a gesture at a time,
+  through the points tapped (a κ-curve, `shapes/kappa_curve.dart`, below):
+  a tap places a point, a press-drag places one where the drag ends (the
+  curve follows it), a tap on the last point makes it a corner (or smooth
+  again; a drag from it moves it), a tap on the first point closes the
+  curve (three points at least; with the tool's fill) and finishes it, a
+  second tap on the last point (within 400 ms) finishes it open, as do
+  Enter and another tool or page
   (`ShapeTool.finishCurve`, via `EditorScreen`'s keys and
   `ContentTools`); Escape drops it (`cancelCurve`). The curve so far is
   the live stroke between gestures; a gesture that turns into a pinch takes
   back only its own anchor. While it is drawn, undo and redo (Ctrl+Z, the
-  buttons, finger taps) step through its anchors; undoing the first drops
-  it, redo brings it back. Its anchors show over it (`CurveGuide`, painted
-  by `tools/curve_guide_painter.dart` in the look of a selected curve's
-  handles): the first ringed larger once a tap there closes the curve, and
-  the tangents of the anchor being pulled (or placed last) as arms. One
-  stroke, one undo step. The live outline is rebuilt
+  buttons, finger taps) step through its points and corners; undoing the
+  first drops it, redo brings it back. Its points show over it
+  (`CurveGuide`, painted by `tools/curve_guide_painter.dart` in the look
+  of a selected curve's handles): corners square, the first ringed larger
+  once a tap there closes the curve. One stroke, one undo step.
+  **Curves through points** (`shapes/kappa_curve.dart`): κ-curves (Yan,
+  Schiller, Wilensky, Carr and Schaefer, SIGGRAPH 2017, the technique of
+  Adobe Illustrator's Curvature tool). One quadratic Bézier per point,
+  passing through it exactly where that piece bends most; neighbouring
+  pieces meet with equal tangents and curvature (G²), except at
+  inflections, where only the curvature's size matches (G¹). The pieces
+  come from the paper's local/global iteration (24 rounds): where each
+  piece meets the next (the ratio of two triangle areas) and where it
+  peaks (the one root in [0, 1] of a cubic, by bisection), then all the
+  middle control points at once from one (cyclic, for a closed curve)
+  tridiagonal system — linear time, well under a millisecond for 60
+  points, so the curve is solved again on every move of a drag. An open
+  curve's ends are its first and last points; a corner splits the curve
+  into open pieces meeting there. The quadratics are stored as the cubic
+  spline every curve has (`ShapeGeometry.points`, by exact degree
+  elevation) alongside the points (`through`, `corners`), so outlines, hit
+  tests, connectors' attachment parameters, PDF export and readers that
+  know only splines treat both alike. Curves stored before (plain splines,
+  no `t`) load and look exactly as they did and keep their anchor and
+  tangent editing; a curve through points is edited by its points (a
+  drag solves it again; a tap on its line adds a point there, between its
+  neighbours along the curve, `KappaCurve.withPointAt`; a double tap on a
+  point removes it, two kept open, three closed). Moved, scaled or turned
+  as a selection, both the spline and the points map (`ShapeGeometry.map`;
+  a squash leaves the spline exact and the points on it, though no longer
+  quite where it bends most until the next edit solves it again).
+  *Why κ-curves* (2026-10; the curve tool's taps had made corners and only
+  dragged handles made it smooth, and a held stroke snapped to a Schneider
+  fit, Graphics Gems 1990, whose anchors and handles fall wherever the
+  error splits it). Wanted: curves that pass through the points tapped or
+  dragged, no overshoot, loops or kinks, smooth curvature, and cheap on
+  Dart and the web. *Centripetal Catmull–Rom* (Yuksel, Schaefer and Keyser,
+  CAD 2011) interpolates, is local and cheap and provably has no cusps or
+  self-intersections within a segment, but it is only C¹: curvature jumps
+  at every point and peaks between them, so a few taps give visibly lumpy
+  arcs. *Euler spiral / clothoid splines* (Levien's Spiro, thesis 2009;
+  his later Euler-spiral fitting and offset work, 2021–23) are the fairest
+  (curvature linear in arc length, G² everywhere), but need a nonlinear
+  Newton solve per edit that can fail to converge when points bend
+  sharply, cannot represent a cusp (so curves jump as a point is dragged
+  across one), and must be fitted with Béziers again for rendering and
+  export. *Fewer, better-placed Béziers* (Schneider with curvature-based
+  corners) improves recognition only: the curve tool would still need
+  tangent handles, the opposite of tapping points. κ-curves meet all four:
+  interpolating, every curvature peak at a point (so nothing bulges or
+  loops between points unless the points ask for it; a hairpin of points
+  makes a cusp at the point, by design), G² but at inflections, a
+  linear-time solve with no failure mode, and exactly cubic Béziers for
+  everything downstream; their influence is global but falls off within a
+  couple of points. The cost: at an inflection the curvature flips sign at
+  full size, which reads as a slight kink if a point sits on a nearly
+  straight stretch, so the recogniser puts points only at bends and slides
+  them to where the stroke bends. The live outline is rebuilt
   whenever the live points are replaced rather than extended
   (`LiveInk.generation`; the incremental builder would otherwise keep the
   outline of an earlier preview).
@@ -2095,7 +2183,8 @@ surface.
   ellipse dragged to equal radii is a circle again), an ellipse's centre and two radii
   (each sizes its axis about the centre; Shift: both), a star's centre, top
   point (turns and sizes it) and inner point (inner radius; its number of
-  points is in Style, `StepperRow`), a curve's anchors (moving their
+  points is in Style, `StepperRow`), a curve through points' points (the
+  curve solved again through them), a plain curve's anchors (moving their
   tangents) and tangent handles (on an arm from their anchor; the opposite
   one turns with it when they were in line, a smooth anchor). Snaps while
   dragging within `LassoTool.snapReach` (8 px) or by angle
@@ -2103,9 +2192,10 @@ surface.
   within 2° (line ends, a star's turn, tangents, the rotate handle, which
   turns in 15° steps with Shift), equal radii and square sides within 6 %,
   points lining up with the shape's others, a regular star's inner
-  radius, a tangent onto its anchor (a corner). On a curve, a tap on its
-  line adds an anchor there (`Bezier.split`: the outline stays) and a
-  double tap on an anchor removes it (two anchors at least). Lines,
+  radius, a tangent onto its anchor (a corner). On a plain curve, a tap on
+  its line adds an anchor there (`Bezier.split`: the outline stays) and a
+  double tap on an anchor removes it (two anchors at least); a curve
+  through points adds and removes points (above). Lines,
   arrows and open curves have no frame (their handles move and turn them)
   and move only from near the stroke (`SelectionChrome.grabs`); closed
   shapes keep the rotate handle. A turned rectangle, diamond, ellipse or
