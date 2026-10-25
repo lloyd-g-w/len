@@ -226,8 +226,8 @@ const Map<String, Map<String, String>> largeContrast = {
   // The options sheet scrolls on a short window: its next group fades
   // out at the bottom edge, by design.
   'pen options': {
-    'label: "Size"': 'the pen sheet\'s Size group, inside its scroll fade',
-    'label: "0.65 mm"': 'the pen sheet\'s size readout, inside its scroll fade',
+    // The segments carry no label of their own: matched by their flags.
+    'isInMutuallyExclusiveGroup': 'the pen sheet\'s Ends segments, inside its scroll fade',
   },
 };
 

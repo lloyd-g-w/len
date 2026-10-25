@@ -5,10 +5,11 @@ import '../../../ui/app_theme.dart';
 import '../../../ui/roving_focus.dart';
 import '../tools/tool_icons.dart';
 import 'option_controls.dart';
-import 'slot_button.dart';
 
-/// Eraser options: whole-stroke vs. partial erasing, size and "highlighter
-/// only"; with scribble to erase on, a caption mentions it.
+/// The eraser's options (tap the selected eraser), one flat panel: a
+/// title with Reset, whole stroke or partial, and "highlighter only"; with
+/// scribble to erase on, a caption mentions it. Its size is the toolbar's
+/// three size slots (a size set before keeps working until one is picked).
 class EraserOptionsPanel extends StatelessWidget {
   const EraserOptionsPanel({super.key, required this.tools});
 
@@ -54,28 +55,6 @@ class EraserOptionsPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: Gaps.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: OptionSlider(
-                    label: 'Size',
-                    value: eraser.radius,
-                    min: EraserConfig.minRadius,
-                    max: EraserConfig.maxRadius,
-                    // On screen, whatever the zoom: the dot beside it shows it.
-                    showValue: false,
-                    display: (v) => percent(
-                      (v - EraserConfig.minRadius) /
-                          (EraserConfig.maxRadius - EraserConfig.minRadius),
-                    ),
-                    onChanged: (v) => update(eraser.copyWith(radius: v)),
-                  ),
-                ),
-                const SizedBox(width: Gaps.sm),
-                _SizePreview(radius: eraser.radius),
-              ],
-            ),
-            const OptionRule(),
             OptionSwitch(
               label: 'Erase highlighter only',
               subtitle: 'Leaves pen ink untouched',
@@ -84,7 +63,7 @@ class EraserOptionsPanel extends StatelessWidget {
             ),
             // The gesture that saves picking the eraser (Settings → Writing).
             if (tools.scribbleToErase) ...[
-              const OptionRule(),
+              const SizedBox(height: Gaps.sm),
               Text(
                 'Or scribble over ink with the pen',
                 style: Theme.of(context).textTheme.bodySmall,
@@ -93,32 +72,6 @@ class EraserOptionsPanel extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _SizePreview extends StatelessWidget {
-  const _SizePreview({required this.radius});
-
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    const box = EraserConfig.maxRadius;
-    return SizedBox.square(
-      dimension: box,
-      child: Center(
-        child: Container(
-          width: (radius * 2).clamp(4, box),
-          height: (radius * 2).clamp(4, box),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Surfaces.pressed(scheme),
-            border: Border.all(color: scheme.onSurfaceVariant, width: SlotButton.ringWidth),
-          ),
-        ),
-      ),
     );
   }
 }

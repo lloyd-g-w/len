@@ -8,7 +8,6 @@ import '../../../ink/pen/pen_config.dart';
 import '../../../ink/render/stroke_renderer.dart';
 import '../../../ui/app_theme.dart';
 import 'ink_paper.dart';
-import 'option_controls.dart';
 import 'preview_strokes.dart';
 
 /// What a [StrokePreview] draws.
@@ -206,8 +205,6 @@ class PreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The options popover shows its own preview above the embedded panel.
-    if (EmbeddedOptions.of(context)) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
     return Container(
       clipBehavior: Clip.antiAlias,

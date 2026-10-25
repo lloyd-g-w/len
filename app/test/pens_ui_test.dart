@@ -179,40 +179,20 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('quick colours and sizes: 3 each by default, 1 to 5, independent', (tester) async {
+    testWidgets('the pen\'s options hold no quick slot counts: they are in Settings', (
+      tester,
+    ) async {
       final tools = await pumpToolbar(tester, const Size(1280, 800));
       expect(tools.activeConfig.colors, hasLength(3));
       expect(tools.activeConfig.widths, hasLength(3));
       await tester.tap(find.byTooltip('Pen (P)'));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('More quick colours'), findsNothing, reason: 'folded away');
-      expect(find.text('3 and 3'), findsOneWidget);
-      await tester.ensureVisible(find.text('Quick colours and sizes'));
-      await tester.tap(find.text('Quick colours and sizes'));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byTooltip('More quick colours'));
-      for (var i = 0; i < 4; i++) {
-        await tester.tap(find.byTooltip('More quick colours'));
-        await tester.pump();
-      }
-      expect(tools.activeConfig.colors, hasLength(5));
-      expect(tools.activeConfig.colors.toSet(), hasLength(5), reason: 'new colours differ');
-      expect(tools.activeConfig.widths, hasLength(3));
-      final more = tester.widget<IconButton>(
-        find.ancestor(of: find.byTooltip('More quick colours'), matching: find.byType(IconButton)),
-      );
-      expect(more.onPressed, isNull);
-      for (var i = 0; i < 2; i++) {
-        await tester.tap(find.byTooltip('Fewer quick sizes'));
-        await tester.pump();
-      }
-      expect(tools.activeConfig.widths, hasLength(1));
-      expect(tools.activeConfig.colors, hasLength(5));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('width-1')), findsNothing);
+      expect(find.byType(ToolOptionsPopover), findsOneWidget);
+      expect(inPopover(find.textContaining('Quick')), findsNothing);
+      expect(find.byTooltip('More quick colours'), findsNothing);
       // The anchored popover leaves the slots to the toolbar right above it.
-      expect(find.byKey(const ValueKey('color-4')), findsOneWidget);
-      expect(inPopover(find.byKey(const ValueKey('color-4'))), findsNothing);
+      expect(find.byKey(const ValueKey('color-2')), findsOneWidget);
+      expect(inPopover(find.byKey(const ValueKey('color-2'))), findsNothing);
     });
 
     testWidgets('the highlighter has its own slots', (tester) async {
@@ -245,27 +225,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(inPopover(find.text('Reset')), findsOneWidget);
       expect(inPopover(find.byType(StrokePreview)), findsOneWidget);
-      // Disclosures stay open while the app runs (an earlier test may have opened them).
-      Future<bool> open(String disclosure, Finder inside) async {
-        if (inside.evaluate().isNotEmpty) return false;
-        await tester.ensureVisible(find.text(disclosure));
-        await tester.tap(find.text(disclosure));
-        await tester.pumpAndSettle();
-        return true;
-      }
-
-      await open('Quick colours and sizes', find.byTooltip('More quick sizes'));
-      await tester.ensureVisible(find.byTooltip('More quick sizes'));
-      await tester.tap(find.byTooltip('More quick sizes'));
-      await tester.pump();
-      expect(tools.configOf(InkTool.highlighter).widths, hasLength(4));
-      expect(tools.configOf(InkTool.ballpoint).widths, hasLength(3));
-      final opened = await open('Opacity and feel', find.text('Pressure sensitivity'));
-      for (final label in ['Opacity', 'Pressure sensitivity', 'Stabiliser', 'Ends']) {
+      // One flat panel: everything shows at once.
+      for (final label in ['Opacity', 'Stabiliser', 'Ends', 'Straight lines', 'Snap to text']) {
         expect(inPopover(find.text(label)), findsOneWidget, reason: label);
       }
-      // Leave Feel as the next tests expect it.
-      if (opened) await tester.tap(find.text('Opacity and feel'));
+      expect(tools.configOf(InkTool.highlighter).widths, hasLength(3));
     });
 
     testWidgets('phones: one tap swaps the pen and the previous tool', (tester) async {
@@ -332,22 +296,21 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(ToolOptionsPopover), findsOneWidget);
       expect(find.byType(BottomSheet), findsOneWidget);
-      // The sheet covers the toolbar, so it shows the quick slots itself.
+      // Colours stay in the toolbar: the sheet holds the options alone.
       expect(
         find.descendant(
           of: find.byType(BottomSheet),
           matching: find.byKey(const ValueKey('color-0')),
         ),
-        findsOneWidget,
+        findsNothing,
       );
-      await tester.tap(find.text('Feel'));
-      await tester.pumpAndSettle();
       expect(find.byType(PenOptionsPanel), findsOneWidget);
+      expect(find.text('Stabiliser'), findsOneWidget);
       expect(find.text('Hold to snap shapes'), findsNothing); // In Shapes only.
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('tapping the active tool opens its options', (tester) async {
+    testWidgets('tapping the active tool opens its options; again closes them', (tester) async {
       final tools = await pumpToolbar(tester, const Size(1280, 800));
       for (final (tooltip, title) in [
         ('Highlighter (H)', 'Highlighter'),
@@ -361,11 +324,14 @@ void main() {
         await tester.tap(find.byTooltip(tooltip));
         await tester.pumpAndSettle();
         expect(find.byType(ToolOptionsPopover), findsNothing, reason: '$title: first selects');
+        final button = tester.getCenter(find.byTooltip(tooltip));
         await tester.tap(find.byTooltip(tooltip));
         await tester.pumpAndSettle();
         expect(inPopover(find.text(title)), findsOneWidget, reason: title);
-        await tester.tapAt(const Offset(1200, 700));
+        // Tapping the button again closes it, as a tap anywhere else does.
+        await tester.tapAt(button);
         await tester.pumpAndSettle();
+        expect(find.byType(ToolOptionsPopover), findsNothing, reason: '$title: closes');
       }
       expect(tools.tool, EditorTool.pen);
       expect(tester.takeException(), isNull);

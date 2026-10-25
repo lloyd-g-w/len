@@ -303,16 +303,20 @@ Floating palette: Sheet, radius md, hairline, contact shadow, grip of 2 ticks
 ╰──────────────────────────────────────────────────╯
 
 Popover (tool options): Sheet, md, hairline, lifted, 4 dp below its anchor
+(the selected tool's button: tap it again to open, again to close). One flat
+panel, no colours (the strip's slots), no size, nothing collapsed
 ┌ Pen ─────────────────────────── Reset ┐
 │ ┌───────────────────────────────────┐ │ preview on paper, Rule edge
 │ │   ~~~~~~~~ live stroke ~~~~~~~~   │ │
 │ └───────────────────────────────────┘ │
-│ Colour                         Custom │ Small label, quiet button
-│ ● ● ● ● ●                             │
-│ Size                         0.66 mm  │ tabular figures
-│ ━━━━━━━━━━━━┃───────────────────────  │ ruled slider, ink tick
-│ ───────────────────────────────────── │ hairline between groups
-│ Feel                               ⌄  │
+│ Pressure sensitivity             60%  │ Small label, tabular figures
+│ ━━━━━━━━━━━━━━━━━━━━┃───────────────  │ ruled slider, ink tick
+│ Stabiliser                       30%  │
+│ ━━━━━━━━━┃──────────────────────────  │
+│ Ends                                  │
+│ ┌──────────┬───────────┬──────────┐   │ one segmented control
+│ │▓ Round  ▓│  Tapered  │   Flat   │   │
+│ └──────────┴───────────┴──────────┘   │
 └───────────────────────────────────────┘
 ```
 The selected tool keeps its Ink plate (radius `xs`); colour underlines under

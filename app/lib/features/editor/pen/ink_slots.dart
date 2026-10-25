@@ -6,34 +6,25 @@ import '../../../ink/tool_settings.dart';
 import 'quick_slots.dart';
 import 'slot_editors.dart';
 
-/// Opens something anchored to a slot (see [SlotButton.onEdit]).
-typedef SlotEdit = void Function(BuildContext anchor);
-
 /// An ink's quick colours ([ColorSlotRow]): tap to use one; tap the
 /// selected one again (or long-press / right-click any) to change that
 /// slot's colour ([editColorSlot]). The ink's other options open from its
 /// tool button.
 class ColorSlots extends StatelessWidget {
-  const ColorSlots({super.key, required this.tools, required this.ink, this.editable = true});
+  const ColorSlots({super.key, required this.tools, required this.ink});
 
   final ToolSettings tools;
   final InkTool ink;
 
-  /// Whether a slot opens its editor; false for the copy inside the tool
-  /// options sheet, whose colour block edits the selected slot already.
-  final bool editable;
-
   @override
   Widget build(BuildContext context) {
     final config = tools.configOf(ink);
-    final active = !editable || (tools.tool.usesInk && !tools.reading);
+    final active = tools.tool.usesInk && !tools.reading;
     return ColorSlotRow(
       colors: config.colors,
       selected: active ? config.colorIndex : null,
       onSelect: _select,
-      onEdit: editable
-          ? (anchor, i) => editColorSlot(anchor, tools: tools, ink: ink, index: i)
-          : null,
+      onEdit: (anchor, i) => editColorSlot(anchor, tools: tools, ink: ink, index: i),
     );
   }
 
@@ -50,13 +41,10 @@ class ColorSlots extends StatelessWidget {
 /// dots at (scaled) real size. Tap the selected one again (or long-press /
 /// right-click any) to change that size ([editWidthSlot]).
 class WidthSlots extends StatelessWidget {
-  const WidthSlots({super.key, required this.tools, required this.ink, this.editable = true});
+  const WidthSlots({super.key, required this.tools, required this.ink});
 
   final ToolSettings tools;
   final InkTool ink;
-
-  /// As [ColorSlots.editable].
-  final bool editable;
 
   /// Dot diameter for [width] of [ink], in logical pixels (4–20).
   static double dotSize(InkTool ink, double width) =>
@@ -65,15 +53,13 @@ class WidthSlots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final config = tools.configOf(ink);
-    final active = !editable || (tools.tool.usesInk && !tools.reading);
+    final active = tools.tool.usesInk && !tools.reading;
     return SizeSlotRow(
       diameters: [for (final w in config.widths) dotSize(ink, w)],
       selected: active ? config.widthIndex : null,
       describe: (i) => formatWidth(config.widths[i]),
       onSelect: _select,
-      onEdit: editable
-          ? (anchor, i) => editWidthSlot(anchor, tools: tools, ink: ink, index: i)
-          : null,
+      onEdit: (anchor, i) => editWidthSlot(anchor, tools: tools, ink: ink, index: i),
     );
   }
 

@@ -149,4 +149,6 @@ canvas.
 - **Ink Lab (row 72): keep in release builds,** still behind 7 taps on the version. The user records real S Pen input with it on the tablet.
 - **Material Symbols Rounded (`material_symbols_icons`): approved.** (Superseded by
   DESIGN.md: Material Symbols **Sharp**.)
-- **Pen tip ends:** pens get an end style (round / tapered / flat) with per-style settings (taper length; start, end or both). This replaces the old fixed taper and lives in the tool options popover.
+- **Pen tip ends:** pens get an end style (round / tapered / flat) with per-style settings (taper length; start, end or both). This replaces the old fixed taper and lives in the tool options popover. (Since
+  2026-10-25 the popover offers the end style alone; taper length and where it tapers keep
+  their stored values.)

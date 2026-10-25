@@ -2697,14 +2697,16 @@ are always flat (`PdfHighlights`: the band ends where the text does).
 
 User customisation lives in `ToolSettings`, persisted as JSON in the local
 `settings` table: per ink a `PenConfig` with **independent quick colours and
-quick widths** (1–5 slots each, one of each selected) and feel settings
+quick widths** (1–5 slots each, one of each selected; how many is an app
+preference, see the toolbar) and feel settings
 (pressure sensitivity, stabiliser, ends, straight lines; opacity and snap
 to text for the highlighter — the pen is always opaque), plus eraser options,
 hold-to-straighten, the laser's `LaserConfig` (quick colours and sizes the
 same way) and the 8 **recent colours** (`RecentColors`: colours
-newly put into an ink's or the laser's quick slots or given to text, noted when
-the tool options popover closes, and colours picked with `pickColour`; shown in
-the popovers' colour block and in the selection's Style colours). Stroke
+newly put into an ink's or the laser's quick slots (by their slot editors) or
+given to text, noted when the slot editor or text options close, and colours
+picked with `pickColour`; shown in the colour blocks and in the selection's
+Style colours). Stroke
 widths are shown as millimetres on the page (`formatWidth`: world units are
 96 per inch, so "0.65 mm" is the printed size and the size at 100 % zoom;
 below 1 mm they round to 0.05 mm).
@@ -2715,8 +2717,8 @@ defaults as a whole.
 **Eyedropper** (`features/editor/eyedropper/`). The editor puts an
 `EyedropperScope` (`ui/color_picker/eyedropper_scope.dart`, an
 `InheritedTheme`, so popovers and sheets carry it) around its layers; every
-`ColorChoices` under it — quick colour slots, the tool options' colour and
-shape fill blocks, the selection's Style, the text colour — shows a "Pick
+`ColorChoices` under it — the quick colour slots' editors, the selection's
+Style and fill, the text colour — shows a "Pick
 from page" button next to Custom (pickers elsewhere, e.g. paper colours,
 don't). `Eyedropper.pick` sets the picker's popover or sheet `offstage`
 (kept mounted, so its owner still takes the colour) and inserts the
@@ -2748,12 +2750,16 @@ what is beneath show. With no opaque content there, the capture's pixel
 gives the page as shown (paper, template lines, a PDF), else the page's
 paper colour.
 
-The ink panels (`features/editor/pen/`) are self-contained:
-`PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, ends)
-and `HighlighterOptionsPanel` (preview, opacity, pressure sensitivity — off
-by default —, stabiliser, ends: flat or round, straight lines, snap to
-text); on their
-own, their Reset restores the feel settings. The writing
+The ink panels (`features/editor/pen/`) are the tool options themselves,
+one flat panel each (no colours, no size, nothing collapsed):
+`PenOptionsPanel` (title and Reset, live preview, pressure sensitivity,
+stabiliser, ends) and `HighlighterOptionsPanel` (the same with opacity,
+stabiliser, ends: flat or round, straight lines, snap to text; pressure
+sensitivity, off by default, is not offered). Their Reset
+(`InkOptionsHeader`) restores the feel settings and keeps the quick slots.
+Ends are one segmented control (`PenEndsOptions`): where a taper starts and
+its length are not offered, their stored values (both ends, four widths)
+keep working. The writing
 gestures hold to snap and scribble to erase are app preferences
 (`AppPreferences.holdToSnap` / `scribbleToErase`), whose one home is
 Settings → Writing beside "Tap to undo and redo"; the editor mirrors them
@@ -2767,11 +2773,6 @@ it looks the same in dark mode, framed by a hairline): two joined-up words
 with a hand's pressure (`pen/preview_strokes.dart`) on a faint rule for the
 pen, a highlight over three grey lines of "text" for the highlighter, one
 gentle stroke for a size on its own. The
-tool options popover hosts them unchanged under *Feel* (`InkOptions`,
-`pen/ink_options.dart`), inside an `EmbeddedOptions` scope that makes
-their title row (`FeelHeader`) and `PreviewCard` step aside, since the
-popover shows its own above: so a setting added to a panel shows up in the
-popover with no other change. The
 stabiliser shows "Off" at 0 (ink under the nib) and up to
 100 % (the live ink then trails the pen by ~6–15 px); the pen's default is
 30 % (`PenDefaults.pen`; settings saved before `ToolSettings.prefsVersion` 2
@@ -2798,14 +2799,17 @@ with a template is "Add page after" held down in the page menu).
   cells (44 dp with a pointer, 48 on touch) over one neutral `xs` plate
   (`Surfaces.pressed`) that slides to the active tool in `Motion.fast`.
   Inking tools show their colour as a bar under the glyph. Tap selects; tapping
-  the active tool, a long press or a right click opens its options.
+  the active tool (as in Notewise: its options drop from the button as a small
+  submenu; tapping it again, or anywhere else, or Esc closes them), a long press
+  or a right click opens its options. A screen reader activates the selected
+  tool to open them; there is no separate options button.
 - **`ToolStrip`** (`toolbar/tool_strip.dart`): the active tool's quick
   controls, cross-fading as it changes: Pen and Highlighter, their **colour
   slots then width slots** (`pen/ink_strip.dart`; 3 + 3 by default, 1–5 each,
-  independent); Eraser, three size slots; Shapes, the pen's slots (the kind
+  independent, set in Settings → Toolbar); Eraser, three size slots; Shapes, the pen's slots (the kind
   is picked in its options; the Shapes button shows it); Laser, its own colour
   slots then size slots (`tools/laser_strip.dart`, `tools/laser_slots.dart`; 3 + 3, 1–5
-  each, as the inks'); Lasso and Text, none. The rows are the shared
+  each, as the inks', also in Settings → Toolbar); Lasso and Text, none. The rows are the shared
   `ColorSlotRow` / `SizeSlotRow` (`pen/quick_slots.dart`).
   Slots (`pen/slot_button.dart`) are 22-dp swatches or neutral dots at real
   size (4–20 dp) in 36-dp cells (44 on touch); the selected colour gets a
@@ -2815,8 +2819,9 @@ with a template is "Add page after" held down in the page menu).
   that slot alone (`pen/slot_editors.dart`, anchored, a compact sheet on
   phones; `showColorSlotEditor` notes a new colour as recent): a colour slot the
   palette, Recent and Custom; a size slot a logarithmic mm slider with a live preview
-  (the laser's: whole on-screen pixels over its dark preview). The full options open
-  from the tool button only. (Eraser slots still open the eraser's options.) Picking a quick colour or width from a tool that draws
+  (the laser's: whole on-screen pixels over its dark preview). These are the only
+  place colours and sizes are edited: the options open from the tool button and hold
+  neither. (Eraser slots have nothing to edit.) Picking a quick colour or width from a tool that draws
   no ink switches to the pen.
   Phones show the previous tool beside the switcher (`PreviousToolButton`,
   `ToolSettings.previousTool`, the eraser at first): one tap swaps them. When a
@@ -2851,37 +2856,40 @@ with a template is "Add page after" held down in the page menu).
   the device has never seen a stylus. Tests turn it off
   (`FingerReading.debugEnabled`) except `test/finger_reading_test.dart`.
 - **One options popover** (`toolbar/tool_options_popover.dart`,
-  `showToolOptions`): `showAdaptivePopover`, anchored and 320 dp wide (368
-  on touch: seven 48-dp swatch cells), a
-  sheet on phones (the sheet covers the toolbar, so only it repeats the
-  quick slots); the body scrolls with a fading edge (`ScrollFade`); edits
-  apply live. Every section starts with its title and Reset (`OptionHeader`,
-  `ResetButton`: every setting the section shows back to its defaults, then
-  Undo until something else changes; none where there is nothing to reset)
-  and picks colours with one block,
-  `ColorChoices` (`ui/color_picker/color_choices.dart`: "Colour" with Custom,
-  which opens the HSV picker in place, a palette, recent colours; in the
-  editor also the eyedropper, see below). Sections:
-  inks (`InkOptions`: live preview, the selected slot's colour — the pen
-  palette, or `ColorSwatches.highlighter`'s light hues — and Size, a
-  logarithmic slider in mm, then *Feel* collapsed (the header's Reset resets the feel only and
-  keeps the quick colours and sizes),
-  then *Quick colours and sizes* collapsed ("3 and 3": "Quick colours / Quick
-  sizes − n +"); the pen palette is 2 × 7 (`ColorSwatches.palette`, holding
-  the pen and text defaults), the highlighter's 2 × 5); `EraserOptionsPanel`;
-  none for the lasso (`ToolDescriptor.options` null: tapping it again does
-  nothing; a one-time tip explains it); Shapes (`ShapeOptionsPanel`: eight
-  kinds in one row, each up to a bar button wide (36 dp in the 320-dp popover), the fill
-  (`FillChoices`; for curves too, used once closed), and a caption on drawing the kind (curves:
-  taps, drags, closing, finishing) pointing to hold to snap in Settings → Writing, or saying it is
-  off there);
-  `TextOptionsPanel`;
-  `LaserOptionsPanel` (`ToolSettings.laser`, laid out as the inks': title with
-  Reset — dot / trail and fading back to the defaults, the quick slots kept —, preview,
-  the slots in the phone sheet, dot / trail, the selected slots' colour and size, fade and
-  its duration, then the shared *Quick colours and sizes*, `QuickSlotCounts`). `pickColour` (`tools/colour_sheet.dart`; text and
-  selection colours) is a popover too: no Apply, it previews live and
-  closing it keeps the last colour picked.
+  `showToolOptions`): `showAdaptivePopover`, anchored to the tool button and
+  320 dp wide (Text 368 on touch: seven 48-dp swatch cells), a sheet on phones
+  (`popoverIsSheet`; it holds the options alone, the quick slots stay in the
+  toolbar under it); the body scrolls with a fading edge (`ScrollFade`); edits
+  apply live. Each tool's options are **one flat panel**: no colour palette, no
+  size slider, no disclosures, no nested popovers. Every panel starts with its
+  title and Reset (`OptionHeader`, `ResetButton`: every setting the panel shows
+  back to its defaults, then Undo until something else changes; none where there
+  is nothing to reset). Panels (`ToolDescriptor.options`):
+  Pen (`PenOptionsPanel`: preview, pressure sensitivity, stabiliser, ends);
+  Highlighter (`HighlighterOptionsPanel`: preview, opacity, stabiliser, ends,
+  straight lines, snap to text); Eraser (`EraserOptionsPanel`: whole stroke or
+  partial, highlighter only, the scribble caption; its size is the three strip
+  slots); Lasso (`LassoOptionsPanel`: freehand or rectangle, how much it must
+  cover, which items); Shapes (`ShapeOptionsPanel`: eight kinds in one row, each
+  up to a bar button wide (36 dp in the 320-dp popover), the fill (`FillChoices`
+  with `pickColour: false`: none, three tints of the pen's colour or solid in it;
+  for curves too, used once closed), and a caption on drawing the kind (curves:
+  taps, drags, closing, finishing) pointing to hold to snap in Settings → Writing,
+  or saying it is off there); Laser (`LaserOptionsPanel`: preview, dot or trail,
+  and for the trail its fade and how long; its pen feel, pressure, stabiliser
+  and ends, is stored but not offered, Reset puts it back); Text
+  (`TextOptionsPanel`: it has no strip, so its colour (`ColorChoices`), size,
+  font and paragraph spacing stay here). `pickColour`
+  (`tools/colour_sheet.dart`; text and selection colours) is a popover too: no
+  Apply, it previews live and closing it keeps the last colour picked.
+- **Quick slot counts** live in **Settings → Toolbar** (`settings/toolbar_settings.dart`):
+  per tool (Pen, Highlighter, Laser pointer) "Colours − 3 +" and "Sizes − 3 +"
+  (`CountStepper`, 1–5), stored as app preferences (`AppPreferences.slotCounts`,
+  `SlotCounts`, `quick_slots_<tool>` = "colours,sizes"; three and three when unset or
+  invalid). The editor mirrors them into its `ToolSettings` when a session opens and
+  whenever preferences change (`applySlotCounts`, `pen/slot_counts.dart`): extra
+  slots go from the end, new ones get a palette colour not in the row and a size a
+  step above the last, the selected slot stays (or moves to the last one left).
 - **Where it goes** (`ToolbarDock`, decided by `ToolbarMeasure.dockFor` from
   the *pane's* width, so split panes lay out on their own): with
   `ToolbarPlacement.docked` it sits **inside the top bar** when the bar fits
@@ -3844,6 +3852,7 @@ searches it.
 `SettingsRepository`: theme mode (the app's `ThemeData` are built once, with a fixed ink-blue accent),
 stylus-only, finger-tap undo and redo (one switch), stylus side-button action
 (`PenButtonAction.eraser|lasso|none`), editor toolbar placement (docked / floating, and the floating position),
+how many quick colours and sizes the pen, highlighter and laser show (`slotCounts`),
 library layout and sort, the papers of the latest new notebooks and what the last new
 notebook was made as (`lastNotebookChoice`). Getters always read
 the store, so values written elsewhere are never stale.

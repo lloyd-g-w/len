@@ -205,23 +205,18 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the shape fill picks its solid colour from the page', (tester) async {
-    final (tools, toScreen) = await _open(tester);
+  testWidgets('the Shapes options keep colours to the toolbar: solid is the pen\'s colour', (
+    tester,
+  ) async {
+    final (tools, _) = await _open(tester);
     await tester.tap(find.byTooltip('Shapes (S)'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Shapes (S)'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('fill-Solid colour')));
     await tester.pumpAndSettle();
-    final droppers = find.byKey(const ValueKey('pick-from-page'));
-    await tester.ensureVisible(droppers.last);
-    await tester.tap(droppers.last);
-    await tester.pumpAndSettle();
-    expect(_hint, findsOneWidget);
-    await tester.tapAt(toScreen(const Offset(250, 200)));
-    await tester.pumpAndSettle();
-    expect(tools.shapeFill, const ShapeFill.solid(_ink));
-    expect(tools.recentColors.first, _ink);
+    expect(find.byKey(const ValueKey('pick-from-page')), findsNothing, reason: 'no colour block');
+    expect(tools.shapeFill, ShapeFill.solid(tools.configOf(InkTool.ballpoint).color));
     expect(tester.takeException(), isNull);
   });
 

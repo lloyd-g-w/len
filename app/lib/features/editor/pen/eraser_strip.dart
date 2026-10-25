@@ -2,18 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../../ink/tool_settings.dart';
 import '../toolbar/toolbar_metrics.dart';
-import 'ink_slots.dart';
 import 'slot_button.dart';
 
 /// The eraser's quick controls: three size slots (· • ●), drawn as rings.
-/// Whole stroke / partial lives in the eraser's options.
+/// Whole stroke / partial lives in the eraser's options (tap the selected
+/// eraser); a slot has nothing more to edit.
 class EraserStrip extends StatelessWidget {
-  const EraserStrip({super.key, required this.tools, required this.onEdit});
+  const EraserStrip({super.key, required this.tools});
 
   final ToolSettings tools;
-
-  /// Opens the eraser's options anchored to a slot.
-  final SlotEdit onEdit;
 
   /// Width of the strip for a [slot] cell.
   static double widthFor(double slot) => EraserConfig.quickSizes.length * slot;
@@ -34,10 +31,6 @@ class EraserStrip extends StatelessWidget {
             tooltip: 'Eraser size ${i + 1}',
             semanticLabel: 'Eraser size ${i + 1}',
             onSelect: () => tools.eraser = eraser.copyWith(radius: size),
-            onEdit: (anchor) {
-              tools.eraser = tools.eraser.copyWith(radius: size);
-              onEdit(anchor);
-            },
             plate: true,
             child: SlotDot(
               diameter: (4 + size * 0.5).clamp(6.0, 20.0),

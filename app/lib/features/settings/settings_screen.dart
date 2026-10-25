@@ -15,10 +15,11 @@ import 'keyboard_shortcuts.dart';
 import 'settings_section.dart';
 import 'storage_settings.dart';
 import 'sync_settings.dart';
+import 'toolbar_settings.dart';
 import 'writing_settings.dart';
 
-/// Settings (DESIGN §6.4): General, Writing, Handwriting, Sync, Backup,
-/// Storage and About, as open ruled lists in one centred column at most
+/// Settings (DESIGN §6.4): General, Writing, Toolbar, Fonts, Handwriting,
+/// Sync, Backup, Storage and About, as open ruled lists in one centred column at most
 /// [maxWidth] wide; on wide screens the headings hang in its margin column.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, this.showSync = false});
@@ -115,6 +116,7 @@ List<Widget> _sections(BuildContext context, {required bool showSync}) {
   return [
     GeneralSettings(preferences: preferences),
     WritingSettings(preferences: preferences),
+    ToolbarSettings(preferences: preferences),
     FontSettings(fonts: services.fonts),
     HandwritingSettings(recognition: services.recognition),
     SyncSettings(reveal: showSync),

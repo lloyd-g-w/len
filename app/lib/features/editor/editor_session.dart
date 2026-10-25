@@ -31,6 +31,7 @@ import 'live_ink/live_ink_relay.dart';
 import 'live_ink/pointer_relay.dart';
 import 'pdf/pdf_highlight_snap.dart';
 import 'pdf/pdf_interaction.dart';
+import 'pen/slot_counts.dart';
 import 'shared/shared_notebook.dart';
 import 'tabs/open_notebooks.dart';
 import 'zoom/zoom_box_viewport.dart';
@@ -62,6 +63,7 @@ class EditorSession with _EditorSessionZoom {
          scribbleToErase: services.preferences.scribbleToErase,
          store: services.settings,
        ) {
+    applySlotCounts(tools, services.preferences);
     final current = shared.notebook;
     if (current.kind == NotebookKind.canvas) {
       final model = canvas = shared.canvasModel(

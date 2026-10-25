@@ -11,8 +11,9 @@ import '../pen/ink_paper.dart';
 
 /// The fill of closed shapes (the Shapes popover, the selection's Style):
 /// a "Fill" heading, then one row of swatches — none, three light tints of
-/// the ink's colour, solid — and, for a solid fill, the shared
-/// [ColorChoices] block to pick its colour.
+/// the ink's colour, solid — and, for a solid fill with [pickColour], the
+/// shared [ColorChoices] block to pick its colour (without it, a new
+/// solid fill takes the ink's colour).
 class FillChoices extends StatelessWidget {
   const FillChoices({
     super.key,
@@ -20,7 +21,12 @@ class FillChoices extends StatelessWidget {
     required this.ink,
     required this.onChanged,
     this.recent = const [],
+    this.pickColour = true,
   });
+
+  /// Whether a solid fill shows the colour block (the selection's Style);
+  /// false for the Shapes options, which keep colours to the toolbar.
+  final bool pickColour;
 
   /// The current fill; null when the selected shapes differ.
   final ShapeFill? fill;
@@ -58,6 +64,8 @@ class FillChoices extends StatelessWidget {
     final paper = sheet.paper;
     final current = fill;
     final solid = current?.color;
+    // Without the colour block, solid is the ink's colour.
+    final solidColour = (pickColour ? solid : null) ?? ink | 0xFF000000;
     final size = Targets.touchFirst ? 32.0 : 28.0;
     final target = Targets.touchFirst ? Targets.touch : 36.0;
     Widget dot(ShapeFill choice, int colour, String tooltip, {Widget? child}) => ColorDot(
@@ -100,7 +108,7 @@ class FillChoices extends StatelessWidget {
                   Color.alphaBlend(Color(ShapeFill.tint(t).colorFor(ink)!), paper).toARGB32(),
                   _tintNames[i],
                 ),
-              dot(ShapeFill.solid(solid ?? ink | 0xFF000000), solid ?? ink, 'Solid colour'),
+              dot(ShapeFill.solid(solidColour), solidColour, 'Solid colour'),
             ],
           ),
         ),
@@ -108,7 +116,7 @@ class FillChoices extends StatelessWidget {
           duration: Motion.fast,
           curve: Motion.standard,
           alignment: Alignment.topCenter,
-          child: solid != null
+          child: solid != null && pickColour
               ? Padding(
                   padding: const EdgeInsets.only(top: Gaps.sm),
                   child: ColorChoices(

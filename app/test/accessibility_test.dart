@@ -197,14 +197,14 @@ void main() {
   // guideline skips them where they touch a scrollable's edge, so check
   // them here: the full touch target, and taps anywhere on it count.
   group('overhanging hit areas on touch', () {
-    testWidgets('Reset and Custom in tool popovers', (tester) async {
+    testWidgets('Reset in tool popovers, Custom in a colour slot\'s editor', (tester) async {
       await pumpScreen(tester, (s) => EditorScreen(notebook: physics(s)), size: tablet);
       await tapAll(tester, toolOptions('Eraser (E)'));
       expectTouchTarget(tester, find.widgetWithText(EndTextButton, 'Reset'));
       await tester.tapAt(const Offset(1, 1)); // Closes the popover.
       await settle(tester);
-      await tapAll(tester, toolOptions('Pen (P)'));
-      expectTouchTarget(tester, find.widgetWithText(EndTextButton, 'Reset'));
+      // Custom: in a colour slot's editor (the options hold no colours).
+      await tapAll(tester, [find.byTooltip('Pen (P)'), find.byKey(const ValueKey('color-0'))]);
       final custom = find.widgetWithText(EndTextButton, 'Custom');
       final plate = expectTouchTarget(tester, custom);
       // The header keeps the button's visual height.
