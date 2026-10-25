@@ -6,27 +6,30 @@ import '../../core/clock.dart';
 import '../../domain/stroke.dart';
 import '../input/live_ink.dart';
 import '../selection/selection_chrome.dart';
+import '../shapes/kappa_curve.dart';
 import '../shapes/shape_builder.dart';
 import '../surface_model.dart';
 import '../viewport.dart';
 import 'pointer_tool.dart';
 
-/// The Shape tool drawing a curve, a gesture at a time: a tap places an
-/// anchor (a corner: straight on to the next), a press-drag places one and
-/// pulls its tangents out symmetrically (smooth), a tap on the first anchor
-/// closes the curve (a drag there pulls its tangents too) and finishes it,
-/// a double tap (a second tap on the last anchor) finishes it open, as do
-/// Enter and a change of tool ([finish]); Escape drops it ([cancel]). The
-/// curve so far is the live stroke between gestures; it is committed as
+/// The Shape tool drawing a curve, a gesture at a time, through the points
+/// tapped (a κ-curve, [KappaCurve]: it passes through each and bends most
+/// there, smoothly in between): a tap places a point, a press-drag places
+/// one where the drag ends (the curve follows it), a tap on the last point
+/// makes it a corner (or smooth again; a drag from it moves it), a tap on
+/// the first point closes the curve (three points at least) and finishes
+/// it, a double tap (a second tap on the last point) finishes it open, as
+/// do Enter and a change of tool ([finish]); Escape drops it ([cancel]).
+/// The curve so far is the live stroke between gestures; it is committed as
 /// one stroke (one undo step), closed ones with the [fill] given at the
 /// start.
 ///
 /// Until then the curve has a history of its own, which the editor's undo
 /// and redo act on while it is drawn ([canUndo], [undo], [redo]): undo
-/// takes back the last anchor placed (the one being placed, mid-gesture),
-/// redo puts it back; undoing the first anchor drops the curve, and redo
-/// brings it back as long as nothing else was drawn ([forget]). Listeners
-/// hear when that history changes.
+/// takes back the last point placed or changed (the one being placed,
+/// mid-gesture), redo puts it back; undoing the first point drops the
+/// curve, and redo brings it back as long as nothing else was drawn
+/// ([forget]). Listeners hear when that history changes.
 class CurveDrawing extends ChangeNotifier {
   CurveDrawing({required this.live, required this.viewport, this.clock = const Clock()});
 
@@ -34,31 +37,29 @@ class CurveDrawing extends ChangeNotifier {
   final ViewportController viewport;
   final Clock clock;
 
-  /// Taps closer together than this (ms) on the last anchor finish.
+  /// Taps closer together than this (ms) on the last point finish.
   static const int doubleTapMs = 400;
 
-  /// Movement (screen pixels) that turns a press into a tangent pull.
+  /// Movement (screen pixels) that turns a press into a drag.
   static const double slop = 4;
 
   SurfaceModel? _model;
   int? _fill;
   int _startedAt = 0;
 
-  /// The open spline so far: anchor, out, in, anchor, … (the last anchor's
-  /// out handle is [_lastOut], the first one's in handle [_firstIn]).
+  /// The points so far, and which are corners.
   List<Offset> _points = [];
-  Offset _lastOut = Offset.zero;
-  Offset? _firstIn;
+  List<int> _corners = [];
 
   /// The state before the gesture in progress, to go back to if it is
   /// abandoned.
   _Spline? _before;
 
-  /// The states before each anchor placed after the first (undo), and
+  /// The states before each change after the first point (undo), and
   /// those undone (redo).
   final List<_Spline> _placed = [], _undone = [];
 
-  /// The curve whose first anchor was undone, for redo to bring back.
+  /// The curve whose first point was undone, for redo to bring back.
   _Dropped? _dropped;
 
   void Function()? _begin;
@@ -67,19 +68,21 @@ class CurveDrawing extends ChangeNotifier {
   bool _dragged = false;
   bool _closing = false;
   bool _finishing = false;
+
+  /// The press is on the last point: a tap makes it a corner (or smooth),
+  /// a drag moves it.
+  bool _onLast = false;
   int _lastUp = -doubleTapMs - 1;
   bool _pressed = false;
 
   /// Whether a curve is being drawn.
   bool get active => _model != null;
 
-  /// What to show over the curve being drawn (its anchors, the close
-  /// target, the tangents being pulled); null when none is.
+  /// What to show over the curve being drawn (its points, the close
+  /// target, its corners); null when none is.
   final ValueNotifier<CurveGuide?> guide = ValueNotifier(null);
 
-  int get _anchors => (_points.length + 2) ~/ 3;
-
-  /// A press at [p]: the first anchor of a new curve on [model] (whose
+  /// A press at [p]: the first point of a new curve on [model] (whose
   /// live stroke [begin] starts), or the next one, closing or finishing.
   void down(
     ToolPointer p, {
@@ -90,7 +93,7 @@ class CurveDrawing extends ChangeNotifier {
     _pressed = true;
     _pressScreen = p.screen;
     _dragged = false;
-    _closing = _finishing = false;
+    _closing = _finishing = _onLast = false;
     if (!active) {
       _dropped = null;
       _model = model;
@@ -98,15 +101,19 @@ class CurveDrawing extends ChangeNotifier {
       _startedAt = clock.nowMs();
       (_begin = begin)();
       _before = null;
-      _restore((points: [p.world], lastOut: p.world, firstIn: null));
+      _restore((points: [p.world], corners: const []));
       notifyListeners();
       return;
     }
     _before = _state;
     final reach = SelectionChrome.shapeHitRadius(p.kind);
     final last = viewport.toScreen(_points.last);
-    if ((p.screen - last).distance <= reach && clock.nowMs() - _lastUp <= doubleTapMs) {
-      _finishing = true;
+    if ((p.screen - last).distance <= reach) {
+      if (clock.nowMs() - _lastUp <= doubleTapMs) {
+        _finishing = true;
+      } else {
+        _onLast = true;
+      }
       return;
     }
     if (closesAt(p.screen, p.kind)) {
@@ -114,52 +121,50 @@ class CurveDrawing extends ChangeNotifier {
       _show();
       return;
     }
-    _points = [..._points, _lastOut, p.world, p.world];
-    _lastOut = p.world;
+    _points = [..._points, p.world];
     _show();
   }
 
   /// Whether a press at [screen] by a [kind] of pointer would close the
-  /// curve (on its first anchor, with a second placed).
+  /// curve (on its first point, with three placed).
   bool closesAt(Offset screen, [PointerDeviceKind kind = PointerDeviceKind.touch]) =>
       active &&
-      _anchors >= 2 &&
+      _points.length >= 3 &&
       (viewport.toScreen(_points.first) - screen).distance <= SelectionChrome.shapeHitRadius(kind);
 
-  /// The pointer at [p]: after the slop, the anchor pressed gets tangents
-  /// pulled out to [p] (and opposite).
+  /// The pointer at [p]: after the slop, the point pressed (placed by
+  /// this press, or the last one) follows it.
   void move(ToolPointer p) {
-    if (!_pressed || !active || _finishing) return;
+    if (!_pressed || !active || _finishing || _closing) return;
     if (!_dragged && (p.screen - _pressScreen).distance < slop) return;
     _dragged = true;
-    final q = p.world;
-    if (_closing) {
-      final a = _points.first;
-      _points = [..._points]..[1] = q;
-      _firstIn = a * 2 - q;
-    } else {
-      final i = _points.length - 1, a = _points[i];
-      _lastOut = q;
-      if (i == 0) {
-        _firstIn = a * 2 - q;
-      } else {
-        _points = [..._points]..[i - 1] = a * 2 - q;
-      }
-    }
+    _points = [..._points]..[_points.length - 1] = p.world;
     _show();
   }
 
   /// The pointer lifted: a closing press closes and finishes the curve, a
-  /// finishing one finishes it.
+  /// finishing one finishes it, a tap on the last point makes it a corner
+  /// (or smooth again).
   void up() {
     if (!_pressed) return;
     _pressed = false;
     _lastUp = _dragged ? -doubleTapMs - 1 : clock.nowMs();
     if (_closing) {
       _commit(closed: true);
-    } else if (_finishing) {
+      return;
+    }
+    if (_finishing) {
       _commit(closed: false);
-    } else if (_before case final before?) {
+      return;
+    }
+    if (_onLast && !_dragged) {
+      final last = _points.length - 1;
+      _corners = _corners.contains(last)
+          ? [..._corners.where((c) => c != last)]
+          : [..._corners, last];
+      _show();
+    }
+    if (_before case final before?) {
       _placed.add(before);
       _undone.clear();
       notifyListeners();
@@ -226,13 +231,12 @@ class CurveDrawing extends ChangeNotifier {
     notifyListeners();
   }
 
-  _Spline get _state => (points: [..._points], lastOut: _lastOut, firstIn: _firstIn);
+  _Spline get _state => (points: [..._points], corners: [..._corners]);
 
   /// Shows [spline] as the curve so far.
   void _restore(_Spline spline) {
     _points = spline.points;
-    _lastOut = spline.lastOut;
-    _firstIn = spline.firstIn;
+    _corners = spline.corners;
     _show();
   }
 
@@ -277,11 +281,10 @@ class CurveDrawing extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The curve as drawn so far, closed or not; null with one anchor.
+  /// The curve as drawn so far, closed or not; null with one point.
   ShapeGeometry? _geometry({required bool closed}) {
-    if (_anchors < 2) return null;
-    if (!closed) return ShapeGeometry(ShapeKind.curve, _points);
-    return ShapeGeometry(ShapeKind.curve, [..._points, _lastOut, _firstIn ?? _points.first]);
+    if (_points.length < 2) return null;
+    return KappaCurve.geometry(_points, closed: closed && _points.length >= 3, corners: _corners);
   }
 
   void _show() {
@@ -292,23 +295,11 @@ class CurveDrawing extends ChangeNotifier {
           ? [StrokePoint(_points.first.dx, _points.first.dy, 0.5)]
           : ShapeBuilder.pointsOf(shape, spacing: spacing),
     );
-    guide.value = _guide();
-  }
-
-  /// The anchors so far, and the tangents of the last one (the first while
-  /// closing): where the next segment leaves from.
-  CurveGuide _guide() {
-    final p = _points, i = p.length - 1;
-    final a = _closing ? p.first : p[i];
-    final into = _closing ? _firstIn : (i == 0 ? _firstIn : p[i - 1]);
-    final out = _closing ? (p.length > 1 ? p[1] : null) : _lastOut;
-    return CurveGuide(
-      anchors: [for (var j = 0; j < p.length; j += 3) p[j]],
-      closes: _anchors >= 2,
-      tangents: [
-        for (final t in [into, out])
-          if (t != null && t != a) (anchor: a, handle: t),
-      ],
+    guide.value = CurveGuide(
+      anchors: [..._points],
+      closes: _points.length >= 3,
+      tangents: const [],
+      corners: [..._corners],
     );
   }
 
@@ -355,8 +346,8 @@ class CurveDrawing extends ChangeNotifier {
   }
 }
 
-/// A curve's control points so far (see [CurveDrawing]).
-typedef _Spline = ({List<Offset> points, Offset lastOut, Offset? firstIn});
+/// A curve's points so far and its corners (see [CurveDrawing]).
+typedef _Spline = ({List<Offset> points, List<int> corners});
 
 /// A curve whose first anchor was undone.
 typedef _Dropped = ({
@@ -367,14 +358,21 @@ typedef _Dropped = ({
   List<_Spline> undone,
 });
 
-/// What [CurveDrawing] shows over a curve being drawn (world coordinates):
-/// its [anchors], whether the first one [closes] it, and the [tangents]
-/// of the anchor placed last (or being pulled).
+/// What is shown over a curve being drawn (world coordinates): its
+/// [anchors] (the points it passes through), whether the first one
+/// [closes] it, which are [corners] (indices), and [tangents] to show as
+/// arms (none for a curve through points).
 @immutable
 class CurveGuide {
-  const CurveGuide({required this.anchors, required this.closes, required this.tangents});
+  const CurveGuide({
+    required this.anchors,
+    required this.closes,
+    this.tangents = const [],
+    this.corners = const [],
+  });
 
   final List<Offset> anchors;
   final bool closes;
   final List<({Offset anchor, Offset handle})> tangents;
+  final List<int> corners;
 }

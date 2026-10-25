@@ -61,13 +61,13 @@ void main() {
     await open(tester);
     expect(doc.layout.visiblePages(doc.viewport.visibleWorld), contains(1), reason: 'in view');
     await stylusTap(tester, onPage(0, const Offset(100, 300)));
-    // With one anchor, a page switch would have dropped it.
+    // With one point, a page switch would have dropped it.
     await fingerPan(tester, onPage(1, const Offset(200, 100)));
     expect(doc.activePageData.id, s.pages.pagesOf(nb.id).first.id);
     await stylusTap(tester, onPage(0, const Offset(300, 350)));
     await stylusTap(tester, onPage(0, const Offset(400, 300)));
     await key(tester, LogicalKeyboardKey.enter);
-    expect(curvesOn(0).single.shape!.anchorCount, 3);
+    expect(curvesOn(0).single.shape!.through, hasLength(3));
     expect(curvesOn(1), isEmpty);
     await closeEditor(tester);
   });

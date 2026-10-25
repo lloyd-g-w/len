@@ -453,7 +453,7 @@ names each page edited, undone or redone, and 600 ms after the last edit those p
 flushed to storage and re-recorded (`ThumbnailCache.changed`: only if shown, else forgotten);
 remote stroke changes refresh at once.
 
-**Pages to screen readers** (`document/page_semantics.dart`, UX_AUDIT R23-10): `EditorCanvas`
+**Pages to screen readers** (`document/page_semantics.dart`): `EditorCanvas`
 lays `PageSemantics` over the surface, under the content layer (a text box's own node wins a
 touch). It is one node per page in view (`DocumentLayout.visiblePages` of the visible world, its
 frame on screen clipped to it; continuous and single-page flow alike), named "Page 3 of 12,
@@ -705,7 +705,7 @@ again. Text being typed reads once its write lands. The nodes take no pointers.
   second pane stamps it too). A paged notebook another device wrote in since (its newest
   live stroke or element by another device id, newer than that;
   `SurfaceStats.pageWrittenElsewhere`), or never opened here, opens framed on the page
-  written last instead (`resume_view.dart`, UX_AUDIT R16-4). Nothing of it syncs.
+  written last instead (`resume_view.dart`). Nothing of it syncs.
 - **Page zoom** (`document/page_fit.dart`, "⋯" → View, Shift+1 fit page, Shift+2
   fit width, `0` automatic): `PageFit.width` fills the width, `PageFit.page` shows the
   whole page, `PageFit.auto` fits the width but at most 1.4× and so that ≥ 55 % of the
@@ -872,7 +872,7 @@ worker, or between slices) committing a record that references it while
 earlier blobs are deleted keeps it; one committed later fetches it again. The server has its
 own admin-run collector (server/README.md).
 
-**Storage overview** (Settings → Storage, UX_AUDIT R16-7). `StorageQueries`
+**Storage overview** (Settings → Storage). `StorageQueries`
 (`data/storage_queries.dart`, plain SQL on any connection) measures the database
 (`PRAGMA page_count × page_size`), the stored files by kind (`blobs.size` by MIME:
 PDFs, images, audio and waveforms, other), the largest notebooks (ink and element
@@ -933,8 +933,8 @@ Relink… (`relinkPdfFlow`): the same file restores the blob; a different one,
 once confirmed and only if it has enough pages, replaces it page for page
 (`PageEdits.replacePdf` over `PageRepository.relinkBackground`, synced like
 any page edit, one undo step).
-**Replace PDF…** (the page menu of a PDF page, `replacePdfFlow`, UX_AUDIT
-R18-1) does the same for a PDF that is present — the lecturer's new version
+**Replace PDF…** (the page menu of a PDF page, `replacePdfFlow`)
+does the same for a PDF that is present — the lecturer's new version
 of the slides — as one undoable `PageEdits.replacePdf` step: the pages drawn
 on the old PDF show the same pages of the new one under their notes, and the
 new one's pages beyond the old one's end are added after the last of them
@@ -949,7 +949,7 @@ page); the confirmation says "Pages change shape to
 match" and, when a page getting shorter has notes past its new bottom edge, that they will be hidden (`pdfReshapeNote`). The overview's cells take the shape of
 most of the notebook's pages (`commonPageAspect`), so slide decks get
 landscape cells.
-**Slide numbers** (UX_AUDIT R18-5): page numbers are always the notebook's
+**Slide numbers**: page numbers are always the notebook's
 (indicator, Go to page, links, export). `PdfPageNumbers`
 (`domain/pdf_page_numbers.dart`) maps pages to their PDF page's own number:
 `labelOf` ("Slide 23" when most of that PDF's pages here are landscape, else
@@ -1049,7 +1049,7 @@ collects what was left out (missing PDF pages or images, PDF pages included
 as pictures) for the same message, and failures show their raw text only
 under Details.
 
-**Printing** (`print_flow.dart`, UX_AUDIT R22-8): Print… (editor ⋯, Ctrl+P,
+**Printing** (`print_flow.dart`): Print… (editor ⋯, Ctrl+P,
 the library's notebook menu; canvases print their whole drawing) opens the
 export sheet with `print: true` — PDF only (no format picker; it leaves
 `ExportMemory.format` alone), pages, templates, backgrounds, a Print button —
@@ -1612,7 +1612,16 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   half opaque, so it never reads as ink; at least 2 screen px); with the
   eraser tool, the eraser end or the side button set to erase, the eraser's
   ring (two-tone, a dark line inside a light one, so it shows on dark paper
-  too; also under a mouse). Both go at pen-down, on exit and when a finger
+  too; also under a mouse). Only the active tool's preview shows
+  (`InkInputController._showHover`): the eraser (tool, eraser end or side
+  button) shows its ring alone, and wherever the canvas draws a preview (the
+  ring, the pen's dot, the laser's dot under a mouse) the system cursor is
+  hidden (`SystemMouseCursors.none`), so no drawing crosshair (shown under a
+  hovering stylus too where the platform draws stylus pointers) sits in the eraser;
+  other tools keep their cursor (`ContentTools.cursorAt`, else the
+  crosshair). A tool picked while the pen or mouse rests over the canvas
+  swaps the preview at once (`InkSurface` → `refreshHover`, the last hover
+  event; a stylus only while in range). Both go at pen-down, on exit and when a finger
   touches; a stylus's also 500 ms after its last event (`LiveInk.expireCursorsSoon`:
   Android reports no hover exit when the pen leaves range).
 - **Mouse**: left draws, middle/right drag pans (a right click without dragging opens the
@@ -1808,7 +1817,7 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   changes (rotation, split screen, resume). A pen-up Dart never ends is
   dropped after 1 s.
 
-**Stylus edge swipes** (UX_AUDIT R15-6): with gesture navigation, a pen
+**Stylus edge swipes**: with gesture navigation, a pen
 stroke starting at the screen's left or right edge could become Back.
 While an editor shows (`StylusEdgeGuard` around the editor screen: its
 route current, its split-view pane not parked; `platform/stylus_edges.dart`
@@ -1842,18 +1851,28 @@ events' clock, and only the stroke up to there is recognised (the drift
 would make a line's detour or an arrow's wings). Open
 strokes become an arrow (a straight shaft and a wing on each side of its
 tip) or, if nearly straight already (no point off the chord by more than
-8 % of it, the path at most 1.15 × the chord), a line whose end then
-follows the pen; closed ones (ends within 30 % of the bounding diagonal)
-an ellipse/circle or a polygon, whichever fits better: the polygon's
+8 % of it, the path at most 1.15 × the chord), a line; closed ones (ends
+within 30 % of the bounding diagonal)
+an ellipse/circle or a polygon, whichever fits better. The ellipse is
+Fitzgibbon's direct least-squares fit (`shapes/conic_fit.dart`, in
+Halíř–Flusser's stable form: always an ellipse), level or upright when
+within 10° of it; one whose axes are within 17 % of each other
+(`ShapeRecognizer.circleTolerance`: hand-drawn circles come out 5–15 %
+squashed) is a true circle instead, Taubin's least-squares circle (centre
+and radius, unbiased where Kåsa's shrinks). The polygon's
 corners are RDP vertices (two closer than 10 % of the diagonal are one
 rounded corner) moved to where the sides, fitted as lines, meet
 (`Polyline.fitCorners`: a hand rounds corners off), less any corner a fit
 with one fewer matches within 0.4 % of the diagonal (a bowed side, the
-overshoot closing the loop: long rectangles stay rectangles), then 3 → triangle, 4
+overshoot closing the loop: long rectangles stay rectangles), and a
+triangle or quadrilateral with a corner rounded by over 20 % of its
+longer side (`maxRounding`, judged from how far the stroke passes from
+it: a smooth blob fits a polygon whose corners lie far outside it) must
+beat the ellipse clearly, as five or more corners must (below), then 3 → triangle, 4
 → diamond (diagonals along the axes), rectangle (right angles; rotated or,
 within 6°, axis-aligned, each side midway between its corners), else
 polygon (five or more corners must have half the ellipse's error: a ring
-around a word is no hexagon); a nearly round ellipse is a circle. Strokes
+around a word is no hexagon). Strokes
 under 48 screen px long and closed ones under 48 px across stay as
 written (letters such as "l", "o" or "0"). A stroke that is none of these
 but smooth, at least 128 px across (`HoldToStraighten.minCurve`: a held
@@ -1862,12 +1881,32 @@ but smooth, at least 128 px across (`HoldToStraighten.minCurve`: a held
 must have no turn sharper than 60° over three points each side (letters'
 cusps, zig-zags, corners), no crossing (loops: "e", "l"), at most 360° of
 turning in all (720° closed) and two changes of direction (four closed:
-no waves or spirals), and a cubic spline fitted to it
-(`shapes/curve_fit.dart`, Schneider's algorithm: least squares on
-chord-length parameters, Newton–Raphson refinement, split at the worst
-point with a shared tangent) within 2 % of its diagonal must need at most
-five anchors (six closed). Handwriting and scribbles are never
-recognised.
+no waves or spirals), and a curve through points (a κ-curve, below)
+within 1.5 % of its diagonal must need at most five points (six
+closed): its ends and the peaks of its turning (where it bends most, as a
+κ-curve bends most at its points; closed: three at least), each slid
+along the stroke a few samples at a time while that fits better (so a
+bend found from noisy turning sits where the curve bends, not in a kink
+beside it), then where the curve misses most added while it misses by
+more, then any it does without (within 60 % of the error) dropped.
+Handwriting and scribbles are never recognised.
+**Still holding after the snap**, moving the pen transforms the shape
+live until it lifts (`shapes/held_shape.dart`, as Apple Notes, GoodNotes
+and Notewise do), against where the pen was at the snap: a line's end
+follows the pen and an arrow's tip moves with it (both turn and stretch
+about their start; level, upright and diagonal within 4° snap); any other
+shape turns by the angle the pen turns through about the shape's centre
+and scales evenly by how much its distance from the centre changes
+(`HeldShape.at`). A rectangle's, diamond's or ellipse's own angle snaps
+level, upright or diagonal within 5° (exactly: sides and axes square
+again), other shapes' turn to multiples of 45°; any turn to 15° steps
+within 2°, the size as snapped within 3 % (the pen sliding a little
+changes nothing), and nothing moves until the pen is 4 px from where it
+snapped or if it snapped within 12 px of the centre. Circles stay
+circles. Each move rebuilds the live stroke from the transformed
+geometry (`LiveInk.replaceAll`, the whole outline, so no stale piece
+shows); the stroke, the snap and the transform are one stroke, one undo
+step, synced as the final shape.
 Snapped shapes have the shape look (`ShapeBuilder.styleFor`) and their
 geometry (`LiveInk.shape` → `Stroke.shape`); only the clean shape is
 committed. The recogniser is tested on hand-drawn samples
@@ -1950,15 +1989,19 @@ surface.
   vertices, a circle's centre and rim point, an ellipse's centre and
   perpendicular semi-axes, a star's frame, inner radius and number of
   points, a curve's anchors and tangent handles (a cubic Bézier spline,
-  `shapes/bezier.dart`)), so they stay editable.
+  `shapes/bezier.dart`) and, for a curve through points, those points and
+  its corners (`through`, `corners`; synced `sh.t`, `sh.c`)), so they stay
+  editable.
   Every kind is described by points an affine map takes to the same kind
   (a squashed circle becomes an ellipse; an ellipse's semi-axes are made
   perpendicular again, `ShapeGeometry.map`), so moving, scaling and
   rotating a selection maps them (`TransformItems.stroke`); the pixel
   eraser's pieces are free-hand ink. Curved outlines (bends, ellipses,
-  curves) are flattened finely enough to read as curves at the zoom they
-  are built at (`ShapeBuilder.outline`); PDF export, hit tests and fills
-  use the points, like any stroke's.
+  curves) are flattened to points on the true curve 2 px apart at the zoom
+  they are built at (`ShapeBuilder.outline`; an ellipse's include its axes'
+  ends), never a coarse polygon densified along its sides, so the
+  renderer's spline through them follows the curve at any zoom; PDF
+  export, hit tests and fills use the points, like any stroke's.
   A shape's look is the pen's colour, width and opacity as an even line
   with round ends (`ShapeBuilder.styleFor`: no pressure, taper, flat ends
   or stabiliser). An arrowhead is 18 % of the arrow within 12–20 units
@@ -1973,21 +2016,76 @@ surface.
   rectangle's corner handle) and commits exactly the shape last shown (an
   ellipse dragged square is a circle); a tap on a shape selects it (with
   Curve picked too: a drag from it starts a curve, and the hint says so).
-  **Curves** (`tools/curve_drawing.dart`) are drawn a gesture at a time:
-  a tap places an anchor (a corner), a press-drag places one and pulls its
-  tangents out symmetrically, a tap on the first anchor closes the curve
-  (with the tool's fill) and finishes it, a second tap on the last anchor
-  (within 400 ms) finishes it open, as do Enter and another tool or page
+  **Curves** (`tools/curve_drawing.dart`) are drawn a gesture at a time,
+  through the points tapped (a κ-curve, `shapes/kappa_curve.dart`, below):
+  a tap places a point, a press-drag places one where the drag ends (the
+  curve follows it), a tap on the last point makes it a corner (or smooth
+  again; a drag from it moves it), a tap on the first point closes the
+  curve (three points at least; with the tool's fill) and finishes it, a
+  second tap on the last point (within 400 ms) finishes it open, as do
+  Enter and another tool or page
   (`ShapeTool.finishCurve`, via `EditorScreen`'s keys and
   `ContentTools`); Escape drops it (`cancelCurve`). The curve so far is
   the live stroke between gestures; a gesture that turns into a pinch takes
   back only its own anchor. While it is drawn, undo and redo (Ctrl+Z, the
-  buttons, finger taps) step through its anchors; undoing the first drops
-  it, redo brings it back. Its anchors show over it (`CurveGuide`, painted
-  by `tools/curve_guide_painter.dart` in the look of a selected curve's
-  handles): the first ringed larger once a tap there closes the curve, and
-  the tangents of the anchor being pulled (or placed last) as arms. One
-  stroke, one undo step. The live outline is rebuilt
+  buttons, finger taps) step through its points and corners; undoing the
+  first drops it, redo brings it back. Its points show over it
+  (`CurveGuide`, painted by `tools/curve_guide_painter.dart` in the look
+  of a selected curve's handles): corners square, the first ringed larger
+  once a tap there closes the curve. One stroke, one undo step.
+  **Curves through points** (`shapes/kappa_curve.dart`): κ-curves (Yan,
+  Schiller, Wilensky, Carr and Schaefer, SIGGRAPH 2017, the technique of
+  Adobe Illustrator's Curvature tool). One quadratic Bézier per point,
+  passing through it exactly where that piece bends most; neighbouring
+  pieces meet with equal tangents and curvature (G²), except at
+  inflections, where only the curvature's size matches (G¹). The pieces
+  come from the paper's local/global iteration (24 rounds): where each
+  piece meets the next (the ratio of two triangle areas) and where it
+  peaks (the one root in [0, 1] of a cubic, by bisection), then all the
+  middle control points at once from one (cyclic, for a closed curve)
+  tridiagonal system — linear time, well under a millisecond for 60
+  points, so the curve is solved again on every move of a drag. An open
+  curve's ends are its first and last points; a corner splits the curve
+  into open pieces meeting there. The quadratics are stored as the cubic
+  spline every curve has (`ShapeGeometry.points`, by exact degree
+  elevation) alongside the points (`through`, `corners`), so outlines, hit
+  tests, connectors' attachment parameters, PDF export and readers that
+  know only splines treat both alike. Curves stored before (plain splines,
+  no `t`) load and look exactly as they did and keep their anchor and
+  tangent editing; a curve through points is edited by its points (a
+  drag solves it again; a tap on its line adds a point there, between its
+  neighbours along the curve, `KappaCurve.withPointAt`; a double tap on a
+  point removes it, two kept open, three closed). Moved, scaled or turned
+  as a selection, both the spline and the points map (`ShapeGeometry.map`;
+  a squash leaves the spline exact and the points on it, though no longer
+  quite where it bends most until the next edit solves it again).
+  *Why κ-curves* (2026-10; the curve tool's taps had made corners and only
+  dragged handles made it smooth, and a held stroke snapped to a Schneider
+  fit, Graphics Gems 1990, whose anchors and handles fall wherever the
+  error splits it). Wanted: curves that pass through the points tapped or
+  dragged, no overshoot, loops or kinks, smooth curvature, and cheap on
+  Dart and the web. *Centripetal Catmull–Rom* (Yuksel, Schaefer and Keyser,
+  CAD 2011) interpolates, is local and cheap and provably has no cusps or
+  self-intersections within a segment, but it is only C¹: curvature jumps
+  at every point and peaks between them, so a few taps give visibly lumpy
+  arcs. *Euler spiral / clothoid splines* (Levien's Spiro, thesis 2009;
+  his later Euler-spiral fitting and offset work, 2021–23) are the fairest
+  (curvature linear in arc length, G² everywhere), but need a nonlinear
+  Newton solve per edit that can fail to converge when points bend
+  sharply, cannot represent a cusp (so curves jump as a point is dragged
+  across one), and must be fitted with Béziers again for rendering and
+  export. *Fewer, better-placed Béziers* (Schneider with curvature-based
+  corners) improves recognition only: the curve tool would still need
+  tangent handles, the opposite of tapping points. κ-curves meet all four:
+  interpolating, every curvature peak at a point (so nothing bulges or
+  loops between points unless the points ask for it; a hairpin of points
+  makes a cusp at the point, by design), G² but at inflections, a
+  linear-time solve with no failure mode, and exactly cubic Béziers for
+  everything downstream; their influence is global but falls off within a
+  couple of points. The cost: at an inflection the curvature flips sign at
+  full size, which reads as a slight kink if a point sits on a nearly
+  straight stretch, so the recogniser puts points only at bends and slides
+  them to where the stroke bends. The live outline is rebuilt
   whenever the live points are replaced rather than extended
   (`LiveInk.generation`; the incremental builder would otherwise keep the
   outline of an earlier preview).
@@ -2014,6 +2112,15 @@ surface.
   (an image beneath the ink is not touched by a lasso drawn within it). A
   tap selects the topmost item of the kinds taken. A rectangle that selects
   no ink and started on PDF text selects the text from corner to corner.
+  **Look** (`SelectionPainter`): the lasso being drawn is a quiet hairline
+  along a smoothed path (quadratic segments through the midpoints of its
+  points; the rectangle as is), no fill, nothing done to the ink it
+  crosses; the selection shows its items as they are (never tinted,
+  outlined or highlighted) inside a hairline frame with flat round handles
+  (paper discs ringed in the accent) and its menu bar. Lasso and frame
+  share one line: a 1.25-px paper-coloured line with accent dashes over it
+  (`dashPath`), clean blue dashes on light paper and marching ants that keep
+  their contrast on dark paper, images and ink (`selection_contrast_test`).
   `SelectionController` hides the selection from the committed layer
   (`SurfaceModel.setHidden`, which only invalidates the affected chunks) and
   records it once into a picture; dragging, resizing (corners keep the
@@ -2095,7 +2202,8 @@ surface.
   ellipse dragged to equal radii is a circle again), an ellipse's centre and two radii
   (each sizes its axis about the centre; Shift: both), a star's centre, top
   point (turns and sizes it) and inner point (inner radius; its number of
-  points is in Style, `StepperRow`), a curve's anchors (moving their
+  points is in Style, `StepperRow`), a curve through points' points (the
+  curve solved again through them), a plain curve's anchors (moving their
   tangents) and tangent handles (on an arm from their anchor; the opposite
   one turns with it when they were in line, a smooth anchor). Snaps while
   dragging within `LassoTool.snapReach` (8 px) or by angle
@@ -2103,9 +2211,10 @@ surface.
   within 2° (line ends, a star's turn, tangents, the rotate handle, which
   turns in 15° steps with Shift), equal radii and square sides within 6 %,
   points lining up with the shape's others, a regular star's inner
-  radius, a tangent onto its anchor (a corner). On a curve, a tap on its
-  line adds an anchor there (`Bezier.split`: the outline stays) and a
-  double tap on an anchor removes it (two anchors at least). Lines,
+  radius, a tangent onto its anchor (a corner). On a plain curve, a tap on
+  its line adds an anchor there (`Bezier.split`: the outline stays) and a
+  double tap on an anchor removes it (two anchors at least); a curve
+  through points adds and removes points (above). Lines,
   arrows and open curves have no frame (their handles move and turn them)
   and move only from near the stroke (`SelectionChrome.grabs`); closed
   shapes keep the rotate handle. A turned rectangle, diamond, ellipse or
@@ -2267,9 +2376,10 @@ surface.
   first; `LaserConfigJson` drops a malformed row to its defaults), the pen's feel for the trail
   (pressure sensitivity and stabiliser 0–1, default off; ends round / tapered / flat as
   `PenEnds`, default flat — the trail as it always looked; a missing or malformed value loads
-  its default, so settings saved before load unchanged; Reset restores them) and when the trail fades (`LaserFade`): each point a set time after it was
+  its default, so settings saved before load unchanged; Reset restores them; a trail has no dot at
+  either end, `LaserTrail.showsDot`: only a hovering mouse shows one, standing in for the cursor) and when the trail fades (`LaserFade`): each point a set time after it was
   drawn (0.3–3 s), or, *when I stop*, all of it together once `hold` (0.5–5 s, default 2 s)
-  has passed since the last lift (`LaserTrail.holding`: the trail and dot stay in full while
+  has passed since the last lift (`LaserTrail.holding`: the trail stays in full while
   writing, a press within the hold keeps everything, then a 400-ms fade; frames during the hold
   repaint nothing, and a hovering mouse doesn't stop the countdown; the same with a mouse,
   pen or finger and presenting with F5, `test/laser_hold_input_test.dart`). Set in the tool's options
@@ -2679,14 +2789,16 @@ are always flat (`PdfHighlights`: the band ends where the text does).
 
 User customisation lives in `ToolSettings`, persisted as JSON in the local
 `settings` table: per ink a `PenConfig` with **independent quick colours and
-quick widths** (1–5 slots each, one of each selected) and feel settings
+quick widths** (1–5 slots each, one of each selected; how many is an app
+preference, see the toolbar) and feel settings
 (pressure sensitivity, stabiliser, ends, straight lines; opacity and snap
 to text for the highlighter — the pen is always opaque), plus eraser options,
 hold-to-straighten, the laser's `LaserConfig` (quick colours and sizes the
 same way) and the 8 **recent colours** (`RecentColors`: colours
-newly put into an ink's or the laser's quick slots or given to text, noted when
-the tool options popover closes, and colours picked with `pickColour`; shown in
-the popovers' colour block and in the selection's Style colours). Stroke
+newly put into an ink's or the laser's quick slots (by their slot editors) or
+given to text, noted when the slot editor or text options close, and colours
+picked with `pickColour`; shown in the colour blocks and in the selection's
+Style colours). Stroke
 widths are shown as millimetres on the page (`formatWidth`: world units are
 96 per inch, so "0.65 mm" is the printed size and the size at 100 % zoom;
 below 1 mm they round to 0.05 mm).
@@ -2697,8 +2809,8 @@ defaults as a whole.
 **Eyedropper** (`features/editor/eyedropper/`). The editor puts an
 `EyedropperScope` (`ui/color_picker/eyedropper_scope.dart`, an
 `InheritedTheme`, so popovers and sheets carry it) around its layers; every
-`ColorChoices` under it — quick colour slots, the tool options' colour and
-shape fill blocks, the selection's Style, the text colour — shows a "Pick
+`ColorChoices` under it — the quick colour slots' editors, the selection's
+Style and fill, the text colour — shows a "Pick
 from page" button next to Custom (pickers elsewhere, e.g. paper colours,
 don't). `Eyedropper.pick` sets the picker's popover or sheet `offstage`
 (kept mounted, so its owner still takes the colour) and inserts the
@@ -2730,12 +2842,16 @@ what is beneath show. With no opaque content there, the capture's pixel
 gives the page as shown (paper, template lines, a PDF), else the page's
 paper colour.
 
-The ink panels (`features/editor/pen/`) are self-contained:
-`PenOptionsPanel` (live preview, pressure sensitivity, stabiliser, ends)
-and `HighlighterOptionsPanel` (preview, opacity, pressure sensitivity — off
-by default —, stabiliser, ends: flat or round, straight lines, snap to
-text); on their
-own, their Reset restores the feel settings. The writing
+The ink panels (`features/editor/pen/`) are the tool options themselves,
+one flat panel each (no colours, no size, nothing collapsed):
+`PenOptionsPanel` (title and Reset, live preview, pressure sensitivity,
+stabiliser, ends) and `HighlighterOptionsPanel` (the same with opacity,
+stabiliser, ends: flat or round, straight lines, snap to text; pressure
+sensitivity, off by default, is not offered). Their Reset
+(`InkOptionsHeader`) restores the feel settings and keeps the quick slots.
+Ends are one segmented control (`PenEndsOptions`): where a taper starts and
+its length are not offered, their stored values (both ends, four widths)
+keep working. The writing
 gestures hold to snap and scribble to erase are app preferences
 (`AppPreferences.holdToSnap` / `scribbleToErase`), whose one home is
 Settings → Writing beside "Tap to undo and redo"; the editor mirrors them
@@ -2749,11 +2865,6 @@ it looks the same in dark mode, framed by a hairline): two joined-up words
 with a hand's pressure (`pen/preview_strokes.dart`) on a faint rule for the
 pen, a highlight over three grey lines of "text" for the highlighter, one
 gentle stroke for a size on its own. The
-tool options popover hosts them unchanged under *Feel* (`InkOptions`,
-`pen/ink_options.dart`), inside an `EmbeddedOptions` scope that makes
-their title row (`FeelHeader`) and `PreviewCard` step aside, since the
-popover shows its own above: so a setting added to a panel shows up in the
-popover with no other change. The
 stabiliser shows "Off" at 0 (ink under the nib) and up to
 100 % (the live ink then trails the pen by ~6–15 px); the pen's default is
 30 % (`PenDefaults.pen`; settings saved before `ToolSettings.prefsVersion` 2
@@ -2780,14 +2891,17 @@ with a template is "Add page after" held down in the page menu).
   cells (44 dp with a pointer, 48 on touch) over one neutral `xs` plate
   (`Surfaces.pressed`) that slides to the active tool in `Motion.fast`.
   Inking tools show their colour as a bar under the glyph. Tap selects; tapping
-  the active tool, a long press or a right click opens its options.
+  the active tool (as in Notewise: its options drop from the button as a small
+  submenu; tapping it again, or anywhere else, or Esc closes them), a long press
+  or a right click opens its options. A screen reader activates the selected
+  tool to open them; there is no separate options button.
 - **`ToolStrip`** (`toolbar/tool_strip.dart`): the active tool's quick
   controls, cross-fading as it changes: Pen and Highlighter, their **colour
   slots then width slots** (`pen/ink_strip.dart`; 3 + 3 by default, 1–5 each,
-  independent); Eraser, three size slots; Shapes, the pen's slots (the kind
+  independent, set in Settings → Toolbar); Eraser, three size slots; Shapes, the pen's slots (the kind
   is picked in its options; the Shapes button shows it); Laser, its own colour
   slots then size slots (`tools/laser_strip.dart`, `tools/laser_slots.dart`; 3 + 3, 1–5
-  each, as the inks'); Lasso and Text, none. The rows are the shared
+  each, as the inks', also in Settings → Toolbar); Lasso and Text, none. The rows are the shared
   `ColorSlotRow` / `SizeSlotRow` (`pen/quick_slots.dart`).
   Slots (`pen/slot_button.dart`) are 22-dp swatches or neutral dots at real
   size (4–20 dp) in 36-dp cells (44 on touch); the selected colour gets a
@@ -2797,8 +2911,9 @@ with a template is "Add page after" held down in the page menu).
   that slot alone (`pen/slot_editors.dart`, anchored, a compact sheet on
   phones; `showColorSlotEditor` notes a new colour as recent): a colour slot the
   palette, Recent and Custom; a size slot a logarithmic mm slider with a live preview
-  (the laser's: whole on-screen pixels over its dark preview). The full options open
-  from the tool button only. (Eraser slots still open the eraser's options.) Picking a quick colour or width from a tool that draws
+  (the laser's: whole on-screen pixels over its dark preview). These are the only
+  place colours and sizes are edited: the options open from the tool button and hold
+  neither. (Eraser slots have nothing to edit.) Picking a quick colour or width from a tool that draws
   no ink switches to the pen.
   Phones show the previous tool beside the switcher (`PreviousToolButton`,
   `ToolSettings.previousTool`, the eraser at first): one tap swaps them. When a
@@ -2833,37 +2948,40 @@ with a template is "Add page after" held down in the page menu).
   the device has never seen a stylus. Tests turn it off
   (`FingerReading.debugEnabled`) except `test/finger_reading_test.dart`.
 - **One options popover** (`toolbar/tool_options_popover.dart`,
-  `showToolOptions`): `showAdaptivePopover`, anchored and 320 dp wide (368
-  on touch: seven 48-dp swatch cells), a
-  sheet on phones (the sheet covers the toolbar, so only it repeats the
-  quick slots); the body scrolls with a fading edge (`ScrollFade`); edits
-  apply live. Every section starts with its title and Reset (`OptionHeader`,
-  `ResetButton`: every setting the section shows back to its defaults, then
-  Undo until something else changes; none where there is nothing to reset)
-  and picks colours with one block,
-  `ColorChoices` (`ui/color_picker/color_choices.dart`: "Colour" with Custom,
-  which opens the HSV picker in place, a palette, recent colours; in the
-  editor also the eyedropper, see below). Sections:
-  inks (`InkOptions`: live preview, the selected slot's colour — the pen
-  palette, or `ColorSwatches.highlighter`'s light hues — and Size, a
-  logarithmic slider in mm, then *Feel* collapsed (the header's Reset resets the feel only and
-  keeps the quick colours and sizes),
-  then *Quick colours and sizes* collapsed ("3 and 3": "Quick colours / Quick
-  sizes − n +"); the pen palette is 2 × 7 (`ColorSwatches.palette`, holding
-  the pen and text defaults), the highlighter's 2 × 5); `EraserOptionsPanel`;
-  none for the lasso (`ToolDescriptor.options` null: tapping it again does
-  nothing; a one-time tip explains it); Shapes (`ShapeOptionsPanel`: eight
-  kinds in one row, each up to a bar button wide (36 dp in the 320-dp popover), the fill
-  (`FillChoices`; for curves too, used once closed), and a caption on drawing the kind (curves:
-  taps, drags, closing, finishing) pointing to hold to snap in Settings → Writing, or saying it is
-  off there);
-  `TextOptionsPanel`;
-  `LaserOptionsPanel` (`ToolSettings.laser`, laid out as the inks': title with
-  Reset — dot / trail and fading back to the defaults, the quick slots kept —, preview,
-  the slots in the phone sheet, dot / trail, the selected slots' colour and size, fade and
-  its duration, then the shared *Quick colours and sizes*, `QuickSlotCounts`). `pickColour` (`tools/colour_sheet.dart`; text and
-  selection colours) is a popover too: no Apply, it previews live and
-  closing it keeps the last colour picked.
+  `showToolOptions`): `showAdaptivePopover`, anchored to the tool button and
+  320 dp wide (Text 368 on touch: seven 48-dp swatch cells), a sheet on phones
+  (`popoverIsSheet`; it holds the options alone, the quick slots stay in the
+  toolbar under it); the body scrolls with a fading edge (`ScrollFade`); edits
+  apply live. Each tool's options are **one flat panel**: no colour palette, no
+  size slider, no disclosures, no nested popovers. Every panel starts with its
+  title and Reset (`OptionHeader`, `ResetButton`: every setting the panel shows
+  back to its defaults, then Undo until something else changes; none where there
+  is nothing to reset). Panels (`ToolDescriptor.options`):
+  Pen (`PenOptionsPanel`: preview, pressure sensitivity, stabiliser, ends);
+  Highlighter (`HighlighterOptionsPanel`: preview, opacity, stabiliser, ends,
+  straight lines, snap to text); Eraser (`EraserOptionsPanel`: whole stroke or
+  partial, highlighter only, the scribble caption; its size is the three strip
+  slots); Lasso (`LassoOptionsPanel`: freehand or rectangle, how much it must
+  cover, which items); Shapes (`ShapeOptionsPanel`: eight kinds in one row, each
+  up to a bar button wide (36 dp in the 320-dp popover), the fill (`FillChoices`
+  with `pickColour: false`: none, three tints of the pen's colour or solid in it;
+  for curves too, used once closed), and a caption on drawing the kind (curves:
+  taps, drags, closing, finishing) pointing to hold to snap in Settings → Writing,
+  or saying it is off there); Laser (`LaserOptionsPanel`: preview, dot or trail,
+  and for the trail its fade and how long; its pen feel, pressure, stabiliser
+  and ends, is stored but not offered, Reset puts it back); Text
+  (`TextOptionsPanel`: it has no strip, so its colour (`ColorChoices`), size,
+  font and paragraph spacing stay here). `pickColour`
+  (`tools/colour_sheet.dart`; text and selection colours) is a popover too: no
+  Apply, it previews live and closing it keeps the last colour picked.
+- **Quick slot counts** live in **Settings → Toolbar** (`settings/toolbar_settings.dart`):
+  per tool (Pen, Highlighter, Laser pointer) "Colours − 3 +" and "Sizes − 3 +"
+  (`CountStepper`, 1–5), stored as app preferences (`AppPreferences.slotCounts`,
+  `SlotCounts`, `quick_slots_<tool>` = "colours,sizes"; three and three when unset or
+  invalid). The editor mirrors them into its `ToolSettings` when a session opens and
+  whenever preferences change (`applySlotCounts`, `pen/slot_counts.dart`): extra
+  slots go from the end, new ones get a palette colour not in the row and a size a
+  step above the last, the selected slot stays (or moves to the last one left).
 - **Where it goes** (`ToolbarDock`, decided by `ToolbarMeasure.dockFor` from
   the *pane's* width, so split panes lay out on their own): with
   `ToolbarPlacement.docked` it sits **inside the top bar** when the bar fits
@@ -3168,8 +3286,8 @@ writes as the device it came from.
 
 ## Version history (`data/versions/`, `features/history/`)
 
-A notebook's (or canvas's) past states, to browse and restore (docs/TODO.md
-"Version history"). **Why packs, not row references.** Strokes are
+A notebook's (or canvas's) past states, to browse and restore.
+**Why packs, not row references.** Strokes are
 immutable (an edit tombstones the stroke and adds one under a new id), but
 elements, pages and the notebook row are edited in place, tombstones travel
 as `data: null` and drop their payload after 30 days
@@ -3234,7 +3352,7 @@ shares between versions (and between devices of one platform family).
   version (same packs and fields) is not made. The app turns the recorder
   on (`main.dart`); tests not about it leave it off, so edits start no
   timers. "Save version…" (the history sheet's header; ⋯ has only Version
-  history…, UX_AUDIT R25-33) makes
+  history…) makes
   a `named` one at once.
 - **Thinning** (`VersionPolicy`, pure, deterministic): automatic versions
   are kept all for the last day, then the newest per hour for a week, per
@@ -3826,6 +3944,7 @@ searches it.
 `SettingsRepository`: theme mode (the app's `ThemeData` are built once, with a fixed ink-blue accent),
 stylus-only, finger-tap undo and redo (one switch), stylus side-button action
 (`PenButtonAction.eraser|lasso|none`), editor toolbar placement (docked / floating, and the floating position),
+how many quick colours and sizes the pen, highlighter and laser show (`slotCounts`),
 library layout and sort, the papers of the latest new notebooks and what the last new
 notebook was made as (`lastNotebookChoice`). Getters always read
 the store, so values written elsewhere are never stale.
@@ -3879,13 +3998,12 @@ with selection mode; `editor/document/page_overview.dart` re-exports it);
 `progress_dialog.dart` (`runWithSteps` + `TaskProgress`: stage, subject, "Page x of n", optional Cancel).
 Library selection mode: `library/selection/` (`LibrarySelection` on `LibraryActions`, batch
 actions, floating bar). `flows_screenshot_test.dart` and `overview_screenshot_test.dart` cover
-sheets, dialogs, empty states, selection, the page overview and 1.3× text; findings are tracked
-in `docs/UX_AUDIT.md`.
+sheets, dialogs, empty states, selection, the page overview and 1.3× text.
 
 Accessibility: `test/accessibility_test.dart` checks Flutter's guidelines (tap targets,
 labelled tap targets, WCAG text contrast measured in the test font) on the main screens,
 popovers and dialogs at phone and tablet sizes, light and dark, and at 2× text; known
-exceptions are listed there with their `UX_AUDIT` item. Icon-only controls need a tooltip or
+exceptions are listed there. Icon-only controls need a tooltip or
 `semanticLabel`; colours are announced by name (`color_picker/color_names.dart`,
 `colorName`, also `ColorDot`'s default label); selected and expanded states go into
 `Semantics`. `FocusRing` (`focus_ring.dart`, in `MaterialApp.builder`) paints an accent ring
@@ -3965,8 +4083,7 @@ and Settings → Sync say "Syncing… 40%", and at most every 2 s the controller
 notebooks and folders brought so far (a `RemoteChanges` with only those flags), so a new
 device's library fills in while the rest arrives; the whole change set follows at the
 end as usual. While the first sync with a server runs (`firstSyncUnderWay`), an empty
-library says the notebooks are on their way instead of offering to create one
-(UX_AUDIT R16-5).
+library says the notebooks are on their way instead of offering to create one.
 Each cycle starts with `/v1/health`: its `serverId` decides whether this is
 the server last synced with — a new id (another server, or a wiped or
 restored one) resets the feed position and marks every row and blob for
@@ -4005,7 +4122,7 @@ device's tombstone kept). Tombstones are
 pushed children first, so a half-finished push never looks like a conflict. The
 device whose deletion was undone says so once after that sync (`revivalNotices`, through
 `SyncController.notices`: "“Lab book” is back in the trash: another device wrote in it
-after you deleted it", "2 pages you deleted in “Notes” are back: …"; UX_AUDIT R16-6);
+after you deleted it", "2 pages you deleted in “Notes” are back: …");
 the others say nothing, as nothing changed for them.
 
 Presentation and retries (`SyncController`, `ui/sync_status_button.dart`,

@@ -1,42 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ink/tool_settings.dart';
-import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
-import '../../../ui/color_picker/color_choices.dart';
 import '../../../ui/group_header.dart';
-import '../../../ui/option_disclosure.dart';
 import '../../../ui/roving_focus.dart';
 import '../pen/option_controls.dart';
-import '../pen/option_sections.dart';
-import '../pen/pen_ends_options.dart';
 import 'laser_preview.dart';
-import 'laser_slots.dart';
+import 'tool_icons.dart';
 
-/// The laser pointer's settings, laid out as the pen's: a title with Reset
-/// (puts dot / trail, the trail's feel and the fading back to the defaults,
-/// keeping the quick slots), a live preview, (in the phone sheet, which
-/// covers the toolbar) the quick slots, then dot or trail, the colour and
-/// size of the selected quick slots, for the trail when it fades (each
-/// stroke on its own, or all of it once the writing stops) and how long it
-/// lasts and, collapsed under "Feel" as the pen's, its pressure
-/// sensitivity, stabiliser and ends, and, collapsed, how many quick
-/// colours and sizes the toolbar shows. Edits apply live.
-class LaserOptionsPanel extends StatefulWidget {
+/// The laser pointer's options (tap the selected laser), flat as the
+/// pen's: a title with Reset (everything but the quick slots back to the
+/// defaults), a live preview, dot or trail and, for the trail, when it
+/// fades (each stroke on its own, or all of it once the writing stops) and
+/// how long it lasts. Colours and sizes are the toolbar's quick slots. The
+/// trail's pen feel (pressure, stabiliser, ends) is not offered: its stored
+/// values keep working, and Reset puts them back. Edits apply live.
+class LaserOptionsPanel extends StatelessWidget {
   const LaserOptionsPanel({super.key, required this.tools});
 
   final ToolSettings tools;
-
-  @override
-  State<LaserOptionsPanel> createState() => _LaserOptionsPanelState();
-}
-
-class _LaserOptionsPanelState extends State<LaserOptionsPanel> {
-  /// Whether "Feel" is open (collapsed at first, as the pen's).
-  bool _feelOpen = false;
-
-  ToolSettings get tools => widget.tools;
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +27,6 @@ class _LaserOptionsPanelState extends State<LaserOptionsPanel> {
       builder: (context, _) {
         final laser = tools.laser;
         void update(LaserConfig config) => tools.laser = config;
-        final trail = laser.mode == LaserMode.trail;
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -60,16 +41,6 @@ class _LaserOptionsPanelState extends State<LaserOptionsPanel> {
             ),
             const SizedBox(height: Gaps.sm),
             LaserPreview(config: laser),
-            if (popoverIsSheet(context)) ...[
-              const SizedBox(height: Gaps.sm),
-              Row(
-                children: [
-                  LaserColorSlots(tools: tools, editable: false),
-                  const Spacer(),
-                  LaserSizeSlots(tools: tools, editable: false),
-                ],
-              ),
-            ],
             const SizedBox(height: Gaps.sm),
             RovingSegments(
               SegmentedButton<LaserMode>(
@@ -77,12 +48,12 @@ class _LaserOptionsPanelState extends State<LaserOptionsPanel> {
                 segments: const [
                   ButtonSegment(
                     value: LaserMode.dot,
-                    icon: Icon(Symbols.circle_sharp, fill: 1, size: 12),
+                    icon: ToolIcon(ToolIconKind.laserDot),
                     label: Text('Dot'),
                   ),
                   ButtonSegment(
                     value: LaserMode.trail,
-                    icon: Icon(Symbols.gesture_sharp),
+                    icon: ToolIcon(ToolIconKind.laserTrail),
                     label: Text('Trail'),
                   ),
                 ],
@@ -90,20 +61,8 @@ class _LaserOptionsPanelState extends State<LaserOptionsPanel> {
                 onSelectionChanged: (s) => update(laser.copyWith(mode: s.single)),
               ),
             ),
-            const SizedBox(height: Gaps.sm),
-            ColorChoices(
-              color: laser.color,
-              palette: LaserConfig.presets,
-              recent: tools.recentColors,
-              onChanged: (c) => update(laser.withColor(laser.colorIndex, c)),
-            ),
-            const SizedBox(height: Gaps.sm),
-            LaserSizeSlider(
-              value: laser.size,
-              onChanged: (v) => update(laser.withSize(laser.sizeIndex, v)),
-            ),
-            if (trail) ...[
-              const OptionRule(),
+            if (laser.mode == LaserMode.trail) ...[
+              const SizedBox(height: Gaps.md),
               const GroupHeader('Fade'),
               const SizedBox(height: Gaps.xs),
               RovingSegments(
@@ -135,66 +94,10 @@ class _LaserOptionsPanelState extends State<LaserOptionsPanel> {
                   max: LaserConfig.maxHold,
                   onChanged: (d) => update(tools.laser.copyWith(hold: d)),
                 ),
-              const SizedBox(height: Gaps.sm),
-              // The pen's feel, for the trail (the dot has no width to
-              // vary, no line to smooth and no ends: hidden, as Fade).
-              OptionDisclosure(
-                label: 'Feel',
-                open: _feelOpen,
-                onToggle: () => setState(() => _feelOpen = !_feelOpen),
-                child: EmbeddedOptions(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      PressureSlider(
-                        value: laser.thinning,
-                        onChanged: (v) => update(tools.laser.copyWith(thinning: v)),
-                      ),
-                      StabiliserSlider(
-                        value: laser.streamline,
-                        onChanged: (v) => update(tools.laser.copyWith(streamline: v)),
-                      ),
-                      PenEndsOptions(
-                        ends: laser.ends,
-                        styles: LaserConfig.endStyles,
-                        onChanged: (ends) => update(tools.laser.copyWith(ends: ends)),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ],
-            const SizedBox(height: Gaps.sm),
-            QuickSlotCounts(
-              colors: laser.colors.length,
-              sizes: laser.sizes.length,
-              min: LaserConfig.minSlots,
-              max: LaserConfig.maxSlots,
-              onAddColor: () => update(laser.addColor(_unusedColor(laser.colors))),
-              onRemoveColor: () => update(laser.removeColor(laser.colors.length - 1)),
-              onAddSize: () => update(laser.addSize(_newSize(laser))),
-              onRemoveSize: () => update(laser.removeSize(laser.sizes.length - 1)),
-            ),
           ],
         );
       },
-    );
-  }
-
-  /// A palette colour not in the row yet, to start a new slot with.
-  static int _unusedColor(List<int> used) => LaserConfig.presets.firstWhere(
-    (c) => !used.contains(c),
-    orElse: () => LaserConfig.presets.first,
-  );
-
-  /// A size for a new slot: a step above the last one, or below the
-  /// current one when that would exceed the range.
-  static double _newSize(LaserConfig c) {
-    final up = (c.sizes.last * 1.5).roundToDouble();
-    return (up <= LaserConfig.maxSize ? up : (c.size / 1.5).roundToDouble()).clamp(
-      LaserConfig.minSize,
-      LaserConfig.maxSize,
     );
   }
 }

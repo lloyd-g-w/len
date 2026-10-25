@@ -266,6 +266,8 @@ void main() {
       drag([const Offset(400, 400)]);
       expect(content.cursorAt(EditorTool.shape, const Offset(402, 401)), isNull, reason: 'one');
       drag([const Offset(600, 400)]);
+      expect(content.cursorAt(EditorTool.shape, const Offset(402, 401)), isNull, reason: 'two');
+      drag([const Offset(500, 500)]);
       expect(content.cursorAt(EditorTool.shape, const Offset(402, 401)), SystemMouseCursors.click);
       expect(content.cursorAt(EditorTool.shape, const Offset(500, 300)), isNull);
     });
@@ -312,7 +314,7 @@ void main() {
   });
 
   group('drawing a curve', () {
-    test('its anchors, the close target and the tangents pulled show; gone when done', () {
+    test('its points, the close target and its corners show; gone when done', () {
       tools
         ..tool = EditorTool.shape
         ..shape = ShapeKind.curve;
@@ -320,17 +322,21 @@ void main() {
       drag([const Offset(100, 300)]);
       expect(guide.value!.anchors, const [Offset(100, 300)]);
       expect(guide.value!.closes, isFalse);
-      expect(guide.value!.tangents, isEmpty, reason: 'a corner');
+      expect(guide.value!.tangents, isEmpty);
+      // A press-drag places a point where it ends; the guide follows.
       final id = ++pointer;
       const k = PointerDeviceKind.mouse;
       input.handleDown(PointerDownEvent(pointer: id, kind: k, position: const Offset(300, 200)));
       input.handleMove(PointerMoveEvent(pointer: id, kind: k, position: const Offset(340, 200)));
-      final pulled = guide.value!;
-      expect(pulled.anchors, const [Offset(100, 300), Offset(300, 200)]);
-      expect(pulled.closes, isTrue);
-      expect(pulled.tangents.map((t) => t.handle), const [Offset(260, 200), Offset(340, 200)]);
-      expect(pulled.tangents.map((t) => t.anchor).toSet(), {const Offset(300, 200)});
+      final dragged = guide.value!;
+      expect(dragged.anchors, const [Offset(100, 300), Offset(340, 200)]);
+      expect(dragged.closes, isFalse, reason: 'two points close nothing');
       input.handleUp(PointerUpEvent(pointer: id, kind: k, position: const Offset(340, 200)));
+      drag([const Offset(341, 201)]); // the last point again: a corner
+      expect(guide.value!.corners, [1]);
+      drag([const Offset(500, 300)]);
+      expect(guide.value!.closes, isTrue);
+      expect(guide.value!.tangents, isEmpty);
       expect(content.shape.finishCurve(), isTrue);
       expect(guide.value, isNull);
     });

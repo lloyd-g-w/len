@@ -139,9 +139,22 @@ selected states fill 1. Sharp's square terminals and right-angle corners
 match the 2–4-dp radii and the hairlines, where Rounded's soft ends read as
 friendly Material. Keeping the same family (not another icon set) keeps every
 glyph the app needs, the variable weight/fill axes and release tree-shaking.
-Sizes from `Glyphs` (bar 20, menu 18, slot dot 22, empty 40). Custom glyphs
-(`EraserIcon`, `ShapeGlyph`, tool icons) are drawn at 1.5 px with square caps
-and mitred joins to match.
+Sizes from `Glyphs` (bar 20, menu 18, slot dot 22, empty 40).
+
+**Tools are drawn, commands are symbols.** What you do (undo, menus, insert
+sources, formatting) is a Sharp symbol; what you hold (the toolbar's tools,
+Insert ⊕ beside them, and the glyphs in their options) is drawn by
+`ToolIcon` / `ShapeGlyph` in `features/editor/tools/tool_icons.dart`, the
+one place to change them. They sit on the symbols' 24-unit grid (2-unit
+margin) at the symbols' weight: a 1.75-unit stroke (1.46 dp at 20 dp),
+square caps, mitred joins; dashes and loose ends are flat. The instruments
+(pen, highlighter, eraser, laser) are one family: held at 45°, writing end
+down-left, the part that touches the page solid (the nib, the chisel, the
+eraser's band, the laser's dot, the lasso's knot). Selected (`fill` 1) the
+instrument is solid with its seam cut out; text, shapes and the lasso stay
+line drawings (a solid shape or loop outweighs the rest). The lasso is a
+dashed loop of rope closed by a knot, its tail on the instruments' diagonal.
+`test/goldens/tool_icons_{1,2}x.png` shows the whole set, light and dark.
 
 ## 5. Motion
 
@@ -290,16 +303,20 @@ Floating palette: Sheet, radius md, hairline, contact shadow, grip of 2 ticks
 ╰──────────────────────────────────────────────────╯
 
 Popover (tool options): Sheet, md, hairline, lifted, 4 dp below its anchor
+(the selected tool's button: tap it again to open, again to close). One flat
+panel, no colours (the strip's slots), no size, nothing collapsed
 ┌ Pen ─────────────────────────── Reset ┐
 │ ┌───────────────────────────────────┐ │ preview on paper, Rule edge
 │ │   ~~~~~~~~ live stroke ~~~~~~~~   │ │
 │ └───────────────────────────────────┘ │
-│ Colour                         Custom │ Small label, quiet button
-│ ● ● ● ● ●                             │
-│ Size                         0.66 mm  │ tabular figures
-│ ━━━━━━━━━━━━┃───────────────────────  │ ruled slider, ink tick
-│ ───────────────────────────────────── │ hairline between groups
-│ Feel                               ⌄  │
+│ Pressure sensitivity             60%  │ Small label, tabular figures
+│ ━━━━━━━━━━━━━━━━━━━━┃───────────────  │ ruled slider, ink tick
+│ Stabiliser                       30%  │
+│ ━━━━━━━━━┃──────────────────────────  │
+│ Ends                                  │
+│ ┌──────────┬───────────┬──────────┐   │ one segmented control
+│ │▓ Round  ▓│  Tapered  │   Flat   │   │
+│ └──────────┴───────────┴──────────┘   │
 └───────────────────────────────────────┘
 ```
 The selected tool keeps its Ink plate (radius `xs`); colour underlines under

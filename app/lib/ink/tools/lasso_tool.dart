@@ -12,6 +12,7 @@ import '../selection/selection_chrome.dart';
 import '../selection/selection_controller.dart';
 import '../selection/selection_frame.dart';
 import '../shapes/bezier.dart';
+import '../shapes/kappa_curve.dart';
 import '../shapes/shape_handles.dart';
 import '../viewport.dart';
 import 'content_hit_test.dart';

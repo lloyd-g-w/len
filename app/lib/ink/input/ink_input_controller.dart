@@ -132,13 +132,16 @@ class InkInputController {
 
   bool _stylusSeen = false;
 
-  /// The mouse cursor over the surface: what a press there would do to the
-  /// selection or a curve being drawn (`ContentTools.cursorAt`), else the
-  /// drawing crosshair. Held while a press drags (a grab turns grabbing).
+  /// The mouse cursor over the surface: none where the canvas draws its
+  /// own hover preview (the eraser's ring, a hovering pen's ink, the
+  /// laser's dot), else what a press there would do to the selection or a
+  /// curve being drawn (`ContentTools.cursorAt`), else the drawing
+  /// crosshair. Held while a press drags (a grab turns grabbing).
   final ValueNotifier<MouseCursor> cursor = ValueNotifier(SystemMouseCursors.precise);
 
-  void _pointAt(Offset screen) =>
-      cursor.value = content?.cursorAt(tools.tool, screen) ?? SystemMouseCursors.precise;
+  /// The pointer hovering over the surface (its last event), if any: what
+  /// [refreshHover] shows again when the tool changes.
+  PointerEvent? _hovering;
 
   /// Touches landing this soon after the pen was touching or hovering are
   /// taken for the writing hand's palm: they neither navigate nor draw.
@@ -152,7 +155,10 @@ class InkInputController {
   void handleDown(PointerDownEvent e) {
     _stylus.note(e);
     // A pen or mouse pressing hovers no more (its ink or laser shows).
-    if (e.kind != PointerDeviceKind.touch) events.hovered?.call(null);
+    if (e.kind != PointerDeviceKind.touch) {
+      events.hovered?.call(null);
+      _hovering = null;
+    }
     kinetic?.begin();
     gestures?.down(e, navigates: tools.fingersNavigate);
     switch (e.kind) {
@@ -189,7 +195,7 @@ class InkInputController {
     if (e.pointer == _draw.pointer) _draw.up(e);
     _nav.up(e);
     gestures?.up(e);
-    if (e.kind == PointerDeviceKind.mouse) _pointAt(e.localPosition);
+    if (e.kind == PointerDeviceKind.mouse) _pointAt(e);
   }
 
   /// The platform took the pointer back (the window lost focus, rotated, a
@@ -215,23 +221,25 @@ class InkInputController {
     // the pen hovers.
     if (isStylusKind(e.kind) && _draw.holdsErase) _draw.cancel();
     if (_draw.pointer != null) return; // Don't fight the active pointer.
-    if (e.kind == PointerDeviceKind.mouse) _pointAt(e.localPosition);
     samples?.hover(e);
     events.hovered?.call(viewport.toWorld(e.localPosition));
-    _draw.showEraser(_wantsErase(e) ? e.localPosition : null);
-    _draw.showPen(_previewsInk(e) ? e.localPosition : null);
+    _hovering = e;
+    _showHover(e);
     if (isStylusKind(e.kind)) live.expireCursorsSoon(); // It may leave unannounced.
-    final laser = content?.laser;
-    if (laser == null) return;
-    if (e.kind == PointerDeviceKind.mouse && tools.tool == EditorTool.laser) {
-      laser.config = tools.laser;
-      laser.hover(viewport.toWorld(e.localPosition));
-    } else {
-      laser.hover(null);
-    }
+  }
+
+  /// The tool (or its settings) changed: a pointer resting over the surface
+  /// shows the new tool's preview at once, not the old one's until it moves
+  /// (a stylus only while still in range).
+  void refreshHover() {
+    final e = _hovering;
+    if (e == null || _draw.pointer != null) return;
+    if (isStylusKind(e.kind) && !live.stylusInRange) return;
+    _showHover(e);
   }
 
   void handleExit() {
+    _hovering = null;
     events.hovered?.call(null);
     _draw.showEraser(null);
     _draw.showPen(null);

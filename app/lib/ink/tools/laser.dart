@@ -162,6 +162,11 @@ class LaserTrail extends ChangeNotifier {
   /// Where the dot is (world), while it shows.
   Offset? get head => _head;
 
+  /// Whether the dot is drawn at [head]: always in dot mode; with a trail
+  /// only while a mouse hovers (it stands in for the cursor), never at the
+  /// trail's start or end.
+  bool get showsDot => config.mode == LaserMode.dot || _hovering;
+
   /// Opacity of the dot: 1 while the pointer is down or a mouse hovers,
   /// then fading.
   double get headAlpha {

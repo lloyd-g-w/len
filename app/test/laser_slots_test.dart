@@ -4,7 +4,6 @@ import 'package:len/features/editor/editor_toolbar.dart';
 import 'package:len/features/editor/pen/option_controls.dart' show percent;
 import 'package:len/features/editor/toolbar/tool_options_popover.dart';
 import 'package:len/features/editor/toolbar/tool_switcher.dart';
-import 'package:len/features/editor/toolbar/toolbar_metrics.dart';
 import 'package:len/features/editor/tools/laser_options_panel.dart';
 import 'package:len/features/editor/tools/laser_preview.dart';
 import 'package:len/features/editor/tools/laser_slots.dart';
@@ -109,94 +108,33 @@ void main() {
     expect(tools.laser.sizes[0], LaserConfig.defaultSizes[0]);
   });
 
-  testWidgets('options: header with Reset, preview, then the quick slot counts (1 to 5)', (
+  testWidgets('options: header with Reset, preview, dot or trail; no colours, sizes or counts', (
     tester,
   ) async {
     final tools = await pumpToolbar(tester, const Size(1280, 900));
-    final before = ToolbarMetrics.strip(tools);
     await tester.tap(find.byTooltip('Laser pointer (K)'));
     await tester.pumpAndSettle();
     expect(inPopover(find.byType(LaserOptionsPanel)), findsOneWidget);
     expect(inPopover(find.text('Reset')), findsOneWidget);
     expect(inPopover(find.byType(LaserPreview)), findsOneWidget);
-    expect(inPopover(find.byKey(const ValueKey('color-0'))), findsNothing, reason: 'anchored');
-    expect(find.text('3 and 3'), findsOneWidget);
-    // Open while the app runs: an earlier test may have opened it.
-    if (find.byTooltip('More quick colours').evaluate().isEmpty) {
-      await tester.ensureVisible(find.text('Quick colours and sizes'));
-      await tester.tap(find.text('Quick colours and sizes'));
-      await tester.pumpAndSettle();
-    }
-    await tester.ensureVisible(find.byTooltip('More quick colours'));
-    for (var i = 0; i < 3; i++) {
-      await tester.tap(find.byTooltip('More quick colours'));
-      await tester.pump();
-    }
-    expect(tools.laser.colors, hasLength(5));
-    expect(tools.laser.colors.toSet(), hasLength(5), reason: 'new colours differ');
-    await tester.tap(find.byTooltip('More quick sizes'));
-    await tester.pump();
-    expect(tools.laser.sizes, hasLength(4));
-    expect(tools.laser.sizes.toSet(), hasLength(4), reason: 'a new size differs');
-    for (var i = 0; i < 3; i++) {
-      await tester.tap(find.byTooltip('Fewer quick sizes'));
-      await tester.pump();
-    }
-    expect(tools.laser.sizes, hasLength(1));
-    final fewer = tester.widget<IconButton>(
-      find.ancestor(of: find.byTooltip('Fewer quick sizes'), matching: find.byType(IconButton)),
-    );
-    expect(fewer.onPressed, isNull);
-    await tester.pumpAndSettle();
-    expect(inStrip(find.byKey(const ValueKey('color-4'))), findsOneWidget);
-    expect(inStrip(find.byKey(const ValueKey('width-1'))), findsNothing);
-    expect(ToolbarMetrics.strip(tools), before, reason: 'still 6 slots: the pen sets the reserve');
+    expect(inPopover(find.byType(ColorDot)), findsNothing, reason: 'colours are the slots');
+    expect(inPopover(find.byType(LaserSizeSlider)), findsNothing, reason: 'sizes too');
+    expect(inPopover(find.textContaining('Quick')), findsNothing, reason: 'counts: Settings');
+    expect(inPopover(find.text('Feel')), findsNothing, reason: 'nothing collapsed');
 
-    // Reset puts the feel back and keeps the slots.
+    // Reset puts the rest back and keeps the slots.
+    tools.laser = tools.laser.withColor(0, 0xFF00AA00);
+    await tester.pump();
     await tester.tap(find.text('Dot'));
     await tester.pump();
     expect(tools.laser.mode, LaserMode.dot);
     await tester.tap(inPopover(find.text('Reset')));
     await tester.pump();
     expect(tools.laser.mode, LaserMode.trail);
-    expect(tools.laser.colors, hasLength(5));
-    expect(tools.laser.sizes, hasLength(1));
+    expect(tools.laser.colors[0], 0xFF00AA00);
   });
 
-  testWidgets('the panel\'s colour and size edit the selected slots', (tester) async {
-    final tools = ToolSettings()..laser = const LaserConfig(colorIndex: 2);
-    addTearDown(tools.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light(),
-        home: Scaffold(
-          body: Align(
-            alignment: Alignment.topLeft,
-            child: SingleChildScrollView(
-              child: SizedBox(width: 320, child: LaserOptionsPanel(tools: tools)),
-            ),
-          ),
-        ),
-      ),
-    );
-    final first = find.byType(ColorDot).first;
-    final color = tester.widget<ColorDot>(first).color;
-    await tester.tap(first);
-    await tester.pump();
-    expect(tools.laser.colors[2], color | 0xFF000000);
-    expect(tools.laser.colors[0], LaserConfig.defaultColors[0]);
-    await tester.drag(
-      find.descendant(of: find.byType(LaserSizeSlider), matching: find.byType(Slider)),
-      const Offset(300, 0),
-    );
-    await tester.pump();
-    expect(tools.laser.sizes[1], LaserConfig.maxSize);
-    expect(tools.laser.sizes[0], LaserConfig.defaultSizes[0]);
-  });
-
-  testWidgets('phones: the sheet shows the quick slots, which pick but do not edit', (
-    tester,
-  ) async {
+  testWidgets('phones: the options are a sheet without the quick slots', (tester) async {
     final tools = await pumpToolbar(tester, const Size(390, 800));
     // The switcher's active tool opens its options.
     await tester.tap(find.byType(ToolSwitcherButton));
@@ -204,12 +142,10 @@ void main() {
     await tester.tap(find.text('Laser'));
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
-    expect(inPopover(find.byKey(const ValueKey('color-1'))), findsOneWidget);
-    await tester.tap(inPopover(find.byKey(const ValueKey('color-1'))));
+    expect(inPopover(find.byType(LaserOptionsPanel)), findsOneWidget);
+    expect(inPopover(find.byKey(const ValueKey('color-1'))), findsNothing);
+    await tester.tap(inPopover(find.text('Dot')));
     await tester.pump();
-    expect(tools.laser.colorIndex, 1);
-    await tester.tap(inPopover(find.byKey(const ValueKey('color-1'))));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('color-slot-editor')), findsNothing);
+    expect(tools.laser.mode, LaserMode.dot);
   });
 }

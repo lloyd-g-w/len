@@ -5,6 +5,7 @@ import '../../../ink/tool_settings.dart';
 import '../../../ui/adaptive_popover.dart';
 import '../../../ui/app_theme.dart';
 import '../editor_tools.dart';
+import '../tools/tool_icons.dart';
 import 'insert_menu.dart';
 import 'tool_cluster.dart';
 
@@ -205,7 +206,7 @@ class ToolSwitcherPanel extends StatelessWidget {
               dimension: 26,
               child: Align(
                 alignment: Alignment.topCenter,
-                child: Icon(Symbols.add_circle_sharp, size: Glyphs.bar),
+                child: ToolIcon(ToolIconKind.insert, size: Glyphs.bar),
               ),
             ),
             onTap: () {

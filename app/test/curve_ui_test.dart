@@ -37,37 +37,34 @@ void main() {
     await key(tester, LogicalKeyboardKey.enter);
     final curve = liveStrokes(services, nb.id).single;
     expect(curve.shape!.kind, ShapeKind.curve);
-    expect(curve.shape!.anchorCount, 3);
+    expect(curve.shape!.through, hasLength(3));
     // Another, dropped.
     await tap(tester, const Offset(300, 650));
     await tap(tester, const Offset(500, 700));
     await key(tester, LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(liveStrokes(services, nb.id), hasLength(1));
-    // Selected (the lasso, a tap on it), it shows its anchors and tangents.
+    // Selected (the lasso, a tap on it), it shows the points it passes through.
     await key(tester, LogicalKeyboardKey.keyL);
     final gesture = await tester.startGesture(
-      const Offset(500, 250),
+      const Offset(640, 250),
       kind: PointerDeviceKind.mouse,
     );
     await gesture.up();
+    await tester.pump(const Duration(milliseconds: 500)); // no double tap
     await tester.pumpAndSettle();
     await expectLater(
       find.byType(Directionality).first,
       matchesGoldenFile('goldens/content_curve_handles.png'),
     );
-    // Its middle anchor's tangent turned: one undoable edit, still smooth.
+    // Its middle point dragged: one undoable edit, the curve through it.
+    final middle = curve.shape!.through![1];
     await mouseDrag(tester, const [Offset(640, 250), Offset(660, 270), Offset(640, 320)]);
     await tester.pumpAndSettle();
-    final turned = liveStrokes(services, nb.id).single;
-    expect(turned.id, isNot(curve.id));
-    final p = turned.shape!.points;
-    expect(p[4], const Offset(640, 320));
-    final into = p[3] - p[2], out = p[4] - p[3];
-    expect(
-      (into.dx * out.dy - into.dy * out.dx).abs(),
-      lessThan(1e-6 * into.distance * out.distance),
-    );
+    final moved = liveStrokes(services, nb.id).single;
+    expect(moved.id, isNot(curve.id));
+    expect(moved.shape!.through![1], offsetMoreOrLessEquals(middle + const Offset(0, 70)));
+    expect(moved.shape!.through!.first, curve.shape!.through!.first);
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);

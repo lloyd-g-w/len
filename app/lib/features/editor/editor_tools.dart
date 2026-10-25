@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/stroke.dart';
 import '../../ink/tool_settings.dart';
 import '../../ui/app_theme.dart';
-import 'pen/eraser_icon.dart';
 import 'pen/eraser_options_panel.dart';
 import 'pen/eraser_strip.dart';
 import 'pen/highlighter_options_panel.dart';
-import 'pen/ink_options.dart';
-import 'pen/ink_slots.dart';
 import 'pen/ink_strip.dart';
 import 'pen/pen_options_panel.dart';
 import 'toolbar/tool_options_popover.dart';
@@ -20,10 +16,6 @@ import 'tools/shape_options_panel.dart';
 import 'tools/shape_strip.dart';
 import 'tools/text_options_panel.dart';
 import 'tools/tool_icons.dart';
-
-/// Builds a tool's quick controls; [openOptions] opens the tool's options
-/// anchored to the slot that asks.
-typedef StripBuilder = Widget Function(BuildContext context, SlotEdit openOptions);
 
 /// One tool of the editor toolbar: its button, the quick controls it shows
 /// while active and its section of the tool options popover.
@@ -64,7 +56,7 @@ class ToolDescriptor {
   final int? Function()? inkColor;
 
   /// Quick controls shown in the toolbar while the tool is active.
-  final StripBuilder? strip;
+  final WidgetBuilder? strip;
 
   /// The [strip]'s width for a given slot cell, which the toolbar reserves.
   final double Function(double slot)? stripWidth;
@@ -88,53 +80,41 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
   final pen = ToolDescriptor(
     settings: tools,
     tool: EditorTool.pen,
-    icon: const Icon(Symbols.edit_sharp),
+    icon: const ToolIcon(ToolIconKind.pen),
     label: 'Pen',
     shortcut: 'P',
     inkColor: () => tools.configOf(InkTool.ballpoint).color,
-    strip: (_, _) => InkStrip(tools: tools, ink: InkTool.ballpoint),
+    strip: (_) => InkStrip(tools: tools, ink: InkTool.ballpoint),
     stripWidth: (slot) => InkStrip.widthFor(tools.configOf(InkTool.ballpoint), slot),
-    options: (_) => InkOptions(
-      tools: tools,
-      ink: InkTool.ballpoint,
-      title: 'Pen',
-      feelLabel: 'Feel',
-      feel: PenOptionsPanel(tools: tools),
-    ),
+    options: (_) => PenOptionsPanel(tools: tools),
   );
   return [
     pen,
     ToolDescriptor(
       settings: tools,
       tool: EditorTool.highlighter,
-      icon: const Icon(Symbols.border_color_sharp),
+      icon: const ToolIcon(ToolIconKind.highlighter),
       label: 'Highlighter',
       shortcut: 'H',
       inkColor: () => tools.configOf(InkTool.highlighter).color,
-      strip: (_, _) => InkStrip(tools: tools, ink: InkTool.highlighter),
+      strip: (_) => InkStrip(tools: tools, ink: InkTool.highlighter),
       stripWidth: (slot) => InkStrip.widthFor(tools.configOf(InkTool.highlighter), slot),
-      options: (_) => InkOptions(
-        tools: tools,
-        ink: InkTool.highlighter,
-        title: 'Highlighter',
-        feelLabel: 'Opacity and feel',
-        feel: HighlighterOptionsPanel(tools: tools),
-      ),
+      options: (_) => HighlighterOptionsPanel(tools: tools),
     ),
     ToolDescriptor(
       settings: tools,
       tool: EditorTool.eraser,
-      icon: const EraserIcon(),
+      icon: const ToolIcon(ToolIconKind.eraser),
       label: 'Eraser',
       shortcut: 'E',
-      strip: (_, open) => EraserStrip(tools: tools, onEdit: open),
+      strip: (_) => EraserStrip(tools: tools),
       stripWidth: EraserStrip.widthFor,
       options: (_) => EraserOptionsPanel(tools: tools),
     ),
     ToolDescriptor(
       settings: tools,
       tool: EditorTool.lasso,
-      icon: const Icon(lassoIcon),
+      icon: const ToolIcon(ToolIconKind.lasso),
       label: 'Lasso',
       shortcut: 'L',
       options: (_) => LassoOptionsPanel(tools: tools),
@@ -147,14 +127,14 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
       shortcut: 'S',
       // Shapes are drawn with the pen's quick colour and width.
       inkColor: () => tools.configOf(InkTool.ballpoint).color,
-      strip: (_, _) => ShapeStrip(tools: tools),
+      strip: (_) => ShapeStrip(tools: tools),
       stripWidth: (slot) => ShapeStrip.widthFor(tools, slot),
       options: (_) => ShapeOptionsPanel(tools: tools),
     ),
     ToolDescriptor(
       settings: tools,
       tool: EditorTool.text,
-      icon: const Icon(textIcon),
+      icon: const ToolIcon(ToolIconKind.text),
       label: 'Text',
       shortcut: 'T',
       inkColor: () => tools.textStyle.color,
@@ -163,12 +143,12 @@ List<ToolDescriptor> editorTools(ToolSettings tools) {
     ToolDescriptor(
       settings: tools,
       tool: EditorTool.laser,
-      icon: const Icon(laserIcon),
+      icon: const ToolIcon(ToolIconKind.laser),
       label: 'Laser pointer',
       shortLabel: 'Laser',
       shortcut: 'K',
       inkColor: () => tools.laser.color,
-      strip: (_, _) => LaserStrip(tools: tools),
+      strip: (_) => LaserStrip(tools: tools),
       stripWidth: (slot) => LaserStrip.widthFor(tools.laser, slot),
       options: (_) => LaserOptionsPanel(tools: tools),
     ),

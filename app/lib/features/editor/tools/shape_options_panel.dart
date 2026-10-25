@@ -10,11 +10,13 @@ import '../pen/option_controls.dart';
 import 'fill_choices.dart';
 import 'tool_icons.dart';
 
-/// Picks the shape the Shape tool draws: one row of kinds, the selected
-/// one on the neutral pressed plate (one Tab stop; arrows move). Shapes use
-/// the pen's colour and size (the bar's dots, beside the tool); closed ones
-/// get the [FillChoices] fill. Reset in the header restores the rectangle
-/// and no fill.
+/// The Shapes options (tap the selected Shapes tool), one flat panel:
+/// one row of kinds, the selected one on the neutral pressed plate (one
+/// Tab stop; arrows move). Shapes use the pen's colour and size (the bar's
+/// slots, beside the tool); closed ones get the [FillChoices] fill (none,
+/// tints of the pen's colour, solid in it: no colour block here, colours
+/// are the toolbar's). Reset in the header restores the rectangle and no
+/// fill.
 /// A short caption: how to draw and edit (with a keyboard, Shift), and a
 /// pointer to "Hold to
 /// snap" in Settings → Writing, the one home of that writing gesture (it
@@ -68,7 +70,7 @@ class ShapeOptionsPanel extends StatelessWidget {
                   child: FillChoices(
                     fill: tools.shapeFill,
                     ink: tools.configOf(InkTool.ballpoint).color,
-                    recent: tools.recentColors,
+                    pickColour: false,
                     onChanged: (f, {required fromBlock}) => tools.shapeFill = f,
                   ),
                 ),
@@ -77,7 +79,7 @@ class ShapeOptionsPanel extends StatelessWidget {
           ),
           const SizedBox(height: Gaps.md),
           if (tools.shape == ShapeKind.curve) ...[
-            Text('Tap for corners, drag for smooth points', style: text.bodySmall),
+            Text('Tap points to pass through, the last again for a corner', style: text.bodySmall),
             Text('Tap the first point to close, tap twice to finish', style: text.bodySmall),
             Text('Tap a shape to edit it; undo takes back a point', style: text.bodySmall),
           ] else

@@ -145,9 +145,6 @@ void main() {
       await tester.tap(find.byTooltip('Pen (P)'));
       await settle(tester);
       await shoot(tester, 'popover_pen_$m');
-      await tester.tap(find.text('Feel'));
-      await settle(tester);
-      await shoot(tester, 'popover_pen_feel_$m');
       await closePopover(tester);
       // A slot's own editor: tap the selected colour, then the selected
       // width (the second).
@@ -181,16 +178,15 @@ void main() {
     });
   }
 
-  testWidgets('pen options: custom colour and more slots', (tester) async {
-    await openEditor(tester, tablet, 2, ThemeMode.light);
-    await tester.tap(find.byTooltip('Pen (P)'));
-    await settle(tester);
-    await tester.ensureVisible(find.text('Quick colours and sizes'));
-    await tester.tap(find.text('Quick colours and sizes'));
-    await settle(tester);
-    await tester.ensureVisible(find.byTooltip('More quick colours'));
-    await tester.tap(find.byTooltip('More quick colours'));
-    await tester.tap(find.byTooltip('More quick sizes'));
+  testWidgets('pen slots: four and four (Settings → Toolbar), a custom colour', (tester) async {
+    await openEditor(
+      tester,
+      tablet,
+      2,
+      ThemeMode.light,
+      setUp: (s) => s.preferences.setSlotCounts(SlotTool.pen, const SlotCounts(4, 4)),
+    );
+    await tester.tap(find.byKey(const ValueKey('color-0')));
     await settle(tester);
     await tester.tap(find.text('Custom'));
     await settle(tester);

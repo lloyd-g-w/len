@@ -41,6 +41,12 @@ class AppPreferences extends ChangeNotifier {
   bool get scribbleToErase => _settings.scribbleToErase;
   set scribbleToErase(bool value) => _update(() => _settings.scribbleToErase = value);
 
+  /// How many quick colours and sizes [tool]'s toolbar strip shows
+  /// (Settings → Toolbar, their one home; the editor mirrors them).
+  SlotCounts slotCounts(SlotTool tool) => _settings.slotCounts(tool);
+  void setSlotCounts(SlotTool tool, SlotCounts counts) =>
+      _update(() => _settings.setSlotCounts(tool, counts));
+
   /// What holding the stylus side button does.
   PenButtonAction get penButtonAction => _settings.penButtonAction;
   set penButtonAction(PenButtonAction value) => _update(() => _settings.penButtonAction = value);

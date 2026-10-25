@@ -114,7 +114,7 @@ class LaserPaint {
     }
     final head = trail.head;
     final alpha = trail.headAlpha;
-    if (head == null || alpha <= 0) return;
+    if (head == null || alpha <= 0 || !trail.showsDot) return;
     LaserPainter.paintDot(
       canvas,
       head * scale + origin,

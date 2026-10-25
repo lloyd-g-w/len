@@ -14,11 +14,12 @@ import 'selection_chrome.dart';
 import 'selection_controller.dart';
 import 'selection_frame.dart';
 
-/// Paints the lasso being drawn and the current selection: its content
-/// (one cached picture under the gesture's transform — a drag never
-/// rebuilds stroke paths) and the dashed frame with its handles; a single
-/// shape shows its own points as handles instead of the frame's (lines
-/// and arrows show no frame at all).
+/// Paints the lasso being drawn (a smoothed two-tone dashed hairline, no
+/// fill) and the current selection: its content as it is (one cached
+/// picture under the gesture's transform — a drag never rebuilds stroke
+/// paths; never tinted or highlighted) and the hairline frame with flat
+/// handles; a single shape shows its own points as handles instead of the
+/// frame's (lines and arrows show no frame at all).
 class SelectionPainter extends CustomPainter {
   SelectionPainter({
     required this.selection,
@@ -98,13 +99,50 @@ class SelectionPainter extends CustomPainter {
     canvas.restore();
   }
 
+  /// The lasso being drawn: a quiet two-tone hairline ([_hairline]) along
+  /// a smoothed loop (or the rectangle), with no fill and nothing done to
+  /// the ink beneath.
   void _paintLasso(Canvas canvas) {
     if (lasso.points.length < 2) return;
     final pts = [for (final p in lasso.points) viewport.toScreen(p)];
-    canvas.drawPath(Path()..addPolygon(pts, true), Paint()..color = accent.withValues(alpha: 0.07));
-    drawDashed(canvas, pts, _halo);
-    drawDashed(canvas, pts, _outline);
+    _hairline(canvas, lasso.isRectangle ? (Path()..addPolygon(pts, true)) : smoothed(pts));
   }
+
+  /// [points] (screen) as a smooth curve: quadratic segments through the
+  /// midpoints between them, points closer than a pixel or so dropped, so a
+  /// hand-drawn loop shows no jags.
+  @visibleForTesting
+  static Path smoothed(List<Offset> points) {
+    final pts = <Offset>[points.first];
+    for (final p in points.skip(1)) {
+      if ((p - pts.last).distanceSquared >= 2.25) pts.add(p);
+    }
+    if (pts.length == 1 && points.length > 1) pts.add(points.last);
+    final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (var i = 1; i < pts.length - 1; i++) {
+      final mid = Offset.lerp(pts[i], pts[i + 1], 0.5)!;
+      path.quadraticBezierTo(pts[i].dx, pts[i].dy, mid.dx, mid.dy);
+    }
+    return path..lineTo(pts.last.dx, pts.last.dy);
+  }
+
+  /// Dash and gap of the lasso and the frame ([_hairline]).
+  static const double dash = 5, gap = 3;
+
+  /// The lasso's and the frame's line: a hairline of [handleFill]
+  /// (paper) with accent dashes over it — crisp dashes on light paper,
+  /// marching ants that keep their contrast on dark paper, images and ink
+  /// (the accent alone is 2.9:1 on Dark paper).
+  void _hairline(Canvas canvas, Path path) {
+    canvas
+      ..drawPath(path, _line(handleFill))
+      ..drawPath(dashPath(path, dash: dash, gap: gap), _line(accent));
+  }
+
+  static Paint _line(Color color) => Paint()
+    ..color = color
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.25;
 
   Paint get _outline => Paint()
     ..color = accent
@@ -129,23 +167,29 @@ class SelectionPainter extends CustomPainter {
     ..drawCircle(at, r * handleScale, Paint()..color = handleFill)
     ..drawCircle(at, r * handleScale, _outline);
 
+  /// The frame's resize handle of radius [r] at [at]: a flat paper disc
+  /// with a thin accent ring.
+  void _frameKnob(Canvas canvas, Offset at, double r) => canvas
+    ..drawCircle(at, r * handleScale, Paint()..color = handleFill)
+    ..drawCircle(at, r * handleScale, _line(accent)..strokeWidth = 1.25);
+
+  /// The selection's frame: a hairline box ([_hairline]) with flat
+  /// handles. The selected items themselves are drawn as they are: no
+  /// tint, halo or highlight.
   void _paintFrame(Canvas canvas, SelectionFrame frame) {
-    final outline = _outline;
     final shape = selection.shape;
     final handles = SelectionChrome.handles(frame, viewport, shape: shape);
     final corners = shape == null || shape.isClosed
         ? [for (final c in frame.corners) viewport.toScreen(c)]
         : null;
     final rotate = handles.remove(SelectionHandle.rotate);
-    final topMid = rotate == null ? null : viewport.toScreen(frame.at(const Offset(0.5, 0)));
-    // Every band before any line: a band over a line it meets (the rotate
-    // stem over the frame's top) would notch it.
-    for (final paint in [_halo, outline]) {
-      if (corners != null) drawDashed(canvas, corners, paint, close: true);
-      if (rotate != null) canvas.drawLine(topMid!, rotate, paint);
+    if (corners != null) _hairline(canvas, Path()..addPolygon(corners, true));
+    if (rotate != null) {
+      final topMid = viewport.toScreen(frame.at(const Offset(0.5, 0)));
+      canvas.drawLine(topMid, rotate, _line(accent));
     }
     for (final entry in handles.entries) {
-      _knob(canvas, entry.value, entry.key.isCorner ? 6.5 : 5.0);
+      _frameKnob(canvas, entry.value, entry.key.isCorner ? 5.0 : 4.0);
     }
     if (shape != null) _paintShapeHandles(canvas, shape);
     if (rotate != null) _paintRotate(canvas, rotate);
@@ -218,10 +262,9 @@ class SelectionPainter extends CustomPainter {
 
   /// The rotate handle: a filled accent knob with a circular-arrow glyph.
   void _paintRotate(Canvas canvas, Offset rotate) {
-    final shadow = _shadow;
     canvas
-      ..drawCircle(rotate + const Offset(0, 1), 9, shadow)
-      ..drawCircle(rotate, 9, Paint()..color = accent);
+      ..drawCircle(rotate, 9, Paint()..color = handleFill)
+      ..drawCircle(rotate, 8, Paint()..color = accent);
     final glyph = Paint()
       ..color = handleFill
       ..style = PaintingStyle.stroke

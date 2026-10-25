@@ -2,7 +2,7 @@ part of 'lasso_tool.dart';
 
 /// What a press, tap or loop of the lasso picks: hit tests by the gesture's
 /// [LassoConfig], taps (a second one on a text box edits it, on a curve's
-/// anchor removes it; one on a curve's line adds an anchor), and loops.
+/// point or anchor removes it; one on a curve's line adds one), and loops.
 extension _LassoPicking on LassoTool {
   /// A tap on handle [_point] of [_shape]: the second of a double tap on a
   /// curve's anchor removes it (a curve keeps two at least).
@@ -10,12 +10,19 @@ extension _LassoPicking on LassoTool {
     final shape = _shape!, now = _now();
     final last = _lastHandleTap;
     _lastHandleTap = (point: _point, time: now);
-    if (shape.kind != ShapeKind.curve || _point % 3 != 0 || shape.anchorCount <= 2) return;
+    if (shape.kind != ShapeKind.curve) return;
+    final through = shape.through;
+    if (through != null ? through.length <= KappaCurve.minPoints(shape) : _point % 3 != 0) return;
+    if (through == null && shape.anchorCount <= 2) return;
     if (last == null || last.point != _point || now - last.time > LassoTool.doubleTapMs) return;
     _lastHandleTap = null;
     final closed = shape.isClosed;
     selection
-      ..reshape(shape.withPoints(Bezier.removeAnchor(shape.points, _point ~/ 3, closed: closed)))
+      ..reshape(
+        through != null
+            ? KappaCurve.withoutPoint(shape, _point)
+            : shape.withPoints(Bezier.removeAnchor(shape.points, _point ~/ 3, closed: closed)),
+      )
       ..commitReshape();
   }
 
@@ -24,12 +31,17 @@ extension _LassoPicking on LassoTool {
   bool _addAnchor(Offset world) {
     final shape = selection.shape;
     if (shape == null || shape.kind != ShapeKind.curve) return false;
-    if (shape.anchorCount >= ShapeGeometry.maxAnchors) return false;
+    final through = shape.through;
+    if ((through?.length ?? shape.anchorCount) >= ShapeGeometry.maxAnchors) return false;
     final closed = shape.isClosed;
     final hit = Bezier.nearest(shape.points, world, closed: closed);
     if (hit.distance * viewport.scale > SelectionChrome.hitRadius) return false;
     selection
-      ..reshape(shape.withPoints(Bezier.split(shape.points, hit.segment, hit.t, closed: closed)))
+      ..reshape(
+        through != null
+            ? KappaCurve.withPointAt(shape, world)
+            : shape.withPoints(Bezier.split(shape.points, hit.segment, hit.t, closed: closed)),
+      )
       ..commitReshape();
     return true;
   }

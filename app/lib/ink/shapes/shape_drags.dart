@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import '../../domain/shape_geometry.dart';
 import 'bezier.dart';
+import 'kappa_curve.dart';
 import 'shape_builder.dart';
 import 'shape_handles.dart';
 import 'shape_snap.dart';
@@ -31,7 +32,9 @@ import 'shape_snap.dart';
 ///  * a star's point turns and sizes it about its centre (15° turns snap;
 ///    Shift: in 15° steps), its inner point sets the inner radius (a
 ///    regular star's snaps);
-///  * a curve's anchor moves with its tangents (lining up with the other
+///  * a curve through points: a point moves and the curve follows it
+///    (lining up with the other points; Shift: one axis); a plain spline's
+///    anchor moves with its tangents (lining up with the other
 ///    anchors; Shift: one axis); a tangent handle turns and sizes its
 ///    tangent, the opposite one turning with it when they were in line (a
 ///    smooth anchor), and snaps to its anchor (a corner) or to 15°
@@ -65,6 +68,7 @@ class ShapeDrags {
       ShapeKind.circle => index == 1 ? _radius(to) : _squash(index, to),
       ShapeKind.ellipse => _axis(index, to),
       ShapeKind.star => index == 1 ? _turnStar(to) : _inner(to),
+      ShapeKind.curve when shape.passesThrough => _through(index, to),
       ShapeKind.curve => index % 3 == 0 ? _anchor(index, to) : _tangent(index, to),
     };
   }
@@ -270,6 +274,23 @@ class ShapeDrags {
       tips < 5 ? null : math.cos(2 * math.pi / tips) / math.cos(math.pi / tips);
 
   // Curves ------------------------------------------------------------------
+
+  /// A point of a curve through points moved (lining up with the others;
+  /// Shift: one axis), the curve rebuilt through it.
+  ShapeGeometry _through(int index, Offset to) {
+    final p = [...shape.through!];
+    var target = to;
+    if (shift) {
+      target = ShapeSnap.axisLock(p[index], to);
+    } else if (_snaps) {
+      target = ShapeSnap.align(to, [
+        for (var i = 0; i < p.length; i++)
+          if (i != index) p[i],
+      ], snap);
+    }
+    p[index] = target;
+    return KappaCurve.reshaped(shape, p);
+  }
 
   ShapeGeometry _anchor(int index, Offset to) {
     final p = [..._p];

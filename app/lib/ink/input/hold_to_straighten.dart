@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../domain/stroke.dart';
 import '../geometry/straighten.dart';
 import '../shapes/curve_recognizer.dart';
+import '../shapes/held_shape.dart';
 import '../shapes/polyline.dart';
 import '../shapes/shape_builder.dart';
 import '../shapes/shape_recognizer.dart';
@@ -19,10 +20,13 @@ import 'live_ink.dart';
 ///    the line's end — and one ending in a head an arrow; both snap level,
 ///    upright or diagonal when nearly so ([ShapeSnap.lineEnd]);
 ///  * a closed stroke at least [minShape] across becomes a clean
-///    rectangle, circle, ellipse, triangle, diamond or polygon (which then
-///    stays put until the pen lifts);
+///    rectangle, circle, ellipse, triangle, diamond or polygon;
 ///  * a smooth stroke that is none of those, at least [minCurve] across,
 ///    becomes a curve (a fitted spline, [CurveRecognizer]);
+///  * until the pen lifts, moving it on transforms the snapped shape
+///    ([HeldShape]): an arrow's tip follows it, anything else turns and
+///    scales about its centre with it (once it has moved [holdTolerance]
+///    from where it snapped);
 ///  * anything else (handwriting, a scribble, a small letter "o") is left
 ///    alone.
 /// Only the clean shape is ever committed, so a single undo removes it.
@@ -106,6 +110,18 @@ class HoldToStraighten {
   final List<(Offset, int, int)> _resting = [];
   StrokePoint? _from;
   bool _shaped = false;
+
+  /// The shape snapped while the pen is down, which moving it transforms.
+  HeldShape? _held;
+
+  /// Where the pen was when the shape snapped (screen), and whether it has
+  /// moved away from there since (the transform follows it then).
+  Offset _heldAt = Offset.zero;
+  bool _transforming = false;
+
+  /// Where the pen is now (screen and world).
+  Offset _penScreen = Offset.zero;
+  Offset _penWorld = Offset.zero;
   double _pressure = 0.5;
   double _scale = 1;
 
@@ -124,6 +140,8 @@ class HoldToStraighten {
   }) {
     end();
     _scale = scale;
+    _penScreen = screen;
+    if (live.points.isNotEmpty) _penWorld = live.points.last.offset;
     if (straight) {
       final from = live.points.first;
       _from = from;
@@ -139,7 +157,12 @@ class HoldToStraighten {
   /// move was consumed (the stroke is straight and its end now follows the
   /// pen); otherwise the caller adds [point] to the live stroke as usual.
   bool move(Offset screen, StrokePoint point, {int timeMs = 0}) {
-    if (_shaped) return true;
+    _penScreen = screen;
+    _penWorld = point.offset;
+    if (_shaped) {
+      _transform(screen, point.offset);
+      return true;
+    }
     final from = _from;
     if (from != null) {
       final end = ShapeSnap.lineEnd(from.offset, point.offset);
@@ -161,7 +184,27 @@ class HoldToStraighten {
     _resting.clear();
     _from = null;
     _shaped = false;
+    _held = null;
+    _transforming = false;
   }
+
+  /// The pen moved on to [screen] / [world] after a shape snapped: the
+  /// shape follows it ([HeldShape.at]).
+  void _transform(Offset screen, Offset world) {
+    final held = _held;
+    if (held == null) return;
+    if (!_transforming && (screen - _heldAt).distance <= holdTolerance) return;
+    _transforming = true;
+    final shape = held.at(world, minReach: minReach / _scale);
+    if (shape == live.shape) return;
+    live
+      ..shape = shape
+      ..replaceAll(ShapeBuilder.pointsOf(shape, spacing: 2 / _scale, pressure: _pressure));
+  }
+
+  /// How far (screen pixels) from a shape's centre the pen must have
+  /// snapped it for moving on to turn and scale it.
+  static const double minReach = 12;
 
   /// The pen is at [screen]: the rest starts after the last place it was
   /// farther than [holdTolerance] from here (a pen coming to rest still
@@ -216,6 +259,8 @@ class HoldToStraighten {
       );
     } else {
       _shaped = true;
+      _held = HeldShape(shape, _penWorld);
+      _heldAt = _penScreen;
       live.replaceAll(ShapeBuilder.pointsOf(shape, spacing: 2 / _scale, pressure: _pressure));
     }
     unawaited(HapticFeedback.selectionClick());

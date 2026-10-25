@@ -69,14 +69,13 @@ void main() {
     expect(find.text('Straight lines'), findsNothing);
   });
 
-  testWidgets('highlighter: the pen engine\'s settings, flat or round ends, straight lines', (
+  testWidgets('highlighter: opacity, stabiliser, flat or round ends, straight lines', (
     tester,
   ) async {
     await pump(tester, HighlighterOptionsPanel(tools: tools));
     expect(find.text('50%'), findsOneWidget, reason: 'stabiliser default');
-    expect(find.text('Off'), findsOneWidget, reason: 'pressure sensitivity default');
-    await drag(tester, 'Pressure sensitivity', 400);
-    expect(tools.configOf(InkTool.highlighter).thinning, 1);
+    // Pressure sensitivity (off by default) is not offered.
+    expect(find.text('Pressure sensitivity'), findsNothing);
     await drag(tester, 'Stabiliser', -400);
     expect(tools.configOf(InkTool.highlighter).streamline, 0);
     expect(find.text('Off'), findsOneWidget, reason: 'the stabiliser');
@@ -219,8 +218,6 @@ void main() {
   ) async {
     final pen = editorTools(tools).first;
     await pump(tester, SingleChildScrollView(child: Builder(builder: pen.options!)));
-    await tester.tap(find.text('Feel'));
-    await tester.pumpAndSettle();
     expect(find.text('Reset'), findsOneWidget, reason: 'in the header, for the feel');
     expect(find.text('Hold to snap'), findsNothing);
     expect(find.text('Scribble to erase'), findsNothing);
@@ -234,32 +231,31 @@ void main() {
     expect(find.text('Or scribble over ink with the pen'), findsNothing);
   });
 
-  testWidgets('a picked slot colour becomes recent; a recent colour applies', (tester) async {
-    await pump(
-      tester,
-      Builder(
-        builder: (context) => TextButton(
-          onPressed: () {
-            tools.selectColor(1);
-            editorTools(tools).first.openOptions(context);
-          },
-          child: const Text('Edit'),
+  testWidgets('the ink options are one flat panel: no colours, no size, no submenus', (
+    tester,
+  ) async {
+    for (final (i, ink) in [(0, InkTool.ballpoint), (1, InkTool.highlighter)]) {
+      await pump(
+        tester,
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () => editorTools(tools)[i].openOptions(context),
+            child: const Text('Edit'),
+          ),
         ),
-      ),
-    );
-    tools.addRecentColor(0xFF00AA00);
-    await tester.tap(find.text('Edit'));
-    await tester.pumpAndSettle();
-    expect(find.text('Recent'), findsOneWidget);
-    await tester.tap(dot(0xFF00AA00).first);
-    await tester.pump();
-    expect(tools.configOf(InkTool.ballpoint).colors[1], 0xFF00AA00);
-    expect(tools.recentColors, [0xFF00AA00], reason: 'noted when the popover closes');
-
-    tools.updateConfig(InkTool.ballpoint, (c) => c.withColor(1, 0xFF0000FF));
-    await tester.tapAt(const Offset(790, 590)); // Closes the popover.
-    await tester.pumpAndSettle();
-    expect(tools.recentColors, [0xFF0000FF, 0xFF00AA00]);
+      );
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ColorDot), findsNothing, reason: '$ink: colours are the quick slots');
+      expect(find.text('Size'), findsNothing, reason: '$ink: sizes are the quick slots');
+      expect(find.textContaining('Quick'), findsNothing, reason: '$ink: counts are in Settings');
+      expect(find.text('Feel'), findsNothing, reason: '$ink: nothing collapsed');
+      expect(find.text('Taper length'), findsNothing);
+      expect(find.text('Stabiliser'), findsOneWidget);
+      expect(find.text('Ends'), findsOneWidget);
+      await tester.tapAt(const Offset(790, 590)); // Closes the popover.
+      await tester.pumpAndSettle();
+    }
   });
 
   test('sizes read in millimetres on the page', () {
@@ -267,24 +263,6 @@ void main() {
     expect(formatWidth(2.27), '0.6 mm');
     expect(formatWidth(4), '1.1 mm');
     expect(formatWidth(48), '13 mm');
-  });
-
-  testWidgets('the highlighter offers light colours; the size slider is in mm', (tester) async {
-    await pump(
-      tester,
-      Builder(
-        builder: (context) => TextButton(
-          onPressed: () => editorTools(tools)[1].openOptions(context),
-          child: const Text('Edit'),
-        ),
-      ),
-    );
-    await tester.tap(find.text('Edit'));
-    await tester.pumpAndSettle();
-    expect(dot(0xFF000000), findsNothing, reason: 'no black highlighter');
-    expect(dot(0xFFFACC15), findsOneWidget);
-    expect(find.text(formatWidth(tools.configOf(InkTool.highlighter).width)), findsOneWidget);
-    expect(find.text('Size'), findsOneWidget);
   });
 
   testWidgets('the colour popover applies live and closing keeps the last pick', (tester) async {

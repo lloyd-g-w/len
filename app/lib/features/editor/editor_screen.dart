@@ -40,6 +40,7 @@ import 'editor_shortcuts.dart';
 import 'eyedropper/eyedropper.dart';
 import 'eyedropper/page_colours.dart';
 import 'links/link_actions.dart';
+import 'pen/slot_counts.dart';
 import 'resume_view.dart';
 import 'shared/shared_notebooks.dart';
 import 'sidebar/page_sidebar.dart';
@@ -246,8 +247,8 @@ class _EditorScreenState extends State<_EditorView> {
     if (_focusNode.hasFocus) _use();
   }
 
-  /// Toolbar placement, stylus-only, the side button and the writing
-  /// gestures changed elsewhere (e.g. in the settings opened from the
+  /// Toolbar placement, stylus-only, the side button, the writing
+  /// gestures and the quick slot counts changed elsewhere (e.g. in the settings opened from the
   /// editor).
   void _onPreferences() {
     if (!mounted) return;
@@ -258,6 +259,7 @@ class _EditorScreenState extends State<_EditorView> {
       ..penButtonErases = prefs.penButtonAction == PenButtonAction.eraser
       ..holdToStraighten = prefs.holdToSnap
       ..scribbleToErase = prefs.scribbleToErase;
+    applySlotCounts(_session.tools, prefs);
     setState(() {});
   }
 

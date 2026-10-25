@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../domain/shape_geometry.dart';
+import 'conic_fit.dart';
 import 'polyline.dart';
 
 /// Recognises a hand-drawn stroke as a clean shape ("hold to snap"),
@@ -113,8 +114,11 @@ abstract final class ShapeRecognizer {
     if (math.min(polygonError, ellipseError) > maxError) return null;
     // Noisy ellipses fit many-cornered polygons too; those must win clearly
     // (half the ellipse's error: a real S Pen ring around a word fits a
-    // hexagon with 0.58 of it, hand-drawn pentagons and hexagons far less).
-    final bias = corners.length >= 5 ? 0.5 : 1.0;
+    // hexagon with 0.58 of it, hand-drawn pentagons and hexagons far less),
+    // and so must polygons whose corners the stroke rounds off by much (a
+    // smooth blob fits a quadrilateral whose corners lie far outside it).
+    final clear = corners.length >= 5 || !_cornered(loop, corners);
+    final bias = clear ? 0.5 : 1.0;
     if (ellipseError * bias <= polygonError) return ellipse!.shape;
     return _polygonShape(corners);
   }
@@ -144,6 +148,43 @@ abstract final class ShapeRecognizer {
     }
     return best;
   }
+
+  /// Whether the hand turned at each of [corners] (on [loop]: a triangle's
+  /// or quadrilateral's; obtuse corners say little) as at a
+  /// corner rounded off a little, not round a bend: the corner's rounding
+  /// radius, judged from how far the stroke passes from it, is at most
+  /// [maxRounding] of its longer side. A smooth blob fits a polygon whose
+  /// corners lie far outside it.
+  static bool _cornered(List<Offset> loop, List<Offset> corners) {
+    final n = corners.length;
+    for (var i = 0; i < n; i++) {
+      final c = corners[i], a = corners[(i + n - 1) % n] - c, b = corners[(i + 1) % n] - c;
+      final side = math.max(a.distance, b.distance);
+      if (math.min(a.distance, b.distance) == 0) return false;
+      final cos = ((a.dx * b.dx + a.dy * b.dy) / (a.distance * b.distance)).clamp(-1.0, 1.0);
+      final half = math.acos(cos) / 2;
+      var miss = double.infinity;
+      for (final p in loop) {
+        miss = math.min(miss, (p - c).distance);
+      }
+      // A circle of radius r in a corner of angle 2·half passes
+      // r (1 / sin(half) − 1) from it.
+      final reach = 1 / math.sin(half) - 1;
+      if (reach > 0 && miss / reach > maxRounding * side) return false;
+    }
+    return true;
+  }
+
+  /// The largest rounding of a triangle's or quadrilateral's corners, as a
+  /// share of the longer side at the corner, before it must beat the
+  /// ellipse clearly (hand-drawn ones: at most 0.15, real S Pen strokes
+  /// 60 px across more; smooth closed curves fitted as polygons: mostly 0.3
+  /// or more).
+  static const double maxRounding = 0.2;
+
+  /// A polygon of five or more corners must fit with at most this share
+  /// of the ellipse's error.
+  static double polygonBias = 0.95;
 
   /// How much worse (mean distance, share of the diagonal) a fit with one
   /// corner fewer may be and still be preferred.
@@ -217,44 +258,59 @@ abstract final class ShapeRecognizer {
     ];
   }
 
+  /// An ellipse whose axes are within this share of each other (minor
+  /// over major at least 1 − this) is a circle: hand-drawn circles come
+  /// out 5–15 % squashed (`test/shapes_test.dart`, *circles*).
+  static const double circleTolerance = 0.17;
+
+  /// An ellipse's axes within this angle (radians, 10°) of level and
+  /// upright snap to them.
+  static const double axisTolerance = 10 * math.pi / 180;
+
+  /// The ellipse (or circle) fitting [loop] best and its mean distance
+  /// from it: a direct least-squares ellipse ([ConicFit.ellipse]); a
+  /// nearly round one ([circleTolerance]) is the least-squares circle
+  /// ([ConicFit.circle]) instead, nearly level or upright ones
+  /// ([axisTolerance]) are made so.
   static ({ShapeGeometry shape, double error})? _fitEllipse(List<Offset> loop) {
-    final mean = Polyline.centroid(loop);
-    var sxx = 0.0, syy = 0.0, sxy = 0.0;
-    for (final p in loop) {
-      final d = p - mean;
-      sxx += d.dx * d.dx;
-      syy += d.dy * d.dy;
-      sxy += d.dx * d.dy;
-    }
-    var angle = 0.5 * math.atan2(2 * sxy, sxx - syy);
-    final local = [for (final p in loop) _rotate(p - mean, -angle)];
-    final box = Polyline.bounds(local);
-    var rx = box.width / 2, ry = box.height / 2;
-    if (rx <= 0 || ry <= 0) return null;
-    final centre = mean + _rotate(box.center, angle);
+    final fit = ConicFit.ellipse(loop);
+    if (fit == null) return null;
+    var (rx, ry, angle) = (fit.rx, fit.ry, fit.angle);
+    if (ry > rx) (rx, ry, angle) = (ry, rx, angle + math.pi / 2);
+    final c = fit.centre;
     var error = 0.0;
-    for (final p in local) {
-      final q = p - box.center;
+    for (final p in loop) {
+      // Distance along the ray from the centre: |q| (1 − 1/ρ).
+      final q = _rotate(p - c, -angle);
       final rho = math.sqrt(math.pow(q.dx / rx, 2) + math.pow(q.dy / ry, 2));
-      error += (rho - 1).abs();
+      error += rho == 0 ? ry : (q.distance * (1 - 1 / rho)).abs();
     }
-    error = error / local.length * math.sqrt(rx * ry);
-    // Clean-ups: near-circles become circles, near-axis ellipses straight.
-    if ((rx - ry).abs() <= 0.12 * math.max(rx, ry)) {
-      rx = ry = (rx + ry) / 2;
-      angle = 0;
+    error /= loop.length;
+    if (ry >= (1 - circleTolerance) * rx) {
+      final circle = ConicFit.circle(loop);
+      if (circle != null) {
+        final centre = circle.centre, r = circle.radius;
+        var off = 0.0;
+        for (final p in loop) {
+          off += ((p - centre).distance - r).abs();
+        }
+        // Judged as the round shape it is (against polygons), whichever fits.
+        return (
+          shape: ShapeGeometry(ShapeKind.circle, [centre, centre + Offset(r, 0)]),
+          error: math.min(error, off / loop.length),
+        );
+      }
     }
     const quarter = math.pi / 2;
     final snapped = (angle / quarter).round() * quarter;
-    if ((angle - snapped).abs() < 8 * math.pi / 180) angle = snapped;
-    final shape = rx == ry
-        ? ShapeGeometry(ShapeKind.circle, [centre, centre + Offset(rx, 0)])
-        : ShapeGeometry(ShapeKind.ellipse, [
-            centre,
-            centre + _rotate(Offset(rx, 0), angle),
-            centre + _rotate(Offset(0, ry), angle),
-          ]);
-    return (shape: shape, error: error);
+    if ((angle - snapped).abs() < axisTolerance) angle = snapped;
+    // Level or upright: exact axes (cos(π/2) is not quite 0).
+    final turns = (angle / quarter).round();
+    final level = (angle - turns * quarter).abs() < 1e-12;
+    final (w, h) = turns.isOdd ? (ry, rx) : (rx, ry);
+    final u = level ? Offset(w, 0) : _rotate(Offset(rx, 0), angle);
+    final v = level ? Offset(0, h) : _rotate(Offset(0, ry), angle);
+    return (shape: ShapeGeometry(ShapeKind.ellipse, [c, c + u, c + v]), error: error);
   }
 
   static Offset _rotate(Offset v, double a) =>

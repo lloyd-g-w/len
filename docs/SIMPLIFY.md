@@ -70,7 +70,7 @@ canvas.
 | 32 | Split "Same tools in both panes" | ✅ Default (always linked) | Two tool states confuse; one toolbar shows at a time | `split/split_controller.dart`, `OpenNotebooks.linkTools`, `ToolSettings.adopt` | S |
 | 33 | Presentation mode (F5, controls bar) | ✅ Merge into focus mode (+ laser, page keys) | The same thing as immersive focus mode with the laser | `present/*`, `editor_more_menu.dart`, `split/split_view.dart` (`solo`) | S |
 | 34 | Focus mode | ✅ Keep; it gains the tool puck | Writing without chrome is a core tablet use | `chrome/focus_handle.dart`, `chrome/editor_chrome.dart` | M |
-| 35 | Canvas minimap and "show overview" | ✅ Remove | UX_AUDIT says it "says little"; fit content and zoom cover it | `canvas/canvas_minimap.dart`, `canvas/minimap_painter.dart`, `canvas/canvas_view.dart`, `canvas_minimap` golden | S |
+| 35 | Canvas minimap and "show overview" | ✅ Remove | It says little; fit content and zoom cover it | `canvas/canvas_minimap.dart`, `canvas/minimap_painter.dart`, `canvas/canvas_view.dart`, `canvas_minimap` golden | S |
 | 36 | Canvas fit content, actual size, back to start (⋯ + buttons) | ✅ Merge into the zoom pill menu | One home for canvas navigation | `canvas/zoom_indicator.dart`, `canvas/canvas_view.dart`, `editor_more_menu.dart` | S |
 | 37 | Double-tap zoom, gesture HUD, empty-canvas hint | Keep (no settings) | Invisible until needed | `double_tap_zoom.dart`, `chrome/gesture_hud.dart`, `canvas/canvas_empty_hint.dart` | – |
 | 38 | One-time tips (side button, multi-finger taps) | ✅ Keep the side-button tip; remove the multi-finger tip (R9: no finger-tap tip; tips on a budget) | The HUD already teaches undo when it happens | `chrome/editor_tips.dart` | S |
@@ -149,4 +149,6 @@ canvas.
 - **Ink Lab (row 72): keep in release builds,** still behind 7 taps on the version. The user records real S Pen input with it on the tablet.
 - **Material Symbols Rounded (`material_symbols_icons`): approved.** (Superseded by
   DESIGN.md: Material Symbols **Sharp**.)
-- **Pen tip ends:** pens get an end style (round / tapered / flat) with per-style settings (taper length; start, end or both). This replaces the old fixed taper and lives in the tool options popover.
+- **Pen tip ends:** pens get an end style (round / tapered / flat) with per-style settings (taper length; start, end or both). This replaces the old fixed taper and lives in the tool options popover. (Since
+  2026-10-25 the popover offers the end style alone; taper length and where it tapers keep
+  their stored values.)

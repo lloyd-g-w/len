@@ -59,9 +59,6 @@ void main() {
     tester,
   ) async {
     await open(tester, 0);
-    await tester.ensureVisible(find.text('Feel'));
-    await tester.tap(find.text('Feel'));
-    await tester.pumpAndSettle();
     expect(find.text('Reset'), findsOneWidget, reason: 'one Reset, in the header');
     expect(find.text('Reset feel'), findsNothing);
     await tester.ensureVisible(find.text('Reset'));

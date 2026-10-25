@@ -62,7 +62,8 @@ class ShapeHandle {
 ///  * ellipse: the centre and the ends of its two radii;
 ///  * star: the centre, the top point (size and turn) and an inner point
 ///    (inner radius);
-///  * curve: every control point: anchors and their tangent handles.
+///  * curve: through points, the points it passes through; a plain spline
+///    every control point: anchors and their tangent handles.
 abstract final class ShapeHandles {
   /// [shape]'s handles, in a fixed order per kind.
   static List<ShapeHandle> of(ShapeGeometry shape) {
@@ -92,6 +93,7 @@ abstract final class ShapeHandles {
         ShapeHandle(ShapeBuilder.starVertices(shape)[0], HandleRole.radius),
         ShapeHandle(ShapeBuilder.starVertices(shape)[innerVertex], HandleRole.inner),
       ],
+      ShapeKind.curve when shape.through != null => vertices(shape.through!),
       ShapeKind.curve => [
         for (var i = 0; i < p.length; i++)
           i % 3 == 0

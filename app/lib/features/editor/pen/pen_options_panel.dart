@@ -7,9 +7,11 @@ import 'option_controls.dart';
 import 'pen_ends_options.dart';
 import 'stroke_preview.dart';
 
-/// The pen's settings popover: a live preview, pressure sensitivity,
-/// stabiliser and the pen's ends. Edits apply live; Reset restores the feel
-/// defaults. Quick colours and widths live in the toolbar itself.
+/// The pen's options (tap the selected pen): one flat panel with a title
+/// and Reset (the feel back to its defaults), a live preview, pressure
+/// sensitivity, stabiliser and the ends. Edits apply live. Colours and
+/// widths are the toolbar's quick slots (their counts in Settings →
+/// Toolbar), not options.
 class PenOptionsPanel extends StatelessWidget {
   const PenOptionsPanel({super.key, required this.tools});
 
@@ -28,7 +30,7 @@ class PenOptionsPanel extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            FeelHeader('Pen settings', tools: tools, ink: ink),
+            InkOptionsHeader('Pen', tools: tools, ink: ink),
             const SizedBox(height: Gaps.sm),
             PreviewCard(tool: ink, config: config),
             PressureSlider(
