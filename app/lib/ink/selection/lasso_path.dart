@@ -10,7 +10,12 @@ class LassoPath extends ChangeNotifier {
   List<Offset> get points => _points;
   bool get isEmpty => _points.isEmpty;
 
+  /// Whether the path is a rectangle's corners ([rectangle]), not a loop.
+  bool get isRectangle => _rectangle;
+  bool _rectangle = false;
+
   void begin(Offset world) {
+    _rectangle = false;
     _points
       ..clear()
       ..add(world);
@@ -24,6 +29,7 @@ class LassoPath extends ChangeNotifier {
 
   /// Makes the path the rectangle with corners [from] and [to].
   void rectangle(Offset from, Offset to) {
+    _rectangle = true;
     _points
       ..clear()
       ..addAll([from, Offset(to.dx, from.dy), to, Offset(from.dx, to.dy)]);

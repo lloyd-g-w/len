@@ -157,6 +157,10 @@ class LiveInk extends ChangeNotifier {
     });
   }
 
+  /// Whether a stylus hovered or touched within [stylusHoverTimeout]
+  /// (its cursors are still due to expire): it is still in range.
+  bool get stylusInRange => _hoverExpiry != null;
+
   /// Keeps the cursors: the pen touches (it can't have left range).
   void keepCursors() {
     _hoverExpiry?.cancel();

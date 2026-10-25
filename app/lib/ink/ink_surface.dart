@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../domain/chunk_grid.dart';
 import '../domain/paper.dart';
@@ -61,6 +62,7 @@ class _InkSurfaceState extends State<InkSurface> {
     _rasters = ChunkRasterCache(_cache);
     _tiles = InkTileCache(_cache);
     widget.viewport.addListener(_loadVisible);
+    widget.input.tools.addListener(_toolsChanged);
     _loadVisibleAfterFrame();
   }
 
@@ -83,16 +85,33 @@ class _InkSurfaceState extends State<InkSurface> {
       old.viewport.removeListener(_loadVisible);
       widget.viewport.addListener(_loadVisible);
     }
+    if (old.input.tools != widget.input.tools) {
+      old.input.tools.removeListener(_toolsChanged);
+      widget.input.tools.addListener(_toolsChanged);
+    }
   }
 
   @override
   void dispose() {
     widget.viewport.removeListener(_loadVisible);
+    widget.input.tools.removeListener(_toolsChanged);
     widget.model.forgetView(widget.viewport);
     _tiles.dispose();
     _rasters.dispose();
     _cache.dispose();
     super.dispose();
+  }
+
+  /// A tool picked while a pen or mouse rests over the surface: its
+  /// preview replaces the old tool's at once (after the build, should the
+  /// tool change during one: the cursor rebuilds a widget).
+  void _toolsChanged() {
+    if (SchedulerBinding.instance.schedulerPhase != SchedulerPhase.persistentCallbacks) {
+      return widget.input.refreshHover();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.input.refreshHover();
+    });
   }
 
   /// Device pixels per logical pixel, as last built.

@@ -6,6 +6,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/stroke_repository.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/preferences.dart';
+import 'package:len/ink/ink_surface.dart';
 import 'package:len/ink/input/ink_drawing.dart';
 import 'package:len/ink/input/ink_input_controller.dart';
 import 'package:len/ink/input/live_ink.dart';
@@ -165,6 +166,77 @@ void main() {
       );
       async.elapse(LiveInk.stylusHoverTimeout * 1.1);
       expect(live.eraserCenter, isNull, reason: 'lifted and gone');
+    });
+  });
+
+  group('only the active tool\'s hover shows', () {
+    final liveInk = find.byWidgetPredicate(
+      (w) =>
+          w is CustomPaint &&
+          w.painter is LiveInkPainter &&
+          !(w.painter! as LiveInkPainter).belowInk,
+    );
+    const eraserFill = Color(0x2A808080);
+
+    Future<TestGesture> hoverOver(
+      WidgetTester tester, {
+      PointerDeviceKind kind = PointerDeviceKind.stylus,
+    }) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: InkSurface(
+            model: model,
+            viewport: viewport,
+            input: input,
+            live: live,
+            paper: Paper(PaperStyle.blank),
+          ),
+        ),
+      );
+      final pen = await tester.createGesture(kind: kind);
+      await pen.addPointer(location: const Offset(200, 150));
+      addTearDown(pen.removePointer);
+      await pen.moveTo(const Offset(210, 160));
+      await tester.pump();
+      return pen;
+    }
+
+    testWidgets('the eraser paints its ring, not the pen\'s preview, and hides the crosshair', (
+      tester,
+    ) async {
+      tools.tool = EditorTool.eraser;
+      await hoverOver(tester);
+      // The ring alone: its fill, halo and line (the pen's preview would be
+      // a fourth circle, in the ink's colour).
+      expect(tester.renderObject(liveInk), paints..circle(color: eraserFill));
+      expect(tester.renderObject(liveInk), paintsExactlyCountTimes(#drawCircle, 3));
+      expect(live.penCenter, isNull);
+      expect(input.cursor.value, SystemMouseCursors.none);
+      // Under the pen, its preview alone.
+      tools.tool = EditorTool.pen;
+      await tester.pump();
+      expect(tester.renderObject(liveInk), paintsExactlyCountTimes(#drawCircle, 1));
+      expect(tester.renderObject(liveInk), isNot(paints..circle(color: eraserFill)));
+      // Lasso: neither; the system cursor is back.
+      tools.tool = EditorTool.lasso;
+      await tester.pump();
+      expect(tester.renderObject(liveInk), paintsExactlyCountTimes(#drawCircle, 0));
+      expect(input.cursor.value, SystemMouseCursors.precise);
+      // Switching to the eraser while the pen rests shows the ring at once.
+      tools.tool = EditorTool.eraser;
+      await tester.pump();
+      expect(tester.renderObject(liveInk), paintsExactlyCountTimes(#drawCircle, 3));
+      await tester.pump(LiveInk.stylusHoverTimeout * 2); // Let the expiry run.
+    });
+
+    testWidgets('the eraser end shows the ring alone, the pen tool active', (tester) async {
+      await hoverOver(tester, kind: PointerDeviceKind.invertedStylus);
+      expect(tools.tool, EditorTool.pen);
+      expect(tester.renderObject(liveInk), paints..circle(color: eraserFill));
+      expect(tester.renderObject(liveInk), paintsExactlyCountTimes(#drawCircle, 3));
+      expect(input.cursor.value, SystemMouseCursors.none);
+      await tester.pump(LiveInk.stylusHoverTimeout * 2);
     });
   });
 
