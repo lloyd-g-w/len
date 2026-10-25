@@ -2969,7 +2969,7 @@ with a template is "Add page after" held down in the page menu).
   `showToolOptions`): `showAdaptivePopover`, anchored to the tool button and
   320 dp wide (Text 368 on touch: seven 48-dp swatch cells), a sheet on phones
   (`popoverIsSheet`; it holds the options alone, the quick slots stay in the
-  sub-bar over it); the body scrolls with a fading edge (`ScrollFade`); edits
+  sub-bar under it); the body scrolls with a fading edge (`ScrollFade`); edits
   apply live. Each tool's options are **one flat panel**: no colour palette, no
   size slider, no disclosures, no nested popovers. Every panel starts with its
   title and Reset (`OptionHeader`, `ResetButton`: every setting the panel shows
