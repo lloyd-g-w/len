@@ -13,9 +13,10 @@ optional sync through a tiny server you host yourself.
 
 - **Handwriting first**: low-latency pressure ink (S Pen, other active pens, finger,
   mouse), palm rejection, stabiliser; mouse ink stays smooth zoomed out.
-- **Pen, highlighter, eraser**: the highlighter uses the pen's engine (pressure, flat or
-  round ends) and sits behind the ink; pixel or stroke eraser, or scribble over ink to
-  erase it.
+- **Toolbar**: quick colour and size slots beside the tool (how many in Settings); tap
+  the selected tool for its few options in a small menu.
+- **Pen, highlighter, eraser**: the highlighter uses the pen's engine (flat or round
+  ends) and sits behind the ink; pixel or stroke eraser, or scribble over ink to erase it.
 - **Shapes**: draw and hold to snap (a smooth stroke becomes a curve), or the Shape tool
   (Shift for regular shapes; curves anchor by anchor); drag a selected shape's handles —
   corners, sides, centre, radii, a line's bend, a curve's anchors and tangents — to reshape
@@ -23,9 +24,8 @@ optional sync through a tiny server you host yourself.
   attached (connectors): they follow it when it moves, turns or is reshaped.
 - **Lasso**: freehand or rectangle; select what it touches, mostly or wholly encloses,
   and which items (ink, highlighter, text, images).
-- **Laser pointer**: fades per stroke, or holds everything until you stop writing; quick
-  colours and sizes like the pen's, and its feel: round, flat or tapered ends, pressure
-  sensitivity and stabiliser for the trail.
+- **Laser pointer**: a dot or a trail that fades per stroke, or holds everything until you
+  stop writing; quick colours and sizes like the pen's.
 - **Zoom window**: write large in a docked box, small on the page; it moves along the
   lines and pages (left to right or right to left).
 - **Minimap** on infinite canvases: see where content is, tap or drag to move.
