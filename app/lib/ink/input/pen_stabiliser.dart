@@ -29,7 +29,10 @@ import 'dart:ui';
 /// live ink reaches the stabilised point with nothing provisional and the
 /// stroke stores the stabilised points (with stabiliser 0 in its style):
 /// live and committed ink are the same, and a reload draws them again. At
-/// pen-up the ink catches up with the pen along its path ([catchUp]).
+/// pen-up the stroke stops where the ink is, up to the string's length
+/// short of the pen (as Krita's lazy brush): the unfinished tail is
+/// dropped, not drawn (the owner's choice: drawn along the pen's path it
+/// was the raw, unsmoothed hand for the last string's length).
 class PenStabiliser {
   PenStabiliser(this.params);
 
@@ -70,42 +73,10 @@ class PenStabiliser {
   /// At most this many steps between two samples (a jump of the pen).
   static const int _maxSteps = 1024;
 
-  // The pen's positions over the last [_keptLength] of its path (further
-  // back than the ink can be), with the path's length up to each, for
-  // [catchUp]; from [_h0] on.
-  final List<double> _hx = [], _hy = [], _hs = [];
-  int _h0 = 0;
-
-  /// How much of the pen's path (px) is kept for [catchUp].
-  double get _keptLength => 16 * (params.radius + params.engage);
-
-  void _remember(double x, double y) {
-    final n = _hx.length;
-    _hs.add(n == 0 ? 0 : _hs[n - 1] + _distance(x - _hx[n - 1], y - _hy[n - 1]));
-    _hx.add(x);
-    _hy.add(y);
-    final s = _hs.last;
-    while (_h0 < _hs.length - 2 && s - _hs[_h0 + 1] > _keptLength) {
-      _h0++;
-    }
-    // Drop what has fallen out now and then, not on every sample.
-    if (_h0 > 1024) {
-      _hx.removeRange(0, _h0);
-      _hy.removeRange(0, _h0);
-      _hs.removeRange(0, _h0);
-      _h0 = 0;
-    }
-  }
-
   /// Starts a stroke at [at]: the ink starts under the nib.
   void begin(Offset at) {
-    _hx.clear();
-    _hy.clear();
-    _hs.clear();
-    _h0 = 0;
     _px = _ix = at.dx;
     _py = _iy = at.dy;
-    _remember(_px, _py);
     _sx = _px;
     _sy = _py;
     _engaged = false;
@@ -119,7 +90,6 @@ class PenStabiliser {
       return at;
     }
     final x = at.dx, y = at.dy;
-    _remember(x, y);
     if (!_engaged) {
       // The stroke's first px are the pen's: it starts where the pen
       // landed, and a pen-down hook keeps the kink `HookFinder` trims it
@@ -171,51 +141,7 @@ class PenStabiliser {
     _iy += ey * k;
   }
 
-  /// The ink catching up with the pen (at the lift, and before hold to
-  /// snap reads the stroke): points from the ink along the pen's latest
-  /// path to the pen, the ink's offset from that path fading out along it
-  /// (by length), so the end follows the curve the pen drew rather than
-  /// cutting across it, and reaches the lift. The ink is at the pen
-  /// afterwards.
-  List<Offset> catchUp() {
-    final n = _hx.length;
-    // Where the pen's path passed nearest the ink: on the segment from
-    // [j], [t] of the way (on the path, not at a sample: samples far apart
-    // would move the start along the path).
-    var j = n - 1;
-    var t = 0.0;
-    var best = _square(_hx[j] - _ix, _hy[j] - _iy);
-    for (var i = n - 2; i >= _h0; i--) {
-      final ax = _hx[i], ay = _hy[i], dx = _hx[i + 1] - ax, dy = _hy[i + 1] - ay;
-      final l = dx * dx + dy * dy;
-      final f = l > 0 ? (((_ix - ax) * dx + (_iy - ay) * dy) / l).clamp(0.0, 1.0) : 0.0;
-      final d = _square(ax + dx * f - _ix, ay + dy * f - _iy);
-      if (d < best) {
-        best = d;
-        j = i;
-        t = f;
-      }
-    }
-    final k0 = math.min(j + 1, n - 1);
-    final qx = _hx[j] + (_hx[k0] - _hx[j]) * t, qy = _hy[j] + (_hy[k0] - _hy[j]) * t;
-    final qs = _hs[j] + (_hs[k0] - _hs[j]) * t;
-    final ox = _ix - qx, oy = _iy - qy;
-    final total = _hs[n - 1] - qs;
-    final out = <Offset>[];
-    for (var k = j + 1; k < n; k++) {
-      final w = total > 0 ? 1 - (_hs[k] - qs) / total : 0.0;
-      out.add(Offset(_hx[k] + ox * w, _hy[k] + oy * w));
-    }
-    final p = pen;
-    if (out.isEmpty || out.last != p) out.add(p);
-    _ix = _px;
-    _iy = _py;
-    return out;
-  }
-
   static double _distance(double dx, double dy) => math.sqrt(dx * dx + dy * dy);
-
-  static double _square(double dx, double dy) => dx * dx + dy * dy;
 }
 
 /// The stabiliser's numbers for a setting (`PenConfig.streamline`, 0..1),

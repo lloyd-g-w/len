@@ -51,10 +51,11 @@ class InkDrawing {
     this.content,
     this.samples,
   }) : _straighten = HoldToStraighten(live) {
-    // A resting mouse's ink catches up with it before the stroke is read.
     _straighten.penPath = () => _stabiliser == null ? const [] : _penPath;
+    // A resting mouse's ink catches up with it before the stroke is read
+    // (a pen's string stays: the snap reads the pen's path).
     _straighten.beforeSnap = () {
-      if (!_byMouse) return _catchUp();
+      if (!_byMouse) return;
       _mouse.flush();
       _showMouseTip();
     };
@@ -93,10 +94,8 @@ class InkDrawing {
   );
   bool _byMouse = false;
 
-  /// The stabiliser of a stylus or finger stroke (null: off), and the time
-  /// of its newest sample.
+  /// The stabiliser of a stylus or finger stroke (null: off).
   PenStabiliser? _stabiliser;
-  int _stabiliserMs = 0;
 
   /// With the stabiliser on, the pen's own path (world) and times, for
   /// hold to snap ([HoldToStraighten.penPath]).

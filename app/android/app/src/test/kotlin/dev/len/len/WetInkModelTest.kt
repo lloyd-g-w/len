@@ -22,6 +22,43 @@ class WetInkModelTest {
     @Test
     fun aLongStabiliserStringMatchesTheDartModel() = check("sim_cursive_string")
 
+    /**
+     * At the lift the stroke stops where the stabiliser's ink is (within the
+     * points' spacing), up to the string short of the pen: nothing catches up.
+     */
+    @Test
+    fun theLiftStopsWhereTheInkIs() {
+        val ev = lines("sim_cursive_string.ev").map { it.split(' ') }
+        val radii = ev.first { it[0] == "S" }.drop(1).map { it.toDouble() }.toDoubleArray()
+        val shape = WetInkShape.of(ev.first { it[0] == "H" }.drop(1).map { it.toDouble() }.toDoubleArray())!!
+        val model = WetInkModel(radii, shape, 8.3)
+        val ink = PenStabiliser(shape)
+        // The last contact's samples.
+        val adds = ev.drop(ev.indexOfLast { it[0] == "B" }).filter { it[0] == "A" }
+        for (f in adds) {
+            val x = f[1].toDouble()
+            val y = f[2].toDouble()
+            model.add(x, y, f[3].toDouble(), f[4].toLong(), f[5] == "1")
+            ink.add(x, y)
+        }
+        assertTrue(model.lifted)
+        val end = model.samples.last()
+        val fromInk = WetInkModel.dist(end.x - ink.inkX, end.y - ink.inkY)
+        assertTrue("the end is the ink's ($fromInk px off)", fromInk <= shape.minSpacing + 1e-9)
+        val last = adds.last()
+        val fromPen = WetInkModel.dist(end.x - last[1].toDouble(), end.y - last[2].toDouble())
+        assertTrue("within the string of the pen ($fromPen px)", fromPen <= shape.stabiliserRadius + shape.minSpacing)
+        assertTrue("short of the pen ($fromPen px)", fromPen > 0.25 * shape.stabiliserRadius)
+
+        // A tap still leaves its point, under the nib.
+        val tap = WetInkModel(radii, shape, 8.3)
+        tap.add(100.0, 100.0, 0.5, 0)
+        tap.add(100.0, 100.0, 0.5, 30, lift = true)
+        assertEquals(1, tap.samples.size)
+        assertEquals(100.0, tap.samples[0].x, 0.0)
+        assertEquals(100.0, tap.samples[0].y, 0.0)
+    }
+
     @Test
     fun flatAndTaperedEndsMatchTheDartModel() {
         for (name in listOf("sim_hooks", "real_spen_01")) {

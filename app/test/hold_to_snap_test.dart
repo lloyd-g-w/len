@@ -25,6 +25,7 @@ void main() {
   late InkInputController input;
   late LiveInk live;
   late ViewportController viewport;
+  late ToolSettings tools;
 
   setUp(() {
     db = AppDatabase.inMemory();
@@ -34,12 +35,8 @@ void main() {
     );
     viewport = ViewportController()..setSize(const Size(800, 600));
     live = LiveInk();
-    input = InkInputController(
-      model: model,
-      viewport: viewport,
-      tools: ToolSettings(stylusOnly: true),
-      live: live,
-    );
+    tools = ToolSettings(stylusOnly: true);
+    input = InkInputController(model: model, viewport: viewport, tools: tools, live: live);
   });
 
   tearDown(() {
@@ -177,6 +174,25 @@ void main() {
     }
     input.handleUp(const PointerUpEvent(pointer: 1, kind: PointerDeviceKind.stylus));
     expect(committed().shape!.points, [pts.first, const Offset(560, 340)]);
+  });
+
+  testWidgets('at 100 % stabiliser a held line ends at the pen, not the string\'s ink', (
+    tester,
+  ) async {
+    tools.updateConfig(tools.activeInk, (c) => c.copyWith(streamline: 1));
+    final pts = HandShapes(1).line(const Offset(100, 200), const Offset(400, 230));
+    await drawAndHold(tester, pts);
+    final line = committed().shape!.points;
+    expect(line.first, pts.first);
+    // Where the pen rested, 80 px past where the string held the ink.
+    expect((line.last - pts.last).distance, lessThan(1));
+    // A shape too, recognised from the pen's path.
+    const box = [Offset(100, 100), Offset(300, 100), Offset(300, 220), Offset(100, 220)];
+    await drawAndHold(tester, sketch(loop(box)));
+    expect(committed().shape?.kind, ShapeKind.rectangle);
+    // Moved on after the snap, the line follows the pen.
+    await drawAndHold(tester, pts, moveAfter: true);
+    expect(committed().shape!.points.last, pts.last + const Offset(80, 80));
   });
 
   testWidgets('a held line nearly level commits level, and stays level as the pen moves on', (

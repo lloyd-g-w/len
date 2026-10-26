@@ -4,7 +4,8 @@
 // by exactly that when the pen moves steadily, slow or fast (the owner:
 // the stabilisation must hold when writing fast), ignore jitter within the
 // string, give the same line at 120, 240 and 1000 Hz, and hand over at
-// pen-up without a jump, ending where the pen lifted. The slow, shaky side
+// pen-up without a jump, stopping where the ink is (within the string of
+// the lift). The slow, shaky side
 // is `stabiliser_test.dart`.
 //
 // Before (PR #7, a speed-adaptive time filter): the trail fell from ≈ 8 px
@@ -136,10 +137,10 @@ void main() {
         // … and fast writing is held back as much as slow: the trail
         // above 1000 px/s is the string's length.
         expect(c.lag.pxAt(.5, minSpeed: 1000), greaterThan(0.8 * r), reason: 'held when fast');
-        // At the lift the ink catches up from at most a string away (the
-        // catch-up follows the pen's path, so its length can be more: the
-        // ink cut the corners the pen went round).
+        // At the lift the stroke stops where the ink is: at most a string
+        // from the pen, and the lift adds no more than the live tip.
         expect(c.lag.liftGap.single, lessThan(r + 3.5), reason: 'cursive lift');
+        expect(c.lag.liftTail.single, lessThan(3.5), reason: 'cursive lift tail');
       });
     }
   });
@@ -177,8 +178,7 @@ void main() {
           final d = _hausdorff(_line(_run(motion, s, hz: hz).replay), at240);
           _log('$name at $s: ${hz.round()} Hz vs 240 Hz ${d.toStringAsFixed(2)} px');
           // The digitiser's jitter differs between runs, and so do the
-          // samples: up to 0.5 px without the stabiliser (the catch-up at
-          // the lift follows the pen's own samples).
+          // samples: up to 0.5 px without the stabiliser.
           expect(d, lessThan(0.75), reason: '$name at $s, $hz Hz');
         }
       }
@@ -206,14 +206,29 @@ void main() {
         worst = math.max(worst, d);
       }
       expect(worst, lessThan(1e-9), reason: 'at $s');
-      // The stroke ends where the pen lifted.
+      // The stroke stops where the ink is: the stabiliser's last ink, fed
+      // the pen's samples (as close as without the stabiliser to the
+      // input's own end, ≈ 0.4 px), within the string of the lift.
       final end = r.screenOf(stroke)(stroke.points.last.x, stroke.points.last.y);
-      final lift = rawContacts(_run(fastCursive, s).replay.recording).single.samples.last;
-      _log('at $s the stroke ends ${(end - lift.position).distance} px from the lift');
-      // (As close as without the stabiliser: the input's own end, ≈ 0.4 px.)
-      final off = (end - lift.position).distance;
+      final samples = rawContacts(r.recording).single.samples;
+      final lift = samples.last.position;
+      var ink = lift;
+      if (StabiliserParams.of(s) case final p?) {
+        final st = PenStabiliser(p)..begin(samples.first.position);
+        for (final x in samples.skip(1)) {
+          ink = st.add(x.position);
+        }
+      }
+      final off = (end - ink).distance;
+      _log(
+        'at $s the stroke ends ${off.toStringAsFixed(2)} px from the ink, '
+        '${(end - lift).distance.toStringAsFixed(1)} px from the lift',
+      );
       atZero ??= off;
       expect(off, lessThan(atZero + 0.05), reason: 'end at $s');
+      final reach = StabiliserParams.radiusAt(s);
+      expect((end - lift).distance, lessThan(reach + atZero + 0.05), reason: 'within R at $s');
+      if (s == 1.0) expect((end - lift).distance, greaterThan(0.9 * reach), reason: 'short');
     }
   });
 
@@ -325,31 +340,21 @@ void main() {
       }
     });
 
-    test('the ink catches up with the pen along its path', () {
-      final s = PenStabiliser(params)..begin(Offset.zero);
-      // A slow quarter circle (radius 120 px).
-      for (var t = 1; t <= 1000; t++) {
-        final a = t / 1000 * math.pi / 2;
-        s.add(Offset(120 - 120 * math.cos(a), 120 * math.sin(a)));
+    test('a tap and a stroke shorter than the start are the pen\'s own', () {
+      final s = PenStabiliser(params)..begin(const Offset(10, 10));
+      expect(s.ink, const Offset(10, 10));
+      // Within [StabiliserParams.engage] of pen-down: raw.
+      for (final p in const [Offset(11, 10), Offset(12, 11), Offset(13, 12)]) {
+        expect(s.add(p), p);
       }
+      // A little further, the string is still short: the ink keeps
+      // moving, if slower than the pen.
       final before = s.ink;
-      final pen = s.pen;
-      expect(s.gap, closeTo(r, 1e-6));
-      final rest = s.catchUp();
-      expect(rest.last, pen);
-      // It starts at the ink, not at the pen, …
-      expect((rest.first - before).distance, lessThan(2));
-      for (var i = 1; i < rest.length; i++) {
-        expect((rest[i] - rest[i - 1]).distance, lessThan(2), reason: 'no jump');
+      for (var x = 14.0; x <= 24; x++) {
+        s.add(Offset(x, 12));
       }
-      expect(s.ink, pen);
-      // … along the arc, not across it: the ink's own offset inside the
-      // arc fades out (a straight line to the pen would be 7 px inside).
-      double off(Offset p) => ((p - const Offset(120, 0)).distance - 120).abs();
-      for (final p in rest) {
-        expect(off(p), lessThanOrEqualTo(1.01 * off(before)));
-      }
-      expect(off(rest[rest.length ~/ 2]), lessThan(0.6 * off(before)));
+      expect(s.ink.dx, greaterThan(before.dx + 3));
+      expect(s.gap, lessThanOrEqualTo(6));
     });
   });
 }

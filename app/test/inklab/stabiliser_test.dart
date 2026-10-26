@@ -14,7 +14,6 @@ library;
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:len/ink/input/pen_stabiliser.dart';
 import 'package:len/ink/input/wet_ink.dart';
 import 'package:len/ink/lab/raw_samples.dart';
 import 'package:len/ink/lab/replay_run.dart';
@@ -84,11 +83,9 @@ Map<String, ({double rms, double max})> measure(double streamline) {
   bool inner(Offset p) => p.dx > 75 && p.dx < 345;
 
   final c = StrokeOutline.centerline(stroke.points, spec)!;
-  // The stroke's last string length is the catch-up at the lift, which
-  // follows the pen's own path (`PenStabiliser.catchUp`): left out.
-  final reach = StabiliserParams.of(streamline)?.radius ?? 0;
-  final committed = [for (var i = 0; i < c.length; i++) r.toScreen(c.x[i], c.y[i])]
-      .where((p) => inner(p) && p.dx < 355 - reach);
+  // All of it: at the lift the stroke stops where the ink is, so its end
+  // is stabilised too.
+  final committed = [for (var i = 0; i < c.length; i++) r.toScreen(c.x[i], c.y[i])].where(inner);
 
   // The newest [reach] px of a line (screen points, oldest first).
   List<Offset> newest(List<Offset> line, double reach) {

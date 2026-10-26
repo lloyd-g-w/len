@@ -28,9 +28,9 @@ part 'wet_ink_segments.dart';
 ///    same filter as Dart's `PressureFilter` (the lift sample keeps the
 ///    previous pressure, as Flutter's synthesized up move does).
 ///  * **Stabiliser**: with [WetInkShape.stabiliser], each sample's position
-///    is the [PenStabiliser]'s, as the input controller applies it; the
-///    lift sample's is the pen's own (the ink catches up with the pen, as
-///    Flutter's does at pen-up).
+///    is the [PenStabiliser]'s, as the input controller applies it; at
+///    the lift the stroke stops where the ink is, short of the pen, as
+///    Flutter's does.
 ///  * **Points**: thinned like the input controller does (`PointSpacing`):
 ///    closer than [WetInkShape.minSpacing] to the last point is dropped,
 ///    unless it is the furthest dropped sample and more than
@@ -159,16 +159,13 @@ class WetInkModel with _WetInkRadii, _WetInkSegments {
       // Flutter's synthesized move there (the up's own position).
       if (lift && position == s.pen) {
         _updatePressure(pressure, lift: true);
-        return _catchUpAndLift(s, timeMs);
+        return _lift(timeMs);
       }
       position = s.add(position);
     }
     _updatePressure(pressure, lift: lift);
     _thin(WetSample(position, _pressure, timeMs));
-    if (lift) {
-      if (s != null) return _catchUpAndLift(s, timeMs);
-      _lift(timeMs);
-    }
+    if (lift) _lift(timeMs);
   }
 
   void _updatePressure(double pressure, {required bool lift}) {
@@ -178,15 +175,6 @@ class WetInkModel with _WetInkRadii, _WetInkSegments {
           ? norm
           : _pressure * shape.pressureKeep + norm * (1 - shape.pressureKeep);
     }
-  }
-
-  /// The stabilised ink catches up with the pen ([PenStabiliser.catchUp],
-  /// as Flutter's does at pen-up), then the pen lifts.
-  void _catchUpAndLift(PenStabiliser s, int timeMs) {
-    for (final p in s.catchUp()) {
-      _thin(WetSample(p, _pressure, timeMs));
-    }
-    _lift(timeMs);
   }
 
   /// Keeps [sample] as a point, or drops it as too close (see the class

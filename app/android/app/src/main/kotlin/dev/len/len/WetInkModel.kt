@@ -84,7 +84,8 @@ fun strokePressure(normalised: Double): Double {
  * The pen's stabiliser: a pulled string (lazy brush). The ink stays put while
  * the pen is within the string's length of it, and is pulled straight toward
  * the pen when it goes further, in steps of at most 1/32 of the length and 1/8 of [WetInkShape.engage]; the
- * first [WetInkShape.engage] px from pen-down are the pen's own.
+ * first [WetInkShape.engage] px from pen-down are the pen's own. At the lift
+ * the stroke stops where the ink is, short of the pen (nothing catches up).
  * A port of Dart's `PenStabiliser` (same steps, same order of operations).
  */
 class PenStabiliser(private val shape: WetInkShape) {
@@ -106,35 +107,12 @@ class PenStabiliser(private val shape: WetInkShape) {
     // How far the pen has moved since the string engaged: the string grows by GROWTH of that to its length.
     private var travel = 0.0
 
-    // The pen's positions over the last [keptLength] px of its path, with the
-    // path's length up to each, for [catchUp].
-    private val hx = ArrayDeque<Double>()
-    private val hy = ArrayDeque<Double>()
-    private val hs = ArrayDeque<Double>()
-    private val keptLength = 16 * (shape.stabiliserRadius + shape.engage)
-
-    private fun remember(x: Double, y: Double) {
-        hs.addLast(if (hx.isEmpty()) 0.0 else hs.last() + WetInkModel.dist(x - hx.last(), y - hy.last()))
-        hx.addLast(x)
-        hy.addLast(y)
-        val s = hs.last()
-        while (hs.size > 2 && s - hs[1] > keptLength) {
-            hx.removeFirst()
-            hy.removeFirst()
-            hs.removeFirst()
-        }
-    }
-
     /** Starts at ([x], [y]): the ink is under the nib. */
     fun begin(x: Double, y: Double) {
-        hx.clear()
-        hy.clear()
-        hs.clear()
         penX = x
         penY = y
         inkX = x
         inkY = y
-        remember(x, y)
         startX = x
         startY = y
         engaged = false
@@ -144,7 +122,6 @@ class PenStabiliser(private val shape: WetInkShape) {
     /** The pen moved to ([x], [y]): the ink moves to ([inkX], [inkY]). */
     fun add(x: Double, y: Double) {
         if (!started) return begin(x, y)
-        remember(x, y)
         if (!engaged) {
             val e = shape.engage
             val ux = penX - startX
@@ -196,55 +173,6 @@ class PenStabiliser(private val shape: WetInkShape) {
         val k = (e - r) / e
         inkX += ex * k
         inkY += ey * k
-    }
-
-    /**
-     * The ink catching up with the pen: points (x, y pairs) from the ink along
-     * the pen's latest path to the pen, the ink's offset from that path fading
-     * out along it (by length). The ink is at the pen afterwards.
-     */
-    fun catchUp(): DoubleArray {
-        val n = hx.size
-        // Where the pen's path passed nearest the ink: on the segment from j, t of the way.
-        var j = n - 1
-        var t = 0.0
-        var best = (hx[j] - inkX) * (hx[j] - inkX) + (hy[j] - inkY) * (hy[j] - inkY)
-        for (i in n - 2 downTo 0) {
-            val ax = hx[i]
-            val ay = hy[i]
-            val dx = hx[i + 1] - ax
-            val dy = hy[i + 1] - ay
-            val l = dx * dx + dy * dy
-            val f = if (l > 0) (((inkX - ax) * dx + (inkY - ay) * dy) / l).coerceIn(0.0, 1.0) else 0.0
-            val ex = ax + dx * f - inkX
-            val ey = ay + dy * f - inkY
-            val d = ex * ex + ey * ey
-            if (d < best) {
-                best = d
-                j = i
-                t = f
-            }
-        }
-        val k0 = min(j + 1, n - 1)
-        val qx = hx[j] + (hx[k0] - hx[j]) * t
-        val qy = hy[j] + (hy[k0] - hy[j]) * t
-        val qs = hs[j] + (hs[k0] - hs[j]) * t
-        val ox = inkX - qx
-        val oy = inkY - qy
-        val total = hs[n - 1] - qs
-        val out = ArrayList<Double>()
-        for (k in j + 1 until n) {
-            val w = if (total > 0) 1 - (hs[k] - qs) / total else 0.0
-            out.add(hx[k] + ox * w)
-            out.add(hy[k] + oy * w)
-        }
-        if (out.isEmpty() || out[out.size - 2] != penX || out[out.size - 1] != penY) {
-            out.add(penX)
-            out.add(penY)
-        }
-        inkX = penX
-        inkY = penY
-        return out.toDoubleArray()
     }
 
     private companion object {
@@ -327,7 +255,7 @@ class WetInkModel(
     /** Adds a digitiser sample ([pressure] normalised to 0..1); [lift] marks the pen-up one. */
     fun add(xIn: Double, yIn: Double, pressure: Double, timeMs: Long, lift: Boolean = false) {
         if (lifted) return
-        // With the stabiliser on, the ink's position; at the lift it catches up with the pen.
+        // With the stabiliser on, the ink's position; at the lift the stroke stops where the ink is.
         var x = xIn
         var y = yIn
         val st = stabiliser
@@ -336,7 +264,7 @@ class WetInkModel(
             // Flutter's synthesized move there (the up's own position).
             if (lift && xIn == st.penX && yIn == st.penY) {
                 updatePressure(pressure, lift = true)
-                return catchUpAndLift(st, timeMs)
+                return lift(timeMs)
             }
             st.add(xIn, yIn)
             x = st.inkX
@@ -344,10 +272,7 @@ class WetInkModel(
         }
         updatePressure(pressure, lift)
         thin(WetSample(x, y, this.pressure, timeMs))
-        if (lift) {
-            if (st != null) return catchUpAndLift(st, timeMs)
-            lift(timeMs)
-        }
+        if (lift) lift(timeMs)
     }
 
     private fun updatePressure(pressure: Double, lift: Boolean) {
@@ -359,13 +284,6 @@ class WetInkModel(
                 this.pressure * shape.pressureKeep + norm * (1 - shape.pressureKeep)
             }
         }
-    }
-
-    /** The stabilised ink catches up with the pen ([PenStabiliser.catchUp]), then the pen lifts. */
-    private fun catchUpAndLift(st: PenStabiliser, timeMs: Long) {
-        val p = st.catchUp()
-        for (k in 0 until p.size / 2) thin(WetSample(p[2 * k], p[2 * k + 1], pressure, timeMs))
-        lift(timeMs)
     }
 
     /** Keeps [sample] as a point, or drops it as too close (see the Dart model, *Points*). */

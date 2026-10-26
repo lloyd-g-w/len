@@ -103,6 +103,7 @@ void main() {
       write(speed);
       await tester.pump();
       final from = live.stringFrom!, to = live.stringTo!;
+      final shown = [...live.points];
       // From the ink's tip, held back, to the pen: as far at any speed once
       // the string has grown (`PenStabiliser`).
       expect(to.dx, closeTo(50 + speed * 0.4, 1e-9));
@@ -124,13 +125,45 @@ void main() {
       await tester.pump();
       expect(live.stringFrom, isNull);
       expect(painter, isNot(paints..circle()));
-      // The ink caught up with the pen (to within the points' spacing,
-      // `PointSpacing`), along the line, and the string is no part of it.
+      // The stroke stops where the ink is (to within the points' spacing,
+      // `PointSpacing`), a string short of the pen: the live ink as shown,
+      // and the string is no part of it.
       final stroke = model.history.takeUndo()!.added.single;
-      expect(stroke.points.last.x, closeTo(to.dx, 0.75));
+      expect(stroke.points.last.x, closeTo(from.dx, 0.75));
+      expect(to.dx - stroke.points.last.x, lessThanOrEqualTo(StabiliserParams.maxRadius + 1e-6));
+      expect([for (final p in stroke.points) p.offset], [for (final p in shown) p.offset]);
       expect(stroke.points.every((p) => p.y == 150), isTrue);
     });
   }
+
+  testWidgets('at 100 % a tap draws a dot and a short stroke its raw start', (tester) async {
+    stabiliser(1);
+    // A tap: one point, the pen's.
+    input.handleDown(
+      const PointerDownEvent(
+        pointer: 1,
+        kind: PointerDeviceKind.stylus,
+        position: Offset(50, 150),
+        pressure: 0.5,
+      ),
+    );
+    lift();
+    final dot = model.history.takeUndo()!.added.single;
+    expect(dot.points, isNotEmpty);
+    expect(dot.points.first.offset, const Offset(50, 150));
+    // A dash shorter than the string's start ([StabiliserParams.engage]):
+    // the pen's own points, to where it lifted.
+    write(1000, ms: 3);
+    lift();
+    final dash = model.history.takeUndo()!.added.single;
+    expect(dash.points.first.offset, const Offset(50, 150));
+    expect(dash.points.last.x, closeTo(53, 0.75));
+    // A short stroke (12 px): the string has barely grown, so most of it.
+    write(1000, ms: 12);
+    lift();
+    final short = model.history.takeUndo()!.added.single;
+    expect(short.points.last.x, greaterThan(50 + StabiliserParams.defaultEngage + 2));
+  });
 
   testWidgets('no string when the ink is at the pen or the setting is off', (tester) async {
     await show(tester);

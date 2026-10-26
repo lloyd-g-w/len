@@ -48,7 +48,7 @@ class Truth {
 
 /// [truth] as the pen's stabiliser at [streamline] draws it (screen px, as
 /// truths are): its path through the same pulled string ([PenStabiliser]),
-/// caught up at the end, each cusp moved to the nearest point of that
+/// stopping where the ink is at the lift, each cusp moved to the nearest point of that
 /// path. The string is deliberate smoothing (it cuts corners by its
 /// length): the engine is judged on drawing what the stabiliser gives,
 /// as at 0 on drawing the pen's path. At 0 (off), [truth] itself.
@@ -61,13 +61,6 @@ Truth stabilisedTruth(Truth truth, double streamline) {
   for (var i = 1; i < truth.path.length; i++) {
     path.add(s.add(truth.path[i]));
     pressure.add(truth.pressure[math.min(i, truth.pressure.length - 1)]);
-  }
-  // The catch-up retraces the pen's last points: their pressures.
-  final rest = s.catchUp();
-  for (var k = 0; k < rest.length; k++) {
-    path.add(rest[k]);
-    final i = truth.pressure.length - rest.length + k;
-    pressure.add(truth.pressure[i.clamp(0, truth.pressure.length - 1)]);
   }
   final index = PolylineIndex(path, cell: 3);
   return Truth(
