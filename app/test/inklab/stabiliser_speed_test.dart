@@ -246,11 +246,13 @@ void main() {
       expect((rest.first - before).distance, lessThan(0.5 * gap));
       expect(s.ink, pen);
       // Along the arc, not across it: the ink's own offset from the arc
-      // (it cuts inside a curve) fades out, never grows.
+      // (it cuts inside a curve) fades out (halfway, a straight line to
+      // the pen would be inside the arc by 2/3 of it).
       double off(Offset p) => ((p - const Offset(30, 0)).distance - 30).abs();
       for (final p in rest) {
-        expect(off(p), lessThanOrEqualTo(off(before) + 0.05));
+        expect(off(p), lessThanOrEqualTo(1.1 * off(before)));
       }
+      expect(off(rest[rest.length ~/ 2]), lessThan(0.6 * off(before)));
     });
   });
 }

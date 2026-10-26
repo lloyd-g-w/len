@@ -18,7 +18,11 @@ import 'dart:ui';
 /// of fast writing does not smooth it: the corner keeps its point). The
 /// square makes the trail in pixels (v · τ) peak at a crawl and fall as
 /// the pen speeds up, where the 1€ filter's (linear) trail would only
-/// level off: ≈ 1 px at 1000 px/s even at full strength.
+/// level off: at full strength ≈ 8 px at 40 px/s (a slow, deliberate
+/// line, smoothed most), 3 px at 300 px/s, under 1 px at 1500 px/s. (A
+/// cube held fast writing back even less, but a shaky hand's own speed
+/// then switched the smoothing off, and slow, small handwriting at 150
+/// px/s lost the tops of its letters.)
 ///
 /// Each step solves the filter exactly for the pen moving in a straight
 /// line at constant speed between two samples (a first-order hold), so
@@ -55,16 +59,28 @@ class PenStabiliser {
   Offset _start = Offset.zero;
   bool _engaged = false;
 
-  // The pen's latest positions, for [catchUp].
+  // The pen's positions over the last [_keptFor] (as far back as the ink
+  // can trail), for [catchUp]; from [_h0] on.
   final List<double> _hx = [], _hy = [];
-  static const int _kept = 64;
+  final List<int> _ht = [];
+  int _h0 = 0;
 
-  void _remember(Offset at) {
+  /// How long (ms) the pen's path is kept: twice the time constant at rest.
+  int get _keptFor => (2000 * params.restTau).ceil() + 50;
+
+  void _remember(Offset at, int timeMs) {
     _hx.add(at.dx);
     _hy.add(at.dy);
-    if (_hx.length > _kept) {
-      _hx.removeAt(0);
-      _hy.removeAt(0);
+    _ht.add(timeMs);
+    while (_h0 < _ht.length - 2 && timeMs - _ht[_h0] > _keptFor) {
+      _h0++;
+    }
+    // Drop what has fallen out now and then, not on every sample.
+    if (_h0 > 1024) {
+      _hx.removeRange(0, _h0);
+      _hy.removeRange(0, _h0);
+      _ht.removeRange(0, _h0);
+      _h0 = 0;
     }
   }
 
@@ -72,7 +88,9 @@ class PenStabiliser {
   void begin(Offset at, int timeMs) {
     _hx.clear();
     _hy.clear();
-    _remember(at);
+    _ht.clear();
+    _h0 = 0;
+    _remember(at, timeMs);
     _x = _y = at;
     _t = timeMs;
     _vx = _vy = _speed = 0;
@@ -87,7 +105,7 @@ class PenStabiliser {
       begin(at, timeMs);
       return at;
     }
-    _remember(at);
+    _remember(at, timeMs);
     final dt = (timeMs - _t) / 1000;
     if (dt <= 0) {
       // No time passed (samples of the same millisecond, or input without
@@ -139,7 +157,7 @@ class PenStabiliser {
     // The pen's position nearest the ink.
     var j = n - 1;
     var best = double.infinity;
-    for (var i = n - 1; i >= 0; i--) {
+    for (var i = n - 1; i >= _h0; i--) {
       final dx = _hx[i] - _y.dx, dy = _hy[i] - _y.dy;
       final d = dx * dx + dy * dy;
       if (d < best) {
@@ -185,8 +203,8 @@ class StabiliserParams {
   /// The setting is the time constant at rest, linearly: 40 ms at 10 %,
   /// 120 ms at 30 % (the pen's default: jitter goes, no visible trail),
   /// 400 ms at 100 % (slow lines come out smooth, the ink drawn after the
-  /// pen as on a string). The speed scale is the same throughout, so fast
-  /// writing is never held back much.
+  /// pen as on a string). The speed scale is the same
+  /// throughout, so fast writing is never held back much.
   static StabiliserParams? of(double setting, {double scale = 1}) {
     if (!(setting > 0)) return null;
     return StabiliserParams(

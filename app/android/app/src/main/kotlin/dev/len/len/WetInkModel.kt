@@ -100,16 +100,20 @@ class PenStabiliser(private val shape: WetInkShape) {
         private set
     private var t = 0L
 
-    // The pen's latest positions, for [catchUp].
+    // The pen's positions over the last [keptFor] ms (as far back as the ink can trail), for [catchUp].
     private val hx = ArrayDeque<Double>()
     private val hy = ArrayDeque<Double>()
+    private val ht = ArrayDeque<Long>()
+    private val keptFor = ceil(2000 * shape.restTau).toLong() + 50
 
-    private fun remember(x: Double, y: Double) {
+    private fun remember(x: Double, y: Double, timeMs: Long) {
         hx.addLast(x)
         hy.addLast(y)
-        if (hx.size > KEPT) {
+        ht.addLast(timeMs)
+        while (ht.size > 2 && timeMs - ht.first() > keptFor) {
             hx.removeFirst()
             hy.removeFirst()
+            ht.removeFirst()
         }
     }
     private var vx = 0.0
@@ -126,7 +130,8 @@ class PenStabiliser(private val shape: WetInkShape) {
     fun begin(x: Double, y: Double, timeMs: Long) {
         hx.clear()
         hy.clear()
-        remember(x, y)
+        ht.clear()
+        remember(x, y, timeMs)
         penX = x
         penY = y
         inkX = x
@@ -144,7 +149,7 @@ class PenStabiliser(private val shape: WetInkShape) {
     /** The pen moved to ([x], [y]): the ink moves to ([inkX], [inkY]). */
     fun add(x: Double, y: Double, timeMs: Long) {
         if (!started) return begin(x, y, timeMs)
-        remember(x, y)
+        remember(x, y, timeMs)
         val dt = (timeMs - t) / 1000.0
         if (dt <= 0) {
             // No time passed: the filter cannot act, the ink moves with the pen.
@@ -220,9 +225,6 @@ class PenStabiliser(private val shape: WetInkShape) {
         return out.toDoubleArray()
     }
 
-    companion object {
-        const val KEPT = 64
-    }
 }
 
 /** A sample as the overlay keeps it (pressure already smoothed). */
