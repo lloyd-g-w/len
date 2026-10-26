@@ -1,8 +1,9 @@
-// The stabiliser's string (`StabiliserString`): while the stabiliser holds
-// the ink back from a slow pen, a hairline runs from the ink's tip to the
-// pen with a ring at the pen; it goes at pen-up, never shows when the ink
-// is at the pen (fast writing, the stabiliser off) or with its setting off,
-// and is never part of the stroke.
+// The stabiliser's string (`StabiliserString`): while the pen pulls the
+// ink on the stabiliser's string, slow or fast, a hairline runs from the
+// ink's tip to the pen with a ring at the pen; it goes at pen-up, never
+// shows when the ink is at the pen (the stabiliser off, the pen back
+// within the string) or with its setting off, and is never part of the
+// stroke.
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +11,7 @@ import 'package:len/data/app_database.dart';
 import 'package:len/data/stroke_repository.dart';
 import 'package:len/ink/input/ink_input_controller.dart';
 import 'package:len/ink/input/live_ink.dart';
+import 'package:len/ink/input/pen_stabiliser.dart';
 import 'package:len/ink/render/ink_painters.dart';
 import 'package:len/ink/render/stabiliser_string.dart';
 import 'package:len/ink/surface_model.dart';
@@ -92,43 +94,54 @@ void main() {
   void stabiliser(double s) =>
       tools.updateConfig(tools.activeInk, (c) => c.copyWith(streamline: s));
 
-  testWidgets('a slow pen pulls the ink on a string, which goes at pen-up', (tester) async {
-    stabiliser(1);
-    await show(tester);
-    write(60);
-    await tester.pump();
-    final from = live.stringFrom!, to = live.stringTo!;
-    // From the ink's tip, held back, to the pen.
-    expect(to.dx, closeTo(50 + 60 * 0.4, 1e-9));
-    expect(to.dx - from.dx, greaterThan(StabiliserString.hiddenBelow + StabiliserString.fadeOver));
-    expect(from.dx, closeTo(live.points.last.x, 1));
-    final painter = find.byType(CustomPaint);
-    expect(
-      painter,
-      paints
-        ..path()
-        ..line()
-        ..circle(radius: StabiliserString.ringRadius),
-    );
-    lift();
-    await tester.pump();
-    expect(live.stringFrom, isNull);
-    expect(painter, isNot(paints..circle()));
-    // The ink caught up with the pen (to within the points' spacing,
-    // `PointSpacing`), along the line, and the string is no part of it.
-    final stroke = model.history.takeUndo()!.added.single;
-    expect(stroke.points.last.x, closeTo(to.dx, 0.75));
-    expect(stroke.points.every((p) => p.y == 150), isTrue);
-  });
+  for (final speed in [60.0, 1500.0]) {
+    testWidgets('a pen at $speed px/s pulls the ink on a string, which goes at pen-up', (
+      tester,
+    ) async {
+      stabiliser(1);
+      await show(tester);
+      write(speed);
+      await tester.pump();
+      final from = live.stringFrom!, to = live.stringTo!;
+      // From the ink's tip, held back, to the pen: as far at any speed once
+      // the string has grown (`PenStabiliser`).
+      expect(to.dx, closeTo(50 + speed * 0.4, 1e-9));
+      expect(
+        to.dx - from.dx,
+        greaterThan(StabiliserString.hiddenBelow + StabiliserString.fadeOver),
+      );
+      if (speed > 1000) expect(to.dx - from.dx, closeTo(StabiliserParams.maxRadius, 1e-6));
+      expect(from.dx, closeTo(live.points.last.x, 1));
+      final painter = find.byType(CustomPaint);
+      expect(
+        painter,
+        paints
+          ..path()
+          ..line()
+          ..circle(radius: StabiliserString.ringRadius),
+      );
+      lift();
+      await tester.pump();
+      expect(live.stringFrom, isNull);
+      expect(painter, isNot(paints..circle()));
+      // The ink caught up with the pen (to within the points' spacing,
+      // `PointSpacing`), along the line, and the string is no part of it.
+      final stroke = model.history.takeUndo()!.added.single;
+      expect(stroke.points.last.x, closeTo(to.dx, 0.75));
+      expect(stroke.points.every((p) => p.y == 150), isTrue);
+    });
+  }
 
-  testWidgets('no string when the ink keeps up or the setting is off', (tester) async {
+  testWidgets('no string when the ink is at the pen or the setting is off', (tester) async {
     await show(tester);
-    // The default stabiliser, writing fast: the ink is at the pen.
-    write(1200, ms: 150);
+    // The default stabiliser (a 3 px string): the pen 1.5 px from where
+    // it landed pulls nothing.
+    write(1.5, ms: 1000);
     await tester.pump();
+    expect(live.stringFrom, isNotNull);
     expect(find.byType(CustomPaint), isNot(paints..circle()));
     lift();
-    // Off: the ink trails a slow pen, but shows no string.
+    // Off: the ink trails the pen, but shows no string.
     stabiliser(1);
     tools.showStabiliserString = false;
     write(60);

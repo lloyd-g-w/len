@@ -132,7 +132,8 @@ tool/heavy.sh nix develop ..# -c bash -c 'flutter test test/inklab/tools/table_t
 # at stabiliser 0 / 0.5 / 1, as a table
 nix develop ..# -c bash -c 'flutter test test/inklab/stabiliser_test.dart \
   --dart-define=INKLAB_TABLE=true'
-# the stabiliser when writing fast (F13): trail, lift, shapes, sample rates
+# the stabiliser's string (F13, F14): gap = R at any speed, jitter, sample
+# rates, pen-up
 nix develop ..# -c bash -c 'flutter test test/inklab/stabiliser_speed_test.dart \
   --dart-define=INKLAB_TABLE=true'
 # the Kotlin overlay model against the Dart one (needs only nix): every case
@@ -649,11 +650,42 @@ removed at 50 % than before (0.37 vs 0.44 px RMS left). The entries at
 `test/inklab/stabiliser_speed_test.dart`; sheets in
 `inklab/stabiliser/`.
 
+(Since replaced by a pulled string at the owner's request, F14; the
+sheets now compare the two.)
+
+### F14 (by design): the stabiliser became a pulled string
+
+Owner: the stabiliser should go "way higher, like 8x", and "I kinda don't
+want it to keep up when you write fast … I want it to maintain whatever
+stabilisation". F13's filter let fast writing through by design. Now the
+stabiliser is a lazy brush (`PenStabiliser`, ARCHITECTURE *Stabiliser*):
+the ink is pulled on a string of R = 3 px at 30 % up to 80 px at 100 %
+and trails the pen by exactly R at any speed and sample rate. The string's
+corner-cutting is deliberate, so the suite judges stabilised entries
+against the true path passed through the same string
+(`metrics/truth.dart`, `stabilisedTruth`). Two metrics at 0.4 fail and are
+listed in `known_failures.dart`: on `fast_loops` the string pulls the 7 px
+loops into curves tighter than the outline's σ 0.7 px follows
+(`detail.retraction` 1.5 px, limit 1.3), and on `zigzag` the pen stops and
+turns within the string, so the ink turns a real ≈ 100° corner the
+outline does not take as a corner and rounds (`smooth.edgeBump16x` 1.3 px
+at 16×, limit 1); the same corners at 100 % in the flat-ends excerpt of
+`real_spen_02` (1.15 px). All are the string's shapes, sharper than any pen's;
+the stored stroke is drawn at stabiliser 0. Measured by
+`test/inklab/stabiliser_speed_test.dart` and `stabiliser_test.dart`;
+sheets written by `test/inklab/tools/stabiliser_sheets_test.dart`.
+
 ![fast cursive before](inklab/stabiliser/before_fast.png)
 ![fast cursive after](inklab/stabiliser/after_fast.png)
 
-*Fast cursive at 0 / 30 / 60 / 100 %, before and after: committed over
-the true path (red), and a live frame with the pen as a red dot.*
+*Fast cursive at 0 / 30 / 60 / 100 %, before (F13's filter) and after
+(the string): committed over the pen's path (red), and a live frame 60 %
+through with the string and the pen as a red dot.*
+
+![slow shaky line after](inklab/stabiliser/after_slow.png)
+
+*A slow, shaky line, after: straight from 60 %; at 100 % its last ≈ 80 px
+are the catch-up along the pen's own path, tremor included.*
 
 ### Real S Pen recordings
 

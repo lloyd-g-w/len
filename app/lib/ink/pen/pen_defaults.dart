@@ -53,7 +53,7 @@ class PenDefaults {
     label: 'Pen',
     opacity: 1,
     thinning: 0.25,
-    // A light stabiliser: jitter goes, writing keeps up (`PenStabiliser`).
+    // A light stabiliser: a 3 px string, so jitter goes (`PenStabiliser`).
     streamline: 0.3,
     ends: PenEnds(),
     endStyles: [StrokeEnds.round, StrokeEnds.tapered, StrokeEnds.flat],

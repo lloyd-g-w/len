@@ -103,6 +103,8 @@ void main() {
 
     test('the pen still draws freehand', () {
       tools.tool = EditorTool.pen;
+      // The stabiliser off: the points are the samples themselves.
+      tools.updateConfig(InkTool.ballpoint, (c) => c.copyWith(streamline: 0));
       draw(wavy);
       final stroke = model.history.takeUndo()!.added.single;
       expect(stroke.points.map((p) => p.offset), containsAll(wavy));

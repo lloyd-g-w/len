@@ -161,7 +161,7 @@ class WetInkModel with _WetInkRadii, _WetInkSegments {
         _updatePressure(pressure, lift: true);
         return _catchUpAndLift(s, timeMs);
       }
-      position = s.add(position, timeMs);
+      position = s.add(position);
     }
     _updatePressure(pressure, lift: lift);
     _thin(WetSample(position, _pressure, timeMs));

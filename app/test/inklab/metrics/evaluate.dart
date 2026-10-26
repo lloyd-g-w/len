@@ -19,7 +19,9 @@ class Subject {
 
   /// Replays [recording] (with [pen], default: as recorded; with [ends],
   /// default: the pen's round ends). Without
-  /// [truths], the raw samples of each committed contact stand in.
+  /// [truths], the raw samples of each committed contact stand in. With the
+  /// stabiliser on, the truths are what it makes of them
+  /// ([stabilisedTruth]).
   ///
   /// With [timed], the replay runs three times and each frame keeps its
   /// fastest live build and pen-up handling (the first run also warms up),
@@ -36,12 +38,10 @@ class Subject {
     final (replay, waited) = MachineLoad.waitShare(
       () => ReplayResult.run(recording, pen: pen, ends: ends, timingRepeats: timed ? 3 : 1),
     );
-    return Subject(
-      name,
-      replay,
-      truths ?? rawTruths(recording),
-      busy: timed && (waited > MachineLoad.busyWaitShare || MachineLoad.loadAverageHigh),
-    );
+    final st = replay.pen.streamline;
+    return Subject(name, replay, [
+      for (final t in truths ?? rawTruths(recording)) stabilisedTruth(t, st),
+    ], busy: timed && (waited > MachineLoad.busyWaitShare || MachineLoad.loadAverageHigh));
   }
 
   final String name;

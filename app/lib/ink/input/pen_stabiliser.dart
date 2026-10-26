@@ -1,266 +1,276 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
-/// The pen's stabiliser: a speed-adaptive, time-based low-pass filter on
-/// the pen's path, applied to every sample before it becomes a stroke
-/// point (`InkDrawing`; the low-latency overlay applies the same,
+/// The pen's stabiliser: a pulled string (a "lazy brush") between the pen
+/// and the ink, applied to every sample before it becomes a stroke point
+/// (`InkDrawing`; the low-latency overlay applies the same,
 /// `WetInkModel`). See docs/ARCHITECTURE.md, *Stabiliser*.
 ///
-/// It is a variant of the 1€ filter (Casiez, Roussel & Vogel, CHI 2012):
-/// the ink follows the pen with a time constant that shrinks with the
-/// pen's speed, so a slow, shaky hand is smoothed strongly while fast
-/// writing passes almost untouched,
+/// The ink stays put while the pen is within [StabiliserParams.radius] of
+/// it; when the pen goes further, the ink moves straight toward the pen
+/// until it is exactly the radius away, as if pulled on a string. Jitter
+/// smaller than the string never reaches the ink, and the ink's path is a
+/// pursuit curve that cuts corners and rounds a shaky line by the string's
+/// length. Nothing depends on time: writing fast keeps the same gap and the
+/// same smoothing as writing slowly (the owner's request: the stabiliser
+/// should not let go when writing fast).
 ///
-///   τ(v) = [restTau] / (1 + (v / [speed])²),
+/// Between two samples the pen is taken to move in a straight line, and
+/// the ink follows it in small steps (a [_steps]th of the radius, ½ px at
+/// most), so
+/// the path does not depend on the sample rate (120, 240 Hz, 1 kHz), only
+/// on the pen's path.
 ///
-/// with v the pen's speed (its velocity low-passed over [velocityTau],
-/// then held at its peak for about [holdTau], so the brief stop at a cusp
-/// of fast writing does not smooth it: the corner keeps its point). The
-/// square makes the trail in pixels (v · τ) peak at a crawl and fall as
-/// the pen speeds up, where the 1€ filter's (linear) trail would only
-/// level off: at full strength ≈ 8 px at 40 px/s (a slow, deliberate
-/// line, smoothed most), 3 px at 300 px/s, under 1 px at 1500 px/s. (A
-/// cube held fast writing back even less, but a shaky hand's own speed
-/// then switched the smoothing off, and slow, small handwriting at 150
-/// px/s lost the tops of its letters.)
-///
-/// Each step solves the filter exactly for the pen moving in a straight
-/// line at constant speed between two samples (a first-order hold), so
-/// the path does not depend on the sample rate (120, 240 Hz, 1 kHz) or on
-/// irregular timestamps, only on the pen's motion.
+/// The first [StabiliserParams.engage] px from pen-down are the pen's own
+/// (a pen-down hook keeps its kink for `HookFinder`); from there the
+/// string grows to its length over twice that length of travel.
 ///
 /// It is causal: every output is final as soon as its sample arrives, so
-/// live ink reaches the filtered point with nothing provisional and the
-/// stroke stores the filtered points (with stabiliser 0 in its style):
+/// live ink reaches the stabilised point with nothing provisional and the
+/// stroke stores the stabilised points (with stabiliser 0 in its style):
 /// live and committed ink are the same, and a reload draws them again. At
-/// pen-up the ink goes on to where the pen lifted ([pen]).
+/// pen-up the ink catches up with the pen along its path ([catchUp]).
 class PenStabiliser {
   PenStabiliser(this.params);
 
   final StabiliserParams params;
 
-  /// The ink's position: the filtered pen.
-  Offset get ink => _y;
-  Offset _y = Offset.zero;
+  /// The ink's position: where the string pulled it.
+  Offset get ink => Offset(_ix, _iy);
+  double _ix = 0, _iy = 0;
 
-  /// The pen's newest position (unfiltered).
-  Offset get pen => _x;
-  Offset _x = Offset.zero;
+  /// The pen's newest position (unstabilised).
+  Offset get pen => Offset(_px, _py);
+  double _px = 0, _py = 0;
 
-  /// How far the ink trails the pen.
-  double get gap => (_x - _y).distance;
+  /// How far the ink trails the pen: at most the string's length.
+  double get gap => _distance(_px - _ix, _py - _iy);
 
-  int _t = 0;
-  double _vx = 0, _vy = 0, _speed = 0;
   bool _started = false;
 
   // Where the stroke started; the ink is the pen's own until the pen has
   // moved [StabiliserParams.engage] from there.
-  Offset _start = Offset.zero;
+  double _sx = 0, _sy = 0;
   bool _engaged = false;
 
-  // The pen's positions over the last [_keptFor] (as far back as the ink
-  // can trail), for [catchUp]; from [_h0] on.
-  final List<double> _hx = [], _hy = [];
-  final List<int> _ht = [];
+  // How far the pen has moved since the string engaged: the string grows
+  // from nothing by [_growth] of that to its full length, so the ink
+  // leaves the raw start in the pen's direction (a string slack there
+  // would hold the ink still and then pull it off at an angle, a kink),
+  // first at half the pen's pace.
+  double _travel = 0;
+  static const double _growth = 0.5;
+
+  /// The ink follows the pen in steps of at most radius / [_steps], and
+  /// at most engage / [_perEngage] (½ screen px: lengths in the units of
+  /// the positions, so the overlay's physical px take the same steps).
+  static const int _steps = 32;
+  static const double _perEngage = 8;
+
+  /// At most this many steps between two samples (a jump of the pen).
+  static const int _maxSteps = 1024;
+
+  // The pen's positions over the last [_keptLength] of its path (further
+  // back than the ink can be), with the path's length up to each, for
+  // [catchUp]; from [_h0] on.
+  final List<double> _hx = [], _hy = [], _hs = [];
   int _h0 = 0;
 
-  /// How long (ms) the pen's path is kept: twice the time constant at rest.
-  int get _keptFor => (2000 * params.restTau).ceil() + 50;
+  /// How much of the pen's path (px) is kept for [catchUp].
+  double get _keptLength => 16 * (params.radius + params.engage);
 
-  void _remember(Offset at, int timeMs) {
-    _hx.add(at.dx);
-    _hy.add(at.dy);
-    _ht.add(timeMs);
-    while (_h0 < _ht.length - 2 && timeMs - _ht[_h0] > _keptFor) {
+  void _remember(double x, double y) {
+    final n = _hx.length;
+    _hs.add(n == 0 ? 0 : _hs[n - 1] + _distance(x - _hx[n - 1], y - _hy[n - 1]));
+    _hx.add(x);
+    _hy.add(y);
+    final s = _hs.last;
+    while (_h0 < _hs.length - 2 && s - _hs[_h0 + 1] > _keptLength) {
       _h0++;
     }
     // Drop what has fallen out now and then, not on every sample.
     if (_h0 > 1024) {
       _hx.removeRange(0, _h0);
       _hy.removeRange(0, _h0);
-      _ht.removeRange(0, _h0);
+      _hs.removeRange(0, _h0);
       _h0 = 0;
     }
   }
 
-  /// Starts a stroke at [at] (the ink starts under the nib) at [timeMs].
-  void begin(Offset at, int timeMs) {
+  /// Starts a stroke at [at]: the ink starts under the nib.
+  void begin(Offset at) {
     _hx.clear();
     _hy.clear();
-    _ht.clear();
+    _hs.clear();
     _h0 = 0;
-    _remember(at, timeMs);
-    _x = _y = at;
-    _t = timeMs;
-    _vx = _vy = _speed = 0;
-    _start = at;
+    _px = _ix = at.dx;
+    _py = _iy = at.dy;
+    _remember(_px, _py);
+    _sx = _px;
+    _sy = _py;
     _engaged = false;
     _started = true;
   }
 
-  /// The pen moved to [at] at [timeMs]: returns the ink's new position.
-  Offset add(Offset at, int timeMs) {
+  /// The pen moved to [at]: returns the ink's new position.
+  Offset add(Offset at) {
     if (!_started) {
-      begin(at, timeMs);
+      begin(at);
       return at;
     }
-    _remember(at, timeMs);
-    final dt = (timeMs - _t) / 1000;
-    if (dt <= 0) {
-      // No time passed (samples of the same millisecond, or input without
-      // timestamps): the filter cannot act, the ink moves with the pen.
-      _y = Offset(_y.dx + (at.dx - _x.dx), _y.dy + (at.dy - _x.dy));
-      _x = at;
-      return _y;
-    }
-    final p = params;
-    // The pen's velocity over the step, low-passed (exact for a constant
-    // velocity during the step) and held at its peak.
-    final ux = (at.dx - _x.dx) / dt, uy = (at.dy - _x.dy) / dt;
-    final kv = 1 - math.exp(-dt / p.velocityTau);
-    _vx += (ux - _vx) * kv;
-    _vy += (uy - _vy) * kv;
-    final v = math.sqrt(_vx * _vx + _vy * _vy);
-    _speed = math.max(v, _speed * math.exp(-dt / p.holdTau));
-    final r = _speed / p.speed;
-    final tau = p.restTau / (1 + r * r);
-    // y' = (x − y) / τ with x moving at (ux, uy): the trail e = x − y
-    // relaxes towards u·τ.
-    final k = math.exp(-dt / tau);
-    final ex = ux * tau + (_x.dx - _y.dx - ux * tau) * k;
-    final ey = uy * tau + (_x.dy - _y.dy - uy * tau) * k;
-    _x = at;
-    _t = timeMs;
+    final x = at.dx, y = at.dy;
+    _remember(x, y);
     if (!_engaged) {
       // The stroke's first px are the pen's: it starts where the pen
       // landed, and a pen-down hook keeps the kink `HookFinder` trims it
-      // by (smoothed, it would become a curve the ink starts with). The
-      // speed is tracked meanwhile, so the filter starts warm.
-      final dx = at.dx - _start.dx, dy = at.dy - _start.dy;
-      _engaged = dx * dx + dy * dy >= p.engage * p.engage;
-      _y = at;
-      return _y;
+      // by (pulled on the string, the ink would start at the hook's tip
+      // and lean from there).
+      final e = params.engage;
+      final ux = _px - _sx, uy = _py - _sy, dx = x - _px, dy = y - _py;
+      final ex = ux + dx, ey = uy + dy;
+      if (ex * ex + ey * ey < e * e) {
+        _px = _ix = x;
+        _py = _iy = y;
+        return at;
+      }
+      // The string engages where the step leaves the circle of [e] around
+      // the start (whatever the sample rate): |u + t d| = e.
+      final a = dx * dx + dy * dy, b = ux * dx + uy * dy, c = ux * ux + uy * uy - e * e;
+      final t = (-b + math.sqrt(b * b - a * c)) / a;
+      _px = _ix = _px + dx * t;
+      _py = _iy = _py + dy * t;
+      _engaged = true;
+      _travel = 0;
     }
-    _y = Offset(at.dx - ex, at.dy - ey);
-    return _y;
+    final r = params.radius;
+    final dx = x - _px, dy = y - _py;
+    final d = _distance(dx, dy);
+    final n = math.min(
+      _maxSteps,
+      math.max(1, (d * math.max(_steps / r, _perEngage / params.engage)).ceil()),
+    );
+    for (var i = 1; i < n; i++) {
+      final f = i / n;
+      _pull(_px + dx * f, _py + dy * f, math.min(r, (_travel + d * f) * _growth));
+    }
+    _travel += d;
+    _pull(x, y, math.min(r, _travel * _growth));
+    _px = x;
+    _py = y;
+    return ink;
+  }
+
+  /// The pen at ([x], [y]): the ink moves toward it until it is [r] away,
+  /// if it is further.
+  void _pull(double x, double y, double r) {
+    final ex = x - _ix, ey = y - _iy;
+    final e = _distance(ex, ey);
+    if (e <= r) return;
+    final k = (e - r) / e;
+    _ix += ex * k;
+    _iy += ey * k;
   }
 
   /// The ink catching up with the pen (at the lift, and before hold to
   /// snap reads the stroke): points from the ink along the pen's latest
   /// path to the pen, the ink's offset from that path fading out along it
   /// (by length), so the end follows the curve the pen drew rather than
-  /// cutting across it, and a pen-up hook keeps its kink. The ink is at
-  /// the pen afterwards.
+  /// cutting across it, and reaches the lift. The ink is at the pen
+  /// afterwards.
   List<Offset> catchUp() {
     final n = _hx.length;
-    // The pen's position nearest the ink.
+    // Where the pen's path passed nearest the ink: on the segment from
+    // [j], [t] of the way (on the path, not at a sample: samples far apart
+    // would move the start along the path).
     var j = n - 1;
-    var best = double.infinity;
-    for (var i = n - 1; i >= _h0; i--) {
-      final dx = _hx[i] - _y.dx, dy = _hy[i] - _y.dy;
-      final d = dx * dx + dy * dy;
+    var t = 0.0;
+    var best = _square(_hx[j] - _ix, _hy[j] - _iy);
+    for (var i = n - 2; i >= _h0; i--) {
+      final ax = _hx[i], ay = _hy[i], dx = _hx[i + 1] - ax, dy = _hy[i + 1] - ay;
+      final l = dx * dx + dy * dy;
+      final f = l > 0 ? (((_ix - ax) * dx + (_iy - ay) * dy) / l).clamp(0.0, 1.0) : 0.0;
+      final d = _square(ax + dx * f - _ix, ay + dy * f - _iy);
       if (d < best) {
         best = d;
         j = i;
+        t = f;
       }
     }
-    final ox = _y.dx - _hx[j], oy = _y.dy - _hy[j];
-    var total = 0.0;
-    for (var k = j + 1; k < n; k++) {
-      total += _distance(_hx[k] - _hx[k - 1], _hy[k] - _hy[k - 1]);
-    }
+    final k0 = math.min(j + 1, n - 1);
+    final qx = _hx[j] + (_hx[k0] - _hx[j]) * t, qy = _hy[j] + (_hy[k0] - _hy[j]) * t;
+    final qs = _hs[j] + (_hs[k0] - _hs[j]) * t;
+    final ox = _ix - qx, oy = _iy - qy;
+    final total = _hs[n - 1] - qs;
     final out = <Offset>[];
-    var along = 0.0;
     for (var k = j + 1; k < n; k++) {
-      along += _distance(_hx[k] - _hx[k - 1], _hy[k] - _hy[k - 1]);
-      final w = total > 0 ? 1 - along / total : 0.0;
+      final w = total > 0 ? 1 - (_hs[k] - qs) / total : 0.0;
       out.add(Offset(_hx[k] + ox * w, _hy[k] + oy * w));
     }
-    if (out.isEmpty || out.last != _x) out.add(_x);
-    _y = _x;
+    final p = pen;
+    if (out.isEmpty || out.last != p) out.add(p);
+    _ix = _px;
+    _iy = _py;
     return out;
   }
 
   static double _distance(double dx, double dy) => math.sqrt(dx * dx + dy * dy);
+
+  static double _square(double dx, double dy) => dx * dx + dy * dy;
 }
 
 /// The stabiliser's numbers for a setting (`PenConfig.streamline`, 0..1),
-/// in the units of the positions it filters (logical screen px; the
+/// in the units of the positions it stabilises (logical screen px; the
 /// overlay's are [scaled]).
 class StabiliserParams {
-  const StabiliserParams({
-    required this.restTau,
-    required this.speed,
-    this.velocityTau = defaultVelocityTau,
-    this.holdTau = defaultHoldTau,
-    this.engage = defaultEngage,
-  });
+  const StabiliserParams({required this.radius, this.engage = defaultEngage});
 
   /// The stabiliser at [setting] (0..1; 0: off, null), for positions in
   /// screen px times [scale].
-  ///
-  /// The setting is the time constant at rest, linearly: 40 ms at 10 %,
-  /// 120 ms at 30 % (the pen's default: jitter goes, no visible trail),
-  /// 400 ms at 100 % (slow lines come out smooth, the ink drawn after the
-  /// pen as on a string). The speed scale is the same
-  /// throughout, so fast writing is never held back much.
   static StabiliserParams? of(double setting, {double scale = 1}) {
     if (!(setting > 0)) return null;
-    return StabiliserParams(
-      restTau: maxRestTau * setting.clamp(0.0, 1.0),
-      speed: speed0 * scale,
-      engage: defaultEngage * scale,
-    );
+    return StabiliserParams(radius: radiusAt(setting) * scale, engage: defaultEngage * scale);
   }
 
-  /// The time constant at rest at full strength (s).
-  static const double maxRestTau = 0.4;
+  /// The string's length (screen px) at [setting] (0..1): a power curve
+  /// through [defaultRadius] at 30 % (the pen's default: jitter goes, a
+  /// gentle smoothing) and [maxRadius] at 100 %; 0.15 px at 10 %, 6.6 px
+  /// at 40 %, 20 px at 60 %, 44 px at 80 %.
+  static double radiusAt(double setting) =>
+      maxRadius * math.pow(setting.clamp(0.0, 1.0), exponent).toDouble();
 
-  /// The speed (screen px/s) at which the time constant has halved.
-  static const double speed0 = 50;
+  /// The string's length at 100 % (screen px): 8× the largest trail of
+  /// the speed-adaptive filter it replaced (≈ 10 px at 100 %).
+  static const double maxRadius = 80;
 
-  static const double defaultVelocityTau = 0.008;
-  static const double defaultHoldTau = 0.16;
+  /// The string's length at the pen's default 30 % (screen px): that
+  /// filter's largest trail at 30 %.
+  static const double defaultRadius = 3;
 
-  /// How far (screen px) the pen moves from pen-down before the filter
+  /// The curve's power (≈ 2.73): [radiusAt] passes through (0.3,
+  /// [defaultRadius]) and (1, [maxRadius]).
+  static final double exponent = math.log(defaultRadius / maxRadius) / math.log(0.3);
+
+  /// How far (screen px) the pen moves from pen-down before the string
   /// acts: past the longest pen-down hook (`HookFinder`, 3 px).
   static const double defaultEngage = 4;
 
-  /// Time constant (s) of the ink following a resting pen.
-  final double restTau;
-
-  /// Speed (px/s) at which the time constant halves.
-  final double speed;
-
-  /// Time constant (s) of the speed estimate's low-pass, and how long (s)
-  /// it holds a peak (it decays by e over that time).
-  final double velocityTau, holdTau;
-
-  /// How far (px) the pen moves from pen-down before the filter acts.
+  /// How far (px) the pen moves from pen-down before the string acts.
   final double engage;
 
+  /// The string's length (px): how far the pen moves from the ink before
+  /// it pulls the ink along.
+  final double radius;
+
   /// The same with lengths multiplied by [f].
-  StabiliserParams scaled(double f) => StabiliserParams(
-    restTau: restTau,
-    speed: speed * f,
-    velocityTau: velocityTau,
-    holdTau: holdTau,
-    engage: engage * f,
-  );
+  StabiliserParams scaled(double f) => StabiliserParams(radius: radius * f, engage: engage * f);
 
   /// The values in the order the overlay's `begin` message carries them.
-  List<double> toList() => [restTau, speed, velocityTau, holdTau, engage];
+  List<double> toList() => [radius, engage];
 
   @override
   bool operator ==(Object other) =>
-      other is StabiliserParams &&
-      other.restTau == restTau &&
-      other.speed == speed &&
-      other.velocityTau == velocityTau &&
-      other.holdTau == holdTau &&
-      other.engage == engage;
+      other is StabiliserParams && other.radius == radius && other.engage == engage;
 
   @override
-  int get hashCode => Object.hash(restTau, speed, velocityTau, holdTau, engage);
+  int get hashCode => Object.hash(radius, engage);
 }
