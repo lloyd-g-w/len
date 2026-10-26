@@ -102,6 +102,7 @@ Map<String, ({double rms, double max})> measure(double streamline) {
     stroke.style,
     color: 0xFF000000,
     scale: r.viewScale,
+    stabiliser: streamline,
   )!;
   final model = WetInkModel(radii: wet.radii, shape: wet.shape, frameMs: 8.3);
   final overlay = <Offset>[];

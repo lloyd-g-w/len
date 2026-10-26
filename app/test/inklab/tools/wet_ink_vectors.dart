@@ -29,8 +29,17 @@ import 'package:len/ink/render/stroke_renderer.dart';
   final r = ReplayResult.run(recording);
   final dpr = recording.meta.devicePixelRatio;
   // An unusual zoom and unit, so scaling mistakes show.
-  final style = (ends ?? (s) => s)(r.style.copyWith(unit: 0.9));
-  final wet = WetInkStyle.forPen(r.pen.tool, r.pen.width, style, color: 0xFF000000, scale: 1.3)!;
+  // The pen's stabiliser filters the samples; the stroke's own is 0, as
+  // `InkDrawing` draws it.
+  final style = (ends ?? (s) => s)(r.style.copyWith(unit: 0.9, streamline: 0));
+  final wet = WetInkStyle.forPen(
+    r.pen.tool,
+    r.pen.width,
+    style,
+    color: 0xFF000000,
+    scale: 1.3,
+    stabiliser: r.style.streamline,
+  )!;
   final taperEnd = StrokeRenderer.specFor(r.pen.width, style).taperEnd * 1.3 * dpr;
   final radii = [for (final x in wet.radii) x * dpr];
   final shape = wet.shape.scaled(dpr);

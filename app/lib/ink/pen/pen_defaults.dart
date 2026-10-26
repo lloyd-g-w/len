@@ -53,7 +53,7 @@ class PenDefaults {
     label: 'Pen',
     opacity: 1,
     thinning: 0.25,
-    // A light stabiliser: smooth ink (a mouse's above all) for ~10 px of lag.
+    // A light stabiliser: jitter goes, writing keeps up (`PenStabiliser`).
     streamline: 0.3,
     ends: PenEnds(),
     endStyles: [StrokeEnds.round, StrokeEnds.tapered, StrokeEnds.flat],

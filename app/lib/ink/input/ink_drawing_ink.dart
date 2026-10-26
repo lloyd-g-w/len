@@ -8,26 +8,34 @@ extension _Inking on InkDrawing {
     final ink = tools.activeInk;
     final config = tools.configOf(ink);
     final style = tools.styleFor(ink);
-    // A mouse's stabiliser smooths its path on the screen ([MouseSmoother]),
-    // so the outline adds none.
+    // The stabiliser smooths the path on the screen, before it becomes
+    // points, so the outline adds none (the stroke keeps 0): a stylus's or
+    // finger's with [PenStabiliser], a mouse's with [MouseSmoother] (which
+    // also levels its whole-pixel steps).
     _byMouse = e.kind == PointerDeviceKind.mouse;
+    final stabiliser = _byMouse ? null : StabiliserParams.of(style.streamline);
+    final ms = StrokeSampler.msOf(e.timeStamp);
+    _stabiliser = stabiliser == null
+        ? null
+        : (PenStabiliser(stabiliser)..begin(e.localPosition, ms));
+    _stabiliserMs = ms;
     // Ink shows from the first sample, under the nib. The outline smooths
     // at the zoom it is written at (`StrokeStyle.unit`), known now.
-    // Its ink trails it then, by the smoothing's reach, as a stylus's
-    // does: the outline's own tip would settle when the mouse lifts.
+    // A mouse's ink trails it then, by the smoothing's reach: the
+    // outline's own tip would settle when the mouse lifts.
     live.begin(
       tool: ink,
       color: config.color,
       width: config.width,
-      style: style.copyWith(unit: 1 / viewport.scale, streamline: _byMouse ? 0 : null),
+      style: style.copyWith(unit: 1 / viewport.scale, streamline: 0),
       trails: _byMouse && style.streamline > 0,
+      stabiliser: stabiliser == null ? 0 : style.streamline,
     );
     _endFollowsSpeed = config.ends.endFollowsSpeed;
     live.add(_sampler.first(e));
     _inkBegan = true;
     events.inkBegan?.call(model.surfaceId);
     if (_byMouse) {
-      final ms = StrokeSampler.msOf(e.timeStamp);
       _mouse.begin(e.localPosition, ms, stabiliser: style.streamline);
       // With the stabiliser off ink is under the nib: the live ink runs on
       // to the mouse (opaque ink only: a translucent tip drawn over the
@@ -70,12 +78,40 @@ extension _Inking on InkDrawing {
   }
 
   /// Extends the live stroke to [screen] (unless it is too close to the
-  /// previous point, or "hold to straighten" has taken over).
+  /// previous point, or "hold to straighten" has taken over): with the
+  /// stabiliser on, to where it puts the ink.
   void _inkTo(Offset screen, double pressure, Duration time, {bool synthesized = false}) {
     final ms = StrokeSampler.msOf(time);
-    if (_sampler.add(_lastScreen!, screen, pressure, ms, synthesized: synthesized)) {
-      _lastScreen = screen;
+    var at = screen;
+    if (_stabiliser case final s?) {
+      _stabiliserMs = ms;
+      at = s.add(screen, ms);
     }
+    if (_sampler.add(_lastScreen!, at, pressure, ms, synthesized: synthesized)) {
+      _lastScreen = at;
+    }
+  }
+
+  /// With the stabiliser on, the ink catches up with the pen: at the lift,
+  /// and before hold to snap reads the stroke.
+  void _catchUp() {
+    final s = _stabiliser;
+    if (s == null || !inking) return;
+    // The pressure stays the last sample's (as the overlay keeps it).
+    for (final at in s.catchUp()) {
+      if (_sampler.add(_lastScreen!, at, 0.5, _stabiliserMs, synthesized: true)) {
+        _lastScreen = at;
+      }
+    }
+    live.showString(null, null);
+  }
+
+  /// Shows the stabiliser's string from the ink to the pen (`LiveInk.string`),
+  /// if it is on and the setting shows it.
+  void _showString() {
+    final s = _stabiliser;
+    if (s == null || !tools.showStabiliserString || live.straightened) return;
+    live.showString(viewport.toWorld(s.ink), viewport.toWorld(s.pen));
   }
 
   /// A point [_sampler] kept, at [at] after [from].
@@ -103,6 +139,7 @@ extension _Inking on InkDrawing {
   /// that erased (only if [mayErase]).
   void _finishInk(Duration? liftTime, {required bool mayErase}) {
     if (_byMouse) _mouse.finish(); // The ink catches up with the mouse.
+    _catchUp(); // And with the pen.
     // A snapped shape's end follows no speed (the pen rested to snap it),
     // and it is no scribble.
     final snapped = live.straightened;

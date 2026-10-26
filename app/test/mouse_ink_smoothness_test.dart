@@ -10,6 +10,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:len/ink/input/mouse_smoother.dart';
 import 'package:len/ink/lab/replay_run.dart';
+import 'package:len/ink/shapes/polyline.dart';
 
 import 'support/ink_roughness.dart';
 import 'support/mouse_writing.dart';
@@ -93,10 +94,21 @@ void main() {
       expect(replay.frames.every((f) => f.tip.isEmpty), isTrue);
       expect(replay.strokes, hasLength(paths.length));
       for (final (k, s) in replay.strokes.indexed) {
-        expect(s.style.streamline, stabiliser);
-        final events = {for (final e in rec.events[k]) e.position};
+        // The pen's stabiliser is applied to its points (`PenStabiliser`).
+        expect(s.style.streamline, 0);
+        final events = [for (final e in rec.events[k]) e.position];
         for (final p in s.points) {
-          expect(events, contains(Offset(p.x, p.y)), reason: 'an event\'s position');
+          if (stabiliser == 0) {
+            expect(events, contains(Offset(p.x, p.y)), reason: 'an event\'s position');
+          } else {
+            // Held back along the line of whole-pixel steps, never further
+            // off it than a step's corner.
+            final d = [
+              for (var i = 1; i < events.length; i++)
+                Polyline.distanceToSegment(Offset(p.x, p.y), events[i - 1], events[i]),
+            ].reduce(math.min);
+            expect(d, lessThan(0.5), reason: 'on the line');
+          }
         }
       }
     }
