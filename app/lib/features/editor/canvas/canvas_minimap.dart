@@ -1,20 +1,27 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../domain/paper.dart';
 import '../../../ink/input/live_ink.dart';
+import '../../../ink/input/pointer_navigation.dart';
 import '../../../ink/surface_model.dart';
 import '../../../ui/app_theme.dart';
 import '../../../ui/chrome_fade.dart';
 import '../../../ui/floating_panel.dart';
+import '../chrome/bar_button.dart';
 import 'canvas_navigation.dart';
 import 'minimap_geometry.dart';
 import 'minimap_menu.dart';
 import 'minimap_painter.dart';
 
 part 'minimap_gestures.dart';
+part 'minimap_viewport.dart';
 
 /// The minimap's size for a canvas whose free area (beside the chrome) is
 /// [free]: as wide as it within 1:1 and 16:10 (a tall map would leave
@@ -27,8 +34,10 @@ Size minimapSize(Size free, {bool phone = false}) {
 
 /// A small map of the whole canvas floating in a corner: soft blocks where
 /// there is content and a frame for the visible area. Tap to glide there,
-/// drag the frame (or anywhere) to move the view live, pinch or scroll on
-/// it to zoom; long-press or right-click for its menu.
+/// drag the frame (or anywhere) to move the view live; pinch, two fingers,
+/// the wheel or the trackpad zoom and pan the map itself, never the canvas
+/// (a fit button above it, or its menu, fits it again); long-press or
+/// right-click for its menu.
 ///
 /// The content comes from storage (populated chunks, read in the
 /// background) and is re-read a moment after edits, never per frame. The
@@ -65,6 +74,9 @@ class CanvasMinimap extends StatefulWidget {
   static const double side = 176;
   static const double phoneSide = 120;
 
+  /// The fit button's tooltip and the menu row that fits the map again.
+  static const String fitLabel = 'Fit minimap';
+
   /// Delay after an edit before the content is re-read.
   static const Duration refreshDelay = Duration(milliseconds: 500);
 
@@ -94,8 +106,22 @@ class _CanvasMinimapState extends State<CanvasMinimap> with SingleTickerProvider
   Rect? _from;
   Rect? _to;
 
-  /// Set while dragging or pinching: the map holds still under the finger.
-  MinimapProjection? _held;
+  /// The world area that fits the content and the view ([MinimapFrame]).
+  Rect? _fit;
+
+  /// The map's own viewport once zoomed or panned (null: it fits [_fit]).
+  Rect? _custom;
+
+  /// Whether the zoomed map follows the view (its centre was on the map).
+  bool _tracking = true;
+
+  /// Set while a gesture is on the map: the view moving doesn't move it.
+  bool _holding = false;
+
+  /// Repaints the map when it moves at once (gestures, following).
+  final ValueNotifier<int> _moved = ValueNotifier(0);
+
+  final MinimapBlocks _blocks = MinimapBlocks();
 
   CanvasNavigation get _nav => widget.navigation;
 
@@ -124,7 +150,8 @@ class _CanvasMinimapState extends State<CanvasMinimap> with SingleTickerProvider
     }
     if (old.size != widget.size) {
       // Another shape: refit from scratch.
-      _from = _to = null;
+      _from = _to = _fit = _custom = null;
+      _tracking = true;
       _onView();
     }
   }
@@ -137,6 +164,8 @@ class _CanvasMinimapState extends State<CanvasMinimap> with SingleTickerProvider
     _refresh?.cancel();
     _back?.cancel();
     _glide.dispose();
+    _moved.dispose();
+    _blocks.dispose();
     super.dispose();
   }
 
@@ -187,52 +216,95 @@ class _CanvasMinimapState extends State<CanvasMinimap> with SingleTickerProvider
     return Rect.lerp(from, to, Motion.standard.transform(_glide.value))!;
   }
 
-  /// Refits the frame when the view leaves it (or the content changed).
-  void _onView() {
-    if (_held != null || _nav.viewport.size.isEmpty) return;
-    final next = MinimapFrame.next(
-      previous: _to,
+  /// Keeps the map in step with the view and the content: refits when the
+  /// view leaves the fit; a zoomed map stays put, nudged along while it
+  /// follows the view, and fits again only once everything fits in it.
+  void _onView({bool glide = false}) {
+    if (_holding || _nav.viewport.size.isEmpty) return;
+    final view = _nav.visibleArea;
+    final fit = _fit = MinimapFrame.next(
+      previous: _fit,
       content: _content.bounds,
-      view: _nav.visibleArea,
+      view: view,
       aspect: _aspect,
     );
-    if (next == _to) return;
-    if (_to == null) {
-      _to = next;
-      return;
+    final custom = _custom;
+    if (custom == null || custom.width >= fit.width) {
+      _setCustom(null);
+      return _moveTo(fit, glide: true);
     }
-    _from = _frame;
-    _to = next;
-    _glide.forward(from: 0);
+    var next = MinimapView.clampInto(custom, fit);
+    if (_tracking) {
+      next = MinimapView.follow(next, fit, view);
+    } else {
+      _tracking = MinimapView.tracks(next, view);
+    }
+    _custom = next;
+    _moveTo(next, glide: glide);
   }
 
-  MinimapProjection _projection() => _held ?? MinimapProjection(_frame, widget.size);
+  /// Sets the map's own viewport, rebuilding when the fit button comes or
+  /// goes (after the frame, when the view changed during a layout).
+  void _setCustom(Rect? custom) {
+    final changed = (custom == null) != (_custom == null);
+    _custom = custom;
+    if (!changed) return;
+    if (SchedulerBinding.instance.schedulerPhase != SchedulerPhase.persistentCallbacks) {
+      return setState(() {});
+    }
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final shown = widget.visible && !_writing && _loaded && !_content.isEmpty;
-    return ChromeFade(
-      visible: shown,
-      edge: const Offset(0, 1),
-      // A window onto the paper: the panel's hairline and shadow, no rim.
-      child: FloatingPanel(
-        padding: EdgeInsets.zero,
-        child: _MinimapGestures(
-          state: this,
-          // It repaints with every frame of a pan: alone, not the editor.
-          child: RepaintBoundary(
-            child: CustomPaint(
-              size: widget.size,
-              painter: MinimapPainter(
-                content: _content,
-                frame: () => _projection().world,
-                view: () => _nav.visibleArea,
-                colors: _colors(Theme.of(context).colorScheme),
-                repaint: Listenable.merge([_nav.viewport, _glide]),
-              ),
+    // A window onto the paper: the panel's hairline and shadow, no rim.
+    final map = FloatingPanel(
+      padding: EdgeInsets.zero,
+      child: _MinimapGestures(
+        state: this,
+        // It repaints with every frame of a pan: alone, not the editor.
+        child: RepaintBoundary(
+          child: CustomPaint(
+            size: widget.size,
+            painter: MinimapPainter(
+              content: _content,
+              frame: () => _frame,
+              view: () => _nav.visibleArea,
+              colors: _colors(Theme.of(context).colorScheme),
+              blocks: _blocks,
+              repaint: Listenable.merge([_nav.viewport, _glide, _moved]),
             ),
           ),
         ),
+      ),
+    );
+    return ChromeFade(
+      visible: shown,
+      edge: const Offset(0, 1),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // Above the map while it is zoomed or panned: fit it again.
+          ChromeFade(
+            visible: _custom != null,
+            edge: const Offset(0, 1),
+            child: FloatingPanel(
+              radius: Radii.pill,
+              padding: EdgeInsets.zero,
+              child: BarButton(
+                icon: Symbols.fit_screen_rounded,
+                tooltip: CanvasMinimap.fitLabel,
+                onPressed: _custom == null ? null : _fitMap,
+              ),
+            ),
+          ),
+          const SizedBox(height: Gaps.xs),
+          map,
+        ],
       ),
     );
   }

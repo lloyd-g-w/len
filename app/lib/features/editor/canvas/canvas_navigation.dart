@@ -175,20 +175,6 @@ class CanvasNavigation extends ChangeNotifier {
     viewport.setView(scale: viewport.scale, offset: offset);
   }
 
-  /// Zooms by [factor] at once about the middle of the free area (pinching
-  /// on the minimap).
-  void zoomBy(double factor) {
-    animator.stop();
-    viewport.zoomAt(_freeArea.center, factor);
-  }
-
-  /// Zooms one step in ([steps] > 0) or out about the middle of the free
-  /// area (scrolling on the minimap).
-  void zoomStep(int steps) {
-    final centre = _freeArea.center;
-    steps > 0 ? zoomIn(focal: centre) : zoomOut(focal: centre);
-  }
-
   /// Back to where a new canvas starts: the origin at the top left (below
   /// the chrome), 100 %.
   void goToOrigin() => animator.animateTo(scale: 1, offset: Offset(_insets.left, _insets.top));

@@ -22,6 +22,27 @@ import 'screenshot_harness.dart';
 // Editor surfaces with real fonts, part 3: the page navigator, go to page,
 // page zoom, the zoom indicator, tabs and the Ink Lab.
 
+final _mapPaint = find.descendant(
+  of: find.byType(CanvasMinimap),
+  matching: find.byType(CustomPaint),
+);
+
+/// Two fingers spread on the minimap: it zooms in on itself.
+Future<void> _pinchMap(WidgetTester tester) async {
+  final at = tester.getCenter(_mapPaint.last);
+  final a = await tester.startGesture(at - const Offset(15, 0), pointer: 7);
+  final b = await tester.startGesture(at + const Offset(15, 0), pointer: 8);
+  await tester.pump();
+  for (var i = 0; i < 10; i++) {
+    await a.moveBy(const Offset(-5, 0));
+    await b.moveBy(const Offset(5, 0));
+    await tester.pump();
+  }
+  await a.up();
+  await b.up();
+  await settle(tester);
+}
+
 /// Draws a few strokes in the Ink Lab with a stylus.
 Future<void> _scribble(WidgetTester tester, Offset start) async {
   for (var line = 0; line < 3; line++) {
@@ -171,6 +192,9 @@ void main() {
           nav.centreOn(const Offset(2250, 850));
           await settle(tester);
           await shoot(tester, 'e_minimap_zoomed_$shot');
+          // The map zoomed in on itself (two fingers): the fit button above it.
+          await _pinchMap(tester);
+          await shoot(tester, 'e_minimap_map_zoomed_$shot');
           await tester.longPress(find.byType(CanvasMinimap));
           await settle(tester);
           await shoot(tester, 'e_minimap_menu_$shot');
@@ -192,6 +216,21 @@ void main() {
       await pumpNotebook(tester, s, _atlas(s, paper: PaperColor.dark), screen: tabletScreen);
       await settle(tester);
       await shoot(tester, 'e_minimap_dark_paper');
+      // Zoomed and panned away from the view: a mark on the edge points at it.
+      final nav = tester.widget<CanvasView>(find.byType(CanvasView)).navigation;
+      nav.zoomTo(1);
+      await settle(tester);
+      nav.centreOn(const Offset(2250, 850));
+      await settle(tester);
+      await _pinchMap(tester);
+      final map = tester.getCenter(_mapPaint.last);
+      for (var i = 0; i < 4; i++) {
+        await tester.sendEventToBinding(
+          PointerScrollEvent(position: map, scrollDelta: const Offset(-120, 120)),
+        );
+      }
+      await settle(tester);
+      await shoot(tester, 'e_minimap_edge_dark_paper');
     });
   });
 
