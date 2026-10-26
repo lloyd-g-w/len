@@ -53,21 +53,15 @@ class WetInkShape(v: DoubleArray) {
     val flatReach = v[21].toInt()
 
     /**
-     * The pen's stabiliser (Dart's `PenStabiliser`, `StabiliserParams`):
-     * time constant at rest (s; 0: off), the speed scale (px/s), the time
-     * constants of the speed's low-pass and of its peak hold (s), and how
-     * far the pen moves from pen-down before it acts (px).
+     * The pen's stabiliser (Dart's `PenStabiliser`, `StabiliserParams`): the
+     * string's length (px; 0: off).
      */
-    val restTau = v[22]
-    val stabiliserSpeed = v[23]
-    val velocityTau = v[24]
-    val holdTau = v[25]
-    val engage = v[26]
+    val stabiliserRadius = v[22]
     val kernel: DoubleArray = v.copyOfRange(FIELDS, v.size)
     val kernelK = (kernel.size - 1) / 2
 
     companion object {
-        const val FIELDS = 27
+        const val FIELDS = 23
 
         /** The rules in [v], or null when it is not a valid list. */
         fun of(v: DoubleArray): WetInkShape? =
@@ -85,8 +79,9 @@ fun strokePressure(normalised: Double): Double {
 }
 
 /**
- * The pen's stabiliser: a speed-adaptive, time-based low-pass filter on the
- * pen's path, solved exactly for a straight, steady move between samples.
+ * The pen's stabiliser: a pulled string (lazy brush). The ink stays put while
+ * the pen is within the string's length of it, and is pulled straight toward
+ * the pen when it goes further, in steps of at most 1/32 of the length.
  * A port of Dart's `PenStabiliser` (same steps, same order of operations).
  */
 class PenStabiliser(private val shape: WetInkShape) {
@@ -98,92 +93,67 @@ class PenStabiliser(private val shape: WetInkShape) {
         private set
     var penY = 0.0
         private set
-    private var t = 0L
-
-    // The pen's positions over the last [keptFor] ms (as far back as the ink can trail), for [catchUp].
-    private val hx = ArrayDeque<Double>()
-    private val hy = ArrayDeque<Double>()
-    private val ht = ArrayDeque<Long>()
-    private val keptFor = ceil(2000 * shape.restTau).toLong() + 50
-
-    private fun remember(x: Double, y: Double, timeMs: Long) {
-        hx.addLast(x)
-        hy.addLast(y)
-        ht.addLast(timeMs)
-        while (ht.size > 2 && timeMs - ht.first() > keptFor) {
-            hx.removeFirst()
-            hy.removeFirst()
-            ht.removeFirst()
-        }
-    }
-    private var vx = 0.0
-    private var vy = 0.0
-    private var speed = 0.0
     private var started = false
 
-    // Where the stroke started: the ink is the pen's own until the pen has moved [WetInkShape.engage].
-    private var startX = 0.0
-    private var startY = 0.0
-    private var engaged = false
+    // The pen's positions over the last [keptLength] px of its path, with the
+    // path's length up to each, for [catchUp].
+    private val hx = ArrayDeque<Double>()
+    private val hy = ArrayDeque<Double>()
+    private val hs = ArrayDeque<Double>()
+    private val keptLength = 4 * shape.stabiliserRadius + 16
+
+    private fun remember(x: Double, y: Double) {
+        hs.addLast(if (hx.isEmpty()) 0.0 else hs.last() + WetInkModel.dist(x - hx.last(), y - hy.last()))
+        hx.addLast(x)
+        hy.addLast(y)
+        val s = hs.last()
+        while (hs.size > 2 && s - hs[1] > keptLength) {
+            hx.removeFirst()
+            hy.removeFirst()
+            hs.removeFirst()
+        }
+    }
 
     /** Starts at ([x], [y]): the ink is under the nib. */
-    fun begin(x: Double, y: Double, timeMs: Long) {
+    fun begin(x: Double, y: Double) {
         hx.clear()
         hy.clear()
-        ht.clear()
-        remember(x, y, timeMs)
+        hs.clear()
         penX = x
         penY = y
         inkX = x
         inkY = y
-        t = timeMs
-        vx = 0.0
-        vy = 0.0
-        speed = 0.0
-        startX = x
-        startY = y
-        engaged = false
+        remember(x, y)
         started = true
     }
 
     /** The pen moved to ([x], [y]): the ink moves to ([inkX], [inkY]). */
-    fun add(x: Double, y: Double, timeMs: Long) {
-        if (!started) return begin(x, y, timeMs)
-        remember(x, y, timeMs)
-        val dt = (timeMs - t) / 1000.0
-        if (dt <= 0) {
-            // No time passed: the filter cannot act, the ink moves with the pen.
-            inkX += x - penX
-            inkY += y - penY
-            penX = x
-            penY = y
-            return
+    fun add(x: Double, y: Double) {
+        if (!started) return begin(x, y)
+        remember(x, y)
+        val r = shape.stabiliserRadius
+        val dx = x - penX
+        val dy = y - penY
+        val d = WetInkModel.dist(dx, dy)
+        val n = min(MAX_STEPS, max(1, ceil(d * STEPS / r).toInt()))
+        for (i in 1 until n) {
+            val f = i.toDouble() / n
+            pull(penX + dx * f, penY + dy * f, r)
         }
-        val ux = (x - penX) / dt
-        val uy = (y - penY) / dt
-        val kv = 1 - exp(-dt / shape.velocityTau)
-        vx += (ux - vx) * kv
-        vy += (uy - vy) * kv
-        val v = sqrt(vx * vx + vy * vy)
-        speed = max(v, speed * exp(-dt / shape.holdTau))
-        val r = speed / shape.stabiliserSpeed
-        val tau = shape.restTau / (1 + r * r)
-        val k = exp(-dt / tau)
-        val ex = ux * tau + (penX - inkX - ux * tau) * k
-        val ey = uy * tau + (penY - inkY - uy * tau) * k
+        pull(x, y, r)
         penX = x
         penY = y
-        t = timeMs
-        if (!engaged) {
-            val dx = x - startX
-            val dy = y - startY
-            engaged = dx * dx + dy * dy >= shape.engage * shape.engage
-            inkX = x
-            inkY = y
-            return
-        }
-        inkX = x - ex
-        inkY = y - ey
+    }
+
+    /** The pen at ([x], [y]): the ink moves toward it until it is [r] away, if it is further. */
+    private fun pull(x: Double, y: Double, r: Double) {
+        val ex = x - inkX
+        val ey = y - inkY
+        val e = WetInkModel.dist(ex, ey)
+        if (e <= r) return
+        val k = (e - r) / e
+        inkX += ex * k
+        inkY += ey * k
     }
 
     /**
@@ -206,13 +176,10 @@ class PenStabiliser(private val shape: WetInkShape) {
         }
         val ox = inkX - hx[j]
         val oy = inkY - hy[j]
-        var total = 0.0
-        for (k in j + 1 until n) total += sqrt((hx[k] - hx[k - 1]) * (hx[k] - hx[k - 1]) + (hy[k] - hy[k - 1]) * (hy[k] - hy[k - 1]))
+        val total = hs[n - 1] - hs[j]
         val out = ArrayList<Double>()
-        var along = 0.0
         for (k in j + 1 until n) {
-            along += sqrt((hx[k] - hx[k - 1]) * (hx[k] - hx[k - 1]) + (hy[k] - hy[k - 1]) * (hy[k] - hy[k - 1]))
-            val w = if (total > 0) 1 - along / total else 0.0
+            val w = if (total > 0) 1 - (hs[k] - hs[j]) / total else 0.0
             out.add(hx[k] + ox * w)
             out.add(hy[k] + oy * w)
         }
@@ -225,6 +192,10 @@ class PenStabiliser(private val shape: WetInkShape) {
         return out.toDoubleArray()
     }
 
+    private companion object {
+        const val STEPS = 32
+        const val MAX_STEPS = 1024
+    }
 }
 
 /** A sample as the overlay keeps it (pressure already smoothed). */
@@ -244,9 +215,9 @@ class WetInkModel(
      * Whether the stabiliser is on: the ink trails the pen on purpose (the
      * samples are filtered, or the ink shows only the final, smoothed line).
      */
-    val stabilised get() = shape.lag > 0 || shape.restTau > 0
+    val stabilised get() = shape.lag > 0 || shape.stabiliserRadius > 0
 
-    private val stabiliser = if (shape.restTau > 0) PenStabiliser(shape) else null
+    private val stabiliser = if (shape.stabiliserRadius > 0) PenStabiliser(shape) else null
 
     /** The points drawn: from the end of the pen-down hook, or from pen-down while that is undecided. */
     val samples = ArrayList<WetSample>()
@@ -310,7 +281,7 @@ class WetInkModel(
                 updatePressure(pressure, lift = true)
                 return catchUpAndLift(st, timeMs)
             }
-            st.add(xIn, yIn, timeMs)
+            st.add(xIn, yIn)
             x = st.inkX
             y = st.inkY
         }

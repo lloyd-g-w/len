@@ -315,9 +315,8 @@ class WetInkShape {
     flat ? 1 : 0,
     taperStart,
     flatReach.toDouble(),
-    // The stabiliser: rest time constant (0: off), speed scale, velocity
-    // and peak-hold time constants, the distance before it acts.
-    ...(stabiliser?.toList() ?? const [0.0, 1.0, 1.0, 1.0, 0.0]),
+    // The stabiliser: the string's length (0: off).
+    ...(stabiliser?.toList() ?? const [0.0]),
     ...kernel,
   ]);
 }

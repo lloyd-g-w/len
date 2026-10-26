@@ -17,7 +17,7 @@ extension _Inking on InkDrawing {
     final ms = StrokeSampler.msOf(e.timeStamp);
     _stabiliser = stabiliser == null
         ? null
-        : (PenStabiliser(stabiliser)..begin(e.localPosition, ms));
+        : (PenStabiliser(stabiliser)..begin(e.localPosition));
     _stabiliserMs = ms;
     // Ink shows from the first sample, under the nib. The outline smooths
     // at the zoom it is written at (`StrokeStyle.unit`), known now.
@@ -85,7 +85,7 @@ extension _Inking on InkDrawing {
     var at = screen;
     if (_stabiliser case final s?) {
       _stabiliserMs = ms;
-      at = s.add(screen, ms);
+      at = s.add(screen);
     }
     if (_sampler.add(_lastScreen!, at, pressure, ms, synthesized: synthesized)) {
       _lastScreen = at;

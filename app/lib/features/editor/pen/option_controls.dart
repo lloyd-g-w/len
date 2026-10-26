@@ -191,7 +191,7 @@ class StabiliserSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) => OptionSlider(
     label: 'Stabiliser',
-    hint: 'Smooths slow, shaky lines; fast writing keeps up',
+    hint: 'Smooths lines; the ink follows the pen on a string',
     value: value,
     min: 0,
     max: 1,
