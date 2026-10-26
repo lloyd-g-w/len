@@ -42,6 +42,31 @@ class LiveInk extends ChangeNotifier {
   /// while [straightened].
   bool trails = false;
 
+  /// The pen's stabiliser setting (0..1, `PenConfig.streamline`) for this
+  /// stroke: applied to its points before they are added (`PenStabiliser`;
+  /// [style] has 0), which the low-latency overlay must know to do the
+  /// same. 0 for a mouse, whose stabiliser is [trails].
+  double stabiliser = 0;
+
+  /// The stabiliser's string (world): from the ink's tip, held back by the
+  /// stabiliser, to the pen; null when not shown. Live only, never part of
+  /// the stroke.
+  Offset? get stringFrom => _stringFrom;
+  Offset? get stringTo => _stringTo;
+  Offset? _stringFrom, _stringTo;
+
+  /// Shows the stabiliser's string from [from] to [to], or hides it (null).
+  void showString(Offset? from, Offset? to) {
+    if (from == _stringFrom && to == _stringTo) return;
+    if (from == null || to == null) {
+      if (_stringFrom == null) return;
+      from = to = null;
+    }
+    _stringFrom = from;
+    _stringTo = to;
+    notifyListeners();
+  }
+
   /// The provisional tip of a mouse stroke (world): where its ink runs on
   /// from the last point to the mouse, until the smoothing has the samples
   /// to place it for good (`MouseSmoother.tip`). Not part of the stroke;
@@ -76,8 +101,11 @@ class LiveInk extends ChangeNotifier {
     required double width,
     StrokeStyle? style,
     bool trails = false,
+    double stabiliser = 0,
   }) {
     this.trails = trails;
+    this.stabiliser = stabiliser;
+    _stringFrom = _stringTo = null;
     this.tool = tool;
     this.color = color;
     this.width = width;
@@ -122,6 +150,7 @@ class LiveInk extends ChangeNotifier {
     final points = _points;
     _points = [];
     _tip = const [];
+    _stringFrom = _stringTo = null;
     straightened = false;
     shape = null;
     _revision++;

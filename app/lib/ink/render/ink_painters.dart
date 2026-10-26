@@ -12,6 +12,7 @@ import 'chunk_picture_cache.dart';
 import 'chunk_raster_cache.dart';
 import 'live_stroke.dart';
 import 'lod_painting.dart';
+import 'stabiliser_string.dart';
 import 'stroke_renderer.dart';
 import 'tiles/ink_tile_cache.dart';
 import 'tiles/tile_space.dart';
@@ -248,6 +249,7 @@ class LiveInkPainter extends CustomPainter {
       // pixels where they overlap, which lighten at pen-up.
       canvas.drawPath(outline.combined, paint);
       if (live.tip.isNotEmpty) _paintTip(canvas, paint.color);
+      StabiliserString.paint(canvas, live, viewport.scale);
     }
     if (eraser != null) {
       final px = 1 / viewport.scale; // One screen pixel.

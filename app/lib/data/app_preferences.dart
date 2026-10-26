@@ -41,6 +41,11 @@ class AppPreferences extends ChangeNotifier {
   bool get scribbleToErase => _settings.scribbleToErase;
   set scribbleToErase(bool value) => _update(() => _settings.scribbleToErase = value);
 
+  /// A hairline from the ink to the pen while the stabiliser holds the ink
+  /// back.
+  bool get stabiliserString => _settings.stabiliserString;
+  set stabiliserString(bool value) => _update(() => _settings.stabiliserString = value);
+
   /// How many quick colours and sizes [tool]'s toolbar strip shows
   /// (Settings → Toolbar, their one home; the editor mirrors them).
   SlotCounts slotCounts(SlotTool tool) => _settings.slotCounts(tool);

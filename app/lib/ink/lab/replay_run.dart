@@ -28,6 +28,7 @@ class ReplayFrame {
     this.viewOffset = Offset.zero,
     this.style = const StrokeStyle(),
     this.tip = const [],
+    this.stabiliser = 0,
   });
 
   final int index;
@@ -51,6 +52,10 @@ class ReplayFrame {
 
   /// The live stroke's provisional tip (world; a mouse's, `LiveInk.tip`).
   final List<Offset> tip;
+
+  /// The live stroke's stabiliser (`LiveInk.stabiliser`: applied to its
+  /// points, its [style] has 0).
+  final double stabiliser;
 
   /// Newest pointer event handled before the frame (µs, event clock).
   final int newestEventUs;
@@ -78,6 +83,7 @@ class ReplayFrame {
     viewOffset: viewOffset,
     style: style,
     tip: tip,
+    stabiliser: stabiliser,
   );
 
   bool get drawing => points.isNotEmpty;
@@ -211,6 +217,7 @@ class ReplayResult {
             viewOffset: viewport.offset,
             style: live.style,
             tip: live.tip,
+            stabiliser: live.stabiliser,
           ),
         );
       }

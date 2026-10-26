@@ -103,6 +103,7 @@ void main() {
           stroke.style,
           color: 0xFF000000,
           scale: view.viewScale,
+          stabiliser: view.stabiliser,
         )!;
         final first = view.toScreen(view.points.first.x, view.points.first.y);
         final contact = contacts.firstWhere((c) => (c.samples.first.position - first).distance < 1);

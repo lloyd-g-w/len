@@ -51,11 +51,23 @@ class WetInkShape(v: DoubleArray) {
 
     /** With [flat] ends, how many points an end's zone may reach (two widths). */
     val flatReach = v[21].toInt()
+
+    /**
+     * The pen's stabiliser (Dart's `PenStabiliser`, `StabiliserParams`):
+     * time constant at rest (s; 0: off), the speed scale (px/s), the time
+     * constants of the speed's low-pass and of its peak hold (s), and how
+     * far the pen moves from pen-down before it acts (px).
+     */
+    val restTau = v[22]
+    val stabiliserSpeed = v[23]
+    val velocityTau = v[24]
+    val holdTau = v[25]
+    val engage = v[26]
     val kernel: DoubleArray = v.copyOfRange(FIELDS, v.size)
     val kernelK = (kernel.size - 1) / 2
 
     companion object {
-        const val FIELDS = 22
+        const val FIELDS = 27
 
         /** The rules in [v], or null when it is not a valid list. */
         fun of(v: DoubleArray): WetInkShape? =
@@ -72,6 +84,147 @@ fun strokePressure(normalised: Double): Double {
     return 4 * p / (3 * p + 1)
 }
 
+/**
+ * The pen's stabiliser: a speed-adaptive, time-based low-pass filter on the
+ * pen's path, solved exactly for a straight, steady move between samples.
+ * A port of Dart's `PenStabiliser` (same steps, same order of operations).
+ */
+class PenStabiliser(private val shape: WetInkShape) {
+    var inkX = 0.0
+        private set
+    var inkY = 0.0
+        private set
+    var penX = 0.0
+        private set
+    var penY = 0.0
+        private set
+    private var t = 0L
+
+    // The pen's latest positions, for [catchUp].
+    private val hx = ArrayDeque<Double>()
+    private val hy = ArrayDeque<Double>()
+
+    private fun remember(x: Double, y: Double) {
+        hx.addLast(x)
+        hy.addLast(y)
+        if (hx.size > KEPT) {
+            hx.removeFirst()
+            hy.removeFirst()
+        }
+    }
+    private var vx = 0.0
+    private var vy = 0.0
+    private var speed = 0.0
+    private var started = false
+
+    // Where the stroke started: the ink is the pen's own until the pen has moved [WetInkShape.engage].
+    private var startX = 0.0
+    private var startY = 0.0
+    private var engaged = false
+
+    /** Starts at ([x], [y]): the ink is under the nib. */
+    fun begin(x: Double, y: Double, timeMs: Long) {
+        hx.clear()
+        hy.clear()
+        remember(x, y)
+        penX = x
+        penY = y
+        inkX = x
+        inkY = y
+        t = timeMs
+        vx = 0.0
+        vy = 0.0
+        speed = 0.0
+        startX = x
+        startY = y
+        engaged = false
+        started = true
+    }
+
+    /** The pen moved to ([x], [y]): the ink moves to ([inkX], [inkY]). */
+    fun add(x: Double, y: Double, timeMs: Long) {
+        if (!started) return begin(x, y, timeMs)
+        remember(x, y)
+        val dt = (timeMs - t) / 1000.0
+        if (dt <= 0) {
+            // No time passed: the filter cannot act, the ink moves with the pen.
+            inkX += x - penX
+            inkY += y - penY
+            penX = x
+            penY = y
+            return
+        }
+        val ux = (x - penX) / dt
+        val uy = (y - penY) / dt
+        val kv = 1 - exp(-dt / shape.velocityTau)
+        vx += (ux - vx) * kv
+        vy += (uy - vy) * kv
+        val v = sqrt(vx * vx + vy * vy)
+        speed = max(v, speed * exp(-dt / shape.holdTau))
+        val r = speed / shape.stabiliserSpeed
+        val tau = shape.restTau / (1 + r * r)
+        val k = exp(-dt / tau)
+        val ex = ux * tau + (penX - inkX - ux * tau) * k
+        val ey = uy * tau + (penY - inkY - uy * tau) * k
+        penX = x
+        penY = y
+        t = timeMs
+        if (!engaged) {
+            val dx = x - startX
+            val dy = y - startY
+            engaged = dx * dx + dy * dy >= shape.engage * shape.engage
+            inkX = x
+            inkY = y
+            return
+        }
+        inkX = x - ex
+        inkY = y - ey
+    }
+
+    /**
+     * The ink catching up with the pen: points (x, y pairs) from the ink along
+     * the pen's latest path to the pen, the ink's offset from that path fading
+     * out along it (by length). The ink is at the pen afterwards.
+     */
+    fun catchUp(): DoubleArray {
+        val n = hx.size
+        var j = n - 1
+        var best = Double.POSITIVE_INFINITY
+        for (i in n - 1 downTo 0) {
+            val dx = hx[i] - inkX
+            val dy = hy[i] - inkY
+            val d = dx * dx + dy * dy
+            if (d < best) {
+                best = d
+                j = i
+            }
+        }
+        val ox = inkX - hx[j]
+        val oy = inkY - hy[j]
+        var total = 0.0
+        for (k in j + 1 until n) total += sqrt((hx[k] - hx[k - 1]) * (hx[k] - hx[k - 1]) + (hy[k] - hy[k - 1]) * (hy[k] - hy[k - 1]))
+        val out = ArrayList<Double>()
+        var along = 0.0
+        for (k in j + 1 until n) {
+            along += sqrt((hx[k] - hx[k - 1]) * (hx[k] - hx[k - 1]) + (hy[k] - hy[k - 1]) * (hy[k] - hy[k - 1]))
+            val w = if (total > 0) 1 - along / total else 0.0
+            out.add(hx[k] + ox * w)
+            out.add(hy[k] + oy * w)
+        }
+        if (out.isEmpty() || out[out.size - 2] != penX || out[out.size - 1] != penY) {
+            out.add(penX)
+            out.add(penY)
+        }
+        inkX = penX
+        inkY = penY
+        return out.toDoubleArray()
+    }
+
+    companion object {
+        const val KEPT = 64
+    }
+}
+
 /** A sample as the overlay keeps it (pressure already smoothed). */
 class WetSample(val x: Double, val y: Double, var pressure: Double, val timeMs: Long)
 
@@ -85,8 +238,13 @@ class WetInkModel(
     private val shape: WetInkShape,
     private val frameMs: Double,
 ) {
-    /** Whether the stabiliser is on: the ink shows only the final, smoothed line. */
-    val stabilised get() = shape.lag > 0
+    /**
+     * Whether the stabiliser is on: the ink trails the pen on purpose (the
+     * samples are filtered, or the ink shows only the final, smoothed line).
+     */
+    val stabilised get() = shape.lag > 0 || shape.restTau > 0
+
+    private val stabiliser = if (shape.restTau > 0) PenStabiliser(shape) else null
 
     /** The points drawn: from the end of the pen-down hook, or from pen-down while that is undecided. */
     val samples = ArrayList<WetSample>()
@@ -137,8 +295,32 @@ class WetInkModel(
         private set
 
     /** Adds a digitiser sample ([pressure] normalised to 0..1); [lift] marks the pen-up one. */
-    fun add(x: Double, y: Double, pressure: Double, timeMs: Long, lift: Boolean = false) {
+    fun add(xIn: Double, yIn: Double, pressure: Double, timeMs: Long, lift: Boolean = false) {
         if (lifted) return
+        // With the stabiliser on, the ink's position; at the lift it catches up with the pen.
+        var x = xIn
+        var y = yIn
+        val st = stabiliser
+        if (st != null) {
+            // At the lift the pen has not moved since its last sample but for
+            // Flutter's synthesized move there (the up's own position).
+            if (lift && xIn == st.penX && yIn == st.penY) {
+                updatePressure(pressure, lift = true)
+                return catchUpAndLift(st, timeMs)
+            }
+            st.add(xIn, yIn, timeMs)
+            x = st.inkX
+            y = st.inkY
+        }
+        updatePressure(pressure, lift)
+        thin(WetSample(x, y, this.pressure, timeMs))
+        if (lift) {
+            if (st != null) return catchUpAndLift(st, timeMs)
+            lift(timeMs)
+        }
+    }
+
+    private fun updatePressure(pressure: Double, lift: Boolean) {
         val norm = strokePressure(pressure)
         if (!lift || this.pressure < 0) {
             this.pressure = if (this.pressure < 0) {
@@ -147,7 +329,19 @@ class WetInkModel(
                 this.pressure * shape.pressureKeep + norm * (1 - shape.pressureKeep)
             }
         }
-        val sample = WetSample(x, y, this.pressure, timeMs)
+    }
+
+    /** The stabilised ink catches up with the pen ([PenStabiliser.catchUp]), then the pen lifts. */
+    private fun catchUpAndLift(st: PenStabiliser, timeMs: Long) {
+        val p = st.catchUp()
+        for (k in 0 until p.size / 2) thin(WetSample(p[2 * k], p[2 * k + 1], pressure, timeMs))
+        lift(timeMs)
+    }
+
+    /** Keeps [sample] as a point, or drops it as too close (see the Dart model, *Points*). */
+    private fun thin(sample: WetSample) {
+        val x = sample.x
+        val y = sample.y
         if (!hasLast) {
             keep(sample)
         } else if (dist(x - lastX, y - lastY) < shape.minSpacing) {
@@ -166,7 +360,6 @@ class WetInkModel(
             if (extreme != null) keep(extreme)
             keep(sample)
         }
-        if (lift) lift(timeMs)
     }
 
     private fun keep(s: WetSample) {

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import '../input/pen_stabiliser.dart';
 import '../input/stroke_sampler.dart';
 import '../input/wet_ink.dart';
 import '../render/growable.dart';
@@ -26,6 +27,10 @@ part 'wet_ink_segments.dart';
 ///    clamped to 0.05..1, through the `PressureCurve` and smoothed by the
 ///    same filter as Dart's `PressureFilter` (the lift sample keeps the
 ///    previous pressure, as Flutter's synthesized up move does).
+///  * **Stabiliser**: with [WetInkShape.stabiliser], each sample's position
+///    is the [PenStabiliser]'s, as the input controller applies it; the
+///    lift sample's is the pen's own (the ink catches up with the pen, as
+///    Flutter's does at pen-up).
 ///  * **Points**: thinned like the input controller does (`PointSpacing`):
 ///    closer than [WetInkShape.minSpacing] to the last point is dropped,
 ///    unless it is the furthest dropped sample and more than
@@ -85,7 +90,11 @@ class WetInkModel with _WetInkRadii, _WetInkSegments {
         maxEnd: shape.hookEnd,
         body: shape.hookBody,
         local: shape.hookLocal,
-      );
+      ),
+      _stabiliser = switch (shape.stabiliser) {
+        final p? => PenStabiliser(p),
+        null => null,
+      };
 
   /// Radius (same units as positions) at pressures 0, 0.1, … 1.
   @override
@@ -115,6 +124,7 @@ class WetInkModel with _WetInkRadii, _WetInkSegments {
   final List<WetSample> samples = [];
 
   final HookFinder _hooks;
+  final PenStabiliser? _stabiliser;
 
   // Every point of the contact (the hooks are decided on them), and how
   // many of them the pen-down hook drops, once decided.
@@ -143,13 +153,46 @@ class WetInkModel with _WetInkRadii, _WetInkSegments {
   /// [lift] marks the pen-up sample.
   void add(Offset position, double pressure, int timeMs, {bool lift = false}) {
     if (_lifted) return;
+    final s = _stabiliser;
+    if (s != null) {
+      // At the lift the pen has not moved since its last sample but for
+      // Flutter's synthesized move there (the up's own position).
+      if (lift && position == s.pen) {
+        _updatePressure(pressure, lift: true);
+        return _catchUpAndLift(s, timeMs);
+      }
+      position = s.add(position, timeMs);
+    }
+    _updatePressure(pressure, lift: lift);
+    _thin(WetSample(position, _pressure, timeMs));
+    if (lift) {
+      if (s != null) return _catchUpAndLift(s, timeMs);
+      _lift(timeMs);
+    }
+  }
+
+  void _updatePressure(double pressure, {required bool lift}) {
     final norm = StrokeSampler.strokePressure(pressure);
     if (!lift || _pressure < 0) {
       _pressure = _pressure < 0
           ? norm
           : _pressure * shape.pressureKeep + norm * (1 - shape.pressureKeep);
     }
-    final sample = WetSample(position, _pressure, timeMs);
+  }
+
+  /// The stabilised ink catches up with the pen ([PenStabiliser.catchUp],
+  /// as Flutter's does at pen-up), then the pen lifts.
+  void _catchUpAndLift(PenStabiliser s, int timeMs) {
+    for (final p in s.catchUp()) {
+      _thin(WetSample(p, _pressure, timeMs));
+    }
+    _lift(timeMs);
+  }
+
+  /// Keeps [sample] as a point, or drops it as too close (see the class
+  /// documentation, *Points*).
+  void _thin(WetSample sample) {
+    final position = sample.position;
     final last = _last;
     if (last == null) {
       _keep(sample);
@@ -169,7 +212,6 @@ class WetInkModel with _WetInkRadii, _WetInkSegments {
       if (extreme != null) _keep(extreme);
       _keep(sample);
     }
-    if (lift) _lift(timeMs);
   }
 
   void _keep(WetSample s) {
