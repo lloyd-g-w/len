@@ -48,6 +48,9 @@ Offset _shaky(double t) {
   return _steady(t) + n * wobble;
 }
 
+/// The shaky line: 4 s, 300 px with a 20 px bow, tremor across it.
+final PenMotion shakyLine = PenMotion(duration: _seconds, at: _shaky, pressure: (_) => 0.5);
+
 /// RMS and largest distance of [points] from the steady path.
 ({double rms, double max}) _stray(Iterable<Offset> points, PolylineIndex steady) {
   var sum = 0.0, worst = 0.0, n = 0;
@@ -63,7 +66,7 @@ Offset _shaky(double t) {
 /// Stray of the committed centre line, of each live frame's newest 12 px
 /// of drawn ink, and of the overlay's newest 12 px, at [streamline].
 Map<String, ({double rms, double max})> measure(double streamline) {
-  final motion = PenMotion(duration: _seconds, at: _shaky, pressure: (_) => 0.5);
+  final motion = shakyLine;
   final pen = defaultPen.copyWith(streamline: streamline);
   final recording = SimCase('tremor', 'shaky line', [
     SimContact(motion, start: 0),
