@@ -251,9 +251,13 @@ class HoldToStraighten {
           ];
     var shape = snapOf(drawn, _scale);
     if (shape == null) return;
+    // A line ends at the pen (the string's ink is short of it), and the
+    // shape follows the pen from there.
+    if (pen.isNotEmpty) _penWorld = pen.last.$1.offset;
     final first = points.first.offset;
     if (shape.kind == ShapeKind.line) {
-      shape = ShapeGeometry(ShapeKind.line, [first, ShapeSnap.lineEnd(first, points.last.offset)]);
+      final end = pen.isEmpty ? points.last.offset : _penWorld;
+      shape = ShapeGeometry(ShapeKind.line, [first, ShapeSnap.lineEnd(first, end)]);
     } else if (shape.kind == ShapeKind.arrow) {
       final [tail, tip] = shape.points;
       shape = ShapeGeometry(ShapeKind.arrow, [tail, ShapeSnap.lineEnd(tail, tip)]);

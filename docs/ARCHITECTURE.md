@@ -3302,21 +3302,27 @@ From there the string grows from nothing at half the pen's travel to R
 an angle, a kink at every stroke's start); after 2R of travel the gap is
 R.
 
-**Pen-up.** At the lift (and before hold to snap reads the stroke) the ink
-**catches up along the pen's own path** (`PenStabiliser.catchUp`): from
-the point of the pen's path nearest the ink (on the path, not at a
-sample, so the start does not depend on the sample rate), the path's
-points with the ink's offset from it fading out by length, ending at the
-lift. Nothing jumps and the end is not cut off; the cost is that the
-stroke's last stretch is the pen's own path, tremor included: invisible
-at the default 3 px, but at 100 % the last ≈ 80 px of a slow, shaky line
-keep their wobble (`after_slow.png`, bottom row) and short strokes appear
-mostly at the lift. (A catch-up that also pulls the ink along that path on
-a string growing and shrinking again smoothed the tail, but added kinks
-at its start the Ink Lab's edge metrics catch and broke the 120/240/1000 Hz
-agreement; left for the owner to judge on the tablet.) The pen's path is
-kept for 16 (R + 4 px) of length, enough to find the ink's nearest point
-when it cut across a whole word.
+**Pen-up: the stroke stops where the ink is** (the owner's choice, as
+Krita's lazy brush does). The unfinished tail, up to R between the ink and
+the lift, is dropped: the committed stroke is the live ink as shown, its
+last point the ink's last position (within the points' spacing,
+`PointSpacing`), and the string goes. Nothing jumps (the ink is already
+there) and the end is as smooth as the rest. Why not catch up: drawing
+the tail at the lift, along the pen's own path (what this did first,
+`PenStabiliser.catchUp`), made the stroke's last stretch the raw hand, a
+wobbly tail on a slow shaky line and the raw cursive at the end of fast
+writing, up to 80 px at 100 %; a straight segment to the pen would cut
+across the writing instead; and a catch-up that pulled the ink along the
+path on a string shrinking again kinked where it began and broke the
+120/240/1000 Hz agreement. The cost: at high settings a stroke ends up
+to R short of where the pen lifted (`stabiliser_speed_test`: 3.4 px at
+30 %, 20 px at 60 %, 80 px at 100 % on fast cursive), and a short stroke
+draws only what the string let through. A tap or a stroke within the raw
+start (4 px) is the pen's own, so it still leaves its dot or dash; a
+little longer, the string is still short (it grows at half the pen's
+travel), so most of it shows. The bounce filter keeps reading where the
+pen lifted, not where the ink stopped. The Android overlay does the same
+(`WetInkModel.kt`), and neither keeps the pen's path any more.
 
 **Gestures read the pen, not the ink.** Hold to snap watches the pen rest
 (the ink stands still whenever the pen moves within the string) and
@@ -3325,8 +3331,13 @@ recognises the shape from the pen's own path up to the rest
 string-short end took hand-drawn arrows from 98 % to 78–86 % snapped at
 the default 3 px); once snapped, the line or shape follows the pen itself.
 The scribble detector reads the pen too (the string cut a three-pass
-scribble's turns below its threshold). The committed stroke is still the
-ink: the catch-up runs before the snap, as before.
+scribble's turns below its threshold), though only on the samples that
+move the ink: at 100 % an 80 px string holds the ink still on a narrow
+scribble's turns and it is not yet recognised (known; fine up to 60 %).
+Nothing catches up before the snap: the shape comes from the pen's path,
+and a snapped line ends at the pen (`HoldToStraighten`: the pen's last
+position, not the string's ink); an unrecognised hold leaves the ink where
+the string holds it.
 
 Being causal, every stabilised point is final at once: the stroke **stores
 the stabilised points with stabiliser 0** (format unchanged; the outline
@@ -3345,9 +3356,9 @@ px median below 300 px/s and above 1000 px/s), at 100 % 64–80 px above
 1000 px/s (strokes shorter than 2R never grow the full string); a resting
 pen jittering anywhere within the string leaves the ink where it is; the
 committed line at 120 / 1000 Hz is within 0.62 px of 240 Hz (0.48 px at
-0, the digitiser's jitter and the catch-up's samples); tremor left on the
-slow shaky line (raw 0.59 px RMS, measured from the steady path as the
-string draws it): 0.12 px at 50 %, 0.26 px at 100 % committed (0.21 live).
+0, the digitiser's jitter); tremor left on the slow shaky line (raw
+0.59 px RMS, measured from the steady path as the string draws it): 0.12
+px at 50 %, 0.25 px at 100 % committed, end included (0.20 live).
 The Ink Lab judges stabilised entries against the true path passed
 through the same string (`metrics/truth.dart`, `stabilisedTruth`): the
 string's corner-cutting is deliberate, the engine is judged on drawing
@@ -3367,7 +3378,9 @@ the after ones): `docs/inklab/stabiliser/{before,after}_{fast,slow}.png`,
 before being PR #7's filter. Seen there: fast cursive at 30 % is the pen's
 line with corners eased by 3 px; at 60 % its loops are gone and the
 string (20 px) shows all the time; at 100 % the ink sits 80 px behind and
-small writing flattens; the slow shaky line is straight from 60 % on.
+small writing flattens; the slow shaky line is straight from 60 % on;
+every stroke ends where its ink stopped, smooth, short of the pen's path
+(red) by the string.
 
 **The string** (`render/stabiliser_string.dart`, `LiveInk.stringFrom` /
 `stringTo`): while the pen pulls the ink, a 1 px Graphite hairline at 70 %

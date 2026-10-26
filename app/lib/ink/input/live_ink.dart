@@ -133,9 +133,11 @@ class LiveInk extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Replaces every point of the live stroke (e.g. when it is straightened).
+  /// Replaces every point of the live stroke (e.g. when it is straightened):
+  /// the stabiliser's string, if shown, goes (they no longer follow it).
   void replaceAll(List<StrokePoint> points) {
     _tip = const [];
+    _stringFrom = _stringTo = null;
     _points
       ..clear()
       ..addAll(points);

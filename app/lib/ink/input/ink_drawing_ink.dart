@@ -16,7 +16,6 @@ extension _Inking on InkDrawing {
     final stabiliser = _byMouse ? null : StabiliserParams.of(style.streamline);
     final ms = StrokeSampler.msOf(e.timeStamp);
     _stabiliser = stabiliser == null ? null : (PenStabiliser(stabiliser)..begin(e.localPosition));
-    _stabiliserMs = ms;
     final down = viewport.toWorld(e.localPosition);
     _penPath
       ..clear()
@@ -86,12 +85,11 @@ extension _Inking on InkDrawing {
     final ms = StrokeSampler.msOf(time);
     var at = screen;
     if (_stabiliser case final s?) {
-      _stabiliserMs = ms;
       final w = viewport.toWorld(screen);
       _penPath.add((StrokePoint(w.dx, w.dy, pressure), ms));
       at = s.add(screen);
-      // A snapped line or shape follows the pen itself (the ink caught
-      // up with it before the snap read the stroke).
+      // A snapped line or shape follows the pen itself (the snap read
+      // the pen's path and ends at the pen).
       if (live.straightened) at = screen;
     }
     if (_sampler.add(_lastScreen!, at, pressure, ms, synthesized: synthesized)) {
@@ -99,17 +97,10 @@ extension _Inking on InkDrawing {
     }
   }
 
-  /// With the stabiliser on, the ink catches up with the pen: at the lift,
-  /// and before hold to snap reads the stroke.
-  void _catchUp() {
-    final s = _stabiliser;
-    if (s == null || !inking) return;
-    // The pressure stays the last sample's (as the overlay keeps it).
-    for (final at in s.catchUp()) {
-      if (_sampler.add(_lastScreen!, at, 0.5, _stabiliserMs, synthesized: true)) {
-        _lastScreen = at;
-      }
-    }
+  /// With the stabiliser on, hides its string: at the lift the stroke
+  /// stops where the ink is (`PenStabiliser`), short of the pen.
+  void _hideString() {
+    if (_stabiliser == null || !inking) return;
     live.showString(null, null);
   }
 
@@ -149,7 +140,7 @@ extension _Inking on InkDrawing {
   /// that erased (only if [mayErase]).
   void _finishInk(Duration? liftTime, {required bool mayErase}) {
     if (_byMouse) _mouse.finish(); // The ink catches up with the mouse.
-    _catchUp(); // And with the pen.
+    _hideString(); // A pen's stops where its ink is.
     // A snapped shape's end follows no speed (the pen rested to snap it),
     // and it is no scribble.
     final snapped = live.straightened;

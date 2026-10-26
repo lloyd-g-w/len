@@ -92,6 +92,20 @@ void main() {
     expect(model.loadedStrokeCount, 2);
   });
 
+  testWidgets('with the stabiliser on a scribble still erases (it reads the pen)', (tester) async {
+    // (At 100 % it does not yet: the detector hears the pen only when the
+    // ink moves, and an 80 px string holds the ink still on the turns.)
+    for (final (setting, x0, x1) in [(0.4, 90.0, 170.0), (0.6, 90.0, 170.0)]) {
+      tools.updateConfig(tools.activeInk, (c) => c.copyWith(streamline: 0));
+      draw(line(const Offset(100, 105), const Offset(160, 110)));
+      draw(line(const Offset(400, 105), const Offset(460, 110)));
+      final before = model.loadedStrokeCount;
+      tools.updateConfig(tools.activeInk, (c) => c.copyWith(streamline: setting));
+      draw(scribble(x0, x1, 100), stepMs: 4);
+      expect(model.loadedStrokeCount, before - 1, reason: 'at $setting');
+    }
+  });
+
   testWidgets('three passes (there, back, there) erase at pen-up', (tester) async {
     draw(line(const Offset(100, 105), const Offset(160, 110)));
     draw(scribble(90, 170, 100, passes: 3), stepMs: 4, lift: false);

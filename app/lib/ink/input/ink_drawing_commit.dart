@@ -86,8 +86,9 @@ extension _InkCommit on InkDrawing {
       );
 
   void _recordLift(Duration? liftTime) {
-    if (liftTime != null && byStylus && _lastScreen != null) {
-      _bounces.recordLift(liftTime, _lastScreen!);
-    }
+    // Where the pen lifted: a bounce lands there, not where the
+    // stabiliser's ink stopped (up to its string short of the pen).
+    final at = _stabiliser?.pen ?? _lastScreen;
+    if (liftTime != null && byStylus && at != null) _bounces.recordLift(liftTime, at);
   }
 }
