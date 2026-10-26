@@ -104,6 +104,9 @@ Future<List<_Handover>> _handovers(InputRecording recording) async {
   final live = LiveInk();
   final viewport = ViewportController(minScale: 0.01, maxScale: 64);
   final driver = ReplayDriver(recording, model: model, live: live, viewport: viewport);
+  // The stabiliser's string is live only, by design gone at pen-up
+  // (`stabiliser_string_test.dart`): not drawn here.
+  driver.tools.showStabiliserString = false;
   final committed = <Stroke>[];
   final out = <_Handover>[];
   _Shot? last;

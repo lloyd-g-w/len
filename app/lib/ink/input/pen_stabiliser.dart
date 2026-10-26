@@ -62,9 +62,10 @@ class PenStabiliser {
   static const double _growth = 0.5;
 
   /// The ink follows the pen in steps of at most radius / [_steps], and
-  /// at most 1 / [_perPx] px.
+  /// at most engage / [_perEngage] (½ screen px: lengths in the units of
+  /// the positions, so the overlay's physical px take the same steps).
   static const int _steps = 32;
-  static const double _perPx = 2;
+  static const double _perEngage = 8;
 
   /// At most this many steps between two samples (a jump of the pen).
   static const int _maxSteps = 1024;
@@ -76,7 +77,7 @@ class PenStabiliser {
   int _h0 = 0;
 
   /// How much of the pen's path (px) is kept for [catchUp].
-  double get _keptLength => 16 * params.radius + 64;
+  double get _keptLength => 16 * (params.radius + params.engage);
 
   void _remember(double x, double y) {
     final n = _hx.length;
@@ -144,7 +145,10 @@ class PenStabiliser {
     final r = params.radius;
     final dx = x - _px, dy = y - _py;
     final d = _distance(dx, dy);
-    final n = math.min(_maxSteps, math.max(1, (d * math.max(_steps / r, _perPx)).ceil()));
+    final n = math.min(
+      _maxSteps,
+      math.max(1, (d * math.max(_steps / r, _perEngage / params.engage)).ceil()),
+    );
     for (var i = 1; i < n; i++) {
       final f = i / n;
       _pull(_px + dx * f, _py + dy * f, math.min(r, (_travel + d * f) * _growth));

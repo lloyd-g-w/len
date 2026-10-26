@@ -312,6 +312,19 @@ void main() {
       expect(worst, lessThan(0.1));
     });
 
+    test('in other units (the overlay\'s physical px) the same path, scaled', () {
+      Offset at(double t) => Offset(300 * t, 60 * math.sin(6 * t));
+      const f = 2.625;
+      for (final s in settings) {
+        final a = PenStabiliser(StabiliserParams.of(s)!)..begin(at(0));
+        final b = PenStabiliser(StabiliserParams.of(s)!.scaled(f))..begin(at(0) * f);
+        for (var i = 1; i <= 240; i++) {
+          final p = a.add(at(i / 240)), q = b.add(at(i / 240) * f);
+          expect((q / f - p).distance, lessThan(1e-9), reason: 'at $s');
+        }
+      }
+    });
+
     test('the ink catches up with the pen along its path', () {
       final s = PenStabiliser(params)..begin(Offset.zero);
       // A slow quarter circle (radius 120 px).
