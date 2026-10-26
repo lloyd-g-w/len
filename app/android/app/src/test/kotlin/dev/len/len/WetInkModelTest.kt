@@ -18,6 +18,10 @@ class WetInkModelTest {
     @Test
     fun realSPenWritingMatchesTheDartModel() = check("real_spen_01")
 
+    /** The stabiliser's longest string (80 px at 100 %). */
+    @Test
+    fun aLongStabiliserStringMatchesTheDartModel() = check("sim_cursive_string")
+
     @Test
     fun flatAndTaperedEndsMatchTheDartModel() {
         for (name in listOf("sim_hooks", "real_spen_01")) {

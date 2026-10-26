@@ -19,14 +19,19 @@ import 'package:len/ink/render/stroke_renderer.dart';
 /// and its two cross-sections: centre, left and right end) and the (x, y,
 /// r) triples drawn). [maxContacts] limits the
 /// contacts used; [ends] replaces the pen's end style (the end taper is the
-/// one a committed stroke carries, `WetInkModel.commit`).
+/// one a committed stroke carries, `WetInkModel.commit`); [stabiliser]
+/// replaces the pen's stabiliser.
 (String, String) wetInkVectors(
   InputRecording recording, {
   int queryEvery = 1,
   int? maxContacts,
   StrokeStyle Function(StrokeStyle)? ends,
+  double? stabiliser,
 }) {
-  final r = ReplayResult.run(recording);
+  final r = ReplayResult.run(
+    recording,
+    pen: stabiliser == null ? null : recording.meta.pen.copyWith(streamline: stabiliser),
+  );
   final dpr = recording.meta.devicePixelRatio;
   // An unusual zoom and unit, so scaling mistakes show.
   // The pen's stabiliser filters the samples; the stroke's own is 0, as

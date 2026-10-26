@@ -45,4 +45,20 @@ void main() {
       });
     }
   }
+  // The stabiliser's longest string (80 px at 100 %): the overlay pulls the
+  // ink as Flutter does.
+  test('the wet-ink model draws sim_cursive_string as the golden says', () {
+    final recording = RecordingCodec.decode(
+      File('test/inklab/recordings/sim_cursive.leninput').readAsBytesSync(),
+    );
+    final (events, expected) = wetInkVectors(recording, queryEvery: 9, stabiliser: 1);
+    final ev = File('$_golden/sim_cursive_string.ev');
+    final out = File('$_golden/sim_cursive_string.expected');
+    if (_update) {
+      ev.writeAsStringSync(events);
+      out.writeAsStringSync(expected);
+    }
+    expect(ev.readAsStringSync(), events);
+    expect(out.readAsStringSync(), expected);
+  });
 }
