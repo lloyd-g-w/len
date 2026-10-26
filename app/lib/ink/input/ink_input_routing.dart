@@ -59,7 +59,8 @@ extension _InputRouting on InkInputController {
   /// (the eraser tool, the eraser end, the side button set to erase), the
   /// pen's or highlighter's ink, or the laser's dot under a mouse
   /// (presenting with a mouse needs no button held). The system cursor
-  /// hides under a preview ([_pointAt]): the eraser shows no crosshair.
+  /// (and a stylus's system pointer) hides under a preview ([_pointAt]):
+  /// the eraser shows no crosshair.
   void _showHover(PointerEvent e) {
     final erases = _wantsErase(e);
     _draw.showEraser(erases ? e.localPosition : null);
@@ -75,9 +76,12 @@ extension _InputRouting on InkInputController {
     _pointAt(e);
   }
 
-  /// Sets [cursor] for a pointer at [e] (see [cursor]).
+  /// Sets [cursor] for a pointer at [e] (see [cursor]), and for a stylus
+  /// whether the system's own stylus pointer hides ([stylusPointer]): both
+  /// hide exactly where the canvas draws its own preview.
   void _pointAt(PointerEvent e) {
     final previewed = _wantsErase(e) || _previewsInk(e) || _lasers(e);
+    if (isStylusKind(e.kind)) stylusPointer?.claim(e, preview: previewed);
     cursor.value = previewed
         ? SystemMouseCursors.none
         : content?.cursorAt(tools.tool, e.localPosition) ?? SystemMouseCursors.precise;

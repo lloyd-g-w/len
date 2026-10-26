@@ -128,6 +128,7 @@ mixin _EditorSessionZoom {
     ),
     penButtonAction: () => services.preferences.penButtonAction,
     palms: services.palmGuard,
+    stylusPointer: services.stylusPointer,
   );
 
   Rect? _zoomPage() {

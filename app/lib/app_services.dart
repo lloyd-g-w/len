@@ -43,6 +43,7 @@ import 'features/storage/storage_overview.dart';
 import 'ink/fonts/user_font_library.dart';
 import 'ink/images/element_images.dart';
 import 'ink/input/palm_guard.dart';
+import 'ink/input/stylus_pointer.dart';
 import 'ink/recognition/handwriting_recognizer.dart';
 import 'ink/recognition/recognition_service.dart';
 import 'ink/render/outline_preparer.dart';
@@ -248,6 +249,10 @@ class AppServices {
   /// once the app widget attaches it.
   final PalmGuard palmGuard = PalmGuard();
 
+  /// Hides the system's stylus hover pointer where a canvas draws its own
+  /// preview; watches pointers once the app widget attaches it.
+  final StylusPointer stylusPointer = StylusPointer();
+
   /// Audio recordings of notebooks (their audio is in [blobs]).
   final RecordingRepository recordings;
 
@@ -388,6 +393,7 @@ class AppServices {
     recognition.dispose();
     pointerActivity.detach();
     palmGuard.detach();
+    stylusPointer.detach();
     search.dispose();
     sync.dispose();
     sync.tokens.dispose();

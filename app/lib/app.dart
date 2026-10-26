@@ -38,6 +38,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
     widget.services.sync.foreground = _inForeground(WidgetsBinding.instance.lifecycleState);
     widget.services.pointerActivity.attach();
     widget.services.palmGuard.attach();
+    widget.services.stylusPointer.attach();
     _syncAttention;
     _storageAttention;
     if (widget.services.blobs.backend case final VolatileBlobBackend volatile) {
@@ -80,6 +81,7 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
   void dispose() {
     widget.services.pointerActivity.detach();
     widget.services.palmGuard.detach();
+    widget.services.stylusPointer.detach();
     _syncAttention.dispose();
     _storageAttention.dispose();
     WidgetsBinding.instance.removeObserver(this);

@@ -19,6 +19,7 @@ import 'palm_guard.dart';
 import 'pointer_navigation.dart';
 import 'sample_source.dart';
 import 'stylus_buttons.dart';
+import 'stylus_pointer.dart';
 import 'stylus_proximity.dart';
 
 part 'ink_input_routing.dart';
@@ -61,6 +62,7 @@ class InkInputController {
     this.samples,
     PenButtonAction Function()? penButtonAction,
     this.palms,
+    this.stylusPointer,
   }) : _penButtonAction = penButtonAction ?? (() => PenButtonAction.eraser),
        _draw = InkDrawing(
          model: model,
@@ -114,6 +116,10 @@ class InkInputController {
   /// The app-wide palm guard, if attached: a pen near another canvas (the
   /// other split pane, the zoom window's box) makes touches here palms too.
   final PalmGuard? palms;
+
+  /// The app-wide system stylus pointer, if attached: hidden while a stylus
+  /// hovers here with a preview of this canvas's own (see [cursor]).
+  final StylusPointer? stylusPointer;
 
   /// Stylus samples the platform reported between pointer events (Android
   /// batches several per frame; Flutter forwards only the newest), if any.
