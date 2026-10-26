@@ -47,7 +47,7 @@ class LibraryBreadcrumbs extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Symbols.chevron_right_sharp, size: Glyphs.menu, color: scheme.outline),
+            Icon(Symbols.chevron_right_rounded, size: Glyphs.menu, color: scheme.outline),
           ],
         ],
       ),

@@ -194,12 +194,12 @@ class _TemplateChooserState extends State<TemplateChooser> {
     decoration: InputDecoration(
       isDense: true,
       hintText: 'Search templates',
-      prefixIcon: const Icon(Symbols.search_sharp, size: Glyphs.bar),
+      prefixIcon: const Icon(Symbols.search_rounded, size: Glyphs.bar),
       suffixIcon: _query.text.isEmpty
           ? null
           : IconButton(
               tooltip: 'Clear search',
-              icon: const Icon(Symbols.close_sharp, size: Glyphs.menu),
+              icon: const Icon(Symbols.close_rounded, size: Glyphs.menu),
               onPressed: () => setState(_query.clear),
             ),
     ),

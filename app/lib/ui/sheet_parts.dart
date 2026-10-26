@@ -79,7 +79,7 @@ class SheetHeader extends StatelessWidget {
         dimension: hit,
         child: IconButton(
           tooltip: 'Close',
-          icon: const Icon(Symbols.close_sharp),
+          icon: const Icon(Symbols.close_rounded),
           onPressed: onClose,
         ),
       ),

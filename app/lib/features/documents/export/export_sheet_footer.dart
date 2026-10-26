@@ -51,7 +51,7 @@ class ExportSheetFooter extends StatelessWidget {
     final export = FilledButton.icon(
       key: ValueKey(print ? 'print-button' : 'export-button'),
       onPressed: onExport,
-      icon: Icon(print ? Symbols.print_sharp : Symbols.ios_share_sharp, size: Glyphs.bar),
+      icon: Icon(print ? Symbols.print_rounded : Symbols.ios_share_rounded, size: Glyphs.bar),
       label: Text(
         print
             ? 'Print'
@@ -65,7 +65,7 @@ class ExportSheetFooter extends StatelessWidget {
     final saveToDevice = OutlinedButton.icon(
       key: const ValueKey('save-to-device-button'),
       onPressed: onSaveToDevice,
-      icon: const Icon(Symbols.download_sharp, size: Glyphs.bar),
+      icon: const Icon(Symbols.download_rounded, size: Glyphs.bar),
       label: const Text('Save to device'),
     );
     Widget pair(double width) => width / MediaQuery.textScalerOf(context).scale(1) < 340

@@ -121,7 +121,7 @@ abstract final class Targets {
   static double menuRowHeight(BuildContext context) => touchFirst ? touch : menuRow;
 }
 
-/// Glyph sizes for Material Symbols Sharp, by where they sit.
+/// Glyph sizes for Material Symbols Rounded, by where they sit.
 abstract final class Glyphs {
   /// Bars and the toolbar.
   static const double bar = 20;

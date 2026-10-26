@@ -12,9 +12,9 @@ export 'overview_selection.dart';
 
 /// What the page overview shows (REDESIGN §2.4).
 enum OverviewFilter {
-  all('All', Symbols.grid_view_sharp),
-  bookmarked('Bookmarked', Symbols.bookmark_sharp),
-  outline('Outline', Symbols.toc_sharp);
+  all('All', Symbols.grid_view_rounded),
+  bookmarked('Bookmarked', Symbols.bookmark_rounded),
+  outline('Outline', Symbols.toc_rounded);
 
   const OverviewFilter(this.label, this.icon);
 
@@ -85,8 +85,8 @@ class OverviewAppBar extends StatelessWidget implements PreferredSizeWidget {
             onPressed: onBesidePage,
             icon: Icon(
               Directionality.of(context) == TextDirection.rtl
-                  ? Symbols.right_panel_open_sharp
-                  : Symbols.left_panel_open_sharp,
+                  ? Symbols.right_panel_open_rounded
+                  : Symbols.left_panel_open_rounded,
               size: Glyphs.menu,
             ),
             label: const Text('Show beside the page'),
@@ -188,7 +188,7 @@ class AddPageTile extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Symbols.add_sharp, size: Glyphs.empty, color: scheme.onSurface),
+                            Icon(Symbols.add_rounded, size: Glyphs.empty, color: scheme.onSurface),
                             const SizedBox(height: Gaps.xs),
                             Text('Add page', style: theme.textTheme.labelLarge),
                           ],
@@ -220,14 +220,14 @@ class NoBookmarks extends StatelessWidget {
   Widget build(BuildContext context) {
     final page = this.page;
     return EmptyState(
-      art: const EmptyGlyph(Symbols.bookmark_sharp),
+      art: const EmptyGlyph(Symbols.bookmark_rounded),
       title: 'No bookmarked pages yet',
       message: 'Bookmark pages from their ··· menu to find them here',
       action: page == null || onBookmark == null
           ? null
           : TextButton.icon(
               onPressed: onBookmark,
-              icon: const Icon(Symbols.bookmark_add_sharp),
+              icon: const Icon(Symbols.bookmark_add_rounded),
               label: Text('Bookmark page ${page + 1}'),
             ),
     );

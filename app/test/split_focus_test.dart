@@ -83,7 +83,7 @@ void main() {
     // Alone, the strip's active tab names the notebook.
     expect(titleIn(0), findsNothing);
     expect(
-      find.descendant(of: strip, matching: find.byIcon(Symbols.vertical_split_sharp)),
+      find.descendant(of: strip, matching: find.byIcon(Symbols.vertical_split_rounded)),
       findsNothing,
     );
 
@@ -92,7 +92,7 @@ void main() {
     expect(find.descendant(of: titleIn(0), matching: find.text(physics.title)), findsOneWidget);
     expect(find.descendant(of: titleIn(1), matching: find.text(chemistry.title)), findsOneWidget);
     expect(
-      find.descendant(of: strip, matching: find.byIcon(Symbols.vertical_split_sharp)),
+      find.descendant(of: strip, matching: find.byIcon(Symbols.vertical_split_rounded)),
       findsNWidgets(2),
     );
 
@@ -100,7 +100,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(titleIn(0), findsNothing);
     expect(
-      find.descendant(of: strip, matching: find.byIcon(Symbols.vertical_split_sharp)),
+      find.descendant(of: strip, matching: find.byIcon(Symbols.vertical_split_rounded)),
       findsNothing,
     );
   });

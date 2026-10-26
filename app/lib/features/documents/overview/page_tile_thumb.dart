@@ -82,7 +82,7 @@ class PageTileThumb extends StatelessWidget {
                 Positioned(
                   top: 0,
                   right: 14,
-                  child: Icon(Symbols.bookmark_sharp, fill: 1, size: 26, color: Palette.bookmark),
+                  child: Icon(Symbols.bookmark_rounded, fill: 1, size: 26, color: Palette.bookmark),
                 ),
               if (tile.selecting)
                 Positioned(top: 10, left: 10, child: SelectCheck(selected: tile.selected)),

@@ -138,8 +138,8 @@ class _ScanScreenState extends State<ScanScreen> {
     final camera = await showContextMenuAt<bool>(
       anchor,
       items: const [
-        MenuRow(value: true, icon: Symbols.photo_camera_sharp, label: 'Take photo'),
-        MenuRow(value: false, icon: Symbols.image_sharp, label: 'Choose photos…'),
+        MenuRow(value: true, icon: Symbols.photo_camera_rounded, label: 'Take photo'),
+        MenuRow(value: false, icon: Symbols.image_rounded, label: 'Choose photos…'),
       ],
     );
     if (camera == null || !mounted) return;
@@ -267,7 +267,7 @@ class _ScanScreenState extends State<ScanScreen> {
       automaticallyImplyLeading: false,
       leading: IconButton(
         tooltip: 'Close',
-        icon: const Icon(Symbols.close_sharp),
+        icon: const Icon(Symbols.close_rounded),
         onPressed: () => unawaited(_close()),
       ),
       title: Column(

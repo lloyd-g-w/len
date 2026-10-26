@@ -33,7 +33,7 @@ class SelectCheck extends StatelessWidget {
           width: 1.5,
         ),
       ),
-      child: selected ? Icon(Symbols.check_sharp, size: size - 6, color: scheme.onPrimary) : null,
+      child: selected ? Icon(Symbols.check_rounded, size: size - 6, color: scheme.onPrimary) : null,
     );
   }
 }

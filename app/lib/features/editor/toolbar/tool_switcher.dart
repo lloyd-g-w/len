@@ -82,7 +82,7 @@ class ToolSwitcherButton extends StatelessWidget {
                               if (!reading) ...[
                                 const SizedBox(width: Gaps.xxs),
                                 Icon(
-                                  Symbols.expand_more_sharp,
+                                  Symbols.expand_more_rounded,
                                   size: Glyphs.badge,
                                   color: scheme.onSurfaceVariant,
                                 ),

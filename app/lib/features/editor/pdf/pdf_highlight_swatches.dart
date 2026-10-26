@@ -59,7 +59,7 @@ class PdfHighlightSwatches extends StatelessWidget {
             padding: const EdgeInsetsDirectional.only(start: Gaps.sm, end: Gaps.xs),
             child: labelled
                 ? Text('Highlight', style: theme.textTheme.labelLarge?.copyWith(color: muted))
-                : Icon(Symbols.border_color_sharp, size: Glyphs.menu, color: muted),
+                : Icon(Symbols.border_color_rounded, size: Glyphs.menu, color: muted),
           ),
         ),
         for (final (i, color) in colors.indexed)

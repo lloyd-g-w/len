@@ -69,9 +69,9 @@ class ExportFormatPicker extends StatelessWidget {
             showSelectedIcon: false,
             segments: [
               for (final (value, icon) in [
-                (ExportFormat.pdf, Symbols.picture_as_pdf_sharp),
-                (ExportFormat.png, Symbols.image_sharp),
-                (ExportFormat.len, Symbols.stylus_note_sharp),
+                (ExportFormat.pdf, Symbols.picture_as_pdf_rounded),
+                (ExportFormat.png, Symbols.image_rounded),
+                (ExportFormat.len, Symbols.stylus_note_rounded),
               ])
                 ButtonSegment(
                   value: value,

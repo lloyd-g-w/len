@@ -52,7 +52,7 @@ class LibrarySearchField extends StatelessWidget {
             hintText: 'Search',
             contentPadding: EdgeInsets.zero,
             prefixIcon: Icon(
-              Symbols.search_sharp,
+              Symbols.search_rounded,
               color: scheme.onSurfaceVariant,
               size: Glyphs.bar,
             ),
@@ -63,7 +63,7 @@ class LibrarySearchField extends StatelessWidget {
                         ? 'Clear search'
                         : 'Close search',
                     iconSize: Glyphs.menu,
-                    icon: const Icon(Symbols.close_sharp),
+                    icon: const Icon(Symbols.close_rounded),
                     onPressed: () {
                       if (controller.text.isEmpty) {
                         onClose?.call();

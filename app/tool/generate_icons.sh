@@ -11,7 +11,7 @@
 # Source of truth:
 #   tool/branding/glyph.path   the scribble: Material Symbols "gesture",
 #                              24×24 units (spans y 3..21). The library sidebar
-#                              shows the same symbol (`Symbols.gesture_sharp`)
+#                              shows the same symbol (`Symbols.gesture_rounded`)
 #                              in Ink, without a tile. Apache-2.0 (Google).
 #   this script                colours and geometry of every variant.
 #

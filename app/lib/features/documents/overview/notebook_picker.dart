@@ -141,12 +141,12 @@ class _DestinationPickerState extends State<_DestinationPicker> {
               decoration: InputDecoration(
                 isDense: true,
                 hintText: 'Find a notebook',
-                prefixIcon: const Icon(Symbols.search_sharp, size: Glyphs.bar),
+                prefixIcon: const Icon(Symbols.search_rounded, size: Glyphs.bar),
                 suffixIcon: _filter.text.isEmpty
                     ? null
                     : IconButton(
                         tooltip: 'Clear',
-                        icon: const Icon(Symbols.close_sharp, size: Glyphs.menu),
+                        icon: const Icon(Symbols.close_rounded, size: Glyphs.menu),
                         onPressed: () => setState(_filter.clear),
                       ),
               ),
@@ -188,7 +188,7 @@ class _DestinationPickerState extends State<_DestinationPicker> {
         return _NotebookRow(
           key: const ValueKey('destination-new'),
           leading: _newTitle == null
-              ? Icon(Symbols.add_sharp, size: Glyphs.bar, color: theme.colorScheme.onSurface)
+              ? Icon(Symbols.add_rounded, size: Glyphs.bar, color: theme.colorScheme.onSurface)
               : MiniCover(color: widget.cover),
           title: _newTitle ?? 'New notebook…',
           caption: _newTitle == null ? 'With this notebook’s paper and cover' : 'New notebook',

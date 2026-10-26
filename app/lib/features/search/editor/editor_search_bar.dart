@@ -173,13 +173,13 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
         tooltip: 'Previous (Shift+Enter)',
         visualDensity: density,
         onPressed: hasMatches ? _previous : null,
-        icon: const Icon(Symbols.keyboard_arrow_up_sharp),
+        icon: const Icon(Symbols.keyboard_arrow_up_rounded),
       ),
       IconButton(
         tooltip: 'Next (Enter)',
         visualDensity: density,
         onPressed: hasMatches ? _next : null,
-        icon: const Icon(Symbols.keyboard_arrow_down_sharp),
+        icon: const Icon(Symbols.keyboard_arrow_down_rounded),
       ),
       // On: the ink plate and the filled glyph, like a selected tool.
       IconButton(
@@ -202,19 +202,19 @@ class _EditorSearchBarState extends State<EditorSearchBar> {
             RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(Radii.xs))),
           ),
         ),
-        icon: const Icon(Symbols.list_sharp),
-        selectedIcon: const Icon(Symbols.list_sharp, fill: 1),
+        icon: const Icon(Symbols.list_rounded),
+        selectedIcon: const Icon(Symbols.list_rounded, fill: 1),
       ),
     ];
     final close = IconButton(
       tooltip: 'Close (Esc)',
       visualDensity: density,
       onPressed: _close,
-      icon: const Icon(Symbols.close_sharp),
+      icon: const Icon(Symbols.close_rounded),
     );
     final leading = [
       const SizedBox(width: Gaps.sm),
-      Icon(Symbols.search_sharp, size: Glyphs.bar, color: scheme.onSurfaceVariant),
+      Icon(Symbols.search_rounded, size: Glyphs.bar, color: scheme.onSurfaceVariant),
       const SizedBox(width: Gaps.sm),
     ];
     return LayoutBuilder(

@@ -252,10 +252,10 @@ extension ThemeComponents on ThemeData {
       ),
       // Flutter's own back, close and drawer buttons use Symbols too.
       actionIconTheme: ActionIconThemeData(
-        backButtonIconBuilder: (_) => const Icon(Symbols.arrow_back_sharp),
-        closeButtonIconBuilder: (_) => const Icon(Symbols.close_sharp),
-        drawerButtonIconBuilder: (_) => const Icon(Symbols.menu_sharp),
-        endDrawerButtonIconBuilder: (_) => const Icon(Symbols.menu_sharp),
+        backButtonIconBuilder: (_) => const Icon(Symbols.arrow_back_rounded),
+        closeButtonIconBuilder: (_) => const Icon(Symbols.close_rounded),
+        drawerButtonIconBuilder: (_) => const Icon(Symbols.menu_rounded),
+        endDrawerButtonIconBuilder: (_) => const Icon(Symbols.menu_rounded),
       ),
     ).applyControlThemes(scheme);
   }

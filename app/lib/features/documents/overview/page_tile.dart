@@ -192,7 +192,7 @@ class _Footer extends StatelessWidget {
             MenuIconButton<PageCommand>(
               tooltip: 'Page ${tile.index + 1} options',
               icon: Icon(
-                Symbols.more_horiz_sharp,
+                Symbols.more_horiz_rounded,
                 size: Glyphs.bar,
                 color: scheme.onSurfaceVariant,
               ),

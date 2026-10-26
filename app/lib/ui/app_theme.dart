@@ -11,7 +11,7 @@ export 'tones.dart';
 
 /// Visual language (DESIGN.md): Swiss minimal from the notebook. True
 /// neutral greys, black ink, one accent (ruling blue) for state, Sofia Sans
-/// in a six-role scale, Material Symbols Sharp, flat chrome with hairlines,
+/// in a six-role scale, Material Symbols Rounded, flat chrome with hairlines,
 /// and depth only for paper ([Shadows]).
 abstract final class AppTheme {
   /// The weight of the current or chosen row's label in a list (the

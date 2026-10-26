@@ -91,7 +91,7 @@ class _FocusHandleState extends State<FocusHandle> {
                       child: SizedBox.square(
                         dimension: Targets.bar,
                         child: Icon(
-                          Symbols.fullscreen_exit_sharp,
+                          Symbols.fullscreen_exit_rounded,
                           size: Glyphs.bar,
                           color: scheme.onSurface,
                         ),

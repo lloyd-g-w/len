@@ -79,7 +79,7 @@ class SelectionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final head = [
-      IconButton(tooltip: 'Done', icon: const Icon(Symbols.close_sharp), onPressed: onDone),
+      IconButton(tooltip: 'Done', icon: const Icon(Symbols.close_rounded), onPressed: onDone),
       Expanded(
         child: Text(
           title,
@@ -205,7 +205,7 @@ class SelectionBar extends StatelessWidget {
         message: 'More',
         excludeFromSemantics: labels,
         child: LabelledAction(
-          icon: Symbols.more_horiz_sharp,
+          icon: Symbols.more_horiz_rounded,
           label: _moreLabel,
           showLabel: labels,
           onPressed: enabled

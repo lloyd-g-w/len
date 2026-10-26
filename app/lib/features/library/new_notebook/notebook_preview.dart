@@ -92,7 +92,7 @@ class NotebookPreview extends StatelessWidget {
                         right: 8,
                         bottom: 8,
                         child: Icon(
-                          Symbols.all_inclusive_sharp,
+                          Symbols.all_inclusive_rounded,
                           size: Glyphs.menu,
                           color: Color(coverColor).withValues(alpha: 0.85),
                         ),

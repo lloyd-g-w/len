@@ -56,7 +56,7 @@ class _TabRow extends StatelessWidget {
           end: Gaps.lg - (hit - Glyphs.bar) / 2,
         ),
         leading: Icon(
-          tab.kind == NotebookKind.canvas ? Symbols.gesture_sharp : Symbols.menu_book_sharp,
+          tab.kind == NotebookKind.canvas ? Symbols.gesture_rounded : Symbols.menu_book_rounded,
           fill: current ? 1 : 0,
         ),
         title: Text(
@@ -70,7 +70,7 @@ class _TabRow extends StatelessWidget {
           child: IconButton(
             tooltip: 'Close tab',
             onPressed: () => tabs.close(tab.id),
-            icon: const Icon(Symbols.close_sharp),
+            icon: const Icon(Symbols.close_rounded),
           ),
         ),
         onTap: () {

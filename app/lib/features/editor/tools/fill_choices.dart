@@ -95,7 +95,7 @@ class FillChoices extends StatelessWidget {
                 paper.toARGB32(),
                 'No fill',
                 child: Icon(
-                  Symbols.block_sharp,
+                  Symbols.block_rounded,
                   size: Glyphs.menu,
                   // On the paper, which is not themed.
                   color: sheet.text,

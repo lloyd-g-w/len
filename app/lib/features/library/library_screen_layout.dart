@@ -52,7 +52,7 @@ extension _LibraryLayout on _LibraryScreenState {
                 excludeFromSemantics: true, // The icon names the button.
                 child: FloatingActionButton(
                   onPressed: () => unawaited(_actions.createNotebook(context)),
-                  child: const Icon(Symbols.add_sharp, semanticLabel: 'New notebook'),
+                  child: const Icon(Symbols.add_rounded, semanticLabel: 'New notebook'),
                 ),
               ),
             ),
@@ -119,7 +119,7 @@ extension _LibraryLayout on _LibraryScreenState {
         headerLeading: Builder(
           builder: (context) => IconButton(
             tooltip: 'Menu',
-            icon: const Icon(Symbols.menu_sharp),
+            icon: const Icon(Symbols.menu_rounded),
             onPressed: Scaffold.of(context).openDrawer,
           ),
         ),

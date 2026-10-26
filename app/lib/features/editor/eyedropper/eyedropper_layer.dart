@@ -191,7 +191,7 @@ class _Hint extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Symbols.colorize_sharp,
+              Symbols.colorize_rounded,
               size: Glyphs.menu,
               color: theme.colorScheme.onSurfaceVariant,
             ),

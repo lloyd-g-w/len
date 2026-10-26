@@ -36,7 +36,7 @@ extension _TextFormatGroups on TextFormatBar {
         IconButton(
           tooltip: 'Smaller',
           onPressed: () => _setSize(TextFormatBar.step(size, -1)),
-          icon: const Icon(Symbols.text_decrease_sharp, size: Glyphs.bar),
+          icon: const Icon(Symbols.text_decrease_rounded, size: Glyphs.bar),
         ),
         // (Wider with large text: the number never wraps.)
         ConstrainedBox(
@@ -54,26 +54,31 @@ extension _TextFormatGroups on TextFormatBar {
         IconButton(
           tooltip: 'Larger',
           onPressed: () => _setSize(TextFormatBar.step(size, 1)),
-          icon: const Icon(Symbols.text_increase_sharp, size: Glyphs.bar),
+          icon: const Icon(Symbols.text_increase_rounded, size: Glyphs.bar),
         ),
       ],
       [
-        toggle('Bold (${modifierLabel()}+B)', Symbols.format_bold_sharp, style.bold, c.toggleBold),
+        toggle(
+          'Bold (${modifierLabel()}+B)',
+          Symbols.format_bold_rounded,
+          style.bold,
+          c.toggleBold,
+        ),
         toggle(
           'Italic (${modifierLabel()}+I)',
-          Symbols.format_italic_sharp,
+          Symbols.format_italic_rounded,
           style.italic,
           c.toggleItalic,
         ),
         toggle(
           'Underline (${modifierLabel()}+U)',
-          Symbols.format_underlined_sharp,
+          Symbols.format_underlined_rounded,
           style.underline,
           c.toggleUnderline,
         ),
         toggle(
           'Strikethrough (${modifierLabel()}+Shift+X)',
-          Symbols.format_strikethrough_sharp,
+          Symbols.format_strikethrough_rounded,
           style.strike,
           c.toggleStrike,
         ),
@@ -157,10 +162,10 @@ extension _TextFormatGroups on TextFormatBar {
   static IconData _alignIcon(TextAlignment align, TextDirection direction) {
     final rtl = direction == TextDirection.rtl;
     return switch (align) {
-      TextAlignment.center => Symbols.format_align_center_sharp,
-      TextAlignment.start when rtl => Symbols.format_align_right_sharp,
-      TextAlignment.end when !rtl => Symbols.format_align_right_sharp,
-      _ => Symbols.format_align_left_sharp,
+      TextAlignment.center => Symbols.format_align_center_rounded,
+      TextAlignment.start when rtl => Symbols.format_align_right_rounded,
+      TextAlignment.end when !rtl => Symbols.format_align_right_rounded,
+      _ => Symbols.format_align_left_rounded,
     };
   }
 

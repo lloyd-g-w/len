@@ -110,7 +110,7 @@ class _RecordingsListState extends State<RecordingsList> {
             IconButton(
               tooltip: 'Select',
               onPressed: () => setState(() => _selected = {}),
-              icon: const Icon(Symbols.checklist_sharp),
+              icon: const Icon(Symbols.checklist_rounded),
             ),
           // Recording already: the first row says so.
           if (audio.recorder.state == RecorderState.idle) ...[
@@ -120,7 +120,7 @@ class _RecordingsListState extends State<RecordingsList> {
                 Navigator.of(context).pop();
                 unawaited(startRecording(context, audio));
               },
-              icon: const Icon(Symbols.mic_sharp),
+              icon: const Icon(Symbols.mic_rounded),
               label: const Text('Record'),
             ),
           ],
@@ -150,7 +150,7 @@ class _RecordingsListState extends State<RecordingsList> {
           IconButton(
             tooltip: 'Cancel selection',
             onPressed: () => setState(() => _selected = null),
-            icon: const Icon(Symbols.close_sharp),
+            icon: const Icon(Symbols.close_rounded),
           ),
           Expanded(
             child: Text(
@@ -162,23 +162,23 @@ class _RecordingsListState extends State<RecordingsList> {
             tooltip: all ? 'Select none' : 'Select all',
             onPressed: () =>
                 setState(() => _selected = all ? {} : {for (final r in recordings) r.id}),
-            icon: Icon(all ? Symbols.deselect_sharp : Symbols.select_all_sharp),
+            icon: Icon(all ? Symbols.deselect_rounded : Symbols.select_all_rounded),
           ),
           IconButton(
             tooltip: audio.canSaveToDevice ? 'Share…' : 'Export…',
             onPressed: chosen.isEmpty ? null : () => unawaited(_export(chosen)),
-            icon: const Icon(Symbols.ios_share_sharp),
+            icon: const Icon(Symbols.ios_share_rounded),
           ),
           if (audio.canSaveToDevice)
             IconButton(
               tooltip: 'Save to device…',
               onPressed: chosen.isEmpty ? null : () => unawaited(_export(chosen, toDevice: true)),
-              icon: const Icon(Symbols.download_sharp),
+              icon: const Icon(Symbols.download_rounded),
             ),
           IconButton(
             tooltip: 'Delete…',
             onPressed: chosen.isEmpty ? null : () => unawaited(_deleteAll(chosen)),
-            icon: const Icon(Symbols.delete_sharp),
+            icon: const Icon(Symbols.delete_rounded),
           ),
         ],
       ),

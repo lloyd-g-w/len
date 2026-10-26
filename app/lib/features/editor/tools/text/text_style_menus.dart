@@ -38,7 +38,7 @@ class HighlightMenuButton extends StatelessWidget {
         border: Border.all(color: scheme.outline),
       ),
       child: c == null
-          ? Icon(Symbols.block_sharp, size: Glyphs.badge, color: scheme.outline)
+          ? Icon(Symbols.block_rounded, size: Glyphs.badge, color: scheme.outline)
           : null,
     );
     return MenuIconButton<int>(
@@ -57,7 +57,7 @@ class HighlightMenuButton extends StatelessWidget {
       icon: Stack(
         alignment: Alignment.bottomCenter,
         children: [
-          const Icon(Symbols.border_color_sharp, size: Glyphs.bar),
+          const Icon(Symbols.border_color_rounded, size: Glyphs.bar),
           Container(
             width: 20,
             height: 4,
@@ -106,10 +106,10 @@ class ParagraphMenuButton extends StatelessWidget {
   final ValueChanged<ParagraphChoice> onSelected;
 
   static IconData iconOf(ListKind kind) => switch (kind) {
-    ListKind.none => Symbols.notes_sharp,
-    ListKind.bullet => Symbols.format_list_bulleted_sharp,
-    ListKind.number => Symbols.format_list_numbered_sharp,
-    ListKind.check => Symbols.checklist_sharp,
+    ListKind.none => Symbols.notes_rounded,
+    ListKind.bullet => Symbols.format_list_bulleted_rounded,
+    ListKind.number => Symbols.format_list_numbered_rounded,
+    ListKind.check => Symbols.checklist_rounded,
   };
 
   @override
@@ -152,9 +152,9 @@ class ParagraphMenuButton extends StatelessWidget {
         current != null
             ? iconOf(current)
             : switch (heading) {
-                1 => Symbols.title_sharp,
-                2 => Symbols.text_fields_sharp,
-                _ => Symbols.notes_sharp,
+                1 => Symbols.title_rounded,
+                2 => Symbols.text_fields_rounded,
+                _ => Symbols.notes_rounded,
               },
         size: Glyphs.bar,
       ),

@@ -37,12 +37,12 @@ class LibrarySelectionBar extends StatelessWidget {
       commands: [
         if (trash) ...[
           SelectionCommand(
-            icon: Symbols.restore_sharp,
+            icon: Symbols.restore_rounded,
             label: 'Restore',
             onPressed: () => actions.restoreSelected(context, selection),
           ),
           SelectionCommand(
-            icon: Symbols.delete_forever_sharp,
+            icon: Symbols.delete_forever_rounded,
             label: 'Delete…',
             tooltip: 'Delete forever…',
             destructive: true,
@@ -50,24 +50,24 @@ class LibrarySelectionBar extends StatelessWidget {
           ),
         ] else ...[
           SelectionCommand(
-            icon: Symbols.star_sharp,
+            icon: Symbols.star_rounded,
             label: allStarred ? 'Unfavourite' : 'Favourite',
             tooltip: allStarred ? 'Remove from favourites' : 'Add to favourites',
             filled: allStarred,
             onPressed: () => actions.favoriteSelected(context, selection),
           ),
           SelectionCommand(
-            icon: Symbols.drive_file_move_sharp,
+            icon: Symbols.drive_file_move_rounded,
             label: 'Move to folder…',
             onPressed: () => unawaited(actions.moveSelected(context, selection)),
           ),
           SelectionCommand(
-            icon: Symbols.ios_share_sharp,
+            icon: Symbols.ios_share_rounded,
             label: 'Export…',
             onPressed: () => unawaited(actions.exportSelected(context, selection)),
           ),
           SelectionCommand(
-            icon: Symbols.delete_sharp,
+            icon: Symbols.delete_rounded,
             label: 'Trash',
             tooltip: 'Move to trash',
             destructive: true,

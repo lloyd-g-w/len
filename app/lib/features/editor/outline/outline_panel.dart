@@ -127,7 +127,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
                 alignment: AlignmentDirectional.centerStart,
                 child: TextButton.icon(
                   onPressed: () => _outline.addCurrentPage(context),
-                  icon: const Icon(Symbols.playlist_add_sharp),
+                  icon: const Icon(Symbols.playlist_add_rounded),
                   label: Text('Add page ${current + 1} to outline'),
                 ),
               ),
@@ -171,7 +171,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
         leading: row.hasChildren
             ? IconButton(
                 tooltip: collapsed ? 'Expand' : 'Collapse',
-                icon: Icon(collapsed ? Symbols.chevron_right_sharp : Symbols.expand_more_sharp),
+                icon: Icon(collapsed ? Symbols.chevron_right_rounded : Symbols.expand_more_rounded),
                 onPressed: () => setState(
                   () => collapsed ? _collapsed.remove(entry.id) : _collapsed.add(entry.id),
                 ),
@@ -199,7 +199,7 @@ class _OutlinePanelState extends State<OutlinePanel> {
             ),
             MenuIconButton<_EntryAction>(
               tooltip: 'Entry options',
-              icon: const Icon(Symbols.more_horiz_sharp, size: Glyphs.bar),
+              icon: const Icon(Symbols.more_horiz_rounded, size: Glyphs.bar),
               onSelected: (a) => switch (a) {
                 _EntryAction.rename => _outline.rename(context, entry),
                 _EntryAction.indent => _outline.indent(entry),
@@ -210,31 +210,31 @@ class _OutlinePanelState extends State<OutlinePanel> {
               items: () => [
                 const MenuRow(
                   value: _EntryAction.rename,
-                  icon: Symbols.edit_sharp,
+                  icon: Symbols.edit_rounded,
                   label: 'Rename…',
                 ),
                 MenuRow(
                   value: _EntryAction.indent,
-                  icon: Symbols.format_indent_increase_sharp,
+                  icon: Symbols.format_indent_increase_rounded,
                   label: 'Nest under previous',
                   enabled: tree.indentTarget(entry) != null,
                 ),
                 MenuRow(
                   value: _EntryAction.outdent,
-                  icon: Symbols.format_indent_decrease_sharp,
+                  icon: Symbols.format_indent_decrease_rounded,
                   label: 'Move out a level',
                   enabled: tree.isNested(entry),
                 ),
                 MenuRow(
                   value: _EntryAction.repoint,
-                  icon: Symbols.my_location_sharp,
+                  icon: Symbols.my_location_rounded,
                   label: 'Link to page ${current + 1}',
                   enabled: page != current,
                 ),
                 const PopupMenuDivider(),
                 const MenuRow(
                   value: _EntryAction.delete,
-                  icon: Symbols.delete_sharp,
+                  icon: Symbols.delete_rounded,
                   label: 'Delete',
                   destructive: true,
                 ),

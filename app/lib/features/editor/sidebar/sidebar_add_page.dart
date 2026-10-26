@@ -51,7 +51,7 @@ class SidebarAddPage extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Symbols.add_sharp, size: Glyphs.bar, color: scheme.onSurface),
+                  Icon(Symbols.add_rounded, size: Glyphs.bar, color: scheme.onSurface),
                   const SizedBox(width: Gaps.xs),
                   Flexible(
                     child: Text(

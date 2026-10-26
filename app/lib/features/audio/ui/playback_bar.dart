@@ -85,7 +85,7 @@ class PlaybackBar extends StatelessWidget {
                   ),
                   color: scheme.onSurfaceVariant,
                   onPressed: playback.loading ? null : playback.beginTrim,
-                  icon: const Icon(Symbols.content_cut_sharp),
+                  icon: const Icon(Symbols.content_cut_rounded),
                 ),
               ],
             ),
@@ -111,7 +111,7 @@ class PlaybackBar extends StatelessWidget {
                 tooltip: playback.playing ? 'Pause (Space)' : 'Play (Space)',
                 onPressed: playback.loading ? null : () => unawaited(playback.toggle()),
                 icon: Icon(
-                  playback.playing ? Symbols.pause_sharp : Symbols.play_arrow_sharp,
+                  playback.playing ? Symbols.pause_rounded : Symbols.play_arrow_rounded,
                   fill: 1,
                 ),
               ),
@@ -125,8 +125,8 @@ class PlaybackBar extends StatelessWidget {
                     : 'Tap ink to play (off)',
                 isSelected: playback.tapToSeek,
                 onPressed: () => playback.tapToSeek = !playback.tapToSeek,
-                icon: const Icon(Symbols.touch_app_sharp),
-                selectedIcon: const Icon(Symbols.touch_app_sharp, fill: 1),
+                icon: const Icon(Symbols.touch_app_rounded),
+                selectedIcon: const Icon(Symbols.touch_app_rounded, fill: 1),
                 // On: the ink plate, as for a chosen tool (the accent marks
                 // focus and progress only).
                 style: IconButton.styleFrom(foregroundColor: scheme.onSurfaceVariant).copyWith(
@@ -145,12 +145,12 @@ class PlaybackBar extends StatelessWidget {
               IconButton(
                 tooltip: 'Recordings',
                 onPressed: () => unawaited(showRecordingsSheet(context, audio)),
-                icon: const Icon(Symbols.graphic_eq_sharp),
+                icon: const Icon(Symbols.graphic_eq_rounded),
               ),
               IconButton(
                 tooltip: 'Close player',
                 onPressed: playback.close,
-                icon: const Icon(Symbols.close_sharp),
+                icon: const Icon(Symbols.close_rounded),
               ),
             ],
           ),
@@ -168,7 +168,7 @@ class PlaybackBar extends StatelessWidget {
         : () => unawaited(
             playback.skip(back ? -PlaybackController.skipMs : PlaybackController.skipMs),
           ),
-    icon: Icon(back ? Symbols.replay_10_sharp : Symbols.forward_10_sharp),
+    icon: Icon(back ? Symbols.replay_10_rounded : Symbols.forward_10_rounded),
   );
 }
 

@@ -6,7 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 Widget _button({ValueChanged<int>? onSelected}) => MenuIconButton<int>(
   tooltip: 'Options',
-  icon: const Icon(Symbols.more_horiz_sharp),
+  icon: const Icon(Symbols.more_horiz_rounded),
   staggered: true,
   onSelected: onSelected ?? (_) {},
   items: () => [const MenuRow(value: 1, label: 'One')],

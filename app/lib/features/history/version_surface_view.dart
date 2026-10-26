@@ -197,7 +197,7 @@ class VersionSurfaceViewState extends State<VersionSurfaceView> {
       children: [
         paper,
         Icon(
-          Symbols.cloud_off_sharp,
+          Symbols.cloud_off_rounded,
           size: Glyphs.menu,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
           semanticLabel: 'Not on this device',

@@ -86,7 +86,7 @@ class _BackupSettingsState extends State<BackupSettings> {
       ),
       children: [
         SettingsTile(
-          icon: Symbols.backup_sharp,
+          icon: Symbols.backup_rounded,
           title: 'Back up library…',
           subtitle: empty
               ? 'Nothing to back up yet'
@@ -94,7 +94,7 @@ class _BackupSettingsState extends State<BackupSettings> {
           onTap: empty ? null : () => unawaited(_backUp()),
         ),
         SettingsTile(
-          icon: Symbols.settings_backup_restore_sharp,
+          icon: Symbols.settings_backup_restore_rounded,
           title: 'Restore from backup…',
           subtitle: 'Brings back a Len backup; nothing here is replaced',
           onTap: _restoring ? null : () => unawaited(_restore()),

@@ -55,7 +55,7 @@ class OptionDisclosure extends StatelessWidget {
                       turns: open ? 0.5 : 0,
                       duration: Motion.fast,
                       child: Icon(
-                        Symbols.expand_more_sharp,
+                        Symbols.expand_more_rounded,
                         size: Glyphs.bar,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

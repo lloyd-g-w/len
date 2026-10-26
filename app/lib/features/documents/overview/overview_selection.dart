@@ -67,7 +67,7 @@ class PageSelectionBar extends StatelessWidget {
       onPressed: () => onAction(a),
     ),
     SelectionAction.export => SelectionCommand(
-      icon: Symbols.ios_share_sharp,
+      icon: Symbols.ios_share_rounded,
       label: 'Export…',
       onPressed: () => onAction(a),
     ),

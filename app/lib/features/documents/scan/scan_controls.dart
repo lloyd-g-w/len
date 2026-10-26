@@ -86,21 +86,21 @@ class ScanControls extends StatelessWidget {
         Semantics(
           toggled: session.showsResult,
           child: LabelledAction(
-            icon: Symbols.visibility_sharp,
+            icon: Symbols.visibility_rounded,
             label: 'Preview',
             filled: session.showsResult,
             onPressed: session.toggleResult,
           ),
         ),
         LabelledAction(
-          icon: Symbols.rotate_right_sharp,
+          icon: Symbols.rotate_right_rounded,
           label: 'Rotate',
           onPressed: session.rotate,
         ),
         Semantics(
           toggled: whole,
           child: LabelledAction(
-            icon: Symbols.crop_free_sharp,
+            icon: Symbols.crop_free_rounded,
             label: 'Whole photo',
             filled: whole,
             // Nothing to go back to when no page was found.
@@ -110,13 +110,13 @@ class ScanControls extends StatelessWidget {
           ),
         ),
         LabelledAction(
-          icon: Symbols.replay_sharp,
+          icon: Symbols.replay_rounded,
           label: retakeLabel,
           onPressed: busy ? null : onRetake,
         ),
         // Destructive (no undo): in red, last.
         LabelledAction(
-          icon: Symbols.delete_sharp,
+          icon: Symbols.delete_rounded,
           label: 'Remove',
           color: Theme.of(context).colorScheme.error,
           onPressed: session.removeCurrent,
@@ -162,7 +162,7 @@ class ScanEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Symbols.document_scanner_sharp,
+              Symbols.document_scanner_rounded,
               size: Glyphs.empty,
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -176,7 +176,7 @@ class ScanEmptyState extends StatelessWidget {
             if (camera != null) ...[
               FilledButton.icon(
                 onPressed: busy ? null : camera,
-                icon: const Icon(Symbols.photo_camera_sharp),
+                icon: const Icon(Symbols.photo_camera_rounded),
                 label: const Text('Take photo'),
               ),
               const SizedBox(height: Gaps.sm),
@@ -184,13 +184,13 @@ class ScanEmptyState extends StatelessWidget {
             if (camera == null)
               FilledButton.icon(
                 onPressed: busy ? null : onPick,
-                icon: const Icon(Symbols.image_sharp),
+                icon: const Icon(Symbols.image_rounded),
                 label: const Text('Choose photos…'),
               )
             else
               OutlinedButton.icon(
                 onPressed: busy ? null : onPick,
-                icon: const Icon(Symbols.image_sharp),
+                icon: const Icon(Symbols.image_rounded),
                 label: const Text('Choose photos…'),
               ),
           ],

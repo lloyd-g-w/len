@@ -139,7 +139,7 @@ class _PdfOutlineSectionState extends State<PdfOutlineSection> {
       leading: hasChildren
           ? IconButton(
               tooltip: collapsed ? 'Expand' : 'Collapse',
-              icon: Icon(collapsed ? Symbols.chevron_right_sharp : Symbols.expand_more_sharp),
+              icon: Icon(collapsed ? Symbols.chevron_right_rounded : Symbols.expand_more_rounded),
               onPressed: () =>
                   setState(() => collapsed ? _collapsed.remove(key) : _collapsed.add(key)),
             )

@@ -43,12 +43,12 @@ class LibraryEmptyState extends StatelessWidget {
     final searching = query.trim().isNotEmpty;
     final (Widget art, String title, String message) = switch (section) {
       _ when searching => (
-        const EmptyGlyph(Symbols.search_off_sharp),
+        const EmptyGlyph(Symbols.search_off_rounded),
         'No results',
         'Nothing matches “${query.trim()}”',
       ),
       LibrarySection.library when inFolder => (
-        const EmptyGlyph(Symbols.folder_open_sharp),
+        const EmptyGlyph(Symbols.folder_open_rounded),
         'This folder is empty',
         Targets.touchFirst
             ? 'Create a notebook here, or move notebooks into it with Move to folder'
@@ -65,12 +65,12 @@ class LibraryEmptyState extends StatelessWidget {
         'Create a notebook to start writing, or import a PDF to write on',
       ),
       LibrarySection.favorites => (
-        const EmptyGlyph(Symbols.star_sharp),
+        const EmptyGlyph(Symbols.star_rounded),
         'No favourites yet',
         'Add notebooks to favourites from their ··· menu to find them here',
       ),
       LibrarySection.trash => (
-        const EmptyGlyph(Symbols.delete_sharp),
+        const EmptyGlyph(Symbols.delete_rounded),
         'Trash is empty',
         'Deleted notebooks stay here for 30 days, then they’re deleted forever',
       ),
@@ -86,13 +86,13 @@ class LibraryEmptyState extends StatelessWidget {
       if (firstLaunch && onImportPdf != null)
         TextButton.icon(
           onPressed: onImportPdf,
-          icon: const Icon(Symbols.picture_as_pdf_sharp, size: Glyphs.menu),
+          icon: const Icon(Symbols.picture_as_pdf_rounded, size: Glyphs.menu),
           label: const Text('Import PDF…'),
         ),
       if (firstLaunch && onSetUpSync != null)
         TextButton.icon(
           onPressed: onSetUpSync,
-          icon: const Icon(Symbols.sync_sharp, size: Glyphs.menu),
+          icon: const Icon(Symbols.sync_rounded, size: Glyphs.menu),
           label: const Text('Set up sync…'),
         ),
     ];
@@ -107,7 +107,7 @@ class LibraryEmptyState extends StatelessWidget {
               children: [
                 FilledButton.icon(
                   onPressed: onCreate,
-                  icon: const Icon(Symbols.add_sharp),
+                  icon: const Icon(Symbols.add_rounded),
                   label: const Text('New notebook'),
                 ),
                 if (secondary.isNotEmpty) ...[
@@ -120,7 +120,7 @@ class LibraryEmptyState extends StatelessWidget {
           // Quiet: the least important act on the screen.
           ? TextButton.icon(
               onPressed: onClearSearch,
-              icon: const Icon(Symbols.close_sharp),
+              icon: const Icon(Symbols.close_rounded),
               label: const Text('Clear search'),
             )
           : null,

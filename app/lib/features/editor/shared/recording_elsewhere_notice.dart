@@ -182,7 +182,7 @@ class _StoppedNotice extends StatelessWidget {
                     ),
                   IconButton(
                     tooltip: 'Dismiss',
-                    icon: const Icon(Symbols.close_sharp, size: Glyphs.menu),
+                    icon: const Icon(Symbols.close_rounded, size: Glyphs.menu),
                     onPressed: () => notebooks.stoppedInBackground.value = null,
                   ),
                 ],

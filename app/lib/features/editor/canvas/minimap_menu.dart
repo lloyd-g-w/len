@@ -47,7 +47,7 @@ class MinimapMenu extends StatelessWidget {
       reservedPadding: menuReservedPadding(context),
       menuChildren: [
         MenuItemButton(
-          leadingIcon: const Icon(Symbols.visibility_off_sharp),
+          leadingIcon: const Icon(Symbols.visibility_off_rounded),
           onPressed: onHide,
           child: const Text('Hide minimap'),
         ),

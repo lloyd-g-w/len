@@ -58,7 +58,7 @@ class OpenElsewhereScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      Symbols.tab_sharp,
+                      Symbols.tab_rounded,
                       size: Glyphs.empty,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

@@ -111,7 +111,7 @@ class _ColorChoicesState extends State<ColorChoices> {
                     EyedropperButton(onPressed: () => pick(context, _pick)),
                   EndTextButton(
                     onPressed: () => setState(() => _customOpen = !_customOpen),
-                    icon: _customOpen ? Symbols.expand_less_sharp : Symbols.palette_sharp,
+                    icon: _customOpen ? Symbols.expand_less_rounded : Symbols.palette_rounded,
                     label: 'Custom',
                   ),
                 ],
@@ -161,7 +161,7 @@ class EyedropperButton extends StatelessWidget {
         key: const ValueKey('pick-from-page'),
         tooltip: 'Pick from page',
         onPressed: onPressed,
-        icon: const Icon(Symbols.colorize_sharp, size: Glyphs.menu),
+        icon: const Icon(Symbols.colorize_rounded, size: Glyphs.menu),
         style: IconButton.styleFrom(
           minimumSize: Size(hit, height),
           maximumSize: Size(hit, height),

@@ -28,7 +28,7 @@ class SpaceUsedTile extends StatelessWidget {
     final survey = overview.survey;
     final previews = overview.previews ?? 0;
     return SettingsTile(
-      icon: Symbols.pie_chart_sharp,
+      icon: Symbols.pie_chart_rounded,
       title: 'Space used',
       subtitle: survey == null ? 'Measuring…' : '${formatBytes(survey.total + previews)} $where',
       below: survey == null
@@ -107,7 +107,7 @@ class NotebookSizeTile extends StatelessWidget {
         ? '$size, all recordings'
         : '$size, ${formatBytes(n.recordingBytes)} of it recordings';
     return SettingsTile(
-      icon: Symbols.menu_book_sharp,
+      icon: Symbols.menu_book_rounded,
       title: n.title,
       subtitle: subtitle,
       trailing: n.recordings > 0 && !n.trashed
@@ -129,7 +129,7 @@ class FreeUpTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final bytes = overview.survey?.freeable ?? 0;
     return SettingsTile(
-      icon: Symbols.cloud_done_sharp,
+      icon: Symbols.cloud_done_rounded,
       title: 'Downloaded files',
       subtitle:
           '${formatBytes(bytes)} of PDFs, images and recordings are also on the sync server. '
@@ -184,7 +184,7 @@ class CachedPreviewsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SettingsTile(
-    icon: Symbols.photo_library_sharp,
+    icon: Symbols.photo_library_rounded,
     title: 'Cached previews',
     subtitle:
         '${formatBytes(overview.previews ?? 0)} of pages drawn zoomed out, kept so they show '

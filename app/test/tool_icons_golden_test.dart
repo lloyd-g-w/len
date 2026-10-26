@@ -11,7 +11,7 @@ import 'content_golden_test.dart' show loadFonts;
 
 /// The editor's tool glyphs as one sheet, light and dark, at 1× and 2×:
 /// the toolbar's tools idle and on the selected plate (with their ink
-/// bars), the popovers' glyphs, the shapes, and the Sharp symbols beside
+/// bars), the popovers' glyphs, the shapes, and the Rounded symbols beside
 /// them for weight.
 void main() {
   for (final dpr in [1.0, 2.0]) {
@@ -112,13 +112,13 @@ class _Sheet extends StatelessWidget {
             ]),
             row([
               for (final s in const [
-                Symbols.undo_sharp,
-                Symbols.redo_sharp,
-                Symbols.mic_sharp,
-                Symbols.more_horiz_sharp,
-                Symbols.image_sharp,
-                Symbols.document_scanner_sharp,
-                Symbols.add_circle_sharp,
+                Symbols.undo_rounded,
+                Symbols.redo_rounded,
+                Symbols.mic_rounded,
+                Symbols.more_horiz_rounded,
+                Symbols.image_rounded,
+                Symbols.document_scanner_rounded,
+                Symbols.add_circle_rounded,
               ])
                 plate(Icon(s)),
             ]),

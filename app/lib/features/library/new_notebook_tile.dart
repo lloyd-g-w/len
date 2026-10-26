@@ -53,7 +53,7 @@ class _NewNotebookTileState extends State<NewNotebookTile> {
                   onHover: (h) => setState(() => _hovered = h),
                   onFocusChange: (f) => setState(() => _focused = f),
                   child: Center(
-                    child: Icon(Symbols.add_sharp, size: Glyphs.empty, color: scheme.onSurface),
+                    child: Icon(Symbols.add_rounded, size: Glyphs.empty, color: scheme.onSurface),
                   ),
                 ),
               ),

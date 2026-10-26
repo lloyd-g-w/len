@@ -36,8 +36,8 @@ void main() {
     await tester.enterText(field, 'שלום עולם');
     await tester.pumpAndSettle();
     // Start alignment shows as right-aligned here.
-    expect(find.byIcon(Symbols.format_align_right_sharp), findsOneWidget);
-    expect(find.byIcon(Symbols.format_align_left_sharp), findsNothing);
+    expect(find.byIcon(Symbols.format_align_right_rounded), findsOneWidget);
+    expect(find.byIcon(Symbols.format_align_left_rounded), findsNothing);
     final c = _controller(tester);
     c.selection = TextSelection.collapsed(offset: c.text.length);
     await tester.pump();
@@ -76,7 +76,7 @@ void main() {
     c.selection = TextSelection(baseOffset: from, extentOffset: to);
     await tester.pumpAndSettle();
     expect(c.caretDirection, TextDirection.rtl);
-    expect(find.byIcon(Symbols.format_align_right_sharp), findsOneWidget);
+    expect(find.byIcon(Symbols.format_align_right_rounded), findsOneWidget);
     await expectLater(
       find.byType(Directionality).first,
       matchesGoldenFile('goldens/text_rtl_editing.png'),

@@ -40,7 +40,7 @@ void mockEmptyClipboard() => TestDefaultBinaryMessengerBinding.instance.defaultB
 
 /// Loads the UI font (Sofia Sans), every bundled text-box font family (and
 /// their Arabic and Hebrew fallbacks) and
-/// the Material Symbols Sharp icon font, so goldens show real text and
+/// the Material Symbols Rounded icon font, so goldens show real text and
 /// icons.
 Future<void> loadTextFonts() async {
   for (final font in TextFont.bundled) {
@@ -62,8 +62,9 @@ Future<void> loadTextFonts() async {
     ui.addFont(rootBundle.load('assets/fonts/SofiaSans-$weight.ttf'));
   }
   await ui.load();
-  final symbols = FontLoader(
-    'packages/material_symbols_icons/MaterialSymbolsSharp',
-  )..addFont(rootBundle.load('packages/material_symbols_icons/lib/fonts/MaterialSymbolsSharp.ttf'));
+  final symbols = FontLoader('packages/material_symbols_icons/MaterialSymbolsRounded')
+    ..addFont(
+      rootBundle.load('packages/material_symbols_icons/lib/fonts/MaterialSymbolsRounded.ttf'),
+    );
   await symbols.load();
 }

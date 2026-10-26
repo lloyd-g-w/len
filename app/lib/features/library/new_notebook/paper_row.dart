@@ -131,7 +131,7 @@ class _AllTemplatesTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(Radii.sm),
                   border: Border.all(color: scheme.outline),
                 ),
-                child: Icon(Symbols.grid_view_sharp, size: Glyphs.bar, color: scheme.onSurface),
+                child: Icon(Symbols.grid_view_rounded, size: Glyphs.bar, color: scheme.onSurface),
               ),
               const SizedBox(height: Gaps.xs),
               Padding(

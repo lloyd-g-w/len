@@ -153,7 +153,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
     final leading = inFolder && widget.compact
         ? IconButton(
             tooltip: 'Up to ${_c.folderById(_c.parentOf(_c.folder!))?.name ?? 'Library'}',
-            icon: const Icon(Symbols.arrow_back_sharp),
+            icon: const Icon(Symbols.arrow_back_rounded),
             onPressed: _c.goUp,
           )
         : widget.leading;
@@ -222,7 +222,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
           ] else if (!searchOpen)
             IconButton(
               tooltip: 'Search',
-              icon: const Icon(Symbols.search_sharp),
+              icon: const Icon(Symbols.search_rounded),
               onPressed: _openSearch,
             ),
           if (!widget.compact && _c.section == LibrarySection.library)
@@ -287,7 +287,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
       return IconButton(
         tooltip: 'Empty trash…',
         color: theme.colorScheme.error,
-        icon: const Icon(Symbols.delete_sweep_sharp),
+        icon: const Icon(Symbols.delete_sweep_rounded),
         onPressed: empty,
       );
     }
@@ -296,7 +296,7 @@ class _LibraryHeaderState extends State<LibraryHeader> {
       child: TextButton.icon(
         style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
         onPressed: empty,
-        icon: const Icon(Symbols.delete_sweep_sharp, size: Glyphs.menu),
+        icon: const Icon(Symbols.delete_sweep_rounded, size: Glyphs.menu),
         label: const Text('Empty trash…'),
       ),
     );

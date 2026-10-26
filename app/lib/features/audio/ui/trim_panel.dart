@@ -99,7 +99,7 @@ class TrimPanel extends StatelessWidget {
                 tooltip: playback.playing ? 'Pause (Space)' : 'Play the kept audio (Space)',
                 onPressed: playback.loading ? null : () => unawaited(playback.toggle()),
                 icon: Icon(
-                  playback.playing ? Symbols.pause_sharp : Symbols.play_arrow_sharp,
+                  playback.playing ? Symbols.pause_rounded : Symbols.play_arrow_rounded,
                   fill: 1,
                 ),
               ),

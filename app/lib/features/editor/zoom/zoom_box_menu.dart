@@ -14,14 +14,14 @@ enum ZoomBoxChoice { leftHanded, rightToLeft, automaticHeight }
 List<PopupMenuEntry<ZoomBoxChoice>> zoomBoxMenu(EditorSession session) => [
   MenuRow(
     value: ZoomBoxChoice.leftHanded,
-    icon: Symbols.front_hand_sharp,
+    icon: Symbols.front_hand_rounded,
     label: 'Left-handed',
     caption: 'Box at the top',
     checked: session.services.preferences.zoomBoxAtTop,
   ),
   MenuRow(
     value: ZoomBoxChoice.rightToLeft,
-    icon: Symbols.format_textdirection_r_to_l_sharp,
+    icon: Symbols.format_textdirection_r_to_l_rounded,
     label: 'Right to left',
     caption: 'Lines go left',
     checked: session.services.preferences.zoomWritesRightToLeft,
@@ -29,7 +29,7 @@ List<PopupMenuEntry<ZoomBoxChoice>> zoomBoxMenu(EditorSession session) => [
   if (session.zoomWindow.boxHeight.value != null)
     const MenuRow(
       value: ZoomBoxChoice.automaticHeight,
-      icon: Symbols.height_sharp,
+      icon: Symbols.height_rounded,
       label: 'Automatic height',
     ),
 ];
