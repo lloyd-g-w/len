@@ -131,7 +131,7 @@ class ShapeOptionsPanel extends StatelessWidget {
               onPressed: () => tools.shape = kind,
               icon: ShapeGlyph(kind, size: Glyphs.bar),
               selectedIcon: IconTheme.merge(
-                data: IconThemeData(color: scheme.onSurface, fill: 1),
+                data: IconThemeData(color: scheme.onSurface),
                 child: ShapeGlyph(kind, size: Glyphs.bar),
               ),
             ),

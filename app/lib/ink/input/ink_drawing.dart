@@ -22,6 +22,7 @@ import 'ink_events.dart';
 import 'lift_speed.dart';
 import 'live_ink.dart';
 import 'mouse_smoother.dart';
+import 'pen_stabiliser.dart';
 import 'sample_source.dart';
 import 'scribble_erase.dart';
 import 'stroke_sampler.dart';
@@ -52,7 +53,7 @@ class InkDrawing {
   }) : _straighten = HoldToStraighten(live) {
     // A resting mouse's ink catches up with it before the stroke is read.
     _straighten.beforeSnap = () {
-      if (!_byMouse) return;
+      if (!_byMouse) return _catchUp();
       _mouse.flush();
       _showMouseTip();
     };
@@ -90,6 +91,11 @@ class InkDrawing {
     (at, ms) => _inkTo(at, 0.5, Duration(milliseconds: ms)),
   );
   bool _byMouse = false;
+
+  /// The stabiliser of a stylus or finger stroke (null: off), and the time
+  /// of its newest sample.
+  PenStabiliser? _stabiliser;
+  int _stabiliserMs = 0;
 
   /// Whether a mouse stroke's live ink runs on to the mouse ([LiveInk.tip]).
   bool _mouseTip = false;
@@ -209,6 +215,7 @@ class InkDrawing {
     if (_byMouse) return _mouseTo(e);
     _addSamplesBefore(e);
     _inkTo(e.localPosition, StrokeSampler.pressureOf(e), e.timeStamp, synthesized: e.synthesized);
+    _showString();
   }
 
   /// Ends the contact at [e] (the pen lifted).
@@ -277,6 +284,7 @@ class InkDrawing {
     _drawPointer = null;
     _drawKind = null;
     _byMouse = false;
+    _stabiliser = null;
     _erasing = false;
     _heldErase = null;
     _lastScreen = null;

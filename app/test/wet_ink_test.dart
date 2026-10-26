@@ -42,8 +42,8 @@ void main() {
     final shape = WetInkStyle.of(drawing(InkTool.ballpoint), 2)!.shape;
     final list = shape.toList();
     // 22 values (including cap shape, start taper and flat ends' reach),
-    // then the kernel.
-    expect(list.length - 22, shape.kernel.length);
+    // the stabiliser's 5 (WetInkModel.FIELDS = 27), then the kernel.
+    expect(list.length - 27, shape.kernel.length);
     expect(shape.kernel.length.isOdd, isTrue);
     expect(shape.kernel.fold<double>(0, (a, b) => a + b), closeTo(1, 1e-9));
     expect(list[9], shape.hookStart);
@@ -55,6 +55,8 @@ void main() {
     expect(list[19], shape.flat ? 1 : 0);
     expect(list[20], shape.taperStart);
     expect(list[21], shape.flatReach);
+    // No stabiliser: rest time 0 (off), then neutral values.
+    expect(list.sublist(22, 27), [0.0, 1.0, 1.0, 1.0, 0.0]);
     final scaled = shape.scaled(3).toList();
     expect(scaled[0], closeTo(list[0] * 3, 1e-12), reason: 'lengths scale');
     expect(scaled[2], list[2], reason: 'the pressure filter does not');

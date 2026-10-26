@@ -258,7 +258,8 @@ class _EditorScreenState extends State<_EditorView> {
     _session.tools
       ..penButtonErases = prefs.penButtonAction == PenButtonAction.eraser
       ..holdToStraighten = prefs.holdToSnap
-      ..scribbleToErase = prefs.scribbleToErase;
+      ..scribbleToErase = prefs.scribbleToErase
+      ..showStabiliserString = prefs.stabiliserString;
     applySlotCounts(_session.tools, prefs);
     setState(() {});
   }

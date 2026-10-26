@@ -133,6 +133,11 @@ class SettingsRepository {
   bool get scribbleToErase => _get('scribble_to_erase') != 'false';
   set scribbleToErase(bool value) => _set('scribble_to_erase', '$value');
 
+  /// A hairline from the ink to the pen while the stabiliser holds the ink
+  /// back (default on).
+  bool get stabiliserString => _get('stabiliser_string') != 'false';
+  set stabiliserString(bool value) => _set('stabiliser_string', '$value');
+
   /// How many quick colours and sizes [tool]'s toolbar strip shows
   /// (default three and three).
   SlotCounts slotCounts(SlotTool tool) => SlotCounts.parse(_get('quick_slots_${tool.name}'));

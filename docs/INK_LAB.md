@@ -132,6 +132,9 @@ tool/heavy.sh nix develop ..# -c bash -c 'flutter test test/inklab/tools/table_t
 # at stabiliser 0 / 0.5 / 1, as a table
 nix develop ..# -c bash -c 'flutter test test/inklab/stabiliser_test.dart \
   --dart-define=INKLAB_TABLE=true'
+# the stabiliser when writing fast (F13): trail, lift, shapes, sample rates
+nix develop ..# -c bash -c 'flutter test test/inklab/stabiliser_speed_test.dart \
+  --dart-define=INKLAB_TABLE=true'
 # the Kotlin overlay model against the Dart one (needs only nix): every case
 # and recording, then the Kotlin unit tests (shared golden; prediction replay)
 tool/wet_ink_check/check.sh
@@ -629,6 +632,28 @@ width still settled visibly at stabiliser 1 (13 of 150 cuts, 47 % up to
 causal and decays over its length, ≈ 6.5 widths at stabiliser 1).
 
 ![sim_cursive: an l's top moved after erasing nearby; now only the hole changes](inklab/erase_sim_cursive.png)
+
+
+### F13 (resolved): the stabiliser was bad when writing fast
+
+Owner report: "When I go fast it's bad". The stabiliser smoothed the line
+(F10) and live ink showed only its final part, so it trailed the pen by
+the smoothing's reach plus two digitiser samples: at the default 30 %,
+16 px (median; p95 22) behind the pen on the real recordings, and every
+lift added 17–23 px at once; worse at 120 Hz than at 1 kHz. Now the
+stabiliser is a speed-adaptive, time-based filter on the pen's samples
+(`PenStabiliser`, ARCHITECTURE *Stabiliser*): ≈ 0.3 px behind at 30 %,
+≈ 1 px at 100 %, the same line at 120 / 240 / 1000 Hz, and more tremor
+removed at 50 % than before (0.37 vs 0.44 px RMS left). The entries at
+0.4 and 1 pass every metric as before. Measured by
+`test/inklab/stabiliser_speed_test.dart`; sheets in
+`inklab/stabiliser/`.
+
+![fast cursive before](inklab/stabiliser/before_fast.png)
+![fast cursive after](inklab/stabiliser/after_fast.png)
+
+*Fast cursive at 0 / 30 / 60 / 100 %, before and after: committed over
+the true path (red), and a live frame with the pen as a red dot.*
 
 ### Real S Pen recordings
 

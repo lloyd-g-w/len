@@ -191,12 +191,12 @@ class StabiliserSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) => OptionSlider(
     label: 'Stabiliser',
-    hint: 'Smooths shaky lines; the ink trails the pen a little',
+    hint: 'Smooths slow, shaky lines; fast writing keeps up',
     value: value,
     min: 0,
     max: 1,
     display: (v) => v == 0 ? 'Off' : percent(v),
-    // The low end snaps to off: a barely-on stabiliser would still lag.
+    // The low end snaps to off.
     onChanged: switch (onChanged) {
       final onChanged? => (v) => onChanged(v < 0.01 ? 0 : v),
       null => null,

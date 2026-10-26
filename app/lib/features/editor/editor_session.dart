@@ -63,6 +63,7 @@ class EditorSession with _EditorSessionZoom {
          scribbleToErase: services.preferences.scribbleToErase,
          store: services.settings,
        ) {
+    tools.showStabiliserString = services.preferences.stabiliserString;
     applySlotCounts(tools, services.preferences);
     final current = shared.notebook;
     if (current.kind == NotebookKind.canvas) {
