@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/ink/input/pen_stabiliser.dart';
 import 'package:len/ink/lab/input_recording.dart';
 import 'package:len/ink/lab/lab_stats.dart';
 import 'package:len/ink/lab/raw_samples.dart';
@@ -44,13 +45,18 @@ void main() {
     expect(moves, lessThan(raw.length ~/ 1.5), reason: 'batched: ~2 samples per event');
     final stroke = ReplayResult.run(r).strokes.single;
     // Every sample arrives; the controller only drops points
-    // closer than 0.75 px to the previous one.
+    // closer than 0.75 px to the previous one. With the pen's stabiliser
+    // on, the samples are where it puts the ink (`PenStabiliser`), and the
+    // stroke stops where the ink is.
+    final params = StabiliserParams.of(defaultPen.streamline);
+    final st = params == null ? null : (PenStabiliser(params)..begin(raw.first.position));
     var spaced = 1;
     var last = raw.first.position;
-    for (final s in raw) {
-      if ((s.position - last).distance >= 0.75) {
+    for (final s in raw.skip(1)) {
+      final at = st?.add(s.position) ?? s.position;
+      if ((at - last).distance >= 0.75) {
         spaced++;
-        last = s.position;
+        last = at;
       }
     }
     expect(stroke.points.length, closeTo(spaced, spaced * 0.05));
