@@ -56,6 +56,7 @@ extension _EditorSessionParts on EditorSession {
     ),
     penButtonAction: () => services.preferences.penButtonAction,
     palms: services.palmGuard,
+    stylusPointer: services.stylusPointer,
   );
 }
 

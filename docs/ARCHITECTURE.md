@@ -1619,7 +1619,26 @@ and bounce) is `input/ink_drawing.dart`, point thinning and pressure
   hidden (`SystemMouseCursors.none`), so no drawing crosshair (shown under a
   hovering stylus too where the platform draws stylus pointers) sits in the eraser;
   other tools keep their cursor (`ContentTools.cursorAt`, else the
-  crosshair). A tool picked while the pen or mouse rests over the canvas
+  crosshair). The system's own **stylus pointer** (the S Pen's hover dot)
+  hides there too, from the same decision (`_pointAt`): Flutter's cursor
+  reaches a stylus on desktop and the web (its `MouseTracker` tracks
+  `stylus`, not `invertedStylus`), but on Android `View.setPointerIcon`
+  applies to mice only (`onResolvePointerIcon`'s default). So each canvas
+  claims the stylus hovers it handles, previewing or not
+  (`StylusPointer.claim`, `input/stylus_pointer.dart`), and a global
+  route of the gesture binding (it sees each event after the widgets it
+  hit) sends `true` on `len/stylus_pointer` for a hover a canvas claimed
+  with a preview, `false` for any other: the toolbar, menus, other
+  screens, a tool without a preview (lasso, text, shape, laser). A tool
+  picked while the pen rests re-claims the newest hover, so the pointer
+  follows at once. Natively the Flutter view sits in a
+  `StylusPointerFrame` (`MainActivity.setContentView`), whose
+  `onResolvePointerIcon` answers a stylus or eraser pointer with
+  `TYPE_NULL` while hidden, else defers (the system's stylus pointer;
+  mice get Flutter's cursor); on One UI it also sets the view's per-tool
+  icon (`semSetPointerIcon(TOOL_TYPE_STYLUS, …)`, found by reflection,
+  restored with null once shown). `StylusPointerTest.kt` checks the
+  rule. A tool picked while the pen or mouse rests over the canvas
   swaps the preview at once (`InkSurface` → `refreshHover`, the last hover
   event; a stylus only while in range). Both go at pen-down, on exit and when a finger
   touches; a stylus's also 500 ms after its last event (`LiveInk.expireCursorsSoon`:

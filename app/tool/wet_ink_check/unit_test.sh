@@ -2,7 +2,7 @@
 # Runs the Kotlin wet-ink unit tests: the model's (android/app/src/test/.../
 # WetInkModelTest.kt, against the shared golden in src/test/resources), the
 # flat ends', the prediction's, the incoming files' names and the playback
-# service's events, printing's page ranges and the stylus edge band, on a plain JVM, without Gradle. Run from
+# service's events, printing's page ranges, the stylus edge band and the stylus pointer's rule, on a plain JVM, without Gradle. Run from
 # app/:  tool/wet_ink_check/unit_test.sh   (LEN_NO_NIX=1: kotlinc, java from PATH)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -25,6 +25,7 @@ trap 'rm -rf "$out"' EXIT
     android/app/src/main/kotlin/dev/len/len/PlaybackEvents.kt \
     android/app/src/main/kotlin/dev/len/len/PrintPages.kt \
     android/app/src/main/kotlin/dev/len/len/StylusEdgeBand.kt \
+    android/app/src/main/kotlin/dev/len/len/StylusPointerRule.kt \
     android/app/src/test/kotlin/dev/len/len/WetInkModelTest.kt \
     android/app/src/test/kotlin/dev/len/len/WetInkEndsTest.kt \
     android/app/src/test/kotlin/dev/len/len/WetInkPredictionTest.kt \
@@ -32,8 +33,9 @@ trap 'rm -rf "$out"' EXIT
     android/app/src/test/kotlin/dev/len/len/IncomingNamesTest.kt \
     android/app/src/test/kotlin/dev/len/len/PlaybackEventsTest.kt \
     android/app/src/test/kotlin/dev/len/len/PrintPagesTest.kt \
-    android/app/src/test/kotlin/dev/len/len/StylusEdgeBandTest.kt -d '$out' &&
+    android/app/src/test/kotlin/dev/len/len/StylusEdgeBandTest.kt \
+    android/app/src/test/kotlin/dev/len/len/StylusPointerTest.kt -d '$out' &&
   java -cp \"$out:$cp:android/app/src/test/resources:\$stdlib\" \
     org.junit.runner.JUnitCore dev.len.len.WetInkModelTest dev.len.len.WetInkEndsTest \
     dev.len.len.WetInkPredictionTest dev.len.len.WetInkHandoverTest dev.len.len.IncomingNamesTest \
-    dev.len.len.PlaybackEventsTest dev.len.len.PrintPagesTest dev.len.len.StylusEdgeBandTest"
+    dev.len.len.PlaybackEventsTest dev.len.len.PrintPagesTest dev.len.len.StylusEdgeBandTest dev.len.len.StylusPointerTest"
