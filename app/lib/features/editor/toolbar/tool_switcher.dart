@@ -78,7 +78,7 @@ class ToolSwitcherButton extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              ToolGlyph(descriptor: active, filled: !reading),
+                              ToolGlyph(descriptor: active),
                               if (!reading) ...[
                                 const SizedBox(width: Gaps.xxs),
                                 Icon(
@@ -187,7 +187,7 @@ class ToolSwitcherPanel extends StatelessWidget {
             key: ValueKey('switch-${d.tool.name}'),
             label: d.shortLabel,
             selected: d.tool == tools.tool,
-            glyph: ToolGlyph(descriptor: d, filled: d.tool == tools.tool),
+            glyph: ToolGlyph(descriptor: d),
             onTap: () {
               final reopen = d.tool == tools.tool && !tools.reading;
               tools.pick(d.tool);

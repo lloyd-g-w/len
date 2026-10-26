@@ -148,7 +148,7 @@ class ToolButton extends StatelessWidget {
           foregroundColor: selected || reading ? scheme.onSurface : scheme.onSurfaceVariant,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
         ),
-        icon: ToolGlyph(descriptor: descriptor, filled: selected),
+        icon: ToolGlyph(descriptor: descriptor),
       ),
     );
   }
@@ -157,12 +157,9 @@ class ToolButton extends StatelessWidget {
 /// A tool's icon with its ink colour as a small round-ended bar
 /// underneath (ink, so never themed).
 class ToolGlyph extends StatelessWidget {
-  const ToolGlyph({super.key, required this.descriptor, this.filled = false});
+  const ToolGlyph({super.key, required this.descriptor});
 
   final ToolDescriptor descriptor;
-
-  /// Fills symbol glyphs (the active tool).
-  final bool filled;
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +175,7 @@ class ToolGlyph extends StatelessWidget {
         alignment: Alignment.topCenter,
         children: [
           IconTheme.merge(
-            data: IconThemeData(size: Glyphs.bar, fill: filled ? 1 : 0),
+            data: IconThemeData(size: Glyphs.bar, fill: 0),
             child: descriptor.icon,
           ),
           if (color != null)
