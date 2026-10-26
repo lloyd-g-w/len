@@ -315,8 +315,9 @@ class WetInkShape {
     flat ? 1 : 0,
     taperStart,
     flatReach.toDouble(),
-    // The stabiliser: the string's length (0: off).
-    ...(stabiliser?.toList() ?? const [0.0]),
+    // The stabiliser: the string's length (0: off), the distance before
+    // it acts.
+    ...(stabiliser?.toList() ?? const [0.0, 0.0]),
     ...kernel,
   ]);
 }

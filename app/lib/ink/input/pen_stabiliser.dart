@@ -20,6 +20,10 @@ import 'dart:ui';
 /// the path does not depend on the sample rate (120, 240 Hz, 1 kHz), only
 /// on the pen's path.
 ///
+/// The first [StabiliserParams.engage] px from pen-down are the pen's own
+/// (a pen-down hook keeps its kink for `HookFinder`); from there the
+/// string grows to its length over twice that length of travel.
+///
 /// It is causal: every output is final as soon as its sample arrives, so
 /// live ink reaches the stabilised point with nothing provisional and the
 /// stroke stores the stabilised points (with stabiliser 0 in its style):
@@ -42,6 +46,19 @@ class PenStabiliser {
   double get gap => _distance(_px - _ix, _py - _iy);
 
   bool _started = false;
+
+  // Where the stroke started; the ink is the pen's own until the pen has
+  // moved [StabiliserParams.engage] from there.
+  double _sx = 0, _sy = 0;
+  bool _engaged = false;
+
+  // How far the pen has moved since the string engaged: the string grows
+  // from nothing by [_growth] of that to its full length, so the ink
+  // leaves the raw start in the pen's direction (a string slack there
+  // would hold the ink still and then pull it off at an angle, a kink),
+  // first at half the pen's pace.
+  double _travel = 0;
+  static const double _growth = 0.5;
 
   /// The ink follows the pen in steps of at most radius / [_steps].
   static const int _steps = 32;
@@ -85,6 +102,9 @@ class PenStabiliser {
     _px = _ix = at.dx;
     _py = _iy = at.dy;
     _remember(_px, _py);
+    _sx = _px;
+    _sy = _py;
+    _engaged = false;
     _started = true;
   }
 
@@ -96,15 +116,28 @@ class PenStabiliser {
     }
     final x = at.dx, y = at.dy;
     _remember(x, y);
+    if (!_engaged) {
+      // The stroke's first px are the pen's: it starts where the pen
+      // landed, and a pen-down hook keeps the kink `HookFinder` trims it
+      // by (pulled on the string, the ink would start at the hook's tip
+      // and lean from there).
+      final ex = x - _sx, ey = y - _sy, e = params.engage;
+      _engaged = ex * ex + ey * ey >= e * e;
+      _px = _ix = x;
+      _py = _iy = y;
+      _travel = 0;
+      return at;
+    }
     final r = params.radius;
     final dx = x - _px, dy = y - _py;
     final d = _distance(dx, dy);
     final n = math.min(_maxSteps, math.max(1, (d * _steps / r).ceil()));
     for (var i = 1; i < n; i++) {
       final f = i / n;
-      _pull(_px + dx * f, _py + dy * f, r);
+      _pull(_px + dx * f, _py + dy * f, math.min(r, (_travel + d * f) * _growth));
     }
-    _pull(x, y, r);
+    _travel += d;
+    _pull(x, y, math.min(r, _travel * _growth));
     _px = x;
     _py = y;
     return ink;
@@ -161,13 +194,13 @@ class PenStabiliser {
 /// in the units of the positions it stabilises (logical screen px; the
 /// overlay's are [scaled]).
 class StabiliserParams {
-  const StabiliserParams({required this.radius});
+  const StabiliserParams({required this.radius, this.engage = defaultEngage});
 
   /// The stabiliser at [setting] (0..1; 0: off, null), for positions in
   /// screen px times [scale].
   static StabiliserParams? of(double setting, {double scale = 1}) {
     if (!(setting > 0)) return null;
-    return StabiliserParams(radius: radiusAt(setting) * scale);
+    return StabiliserParams(radius: radiusAt(setting) * scale, engage: defaultEngage * scale);
   }
 
   /// The string's length (screen px) at [setting] (0..1): a power curve
@@ -189,19 +222,27 @@ class StabiliserParams {
   /// [defaultRadius]) and (1, [maxRadius]).
   static final double exponent = math.log(defaultRadius / maxRadius) / math.log(0.3);
 
+  /// How far (screen px) the pen moves from pen-down before the string
+  /// acts: past the longest pen-down hook (`HookFinder`, 3 px).
+  static const double defaultEngage = 4;
+
+  /// How far (px) the pen moves from pen-down before the string acts.
+  final double engage;
+
   /// The string's length (px): how far the pen moves from the ink before
   /// it pulls the ink along.
   final double radius;
 
   /// The same with lengths multiplied by [f].
-  StabiliserParams scaled(double f) => StabiliserParams(radius: radius * f);
+  StabiliserParams scaled(double f) => StabiliserParams(radius: radius * f, engage: engage * f);
 
   /// The values in the order the overlay's `begin` message carries them.
-  List<double> toList() => [radius];
+  List<double> toList() => [radius, engage];
 
   @override
-  bool operator ==(Object other) => other is StabiliserParams && other.radius == radius;
+  bool operator ==(Object other) =>
+      other is StabiliserParams && other.radius == radius && other.engage == engage;
 
   @override
-  int get hashCode => radius.hashCode;
+  int get hashCode => Object.hash(radius, engage);
 }

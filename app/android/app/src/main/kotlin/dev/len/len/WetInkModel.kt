@@ -54,14 +54,16 @@ class WetInkShape(v: DoubleArray) {
 
     /**
      * The pen's stabiliser (Dart's `PenStabiliser`, `StabiliserParams`): the
-     * string's length (px; 0: off).
+     * string's length (px; 0: off), and how far the pen moves from pen-down
+     * before it acts (px).
      */
     val stabiliserRadius = v[22]
+    val engage = v[23]
     val kernel: DoubleArray = v.copyOfRange(FIELDS, v.size)
     val kernelK = (kernel.size - 1) / 2
 
     companion object {
-        const val FIELDS = 23
+        const val FIELDS = 24
 
         /** The rules in [v], or null when it is not a valid list. */
         fun of(v: DoubleArray): WetInkShape? =
@@ -81,7 +83,8 @@ fun strokePressure(normalised: Double): Double {
 /**
  * The pen's stabiliser: a pulled string (lazy brush). The ink stays put while
  * the pen is within the string's length of it, and is pulled straight toward
- * the pen when it goes further, in steps of at most 1/32 of the length.
+ * the pen when it goes further, in steps of at most 1/32 of the length; the
+ * first [WetInkShape.engage] px from pen-down are the pen's own.
  * A port of Dart's `PenStabiliser` (same steps, same order of operations).
  */
 class PenStabiliser(private val shape: WetInkShape) {
@@ -94,6 +97,14 @@ class PenStabiliser(private val shape: WetInkShape) {
     var penY = 0.0
         private set
     private var started = false
+
+    // Where the stroke started: the ink is the pen's own until the pen has moved [WetInkShape.engage].
+    private var startX = 0.0
+    private var startY = 0.0
+    private var engaged = false
+
+    // How far the pen has moved since the string engaged: the string grows by GROWTH of that to its length.
+    private var travel = 0.0
 
     // The pen's positions over the last [keptLength] px of its path, with the
     // path's length up to each, for [catchUp].
@@ -124,6 +135,9 @@ class PenStabiliser(private val shape: WetInkShape) {
         inkX = x
         inkY = y
         remember(x, y)
+        startX = x
+        startY = y
+        engaged = false
         started = true
     }
 
@@ -131,6 +145,18 @@ class PenStabiliser(private val shape: WetInkShape) {
     fun add(x: Double, y: Double) {
         if (!started) return begin(x, y)
         remember(x, y)
+        if (!engaged) {
+            val ex = x - startX
+            val ey = y - startY
+            val e = shape.engage
+            engaged = ex * ex + ey * ey >= e * e
+            penX = x
+            penY = y
+            inkX = x
+            inkY = y
+            travel = 0.0
+            return
+        }
         val r = shape.stabiliserRadius
         val dx = x - penX
         val dy = y - penY
@@ -138,9 +164,10 @@ class PenStabiliser(private val shape: WetInkShape) {
         val n = min(MAX_STEPS, max(1, ceil(d * STEPS / r).toInt()))
         for (i in 1 until n) {
             val f = i.toDouble() / n
-            pull(penX + dx * f, penY + dy * f, r)
+            pull(penX + dx * f, penY + dy * f, min(r, (travel + d * f) * GROWTH))
         }
-        pull(x, y, r)
+        travel += d
+        pull(x, y, min(r, travel * GROWTH))
         penX = x
         penY = y
     }
@@ -195,6 +222,7 @@ class PenStabiliser(private val shape: WetInkShape) {
     private companion object {
         const val STEPS = 32
         const val MAX_STEPS = 1024
+        const val GROWTH = 0.5
     }
 }
 

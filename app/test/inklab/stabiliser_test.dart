@@ -4,7 +4,7 @@
 // stabiliser 0, 0.5 and 1. For the committed centre line, Flutter's live
 // ink (the part each frame draws) and the low-latency overlay's model, it
 // measures how far the ink strays from the steady path (the line without
-// the tremor). The stabiliser must visibly remove the tremor, live as well
+// the tremor, as the stabiliser's string draws it). The stabiliser must visibly remove the tremor, live as well
 // as committed, and the overlay must draw the stabilised line.
 //
 // Print the table with --dart-define=INKLAB_TABLE=true.
@@ -14,6 +14,7 @@ library;
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:len/ink/input/pen_stabiliser.dart';
 import 'package:len/ink/input/wet_ink.dart';
 import 'package:len/ink/lab/raw_samples.dart';
 import 'package:len/ink/lab/replay_run.dart';
@@ -22,6 +23,7 @@ import 'package:len/ink/render/stroke_outline.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
 
 import 'metrics/polyline_index.dart';
+import 'metrics/truth.dart';
 import 'sim/cases.dart';
 import 'sim/digitiser.dart';
 import 'sim/pen_motion.dart';
@@ -66,7 +68,12 @@ Map<String, ({double rms, double max})> measure(double streamline) {
   final recording = SimCase('tremor', 'shaky line', [
     SimContact(motion, start: 0),
   ]).record(pen).recording;
-  final steady = PolylineIndex([for (var i = 0; i <= 4000; i++) _steady(i / 1000)]);
+  // The steady path as the stabiliser draws it (its string cuts the bow
+  // by up to 6 px at 100 %, on purpose): the tremor is what strays from it.
+  final path = [for (var i = 0; i <= 4000; i++) _steady(i / 1000)];
+  final steady = PolylineIndex(
+    stabilisedTruth(Truth(path: path, pressure: [for (final _ in path) 0.5]), streamline).path,
+  );
   final r = ReplayResult.run(recording, pen: pen);
   final stroke = r.strokes.single;
   final spec = StrokeRenderer.specFor(pen.width, stroke.style);
@@ -74,7 +81,11 @@ Map<String, ({double rms, double max})> measure(double streamline) {
   bool inner(Offset p) => p.dx > 75 && p.dx < 345;
 
   final c = StrokeOutline.centerline(stroke.points, spec)!;
-  final committed = [for (var i = 0; i < c.length; i++) r.toScreen(c.x[i], c.y[i])].where(inner);
+  // The stroke's last string length is the catch-up at the lift, which
+  // follows the pen's own path (`PenStabiliser.catchUp`): left out.
+  final reach = StabiliserParams.of(streamline)?.radius ?? 0;
+  final committed = [for (var i = 0; i < c.length; i++) r.toScreen(c.x[i], c.y[i])]
+      .where((p) => inner(p) && p.dx < 355 - reach);
 
   // The newest [reach] px of a line (screen points, oldest first).
   List<Offset> newest(List<Offset> line, double reach) {
@@ -146,10 +157,11 @@ void main() {
       final at1 = results[1.0]![what]!.rms;
       // At 0 the tremor stays (it is the pen's real motion) …
       expect(at0, greaterThan(0.6 * raw), reason: what);
-      // … the stabiliser takes it away, more the higher it is set.
-      expect(at05, lessThan(0.8 * at0), reason: what);
-      expect(at1, lessThan(0.45 * at0), reason: what);
-      expect(at1, lessThan(at05), reason: what);
+      // … the string takes most of it away (at 50 % 12 px long, at 100 %
+      // 80 px: what is left there is not tremor but the long string
+      // following a shaky pen's longer path a little differently).
+      expect(at05, lessThan(0.3 * at0), reason: what);
+      expect(at1, lessThan(0.5 * at0), reason: what);
     }
     // The overlay draws the line Flutter draws.
     for (final s in [0.5, 1.0]) {

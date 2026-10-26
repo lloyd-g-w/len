@@ -15,9 +15,7 @@ extension _Inking on InkDrawing {
     _byMouse = e.kind == PointerDeviceKind.mouse;
     final stabiliser = _byMouse ? null : StabiliserParams.of(style.streamline);
     final ms = StrokeSampler.msOf(e.timeStamp);
-    _stabiliser = stabiliser == null
-        ? null
-        : (PenStabiliser(stabiliser)..begin(e.localPosition));
+    _stabiliser = stabiliser == null ? null : (PenStabiliser(stabiliser)..begin(e.localPosition));
     _stabiliserMs = ms;
     // Ink shows from the first sample, under the nib. The outline smooths
     // at the zoom it is written at (`StrokeStyle.unit`), known now.
