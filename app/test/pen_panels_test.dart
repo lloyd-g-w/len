@@ -57,7 +57,7 @@ void main() {
     await drag(tester, 'Stabiliser', -400);
     expect(tools.configOf(InkTool.ballpoint).streamline, 0);
     expect(find.text('Off'), findsOneWidget);
-    expect(find.text('Smooths shaky lines; the ink trails the pen a little'), findsOneWidget);
+    expect(find.text('Smooths slow, shaky lines; fast writing keeps up'), findsOneWidget);
     await drag(tester, 'Stabiliser', 400);
     expect(tools.configOf(InkTool.ballpoint).streamline, 1);
     expect(find.text('100%'), findsOneWidget);
