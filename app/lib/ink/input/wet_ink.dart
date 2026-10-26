@@ -10,6 +10,7 @@ import '../render/stroke_renderer.dart';
 import '../tool_settings.dart';
 import '../viewport.dart';
 import 'live_ink.dart';
+import 'pen_stabiliser.dart';
 import 'point_spacing.dart';
 import 'pressure_filter.dart';
 
@@ -72,7 +73,14 @@ class WetInkStyle {
   /// cannot be drawn faithfully by an overlay (or is not a free-hand stroke).
   static WetInkStyle? of(LiveInk live, double scale) {
     if (!live.isDrawing || live.straightened) return null;
-    return forPen(live.tool, live.width, live.style, color: live.color, scale: scale);
+    return forPen(
+      live.tool,
+      live.width,
+      live.style,
+      color: live.color,
+      scale: scale,
+      stabiliser: live.stabiliser,
+    );
   }
 
   /// The style the next stroke on a surface seen at viewport [scale] will
@@ -82,24 +90,30 @@ class WetInkStyle {
     if (tools.tool != EditorTool.pen) return null;
     final ink = tools.activeInk;
     final config = tools.configOf(ink);
+    final style = tools.styleFor(ink);
+    // The stabiliser smooths the path before it becomes points; the
+    // stroke's own is 0 (`InkDrawing`).
     return forPen(
       ink,
       config.width,
-      tools.styleFor(ink).copyWith(unit: 1 / scale),
+      style.copyWith(unit: 1 / scale, streamline: 0),
       color: config.color,
       scale: scale,
+      stabiliser: style.streamline,
     );
   }
 
   /// The style of ink drawn with [tool], [width] and [style] (with the
-  /// zoom it is written at, `StrokeStyle.unit`) at viewport [scale], or
-  /// null when an overlay cannot draw it faithfully.
+  /// zoom it is written at, `StrokeStyle.unit`) and the pen's
+  /// [stabiliser] (`LiveInk.stabiliser`) at viewport [scale], or null when
+  /// an overlay cannot draw it faithfully.
   static WetInkStyle? forPen(
     InkTool tool,
     double width,
     StrokeStyle style, {
     required int color,
     required double scale,
+    double stabiliser = 0,
   }) {
     final opaque = style.opacity >= 1 && (color >>> 24) == 0xFF;
     if (!opaque || tool.isHighlighter) return null;
@@ -107,7 +121,12 @@ class WetInkStyle {
     return WetInkStyle(
       color: color,
       radii: [for (var i = 0; i <= steps; i++) spec.radiusFor(i / steps) * scale],
-      shape: WetInkShape.of(spec, scale, StrokeOutline.unitOf(const [], spec)),
+      shape: WetInkShape.of(
+        spec,
+        scale,
+        StrokeOutline.unitOf(const [], spec),
+        stabiliser: StabiliserParams.of(stabiliser),
+      ),
     );
   }
 }
@@ -142,11 +161,18 @@ class WetInkShape {
     required this.flat,
     required this.flatReach,
     required this.taperStart,
+    this.stabiliser,
   });
 
   /// The rules of [spec] for a stroke of [unit] (`StrokeOutline.unitOf`)
-  /// at viewport [scale] (world → logical px).
-  factory WetInkShape.of(OutlineSpec spec, double scale, double unit) {
+  /// at viewport [scale] (world → logical px), with the pen's [stabiliser]
+  /// (in screen px).
+  factory WetInkShape.of(
+    OutlineSpec spec,
+    double scale,
+    double unit, {
+    StabiliserParams? stabiliser,
+  }) {
     final params = spec.paramsFor(unit);
     final hooks = params.hooks;
     return WetInkShape(
@@ -173,6 +199,7 @@ class WetInkShape {
       flat: spec.flatCaps,
       flatReach: RibbonEmitter.endReachFor(spec.width, params.step),
       taperStart: spec.taperStart * scale,
+      stabiliser: stabiliser,
     );
   }
 
@@ -215,6 +242,11 @@ class WetInkShape {
   /// overlay's `end`).
   final double taperStart;
 
+  /// The pen's stabiliser, applied to every sample before it is thinned
+  /// (`PenStabiliser`; null: off). The ink trails the pen on purpose then:
+  /// the overlay draws no tip to the newest sample or prediction.
+  final StabiliserParams? stabiliser;
+
   /// The outline's position rules for points in these units.
   ShapeParams get positions => ShapeParams.positionsOf(
     ShapeParams.explicit(
@@ -255,6 +287,7 @@ class WetInkShape {
     flat: flat,
     flatReach: flatReach,
     taperStart: taperStart * f,
+    stabiliser: stabiliser?.scaled(f),
   );
 
   /// The values in the order the overlay's `begin` message carries them
@@ -282,6 +315,9 @@ class WetInkShape {
     flat ? 1 : 0,
     taperStart,
     flatReach.toDouble(),
+    // The stabiliser: rest time constant (0: off), speed scale, velocity
+    // and peak-hold time constants, the distance before it acts.
+    ...(stabiliser?.toList() ?? const [0.0, 1.0, 1.0, 1.0, 0.0]),
     ...kernel,
   ]);
 }

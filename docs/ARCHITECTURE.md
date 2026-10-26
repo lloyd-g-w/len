@@ -1743,13 +1743,14 @@ after the digitiser event (4 ms after it reaches the app; p99 under one
   stroke's start, the moving tip) are flat nib sweeps cut off at the butt
   cap's line, as Flutter's flat ends are (`WetInkEnds`), and the tail
   starts two widths before Flutter's shown tip, whose zone has less ink
-  than the line will have there. With the stabiliser on, it draws what Flutter's live
-  ink does: only the final, smoothed line (the shaper's `finalCount`,
-  ported; round ends a sample short, `StrokeOutline.shownOf`), from where
-  Flutter's shown frame ends (the lag reach before
-  its newest input), and no predicted tip or line to the raw sample
-  (`WetContact.predicts`) — the smoothed line, as soon as the smoothing
-  allows. Two checks keep the ports equal: a shared golden
+  than the line will have there. With the pen's stabiliser on, it filters
+  every sample with the same `PenStabiliser` (ported: `WetInkShape`
+  carries its numbers, the lift sample and the catch-up after it as
+  Flutter has them) and draws no predicted tip or line to the raw sample
+  (`WetContact.predicts`): the ink trails the pen on purpose. (The
+  shaper's own stabiliser, `ShapeParams.lag`, which drew only the final
+  line from where Flutter's shown frame ends, is still ported, but no
+  live pen stroke has it now: they carry stabiliser 0.) Two checks keep the ports equal: a shared golden
   (`test/inklab/wet_ink_golden_test.dart` writes/compares
   `android/app/src/test/resources/wet_ink/`, `WetInkModelTest.kt` checks
   the Kotlin model against it: `tool/wet_ink_check/unit_test.sh`, or
@@ -2893,7 +2894,8 @@ with a hand's pressure (`pen/preview_strokes.dart`) on a faint rule for the
 pen, a highlight over three grey lines of "text" for the highlighter, one
 gentle stroke for a size on its own. The
 stabiliser shows "Off" at 0 (ink under the nib) and up to
-100 % (the live ink then trails the pen by ~6–15 px); the pen's default is
+100 % (see *Stabiliser* under *Ink rendering*: a slow pen pulls the ink
+on a string, fast writing is not held back); the pen's default is
 30 % (`PenDefaults.pen`; settings saved before `ToolSettings.prefsVersion` 2
 with the old default, off, are upgraded on restore), the highlighter's 50 %. **Straight lines**
 (`PenConfig.straight`, offered for the highlighter): every stroke is the line
@@ -3189,7 +3191,9 @@ does not grow with the stroke's length.
    filled as **one path** (`LiveOutline.combined`, `LiveInkPainter`), as
    the committed stroke is: two overlapping fills darken the antialiased
    edge pixels where they overlap, which lightened at pen-up.
-   **With the stabiliser on** (> 0) live ink shows only
+   **With a stored stabiliser** (> 0: strokes from before the pen's
+   stabiliser moved to the input, see *Stabiliser* below; the laser's
+   trail) live ink shows only
    the final line (`StrokeShaper.liveLength`, `ShapeParams.lag`): it
    trails the pen by the reach of the smoothing (kernel, corner test and
    resampling: ≈ 6 px at 0.2, 10 px at 0.4, 15 px at 1) — the least the
@@ -3228,6 +3232,106 @@ does not grow with the stroke's length.
    sub-pixel shades (≤ 17/255 in `mouse_ink_golden_test`), never at
    pen-up. A frame that showed only the first sample's dot keeps that
    circle in the committed outline. Committed outlines are memoised per stroke (`StrokeRenderer.adopt`).
+
+#### Stabiliser (`input/pen_stabiliser.dart`)
+
+Owner report: "When I go fast it's bad". Measured
+(`test/inklab/stabiliser_speed_test.dart`, `metrics/stabiliser_metrics.dart`)
+on the shaper's stabiliser it replaced (a centred smoothing of the line,
+σ 0.7–4 px, live ink showing only its final part): at the default 30 %
+the ink trailed the pen by 16 px median on the real S Pen recordings
+(19 px above 1000 px/s, p95 22; 28 / 32 / 34 px at 100 %), and each lift
+added 17–23 px at once (up to 52). The trail is the smoothing's reach
+plus the two digitiser samples the resampling waits for, so it grew
+with speed and with a slower sample rate (synthetic fast cursive at
+30 %: p95 11 px at 1 kHz, 18 at 240 Hz, 27 at 120 Hz). At 100 % it
+shrank fast cursive's loops by 2.5 px while removing 60 % of a slow,
+shaky hand's tremor.
+
+Options weighed: the 1€ filter (Casiez et al., CHI 2012: a low-pass
+whose cutoff rises with speed: little lag when fast, strong smoothing
+when slow); a lazy brush / pulled string (radius R: perfect slow lines,
+but a loop smaller than R is lost and cusps are cut by R, at any speed:
+bad for 10–20 px handwriting); a centred, speed-adaptive smoothing in
+time (no shape error, but its look-ahead is the trail, measured 20–80 px
+at speed); a spline through filtered points (the shaper already resamples
+a centripetal Catmull–Rom). Chosen: a **1€-style causal filter applied to
+every sample before it becomes a point**, with three changes measured
+against the cases above:
+
+- τ(v) = τ₀ / (1 + (v / 50 px/s)²) rather than the 1€ filter's
+  1 / (2π(f₀ + βv)): its trail (v·τ) peaks at a crawl and falls as the pen
+  speeds up, where the 1€ filter's levels off at 1/(2πβ) (≈ 4–9 px at
+  strengths that remove tremor: fast cursive lost 2–4 px of its loops). A
+  cube was tried: a shaky hand's own speed then switched the smoothing off,
+  and slow 10 px cursive lost its letter tops.
+- The speed is the velocity low-passed over 8 ms, then held at its peak
+  (decaying over 160 ms), so the instant stop at a cusp of fast writing
+  does not smooth it.
+- Each step is solved exactly for the pen moving straight at constant
+  speed between samples (first-order hold), with real (whole-ms)
+  timestamps: the path does not depend on the sample rate (120 / 240 /
+  1000 Hz agree within 0.35 px away from the ends, the digitiser's own
+  jitter). Samples without time pass (ms duplicates, tests without
+  timestamps) move the ink with the pen.
+
+The first 4 px from pen-down are the pen's own (the speed tracked
+meanwhile): a pen-down hook keeps the kink `HookFinder` trims it by. At the
+lift (and before hold to snap reads the stroke) the ink **catches up along
+the pen's own path** (`PenStabiliser.catchUp`: the path from the sample
+nearest the ink to the lift, the ink's offset from it fading out by
+length), so the end follows the curve rather than cutting across it and a
+pen-up hook keeps its kink; a straight line to the pen cut the end of a
+spiral by 2.4 px. Being causal, every filtered point is final at once: the
+stroke **stores the filtered points with stabiliser 0** (format unchanged;
+the outline adds only its σ 0.7 px), so live ink reaches the filtered tip
+with the outline's usual provisional end, the committed stroke is drawn
+from the same points (`stabiliser_speed_test`: identical but for that
+tip) and a reload draws it again. The overlay filters the same samples
+(Dart = Kotlin to 1e-13).
+
+**Slider** (`PenConfig.streamline`, stored as before, reinterpreted):
+τ₀ = 0.4 s × the setting: 0 is off (raw input), 30 % (the pen's default)
+120 ms, 100 % 400 ms. Measured (`stabiliser_speed_test`, `stabiliser_test`):
+
+| | 30 % | 60 % | 100 % |
+|---|---|---|---|
+| trail, real recordings, median / above 1000 px/s p95 (px) | 0.3 / 0.3 | 0.6 / 0.7 | 0.9 / 1.2 |
+| trail, fast synthetic cursive p95 (px) | 0.9 | 1.6 | 2.5 |
+| lift adds, real recordings median (px) | 2.3–4.9 | 2.5–4.9 | 2.9–4.9 |
+| fast cursive shape error / zigzag cusp (px) | 0.35 / 0.17 | 0.67 / 0.29 | 0.44 / 0.30 |
+| slow shaky line, tremor left (raw 0.59 px rms) | — | 0.37 (50 %) | 0.24 |
+
+(Before: tremor 0.44 at 50 %, 0.23 at 100 %, for the trails above.) The
+lift's few px are the outline's provisional end and the last frame's
+samples, as at 0. A mouse keeps `MouseSmoother` (its stabiliser levels
+whole-pixel steps in space and trails 8–16 px; no string), the laser its
+shaper stabiliser. Before/after sheets (rows 0 / 30 / 60 / 100 %; left
+committed over the true path in red, right a live frame with the pen as
+a red dot): `docs/inklab/stabiliser/{before,after}_{fast,slow}.png`.
+Seen there: fast writing no longer trails a letter behind or rounds its
+loops; at 100 % a slow shaky line keeps a little more ripple than the old
+centred smoothing left (same RMS, less trail), and a stroke's last few px
+are the pen's own path.
+
+**The string** (`render/stabiliser_string.dart`, `LiveInk.stringFrom` /
+`stringTo`): while the stabiliser holds the ink back, a 1 px Graphite
+hairline at 70 % over a light halo (two-tone like the eraser's ring, so it
+reads on any paper and never as ink) runs from the ink's tip to the pen,
+with a 2.5 px ring at the pen; hidden up to a 2 px gap, fading in over the
+next 3 (smoothstep), so it fades out as the ink closes up; gone at
+pen-up and when hold to snap takes over. Live only (never stored or
+synced). Drawn by Flutter's live layer, also on Android with the
+overlay: Flutter's frame is ≈ 25 ms older than the overlay's ink, so the
+string's pen end lags the nib by that much travel, which is small exactly
+when it shows (the gap is only above 2 px when the pen is slow: at
+100 px/s, ≈ 2.5 px), and at speed it is hidden. Setting: **Settings →
+Writing → Show stabiliser string** (`AppPreferences.stabiliserString`,
+mirrored to `ToolSettings.showStabiliserString`), on by default: it
+appears only when the ink is held back by more than 2 px, so at the
+default 30 % only when drawing slowly, and the pen's options stay a small
+flat panel. `test/stabiliser_string_test.dart` checks it shows, goes at
+pen-up and is never part of the stroke.
 
 `OutlineSink` lets tests record the exact segments; `test/ribbon_exactness_test.dart`
 checks that the fitted contours cover what the circles cover, and

@@ -11,9 +11,9 @@ import '../../ui/roving_focus.dart';
 import '../../ui/segment_label.dart';
 import 'settings_section.dart';
 
-/// Writing: whether a finger draws, the side button, and the writing
+/// Writing: whether a finger draws, the side button, the writing
 /// gestures (finger taps to undo and redo, hold to snap, scribble to
-/// erase): this is their one home. Where the toolbar sits is set in the
+/// erase) and the stabiliser's string: this is their one home. Where the toolbar sits is set in the
 /// editor (⋯ → View), where its effect shows.
 class WritingSettings extends StatelessWidget {
   const WritingSettings({super.key, required this.preferences});
@@ -92,6 +92,13 @@ class WritingSettings extends StatelessWidget {
             subtitle: 'Scribble quickly back and forth over ink to erase it',
             value: preferences.scribbleToErase,
             onChanged: (v) => preferences.scribbleToErase = v,
+          ),
+          _GestureTile(
+            icon: Symbols.line_curve_rounded,
+            title: 'Show stabiliser string',
+            subtitle: 'A thin line from the ink to the pen while the stabiliser holds the ink back',
+            value: preferences.stabiliserString,
+            onChanged: (v) => preferences.stabiliserString = v,
           ),
         ],
       ),

@@ -222,7 +222,9 @@ void main() {
       input = InkInputController(
         model: model,
         viewport: viewport,
-        tools: ToolSettings(stylusOnly: true),
+        // The stabiliser off: the points are the samples themselves.
+        tools: ToolSettings(stylusOnly: true)
+          ..updateConfig(InkTool.ballpoint, (c) => c.copyWith(streamline: 0)),
         live: live,
         clock: _Clock(),
         samples: StylusSampleMerger(buffer, devicePixelRatio: () => dpr),

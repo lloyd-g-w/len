@@ -5,9 +5,7 @@ const double _grid = 24;
 const double _margin = 2;
 const double _stroke = 1.7;
 
-/// How much of the ink a selected line drawing's tint takes (the lasso's
-/// loop, a shape): enough to read as chosen, light enough that a filled
-/// square never outweighs the instruments beside it.
+/// How much of the ink the laser's halo takes.
 const double _tint = 0.22;
 
 /// A glyph line: [_stroke] grid units wide on a canvas of [unit] (1 when
@@ -61,20 +59,14 @@ Path _roundedPolygon(List<Offset> points, {required bool closed, required double
 }
 
 class _ToolIconPainter extends CustomPainter {
-  _ToolIconPainter(this.kind, this.color, {required this.filled});
+  _ToolIconPainter(this.kind, this.color);
 
   final ToolIconKind kind;
   final Color color;
-  final bool filled;
 
   late final Paint _ink = _line(color);
   late final Paint _solid = Paint()..color = color;
   late final Paint _wash = Paint()..color = color.withValues(alpha: color.a * _tint);
-
-  /// Cuts details out of a solid body (the selected instruments).
-  late final Paint _cut = _line(color)
-    ..blendMode = BlendMode.clear
-    ..strokeWidth = 1.4;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -121,11 +113,8 @@ class _ToolIconPainter extends CustomPainter {
     canvas.restore();
   }
 
-  /// A body outlined, or solid when selected.
-  void _body(Canvas canvas, Path body) {
-    if (filled) canvas.drawPath(body, _solid);
-    canvas.drawPath(body, _ink);
-  }
+  /// A body, outlined (selected or not: the plate behind marks the choice).
+  void _body(Canvas canvas, Path body) => canvas.drawPath(body, _ink);
 
   /// A part that touches the page: solid in both states, its outline
   /// rounding its corners.
@@ -170,8 +159,6 @@ class _ToolIconPainter extends CustomPainter {
         ..quadraticBezierTo(-0.9, 9.5, -1.2, 7.5)
         ..close(),
     );
-    // The cap's end: a line across the barrel, cut out when selected.
-    _seam(canvas, -4.5, w);
   }
 
   void _highlighter(Canvas canvas) {
@@ -186,7 +173,6 @@ class _ToolIconPainter extends CustomPainter {
         radius: 0.9,
       ),
     );
-    _seam(canvas, -4.5, w);
   }
 
   void _eraser(Canvas canvas) {
@@ -199,19 +185,14 @@ class _ToolIconPainter extends CustomPainter {
       ..drawRRect(block, _solid)
       ..restore()
       ..drawLine(const Offset(-4, 3), const Offset(4, 3), _ink);
-    _seam(canvas, 3, block.right);
   }
 
   void _laser(Canvas canvas) {
     // A slim pointer, rounded at both ends.
     const body = Rect.fromLTRB(-2.25, -12, 2.25, 0.5);
     _body(canvas, Path()..addRRect(RRect.fromRectAndRadius(body, const Radius.circular(2.25))));
-    // Its button: a dot, cut out when selected.
-    canvas.drawCircle(
-      const Offset(0, -6),
-      0.9,
-      filled ? (Paint()..blendMode = BlendMode.clear) : _solid,
-    );
+    // Its button: a dot.
+    canvas.drawCircle(const Offset(0, -6), 0.9, _solid);
     _beam(canvas, const Offset(0, 6), dot: 2, glow: 4.5);
   }
 
@@ -220,18 +201,11 @@ class _ToolIconPainter extends CustomPainter {
     ..drawCircle(at, glow, _wash)
     ..drawCircle(at, dot, _solid);
 
-  /// A line across an instrument at [y] (half-width [w]): cut out of a
-  /// solid body; absent from an outline.
-  void _seam(Canvas canvas, double y, double w) {
-    if (!filled) return;
-    canvas.drawLine(Offset(-w + 1.75, y), Offset(w - 1.75, y), _cut);
-  }
-
   void _lasso(Canvas canvas) {
     // A loop of rope tilted up the instruments' diagonal, in round dashes
     // (the selection's marching ants), closed by a round knot at its lower
     // left; the tail curls from the knot toward the corner the instruments
-    // write in. Selected, the loop holds a light wash.
+    // write in.
     const centre = Offset(13.5, 9.25);
     const rx = 8.25;
     const ry = 6;
@@ -250,7 +224,6 @@ class _ToolIconPainter extends CustomPainter {
       loop.lineTo(p.dx, p.dy);
     }
     loop.close();
-    if (filled) canvas.drawPath(loop, _wash);
     // Gaps open beside the knot so the rope runs into it.
     canvas.drawPath(_dashed(loop, 6, 0.6, phase: 0.3), _ink);
     final knot = at(knotAt);
@@ -267,21 +240,17 @@ class _ToolIconPainter extends CustomPainter {
 
   void _marquee(Canvas canvas) {
     final box = Path()..addRRect(RRect.fromLTRBR(4, 5, 20, 19, const Radius.circular(3)));
-    if (filled) canvas.drawPath(box, _wash);
     canvas.drawPath(_dashed(box, 10, 0.45, phase: 0.6), _ink);
   }
 
   void _text(Canvas canvas) {
-    // A soft capital T, round at every end; selected, a bolder T (a line
-    // drawing has nothing to fill, so it gains weight instead).
-    final pen = filled ? (_line(color)..strokeWidth = _stroke * 1.55) : _ink;
+    // A soft capital T, round at every end.
     canvas
-      ..drawLine(const Offset(5.5, 5.5), const Offset(18.5, 5.5), pen)
-      ..drawLine(const Offset(12, 5.5), const Offset(12, 19), pen);
+      ..drawLine(const Offset(5.5, 5.5), const Offset(18.5, 5.5), _ink)
+      ..drawLine(const Offset(12, 5.5), const Offset(12, 19), _ink);
   }
 
   void _insert(Canvas canvas) {
-    if (filled) canvas.drawCircle(const Offset(12, 12), 8.25, _wash);
     canvas
       ..drawCircle(const Offset(12, 12), 8.25, _ink)
       ..drawLine(const Offset(12, 8.25), const Offset(12, 15.75), _ink)
@@ -330,6 +299,5 @@ class _ToolIconPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ToolIconPainter old) =>
-      old.kind != kind || old.color != color || old.filled != filled;
+  bool shouldRepaint(_ToolIconPainter old) => old.kind != kind || old.color != color;
 }

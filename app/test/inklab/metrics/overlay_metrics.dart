@@ -168,6 +168,7 @@ Map<int, List<OverlayMoment>> overlayMomentsAt(ReplayResult r, {required List<in
       stroke.style,
       color: 0xFF000000,
       scale: view.viewScale,
+      stabiliser: view.stabiliser,
     )!;
     final radii = [for (final x in wet.radii) x * dpr];
     final shape = wet.shape.scaled(dpr);

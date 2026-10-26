@@ -225,6 +225,19 @@ class ToolSettings extends _ToolState {
     notifyListeners();
   }
 
+  /// While the stabiliser holds the ink back from the pen, a hairline from
+  /// the ink's tip to the pen shows where the ink is being pulled
+  /// (`LiveInk.string`). Like [holdToStraighten], mirrored from the
+  /// preferences.
+  bool get showStabiliserString => _showStabiliserString;
+  set showStabiliserString(bool value) {
+    if (value == _showStabiliserString) return;
+    _showStabiliserString = value;
+    notifyListeners();
+  }
+
+  bool _showStabiliserString = true;
+
   /// Colours recently picked for quick colour slots (opaque ARGB), most
   /// recent first, at most [RecentColors.max].
   List<int> get recentColors => _recent;

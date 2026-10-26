@@ -15,9 +15,9 @@ part 'tool_icon_painter.dart';
 /// and joins, rounded corners, a 2-unit margin. The instruments (pen,
 /// highlighter, eraser, laser) are held at 45°, writing end down-left, and
 /// share the lasso's tail angle. The part that touches the page (a nib,
-/// the eraser's band, the laser's dot, the lasso's knot) is solid;
-/// selected (the [IconTheme]'s `fill` 1) the whole instrument is, the
-/// lasso's loop and a shape hold a light wash, and the T turns bold.
+/// the eraser's band, the laser's dot, the lasso's knot) is solid. Selected
+/// tools look the same: never filled, the plate behind them marks the
+/// choice.
 enum ToolIconKind {
   /// A fineliner: a rounded barrel, a cone, a solid nib.
   pen,
@@ -56,7 +56,7 @@ enum ToolIconKind {
   laserTrail,
 }
 
-/// A tool glyph of [kind], sized, coloured and filled by the [IconTheme]
+/// A tool glyph of [kind], sized and coloured by the [IconTheme]
 /// (as an [Icon] is), so it sits among symbols unchanged.
 class ToolIcon extends StatelessWidget {
   const ToolIcon(this.kind, {super.key, this.size});
@@ -72,16 +72,14 @@ class ToolIcon extends StatelessWidget {
     final color = theme.color ?? Theme.of(context).colorScheme.onSurface;
     return SizedBox.square(
       dimension: size ?? theme.size ?? 24,
-      child: CustomPaint(painter: _ToolIconPainter(kind, color, filled: (theme.fill ?? 0) >= 0.5)),
+      child: CustomPaint(painter: _ToolIconPainter(kind, color)),
     );
   }
 }
 
 /// A shape drawn with the same outline the Shape tool produces, in the
 /// ambient icon colour, on the tool glyphs' grid and stroke, its corners
-/// rounded. An outline, as the tool draws; selected (the [IconTheme]'s
-/// `fill` 1) it holds a light wash (a solid shape would outweigh the
-/// others).
+/// rounded. An outline, as the tool draws, selected or not.
 class ShapeGlyph extends StatelessWidget {
   const ShapeGlyph(this.kind, {super.key, this.size = 19});
 
@@ -94,19 +92,16 @@ class ShapeGlyph extends StatelessWidget {
     final color = theme.color ?? Theme.of(context).colorScheme.onSurface;
     return SizedBox.square(
       dimension: size,
-      child: CustomPaint(
-        painter: _ShapeGlyphPainter(kind, color, filled: (theme.fill ?? 0) >= 0.5),
-      ),
+      child: CustomPaint(painter: _ShapeGlyphPainter(kind, color)),
     );
   }
 }
 
 class _ShapeGlyphPainter extends CustomPainter {
-  _ShapeGlyphPainter(this.kind, this.color, {required this.filled});
+  _ShapeGlyphPainter(this.kind, this.color);
 
   final ShapeKind kind;
   final Color color;
-  final bool filled;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -128,13 +123,9 @@ class _ShapeGlyphPainter extends CustomPainter {
       ShapeKind.star => _roundedPolygon(outline, closed: true, radius: 2.5 * unit),
       _ => Path()..addPolygon(outline, false),
     };
-    if (filled && !open) {
-      canvas.drawPath(path, Paint()..color = color.withValues(alpha: color.a * _tint));
-    }
     canvas.drawPath(path, _line(color, unit));
   }
 
   @override
-  bool shouldRepaint(_ShapeGlyphPainter old) =>
-      old.kind != kind || old.color != color || old.filled != filled;
+  bool shouldRepaint(_ShapeGlyphPainter old) => old.kind != kind || old.color != color;
 }

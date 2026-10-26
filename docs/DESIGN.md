@@ -157,9 +157,8 @@ halo. The part that touches the page is solid (the nib, the chisel, the
 eraser's band, the laser's dot, the lasso's knot). The lasso is a loop of
 rope in round dashes closed by a round knot, its tail curling down-left;
 the text tool a round-ended T; shapes have rounded corners. **Selected**
-(`fill` 1) an instrument is solid with its seam cut out; line drawings
-can't be solid without outweighing the rest, so the lasso's loop and a
-shape hold a light wash (22 % of the ink) and the T turns bold.
+tools are never filled: the glyph stays the same outline and the plate
+behind it marks the choice (owner, 2026-10-25).
 `test/goldens/tool_icons_{1,2}x.png` shows the whole set, light and dark.
 
 ## 5. Motion
