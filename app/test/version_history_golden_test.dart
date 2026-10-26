@@ -177,7 +177,7 @@ void main() {
       await threeVersions(tester, name: version);
       await open(tester, size: size, dark: dark, textScale: scale);
       expect(find.text(version), findsOneWidget);
-      expect(find.byIcon(Symbols.cloud_off_sharp), findsNothing);
+      expect(find.byIcon(Symbols.cloud_off_rounded), findsNothing);
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/version_history_$name.png'),
@@ -191,7 +191,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(ValueKey('version-${named.id}')), findsNothing, reason: 'covered');
       await pumpUntil(tester, () => loaded(count: 3), stable: 2, reason: 'the pages');
-      expect(find.byIcon(Symbols.cloud_off_sharp), findsNothing);
+      expect(find.byIcon(Symbols.cloud_off_rounded), findsNothing);
       await tester.pumpAndSettle();
       await expectLater(
         find.byType(MaterialApp),

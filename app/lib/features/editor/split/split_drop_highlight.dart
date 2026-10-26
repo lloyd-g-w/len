@@ -55,7 +55,7 @@ class SplitDropHighlight extends StatelessWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    Symbols.content_copy_sharp,
+                                    Symbols.content_copy_rounded,
                                     size: Glyphs.menu,
                                     color: scheme.onInverseSurface,
                                   ),

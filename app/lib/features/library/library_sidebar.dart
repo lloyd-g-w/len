@@ -77,16 +77,16 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: Gaps.md),
                 children: [
-                  _sectionItem(LibrarySection.library, Symbols.auto_stories_sharp, 'Library'),
+                  _sectionItem(LibrarySection.library, Symbols.auto_stories_rounded, 'Library'),
                   _sectionItem(
                     LibrarySection.favorites,
-                    Symbols.star_sharp,
+                    Symbols.star_rounded,
                     'Favourites',
                     count: c.favoriteCount,
                   ),
                   _sectionItem(
                     LibrarySection.trash,
-                    Symbols.delete_sharp,
+                    Symbols.delete_rounded,
                     'Trash',
                     count: c.trash.length,
                   ),
@@ -104,7 +104,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                             height: Targets.menuRowHeight(context),
                           ),
                           color: scheme.onSurfaceVariant,
-                          icon: const Icon(Symbols.create_new_folder_sharp),
+                          icon: const Icon(Symbols.create_new_folder_rounded),
                           onPressed: () {
                             // The drawer closes first: one overlay at a time.
                             widget.onNavigate?.call();
@@ -144,7 +144,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
 
   Widget _footerRow(BuildContext context) {
     final settings = SidebarItem(
-      icon: Symbols.settings_sharp,
+      icon: Symbols.settings_rounded,
       label: 'Settings',
       onTap: widget.onOpenSettings,
     );
@@ -244,7 +244,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                         turns: expanded ? 0.25 : 0,
                         duration: Motion.fast,
                         child: Icon(
-                          Symbols.chevron_right_sharp,
+                          Symbols.chevron_right_rounded,
                           size: Glyphs.menu,
                           color: scheme.onSurfaceVariant,
                         ),
@@ -253,7 +253,7 @@ class _LibrarySidebarState extends State<LibrarySidebar> {
                   )
                 : null,
           ),
-          icon: Symbols.folder_sharp,
+          icon: Symbols.folder_rounded,
           filled: true,
           iconColor: Color(folder.color),
           label: folder.name,
@@ -291,7 +291,7 @@ class _Brand extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(Gaps.md + Gaps.md - 2, Gaps.xl, Gaps.lg, Gaps.lg),
       child: Row(
         children: [
-          Icon(Symbols.gesture_sharp, size: Glyphs.bar, color: theme.colorScheme.onSurface),
+          Icon(Symbols.gesture_rounded, size: Glyphs.bar, color: theme.colorScheme.onSurface),
           const SizedBox(width: Gaps.md),
           Text('Len', style: theme.textTheme.titleMedium),
         ],

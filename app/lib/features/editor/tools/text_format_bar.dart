@@ -101,19 +101,19 @@ class TextFormatBar extends StatelessWidget {
     final more = Builder(
       builder: (anchor) => MenuIconButton<Object>(
         tooltip: 'More',
-        icon: const Icon(Symbols.more_horiz_sharp, size: Glyphs.bar),
+        icon: const Icon(Symbols.more_horiz_rounded, size: Glyphs.bar),
         items: () => [
           if (docked) ...[
             box.inTable
-                ? const MenuRow<Object>(value: _table, icon: Symbols.table_sharp, label: 'Table…')
+                ? const MenuRow<Object>(value: _table, icon: Symbols.table_rounded, label: 'Table…')
                 : const MenuRow<Object>(
                     value: _insertTable,
-                    icon: Symbols.table_sharp,
+                    icon: Symbols.table_rounded,
                     label: 'Insert table…',
                   ),
             MenuRow<Object>(
               value: _spacing,
-              icon: Symbols.format_line_spacing_sharp,
+              icon: Symbols.format_line_spacing_rounded,
               label: 'Paragraph spacing',
               caption: box.box.spacing.label,
             ),
@@ -121,7 +121,7 @@ class TextFormatBar extends StatelessWidget {
           ],
           const MenuRow<Object>(
             value: true,
-            icon: Symbols.delete_sharp,
+            icon: Symbols.delete_rounded,
             label: 'Delete text box',
             destructive: true,
           ),
@@ -149,7 +149,7 @@ class TextFormatBar extends StatelessWidget {
     final done = IconButton(
       tooltip: 'Done (Esc)',
       onPressed: onDone,
-      icon: const Icon(Symbols.check_sharp, size: Glyphs.bar),
+      icon: const Icon(Symbols.check_rounded, size: Glyphs.bar),
     );
     // Phones: two rows, so every control shows (font, size and paragraph
     // over the character formats), with ⋯ above ✓ at the end. Elsewhere

@@ -121,8 +121,8 @@ class PlannerOptions extends StatelessWidget {
           _Stepper(
             key: const ValueKey('planner-months'),
             label: plan.months == 1 ? '1 month' : '${plan.months} months',
-            previousIcon: Symbols.remove_sharp,
-            nextIcon: Symbols.add_sharp,
+            previousIcon: Symbols.remove_rounded,
+            nextIcon: Symbols.add_rounded,
             previousTooltip: 'Fewer months',
             nextTooltip: 'More months',
             onPrevious: plan.months > 1
@@ -246,8 +246,8 @@ class _Stepper extends StatelessWidget {
     required this.label,
     required this.onPrevious,
     required this.onNext,
-    this.previousIcon = Symbols.chevron_left_sharp,
-    this.nextIcon = Symbols.chevron_right_sharp,
+    this.previousIcon = Symbols.chevron_left_rounded,
+    this.nextIcon = Symbols.chevron_right_rounded,
     this.previousTooltip = 'Previous',
     this.nextTooltip = 'Next',
   });

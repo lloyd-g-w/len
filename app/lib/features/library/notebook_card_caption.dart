@@ -39,7 +39,7 @@ extension _CardCaption on _NotebookCardState {
                                 WidgetSpan(
                                   alignment: PlaceholderAlignment.middle,
                                   child: Icon(
-                                    Symbols.mic_sharp,
+                                    Symbols.mic_rounded,
                                     size: MediaQuery.textScalerOf(context)
                                         .scale(theme.textTheme.bodySmall?.fontSize ?? 0),
                                     color: theme.textTheme.bodySmall?.color,
@@ -91,7 +91,7 @@ extension _CardCaption on _NotebookCardState {
                         iconSize: Glyphs.bar,
                         color: scheme.onSurfaceVariant,
                         // Reachable by keyboard while hidden.
-                        icon: const Icon(Symbols.more_horiz_sharp),
+                        icon: const Icon(Symbols.more_horiz_rounded),
                         onPressed: () => unawaited(_showMenu(anchor: anchor)),
                       ),
                     ),

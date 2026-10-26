@@ -68,7 +68,7 @@ class SyncAlertButton extends StatelessWidget {
       final tooltip = alert.tooltip;
       final scheme = Theme.of(context).colorScheme;
       final color = alert.fix ? scheme.error : scheme.onSurfaceVariant;
-      final icon = alert.offline ? Symbols.cloud_off_sharp : Symbols.cloud_alert_sharp;
+      final icon = alert.offline ? Symbols.cloud_off_rounded : Symbols.cloud_alert_rounded;
       void open() => unawaited(
         Navigator.of(context)
             .push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen(showSync: true))),

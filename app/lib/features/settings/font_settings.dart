@@ -27,12 +27,12 @@ class FontSettings extends StatelessWidget {
       children: [
         for (final font in fonts.fonts)
           SettingsTile(
-            icon: Symbols.text_fields_sharp,
+            icon: Symbols.text_fields_rounded,
             title: font.name,
             subtitle: TextFonts.isShown(font.font) ? null : 'Not on this device yet',
             trailing: IconButton(
               tooltip: 'Remove “${font.name}”',
-              icon: const Icon(Symbols.delete_sharp),
+              icon: const Icon(Symbols.delete_rounded),
               onPressed: () => unawaited(FontImport.remove(context, font)),
             ),
             below: TextFonts.isShown(font.font)
@@ -46,7 +46,7 @@ class FontSettings extends StatelessWidget {
                 : null,
           ),
         SettingsTile(
-          icon: Symbols.upload_file_sharp,
+          icon: Symbols.upload_file_rounded,
           title: 'Import font…',
           subtitle: 'A .ttf or .otf font file',
           onTap: () => unawaited(FontImport.pick(context)),

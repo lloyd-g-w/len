@@ -81,7 +81,7 @@ class _NotebookResultsState extends State<_NotebookResults> {
                 padding: const EdgeInsets.only(left: Gaps.xxl + Gaps.xs),
                 child: TextButton.icon(
                   onPressed: () => setState(() => _expanded = true),
-                  icon: const Icon(Symbols.expand_more_sharp, size: Glyphs.menu),
+                  icon: const Icon(Symbols.expand_more_rounded, size: Glyphs.menu),
                   label: Text('Show $hidden more'),
                 ),
               ),
@@ -162,9 +162,9 @@ class SearchHitIcon extends StatelessWidget {
     },
     child: Icon(
       switch (hit.kind) {
-        SearchHitKind.pdf => Symbols.picture_as_pdf_sharp,
-        SearchHitKind.handwriting => Symbols.draw_sharp,
-        _ => Symbols.text_fields_sharp,
+        SearchHitKind.pdf => Symbols.picture_as_pdf_rounded,
+        SearchHitKind.handwriting => Symbols.draw_rounded,
+        _ => Symbols.text_fields_rounded,
       },
       size: Glyphs.menu,
       color: Theme.of(context).colorScheme.onSurfaceVariant,

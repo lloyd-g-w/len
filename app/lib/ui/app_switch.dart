@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 
-/// The app's switch (DESIGN §6 "Switch"): a flat rectangular track, 44 × 24,
-/// with a square thumb of constant size and no glyph. Off is a Rule track
+/// The app's switch (DESIGN §6 "Switch"): a flat pill track, 44 × 24,
+/// with a round thumb of constant size and no glyph. Off is a Rule track
 /// with a Graphite thumb, on is ruling blue with a Sheet thumb. The thumb
 /// slides in [Motion.fast]; with reduced motion it only changes colour.
 ///
@@ -79,7 +79,7 @@ class _AppSwitchState extends State<AppSwitch> {
       width: AppSwitch.trackWidth,
       height: AppSwitch.trackHeight,
       padding: const EdgeInsets.all(inset),
-      decoration: BoxDecoration(color: track, borderRadius: BorderRadius.circular(Radii.xs)),
+      decoration: BoxDecoration(color: track, borderRadius: BorderRadius.circular(Radii.pill)),
       child: AnimatedAlign(
         duration: slide,
         curve: Motion.standard,
@@ -88,7 +88,7 @@ class _AppSwitchState extends State<AppSwitch> {
           duration: Motion.fast,
           width: AppSwitch.thumb,
           height: AppSwitch.thumb,
-          decoration: BoxDecoration(color: thumb, borderRadius: BorderRadius.circular(1)),
+          decoration: BoxDecoration(color: thumb, shape: BoxShape.circle),
         ),
       ),
     );

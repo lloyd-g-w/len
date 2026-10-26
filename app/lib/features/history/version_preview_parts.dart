@@ -133,7 +133,7 @@ class _Unavailable extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Symbols.cloud_off_sharp,
+              Symbols.cloud_off_rounded,
               size: Glyphs.empty,
               color: theme.colorScheme.onSurfaceVariant,
             ),

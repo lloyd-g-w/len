@@ -12,7 +12,7 @@ import 'link_menu.dart';
 /// The selection menu's "Link…": link the selected content to a page or a
 /// web address, or remove its link.
 SelectionExtraAction linkSelectionAction(BuildContext context, EditorSession session) =>
-    SelectionExtraAction('Link…', Symbols.link_sharp, (anchor) async {
+    SelectionExtraAction('Link…', Symbols.link_rounded, (anchor) async {
       final selection = session.content.selection;
       final choice = await showLinkMenu(
         anchor,
@@ -46,7 +46,7 @@ CanvasAction? openLinkAction(BuildContext context, EditorSession session, Offset
   if (hit == null) return null;
   final target = hit.target;
   return CanvasAction(
-    target is UrlLinkTarget ? Symbols.open_in_new_sharp : Symbols.link_sharp,
+    target is UrlLinkTarget ? Symbols.open_in_new_rounded : Symbols.link_rounded,
     'Go to ${session.links.describe(target)}',
     () => unawaited(session.links.follow(context, target)),
   );

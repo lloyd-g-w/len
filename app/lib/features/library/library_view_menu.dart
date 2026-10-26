@@ -43,7 +43,7 @@ class LibraryViewMenu extends StatelessWidget {
     return MenuIconButton<_ViewChoice>(
       tooltip: 'View',
       // Sort, layout and Select: a neutral glyph, not a sorting one.
-      icon: const Icon(Symbols.tune_sharp),
+      icon: const Icon(Symbols.tune_rounded),
       onSelected: (choice) => switch (choice) {
         _Sort(:final sort) => c.sort = sort,
         _Layout(:final layout) => c.layout = layout,
@@ -59,19 +59,19 @@ class LibraryViewMenu extends StatelessWidget {
         const MenuHeading('Show as'),
         MenuRow(
           value: const _Layout(LibraryLayout.grid),
-          icon: Symbols.grid_view_sharp,
+          icon: Symbols.grid_view_rounded,
           label: 'Grid',
           checked: c.layout == LibraryLayout.grid,
         ),
         MenuRow(
           value: const _Layout(LibraryLayout.list),
-          icon: Symbols.view_agenda_sharp,
+          icon: Symbols.view_agenda_rounded,
           label: 'List',
           checked: c.layout == LibraryLayout.list,
         ),
         if (c.visibleNotebooks.isNotEmpty && !actions.selection.active) ...[
           const PopupMenuDivider(),
-          const MenuRow(value: _Select(), icon: Symbols.check_circle_sharp, label: 'Select'),
+          const MenuRow(value: _Select(), icon: Symbols.check_circle_rounded, label: 'Select'),
         ],
       ],
     );

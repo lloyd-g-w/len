@@ -129,14 +129,14 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
               for (final preset in ZoomIndicator.presets)
                 MenuItemButton(
                   leadingIcon: (_scale - preset).abs() < 0.005
-                      ? const Icon(Symbols.check_sharp)
+                      ? const Icon(Symbols.check_rounded)
                       : const SizedBox(width: Glyphs.menu),
                   onPressed: () => widget.onZoomTo(preset),
                   child: Text(_label(preset)),
                 ),
               const Divider(),
               MenuItemButton(
-                leadingIcon: const Icon(Symbols.fit_screen_sharp),
+                leadingIcon: const Icon(Symbols.fit_screen_rounded),
                 onPressed: widget.onFit,
                 shortcut: keys
                     ? const SingleActivator(LogicalKeyboardKey.digit1, shift: true)
@@ -144,7 +144,7 @@ class _ZoomIndicatorState extends State<ZoomIndicator> {
                 child: const Text('Fit content'),
               ),
               MenuItemButton(
-                leadingIcon: const Icon(Symbols.home_sharp),
+                leadingIcon: const Icon(Symbols.home_rounded),
                 onPressed: widget.onBackToStart,
                 shortcut: keys ? const SingleActivator(LogicalKeyboardKey.home) : null,
                 child: const Text('Back to start'),

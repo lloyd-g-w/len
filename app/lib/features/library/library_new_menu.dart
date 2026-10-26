@@ -16,21 +16,21 @@ enum NewChoice { notebook, scan, pdf, len, folder }
 List<PopupMenuEntry<NewChoice>> newMenuItems() => [
   MenuRow(
     value: NewChoice.notebook,
-    icon: Symbols.menu_book_sharp,
+    icon: Symbols.menu_book_rounded,
     label: 'New notebook',
     shortcut: '${modifierLabel()}+N',
   ),
   const MenuRow(
     value: NewChoice.scan,
-    icon: Symbols.document_scanner_sharp,
+    icon: Symbols.document_scanner_rounded,
     label: 'Scan document…',
   ),
-  const MenuRow(value: NewChoice.pdf, icon: Symbols.picture_as_pdf_sharp, label: 'Import PDF…'),
-  const MenuRow(value: NewChoice.len, icon: Symbols.file_open_sharp, label: 'Import Len file…'),
+  const MenuRow(value: NewChoice.pdf, icon: Symbols.picture_as_pdf_rounded, label: 'Import PDF…'),
+  const MenuRow(value: NewChoice.len, icon: Symbols.file_open_rounded, label: 'Import Len file…'),
   const PopupMenuDivider(),
   MenuRow(
     value: NewChoice.folder,
-    icon: Symbols.create_new_folder_sharp,
+    icon: Symbols.create_new_folder_rounded,
     label: 'New folder…',
     shortcut: '${modifierLabel()}+Shift+N',
   ),
@@ -59,8 +59,8 @@ class LibraryNewMenu extends StatelessWidget {
       icon: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Symbols.add_circle_sharp),
-          Icon(Symbols.arrow_drop_down_sharp, size: Glyphs.menu),
+          Icon(Symbols.add_circle_rounded),
+          Icon(Symbols.arrow_drop_down_rounded, size: Glyphs.menu),
         ],
       ),
       items: newMenuItems,

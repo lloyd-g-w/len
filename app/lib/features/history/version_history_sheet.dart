@@ -233,7 +233,7 @@ class _VersionHistoryState extends State<VersionHistory> {
     if (needed <= width) return TextButton(onPressed: save, child: const Text(label));
     return IconButton(
       tooltip: label,
-      icon: const Icon(Symbols.bookmark_add_sharp),
+      icon: const Icon(Symbols.bookmark_add_rounded),
       onPressed: save,
     );
   }

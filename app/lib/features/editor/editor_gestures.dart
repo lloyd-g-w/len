@@ -56,14 +56,14 @@ List<CanvasAction> canvasActions(
   final world = viewport.toWorld(screen);
   return [
     if (link != null && onFollowLink != null)
-      CanvasAction(Symbols.event_sharp, 'Go to ${link.period}', () => onFollowLink(link)),
-    if (onPaste != null) CanvasAction(Symbols.content_paste_sharp, 'Paste here', onPaste),
+      CanvasAction(Symbols.event_rounded, 'Go to ${link.period}', () => onFollowLink(link)),
+    if (onPaste != null) CanvasAction(Symbols.content_paste_rounded, 'Paste here', onPaste),
     CanvasAction(
-      Symbols.select_all_sharp,
+      Symbols.select_all_rounded,
       doc == null ? 'Select all in view' : 'Select all on page',
       () => content.selectAllIn(doc?.pageViewport.contentBounds ?? viewport.visibleWorld),
     ),
-    CanvasAction(Symbols.text_fields_sharp, 'Add text here', () => content.addTextAt(world)),
+    CanvasAction(Symbols.text_fields_rounded, 'Add text here', () => content.addTextAt(world)),
   ];
 }
 
@@ -75,10 +75,10 @@ void runMultiFingerTap(EditorSession session, int fingers, HudController hud) {
   if (fingers == 2) {
     final could = undo.canUndo;
     if (could) undo.undo();
-    hud.show(Symbols.undo_sharp, could ? 'Undo' : 'Nothing to undo', counts: could);
+    hud.show(Symbols.undo_rounded, could ? 'Undo' : 'Nothing to undo', counts: could);
   } else if (fingers == 3) {
     final could = undo.canRedo;
     if (could) undo.redo();
-    hud.show(Symbols.redo_sharp, could ? 'Redo' : 'Nothing to redo', counts: could);
+    hud.show(Symbols.redo_rounded, could ? 'Redo' : 'Nothing to redo', counts: could);
   }
 }

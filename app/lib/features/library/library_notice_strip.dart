@@ -74,7 +74,7 @@ class LibraryNotice extends StatelessWidget {
               width: Targets.barHit(context),
               height: Targets.barHit(context),
             ),
-            icon: const Icon(Symbols.close_sharp, size: Glyphs.menu),
+            icon: const Icon(Symbols.close_rounded, size: Glyphs.menu),
             onPressed: onDismiss,
           );
     final glyph = Icon(icon, size: Glyphs.bar, color: tint);

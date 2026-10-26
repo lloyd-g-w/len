@@ -149,7 +149,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     if (_services.sharedNotebooks.stoppedInBackground.value case final stop?) {
       return LibraryNotice(
         key: const ValueKey('recording-stopped'),
-        icon: Symbols.mic_off_sharp,
+        icon: Symbols.mic_off_rounded,
         title: NotebookAudio.stoppedInBackground,
         shortTitle: 'Recording stopped and saved',
         body: backgroundStopDetail(stop),
@@ -165,7 +165,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     }
     if (_services.writes.failure case final failure?) {
       return LibraryNotice(
-        icon: Symbols.save_sharp,
+        icon: Symbols.save_rounded,
         title: StorageAttention.unsavedTitle,
         body: StorageAttention.unsavedBody(failure),
         actions: [
@@ -178,7 +178,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     }
     if (!_services.blobsArePersistent) {
       return const LibraryNotice(
-        icon: Symbols.cloud_off_sharp,
+        icon: Symbols.cloud_off_rounded,
         title: 'Files you add won’t be kept in this browser window',
         body:
             'This browser doesn’t let Len store files, so PDFs, images and recordings '
@@ -191,7 +191,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     // Nothing to lose yet: no warning on a first visit (R14-1).
     if (_evictable != true || _services.notebooks.list().isEmpty) return _deviceOnlyNotice();
     return LibraryNotice(
-      icon: Symbols.storage_sharp,
+      icon: Symbols.storage_rounded,
       title: 'This browser may clear your notebooks',
       body:
           'Browsers can delete site data when space runs low. Let Len keep its data, '
@@ -212,7 +212,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
     }
     if (_deviceOnly == null) return null;
     return LibraryNotice(
-      icon: Symbols.devices_sharp,
+      icon: Symbols.devices_rounded,
       title: 'Your notes are only on this device',
       // Phones and short windows: one line, the title and "Back up…" (the
       // explanation is in Settings → Backup; sync in the sidebar).
@@ -242,7 +242,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
         final what = paused ? 'Recording paused' : 'Recording';
         return LibraryNotice(
           key: const ValueKey('recording-elsewhere'),
-          icon: Symbols.mic_sharp,
+          icon: Symbols.mic_rounded,
           title: '$what in “${shared.notebook.title}” · $time',
           shortTitle: '$what · $time',
           body: 'It goes on until you stop it',
@@ -271,7 +271,7 @@ class _LibraryNoticesState extends State<LibraryNotices> {
         ? 'The old data couldn’t be kept in this browser.'
         : 'The old data was kept in';
     return LibraryNotice(
-      icon: Symbols.restart_alt_sharp,
+      icon: Symbols.restart_alt_rounded,
       title: 'Len started fresh',
       body: 'Len’s storage was from $version version, so it started fresh. $sync $kept',
       detail: backup,

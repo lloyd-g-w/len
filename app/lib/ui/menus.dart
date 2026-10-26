@@ -165,7 +165,7 @@ class _MenuRowState<T> extends PopupMenuItemState<T, MenuRow<T>> {
           ],
           if (widget.checked) ...[
             const SizedBox(width: Gaps.md),
-            Icon(Symbols.check_sharp, size: Glyphs.menu, color: scheme.primary),
+            Icon(Symbols.check_rounded, size: Glyphs.menu, color: scheme.primary),
           ],
         ],
       ),

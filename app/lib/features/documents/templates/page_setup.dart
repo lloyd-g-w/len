@@ -74,8 +74,8 @@ class PageSizeRow extends StatelessWidget {
           EvenChoices(
             choices: [
               for (final (o, icon) in const [
-                (PageOrientation.portrait, Symbols.crop_portrait_sharp),
-                (PageOrientation.landscape, Symbols.crop_landscape_sharp),
+                (PageOrientation.portrait, Symbols.crop_portrait_rounded),
+                (PageOrientation.landscape, Symbols.crop_landscape_rounded),
               ])
                 EvenChoice(
                   key: ValueKey('orientation-${o.name}'),

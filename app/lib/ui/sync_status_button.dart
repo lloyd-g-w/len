@@ -101,12 +101,12 @@ class _SyncStatusButtonState extends State<SyncStatusButton> {
         final tooLarge = sync.state == SyncState.disabled ? null : sync.tooLargeSummary;
         final (icon, status) = switch (sync.state) {
           SyncState.disabled => (
-            Symbols.cloud_off_sharp,
+            Symbols.cloud_off_rounded,
             'Your notes are only on this device: set up sync',
           ),
-          SyncState.idle => (Symbols.cloud_done_sharp, 'Synced: tap to sync now'),
-          SyncState.syncing => (Symbols.cloud_sync_sharp, syncingCaption(sync.progress)),
-          SyncState.error => (Symbols.cloud_off_sharp, '${sync.lastError}\nTap for details'),
+          SyncState.idle => (Symbols.cloud_done_rounded, 'Synced: tap to sync now'),
+          SyncState.syncing => (Symbols.cloud_sync_rounded, syncingCaption(sync.progress)),
+          SyncState.error => (Symbols.cloud_off_rounded, '${sync.lastError}\nTap for details'),
         };
         final scheme = Theme.of(context).colorScheme;
         final color = sync.state == SyncState.error ? scheme.error : null;

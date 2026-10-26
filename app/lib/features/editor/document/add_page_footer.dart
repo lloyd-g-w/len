@@ -205,7 +205,7 @@ class _AddButton extends StatelessWidget {
             side: BorderSide(color: scheme.outline),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sm)),
           ),
-          icon: const Icon(Symbols.add_sharp),
+          icon: const Icon(Symbols.add_rounded),
           label: const Text('Add page'),
         ),
       ),

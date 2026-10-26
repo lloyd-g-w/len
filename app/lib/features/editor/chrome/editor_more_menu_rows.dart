@@ -101,7 +101,9 @@ extension _MoreMenuRows on _EditorMoreMenuState {
       Builder(
         builder: (context) => MenuItemButton(
           leadingIcon: Icon(
-            selected ? Symbols.radio_button_checked_sharp : Symbols.radio_button_unchecked_sharp,
+            selected
+                ? Symbols.radio_button_checked_rounded
+                : Symbols.radio_button_unchecked_rounded,
             fill: selected ? 1 : 0,
             color: selected ? Theme.of(context).colorScheme.primary : null,
           ),

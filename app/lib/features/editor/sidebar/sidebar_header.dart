@@ -30,7 +30,7 @@ class SidebarHeader extends StatelessWidget {
             ),
           ),
           BarButton(
-            icon: rtl ? Symbols.right_panel_close_sharp : Symbols.left_panel_close_sharp,
+            icon: rtl ? Symbols.right_panel_close_rounded : Symbols.left_panel_close_rounded,
             tooltip: Targets.touchFirst ? 'Hide pages' : 'Hide pages (F4)',
             onPressed: onClose,
           ),

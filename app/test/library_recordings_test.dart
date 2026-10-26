@@ -26,11 +26,11 @@ void main() {
     Finder cardOf(String title) =>
         find.ancestor(of: find.text(title), matching: find.byType(NotebookCard));
     expect(
-      find.descendant(of: cardOf('Physics'), matching: find.byIcon(Symbols.mic_sharp)),
+      find.descendant(of: cardOf('Physics'), matching: find.byIcon(Symbols.mic_rounded)),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: cardOf('Biology'), matching: find.byIcon(Symbols.mic_sharp)),
+      find.descendant(of: cardOf('Biology'), matching: find.byIcon(Symbols.mic_rounded)),
       findsNothing,
     );
 

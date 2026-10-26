@@ -531,7 +531,7 @@ void main() {
     await tester.pumpAndSettle();
     final view = find.ancestor(of: find.text('View'), matching: find.byType(SubmenuButton));
     expect(
-      find.descendant(of: view, matching: find.byIcon(Symbols.chevron_right_sharp)),
+      find.descendant(of: view, matching: find.byIcon(Symbols.chevron_right_rounded)),
       findsOneWidget,
     );
     expect(find.byIcon(Icons.arrow_right), findsNothing);

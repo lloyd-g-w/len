@@ -49,7 +49,7 @@ extension _SyncSettingsViews on _SyncSettingsState {
         : [
             OutlinedButton.icon(
               onPressed: _sync.state == SyncState.syncing ? null : () => unawaited(_sync.syncNow()),
-              icon: const Icon(Symbols.sync_sharp, size: Glyphs.menu),
+              icon: const Icon(Symbols.sync_rounded, size: Glyphs.menu),
               label: const Text('Sync now'),
             ),
             TextButton(onPressed: _startEditing, child: const Text('Change…')),
@@ -118,7 +118,7 @@ extension _SyncSettingsViews on _SyncSettingsState {
           suffixIcon: IconButton(
             tooltip: _obscureToken ? 'Show' : 'Hide',
             onPressed: _toggleObscureToken,
-            icon: Icon(_obscureToken ? Symbols.visibility_sharp : Symbols.visibility_off_sharp),
+            icon: Icon(_obscureToken ? Symbols.visibility_rounded : Symbols.visibility_off_rounded),
           ),
         ),
       ),

@@ -38,7 +38,7 @@ Future<void> showSyncSetupDialog(BuildContext context, SyncSetupLink link) async
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Symbols.key_sharp, size: Glyphs.menu, color: scheme.onSurfaceVariant),
+                  Icon(Symbols.key_rounded, size: Glyphs.menu, color: scheme.onSurfaceVariant),
                   const SizedBox(width: Gaps.sm),
                   Expanded(
                     child: Text(
@@ -56,7 +56,7 @@ Future<void> showSyncSetupDialog(BuildContext context, SyncSetupLink link) async
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Close')),
           FilledButton.icon(
             onPressed: () => Navigator.pop(context, true),
-            icon: const Icon(Symbols.content_copy_sharp, size: Glyphs.menu),
+            icon: const Icon(Symbols.content_copy_rounded, size: Glyphs.menu),
             label: const Text('Copy link'),
           ),
         ],

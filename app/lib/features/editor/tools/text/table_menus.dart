@@ -10,14 +10,14 @@ import 'rich_text_controller.dart';
 
 /// What the table menu does to the table edited.
 enum TableCommand {
-  rowAbove('Insert row above', Symbols.add_row_above_sharp),
-  rowBelow('Insert row below', Symbols.add_row_below_sharp),
-  columnLeft('Insert column left', Symbols.add_column_left_sharp),
-  columnRight('Insert column right', Symbols.add_column_right_sharp),
-  header('Header row', Symbols.title_sharp),
-  deleteRow('Delete row', Symbols.table_rows_narrow_sharp),
-  deleteColumn('Delete column', Symbols.view_week_sharp),
-  deleteTable('Delete table', Symbols.delete_sharp);
+  rowAbove('Insert row above', Symbols.add_row_above_rounded),
+  rowBelow('Insert row below', Symbols.add_row_below_rounded),
+  columnLeft('Insert column left', Symbols.add_column_left_rounded),
+  columnRight('Insert column right', Symbols.add_column_right_rounded),
+  header('Header row', Symbols.title_rounded),
+  deleteRow('Delete row', Symbols.table_rows_narrow_rounded),
+  deleteColumn('Delete column', Symbols.view_week_rounded),
+  deleteTable('Delete table', Symbols.delete_rounded);
 
   const TableCommand(this.label, this.icon);
 
@@ -79,7 +79,7 @@ class TableButton extends StatelessWidget {
       return MenuIconButton<TableCommand>(
         key: const ValueKey('table-menu'),
         tooltip: 'Table',
-        icon: const Icon(Symbols.table_sharp, size: Glyphs.bar, fill: 1),
+        icon: const Icon(Symbols.table_rounded, size: Glyphs.bar, fill: 1),
         items: () => tableMenuItems(box),
         onSelected: (c) {
           c.run(box);
@@ -90,7 +90,7 @@ class TableButton extends StatelessWidget {
     return IconButton(
       key: const ValueKey('insert-table'),
       tooltip: 'Insert table',
-      icon: const Icon(Symbols.table_sharp, size: Glyphs.bar),
+      icon: const Icon(Symbols.table_rounded, size: Glyphs.bar),
       onPressed: () => insertTableFromPicker(context, box, refocus),
     );
   }

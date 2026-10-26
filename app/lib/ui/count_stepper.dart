@@ -47,7 +47,7 @@ class CountStepper extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        step(Symbols.remove_sharp, 'Fewer $noun', count > min ? onRemove : null),
+        step(Symbols.remove_rounded, 'Fewer $noun', count > min ? onRemove : null),
         SizedBox(
           width: Gaps.xl,
           child: Text(
@@ -57,7 +57,7 @@ class CountStepper extends StatelessWidget {
             style: text.labelLarge?.copyWith(fontFeatures: AppTheme.tabularFigures),
           ),
         ),
-        step(Symbols.add_sharp, 'More $noun', count < max ? onAdd : null),
+        step(Symbols.add_rounded, 'More $noun', count < max ? onAdd : null),
       ],
     );
   }

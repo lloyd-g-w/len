@@ -34,10 +34,13 @@ language is `docs/DESIGN.md` (Swiss minimal from the notebook: flat chrome,
 hairlines, one accent, depth only for paper).
 
 - **Spacing:** `Gaps` on a 4-dp grid (2, 4, 8, 12, 16, 24, 32, 48; 2 only
-  inside controls). **Radii:** `xs` 2 (chips, badges, plates, tooltips, the
-  selected-tool plate), `sm` 4 (buttons, fields, segmented controls, covers,
-  thumbnails), `md` 6 (menus, popovers, floating panels, snack bars), `lg` 8
-  (dialogs, sheets), `pill` (colour dots, the page indicator, the floating palette and its sub-bar only).
+  inside controls). **Radii** (soft; only pages stay square): `xs` 4 (chips,
+  badges, small plates, tooltips, checkboxes, thumbnails), `sm` 8 (buttons,
+  fields, segmented controls, covers), `md` 12 (menus, popovers, floating
+  panels, snack bars, the toolbar's plates: the selected tool, switcher
+  tiles), `lg` 16 (dialogs, sheets), `pill` (colour dots, slot plates,
+  switches, the page indicator, the floating palette and its sub-bar).
+  Change the look through the tokens, never per widget.
   **Hairlines:** `Hairline.width` 1 (dividers, chrome edges, surface borders),
   `Hairline.rule` 2 (the margin rule, a focused field's rule).
 - **Type:** Sofia Sans (`AppTheme.fontFamily`) only, six roles from
@@ -67,15 +70,16 @@ hairlines, one accent, depth only for paper).
   and only on paper (pages, covers, thumbnails) and slips over it; never
   Material `elevation` (menus excepted: Flutter offers no shadow hook there).
   No filled cards for grouping: use hairlines.
-- **Icons:** Material Symbols Sharp only (`Symbols.*_sharp` from
-  `package:material_symbols_icons/symbols.dart`; never `Icons.*`). Weight 300
-  and fill 0 come from the theme; active or selected states pass `fill: 1`.
+- **Icons:** Material Symbols Rounded only (`Symbols.*_rounded` from
+  `package:material_symbols_icons/symbols.dart`; never `Icons.*` or another
+  style). Weight 400 and fill 0 come from the theme; active or selected states pass `fill: 1`.
   Sizes from `Glyphs`: `bar` 20, `menu` 18, `empty` 40. Always reference
   symbols as `const` members (no lookups by name), so release builds keep
   tree-shaking the icon font.
   Tool glyphs (the toolbar's tools, Insert ⊕, the tools' option glyphs)
   are drawn, not symbols: `ToolIcon(ToolIconKind.…)` and `ShapeGlyph` from
-  `features/editor/tools/tool_icons.dart` (DESIGN §4).
+  `features/editor/tools/tool_icons.dart` (DESIGN §4): round caps and joins,
+  rounded corners, filled (or washed) when selected.
 - **Targets:** by input, not width. `Targets.touchFirst` (Android, or a coarse
   pointer on the web); `Targets.of(context, visual)`, `Targets.barHit` (48 on
   touch, 40 with a pointer), `Targets.slotHit` (44 / 36),

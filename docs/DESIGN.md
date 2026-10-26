@@ -105,16 +105,16 @@ spans or commas, not `A · B` chains.
 column of 24 dp (16 on phones) that headings, rows and the first cover align
 to. Bars: controls 4 apart, clusters 12 apart with a hairline between.
 
-**Radii**, tight and by object size (a page corner is square; a cover's is
-slightly worn):
+**Radii**, soft and by object size (a page corner is square; everything
+the hand touches is rounded: the owner asked for "less square", 2026-10-26):
 
 | token | dp | use |
 |---|---|---|
-| `xs` | 2 | chips, badges, plates, tooltips, the selected-tool plate |
-| `sm` | 4 | buttons, fields, segmented controls, covers, thumbnails, focus ring |
-| `md` | 6 | menus, popovers, the floating palette, snack bars |
-| `lg` | 8 | dialogs, the top of sheets |
-| `pill` | 999 | colour dots, the page indicator, the floating palette and the tool sub-bar |
+| `xs` | 4 | chips, badges, small plates, tooltips, checkboxes, thumbnails |
+| `sm` | 8 | buttons, fields, segmented controls, covers, focus ring |
+| `md` | 12 | menus, popovers, floating panels, snack bars; the toolbar's plates (the selected tool, the switcher's tiles, Insert, the shape choices) |
+| `lg` | 16 | dialogs, the top of sheets |
+| `pill` | 999 | colour dots, switches, the page indicator, the floating palette and the tool sub-bar |
 
 **Hairlines.** 1 dp, Rule colour; Pencil where a control's edge must read.
 The docked bar has one hairline on the edge facing the page; the library
@@ -134,26 +134,32 @@ in dark mode it does the shadow's work). Dialogs sit over a scrim of black
 
 ## 4. Icons
 
-**Material Symbols Sharp**, weight 300, fill 0, optical size 20; active and
-selected states fill 1. Sharp's square terminals and right-angle corners
-match the 2–4-dp radii and the hairlines, where Rounded's soft ends read as
-friendly Material. Keeping the same family (not another icon set) keeps every
-glyph the app needs, the variable weight/fill axes and release tree-shaking.
-Sizes from `Glyphs` (bar 20, menu 18, slot dot 22, empty 40).
+**Material Symbols Rounded**, weight 400, fill 0, optical size 20; active and
+selected states fill 1. Rounded's soft terminals match the soft radii and
+the drawn tools' round line; at 400 its stroke matches their 1.7-unit line
+(300 read thinner beside them). Keeping the same family (not another icon
+set) keeps every glyph the app needs, the variable weight/fill axes and
+release tree-shaking. Sizes from `Glyphs` (bar 20, menu 18, slot dot 22,
+empty 40).
 
 **Tools are drawn, commands are symbols.** What you do (undo, menus, insert
-sources, formatting) is a Sharp symbol; what you hold (the toolbar's tools,
+sources, formatting) is a Rounded symbol; what you hold (the toolbar's tools,
 Insert ⊕ beside them, and the glyphs in their options) is drawn by
 `ToolIcon` / `ShapeGlyph` in `features/editor/tools/tool_icons.dart`, the
-one place to change them. They sit on the symbols' 24-unit grid (2-unit
-margin) at the symbols' weight: a 1.75-unit stroke (1.46 dp at 20 dp),
-square caps, mitred joins; dashes and loose ends are flat. The instruments
-(pen, highlighter, eraser, laser) are one family: held at 45°, writing end
-down-left, the part that touches the page solid (the nib, the chisel, the
-eraser's band, the laser's dot, the lasso's knot). Selected (`fill` 1) the
-instrument is solid with its seam cut out; text, shapes and the lasso stay
-line drawings (a solid shape or loop outweighs the rest). The lasso is a
-dashed loop of rope closed by a knot, its tail on the instruments' diagonal.
+one place to change them. One soft, friendly family (as GoodNotes' and
+Notewise's): on the symbols' 24-unit grid (2-unit margin), a 1.7-unit
+stroke (1.4 dp at 20 dp), round caps and joins everywhere, rounded corners
+on every body. The instruments (pen, highlighter, eraser, laser) are held
+at 45°, writing end down-left: the pen a rounded barrel tapering to a
+drop of a nib, the highlighter a wider barrel with a rounded chisel, the
+eraser a rounded block, the laser a slim capsule casting a dot in a soft
+halo. The part that touches the page is solid (the nib, the chisel, the
+eraser's band, the laser's dot, the lasso's knot). The lasso is a loop of
+rope in round dashes closed by a round knot, its tail curling down-left;
+the text tool a round-ended T; shapes have rounded corners. **Selected**
+(`fill` 1) an instrument is solid with its seam cut out; line drawings
+can't be solid without outweighing the rest, so the lasso's loop and a
+shape hold a light wash (22 % of the ink) and the T turns bold.
 `test/goldens/tool_icons_{1,2}x.png` shows the whole set, light and dark.
 
 ## 5. Motion
@@ -193,12 +199,12 @@ Correction red. Label inside the field, Caption when floating.
 ```
 
 **Switch** (`AppSwitch`, `AppSwitchTile` for a labelled row): a flat
-44 × 24 track (radius `xs`; Rule when off, ruling blue when on) and a square
+44 × 24 pill track (Rule when off, ruling blue when on) and a round
 16-dp thumb of constant size (Graphite when off, Sheet when on), no glyph;
 the thumb slides in `Motion.fast` (reduced motion: colour only). **Slider:** a 2-dp ruled track (blue
 up to the value, Rule after) and an Ink tick thumb 4 × 20 dp, like a ruler's
 mark. **Checkbox / radio:** 2-dp corners, blue when on. **Progress:** 2-dp
-blue rule on a Rule track, square ends.
+blue rule on a Rule track, round ends.
 
 **Segmented control:** one 1-dp Pencil-edged box, radius `sm`, hairlines
 between segments; the selected segment is an Ink plate (12 % / 20 %) with an
@@ -214,7 +220,7 @@ Ink label in 600, no check glyph.
 **Tooltips:** Ink slab (dark: Ink is light, so text is Board), radius `xs`,
 Caption text. **Snack bars:** Ink slab, radius `md`, Body text in Board, the
 action in the inverse accent. **Scrollbars:** 4-dp Graphite bar at 48 %,
-square-ish (radius 2). **Focus ring:** 2-dp ruling blue, 2 dp off the control,
+round-ended (radius `xs`). **Focus ring:** 2-dp ruling blue, 2 dp off the control,
 radius `sm`, keyboard only.
 
 **Menus and popovers:** Sheet, radius `md`, Rule hairline, `Shadows.high`;
@@ -291,8 +297,8 @@ Docked, one bar (when it fits, ≥ ~780): Board, 52 dp, hairline under it; tools
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ Desk               ╭──────────────────────────────╮  sub-bar: Sheet pill,     │
 │                    │ ━  ━━  ▬▬ │ ● ● ● │ ⚙       │  hairline, contact shadow,│
-│                    ╰─────▔▔───────────────────────╯  8 dp under the bar,     │
-│                         (accent rule under          centred on the tools    │
+│                    ╰──────·───────────────────────╯  8 dp under the bar,     │
+│                         (accent dot under           centred on the tools    │
 │                          the chosen width)                                   │
 │                     ┌──────────────────────────────┐                         │
 │                     │ page (brightest), contact     │                        │
@@ -310,7 +316,7 @@ its sub-bar the same pill, smaller, 8 dp under it (over it in the lower
 half of the editor, beside it toward the page when it runs down a side)
         ╭────────────────────────────────╮
         │ ━  ━━  ▬▬ │ ◉ ● ● │ ⚙          │
-        ╰───────▔▔───────────────────────╯
+        ╰───────·────────────────────────╯
 ╭──────────────────────────────────────────────────╮
 │ ⁞⁞  ✎ ▭ ◇ ⌒ △ T ✦ ⊕                              │
 ╰──────────────────────────────────────────────────╯
@@ -332,12 +338,13 @@ panel, no colours (the strip's slots), no size, nothing collapsed
 │ └──────────┴───────────┴──────────┘   │
 └───────────────────────────────────────┘
 ```
-The selected tool keeps its Ink plate (radius `xs`); colour underlines under
-tools stay (they are ink). **The main bar holds tools only; the active tool's
-quick controls are its sub-bar** (as Notewise's): widths drawn as square-ended
-lines of their thickness (Pencil grey, Ink when chosen, the accent's margin
-rule under the chosen one), a hairline, the colour dots (the chosen one
-ringed), a hairline, ⚙ tune for the tool's options. The eraser's: sizes
+The selected tool keeps its Ink plate (radius `md`); colour underlines under
+tools stay (they are ink, round-ended). **The main bar holds tools only; the active tool's
+quick controls are its sub-bar** (as Notewise's): widths drawn as round-ended
+lines of their thickness (Pencil grey, Ink when chosen, a 4-dp accent dot
+under the chosen one), a hairline, the colour dots (the chosen one
+ringed), a hairline, ⚙ tune for the tool's options. Hovered or pressed, a
+slot shows a round ink plate the size of the ring. The eraser's: sizes
 (rings) | whole stroke, partial | ⚙. Lasso and text have none and show no
 sub-bar. Its band is reserved under the bar (over the phone's row), so the
 page and the pills around it never shift as tools change. While the editor reads (fingers draw, no stylus:
@@ -421,7 +428,7 @@ primary buttons. Reviewed against the brief and the skill's list of defaults:
 | v0 | problem | revised to |
 |---|---|---|
 | Swiss red accent | the cliché of "Swiss"; collides with destructive red, the red pen and the paper's own margin line | ruling blue, taken from the notebook's rulings; red stays for destruction |
-| zero radius everywhere | the broadsheet default (hairlines + 0 radius) | a 2/4/6/8 hierarchy by object size; the page itself stays square |
+| zero radius everywhere | the broadsheet default (hairlines + 0 radius) | a 2/4/6/8 hierarchy by object size, later softened to 4/8/12/16; the page itself stays square |
 | all-caps tracked labels | template chrome | sentence-case Small label, 12/16, 600 |
 | numbered settings sections | not a sequence | plain headings |
 | white chrome | the page would not be the brightest thing | Board chrome, Desk around pages, Sheet only for slips |
@@ -475,7 +482,7 @@ use line heights in proportion, controls grow); layering; tokens only.
 
 ## 9. Rollout checklist (next phase)
 
-Foundation done: tokens, scheme, type, Sofia Sans, Sharp icons, component
+Foundation done: tokens, scheme, type, Sofia Sans, symbol icons, component
 themes, `FloatingPanel`, `OverlaySurface`, popovers, menus, dialogs, sheets,
 snack bars, `SidebarItem` (margin rule), `FocusRing`, ruled fields, slider
 thumb. Next, by area:
@@ -486,8 +493,8 @@ thumb. Next, by area:
   the titles; the brand is the Ink scribble; commas in meta strings; square
   checkbox selection marks; search results label and count as separate
   spans, the page location as a plain column.
-- ~~**Editor chrome:**~~ done: `xs` Ink 8 % tool plates (switcher tiles
-  too), 1.5-dp slot rings, square-cap glyphs, two-tick grips (palette and
+- ~~**Editor chrome:**~~ done: `xs` (now `md`) Ink 8 % tool plates (switcher tiles
+  too), 1.5-dp slot rings, square-cap glyphs (now round), two-tick grips (palette and
   split divider), tabular page indicator, margin-rule current tab; zoom,
   tips and focus exit on `md` panels (the pill is the page indicator's
   only); the gesture HUD an Ink slab with a hairline; search a lifted slip;
@@ -514,9 +521,9 @@ thumb. Next, by area:
 - ~~**Controls:**~~ done: `AppSwitch` / `AppSwitchTile` in `ui/app_switch.dart`
   replace every `Switch` / `SwitchListTile`; `FilledButton.tonal` became
   `OutlinedButton`.
-- **Icons after merges:** other branches still add `Symbols.*_rounded`; re-run
-  the rename in the "Icons: Material Symbols Sharp" commit message (none
-  left at the final polish).
+- **Icons after merges:** other branches may still add `Symbols.*_sharp`;
+  re-run the rename in the "Icons: Material Symbols Rounded instead of
+  Sharp" commit message.
 - ~~**Tests:**~~ goldens refreshed per area.
 
 **Final polish** (whole-app screenshot critique, all suites, light/dark,

@@ -11,7 +11,7 @@ export 'tones.dart';
 
 /// Visual language (DESIGN.md): Swiss minimal from the notebook. True
 /// neutral greys, black ink, one accent (ruling blue) for state, Sofia Sans
-/// in a six-role scale, Material Symbols Sharp, flat chrome with hairlines,
+/// in a six-role scale, Material Symbols Rounded, flat chrome with hairlines,
 /// and depth only for paper ([Shadows]).
 abstract final class AppTheme {
   /// The weight of the current or chosen row's label in a list (the
@@ -181,22 +181,24 @@ abstract final class Gaps {
   static const double xxxl = 48;
 }
 
-/// Corner radii (DESIGN §3): tight, by object size. A page's corner is
+/// Corner radii (DESIGN §3): soft, by object size. A page's corner is
 /// square; nothing uses one radius for everything.
 abstract final class Radii {
-  /// Chips, badges, plates, tooltips, the plate behind the selected tool.
-  static const double xs = 2;
+  /// Chips, badges, small plates, tooltips, checkboxes, thumbnails.
+  static const double xs = 4;
 
-  /// Buttons, fields, segmented controls, covers, thumbnails, focus ring.
-  static const double sm = 4;
+  /// Buttons, fields, segmented controls, covers, focus ring.
+  static const double sm = 8;
 
-  /// Menus, popovers, the floating palette, snack bars.
-  static const double md = 6;
+  /// Menus, popovers, floating panels, snack bars, and the toolbar's
+  /// plates: the selected tool, the tool switcher's tiles.
+  static const double md = 12;
 
   /// Dialogs and the top of bottom sheets.
-  static const double lg = 8;
+  static const double lg = 16;
 
-  /// Colour dots and the page indicator.
+  /// Colour dots, switches, the page indicator, the floating palette and
+  /// its sub-bar.
   static const double pill = 999;
 }
 

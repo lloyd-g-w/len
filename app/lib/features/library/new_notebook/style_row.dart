@@ -187,7 +187,7 @@ class SaveStyleButton extends StatelessWidget {
         padding: const EdgeInsetsDirectional.only(start: Gaps.xs, end: Gaps.sm),
       ),
       onPressed: onPressed,
-      icon: const Icon(Symbols.add_sharp, size: Glyphs.menu),
+      icon: const Icon(Symbols.add_rounded, size: Glyphs.menu),
       label: const Text('Save as style…'),
     ),
   );

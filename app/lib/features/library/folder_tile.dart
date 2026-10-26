@@ -89,7 +89,7 @@ class _FolderTileState extends State<FolderTile> {
       padding: const EdgeInsets.only(left: Gaps.xxs, right: Gaps.xxs),
       child: Row(
         children: [
-          Icon(Symbols.folder_sharp, fill: 1, color: Color(_folder.color), size: Glyphs.bar),
+          Icon(Symbols.folder_rounded, fill: 1, color: Color(_folder.color), size: Glyphs.bar),
           const SizedBox(width: Gaps.md), // FolderTile.textInset
           Expanded(
             child: Column(
@@ -170,7 +170,7 @@ class _FolderTileState extends State<FolderTile> {
                           ),
                           padding: EdgeInsets.zero,
                           color: scheme.onSurfaceVariant,
-                          icon: const Icon(Symbols.more_horiz_sharp),
+                          icon: const Icon(Symbols.more_horiz_rounded),
                           onPressed: () => unawaited(_showMenu(anchor: anchor)),
                         ),
                       ),

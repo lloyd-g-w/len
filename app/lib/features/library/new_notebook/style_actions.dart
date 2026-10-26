@@ -42,14 +42,14 @@ Future<bool> showNotebookStyleMenu(
     items: [
       MenuRow(
         value: 'default',
-        icon: Symbols.push_pin_sharp,
+        icon: Symbols.push_pin_rounded,
         label: 'Default for new notebooks',
         checked: style.isDefault,
       ),
-      const MenuRow(value: 'rename', icon: Symbols.edit_sharp, label: 'Rename…'),
+      const MenuRow(value: 'rename', icon: Symbols.edit_rounded, label: 'Rename…'),
       const MenuRow(
         value: 'delete',
-        icon: Symbols.delete_sharp,
+        icon: Symbols.delete_rounded,
         label: 'Delete…',
         destructive: true,
       ),

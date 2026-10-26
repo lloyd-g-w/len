@@ -34,7 +34,7 @@ class ToolPuck extends StatelessWidget {
           builder: (context) => BarButton(
             tooltip: 'Undo (Ctrl+Z)',
             onPressed: undo.canUndo ? undo.undo : null,
-            icon: Symbols.undo_sharp,
+            icon: Symbols.undo_rounded,
           ),
         ),
       ],

@@ -19,7 +19,7 @@ class SplitViewMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final split = tabs.splitId != null;
     return SubmenuButton(
-      leadingIcon: const Icon(Symbols.vertical_split_sharp),
+      leadingIcon: const Icon(Symbols.vertical_split_rounded),
       menuChildren: split ? _splitItems() : _openItems(),
       child: Text(split ? 'Split view' : 'Open in split view'),
     );
@@ -27,7 +27,7 @@ class SplitViewMenu extends StatelessWidget {
 
   List<Widget> _openItems() => [
     MenuItemButton(
-      leadingIcon: const Icon(Symbols.auto_stories_sharp),
+      leadingIcon: const Icon(Symbols.auto_stories_rounded),
       onPressed: () => tabs.openSplit(notebookId),
       child: const Text('This notebook, side by side'),
     ),
@@ -36,7 +36,7 @@ class SplitViewMenu extends StatelessWidget {
       if (tab.id != notebookId)
         MenuItemButton(
           leadingIcon: Icon(
-            tab.kind == NotebookKind.canvas ? Symbols.gesture_sharp : Symbols.menu_book_sharp,
+            tab.kind == NotebookKind.canvas ? Symbols.gesture_rounded : Symbols.menu_book_rounded,
           ),
           onPressed: () => tabs.openSplit(tab.id),
           child: ConstrainedBox(
@@ -49,12 +49,12 @@ class SplitViewMenu extends StatelessWidget {
   List<Widget> _splitItems() => [
     if (tabs.splitId != tabs.activeId)
       MenuItemButton(
-        leadingIcon: const Icon(Symbols.swap_horiz_sharp),
+        leadingIcon: const Icon(Symbols.swap_horiz_rounded),
         onPressed: tabs.swapSplit,
         child: const Text('Swap panes'),
       ),
     MenuItemButton(
-      leadingIcon: const Icon(Symbols.close_sharp),
+      leadingIcon: const Icon(Symbols.close_rounded),
       onPressed: tabs.closeSplit,
       child: const Text('Close split view'),
     ),

@@ -119,7 +119,7 @@ class _PdfLayerState extends State<PdfLayer> {
       title: 'Open link?',
       message: url.toString(),
       confirmLabel: 'Open',
-      icon: Symbols.open_in_new_sharp,
+      icon: Symbols.open_in_new_rounded,
     );
     if (!open || !mounted) return;
     if (!await widget.openUrl(url) && mounted) showMessage(context, 'Couldn’t open $url');

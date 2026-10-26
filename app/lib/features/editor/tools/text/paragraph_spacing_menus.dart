@@ -26,7 +26,7 @@ class ParagraphSpacingButton extends StatelessWidget {
     onSelected: onSelected,
     items: () => paragraphSpacingItems(spacing),
     icon: Icon(
-      Symbols.format_line_spacing_sharp,
+      Symbols.format_line_spacing_rounded,
       size: Glyphs.bar,
       fill: spacing == ParagraphSpacing.none ? 0 : 1,
     ),
@@ -60,7 +60,7 @@ class ParagraphSpacingRow extends StatelessWidget {
             const SizedBox(width: Gaps.xs),
             EndChevron(
               child: Icon(
-                Symbols.expand_more_sharp,
+                Symbols.expand_more_rounded,
                 size: Glyphs.bar,
                 color: theme.colorScheme.onSurfaceVariant,
               ),

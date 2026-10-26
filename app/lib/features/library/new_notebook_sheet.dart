@@ -246,12 +246,12 @@ class _NewNotebookSheetState extends State<NewNotebookSheet> {
           segments: const [
             ButtonSegment(
               value: NotebookKind.paged,
-              icon: Icon(Symbols.menu_book_sharp),
+              icon: Icon(Symbols.menu_book_rounded),
               label: SegmentLabel('Notebook'),
             ),
             ButtonSegment(
               value: NotebookKind.canvas,
-              icon: Icon(Symbols.all_inclusive_sharp),
+              icon: Icon(Symbols.all_inclusive_rounded),
               label: SegmentLabel('Canvas'),
             ),
           ],

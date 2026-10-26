@@ -63,13 +63,13 @@ class PdfSelectionMenu extends StatelessWidget {
         ? IconButton(
             key: const ValueKey('pdf-copy'),
             tooltip: 'Copy',
-            icon: const Icon(Symbols.content_copy_sharp, size: Glyphs.bar),
+            icon: const Icon(Symbols.content_copy_rounded, size: Glyphs.bar),
             onPressed: onCopy,
           )
         : TextButton.icon(
             key: const ValueKey('pdf-copy'),
             onPressed: onCopy,
-            icon: const Icon(Symbols.content_copy_sharp, size: Glyphs.menu),
+            icon: const Icon(Symbols.content_copy_rounded, size: Glyphs.menu),
             label: const Text('Copy'),
           );
     final highlighted = interaction.selectionHighlighted;
@@ -99,14 +99,14 @@ class PdfSelectionMenu extends StatelessWidget {
                   IconButton(
                     key: const ValueKey('pdf-remove-highlight'),
                     tooltip: 'Remove highlight',
-                    icon: const Icon(Symbols.format_color_reset_sharp, size: Glyphs.bar),
+                    icon: const Icon(Symbols.format_color_reset_rounded, size: Glyphs.bar),
                     onPressed: interaction.removeSelectedHighlights,
                   ),
                 if (interaction.selectedLink != null)
                   IconButton(
                     key: const ValueKey('pdf-open-link'),
                     tooltip: 'Open link',
-                    icon: const Icon(Symbols.open_in_new_sharp, size: Glyphs.bar),
+                    icon: const Icon(Symbols.open_in_new_rounded, size: Glyphs.bar),
                     onPressed: interaction.openSelectedLink,
                   ),
                 if (interaction.onLinkSelection case final link?)
@@ -114,7 +114,7 @@ class PdfSelectionMenu extends StatelessWidget {
                     builder: (anchor) => IconButton(
                       key: const ValueKey('pdf-link'),
                       tooltip: 'Link…',
-                      icon: const Icon(Symbols.link_sharp, size: Glyphs.bar),
+                      icon: const Icon(Symbols.link_rounded, size: Glyphs.bar),
                       onPressed: () async {
                         final choice = await showLinkMenu(anchor);
                         if (choice != null) link(url: choice == LinkChoice.url);
@@ -124,7 +124,7 @@ class PdfSelectionMenu extends StatelessWidget {
                 IconButton(
                   key: const ValueKey('pdf-select-all'),
                   tooltip: 'Select all on page',
-                  icon: const Icon(Symbols.select_all_sharp, size: Glyphs.bar),
+                  icon: const Icon(Symbols.select_all_rounded, size: Glyphs.bar),
                   onPressed: interaction.selectAll,
                 ),
               ],

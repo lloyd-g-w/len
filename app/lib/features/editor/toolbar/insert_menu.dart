@@ -20,10 +20,10 @@ class InsertActions {
   final VoidCallback? pdfPages;
 
   List<(IconData, String, VoidCallback)> get _entries => [
-    (Symbols.image_sharp, 'Image…', image),
-    if (photo case final photo?) (Symbols.photo_camera_sharp, 'Take photo', photo),
-    if (scan case final scan?) (Symbols.document_scanner_sharp, 'Scan document…', scan),
-    if (pdfPages case final pdf?) (Symbols.picture_as_pdf_sharp, 'Pages from PDF…', pdf),
+    (Symbols.image_rounded, 'Image…', image),
+    if (photo case final photo?) (Symbols.photo_camera_rounded, 'Take photo', photo),
+    if (scan case final scan?) (Symbols.document_scanner_rounded, 'Scan document…', scan),
+    if (pdfPages case final pdf?) (Symbols.picture_as_pdf_rounded, 'Pages from PDF…', pdf),
   ];
 
   /// The entries as menu items of a [ChromeMenuAnchor].
@@ -82,7 +82,7 @@ class InsertButton extends StatelessWidget {
                 tapTargetSize: Targets.touchFirst
                     ? MaterialTapTargetSize.padded
                     : MaterialTapTargetSize.shrinkWrap,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
               ),
               icon: const ToolIcon(ToolIconKind.insert),
             ),

@@ -16,7 +16,7 @@ class NameTagsTile extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: preferences,
     builder: (context, _) => SettingsTile(
-      icon: Symbols.badge_sharp,
+      icon: Symbols.badge_rounded,
       title: 'Name tags',
       subtitle: 'Show each device’s initial by its pen or laser while you write together',
       onTap: () => preferences.pointerTags = !preferences.pointerTags,

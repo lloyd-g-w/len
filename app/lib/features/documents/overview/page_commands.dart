@@ -9,20 +9,20 @@ import '../../../ui/menus.dart';
 /// names (UX_AUDIT R9-3). [menu] lists the rows; [insertWithTemplate] is
 /// "Add page after" held down (or right-clicked).
 enum PageCommand {
-  insertAfter('Add page after', Symbols.add_sharp),
-  duplicate('Duplicate page', Symbols.library_add_sharp),
-  moveTo('Move or copy page…', Symbols.move_group_sharp),
-  bookmark('Bookmark page', Symbols.bookmark_add_sharp),
-  template('Change template…', Symbols.grid_on_sharp),
-  saveAsTemplate('Save as template…', Symbols.dashboard_customize_sharp),
-  delete('Delete page', Symbols.delete_sharp),
+  insertAfter('Add page after', Symbols.add_rounded),
+  duplicate('Duplicate page', Symbols.library_add_rounded),
+  moveTo('Move or copy page…', Symbols.move_group_rounded),
+  bookmark('Bookmark page', Symbols.bookmark_add_rounded),
+  template('Change template…', Symbols.grid_on_rounded),
+  saveAsTemplate('Save as template…', Symbols.dashboard_customize_rounded),
+  delete('Delete page', Symbols.delete_rounded),
 
   /// A new version of the PDF the page is drawn on, for every page drawn
   /// on it (UX_AUDIT R18-1); only on PDF pages ([menuFor]).
-  replacePdf('Replace PDF…', Symbols.find_replace_sharp),
+  replacePdf('Replace PDF…', Symbols.find_replace_rounded),
 
   /// Chooses a template, then adds a page with it after the page.
-  insertWithTemplate('Add page with template…', Symbols.note_add_sharp);
+  insertWithTemplate('Add page with template…', Symbols.note_add_rounded);
 
   const PageCommand(this._label, this._icon);
   final String _label;
@@ -50,7 +50,7 @@ enum PageCommand {
 
   /// The row's glyph for a page that is [bookmarked] or not.
   IconData iconFor({bool bookmarked = false}) =>
-      this == bookmark && bookmarked ? Symbols.bookmark_remove_sharp : _icon;
+      this == bookmark && bookmarked ? Symbols.bookmark_remove_rounded : _icon;
 
   /// Drawn in `error`, after a divider.
   bool get destructive => this == delete;

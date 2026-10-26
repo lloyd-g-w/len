@@ -213,7 +213,7 @@ void main() {
       // A tap on the overhang, above the plate and past the content edge.
       await tester.tapAt(hit.topRight + const Offset(-1, 1));
       await settle(tester);
-      expect(find.byIcon(Symbols.expand_less_sharp), findsOneWidget);
+      expect(find.byIcon(Symbols.expand_less_rounded), findsOneWidget);
     });
 
     testWidgets('a sheet’s ✕ past the content edge', (tester) async {

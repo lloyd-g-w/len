@@ -127,7 +127,7 @@ class _FolderRow extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(
-                    folder == null ? Symbols.auto_stories_sharp : Symbols.folder_sharp,
+                    folder == null ? Symbols.auto_stories_rounded : Symbols.folder_rounded,
                     fill: folder == null ? 0 : 1,
                     color: folder == null ? scheme.onSurfaceVariant : Color(folder.color),
                     size: Glyphs.bar,

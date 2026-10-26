@@ -145,7 +145,7 @@ void main() {
     await pumpEditor(tester);
     final zoom = await openZoom(tester);
     double across() => tester
-        .renderObject<RenderBox>(find.byIcon(Symbols.keyboard_return_sharp))
+        .renderObject<RenderBox>(find.byIcon(Symbols.keyboard_return_rounded))
         .getTransformTo(null)
         .entry(0, 0);
     expect(across(), greaterThan(0));

@@ -35,13 +35,13 @@ class ZoomBoxRail<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final close = BarButton(
-      icon: Symbols.close_sharp,
+      icon: Symbols.close_rounded,
       tooltip: 'Close zoom window',
       onPressed: onClose,
     );
     final more = Builder(
       builder: (anchor) => BarButton(
-        icon: Symbols.more_horiz_sharp,
+        icon: Symbols.more_horiz_rounded,
         tooltip: 'Zoom window options',
         onPressed: () => unawaited(_openMenu(anchor)),
       ),
@@ -49,7 +49,7 @@ class ZoomBoxRail<T> extends StatelessWidget {
     final newLine = Transform.flip(
       flipX: rightToLeft,
       child: BarButton(
-        icon: Symbols.keyboard_return_sharp,
+        icon: Symbols.keyboard_return_rounded,
         tooltip: 'Next line',
         onPressed: onNewLine,
       ),

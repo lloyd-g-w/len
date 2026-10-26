@@ -4,8 +4,12 @@ part of 'editor_top_bar.dart';
 /// (short windows) and phone; and the clusters they are made of.
 extension _BarRows on EditorTopBar {
   Widget _back() => secondPane
-      ? BarButton(tooltip: 'Close this pane', icon: Symbols.close_sharp, onPressed: actions.onBack)
-      : BarButton(tooltip: 'Back', icon: Symbols.arrow_back_sharp, onPressed: actions.onBack);
+      ? BarButton(
+          tooltip: 'Close this pane',
+          icon: Symbols.close_rounded,
+          onPressed: actions.onBack,
+        )
+      : BarButton(tooltip: 'Back', icon: Symbols.arrow_back_rounded, onPressed: actions.onBack);
 
   Widget _title() => TitleButton(title: title, subtitle: subtitle, onRename: actions.onRename);
 
@@ -13,7 +17,7 @@ extension _BarRows on EditorTopBar {
   List<Widget> _nav({required bool showTitle}) => [
     _back(),
     if (actions.onOverview case final onOverview?)
-      BarButton(tooltip: 'All pages', icon: Symbols.grid_view_sharp, onPressed: onOverview),
+      BarButton(tooltip: 'All pages', icon: Symbols.grid_view_rounded, onPressed: onOverview),
     Flexible(
       child: Align(
         alignment: AlignmentDirectional.centerStart,
@@ -92,7 +96,7 @@ extension _BarRows on EditorTopBar {
     children: [
       _back(),
       if (actions.onOverview case final onOverview?)
-        BarButton(tooltip: 'All pages', icon: Symbols.grid_view_sharp, onPressed: onOverview),
+        BarButton(tooltip: 'All pages', icon: Symbols.grid_view_rounded, onPressed: onOverview),
       Expanded(
         child: SizedBox(
           height: ChromeMetrics.tabHeight,
@@ -138,7 +142,7 @@ extension _BarRows on EditorTopBar {
     children: [
       _back(),
       if (actions.onOverview case final onOverview?)
-        BarButton(tooltip: 'All pages', icon: Symbols.grid_view_sharp, onPressed: onOverview),
+        BarButton(tooltip: 'All pages', icon: Symbols.grid_view_rounded, onPressed: onOverview),
       Expanded(
         child: Align(alignment: AlignmentDirectional.centerStart, child: _title()),
       ),

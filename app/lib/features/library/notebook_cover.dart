@@ -55,7 +55,7 @@ class NotebookCover extends StatelessWidget {
     final preview = this.preview;
     const outer = Radius.circular(Radii.sm);
     final radius = _paged
-        ? const BorderRadius.horizontal(left: Radius.circular(Radii.xs - 2), right: outer)
+        ? const BorderRadius.horizontal(left: Radius.zero, right: outer)
         : BorderRadius.circular(Radii.sm);
     return ClipRRect(
       borderRadius: radius,
@@ -163,7 +163,7 @@ class _CanvasTag extends StatelessWidget {
             ),
             // Paper stays light in both themes, so its ink is the light Ink.
             child: Icon(
-              Symbols.all_inclusive_sharp,
+              Symbols.all_inclusive_rounded,
               size: side * 2 / 3,
               color: Tones.of(Brightness.light).ink,
             ),
@@ -193,7 +193,7 @@ class _FavoriteBadge extends StatelessWidget {
       ),
       // Paper stays light in both themes, so its ink is the light Ink.
       child: Icon(
-        Symbols.star_sharp,
+        Symbols.star_rounded,
         fill: 1,
         size: Glyphs.badge,
         color: Tones.of(Brightness.light).ink,

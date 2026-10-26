@@ -53,7 +53,7 @@ class ParkedPaneNotice extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                recording ? Symbols.mic_sharp : Symbols.vertical_split_sharp,
+                recording ? Symbols.mic_rounded : Symbols.vertical_split_rounded,
                 fill: recording ? 1 : 0,
                 size: Glyphs.menu,
                 color: recording ? theme.colorScheme.error : theme.colorScheme.onSurfaceVariant,

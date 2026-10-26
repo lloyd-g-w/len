@@ -183,7 +183,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
           IconButton(
             tooltip: 'Smaller',
             onPressed: () => step(-1),
-            icon: const Icon(Symbols.text_decrease_sharp, size: Glyphs.bar),
+            icon: const Icon(Symbols.text_decrease_rounded, size: Glyphs.bar),
           ),
           SizedBox(
             width: 40,
@@ -192,7 +192,7 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
           IconButton(
             tooltip: 'Larger',
             onPressed: () => step(1),
-            icon: const Icon(Symbols.text_increase_sharp, size: Glyphs.bar),
+            icon: const Icon(Symbols.text_increase_rounded, size: Glyphs.bar),
           ),
         ],
       ),
@@ -214,11 +214,11 @@ class _SelectionStylePanelState extends State<SelectionStylePanel> {
       RovingSegments(
         SegmentedButton<bool>(
           segments: const [
-            ButtonSegment(value: false, label: Text('Pen'), icon: Icon(Symbols.edit_sharp)),
+            ButtonSegment(value: false, label: Text('Pen'), icon: Icon(Symbols.edit_rounded)),
             ButtonSegment(
               value: true,
               label: Text('Highlighter'),
-              icon: Icon(Symbols.border_color_sharp),
+              icon: Icon(Symbols.border_color_rounded),
             ),
           ],
           selected: {?tool},

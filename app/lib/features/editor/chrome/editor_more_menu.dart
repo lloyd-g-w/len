@@ -75,7 +75,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
       ...widget.compactItems,
       if (tabs != null)
         _item(
-          Symbols.filter_none_sharp,
+          Symbols.filter_none_rounded,
           'Open notebooks (${tabs.length})',
           () => showTabSwitcher(context, tabs),
         ),
@@ -86,32 +86,32 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           : [
               if (top.isNotEmpty) ...[...top, const Divider()],
               _item(
-                Symbols.search_sharp,
+                Symbols.search_rounded,
                 'Search in notebook',
                 a.onSearch,
                 shortcut: const SingleActivator(LogicalKeyboardKey.keyF, control: true),
               ),
               if (a.onExport case final onExport?)
                 _item(
-                  Symbols.ios_share_sharp,
+                  Symbols.ios_share_rounded,
                   'Export…',
                   onExport,
                   shortcut: const SingleActivator(LogicalKeyboardKey.keyE, control: true),
                 ),
               if (a.onPrint case final onPrint?)
                 _item(
-                  Symbols.print_sharp,
+                  Symbols.print_rounded,
                   'Print…',
                   onPrint,
                   shortcut: const SingleActivator(LogicalKeyboardKey.keyP, control: true),
                 ),
               if (a.onVersionHistory case final onVersionHistory?)
-                _item(Symbols.history_sharp, 'Version history…', onVersionHistory),
+                _item(Symbols.history_rounded, 'Version history…', onVersionHistory),
               const Divider(),
               if (a.isPaged)
                 _submenu(_pageMenu())
               else
-                _item(Symbols.wallpaper_sharp, 'Background…', a.onBackground),
+                _item(Symbols.wallpaper_rounded, 'Background…', a.onBackground),
               _submenu(_viewMenu()),
               ?widget.split,
               const Divider(),
@@ -122,16 +122,16 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
               // a mouse the switch shows once a stylus was.
               if (a.stylusOnly != null || Targets.touchFirst)
                 MenuItemButton(
-                  leadingIcon: const Icon(Symbols.draw_sharp),
+                  leadingIcon: const Icon(Symbols.draw_rounded),
                   trailingIcon: _MenuSwitch(value: !(a.stylusOnly ?? false)),
                   onPressed: () => a.onStylusOnly(!(a.stylusOnly ?? false)),
                   child: const Text('Draw with finger'),
                 ),
-              _item(Symbols.settings_sharp, 'Settings', a.onSettings),
+              _item(Symbols.settings_rounded, 'Settings', a.onSettings),
             ],
       builder: (context, menu, _) => BarButton(
         tooltip: 'More options',
-        icon: Symbols.more_horiz_sharp,
+        icon: Symbols.more_horiz_rounded,
         onPressed: () {
           if (menu.isOpen) return menu.close();
           // Always opens at the top, not in the submenu last drilled into.
@@ -144,7 +144,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
 
   /// The page menu: the overview tile's too ([PageCommand.menu]).
   _Drill _pageMenu() => (
-    icon: Symbols.description_sharp,
+    icon: Symbols.description_rounded,
     label: 'Page',
     children: [
       for (final c in PageCommand.menuFor(pdf: actions.pdfPage)) ...[
@@ -155,7 +155,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
   );
 
   Widget _zoomWindow() => _switch(
-    Symbols.pageview_sharp,
+    Symbols.pageview_rounded,
     'Zoom window',
     actions.zoomWindow,
     actions.onZoomWindow,
@@ -165,7 +165,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
   _Drill _viewMenu() {
     final a = actions;
     return (
-      icon: Symbols.visibility_sharp,
+      icon: Symbols.visibility_rounded,
       label: 'View',
       children: [
         // The zoom choices are the menu's one group; the rest switch.
@@ -178,7 +178,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
             _radio(a.fit == fit, fit.label, () => a.onFit?.call(fit), shortcut: keys),
           const Divider(),
           _switch(
-            Symbols.auto_stories_sharp,
+            Symbols.auto_stories_rounded,
             'One page at a time',
             a.flow == PageFlow.single,
             switch (a.onFlow) {
@@ -190,7 +190,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
           ),
         ],
         _switch(
-          Symbols.toolbar_sharp,
+          Symbols.toolbar_rounded,
           'Floating toolbar',
           a.placement == ToolbarPlacement.floating,
           () => a.onPlacement(
@@ -202,11 +202,11 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
         // Phones have it on top, by Draw with finger (R20-2).
         if (!compact) _zoomWindow(),
         if (a.minimap case final minimap?)
-          _switch(Symbols.map_sharp, 'Minimap', minimap, a.onMinimap, shortcut: minimapShortcut),
+          _switch(Symbols.map_rounded, 'Minimap', minimap, a.onMinimap, shortcut: minimapShortcut),
         if (a.onPointerTags != null)
-          _switch(Symbols.badge_sharp, 'Name tags', a.pointerTags, a.onPointerTags),
+          _switch(Symbols.badge_rounded, 'Name tags', a.pointerTags, a.onPointerTags),
         _item(
-          Symbols.fullscreen_sharp,
+          Symbols.fullscreen_rounded,
           'Focus mode',
           a.onFocusMode,
           // As text: Flutter labels F-keys as characters when compiled to
@@ -233,7 +233,7 @@ class _EditorMoreMenuState extends State<EditorMoreMenu> {
 
   /// The drilled-in submenu's title row; goes back to the menu.
   Widget _back(_Drill d) => MenuItemButton(
-    leadingIcon: const Icon(Symbols.chevron_left_sharp),
+    leadingIcon: const Icon(Symbols.chevron_left_rounded),
     closeOnActivate: false,
     onPressed: () => setState(() => _drilled = null),
     child: Text(d.label),

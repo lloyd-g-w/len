@@ -117,7 +117,7 @@ class VersionRow extends StatelessWidget {
           padding: const EdgeInsets.only(right: Gaps.lg),
           child: MenuIconButton<VersionAction>(
             tooltip: 'Version options',
-            icon: const Icon(Symbols.more_horiz_sharp),
+            icon: const Icon(Symbols.more_horiz_rounded),
             onSelected: onAction,
             items: _items,
             staggered: true,
@@ -151,7 +151,7 @@ class VersionRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            const Icon(Symbols.bookmark_sharp, size: Glyphs.menu, fill: 1),
+            const Icon(Symbols.bookmark_rounded, size: Glyphs.menu, fill: 1),
             const SizedBox(width: Gaps.xs),
             Flexible(
               child: Text(
@@ -174,24 +174,24 @@ class VersionRow extends StatelessWidget {
       text.bodySmall?.copyWith(fontFeatures: AppTheme.tabularFigures);
 
   List<PopupMenuEntry<VersionAction>> _items() => [
-    const MenuRow(value: VersionAction.restore, icon: Symbols.restore_sharp, label: 'Restore…'),
+    const MenuRow(value: VersionAction.restore, icon: Symbols.restore_rounded, label: 'Restore…'),
     const MenuRow(
       value: VersionAction.copy,
-      icon: Symbols.library_add_sharp,
+      icon: Symbols.library_add_rounded,
       label: 'Copy as new notebook',
     ),
-    const MenuRow(value: VersionAction.rename, icon: Symbols.edit_sharp, label: 'Rename…'),
+    const MenuRow(value: VersionAction.rename, icon: Symbols.edit_rounded, label: 'Rename…'),
     const PopupMenuDivider(),
     const MenuRow(
       value: VersionAction.delete,
-      icon: Symbols.delete_sharp,
+      icon: Symbols.delete_rounded,
       label: 'Delete version',
       destructive: true,
     ),
     if (hasOlder)
       const MenuRow(
         value: VersionAction.deleteOlder,
-        icon: Symbols.delete_sweep_sharp,
+        icon: Symbols.delete_sweep_rounded,
         label: 'Delete older versions…',
         destructive: true,
       ),

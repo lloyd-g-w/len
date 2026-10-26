@@ -17,9 +17,9 @@ class ToolbarSettings extends StatelessWidget {
   final AppPreferences preferences;
 
   static IconData _icon(SlotTool tool) => switch (tool) {
-    SlotTool.pen => Symbols.edit_sharp,
-    SlotTool.highlighter => Symbols.border_color_sharp,
-    SlotTool.laser => Symbols.ads_click_sharp,
+    SlotTool.pen => Symbols.edit_rounded,
+    SlotTool.highlighter => Symbols.border_color_rounded,
+    SlotTool.laser => Symbols.ads_click_rounded,
   };
 
   @override

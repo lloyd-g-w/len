@@ -127,7 +127,7 @@ class MenuChevron extends StatelessWidget {
   const MenuChevron({super.key});
 
   /// The empty margin each side of the chevron glyph, as a share of its
-  /// size (Material Symbols Sharp `chevron_right`).
+  /// size (Material Symbols Rounded `chevron_right`).
   static const double _margin = 0.37;
 
   @override
@@ -137,7 +137,7 @@ class MenuChevron extends StatelessWidget {
     // Painted past its box: the row, not the glyph, takes the taps.
     return Transform.translate(
       offset: Offset(rtl ? -nudge : nudge, 0),
-      child: const Icon(Symbols.chevron_right_sharp, size: Glyphs.menu),
+      child: const Icon(Symbols.chevron_right_rounded, size: Glyphs.menu),
     );
   }
 }

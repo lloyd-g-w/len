@@ -32,47 +32,55 @@ enum FolderAction { rename, move, export, delete }
 List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
   if (notebook.isTrashed) {
     return const [
-      MenuRow(value: NotebookAction.restore, icon: Symbols.restore_sharp, label: 'Restore'),
+      MenuRow(value: NotebookAction.restore, icon: Symbols.restore_rounded, label: 'Restore'),
       PopupMenuDivider(),
       MenuRow(
         value: NotebookAction.deleteForever,
-        icon: Symbols.delete_forever_sharp,
+        icon: Symbols.delete_forever_rounded,
         label: 'Delete forever…',
         destructive: true,
       ),
     ];
   }
   return [
-    const MenuRow(value: NotebookAction.rename, icon: Symbols.edit_sharp, label: 'Rename…'),
+    const MenuRow(value: NotebookAction.rename, icon: Symbols.edit_rounded, label: 'Rename…'),
     MenuRow(
       value: NotebookAction.favorite,
-      icon: Symbols.star_sharp,
+      icon: Symbols.star_rounded,
       filledIcon: notebook.favorite,
       label: notebook.favorite ? 'Remove from favourites' : 'Add to favourites',
     ),
-    const MenuRow(value: NotebookAction.cover, icon: Symbols.palette_sharp, label: 'Change cover…'),
+    const MenuRow(
+      value: NotebookAction.cover,
+      icon: Symbols.palette_rounded,
+      label: 'Change cover…',
+    ),
     const MenuRow(
       value: NotebookAction.duplicate,
-      icon: Symbols.library_add_sharp,
+      icon: Symbols.library_add_rounded,
       label: 'Duplicate',
     ),
     const MenuRow(
       value: NotebookAction.history,
-      icon: Symbols.history_sharp,
+      icon: Symbols.history_rounded,
       label: 'Version history…',
     ),
     const MenuRow(
       value: NotebookAction.move,
-      icon: Symbols.drive_file_move_sharp,
+      icon: Symbols.drive_file_move_rounded,
       label: 'Move to folder…',
     ),
-    const MenuRow(value: NotebookAction.export, icon: Symbols.ios_share_sharp, label: 'Export…'),
-    const MenuRow(value: NotebookAction.print, icon: Symbols.print_sharp, label: 'Print…'),
-    const MenuRow(value: NotebookAction.select, icon: Symbols.check_circle_sharp, label: 'Select'),
+    const MenuRow(value: NotebookAction.export, icon: Symbols.ios_share_rounded, label: 'Export…'),
+    const MenuRow(value: NotebookAction.print, icon: Symbols.print_rounded, label: 'Print…'),
+    const MenuRow(
+      value: NotebookAction.select,
+      icon: Symbols.check_circle_rounded,
+      label: 'Select',
+    ),
     const PopupMenuDivider(),
     const MenuRow(
       value: NotebookAction.trash,
-      icon: Symbols.delete_sharp,
+      icon: Symbols.delete_rounded,
       label: 'Move to trash',
       destructive: true,
     ),
@@ -81,14 +89,18 @@ List<PopupMenuEntry<NotebookAction>> notebookMenuItems(Notebook notebook) {
 
 const List<PopupMenuEntry<FolderAction>> folderMenuItems = [
   // Like a notebook's; its dialog changes the colour too (UX_AUDIT R9-4).
-  MenuRow(value: FolderAction.rename, icon: Symbols.edit_sharp, label: 'Rename…'),
-  MenuRow(value: FolderAction.move, icon: Symbols.drive_file_move_sharp, label: 'Move to folder…'),
+  MenuRow(value: FolderAction.rename, icon: Symbols.edit_rounded, label: 'Rename…'),
+  MenuRow(
+    value: FolderAction.move,
+    icon: Symbols.drive_file_move_rounded,
+    label: 'Move to folder…',
+  ),
   // A folder exports as a Len file (one name for every Export, R8-20).
-  MenuRow(value: FolderAction.export, icon: Symbols.ios_share_sharp, label: 'Export…'),
+  MenuRow(value: FolderAction.export, icon: Symbols.ios_share_rounded, label: 'Export…'),
   PopupMenuDivider(),
   MenuRow(
     value: FolderAction.delete,
-    icon: Symbols.delete_sharp,
+    icon: Symbols.delete_rounded,
     label: 'Delete folder',
     destructive: true,
   ),

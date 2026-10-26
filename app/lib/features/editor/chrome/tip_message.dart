@@ -61,48 +61,48 @@ TipMessage? tipMessage(
 }) => switch (tip) {
   EditorTip.reading => TipMessage(
     tip,
-    Symbols.swipe_vertical_sharp,
+    Symbols.swipe_vertical_rounded,
     'Reading: one finger scrolls; tap the pen to write',
   ),
-  EditorTip.fingers => TipMessage(tip, Symbols.pinch_sharp, 'Two fingers scroll and zoom'),
+  EditorTip.fingers => TipMessage(tip, Symbols.pinch_rounded, 'Two fingers scroll and zoom'),
   EditorTip.penButton => switch (penButton) {
     PenButtonAction.eraser => TipMessage(
       tip,
-      Symbols.draw_sharp,
+      Symbols.draw_rounded,
       'Hold the pen’s side button to erase',
     ),
     PenButtonAction.lasso => TipMessage(
       tip,
-      Symbols.highlight_alt_sharp,
+      Symbols.highlight_alt_rounded,
       'Hold the pen’s side button to select with the lasso',
     ),
     PenButtonAction.none => null,
   },
   EditorTip.holdToSnap => TipMessage(
     tip,
-    Symbols.shape_line_sharp,
+    Symbols.shape_line_rounded,
     'Hold the pen still at the end of a line or shape to snap it clean',
   ),
   EditorTip.lasso => TipMessage(
     tip,
-    Symbols.highlight_alt_sharp,
+    Symbols.highlight_alt_rounded,
     _lassoTip(lasso) + (pdf ? '; tap PDF text to select it' : ''),
   ),
   EditorTip.scribble => TipMessage(
     tip,
-    Symbols.ink_eraser_sharp,
+    Symbols.ink_eraser_rounded,
     'Or scribble over ink with the pen to erase it',
   ),
   EditorTip.curve => TipMessage(
     tip,
-    Symbols.conversion_path_sharp,
+    Symbols.conversion_path_rounded,
     touch
         ? 'Tap the curve to add a point; double-tap a point to remove it'
         : 'Click the curve to add a point; double-click a point to remove it',
   ),
   EditorTip.attach => TipMessage(
     tip,
-    Symbols.arrow_right_alt_sharp,
+    Symbols.arrow_right_alt_rounded,
     'Drop a line or arrow end on a shape to attach it',
   ),
 };

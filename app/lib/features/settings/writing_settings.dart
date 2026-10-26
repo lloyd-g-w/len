@@ -32,7 +32,7 @@ class WritingSettings extends StatelessWidget {
           // pan and zoom); with a mouse it shows once a stylus was.
           if (preferences.stylusOnly != null || Targets.touchFirst)
             SettingsTile(
-              icon: Symbols.draw_sharp,
+              icon: Symbols.draw_rounded,
               title: 'Draw with finger',
               subtitle: switch (preferences.stylusOnly) {
                 null => 'Until a stylus touches the screen; then fingers pan and zoom',
@@ -53,7 +53,7 @@ class WritingSettings extends StatelessWidget {
           // where one was seen (or the user chose how fingers behave).
           if (defaultTargetPlatform == TargetPlatform.android || preferences.stylusOnly != null)
             SettingsTile(
-              icon: Symbols.ads_click_sharp,
+              icon: Symbols.ads_click_rounded,
               title: 'Side button',
               subtitle: 'While you hold the S Pen (or stylus) button',
               control: FitSegments(
@@ -73,21 +73,21 @@ class WritingSettings extends StatelessWidget {
               ),
             ),
           _GestureTile(
-            icon: Symbols.undo_sharp,
+            icon: Symbols.undo_rounded,
             title: 'Tap to undo and redo',
             subtitle: 'Two fingers undo, three redo',
             value: preferences.fingerTapUndo,
             onChanged: (v) => preferences.fingerTapUndo = v,
           ),
           _GestureTile(
-            icon: Symbols.shape_line_sharp,
+            icon: Symbols.shape_line_rounded,
             title: 'Hold to snap',
             subtitle: 'Hold the pen still at the end of a stroke for a clean line or shape',
             value: preferences.holdToSnap,
             onChanged: (v) => preferences.holdToSnap = v,
           ),
           _GestureTile(
-            icon: Symbols.ink_eraser_sharp,
+            icon: Symbols.ink_eraser_rounded,
             title: 'Scribble to erase',
             subtitle: 'Scribble quickly back and forth over ink to erase it',
             value: preferences.scribbleToErase,

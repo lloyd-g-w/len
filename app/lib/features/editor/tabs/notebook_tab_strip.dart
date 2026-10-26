@@ -92,10 +92,10 @@ class NotebookTabStrip extends StatelessWidget {
         if (split)
           const MenuRow(
             value: _TabAction.split,
-            icon: Symbols.vertical_split_sharp,
+            icon: Symbols.vertical_split_rounded,
             label: 'Open in split view',
           ),
-        const MenuRow(value: _TabAction.close, icon: Symbols.close_sharp, label: 'Close tab'),
+        const MenuRow(value: _TabAction.close, icon: Symbols.close_rounded, label: 'Close tab'),
       ],
     );
     switch (choice) {
@@ -206,10 +206,10 @@ class _TabState extends State<_Tab> {
                     children: [
                       Icon(
                         split != _Split.none
-                            ? Symbols.vertical_split_sharp
+                            ? Symbols.vertical_split_rounded
                             : widget.tab.kind == NotebookKind.canvas
-                            ? Symbols.gesture_sharp
-                            : Symbols.menu_book_sharp,
+                            ? Symbols.gesture_rounded
+                            : Symbols.menu_book_rounded,
                         size: Glyphs.menu,
                         color: fg,
                         fill: shown ? 1 : 0,
@@ -236,7 +236,7 @@ class _TabState extends State<_Tab> {
                           fixedSize: const Size(28, 28),
                           padding: EdgeInsets.zero,
                         ),
-                        icon: const Icon(Symbols.close_sharp),
+                        icon: const Icon(Symbols.close_rounded),
                       ),
                     ],
                   ),

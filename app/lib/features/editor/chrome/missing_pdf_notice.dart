@@ -104,7 +104,7 @@ class _Card extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Symbols.picture_as_pdf_sharp, size: Glyphs.menu, color: scheme.error),
+                  Icon(Symbols.picture_as_pdf_rounded, size: Glyphs.menu, color: scheme.error),
                   const SizedBox(width: Gaps.sm),
                   Expanded(
                     child: Text(
@@ -123,7 +123,7 @@ class _Card extends StatelessWidget {
                       height: Targets.barHit(context),
                     ),
                     onPressed: onDismiss,
-                    icon: const Icon(Symbols.close_sharp),
+                    icon: const Icon(Symbols.close_rounded),
                   ),
                 ],
               ),

@@ -202,7 +202,7 @@ void main() {
     final (_, recent) = await twoVersions(tester);
     await open(tester);
     final row = find.byKey(ValueKey('version-${recent.id}'));
-    Finder mark() => find.descendant(of: row, matching: find.byIcon(Symbols.bookmark_sharp));
+    Finder mark() => find.descendant(of: row, matching: find.byIcon(Symbols.bookmark_rounded));
     String title() => tester
         .widget<VersionRowText>(find.descendant(of: row, matching: find.byType(VersionRowText)))
         .title;

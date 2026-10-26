@@ -229,7 +229,11 @@ class RecentStripTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: Gaps.xxs),
               child: Row(
                 children: [
-                  Icon(Symbols.history_sharp, size: Glyphs.bar, color: theme.colorScheme.onSurface),
+                  Icon(
+                    Symbols.history_rounded,
+                    size: Glyphs.bar,
+                    color: theme.colorScheme.onSurface,
+                  ),
                   const SizedBox(width: Gaps.md), // FolderTile.textInset
                   Expanded(
                     child: Column(
@@ -248,7 +252,7 @@ class RecentStripTile extends StatelessWidget {
                     ),
                   ),
                   Icon(
-                    Symbols.expand_more_sharp,
+                    Symbols.expand_more_rounded,
                     size: Glyphs.menu,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

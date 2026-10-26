@@ -198,7 +198,7 @@ void main() {
     expect(offenders, isEmpty);
   });
 
-  // CONVENTIONS (icons, colour): Material Symbols Sharp only; features pick
+  // CONVENTIONS (icons, colour): Material Symbols Rounded only; features pick
   // colours from the tokens (`Tones`, `Palette`, `Surfaces`, the scheme).
   test('no Material Icons, and no colour literals in features', () {
     final offenders = <String>[];

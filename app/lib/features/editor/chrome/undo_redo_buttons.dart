@@ -25,13 +25,13 @@ class UndoRedoButtons extends StatelessWidget {
           BarButton(
             tooltip: 'Undo (${modifierLabel()}+Z)',
             onPressed: target.canUndo ? target.undo : null,
-            icon: Symbols.undo_sharp,
+            icon: Symbols.undo_rounded,
           ),
           if (target.canRedo || !redoOnlyWhenAvailable)
             BarButton(
               tooltip: 'Redo (${modifierLabel()}+Shift+Z)',
               onPressed: target.canRedo ? target.redo : null,
-              icon: Symbols.redo_sharp,
+              icon: Symbols.redo_rounded,
             ),
         ],
       ),

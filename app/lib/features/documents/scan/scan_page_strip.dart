@@ -172,7 +172,7 @@ class _AddTile extends StatelessWidget {
                   width: _width,
                   height: ScanPageStrip.thumbHeight,
                   child: Icon(
-                    Symbols.add_sharp,
+                    Symbols.add_rounded,
                     size: Glyphs.bar,
                     color: enabled ? scheme.onSurface : scheme.onSurface.withValues(alpha: 0.38),
                   ),

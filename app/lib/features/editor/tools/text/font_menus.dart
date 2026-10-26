@@ -32,7 +32,7 @@ List<PopupMenuEntry<String>> _fontItems(BuildContext context, TextFont? current)
       MenuRow(value: current.name, label: 'Missing font', caption: 'Shown in Sans', checked: true),
     if (AppScope.maybeRead(context) != null) ...[
       const PopupMenuDivider(),
-      const MenuRow(value: _import, icon: Symbols.upload_file_sharp, label: 'Import font…'),
+      const MenuRow(value: _import, icon: Symbols.upload_file_rounded, label: 'Import font…'),
     ],
   ];
 }
@@ -107,7 +107,7 @@ class FontMenuButton extends StatelessWidget {
                 width: 92,
                 child: Text(label, overflow: TextOverflow.ellipsis, style: style),
               ),
-            const Icon(Symbols.expand_more_sharp, size: Glyphs.bar),
+            const Icon(Symbols.expand_more_rounded, size: Glyphs.bar),
           ],
         ),
       ),
@@ -156,7 +156,7 @@ class FontMenuRow extends StatelessWidget {
             const SizedBox(width: Gaps.xs),
             EndChevron(
               child: Icon(
-                Symbols.expand_more_sharp,
+                Symbols.expand_more_rounded,
                 size: Glyphs.bar,
                 color: theme.colorScheme.onSurfaceVariant,
               ),

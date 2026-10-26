@@ -173,7 +173,12 @@ class _Thumb extends StatelessWidget {
           const PositionedDirectional(
             top: 0,
             end: Gaps.sm,
-            child: Icon(Symbols.bookmark_sharp, fill: 1, size: Glyphs.bar, color: Palette.bookmark),
+            child: Icon(
+              Symbols.bookmark_rounded,
+              fill: 1,
+              size: Glyphs.bar,
+              color: Palette.bookmark,
+            ),
           ),
       ],
     );

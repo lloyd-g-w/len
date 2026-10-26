@@ -11,11 +11,12 @@ import '../toolbar/toolbar_metrics.dart';
 /// A selected colour slot gets a 1.5-px `onSurface` ring (the weight of
 /// the glyphs beside it) with a gap
 /// around its swatch, so it reads on any colour (white and black included)
-/// in light and dark themes. Size and mode slots ([rule]) get a short
-/// accent rule under their glyph instead (the margin rule, DESIGN §0:
-/// it marks where you are), so a selected size never looks like a
-/// selected dark colour beside it.
-class SlotButton extends StatelessWidget {
+/// in light and dark themes. Size and mode slots ([rule]) get a small
+/// accent dot under their glyph instead (it marks where you are, as the
+/// margin rule does elsewhere), so a selected size never looks like a
+/// selected dark colour beside it. Hovered or pressed, a slot shows a
+/// round ink plate the size of the ring.
+class SlotButton extends StatefulWidget {
   const SlotButton({
     super.key,
     required this.selected,
@@ -29,7 +30,7 @@ class SlotButton extends StatelessWidget {
     this.tabStop,
   });
 
-  /// Outer diameter of the selection ring.
+  /// Outer diameter of the selection ring (and of the hover plate).
   static const double ring = 30;
 
   /// The selection ring's stroke.
@@ -49,83 +50,105 @@ class SlotButton extends StatelessWidget {
 
   final Widget child;
 
-  /// Shows the selection as an accent rule under the glyph (sizes, modes)
+  /// Shows the selection as an accent dot under the glyph (sizes, modes)
   /// rather than a ring (colours).
   final bool rule;
 
-  /// Length of the selection rule under a size or mode.
-  static const double ruleLength = Gaps.md;
+  /// Diameter of the selection dot under a size or mode.
+  static const double marker = 4;
 
   /// Whether Tab stops here in a toolbar ([RovingItem]); null: when
   /// [selected]. A row with nothing selected makes its first slot the stop.
   final bool? tabStop;
 
   @override
+  State<SlotButton> createState() => _SlotButtonState();
+}
+
+class _SlotButtonState extends State<SlotButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final edit = onEdit;
-    void tap() => selected && edit != null ? edit(context) : onSelect();
+    final edit = widget.onEdit;
+    final selected = widget.selected;
+    void tap() => selected && edit != null ? edit(context) : widget.onSelect();
+    final plate = _pressed
+        ? Surfaces.pressed(scheme)
+        : _hovered
+        ? Surfaces.hovered(scheme)
+        : scheme.onSurface.withValues(alpha: 0);
     return RovingItem(
-      stop: tabStop ?? selected,
+      stop: widget.tabStop ?? selected,
       child: Tooltip(
-        message: tooltip,
+        message: widget.tooltip,
         waitDuration: const Duration(milliseconds: 500),
         child: Semantics(
           button: true,
           selected: selected,
-          label: semanticLabel,
-          hint: selected && edit != null ? editHint : null,
+          label: widget.semanticLabel,
+          hint: selected && edit != null ? widget.editHint : null,
           // A keyboard stop: Enter or Space acts as a tap (so on the
           // selected slot it opens the editor).
           child: FocusableActionDetector(
             mouseCursor: SystemMouseCursors.click,
+            onShowHoverHighlight: (on) => setState(() => _hovered = on),
             actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => tap())},
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: tap,
+              onTapDown: (_) => setState(() => _pressed = true),
+              onTapUp: (_) => setState(() => _pressed = false),
+              onTapCancel: () => setState(() => _pressed = false),
               onLongPress: edit == null ? null : () => edit(context),
               onSecondaryTap: edit == null ? null : () => edit(context),
               child: SizedBox.square(
                 dimension: ToolbarMetrics.slotOf(context),
                 child: Center(
-                  child: rule
-                      ? SizedBox.square(
-                          dimension: ring,
-                          child: Stack(
+                  child: AnimatedContainer(
+                    duration: Motion.fast,
+                    width: SlotButton.ring,
+                    height: SlotButton.ring,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: plate,
+                      border: widget.rule
+                          ? null
+                          : Border.all(
+                              color: selected
+                                  ? scheme.onSurface
+                                  : scheme.onSurface.withValues(alpha: 0),
+                              width: SlotButton.ringWidth,
+                            ),
+                    ),
+                    alignment: Alignment.center,
+                    child: widget.rule
+                        ? Stack(
                             alignment: Alignment.center,
+                            fit: StackFit.expand,
                             children: [
-                              child,
+                              Center(child: widget.child),
                               Positioned(
-                                bottom: 0,
+                                bottom: SlotButton.marker / 2,
                                 child: AnimatedOpacity(
                                   opacity: selected ? 1 : 0,
                                   duration: Motion.fast,
                                   child: Container(
-                                    width: ruleLength,
-                                    height: Hairline.rule,
-                                    color: scheme.primary,
+                                    width: SlotButton.marker,
+                                    height: SlotButton.marker,
+                                    decoration: BoxDecoration(
+                                      color: scheme.primary,
+                                      shape: BoxShape.circle,
+                                    ),
                                   ),
                                 ),
                               ),
                             ],
-                          ),
-                        )
-                      : AnimatedContainer(
-                          duration: Motion.fast,
-                          width: ring,
-                          height: ring,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: selected
-                                  ? scheme.onSurface
-                                  : scheme.onSurface.withValues(alpha: 0),
-                              width: ringWidth,
-                            ),
-                          ),
-                          alignment: Alignment.center,
-                          child: child,
-                        ),
+                          )
+                        : widget.child,
+                  ),
                 ),
               ),
             ),
@@ -195,8 +218,8 @@ class SlotDot extends StatelessWidget {
 }
 
 /// A width slot's glyph: a short horizontal line as thick as the width
-/// (scaled, [minThickness]–[maxThickness]), square-ended like a ruled
-/// line, neutral so it never reads as a colour: `onSurface` when
+/// (scaled, [minThickness]–[maxThickness]), round-ended like a stroke of
+/// the pen, neutral so it never reads as a colour: `onSurface` when
 /// [selected], else `onSurfaceVariant`.
 class SlotLine extends StatelessWidget {
   const SlotLine({super.key, required this.thickness, required this.selected});
@@ -229,7 +252,10 @@ class SlotLine extends StatelessWidget {
       duration: Motion.fast,
       width: length,
       height: thickness.clamp(minThickness, maxThickness),
-      color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+      decoration: BoxDecoration(
+        color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
+        borderRadius: BorderRadius.circular(Radii.pill),
+      ),
     );
   }
 }

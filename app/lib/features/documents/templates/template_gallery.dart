@@ -177,7 +177,7 @@ class _ImportTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(Radii.sm),
                     border: Border.all(color: scheme.outline),
                   ),
-                  child: Icon(Symbols.add_photo_alternate_sharp, color: scheme.onSurface),
+                  child: Icon(Symbols.add_photo_alternate_rounded, color: scheme.onSurface),
                 ),
               ),
               const SizedBox(height: Gaps.xs),

@@ -152,7 +152,7 @@ class SubBarOptionsButton extends StatelessWidget {
         // Round, to sit in the pill's rounded end.
         shape: const CircleBorder(),
       ),
-      icon: const Icon(Symbols.tune_sharp, size: Glyphs.bar),
+      icon: const Icon(Symbols.tune_rounded, size: Glyphs.bar),
     );
   }
 }

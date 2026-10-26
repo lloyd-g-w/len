@@ -172,7 +172,7 @@ class _NotebookListTileState extends State<NotebookListTile> {
                     child: IconButton(
                       tooltip: _notebook.favorite ? 'Remove from favourites' : 'Add to favourites',
                       icon: Icon(
-                        Symbols.star_sharp,
+                        Symbols.star_rounded,
                         fill: _notebook.favorite ? 1 : 0,
                         color: _notebook.favorite ? scheme.onSurface : scheme.onSurfaceVariant,
                       ),
@@ -184,7 +184,7 @@ class _NotebookListTileState extends State<NotebookListTile> {
                   builder: (anchor) => IconButton(
                     tooltip: 'More',
                     color: scheme.onSurfaceVariant,
-                    icon: const Icon(Symbols.more_horiz_sharp),
+                    icon: const Icon(Symbols.more_horiz_rounded),
                     onPressed: () => unawaited(_showMenu(anchor: anchor)),
                   ),
                 ),

@@ -55,7 +55,9 @@ class RecordingTile extends StatelessWidget {
       leading: selecting
           ? Checkbox(value: selected, onChanged: (_) => onSelect())
           : Icon(
-              open && audio.playback.playing ? Symbols.graphic_eq_sharp : Symbols.play_circle_sharp,
+              open && audio.playback.playing
+                  ? Symbols.graphic_eq_rounded
+                  : Symbols.play_circle_rounded,
             ),
       title: Text(recording.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       // When, then the length at the line's end in tabular figures (separate
@@ -95,32 +97,32 @@ class RecordingTile extends StatelessWidget {
 
   Widget _menu(BuildContext context, int? size) => MenuIconButton<String>(
     tooltip: 'More',
-    icon: const Icon(Symbols.more_horiz_sharp),
+    icon: const Icon(Symbols.more_horiz_rounded),
     onSelected: (action) => unawaited(_run(context, action)),
     items: () => [
       if (size != null)
         MenuRow(
           value: 'size',
-          icon: Symbols.storage_sharp,
+          icon: Symbols.storage_rounded,
           label: '${formatBytes(size)} on this device',
           enabled: false,
         ),
-      const MenuRow(value: 'rename', icon: Symbols.edit_sharp, label: 'Rename…'),
-      const MenuRow(value: 'trim', icon: Symbols.content_cut_sharp, label: 'Trim…'),
+      const MenuRow(value: 'rename', icon: Symbols.edit_rounded, label: 'Rename…'),
+      const MenuRow(value: 'trim', icon: Symbols.content_cut_rounded, label: 'Trim…'),
       if (recording.trimmed)
-        const MenuRow(value: 'untrim', icon: Symbols.restore_sharp, label: 'Reset trim'),
+        const MenuRow(value: 'untrim', icon: Symbols.restore_rounded, label: 'Reset trim'),
       if (freeUpSpaceLabel(audio, recording) case final label?)
-        MenuRow(value: 'free', icon: Symbols.delete_sweep_sharp, label: label),
+        MenuRow(value: 'free', icon: Symbols.delete_sweep_rounded, label: label),
       MenuRow(
         value: 'export',
-        icon: Symbols.ios_share_sharp,
+        icon: Symbols.ios_share_rounded,
         label: audio.canSaveToDevice ? 'Share…' : 'Export…',
       ),
       if (audio.canSaveToDevice)
-        const MenuRow(value: 'save', icon: Symbols.download_sharp, label: 'Save to device…'),
+        const MenuRow(value: 'save', icon: Symbols.download_rounded, label: 'Save to device…'),
       const MenuRow(
         value: 'delete',
-        icon: Symbols.delete_sharp,
+        icon: Symbols.delete_rounded,
         label: 'Delete…',
         destructive: true,
       ),
