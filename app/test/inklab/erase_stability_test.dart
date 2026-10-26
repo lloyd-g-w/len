@@ -68,10 +68,14 @@ void main() {
       final recording = RecordingCodec.decode(file.readAsBytesSync());
       final dpr = recording.meta.devicePixelRatio;
       final replay = ReplayResult.run(recording);
+      // A stored stabiliser (the shaper's: the laser's, older strokes) is
+      // on raw samples, never on the pen's string-stabilised points.
+      final raw = ReplayResult.run(recording, pen: recording.meta.pen.copyWith(streamline: 0));
       for (final streamline in [null, 0.4, 1.0]) {
         final m = _Moved();
         var ids = 0;
-        for (final recorded in replay.strokes) {
+        final run = streamline == null ? replay : raw;
+        for (final recorded in run.strokes) {
           if (recorded.points.length < 30) continue;
           final s = streamline == null
               ? recorded
@@ -79,7 +83,7 @@ void main() {
                   recorded.points,
                   style: recorded.style.copyWith(streamline: streamline),
                 );
-          final frame = replay.frameOf(s);
+          final frame = run.frameOf(s);
           Offset map(Offset o) => frame.toScreen(o.dx, o.dy) * dpr;
           List<Contour> outline(Iterable<Stroke> parts) => [
             for (final g in parts)

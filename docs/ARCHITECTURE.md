@@ -3318,6 +3318,16 @@ agreement; left for the owner to judge on the tablet.) The pen's path is
 kept for 16 (R + 4 px) of length, enough to find the ink's nearest point
 when it cut across a whole word.
 
+**Gestures read the pen, not the ink.** Hold to snap watches the pen rest
+(the ink stands still whenever the pen moves within the string) and
+recognises the shape from the pen's own path up to the rest
+(`HoldToStraighten.penPath`; from the string's ink, cut corners and a
+string-short end took hand-drawn arrows from 98 % to 78–86 % snapped at
+the default 3 px); once snapped, the line or shape follows the pen itself.
+The scribble detector reads the pen too (the string cut a three-pass
+scribble's turns below its threshold). The committed stroke is still the
+ink: the catch-up runs before the snap, as before.
+
 Being causal, every stabilised point is final at once: the stroke **stores
 the stabilised points with stabiliser 0** (format unchanged; the outline
 adds only its σ 0.7 px), so live ink reaches the stabilised tip with the
@@ -3341,11 +3351,12 @@ string draws it): 0.12 px at 50 %, 0.26 px at 100 % committed (0.21 live).
 The Ink Lab judges stabilised entries against the true path passed
 through the same string (`metrics/truth.dart`, `stabilisedTruth`): the
 string's corner-cutting is deliberate, the engine is judged on drawing
-it. Two metrics at 0.4 are known failures (F14): the string pulls the
+it. Known failures (F14), two at 0.4: the string pulls the
 7 px loops into curves tighter than the outline's σ follows (retraction
 1.5 px, limit 1.3), and where the pen stops and turns within the string the
 ink turns a real ≈ 100° corner the outline rounds (edge bump 1.3 px at
-16×, limit 1).
+16×, limit 1); and the same corners at 100 % in a flat-ended real S Pen
+excerpt (1.15 px).
 
 A mouse keeps `MouseSmoother` (its stabiliser levels whole-pixel steps in
 space and trails 8–16 px; no string), the laser its shaper stabiliser.

@@ -41,6 +41,14 @@ const List<KnownFailure> knownFailures = [
     cases: ['zigzag'],
     stabilisers: [0.4],
   ),
+  KnownFailure(
+    'smooth.edgeBump16x',
+    'F14',
+    'the same stop-and-turn corners of an 80 px string in real handwriting, '
+        'with flat ends (1.15 px at 16×, limit 1)',
+    cases: ['rec:real_spen_02'],
+    stabilisers: [1.0],
+  ),
 ];
 
 /// The known failure covering [id] on [caseName] at [streamline], if any.

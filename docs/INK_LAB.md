@@ -669,7 +669,8 @@ loops into curves tighter than the outline's σ 0.7 px follows
 (`detail.retraction` 1.5 px, limit 1.3), and on `zigzag` the pen stops and
 turns within the string, so the ink turns a real ≈ 100° corner the
 outline does not take as a corner and rounds (`smooth.edgeBump16x` 1.3 px
-at 16×, limit 1). Both are the string's shapes, sharper than any pen's;
+at 16×, limit 1); the same corners at 100 % in the flat-ends excerpt of
+`real_spen_02` (1.15 px). All are the string's shapes, sharper than any pen's;
 the stored stroke is drawn at stabiliser 0. Measured by
 `test/inklab/stabiliser_speed_test.dart` and `stabiliser_test.dart`;
 sheets written by `test/inklab/tools/stabiliser_sheets_test.dart`.
