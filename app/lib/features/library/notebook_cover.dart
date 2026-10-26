@@ -55,7 +55,7 @@ class NotebookCover extends StatelessWidget {
     final preview = this.preview;
     const outer = Radius.circular(Radii.sm);
     final radius = _paged
-        ? const BorderRadius.horizontal(left: Radius.circular(Radii.xs - 2), right: outer)
+        ? const BorderRadius.horizontal(left: Radius.zero, right: outer)
         : BorderRadius.circular(Radii.sm);
     return ClipRRect(
       borderRadius: radius,

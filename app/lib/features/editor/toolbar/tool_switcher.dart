@@ -61,13 +61,13 @@ class ToolSwitcherButton extends StatelessWidget {
                     key: const ValueKey('tool-switcher'),
                     color: reading ? Colors.transparent : Surfaces.pressed(scheme),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(Radii.xs),
+                      borderRadius: BorderRadius.circular(Radii.md),
                       side: reading
                           ? BorderSide(color: scheme.outline, width: Hairline.width)
                           : BorderSide.none,
                     ),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(Radii.xs),
+                      borderRadius: BorderRadius.circular(Radii.md),
                       onTap: open,
                       onLongPress: options,
                       child: SizedBox(
@@ -137,7 +137,7 @@ class PreviousToolButton extends StatelessWidget {
             onTap: tools.togglePrevious,
             child: InkWell(
               key: const ValueKey('previous-tool'),
-              borderRadius: BorderRadius.circular(Radii.xs),
+              borderRadius: BorderRadius.circular(Radii.md),
               onTap: tools.togglePrevious,
               child: SizedBox(
                 width: width,
@@ -243,9 +243,9 @@ class _Tile extends StatelessWidget {
       button: true,
       child: Material(
         color: selected ? Surfaces.pressed(scheme) : Colors.transparent,
-        borderRadius: BorderRadius.circular(Radii.xs),
+        borderRadius: BorderRadius.circular(Radii.md),
         child: InkWell(
-          borderRadius: BorderRadius.circular(Radii.xs),
+          borderRadius: BorderRadius.circular(Radii.md),
           onTap: onTap,
           child: SizedBox(
             width: ToolSwitcherPanel._tile,

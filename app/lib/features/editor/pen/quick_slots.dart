@@ -61,7 +61,7 @@ class ColorSlotRow extends StatelessWidget {
 
 /// A row of quick size slots, shown as neutral dots ([diameters]) or, for
 /// stroke widths, as [lines] of increasing thickness; the selected one has
-/// the accent rule under it. Edited as [ColorSlotRow]'s colours.
+/// the accent dot under it. Edited as [ColorSlotRow]'s colours.
 class SizeSlotRow extends StatelessWidget {
   const SizeSlotRow({
     super.key,

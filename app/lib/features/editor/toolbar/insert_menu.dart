@@ -82,7 +82,7 @@ class InsertButton extends StatelessWidget {
                 tapTargetSize: Targets.touchFirst
                     ? MaterialTapTargetSize.padded
                     : MaterialTapTargetSize.shrinkWrap,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
               ),
               icon: const ToolIcon(ToolIconKind.insert),
             ),

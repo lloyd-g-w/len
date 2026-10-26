@@ -7,7 +7,7 @@ import '../editor_tools.dart';
 import 'insert_menu.dart';
 import 'toolbar_metrics.dart';
 
-/// The tools in their fixed order, then Insert ⊕. One neutral `xs` plate
+/// The tools in their fixed order, then Insert ⊕. One neutral `md` plate
 /// sits behind the active tool and slides to the next one ([Motion.fast];
 /// it jumps with reduced motion). While reading ([ToolSettings.reading]) no
 /// tool is in hand: the plate is a Pencil outline, and tapping any tool,
@@ -64,7 +64,7 @@ class ToolCluster extends StatelessWidget {
                       border: reading
                           ? Border.all(color: scheme.outline, width: Hairline.width)
                           : null,
-                      borderRadius: BorderRadius.circular(Radii.xs),
+                      borderRadius: BorderRadius.circular(Radii.md),
                     ),
                   ),
                 ),
@@ -146,7 +146,7 @@ class ToolButton extends StatelessWidget {
               ? MaterialTapTargetSize.padded
               : MaterialTapTargetSize.shrinkWrap,
           foregroundColor: selected || reading ? scheme.onSurface : scheme.onSurfaceVariant,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xs)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
         ),
         icon: ToolGlyph(descriptor: descriptor, filled: selected),
       ),
@@ -154,7 +154,7 @@ class ToolButton extends StatelessWidget {
   }
 }
 
-/// A tool's icon with its ink colour as a small square-ended bar
+/// A tool's icon with its ink colour as a small round-ended bar
 /// underneath (ink, so never themed).
 class ToolGlyph extends StatelessWidget {
   const ToolGlyph({super.key, required this.descriptor, this.filled = false});
@@ -189,6 +189,7 @@ class ToolGlyph extends StatelessWidget {
                 height: 3,
                 decoration: BoxDecoration(
                   color: Color(color),
+                  borderRadius: BorderRadius.circular(Radii.pill),
                   border: Border.all(
                     color: nearSurface
                         ? scheme.onSurfaceVariant
