@@ -684,8 +684,9 @@ through with the string and the pen as a red dot.*
 
 ![slow shaky line after](inklab/stabiliser/after_slow.png)
 
-*A slow, shaky line, after: straight from 60 %; at 100 % its last ≈ 80 px
-are the catch-up along the pen's own path, tremor included.*
+*A slow, shaky line, after: straight from 60 %; the stroke stops where the
+ink is at the lift, smooth to its end, up to the string (80 px at 100 %)
+short of the pen's path.*
 
 ### Real S Pen recordings
 
