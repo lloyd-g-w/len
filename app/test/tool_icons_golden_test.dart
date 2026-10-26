@@ -78,10 +78,7 @@ class _Sheet extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.md),
       ),
       child: IconTheme.merge(
-        data: IconThemeData(
-          color: selected ? scheme.onSurface : scheme.onSurfaceVariant,
-          fill: selected ? 1 : 0,
-        ),
+        data: IconThemeData(color: selected ? scheme.onSurface : scheme.onSurfaceVariant),
         child: child,
       ),
     );
@@ -100,10 +97,7 @@ class _Sheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             row([for (final d in descriptors) plate(ToolGlyph(descriptor: d))]),
-            row([
-              for (final d in descriptors)
-                plate(ToolGlyph(descriptor: d, filled: true), selected: true),
-            ]),
+            row([for (final d in descriptors) plate(ToolGlyph(descriptor: d), selected: true)]),
             row([for (final k in ToolIconKind.values) plate(ToolIcon(k))]),
             row([for (final k in ShapeKind.drawable) plate(ShapeGlyph(k, size: Glyphs.bar))]),
             row([
