@@ -16,7 +16,8 @@ import 'dart:ui';
 /// should not let go when writing fast).
 ///
 /// Between two samples the pen is taken to move in a straight line, and
-/// the ink follows it in steps of at most a [_steps]th of the radius, so
+/// the ink follows it in small steps (a [_steps]th of the radius, ½ px at
+/// most), so
 /// the path does not depend on the sample rate (120, 240 Hz, 1 kHz), only
 /// on the pen's path.
 ///
@@ -60,8 +61,10 @@ class PenStabiliser {
   double _travel = 0;
   static const double _growth = 0.5;
 
-  /// The ink follows the pen in steps of at most radius / [_steps].
+  /// The ink follows the pen in steps of at most radius / [_steps], and
+  /// at most 1 / [_perPx] px.
   static const int _steps = 32;
+  static const double _perPx = 2;
 
   /// At most this many steps between two samples (a jump of the pen).
   static const int _maxSteps = 1024;
@@ -73,7 +76,7 @@ class PenStabiliser {
   int _h0 = 0;
 
   /// How much of the pen's path (px) is kept for [catchUp].
-  double get _keptLength => 4 * params.radius + 16;
+  double get _keptLength => 16 * params.radius + 64;
 
   void _remember(double x, double y) {
     final n = _hx.length;
@@ -121,17 +124,27 @@ class PenStabiliser {
       // landed, and a pen-down hook keeps the kink `HookFinder` trims it
       // by (pulled on the string, the ink would start at the hook's tip
       // and lean from there).
-      final ex = x - _sx, ey = y - _sy, e = params.engage;
-      _engaged = ex * ex + ey * ey >= e * e;
-      _px = _ix = x;
-      _py = _iy = y;
+      final e = params.engage;
+      final ux = _px - _sx, uy = _py - _sy, dx = x - _px, dy = y - _py;
+      final ex = ux + dx, ey = uy + dy;
+      if (ex * ex + ey * ey < e * e) {
+        _px = _ix = x;
+        _py = _iy = y;
+        return at;
+      }
+      // The string engages where the step leaves the circle of [e] around
+      // the start (whatever the sample rate): |u + t d| = e.
+      final a = dx * dx + dy * dy, b = ux * dx + uy * dy, c = ux * ux + uy * uy - e * e;
+      final t = (-b + math.sqrt(b * b - a * c)) / a;
+      _px = _ix = _px + dx * t;
+      _py = _iy = _py + dy * t;
+      _engaged = true;
       _travel = 0;
-      return at;
     }
     final r = params.radius;
     final dx = x - _px, dy = y - _py;
     final d = _distance(dx, dy);
-    final n = math.min(_maxSteps, math.max(1, (d * _steps / r).ceil()));
+    final n = math.min(_maxSteps, math.max(1, (d * math.max(_steps / r, _perPx)).ceil()));
     for (var i = 1; i < n; i++) {
       final f = i / n;
       _pull(_px + dx * f, _py + dy * f, math.min(r, (_travel + d * f) * _growth));
@@ -162,22 +175,31 @@ class PenStabiliser {
   /// afterwards.
   List<Offset> catchUp() {
     final n = _hx.length;
-    // The pen's position nearest the ink.
+    // Where the pen's path passed nearest the ink: on the segment from
+    // [j], [t] of the way (on the path, not at a sample: samples far apart
+    // would move the start along the path).
     var j = n - 1;
-    var best = double.infinity;
-    for (var i = n - 1; i >= _h0; i--) {
-      final dx = _hx[i] - _ix, dy = _hy[i] - _iy;
-      final d = dx * dx + dy * dy;
+    var t = 0.0;
+    var best = _square(_hx[j] - _ix, _hy[j] - _iy);
+    for (var i = n - 2; i >= _h0; i--) {
+      final ax = _hx[i], ay = _hy[i], dx = _hx[i + 1] - ax, dy = _hy[i + 1] - ay;
+      final l = dx * dx + dy * dy;
+      final f = l > 0 ? (((_ix - ax) * dx + (_iy - ay) * dy) / l).clamp(0.0, 1.0) : 0.0;
+      final d = _square(ax + dx * f - _ix, ay + dy * f - _iy);
       if (d < best) {
         best = d;
         j = i;
+        t = f;
       }
     }
-    final ox = _ix - _hx[j], oy = _iy - _hy[j];
-    final total = _hs[n - 1] - _hs[j];
+    final k0 = math.min(j + 1, n - 1);
+    final qx = _hx[j] + (_hx[k0] - _hx[j]) * t, qy = _hy[j] + (_hy[k0] - _hy[j]) * t;
+    final qs = _hs[j] + (_hs[k0] - _hs[j]) * t;
+    final ox = _ix - qx, oy = _iy - qy;
+    final total = _hs[n - 1] - qs;
     final out = <Offset>[];
     for (var k = j + 1; k < n; k++) {
-      final w = total > 0 ? 1 - (_hs[k] - _hs[j]) / total : 0.0;
+      final w = total > 0 ? 1 - (_hs[k] - qs) / total : 0.0;
       out.add(Offset(_hx[k] + ox * w, _hy[k] + oy * w));
     }
     final p = pen;
@@ -188,6 +210,8 @@ class PenStabiliser {
   }
 
   static double _distance(double dx, double dy) => math.sqrt(dx * dx + dy * dy);
+
+  static double _square(double dx, double dy) => dx * dx + dy * dy;
 }
 
 /// The stabiliser's numbers for a setting (`PenConfig.streamline`, 0..1),

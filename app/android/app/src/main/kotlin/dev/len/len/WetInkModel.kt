@@ -83,7 +83,7 @@ fun strokePressure(normalised: Double): Double {
 /**
  * The pen's stabiliser: a pulled string (lazy brush). The ink stays put while
  * the pen is within the string's length of it, and is pulled straight toward
- * the pen when it goes further, in steps of at most 1/32 of the length; the
+ * the pen when it goes further, in steps of at most 1/32 of the length and ½ px; the
  * first [WetInkShape.engage] px from pen-down are the pen's own.
  * A port of Dart's `PenStabiliser` (same steps, same order of operations).
  */
@@ -111,7 +111,7 @@ class PenStabiliser(private val shape: WetInkShape) {
     private val hx = ArrayDeque<Double>()
     private val hy = ArrayDeque<Double>()
     private val hs = ArrayDeque<Double>()
-    private val keptLength = 4 * shape.stabiliserRadius + 16
+    private val keptLength = 16 * shape.stabiliserRadius + 64
 
     private fun remember(x: Double, y: Double) {
         hs.addLast(if (hx.isEmpty()) 0.0 else hs.last() + WetInkModel.dist(x - hx.last(), y - hy.last()))
@@ -146,22 +146,37 @@ class PenStabiliser(private val shape: WetInkShape) {
         if (!started) return begin(x, y)
         remember(x, y)
         if (!engaged) {
-            val ex = x - startX
-            val ey = y - startY
             val e = shape.engage
-            engaged = ex * ex + ey * ey >= e * e
-            penX = x
-            penY = y
-            inkX = x
-            inkY = y
+            val ux = penX - startX
+            val uy = penY - startY
+            val sdx = x - penX
+            val sdy = y - penY
+            val ex = ux + sdx
+            val ey = uy + sdy
+            if (ex * ex + ey * ey < e * e) {
+                penX = x
+                penY = y
+                inkX = x
+                inkY = y
+                return
+            }
+            // The string engages where the step leaves the circle of e around the start.
+            val a = sdx * sdx + sdy * sdy
+            val b = ux * sdx + uy * sdy
+            val c = ux * ux + uy * uy - e * e
+            val t = (-b + sqrt(b * b - a * c)) / a
+            penX += sdx * t
+            penY += sdy * t
+            inkX = penX
+            inkY = penY
+            engaged = true
             travel = 0.0
-            return
         }
         val r = shape.stabiliserRadius
         val dx = x - penX
         val dy = y - penY
         val d = WetInkModel.dist(dx, dy)
-        val n = min(MAX_STEPS, max(1, ceil(d * STEPS / r).toInt()))
+        val n = min(MAX_STEPS, max(1, ceil(d * max(STEPS / r, PER_PX)).toInt()))
         for (i in 1 until n) {
             val f = i.toDouble() / n
             pull(penX + dx * f, penY + dy * f, min(r, (travel + d * f) * GROWTH))
@@ -190,23 +205,36 @@ class PenStabiliser(private val shape: WetInkShape) {
      */
     fun catchUp(): DoubleArray {
         val n = hx.size
+        // Where the pen's path passed nearest the ink: on the segment from j, t of the way.
         var j = n - 1
-        var best = Double.POSITIVE_INFINITY
-        for (i in n - 1 downTo 0) {
-            val dx = hx[i] - inkX
-            val dy = hy[i] - inkY
-            val d = dx * dx + dy * dy
+        var t = 0.0
+        var best = (hx[j] - inkX) * (hx[j] - inkX) + (hy[j] - inkY) * (hy[j] - inkY)
+        for (i in n - 2 downTo 0) {
+            val ax = hx[i]
+            val ay = hy[i]
+            val dx = hx[i + 1] - ax
+            val dy = hy[i + 1] - ay
+            val l = dx * dx + dy * dy
+            val f = if (l > 0) (((inkX - ax) * dx + (inkY - ay) * dy) / l).coerceIn(0.0, 1.0) else 0.0
+            val ex = ax + dx * f - inkX
+            val ey = ay + dy * f - inkY
+            val d = ex * ex + ey * ey
             if (d < best) {
                 best = d
                 j = i
+                t = f
             }
         }
-        val ox = inkX - hx[j]
-        val oy = inkY - hy[j]
-        val total = hs[n - 1] - hs[j]
+        val k0 = min(j + 1, n - 1)
+        val qx = hx[j] + (hx[k0] - hx[j]) * t
+        val qy = hy[j] + (hy[k0] - hy[j]) * t
+        val qs = hs[j] + (hs[k0] - hs[j]) * t
+        val ox = inkX - qx
+        val oy = inkY - qy
+        val total = hs[n - 1] - qs
         val out = ArrayList<Double>()
         for (k in j + 1 until n) {
-            val w = if (total > 0) 1 - (hs[k] - hs[j]) / total else 0.0
+            val w = if (total > 0) 1 - (hs[k] - qs) / total else 0.0
             out.add(hx[k] + ox * w)
             out.add(hy[k] + oy * w)
         }
@@ -221,6 +249,7 @@ class PenStabiliser(private val shape: WetInkShape) {
 
     private companion object {
         const val STEPS = 32
+        const val PER_PX = 2.0
         const val MAX_STEPS = 1024
         const val GROWTH = 0.5
     }
