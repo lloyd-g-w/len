@@ -75,7 +75,7 @@ class _Sheet extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: selected ? Surfaces.pressed(scheme) : null,
-        borderRadius: BorderRadius.circular(Radii.xs),
+        borderRadius: BorderRadius.circular(Radii.md),
       ),
       child: IconTheme.merge(
         data: IconThemeData(

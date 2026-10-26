@@ -139,8 +139,9 @@ abstract final class Glyphs {
   /// Empty states.
   static const double empty = 40;
 
-  /// The stroke weight of every symbol (fill 0; active states fill 1).
-  static const double weight = 300;
+  /// The stroke weight of every symbol (fill 0; active states fill 1):
+  /// Rounded at 400 matches the drawn tool glyphs' 1.7-unit line.
+  static const double weight = 400;
 }
 
 /// Hairlines (DESIGN §3): chrome is separated by 1-dp rules, as a ruled
