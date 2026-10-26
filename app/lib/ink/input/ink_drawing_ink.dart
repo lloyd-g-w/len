@@ -17,6 +17,10 @@ extension _Inking on InkDrawing {
     final ms = StrokeSampler.msOf(e.timeStamp);
     _stabiliser = stabiliser == null ? null : (PenStabiliser(stabiliser)..begin(e.localPosition));
     _stabiliserMs = ms;
+    final down = viewport.toWorld(e.localPosition);
+    _penPath
+      ..clear()
+      ..add((StrokePoint(down.dx, down.dy, 0.5), ms));
     // Ink shows from the first sample, under the nib. The outline smooths
     // at the zoom it is written at (`StrokeStyle.unit`), known now.
     // A mouse's ink trails it then, by the smoothing's reach: the
@@ -83,7 +87,12 @@ extension _Inking on InkDrawing {
     var at = screen;
     if (_stabiliser case final s?) {
       _stabiliserMs = ms;
+      final w = viewport.toWorld(screen);
+      _penPath.add((StrokePoint(w.dx, w.dy, pressure), ms));
       at = s.add(screen);
+      // A snapped line or shape follows the pen itself (the ink caught
+      // up with it before the snap read the stroke).
+      if (live.straightened) at = screen;
     }
     if (_sampler.add(_lastScreen!, at, pressure, ms, synthesized: synthesized)) {
       _lastScreen = at;
@@ -116,8 +125,11 @@ extension _Inking on InkDrawing {
   void _keep(Offset from, Offset at, StrokePoint point, int timeMs) {
     _drawTravel += (at - from).distance;
     _liftSpeed.add(at, timeMs);
-    _scribble.add(at, timeMs);
-    if (_straighten.move(at, point, timeMs: timeMs)) return;
+    // Scribbling is the pen's gesture: read where the pen is, not the ink
+    // the stabiliser's string holds back (it would cut the turns).
+    _scribble.add(_stabiliser?.pen ?? at, timeMs);
+    // Hold to snap watches the pen rest, not the ink the string holds back.
+    if (_straighten.move(_stabiliser?.pen ?? at, point, timeMs: timeMs)) return;
     live.add(point);
     _traceChunks();
   }

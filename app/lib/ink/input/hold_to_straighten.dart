@@ -46,6 +46,12 @@ class HoldToStraighten {
   /// new movement restarting the hold).
   bool _flushing = false;
 
+  /// With the stabiliser on, the pen's own path (world, with each point's
+  /// time in ms): what the shape is recognised from, up to where the pen
+  /// came to rest, as the pen drew it (the string's ink cuts an arrow's
+  /// wings and ends a string short). Null or empty: the stroke's points.
+  List<(StrokePoint, int)> Function()? penPath;
+
   /// How long the pen must rest to straighten the stroke.
   static const Duration holdDuration = Duration(milliseconds: 600);
 
@@ -236,7 +242,13 @@ class HoldToStraighten {
     // Recognised as drawn: a resting pen drifts by a pixel or so, which
     // would add a tangle at the end (a line's detour, an arrow's wings).
     final rest = _resting.isEmpty ? points.length - 1 : _resting.first.$3;
-    final drawn = points.sublist(0, math.min(points.length, rest + 1));
+    final pen = penPath?.call() ?? const [];
+    final drawn = pen.isEmpty
+        ? points.sublist(0, math.min(points.length, rest + 1))
+        : [
+            for (final (p, t) in pen)
+              if (_resting.isEmpty || t <= _resting.first.$2) p,
+          ];
     var shape = snapOf(drawn, _scale);
     if (shape == null) return;
     final first = points.first.offset;
