@@ -358,16 +358,28 @@ window onto the paper in the bottom-right corner, clear of the chrome and the au
 Content comes from storage — `StrokeReader.chunkDensity` (items per populated chunk, in the
 background reader), re-read 500 ms after a non-load `SurfaceChange` (the model flushed
 first) — and `MinimapContent` merges the chunks into at most 48 × 48 soft blocks, shaded by
-density, so painting costs the same on any canvas; per frame only the painter runs
-(blocks, origin cross, the view's frame in the accent for the paper's brightness).
-`MinimapFrame` picks the world area shown: content ∪ the visible area
+density, so painting costs the same on any canvas; the blocks are recorded once into a
+picture (`MinimapBlocks`, keyed by content, colours and map scale) and replayed translated,
+so a frame of a pan draws only the picture, the origin cross and the view's frame (in the
+accent for the paper's brightness). `MinimapFrame` picks the fit: content ∪ the visible area
 (`CanvasNavigation.visibleArea`, the screen minus the chrome) with 12 % room, held still
 while the view moves inside it and refitted (gliding, `Motion.medium`) when the view leaves
-it or it grows 1.8× larger than needed. Input (touch, pen, mouse): a tap glides there
-(`CanvasNavigation.centreOn`); a drag moves the view live, the map frozen under the finger
-(grabbing the frame keeps the grabbed point under it, elsewhere centres the view there);
-two fingers pan and pinch (`zoomBy`); a mouse wheel zooms in steps (`zoomStep`, claimed
-through the pointer-signal resolver); long-press / right-click opens its menu (*Hide minimap*). It fades out
+it or it grows 1.8× larger than needed. The map has its own viewport (`MinimapView`): a
+world rectangle inside the fit, from the fit itself (the default) to `maxZoom` closer (three
+blocks across, at least 2×). Input: one pointer (touch, pen, mouse) moves the *canvas* — a
+tap glides there (`CanvasNavigation.centreOn`, through the map's viewport); a drag moves the
+view live, the map frozen under the finger (grabbing the frame keeps the grabbed point under
+it, elsewhere centres the view there). Everything else moves the *map*, never the canvas: two
+fingers or a trackpad pinch (zoom about the focal point) and drag (pan); the wheel pans it
+(Shift: across), Ctrl/⌘+wheel and `PointerScaleEvent` zoom it about the pointer (claimed
+through the pointer-signal resolver); a second finger turns a drag into a map gesture for good.
+Zoomed or panned, the map stays put as the view and content change: it follows the view
+(`MinimapView.follow`, nudged just enough to keep the view's centre 10 % inside its edges)
+while the view is on it, and once the user pans it away it stays there and a small arrowhead
+on its edge points at the view; it fits again only when the fit shrinks to it, when zoomed all
+the way out, or on demand: a round fit button (`BarButton` on a pill `FloatingPanel`, shown
+above the map only while it is zoomed or panned) or *Fit minimap* in its menu. Long-press /
+right-click opens its menu (*Fit minimap* when zoomed, *Hide minimap*). It fades out
 (`ChromeFade`) while the pen draws (back 1.2 s after it lifts, not between strokes), on an
 empty canvas and in focus mode. Paged documents have none (the page overview and navigator
 serve them).

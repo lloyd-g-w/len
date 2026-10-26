@@ -5,19 +5,24 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../ui/menus.dart';
 
-/// The minimap's own menu (long-press or right-click on it): hide it
-/// (⋯ → View → Minimap or Shift+M brings it back).
+/// The minimap's own menu (long-press or right-click on it): fit it to
+/// everything again once zoomed or panned ([onFit]), and hide it (⋯ → View
+/// → Minimap or Shift+M brings it back).
 class MinimapMenu extends StatelessWidget {
   const MinimapMenu({
     super.key,
     required this.controller,
     required this.child,
     this.onHide,
+    this.onFit,
     this.keepClear = EdgeInsets.zero,
   });
 
   final MenuController controller;
   final VoidCallback? onHide;
+
+  /// Fits the map to everything again (no row without it).
+  final VoidCallback? onFit;
   final Widget child;
 
   /// Room at the screen's edges the menu stays out of, beside the safe
@@ -46,6 +51,12 @@ class MinimapMenu extends StatelessWidget {
       controller: controller,
       reservedPadding: menuReservedPadding(context),
       menuChildren: [
+        if (onFit != null)
+          MenuItemButton(
+            leadingIcon: const Icon(Symbols.fit_screen_rounded),
+            onPressed: onFit,
+            child: const Text('Fit minimap'),
+          ),
         MenuItemButton(
           leadingIcon: const Icon(Symbols.visibility_off_rounded),
           onPressed: onHide,
