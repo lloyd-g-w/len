@@ -170,7 +170,7 @@ final Set<String> _fontHelpers = () {
       final m = RegExp(r'^[A-Za-z][\w<>?, ()]*?\b([a-z]\w*)\(').firstMatch(lines[i]);
       if (m == null || const {'void', 'main', 'if', 'for'}.contains(m[1])) continue;
       final body = StringBuffer(lines[i]);
-      for (var j = i + 1; j < lines.length && !RegExp(r'^\S').hasMatch(lines[j]); j++) {
+      for (var j = i + 1; j < lines.length && !RegExp(r'^[^\s})\]]').hasMatch(lines[j]); j++) {
         body.writeln(lines[j]);
       }
       declarations[m[1]!] = '${declarations[m[1]!] ?? ''}$body';
