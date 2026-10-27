@@ -33,6 +33,7 @@ class _SizeRecorder extends PdfRenderer {
     int index,
     int pixelWidth, {
     bool Function()? stillWanted,
+    void Function()? released,
   }) async {
     pages.add(pixelWidth);
     return _image();
@@ -49,6 +50,7 @@ class _SizeRecorder extends PdfRenderer {
     required int width,
     required int height,
     bool Function()? stillWanted,
+    void Function()? released,
   }) async {
     tiles.add(fullWidth);
     return _image();

@@ -50,7 +50,13 @@ class CountingRenderer extends PdfRenderer {
   int get _now => clock.elapsedMicroseconds;
 
   @override
-  Future<ui.Image?> render(String sha, int index, int pixelWidth, {bool Function()? stillWanted}) {
+  Future<ui.Image?> render(
+    String sha,
+    int index,
+    int pixelWidth, {
+    bool Function()? stillWanted,
+    void Function()? released,
+  }) {
     final r = RenderRecord(index, pixelWidth)..asked = _now;
     if (skipLiveDuplicates && _isLive(r.key)) return Future.value();
     records.add(r);
@@ -63,6 +69,7 @@ class CountingRenderer extends PdfRenderer {
             r.started = _now;
             return stillWanted?.call() ?? true;
           },
+          released: released,
         )
         .then((image) {
           r
@@ -83,6 +90,7 @@ class CountingRenderer extends PdfRenderer {
     required int width,
     required int height,
     bool Function()? stillWanted,
+    void Function()? released,
   }) {
     final r = RenderRecord(
       index,
@@ -105,6 +113,7 @@ class CountingRenderer extends PdfRenderer {
             r.started = _now;
             return stillWanted?.call() ?? true;
           },
+          released: released,
         )
         .then((image) {
           r

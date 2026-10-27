@@ -89,6 +89,9 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
   final Set<Object> _inFlight = {};
   final Stopwatch _clock = Stopwatch()..start();
   bool _working = false;
+
+  /// Renders whose images are still being made or stored.
+  int _finishing = 0;
   final Set<String> _fetching = {};
   final Set<String> _missing = {};
   bool _disposed = false;
@@ -248,7 +251,7 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
 
   /// Whether renders (or downloads) are queued or running (for tests).
   @visibleForTesting
-  bool get isBusy => _working || _queue.isNotEmpty;
+  bool get isBusy => _working || _finishing > 0 || _queue.isNotEmpty;
 
   /// Bytes of the images cached (4 per pixel; for tests).
   @visibleForTesting
@@ -274,7 +277,8 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
   /// Page sizes (units) of tiles waiting to be rendered.
   final Map<PdfTile, ui.Size> _tilePages = {};
 
-  Future<void> _render(Object key) async {
+  /// Renders [key]; calls [released] once the renderer can start the next.
+  Future<void> _render(Object key, void Function() released) async {
     final background = switch (key) {
       final _PageImage p => p.background,
       final PdfTile t => t.background,
@@ -297,8 +301,13 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
         return;
       }
       final image = switch (key) {
-        final _PageImage p => await _renderer.render(sha, background.pageIndex, p.width),
-        final PdfTile t => await _renderTile(t),
+        final _PageImage p => await _renderer.render(
+          sha,
+          background.pageIndex,
+          p.width,
+          released: released,
+        ),
+        final PdfTile t => await _renderTile(t, released),
         _ => null,
       };
       if (image == null) return;

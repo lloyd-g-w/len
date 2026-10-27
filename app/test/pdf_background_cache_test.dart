@@ -28,9 +28,13 @@ class _Render {
 /// when the test completes them ([hold]), and remembers every image it
 /// made, so the test can tell which ones were disposed.
 class _FakeRenderer extends PdfRenderer {
-  _FakeRenderer(super.blobs, {this.hold = false});
+  _FakeRenderer(super.blobs, {this.hold = false, this.releaseEarly = false});
 
   final bool hold;
+
+  /// Whether a render says PDFium is done with it at once (only the image
+  /// is left to make, as with the real renderer).
+  final bool releaseEarly;
   final renders = <_Render>[];
 
   Iterable<ui.Image> get images => [for (final r in renders) ?r.image];
@@ -72,8 +76,21 @@ class _FakeRenderer extends PdfRenderer {
   }
 
   @override
-  Future<ui.Image?> render(String sha, int index, int pixelWidth, {bool Function()? stillWanted}) =>
-      _make(_Render(index, pixelWidth), pixelWidth, (pixelWidth * a4.height / a4.width).round());
+  Future<ui.Image?> render(
+    String sha,
+    int index,
+    int pixelWidth, {
+    bool Function()? stillWanted,
+    void Function()? released,
+  }) {
+    final image = _make(
+      _Render(index, pixelWidth),
+      pixelWidth,
+      (pixelWidth * a4.height / a4.width).round(),
+    );
+    if (releaseEarly) released?.call();
+    return image;
+  }
 
   @override
   Future<ui.Image?> renderArea(
@@ -86,6 +103,7 @@ class _FakeRenderer extends PdfRenderer {
     required int width,
     required int height,
     bool Function()? stillWanted,
+    void Function()? released,
   }) => _make(_Render(index, fullWidth, tile: true), width, height);
 }
 
@@ -286,5 +304,25 @@ void main() {
     await show(1800); // Zoomed in past it.
     await show(1650);
     expect([for (final r in renderer.renders) r.width], [1722, 2048]);
+  });
+
+  test('the next render starts while the previous one\'s image is made', () async {
+    final renderer = _FakeRenderer(services.blobs, hold: true, releaseEarly: true);
+    final cache = cacheOver(renderer);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    for (var i = 0; i < 3; i++) {
+      cache.paint(canvas, page(i), a4, Offset.zero & a4, 1, rank: i);
+    }
+    recorder.endRecording().dispose();
+    for (var i = 0; i < 10; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    // Pages 0–2 in view: all asked for, none of their images made yet.
+    expect(renderer.renders.where((r) => !r.done.isCompleted), hasLength(3));
+    expect(cache.isBusy, isTrue);
+    await renderer.release();
+    await settle(cache);
+    expect(cache.isBusy, isFalse);
   });
 }

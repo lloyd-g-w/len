@@ -79,18 +79,26 @@ class PdfRenderer {
 
   /// Renders page [index] of PDF blob [sha] at [pixelWidth] pixels wide on
   /// a white background. Requests whose [stillWanted] returns false by the
-  /// time their turn comes are skipped.
-  Future<ui.Image?> render(String sha, int index, int pixelWidth, {bool Function()? stillWanted}) =>
-      _serial(() async {
-        if (_disposed || !(stillWanted?.call() ?? true)) return null;
-        final page = await this.page(sha, index);
-        if (page == null) return null;
-        final width = pixelWidth.toDouble();
-        final height = (width * page.height / page.width).roundToDouble();
-        return _image(
-          await page.render(fullWidth: width, fullHeight: height, backgroundColor: _white),
-        );
-      });
+  /// time their turn comes are skipped. [released] is called once PDFium is
+  /// done with it (the next render can start while the pixels are copied
+  /// into the image).
+  Future<ui.Image?> render(
+    String sha,
+    int index,
+    int pixelWidth, {
+    bool Function()? stillWanted,
+    void Function()? released,
+  }) => _image(
+    _serial(() async {
+      if (_disposed || !(stillWanted?.call() ?? true)) return null;
+      final page = await this.page(sha, index);
+      if (page == null) return null;
+      final width = pixelWidth.toDouble();
+      final height = (width * page.height / page.width).roundToDouble();
+      return page.render(fullWidth: width, fullHeight: height, backgroundColor: _white);
+    }),
+    released,
+  );
 
   /// Renders the part ([x], [y], [width], [height]; pixels) of page [index]
   /// of PDF blob [sha] rendered [fullWidth] × [fullHeight] pixels: one tile
@@ -105,25 +113,36 @@ class PdfRenderer {
     required int width,
     required int height,
     bool Function()? stillWanted,
-  }) => _serial(() async {
-    if (_disposed || !(stillWanted?.call() ?? true)) return null;
-    final page = await this.page(sha, index);
-    if (page == null) return null;
-    final image = await page.render(
-      x: x,
-      y: y,
-      width: width,
-      height: height,
-      fullWidth: fullWidth.toDouble(),
-      fullHeight: fullHeight.toDouble(),
-      backgroundColor: _white,
-    );
-    return _image(image);
-  });
+    void Function()? released,
+  }) => _image(
+    _serial(() async {
+      if (_disposed || !(stillWanted?.call() ?? true)) return null;
+      final page = await this.page(sha, index);
+      if (page == null) return null;
+      return page.render(
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        fullWidth: fullWidth.toDouble(),
+        fullHeight: fullHeight.toDouble(),
+        backgroundColor: _white,
+      );
+    }),
+    released,
+  );
 
   static const _white = 0xFFFFFFFF;
 
-  static Future<ui.Image?> _image(PdfImage? image) async {
+  /// The image of [rendered], copied out of PDFium's pixels once the next
+  /// PDFium request may start (after calling [released]).
+  static Future<ui.Image?> _image(Future<PdfImage?> rendered, void Function()? released) async {
+    final PdfImage? image;
+    try {
+      image = await rendered;
+    } finally {
+      released?.call();
+    }
     if (image == null) return null;
     try {
       return await image.createImage();

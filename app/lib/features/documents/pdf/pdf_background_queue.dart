@@ -91,18 +91,29 @@ extension _PdfBackgroundQueue on PdfBackgroundCache {
         final key = _next();
         if (key == null) break;
         _inFlight.add(key);
-        try {
-          await _render(key);
-        } finally {
-          _inFlight.remove(key);
+        // The next render starts once PDFium is done with this one, while
+        // its pixels are copied into an image.
+        final released = Completer<void>();
+        void release() {
+          if (!released.isCompleted) released.complete();
         }
+
+        _finishing++;
+        unawaited(
+          _render(key, release).whenComplete(() {
+            _inFlight.remove(key);
+            _finishing--;
+            release();
+          }),
+        );
+        await released.future;
       }
     } finally {
       _working = false;
     }
   }
 
-  Future<ui.Image?> _renderTile(PdfTile tile) async {
+  Future<ui.Image?> _renderTile(PdfTile tile, void Function() released) async {
     final page = _tilePages.remove(tile);
     if (page == null) return null;
     final area = PdfTiling.pixels(page, tile.width, tile.col, tile.row);
@@ -115,6 +126,7 @@ extension _PdfBackgroundQueue on PdfBackgroundCache {
       y: area.y,
       width: area.width,
       height: area.height,
+      released: released,
     );
   }
 
