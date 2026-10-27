@@ -357,3 +357,58 @@ repaint on every finished render (cheap: paint p50 ≤ 0.2 ms).
 5. A device-aware budget (e.g. from Android's memory class) once F1 makes the
    160 MB budget real; downscale off-screen cached pages instead of keeping
    them at 2048.
+
+## Before → after (branch `perf/pdf-view`, 2026-10)
+
+The fixes above, one commit each, measured with `pdf_view_perf_test.dart`
+(tablet 1600 px wide unless marked; times on a shared machine vary ±50 %,
+render and duplicate counts are exact). "Before" is the audit's run of the
+app as it was.
+
+| Fix | Measure | Before | After |
+| --- | --- | --- | --- |
+| F1 one render per key in flight; dispose replaced/evicted images | textbook 100 pages at 1 p/s: renders (duplicates) | 195 (93) | 102 (0) |
+| | live images peak / orphaned at the end | 2,262 MB / 2,104 MB | 158 MB / 0 |
+| | scanned 50 pages at 3 p/s: renders (dup), live peak | 100 (50), 1,289 MB | 50 (0), 158 MB |
+| | zoom renders, scan 1×→2× (dup) | 87 (37) | 63 (0) |
+| F2 prefetch ±1 page, most central page first | scanned at 3 p/s: blank page-frames, entered→sharp p50 | 17–19 %, 102–119 ms | 2 %, 0 ms |
+| | textbook at 10 p/s: blank page-frames | 10 % | 1 % |
+| | sidebar beside a scan page: page sharp | 254–373 ms | 105–118 ms |
+| F3 tiles 512 → 1024 px | sharp again after pinch, scan 2× / 4× | 1,707 / 1,815 ms | 742–1,138 / 1,530–1,716 ms |
+| | vector 2× / 4× | 1,799 / 1,825 ms | 1,504–2,032 / 1,601–2,312 ms |
+| | tile renders, scan 2× / 4× | 55 / 61 | 24 / 44 |
+| F4 widths in 2^¼ steps, reuse up to √2 wider | tablet page width rendered | 2,048 (23.7 MB) | 1,722 (16.8 MB) |
+| | desktop zoom 1.0→1.5 widths | 1024, 1448, 2048 | 1024, 1218, 1448, 1722 |
+| F5 progressive open (pdfrx `useProgressiveLoading`) | open → page 1 sharp, textbook tablet / desktop | 112 / 84 ms | 41–44 / 16–17 ms |
+| | vector tablet / desktop | 339–374 / 272 ms | 254 / 187 ms |
+| | PDFium open: textbook / vector | 65 / 120 ms | 1 / 30 ms |
+| F6 smaller items | next render starts during the pixel copy | serial | overlapped (unit test) |
+| | search indexer | whole blob read into the heap (52 MB scan) | opens the file (native); bytes only on the web |
+| | image budget | 160 MB fixed | memory/32 within 160–512 MB (256 MB on an 8 GB tablet) |
+| Progressive zoom (viewport render) | **view sharp** after pinch, scan 2× / 4× | 1,845 / 1,834 ms | 191–226 / 159–160 ms |
+| | vector 2× / 4× | 2,854 / 2,019 ms | 578–582 / 586–600 ms |
+| | text page 2× / 4× | 13 / 12 ms | 13–15 / 12–13 ms |
+
+Notes:
+
+- **F2** "blank" counts frames of a page in view with no image at all; the
+  what-if rows (`no prefetch`) in the harness keep the old behaviour for
+  comparison. Prefetches run after everything in view and are dropped as
+  soon as a frame stops asking for them.
+- **F3** a screen of tiles is at most 3 × 4 tiles of 4 MB (48 MB; it was
+  5 × 6 of 1 MB). The deep-zoom tile test now expects 1024-px tiles.
+- **F4** costs one more whole-page render on a slow pinch through every step
+  (12 vs 9 in the 1.0→1.5 desktop run) but each is smaller, and a page up to
+  √2 wider is reused when zooming out. Goldens `editor_pdf` and
+  `pdf_select_90` changed by anti-aliasing at page edges only (861 vs 1024
+  px renders).
+- **F5** every caller that reads a page's size goes through
+  `PdfRenderer.page` (measures it and its neighbours on demand) or
+  `pageSizes`/`normalized` (measure all first): render, renderArea, links,
+  glyphs, import, relink, replace, templates, export. Page rows already store
+  sizes from import, so the editor's layout never asked PDFium.
+- **Viewport renders** are asked only once the view holds still for a frame
+  (during a pinch each frame's view differs and rendering them would delay
+  the last). Vector maps stay slower (≈300 ms per viewport render: PDFium's
+  cost scales with the area for vector art); tiles still fill in under the
+  viewport for panning.
