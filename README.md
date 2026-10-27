@@ -74,14 +74,14 @@ On NixOS / with Nix:
 nix develop            # Flutter + Linux desktop toolchain
 cd app
 flutter run -d linux   # or: -d chrome, -d <android-device-id>
-flutter analyze && flutter test -x slow   # the default test tier
-flutter test -t slow                      # the slow tier: test/perf, test/screenshots
+flutter analyze && tool/test.sh   # the default test tier (= flutter test -x slow)
+tool/test.sh slow                 # the slow tier: test/perf, test/screenshots
 ```
 
-`flutter test` alone runs both tiers. CI runs both on every push
+`flutter test` (or `tool/test.sh all`) runs both tiers. CI runs both on every push
 (`docs/CONVENTIONS.md`, "Rules"); on a shared machine wrap full runs in
 `tool/heavy.sh`, e.g. from `app/`:
-`tool/heavy.sh flutter test -x slow` (and `-t slow`).
+`tool/heavy.sh tool/test.sh` (and `tool/test.sh slow`).
 
 **End-to-end tests** drive the real Linux app (real SQLite, files, plugins,
 rendering and a local sync server, two devices) under a virtual display:

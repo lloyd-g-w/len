@@ -582,6 +582,45 @@ What remains:
 - **Semantics** cost 1.3–1.5 ms a frame after pen-up and ~18 % of a
   history scroll frame while a screen reader (or the harness) is on.
 
+## Test suite speed (Oct 2026)
+
+Wall time of a full tier through `tool/heavy.sh` on the 16-thread
+(8-core) dev machine, otherwise idle, Flutter 3.47.4 (branch
+perf/test-suite):
+
+| Tier | Before | After |
+|---|---|---|
+| Default (`flutter test -x slow` → `tool/test.sh`), 4,399 tests | 260 s (`-j 6`; 197 s at `-j 12`), CPU 523 % | 90 s, twice in a row, CPU 1,250–1,280 % |
+| Slow (`flutter test -t slow` → `tool/test.sh slow`), 541 tests | 208 s (`-j 6`), CPU 400 % | 102 s (still at most 6 at a time) |
+
+- **Where it went.** `flutter test` compiles each of the ~440 files into
+  a whole-app kernel, one at a time (its compile queue is serial), so
+  however many files ran in parallel they waited for it: a file's
+  "loading" took 12–15 s late in the run, 676 s summed against 1,507 s of
+  tests, ~200 MB/s of disk writes. More `-j` helped little (260 → 197 s).
+- **The change.** `tool/test.sh` bundles the files into ~32 shards
+  (`tool/test_shards.dart`): one compile each, each file in a group named
+  after it, keeping its tags and golden directory, balanced by recorded
+  times (`tool/test_times.json`); the default tier runs a shard per core.
+  Now 130 s of loading summed, CPU-bound for the whole run, ~12 GB free.
+- **What sharing an isolate exposed** (all fixed in the tests, coverage
+  unchanged): surface sizes not reset (3 golden files); files loading
+  Roboto changing later goldens (kept in shards of their own, found
+  transitively through helpers) and the planner labels' paragraph cache
+  keeping the font it saw (`PatternText.debugClearCache`, a testing hook
+  the shards call per file); a same-millisecond stroke order decided by
+  random ids (sync_live_socket); a zero-time stepped write that only ran
+  when a pump happened to be late (split_workspace).
+- **Load-sensitive tests made robust:** `perf.flatness` in the default
+  tier's Ink Lab suite (2.45× against 2× under full load) is held to 4×
+  there, strict in the slow tier; pull_worker_life's kill-mid-apply now
+  has 1.3 s of apply to land in; len_archive's longest-turn check takes the
+  best of three imports. Nothing moved between tiers, nothing sampled.
+- **Slowest files now** (test time inside a shard, under full load):
+  sync_worker 61 s, sync_faults 46 s, stabiliser_speed 41 s,
+  pen_flicker_handover 36 s, editor_pen_frames 31 s. The longest shard
+  (sync_worker alone) is now the floor: ~60 s plus its compile.
+
 ## Current numbers (debug, harness)
 
 - **Library, 1,000 notebooks:** first frame 400–450 ms (a warm 20-notebook

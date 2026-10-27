@@ -11,9 +11,10 @@
 // Each file keeps what package:test would give it alone: its library `@Tags`
 // (shards hold files of one tag set and carry it) and goldens resolved next
 // to it (`goldenFileComparator`), and starts with no planner labels cached
-// (`PatternText`: they keep the font they were laid out in). Files that load Roboto into the engine
-// (for good: [loadsFonts]) get shards of their own, so the others' goldens
-// keep the test font.
+// (`PatternText`: they keep the font they were laid out in). Files that
+// load Roboto into the engine (for good: [loadsFonts]) get shards of their
+// own, so the others' goldens keep the test font; a file with a
+// `// test_shards: alone` comment runs on its own ([runsAlone]).
 // Files are spread over the shards by their recorded time
 // (tool/test_times.json, refreshed by `record`; `tool/test.sh --record`),
 // longest first, and the shards are listed longest first, so the long files

@@ -111,7 +111,7 @@ real recording (`excerpt`: a few lines, none of the multi-second ones; the
 whole recordings take minutes with flat ends too). Every entry with both
 end styles: the table below with `INKLAB_ENDS=both`.
 
-CI (`.github/workflows/ci.yml`) runs `flutter test -x slow` (the suite without
+CI (`.github/workflows/ci.yml`) runs `tool/test.sh` (`flutter test -x slow`: the suite without
 the real recordings, flat entries included). `unit_test.sh`, `check.sh` and
 the full table below (real recordings, `INKLAB_ENDS=both`; it fails when
 FAILS isn't 0) run locally. Metrics listed in `known_failures.dart` are

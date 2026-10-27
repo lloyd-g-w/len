@@ -35,9 +35,10 @@ jobs:
           cache: true # caches the SDK and ~/.pub-cache
       - run: flutter pub get
       - run: flutter analyze
-      # The fast tier; the slow one (perf, screenshots) runs locally:
-      # tool/heavy.sh flutter test -t slow (docs/CONVENTIONS.md).
-      - run: flutter test --exclude-tags slow
+      # The fast tier (= flutter test --exclude-tags slow, in bundled shards);
+      # the slow one (perf, screenshots) runs locally: tool/test.sh slow
+      # (docs/CONVENTIONS.md, Tooling).
+      - run: tool/test.sh
 
   server-test:
     name: Server · analyze + test
