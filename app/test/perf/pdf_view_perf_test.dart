@@ -75,12 +75,17 @@ void main() {
   const a4 = ui.Size(595.28 * worldPerPoint, 841.89 * worldPerPoint);
   const a3l = ui.Size(1190.55 * worldPerPoint, 841.89 * worldPerPoint);
 
+  // The image budget: LEN_PDF_BUDGET_MB, else the floor (160 MB, as before
+  // the budget followed the device; an 8 GB tablet gets 256 MB).
+  final budget = (int.tryParse(Platform.environment['LEN_PDF_BUDGET_MB'] ?? '') ?? 160) << 20;
+
   ({PdfBackgroundCache cache, CountingRenderer renderer}) newCache({bool dedupe = false}) {
     final renderer = CountingRenderer(services.blobs, skipLiveDuplicates: dedupe);
     final cache = PdfBackgroundCache(
       blobs: services.blobs,
       fetch: (_) async => true,
       renderer: renderer,
+      budgetBytes: budget,
     );
     return (cache: cache, renderer: renderer);
   }
@@ -491,8 +496,9 @@ void main() {
           }
           // …then the page.
           paintFrame(cache, stack, bgs, world, ppu);
-          if (shownOf(renderer, 20, a4.width * ppu) == Shown.sharp)
+          if (shownOf(renderer, 20, a4.width * ppu) == Shown.sharp) {
             sharp = clock.elapsedMilliseconds;
+          }
           await vsync();
         }
         final order = renderer.records.where((r) => !r.skipped).map((r) => 'p${r.page}@${r.width}');

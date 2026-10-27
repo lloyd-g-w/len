@@ -11,6 +11,7 @@ import 'package:len/domain/notebook_page.dart';
 import 'package:len/features/documents/pdf/pdf_background_cache.dart';
 import 'package:len/features/documents/pdf/pdf_renderer.dart';
 import 'package:len/features/documents/pdf/pdf_tiles.dart';
+import 'package:len/platform/physical_memory.dart';
 
 const a4 = Size(794, 1123);
 
@@ -324,5 +325,15 @@ void main() {
     await renderer.release();
     await settle(cache);
     expect(cache.isBusy, isFalse);
+  });
+
+  test('the image budget follows the device memory, within limits', () {
+    const gb = 1 << 30;
+    expect(PdfBackgroundCache.budgetFor(null), 160 << 20);
+    expect(PdfBackgroundCache.budgetFor(3 * gb), 160 << 20);
+    expect(PdfBackgroundCache.budgetFor(8 * gb), 256 << 20);
+    expect(PdfBackgroundCache.budgetFor(12 * gb), 384 << 20);
+    expect(PdfBackgroundCache.budgetFor(64 * gb), 512 << 20);
+    expect(physicalMemoryBytes, greaterThan(0)); // Linux: /proc/meminfo.
   });
 }

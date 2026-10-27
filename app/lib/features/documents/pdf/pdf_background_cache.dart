@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../data/blob_store.dart';
 import '../../../domain/notebook_page.dart';
+import '../../../platform/physical_memory.dart';
 import '../../editor/document/missing_pdf_painter.dart';
 import '../../editor/document/page_backgrounds.dart';
 import 'pdf_renderer.dart';
@@ -45,8 +46,9 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
     required this.fetch,
     this.onFetched,
     PdfRenderer? renderer,
-    this.budgetBytes = 160 << 20,
-  }) : _renderer = renderer ?? PdfRenderer(blobs);
+    int? budgetBytes,
+  }) : budgetBytes = budgetBytes ?? defaultBudget,
+       _renderer = renderer ?? PdfRenderer(blobs);
 
   final BlobStore blobs;
 
@@ -59,6 +61,19 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
 
   /// Memory budget for cached images (4 bytes per pixel).
   final int budgetBytes;
+
+  /// The default [budgetBytes]: 1/32 of the device's memory (256 MB on an
+  /// 8 GB tablet: ten pages 1722 px wide, or 60 tiles), at least 160 MB
+  /// (a screen of tiles and the pages around it) and at most 512 MB.
+  static int get defaultBudget => budgetFor(physicalMemoryBytes);
+
+  /// [defaultBudget] for a device with [physicalBytes] of memory (null:
+  /// unknown).
+  static int budgetFor(int? physicalBytes) =>
+      ((physicalBytes ?? 0) ~/ 32).clamp(minBudget, maxBudget);
+
+  static const int minBudget = 160 << 20;
+  static const int maxBudget = 512 << 20;
 
   /// How long a request waits for a paint to repeat it before it is dropped.
   static const staleAfter = Duration(seconds: 2);
