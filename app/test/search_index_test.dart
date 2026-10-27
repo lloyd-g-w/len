@@ -32,6 +32,15 @@ class FakePdfSource implements PdfTextSource {
     if (pages == null) throw const FormatException('not a PDF');
     return _FakeDoc(this, pages);
   }
+
+  /// Files are named after the blob whose canned texts they have.
+  @override
+  Future<PdfTextDocument> openFile(String path) {
+    filesOpened++;
+    return open(Uint8List.fromList(path.codeUnits));
+  }
+
+  int filesOpened = 0;
 }
 
 class _FakeDoc implements PdfTextDocument {
@@ -382,6 +391,21 @@ void main() {
       // Deleting a page drops it from results.
       s.pages.delete(s.pages.pagesOf(lecture.id)[2].id);
       expect(find('entropy').single.notebookId, copy.id);
+    });
+
+    test('PDFs with a file on this device are opened from it, not read into memory', () async {
+      final fromFiles = PdfTextIndexer(
+        s.database,
+        readBlob: (id) async => fail('read $id into memory'),
+        localPath: (id) async => id == sha(1) ? id : null,
+        source: source,
+      );
+      addTearDown(fromFiles.dispose);
+      importPdf('Lecture', sha(1), 3);
+      await fromFiles.schedule();
+      expect(fromFiles.pendingBlobs(), isEmpty);
+      expect(source.filesOpened, 1);
+      expect(find('entropy'), hasLength(1));
     });
 
     test('unreadable PDFs are skipped this session and retried later', () async {

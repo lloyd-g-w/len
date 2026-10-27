@@ -151,7 +151,11 @@ class AppServices {
           ? null
           : () => startPullWorker(database, deviceId: deviceId, clock: clock),
     )..afterApply = ConnectorRepair(strokes).repair;
-    final search = SearchService(database, readBlob: blobs.read);
+    final search = SearchService(
+      database,
+      readBlob: blobs.read,
+      localPath: (sha) async => await blobs.has(sha) ? blobs.localPath(sha) : null,
+    );
     final pointerActivity = PointerActivity();
     final recognition = RecognitionService(
       recognizer: recognizer ?? createHandwritingRecognizer(),
