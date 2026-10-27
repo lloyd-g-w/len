@@ -4,8 +4,9 @@ part of 'pdf_background_cache.dart';
 /// used last), queueing requests, rendering tiles and evicting over budget.
 extension _PdfBackgroundQueue on PdfBackgroundCache {
   /// Tiers of requests, served in this order: pages painted in view (and
-  /// thumbnails), tiles in view, pages just outside the view.
-  static const painted = 0, tile = 1, ahead = 2;
+  /// thumbnails), viewport renders, tiles in view, pages just outside the
+  /// view.
+  static const painted = 0, viewport = 1, tile = 2, ahead = 3;
 
   ui.Image? _touch(Object key) {
     final hit = _images.remove(key);
@@ -50,7 +51,7 @@ extension _PdfBackgroundQueue on PdfBackgroundCache {
     if (_disposed || _images.containsKey(key) || _inFlight.contains(key)) return;
     _queue.remove(key);
     _queue[key] = (at: _clock.elapsedMilliseconds, frame: _frame, tier: tier, rank: rank);
-    if (key is PdfTile && page != null) _tilePages[key] = page;
+    if ((key is PdfTile || key is PdfViewport) && page != null) _tilePages[key] = page;
     if (!_working) unawaited(_work());
   }
 
@@ -61,7 +62,7 @@ extension _PdfBackgroundQueue on PdfBackgroundCache {
     final now = _clock.elapsedMilliseconds;
     _queue.removeWhere((key, p) {
       final stale = now - p.at > PdfBackgroundCache.staleAfter.inMilliseconds;
-      if (stale && key is PdfTile) _tilePages.remove(key);
+      if (stale) _tilePages.remove(key);
       return stale;
     });
     Object? next;
@@ -130,11 +131,33 @@ extension _PdfBackgroundQueue on PdfBackgroundCache {
     );
   }
 
+  Future<ui.Image?> _renderViewport(PdfViewport v, void Function() released) async {
+    final page = _tilePages.remove(v);
+    if (page == null) return null;
+    return _renderer.renderArea(
+      v.background.blob,
+      v.background.pageIndex,
+      fullWidth: v.width,
+      fullHeight: PdfTiling.heightAt(v.width, page),
+      x: v.x,
+      y: v.y,
+      width: v.w,
+      height: v.h,
+      released: released,
+    );
+  }
+
   /// Caches [image] as [key]'s, disposing any image it replaces, and
   /// evicts the least recently used images over the budget.
   void _store(Object key, ui.Image image) {
     final old = _images.remove(key);
     if (old != null && !identical(old, image)) old.dispose();
+    if (key is PdfViewport) {
+      // One viewport render per page: the newest.
+      for (final k in _images.keys.toList()) {
+        if (k is PdfViewport && k.background == key.background) _images.remove(k)!.dispose();
+      }
+    }
     _images[key] = image;
     _evict();
   }

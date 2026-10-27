@@ -17,10 +17,13 @@ const a4 = Size(794, 1123);
 
 /// One render the cache asked [_FakeRenderer] for.
 class _Render {
-  _Render(this.page, this.width, {this.tile = false});
+  _Render(this.page, this.width, {this.tile = false, this.area});
   final int page;
   final int width;
   final bool tile;
+
+  /// (width, height) of an area render.
+  final (int, int)? area;
   final done = Completer<ui.Image?>();
   ui.Image? image;
 }
@@ -105,7 +108,7 @@ class _FakeRenderer extends PdfRenderer {
     required int height,
     bool Function()? stillWanted,
     void Function()? released,
-  }) => _make(_Render(index, fullWidth, tile: true), width, height);
+  }) => _make(_Render(index, fullWidth, tile: true, area: (width, height)), width, height);
 }
 
 void main() {
@@ -335,5 +338,41 @@ void main() {
     expect(PdfBackgroundCache.budgetFor(12 * gb), 384 << 20);
     expect(PdfBackgroundCache.budgetFor(64 * gb), 512 << 20);
     expect(physicalMemoryBytes, greaterThan(0)); // Linux: /proc/meminfo.
+  });
+
+  test('a deep zoom renders the view in one call first, then the tiles under it', () async {
+    final renderer = _FakeRenderer(services.blobs);
+    final cache = cacheOver(renderer);
+    // 8 px a unit (the page ≈ 4762 px wide, level 8192 = 13.76 px a unit
+    // at the tiles' level); a 100×100-unit view near the middle.
+    const view = Rect.fromLTWH(250, 400, 100, 100);
+    paint(cache, 0, view, 8);
+    paint(cache, 0, view, 8); // Held still for a frame.
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    // The whole page first (rank 0, painted tier), then the viewport.
+    final areas = [for (final r in renderer.renders.where((r) => r.tile)) r.area!];
+    expect(areas, isNotEmpty);
+    final (w, h) = areas.first;
+    expect(w, isNot(PdfTiling.tileSize));
+    expect(w % PdfTiling.viewportSnap, 0);
+    // The view plus an eighth of it each side, snapped to 64 px.
+    final level = PdfTiling.levelFor(a4.width * 8, above: PdfTiling.wholePageWidth(a4));
+    final expected = PdfTiling.viewportPixels(a4, view, level)!;
+    expect((w, h), (expected.w, expected.h));
+    final scale = level / a4.width;
+    expect(w, inInclusiveRange((125 * scale).floor(), (125 * scale).ceil() + 128));
+    await settle(cache);
+    expect(cache.debugIsSharp(page(0), a4, view, 8), isTrue);
+    // Panning a little stays inside it: no second viewport render.
+    final before = renderer.renders.length;
+    paint(cache, 0, view.shift(const Offset(5, 5)), 8);
+    paint(cache, 0, view.shift(const Offset(5, 5)), 8);
+    await settle(cache);
+    final viewports = renderer.renders
+        .where((r) => r.tile && r.area!.$1 != PdfTiling.tileSize && r.area!.$1 % 64 == 0)
+        .length;
+    expect(viewports, 1);
+    expect(renderer.renders.length - before, lessThanOrEqualTo(4)); // Tiles only.
   });
 }

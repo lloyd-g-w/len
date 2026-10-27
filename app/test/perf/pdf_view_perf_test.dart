@@ -338,6 +338,7 @@ void main() {
             final paintUs = <int>[];
             var zoom = 1.0;
             int? settledAt;
+            int? viewSharpAt;
             final probe = TurnProbe();
             while (clock.elapsed.inSeconds < 20) {
               final t = clock.elapsedMilliseconds / 600;
@@ -345,6 +346,17 @@ void main() {
               final p = Stopwatch()..start();
               paintFrame(cache, stack, bgs, worldAt(zoom), fit * zoom);
               paintUs.add(p.elapsedMicroseconds);
+              final frame = stack.frameOf(page);
+              if (t >= 1 &&
+                  viewSharpAt == null &&
+                  cache.debugIsSharp(
+                    bgs[page],
+                    size,
+                    worldAt(target).shift(-frame.topLeft),
+                    fit * target,
+                  )) {
+                viewSharpAt = clock.elapsedMilliseconds;
+              }
               if (t >= 1 && !cache.isBusy) {
                 settledAt = clock.elapsedMilliseconds;
                 break;
@@ -359,6 +371,7 @@ void main() {
                 ? PdfBackgroundCache.bucketFor(pixelWidth, max: wholeLimit)
                 : PdfTiling.levelFor(pixelWidth, above: wholeLimit);
             final tiles = recs.where((r) => r.tile != null).toList();
+            final viewports = recs.where((r) => r.viewport != null).toList();
             final finalTiles = tiles.where((r) => r.width == finalLevel).length;
             final frame = stack.frameOf(page);
             final range = PdfTiling.range(size, worldAt(target).shift(-frame.topLeft), finalLevel);
@@ -374,9 +387,12 @@ void main() {
                   }).length;
             final service = [for (final r in recs) r.serviceUs ~/ 1000];
             report(
-              'PDF zoom $name 1×→$target×: sharp again ${settledAt == null ? '>20000' : settledAt - 600} ms '
+              'PDF zoom $name 1×→$target×: view sharp ${viewSharpAt == null ? '>20000' : viewSharpAt - 600} ms, '
+              'all tiles in ${settledAt == null ? '>20000' : settledAt - 600} ms '
               'after the pinch ended; renders ${recs.length} '
-              '(${recs.length - tiles.length} whole pages at ${{for (final r in recs.where((r) => r.tile == null)) r.width}}, '
+              '(${recs.length - tiles.length - viewports.length} whole pages at '
+              '${{for (final r in recs.where((r) => r.tile == null && r.viewport == null)) r.width}}, '
+              '${viewports.length} viewports ${[for (final r in viewports) '${r.width}:${r.viewport!.$3}×${r.viewport!.$4}@${r.serviceUs ~/ 1000}ms']}, '
               '${tiles.length} tiles at ${{for (final r in tiles) r.width}}; $finalTiles at the final level $finalLevel, '
               '${tiles.length - finalTiles} for levels passed through, $inFinalView in the final view, '
               'duplicates ${renderer.duplicates}); render service ${stats(service)}; '

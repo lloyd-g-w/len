@@ -27,15 +27,18 @@ typedef _Pending = ({int at, int frame, int tier, int rank});
 /// current zoom, and caches the results (least recently used first out).
 ///
 /// Whole pages are rendered up to [PdfTiling.wholePageWidth] pixels wide, at
-/// widths quantised to steps of √2, so zooming re-renders a page only a few
-/// times. Deeper zoom renders just the visible tiles of the page
-/// ([PdfTiling]); until they arrive, the best whole-page image and any
-/// cached tiles of neighbouring levels are shown, so zooming stays smooth.
+/// widths quantised to steps of 2^¼ ([bucketFor]; an image up to √2 wider
+/// is reused), so zooming re-renders a page only a few times. Deeper zoom
+/// renders the view in one call ([PdfViewport], sharp soon after a pinch
+/// settles) and the visible tiles of the page ([PdfTiling], for panning);
+/// until they arrive, the best whole-page image and any cached tiles of
+/// neighbouring levels are shown, so zooming stays smooth.
 ///
 /// Renders run one at a time on PDFium's worker (never on the UI thread):
 /// the pages in view first, the most central one first (the `rank` the
-/// painter gives), then thumbnails, then the tiles in view (the middle of
-/// the view before its edges), then the pages just outside the view
+/// painter gives), then thumbnails, then viewport renders, then the tiles
+/// in view (the middle of the view before its edges), then the pages just
+/// outside the view
 /// ([prefetch]; the side the view moves to first). A request for an image
 /// being rendered joins that render. Requests that no paint repeated for
 /// [staleAfter] are dropped, prefetches as soon as a frame no longer asks
@@ -214,12 +217,112 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
     ) {
       if (width != level) _drawTiles(canvas, background, page, visible, width, request: false);
     }
-    _drawTiles(canvas, background, page, visible, level, request: true);
+    final viewport = _viewportOf(background);
+    final viewportImage = viewport == null ? null : _touch(viewport);
+    // Under the tiles: they cover it as they come (PDFium's area renders
+    // can differ from the tiles' by a fraction of a pixel at the edges).
+    if (viewportImage != null) {
+      _draw(canvas, viewportImage, PdfTiling.viewportRect(page, viewport!));
+    }
+    final complete = _drawTiles(canvas, background, page, visible, level, request: true);
+    if (!complete) _requestViewport(background, page, visible, level, viewport, rank);
+  }
+
+  /// The viewport each page's last paint wanted.
+  final Map<PageBackground, PdfViewport> _viewportAsked = {};
+
+  /// The viewport render of [background] cached (one per page at most).
+  PdfViewport? _viewportOf(PageBackground background) {
+    for (final key in _images.keys) {
+      if (key is PdfViewport && key.background == background) return key;
+    }
+    return null;
+  }
+
+  /// Asks for one render of [visible] (and a margin) at level [width],
+  /// unless [cached] already covers it: sharp in one PDFium call while the
+  /// tiles under it fill in. Replaces the page's earlier viewport request,
+  /// so during a pinch only the latest view waits.
+  void _requestViewport(
+    PageBackground background,
+    ui.Size page,
+    ui.Rect visible,
+    int width,
+    PdfViewport? cached,
+    int rank,
+  ) {
+    if (cached != null && cached.width == width) {
+      final need = PdfTiling.viewportPixels(page, visible, width, margin: false);
+      if (need == null ||
+          need.x >= cached.x &&
+              need.y >= cached.y &&
+              need.x + need.w <= cached.x + cached.w &&
+              need.y + need.h <= cached.y + cached.h) {
+        return;
+      }
+    }
+    final p = PdfTiling.viewportPixels(page, visible, width);
+    if (p == null || p.w * p.h * 4 > PdfTiling.viewportMaxBytes) return;
+    final PdfViewport key = (background: background, width: width, x: p.x, y: p.y, w: p.w, h: p.h);
+    // Only once the view holds still for a frame: during a pinch each
+    // frame's view is different, and rendering them would delay the last.
+    final steady = _viewportAsked[background] == key;
+    _viewportAsked[background] = key;
+    if (!steady || _inFlight.contains(key)) return;
+    _queue.removeWhere((k, _) {
+      final drop = k is PdfViewport && k.background == background && k != key;
+      if (drop) _tilePages.remove(k);
+      return drop;
+    });
+    _request(key, page: page, tier: _PdfBackgroundQueue.viewport, rank: rank);
+  }
+
+  /// Whether the [visible] part of [background] (a page of [page] units
+  /// shown [pixelsPerUnit]) is drawn at full sharpness: by the whole-page
+  /// image or, zoomed in, by a viewport render or all the tiles (for
+  /// tests and benchmarks).
+  @visibleForTesting
+  bool debugIsSharp(
+    PageBackground background,
+    ui.Size page,
+    ui.Rect visible,
+    double pixelsPerUnit,
+  ) {
+    final pixelWidth = page.width * pixelsPerUnit;
+    final whole = PdfTiling.wholePageWidth(page);
+    if (pixelWidth <= whole) {
+      final width = bucketFor(pixelWidth, max: whole);
+      return _images.keys.any(
+        (k) => k is _PageImage && k.background == background && k.width >= width,
+      );
+    }
+    final level = PdfTiling.levelFor(pixelWidth, above: whole);
+    final v = _viewportOf(background);
+    final need = PdfTiling.viewportPixels(page, visible, level, margin: false);
+    if (need == null) return true;
+    if (v != null &&
+        v.width == level &&
+        need.x >= v.x &&
+        need.y >= v.y &&
+        need.x + need.w <= v.x + v.w &&
+        need.y + need.h <= v.y + v.h) {
+      return true;
+    }
+    final range = PdfTiling.range(page, visible, level)!;
+    for (var row = range.row0; row <= range.row1; row++) {
+      for (var col = range.col0; col <= range.col1; col++) {
+        if (!_images.containsKey((background: background, width: level, col: col, row: row))) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   /// Draws the cached tiles of level [width] in [visible]; with [request],
-  /// asks for the missing ones (the middle of the view first).
-  void _drawTiles(
+  /// asks for the missing ones (the middle of the view first). Whether
+  /// none was missing.
+  bool _drawTiles(
     ui.Canvas canvas,
     PageBackground background,
     ui.Size page,
@@ -228,7 +331,7 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
     required bool request,
   }) {
     final range = PdfTiling.range(page, visible, width);
-    if (range == null) return;
+    if (range == null) return true;
     final missing = <PdfTile>[];
     for (var row = range.row0; row <= range.row1; row++) {
       for (var col = range.col0; col <= range.col1; col++) {
@@ -241,7 +344,7 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
         }
       }
     }
-    if (missing.isEmpty) return;
+    if (missing.isEmpty) return true;
     final centre = visible.center;
     double distance(PdfTile t) =>
         (PdfTiling.rectOf(page, width, t.col, t.row).center - centre).distanceSquared;
@@ -250,6 +353,7 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
       // …so the nearest is the newest request.
       _request(tile, page: page, tier: _PdfBackgroundQueue.tile);
     }
+    return false;
   }
 
   /// Draws [image] into [rect]; tiles without [antiAlias], so neighbours
@@ -289,14 +393,15 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
     notifyListeners();
   }
 
-  /// Page sizes (units) of tiles waiting to be rendered.
-  final Map<PdfTile, ui.Size> _tilePages = {};
+  /// Page sizes (units) of tiles and viewports waiting to be rendered.
+  final Map<Object, ui.Size> _tilePages = {};
 
   /// Renders [key]; calls [released] once the renderer can start the next.
   Future<void> _render(Object key, void Function() released) async {
     final background = switch (key) {
       final _PageImage p => p.background,
       final PdfTile t => t.background,
+      final PdfViewport v => v.background,
       _ => throw ArgumentError(key),
     };
     final sha = background.blob;
@@ -323,6 +428,7 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
           released: released,
         ),
         final PdfTile t => await _renderTile(t, released),
+        final PdfViewport v => await _renderViewport(v, released),
         _ => null,
       };
       if (image == null) return;
@@ -347,6 +453,7 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
     }
     _images.clear();
     _queue.clear();
+    _viewportAsked.clear();
     _renderer.dispose();
     super.dispose();
   }

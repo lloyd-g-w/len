@@ -12,7 +12,7 @@ import 'package:pdfrx/pdfrx.dart';
 
 /// One render [PdfBackgroundCache] asked [CountingRenderer] for.
 class RenderRecord {
-  RenderRecord(this.page, this.width, {this.tile});
+  RenderRecord(this.page, this.width, {this.tile, this.viewport});
 
   final int page;
 
@@ -22,6 +22,10 @@ class RenderRecord {
   /// (col, row) of a tile; null for a whole page.
   final (int, int)? tile;
 
+  /// (x, y, width, height) of a viewport render (an area that isn't a tile);
+  /// [tile] is null then.
+  final (int, int, int, int)? viewport;
+
   /// When it was asked for, started on the PDFium queue and done (µs on
   /// [CountingRenderer.clock]).
   int asked = 0, started = -1, done = -1;
@@ -29,7 +33,7 @@ class RenderRecord {
 
   bool get skipped => image == null;
   int get serviceUs => done - started;
-  Object get key => (page, width, tile);
+  Object get key => (page, width, tile, viewport);
 }
 
 /// A [PdfRenderer] that records every render: what, when, how long it
@@ -92,10 +96,13 @@ class CountingRenderer extends PdfRenderer {
     bool Function()? stillWanted,
     void Function()? released,
   }) {
+    const t = PdfTiling.tileSize;
+    final isTile = x % t == 0 && y % t == 0 && width <= t && height <= t;
     final r = RenderRecord(
       index,
       fullWidth,
-      tile: (x ~/ PdfTiling.tileSize, y ~/ PdfTiling.tileSize),
+      tile: isTile ? (x ~/ t, y ~/ t) : null,
+      viewport: isTile ? null : (x, y, width, height),
     )..asked = _now;
     if (skipLiveDuplicates && _isLive(r.key)) return Future.value();
     records.add(r);
@@ -125,7 +132,12 @@ class CountingRenderer extends PdfRenderer {
 
   /// Whole-page images of [page] still alive (not evicted).
   Iterable<RenderRecord> liveWhole(int page) => records.where(
-    (r) => r.page == page && r.tile == null && r.image != null && !r.image!.debugDisposed,
+    (r) =>
+        r.page == page &&
+        r.tile == null &&
+        r.viewport == null &&
+        r.image != null &&
+        !r.image!.debugDisposed,
   );
 
   /// Bytes of the images still alive (what the cache holds).
