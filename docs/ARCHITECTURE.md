@@ -925,17 +925,43 @@ recordings list (`OpenNotebooks.requestRecordings`).
 PDF import (`features/documents/pdf/`) stores the file once as a blob and
 creates one page per PDF page with background `{type: pdf, blob, page}` and
 the PDF page's size. PDF pages are rendered with PDFium via `pdfrx`
-(`PdfRenderer`, serialised; PDFium runs on pdfrx's worker isolate natively
-and in a web worker, never on the UI thread). `PdfBackgroundCache`
-(`PageBackgrounds.paint`) renders a whole page up to 2048 px wide at the
-zoom quantised to √2 steps; deeper zoom renders only the **tiles** in view
-(`PdfTiling`: 512 px squares of levels whose page widths are powers of two,
-4096 … 65536 px). Until a tile arrives the whole-page image and any cached
-tiles of neighbouring levels are drawn beneath, so pinching stays smooth;
-tiles are drawn without anti-aliasing so neighbours meet without seams.
-Images and tiles share one LRU within a memory budget (160 MiB); requests
-are served newest first (whole pages before tiles, the middle of the view
-before its edges) and dropped when no paint repeated them for 2 s.
+(`PdfRenderer`; PDFium runs on pdfrx's worker isolate natively and in a web
+worker, never on the UI thread). Its PDFium calls are serialised, but each
+render releases PDFium (`released`) before its pixels are copied into a
+`ui.Image`, so the next render starts meanwhile. Documents open with
+pdfrx's progressive loading: only page 1 is measured on opening;
+`PdfRenderer.page` measures a page (and its neighbours) on demand, and
+`pageSizes`/`normalized` (import, relink, replace, templates, export)
+measure all pages first. The editor never needs PDFium's sizes: page rows
+store them from import. `PdfBackgroundCache` (`PageBackgrounds.paint`)
+renders a whole page up to 2048 px wide at the zoom quantised to 2^¼ steps
+(1.19×: 256, 304, 362, 431, 512 … 1218, 1448, 1722, 2048), and shows a cached
+image up to √2 wider than needed as is, so zooming out a little doesn't
+re-render; deeper zoom renders only the **tiles** in view (`PdfTiling`:
+1024 px squares of levels whose page widths are powers of two, 4096 … 65536
+px: a screen is at most 3 × 4 tiles of 4 MB). Until a tile arrives the
+whole-page image and any cached tiles of neighbouring levels are drawn
+beneath, so pinching stays smooth; tiles are drawn without anti-aliasing so
+neighbours meet without seams. When a deep zoom holds still for a frame
+and its tiles aren't all there, the cache renders the **viewport** in one
+call (`PdfViewport`: the view plus an eighth each side, snapped to 64 px,
+at most 48 MB, one per page) ahead of the tiles and draws it under them, so
+the view is sharp in about 0.15–0.6 s instead of after every tile (each a
+PDFium call that re-loads the page and re-decodes its images); the tiles
+still fill in for panning.
+Images and tiles share one LRU within a memory budget (`defaultBudget`: 1/32
+of the device's memory from `platform/physical_memory.dart`, 160–512 MB; 160 MB
+on the web). A request for an image already cached or being rendered joins
+it (one render per key in flight), and an image replaced or evicted is
+disposed at once. Requests are ranked by tier, then by the frame that last
+asked, then by rank within it: whole pages in view (the page a third down the
+view first, `centralRanks`, then outwards) and thumbnails, viewport
+renders, tiles (the middle of the view before its edges), then
+**prefetches**. `DocumentPainter` prefetches
+the page just after and just before the visible ones at the width they will be
+shown at (`PageBackgrounds.prefetch`), the side the view moves to first; a
+prefetch the next frame doesn't repeat is dropped, and any request no paint
+repeated for 2 s too.
 A PDF that is neither on the device nor fetchable (or that PDFium can't
 read) is *missing* (`PageBackgrounds.isMissing`): its pages and their
 thumbnails paint a hatched "PDF page unavailable" placeholder

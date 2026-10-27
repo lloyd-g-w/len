@@ -20,6 +20,7 @@ class PdfTextIndexer extends ChangeNotifier {
   PdfTextIndexer(
     this.database, {
     required this.readBlob,
+    this.localPath,
     this.source = const PdfrxTextSource(),
     this.batchSize = 8,
   });
@@ -28,6 +29,11 @@ class PdfTextIndexer extends ChangeNotifier {
 
   /// The bytes of a blob, or null if it is not on this device.
   final Future<Uint8List?> Function(String sha) readBlob;
+
+  /// The file of a blob on this device, or null (no files, as on the web,
+  /// or not here): PDFium then reads the file as it needs it rather than
+  /// the whole PDF being read into memory by [readBlob].
+  final Future<String?> Function(String sha)? localPath;
   final PdfTextSource source;
 
   /// Pages written per transaction (and per notification).
@@ -97,16 +103,18 @@ class PdfTextIndexer extends ChangeNotifier {
   /// Extracts every page of [blob] not extracted yet. False if the blob is
   /// missing or unreadable.
   Future<bool> _extract(String blob) async {
-    final Uint8List? bytes;
+    String? path;
+    Uint8List? bytes;
     try {
-      bytes = await readBlob(blob);
+      path = await localPath?.call(blob);
+      if (path == null) bytes = await readBlob(blob);
     } on Exception {
       return false;
     }
-    if (bytes == null || _disposed) return false;
+    if (path == null && bytes == null || _disposed) return false;
     PdfTextDocument? doc;
     try {
-      doc = await source.open(bytes);
+      doc = path != null ? await source.openFile(path) : await source.open(bytes!);
       if (_disposed) return true;
       final done = {
         for (final r in _db.select('SELECT page FROM pdf_text WHERE blob = ?', [blob]))

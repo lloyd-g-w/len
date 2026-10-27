@@ -74,7 +74,15 @@ class DocumentPaperPainter extends CustomPainter {
     canvas.drawRect(Offset.zero & size, Paint()..color = desk);
     final visible = viewport.visibleWorldFor(size);
     final scale = viewport.scale;
-    for (final index in layout.visiblePages(visible)) {
+    final shown = layout.visiblePages(visible);
+    // Backgrounds are rendered the most central page first.
+    final withBackground = [
+      for (final i in shown)
+        if (pages[i].background != null) i,
+    ];
+    final ranks = centralRanks([for (final i in withBackground) layout.frameOf(i)!], visible);
+    final rankOf = {for (var k = 0; k < withBackground.length; k++) withBackground[k]: ranks[k]};
+    for (final index in shown) {
       final page = pages[index];
       final frame = layout.frameOf(index)!;
       final local = Offset.zero & frame.size;
@@ -96,7 +104,14 @@ class DocumentPaperPainter extends CustomPainter {
       final area = visible.shift(-frame.topLeft).intersect(local);
       final background = page.background;
       if (background != null && !area.isEmpty) {
-        backgrounds?.paint(canvas, background, frame.size, area, scale * devicePixelRatio);
+        backgrounds?.paint(
+          canvas,
+          background,
+          frame.size,
+          area,
+          scale * devicePixelRatio,
+          rank: rankOf[index] ?? 0,
+        );
       }
       if (!area.isEmpty) {
         PaperRenderer.paintPattern(
@@ -113,6 +128,21 @@ class DocumentPaperPainter extends CustomPainter {
       }
       if (page.bookmarked) paintBookmark(canvas, frame.size);
       canvas.restore();
+    }
+    if (backgrounds != null && shown.isNotEmpty) _prefetch(shown, scale * devicePixelRatio);
+  }
+
+  /// Asks for the backgrounds of the pages just before and after [shown],
+  /// so they are there when scrolled in.
+  void _prefetch(List<int> shown, double pixelsPerUnit) {
+    final first = layout.indices.indexOf(shown.first);
+    final last = layout.indices.indexOf(shown.last);
+    for (final (at, after) in [(last + 1, true), (first - 1, false)]) {
+      if (first < 0 || at < 0 || at >= layout.indices.length) continue;
+      final index = layout.indices[at];
+      final background = index < pages.length ? pages[index].background : null;
+      if (background == null) continue;
+      backgrounds!.prefetch(background, layout.frames[at].size, pixelsPerUnit, after: after);
     }
   }
 

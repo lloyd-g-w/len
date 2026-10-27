@@ -27,9 +27,15 @@ class SearchService extends ChangeNotifier {
   SearchService(
     AppDatabase database, {
     required Future<Uint8List?> Function(String sha) readBlob,
+    Future<String?> Function(String sha)? localPath,
     PdfTextSource pdfSource = const PdfrxTextSource(),
   }) : index = SearchIndex(database),
-       pdfText = PdfTextIndexer(database, readBlob: readBlob, source: pdfSource) {
+       pdfText = PdfTextIndexer(
+         database,
+         readBlob: readBlob,
+         localPath: localPath,
+         source: pdfSource,
+       ) {
     pdfText.addListener(notifyListeners);
   }
 

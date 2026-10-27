@@ -12,6 +12,10 @@ export 'pdf_glyphs.dart';
 abstract interface class PdfTextSource {
   /// Opens the PDF [bytes]; throws if they are not a readable PDF.
   Future<PdfTextDocument> open(Uint8List bytes);
+
+  /// Opens the PDF file at [path] without reading it into memory; throws
+  /// if it is not a readable PDF.
+  Future<PdfTextDocument> openFile(String path);
 }
 
 /// An open PDF whose page text can be read.
@@ -63,6 +67,12 @@ class PdfrxTextSource implements PdfTextSource {
   Future<PdfTextDocument> open(Uint8List bytes) async {
     await pdfrxFlutterInitialize();
     return _PdfrxTextDocument(await PdfDocument.openData(bytes, sourceName: 'search'));
+  }
+
+  @override
+  Future<PdfTextDocument> openFile(String path) async {
+    await pdfrxFlutterInitialize();
+    return _PdfrxTextDocument(await PdfDocument.openFile(path));
   }
 }
 

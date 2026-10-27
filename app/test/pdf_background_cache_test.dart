@@ -1,0 +1,378 @@
+import 'dart:async';
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
+import 'package:flutter/painting.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:len/app_services.dart';
+import 'package:len/data/app_database.dart';
+import 'package:len/domain/notebook_page.dart';
+import 'package:len/features/documents/pdf/pdf_background_cache.dart';
+import 'package:len/features/documents/pdf/pdf_renderer.dart';
+import 'package:len/features/documents/pdf/pdf_tiles.dart';
+import 'package:len/platform/physical_memory.dart';
+
+const a4 = Size(794, 1123);
+
+/// One render the cache asked [_FakeRenderer] for.
+class _Render {
+  _Render(this.page, this.width, {this.tile = false, this.area});
+  final int page;
+  final int width;
+  final bool tile;
+
+  /// (width, height) of an area render.
+  final (int, int)? area;
+  final done = Completer<ui.Image?>();
+  ui.Image? image;
+}
+
+/// A renderer that makes blank images of the asked size, either at once or
+/// when the test completes them ([hold]), and remembers every image it
+/// made, so the test can tell which ones were disposed.
+class _FakeRenderer extends PdfRenderer {
+  _FakeRenderer(super.blobs, {this.hold = false, this.releaseEarly = false});
+
+  final bool hold;
+
+  /// Whether a render says PDFium is done with it at once (only the image
+  /// is left to make, as with the real renderer).
+  final bool releaseEarly;
+  final renders = <_Render>[];
+
+  Iterable<ui.Image> get images => [for (final r in renders) ?r.image];
+  Iterable<ui.Image> get live => images.where((i) => !i.debugDisposed);
+  int get liveBytes => live.fold(0, (s, i) => s + i.width * i.height * 4);
+
+  Future<ui.Image?> _make(_Render r, int width, int height) {
+    renders.add(r);
+    Future<void> finish() async {
+      final recorder = ui.PictureRecorder();
+      Canvas(recorder);
+      final picture = recorder.endRecording();
+      r.image = picture.toImageSync(width, height);
+      picture.dispose();
+      r.done.complete(r.image);
+    }
+
+    if (!hold) unawaited(finish());
+    _finishers[r] = finish;
+    return r.done.future;
+  }
+
+  final _finishers = <_Render, Future<void> Function()>{};
+
+  /// Finishes the oldest held render, once the cache has asked for it.
+  Future<void> releaseOne() async {
+    for (var i = 0; i < 20; i++) {
+      final r = renders.where((r) => !r.done.isCompleted).firstOrNull;
+      if (r != null) return _finishers[r]!();
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
+  /// Finishes the held renders.
+  Future<void> release() async {
+    for (final r in renders.where((r) => !r.done.isCompleted).toList()) {
+      await _finishers[r]!();
+    }
+  }
+
+  @override
+  Future<ui.Image?> render(
+    String sha,
+    int index,
+    int pixelWidth, {
+    bool Function()? stillWanted,
+    void Function()? released,
+  }) {
+    final image = _make(
+      _Render(index, pixelWidth),
+      pixelWidth,
+      (pixelWidth * a4.height / a4.width).round(),
+    );
+    if (releaseEarly) released?.call();
+    return image;
+  }
+
+  @override
+  Future<ui.Image?> renderArea(
+    String sha,
+    int index, {
+    required int fullWidth,
+    required int fullHeight,
+    required int x,
+    required int y,
+    required int width,
+    required int height,
+    bool Function()? stillWanted,
+    void Function()? released,
+  }) => _make(_Render(index, fullWidth, tile: true, area: (width, height)), width, height);
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late AppServices services;
+  late String sha;
+
+  setUp(() async {
+    services = AppServices.create(AppDatabase.inMemory());
+    sha = await services.blobs.putBytes(Uint8List(8), mime: 'application/pdf');
+  });
+  tearDown(() => services.dispose());
+
+  PdfBackgroundCache cacheOver(
+    _FakeRenderer renderer, {
+    int budget = 160 << 20,
+    bool owned = true,
+  }) {
+    final cache = PdfBackgroundCache(
+      blobs: services.blobs,
+      fetch: (_) async => true,
+      renderer: renderer,
+      budgetBytes: budget,
+    );
+    if (owned) addTearDown(cache.dispose);
+    return cache;
+  }
+
+  PageBackground page(int i) => PageBackground.pdf(blob: sha, pageIndex: i);
+
+  void paint(PdfBackgroundCache cache, int index, Rect visible, double ppu) {
+    final recorder = ui.PictureRecorder();
+    cache.paint(Canvas(recorder), page(index), a4, visible, ppu);
+    recorder.endRecording().dispose();
+  }
+
+  Future<void> settle(PdfBackgroundCache cache) async {
+    for (var i = 0; i < 1000 && cache.isBusy; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
+  test('a page or tile being rendered is rendered once, however often it is painted', () async {
+    final renderer = _FakeRenderer(services.blobs, hold: true);
+    final cache = cacheOver(renderer);
+    // Zoomed in: the whole page (2048) and the tiles in view.
+    const ppu = 6.0;
+    const visible = Rect.fromLTWH(200, 300, 260, 400);
+    for (var frame = 0; frame < 30; frame++) {
+      paint(cache, 0, visible, ppu);
+      await Future<void>.delayed(Duration.zero);
+      if (frame % 5 == 4) {
+        // One render lands now and then: the cache notifies and is painted again.
+        final pending = renderer.renders.where((r) => !r.done.isCompleted).firstOrNull;
+        if (pending != null) await renderer._finishers[pending]!();
+      }
+    }
+    for (var i = 0; i < 50 && cache.isBusy; i++) {
+      await renderer.release();
+      paint(cache, 0, visible, ppu);
+      await Future<void>.delayed(Duration.zero);
+    }
+    await settle(cache);
+    final keys = [for (final r in renderer.renders) (r.page, r.width, r.tile, r.image?.width)];
+    expect(renderer.renders.where((r) => !r.tile), hasLength(1));
+    expect(renderer.renders.where((r) => r.tile), isNotEmpty);
+    // No key twice (tiles of one level differ by their position, so compare counts).
+    final tiles = renderer.renders.where((r) => r.tile).length;
+    final range = PdfTiling.range(a4, visible, PdfTiling.levelFor(a4.width * ppu))!;
+    final inView = (range.col1 - range.col0 + 1) * (range.row1 - range.row0 + 1);
+    expect(tiles, lessThanOrEqualTo(inView), reason: '$keys');
+    // Every image made is the cache's: none is replaced and left alive.
+    expect(renderer.live.length, renderer.renders.length);
+  });
+
+  test('evicted images are disposed; dispose frees the rest', () async {
+    final renderer = _FakeRenderer(services.blobs);
+    // Pages 362 px wide (≈ 0.74 MB each), a 3 MB budget.
+    final cache = cacheOver(renderer, budget: 3 << 20, owned: false);
+    const ppu = 362 / 794;
+    for (var i = 0; i < 12; i++) {
+      paint(cache, i, Offset.zero & a4, ppu);
+      await settle(cache);
+    }
+    expect(renderer.renders, hasLength(12));
+    final disposed = renderer.images.where((i) => i.debugDisposed).length;
+    expect(disposed, greaterThanOrEqualTo(8));
+    expect(renderer.liveBytes, lessThanOrEqualTo(3 << 20));
+    expect(cache.debugImageBytes, renderer.liveBytes);
+    // The most recent pages are the ones kept.
+    expect(renderer.renders.last.image!.debugDisposed, isFalse);
+    expect(renderer.renders.first.image!.debugDisposed, isTrue);
+    cache.dispose();
+    expect(renderer.live, isEmpty);
+  });
+
+  test('a 100-page scroll keeps the live image bytes within the budget', () async {
+    final renderer = _FakeRenderer(services.blobs);
+    const budget = 8 << 20; // 5 pages 512 px wide (1.5 MB each).
+    final cache = cacheOver(renderer, budget: budget);
+    // A desktop column 400 px wide: about 1.4 pages in view.
+    const ppu = 400 / 794;
+    const viewHeight = 800 / ppu;
+    const pitch = 1123 + 24.0;
+    var peak = 0;
+    for (var top = 0.0; top < 100 * pitch; top += pitch / 6) {
+      for (var i = (top / pitch).floor(); i * pitch < top + viewHeight; i++) {
+        final frameTop = i * pitch;
+        final visible = Rect.fromLTWH(
+          0,
+          top - frameTop,
+          a4.width,
+          viewHeight,
+        ).intersect(Offset.zero & a4);
+        if (!visible.isEmpty) paint(cache, i, visible, ppu);
+      }
+      await Future<void>.delayed(Duration.zero);
+      peak = math.max(peak, renderer.liveBytes);
+    }
+    await settle(cache);
+    expect(renderer.renders.length, inInclusiveRange(100, 102));
+    expect(peak, lessThanOrEqualTo(budget));
+    expect(renderer.liveBytes, cache.debugImageBytes);
+  });
+
+  void paintRanked(PdfBackgroundCache cache, List<(int, Rect, int)> pages, double ppu) {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    for (final (index, visible, rank) in pages) {
+      cache.paint(canvas, page(index), a4, visible, ppu, rank: rank);
+    }
+    recorder.endRecording().dispose();
+  }
+
+  test('the most central page in view is rendered first', () async {
+    final renderer = _FakeRenderer(services.blobs, hold: true);
+    final cache = cacheOver(renderer);
+    const ppu = 1.0;
+    // Pages 3, 4 and 5 in view, 4 in the middle, then 5, then 3.
+    paintRanked(cache, [
+      (3, const Rect.fromLTWH(0, 1000, 794, 123), 2),
+      (4, Offset.zero & a4, 0),
+      (5, const Rect.fromLTWH(0, 0, 794, 300), 1),
+    ], ppu);
+    for (var i = 0; i < 3; i++) {
+      await Future<void>.delayed(Duration.zero);
+      await renderer.release();
+    }
+    await settle(cache);
+    expect([for (final r in renderer.renders) r.page], [4, 5, 3]);
+  });
+
+  test('neighbours are prefetched after the pages in view, ahead first, and dropped '
+      'when no frame asks for them', () async {
+    final renderer = _FakeRenderer(services.blobs, hold: true);
+    final cache = cacheOver(renderer);
+    const ppu = 1.0;
+    void frame(int index, double top) {
+      paintRanked(cache, [(index, Rect.fromLTWH(0, top, 794, 600), 0)], ppu);
+      cache.prefetch(page(index - 1), a4, ppu, after: false);
+      cache.prefetch(page(index + 1), a4, ppu, after: true);
+    }
+
+    // Scrolling down page 10: 11 is ahead, 9 behind.
+    frame(10, 100);
+    frame(10, 200);
+    await renderer.releaseOne(); // Page 10.
+    // Now rendering the next one.
+    for (var i = 0; i < 5; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    expect([for (final r in renderer.renders) r.page], [10, 11]);
+    // Scrolled away to page 40 while 11 renders: page 9 is no longer wanted.
+    frame(40, 0);
+    for (var i = 0; i < 6; i++) {
+      await renderer.releaseOne();
+    }
+    await settle(cache);
+    final pages = [for (final r in renderer.renders) r.page];
+    expect(pages, [10, 11, 40, 41, 39]);
+    // Prefetched at the width the page is shown at.
+    expect(renderer.renders.map((r) => r.width).toSet(), hasLength(1));
+  });
+
+  test('pages render at most 19% wider than shown; zooming out a little reuses them', () async {
+    final renderer = _FakeRenderer(services.blobs);
+    final cache = cacheOver(renderer);
+    Future<void> show(double pixelWidth) async {
+      paint(cache, 0, Offset.zero & a4, pixelWidth / a4.width);
+      await settle(cache);
+    }
+
+    await show(1600); // A tablet page: 1722, not 2048.
+    await show(1500);
+    await show(1300); // Zoomed out 19%: the 1722 is still used.
+    expect([for (final r in renderer.renders) r.width], [1722]);
+    await show(1800); // Zoomed in past it.
+    await show(1650);
+    expect([for (final r in renderer.renders) r.width], [1722, 2048]);
+  });
+
+  test('the next render starts while the previous one\'s image is made', () async {
+    final renderer = _FakeRenderer(services.blobs, hold: true, releaseEarly: true);
+    final cache = cacheOver(renderer);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    for (var i = 0; i < 3; i++) {
+      cache.paint(canvas, page(i), a4, Offset.zero & a4, 1, rank: i);
+    }
+    recorder.endRecording().dispose();
+    for (var i = 0; i < 10; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    // Pages 0–2 in view: all asked for, none of their images made yet.
+    expect(renderer.renders.where((r) => !r.done.isCompleted), hasLength(3));
+    expect(cache.isBusy, isTrue);
+    await renderer.release();
+    await settle(cache);
+    expect(cache.isBusy, isFalse);
+  });
+
+  test('the image budget follows the device memory, within limits', () {
+    const gb = 1 << 30;
+    expect(PdfBackgroundCache.budgetFor(null), 160 << 20);
+    expect(PdfBackgroundCache.budgetFor(3 * gb), 160 << 20);
+    expect(PdfBackgroundCache.budgetFor(8 * gb), 256 << 20);
+    expect(PdfBackgroundCache.budgetFor(12 * gb), 384 << 20);
+    expect(PdfBackgroundCache.budgetFor(64 * gb), 512 << 20);
+    expect(physicalMemoryBytes, greaterThan(0)); // Linux: /proc/meminfo.
+  });
+
+  test('a deep zoom renders the view in one call first, then the tiles under it', () async {
+    final renderer = _FakeRenderer(services.blobs);
+    final cache = cacheOver(renderer);
+    // 8 px a unit (the page ≈ 4762 px wide, level 8192 = 13.76 px a unit
+    // at the tiles' level); a 100×100-unit view near the middle.
+    const view = Rect.fromLTWH(250, 400, 100, 100);
+    paint(cache, 0, view, 8);
+    paint(cache, 0, view, 8); // Held still for a frame.
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    // The whole page first (rank 0, painted tier), then the viewport.
+    final areas = [for (final r in renderer.renders.where((r) => r.tile)) r.area!];
+    expect(areas, isNotEmpty);
+    final (w, h) = areas.first;
+    expect(w, isNot(PdfTiling.tileSize));
+    expect(w % PdfTiling.viewportSnap, 0);
+    // The view plus an eighth of it each side, snapped to 64 px.
+    final level = PdfTiling.levelFor(a4.width * 8, above: PdfTiling.wholePageWidth(a4));
+    final expected = PdfTiling.viewportPixels(a4, view, level)!;
+    expect((w, h), (expected.w, expected.h));
+    final scale = level / a4.width;
+    expect(w, inInclusiveRange((125 * scale).floor(), (125 * scale).ceil() + 128));
+    await settle(cache);
+    expect(cache.debugIsSharp(page(0), a4, view, 8), isTrue);
+    // Panning a little stays inside it: no second viewport render.
+    final before = renderer.renders.length;
+    paint(cache, 0, view.shift(const Offset(5, 5)), 8);
+    paint(cache, 0, view.shift(const Offset(5, 5)), 8);
+    await settle(cache);
+    final viewports = renderer.renders
+        .where((r) => r.tile && r.area!.$1 != PdfTiling.tileSize && r.area!.$1 % 64 == 0)
+        .length;
+    expect(viewports, 1);
+    expect(renderer.renders.length - before, lessThanOrEqualTo(4)); // Tiles only.
+  });
+}
