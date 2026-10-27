@@ -45,8 +45,8 @@ class PdfrxInfoSource implements PdfInfoSource {
   @override
   Future<PdfGlyphs?> glyphs(String blob, int page) async {
     if (!await blobs.has(blob)) return null;
-    final doc = await renderer.open(blob);
-    return page < doc.pages.length ? pdfiumGlyphs(doc.pages[page]) : null;
+    final loaded = await renderer.page(blob, page);
+    return loaded == null ? null : pdfiumGlyphs(loaded);
   }
 
   @override

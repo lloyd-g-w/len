@@ -278,6 +278,36 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  test(
+    'pages opened progressively are rendered and measured at their own size',
+    skip: pdfium == null,
+    () async {
+      // A4, then Letter, then a wide page: only the first is measured on opening.
+      final doc = pw.PdfDocument();
+      pw.PdfPage(doc, pageFormat: pw.PdfPageFormat.a4);
+      pw.PdfPage(doc, pageFormat: pw.PdfPageFormat.letter);
+      pw.PdfPage(doc, pageFormat: const pw.PdfPageFormat(800, 200));
+      final sha = await services.blobs.putBytes(await doc.save(), mime: 'application/pdf');
+      final renderer = PdfRenderer(services.blobs);
+      addTearDown(renderer.dispose);
+      final opened = await renderer.open(sha);
+      expect(opened.pages, hasLength(3));
+      // The last page first: rendered with its own proportions (4:1).
+      final wide = (await renderer.render(sha, 2, 400))!;
+      expect((wide.width, wide.height), (400, 100));
+      wide.dispose();
+      final letter = (await renderer.render(sha, 1, 612))!;
+      expect((letter.width, letter.height), (612, 792));
+      letter.dispose();
+      final sizes = await renderer.pageSizes(sha);
+      expect(
+        [for (final s in sizes) (s.width.round(), s.height.round())],
+        [(595, 842), (612, 792), (800, 200)],
+      );
+      expect(await renderer.page(sha, 3), isNull);
+    },
+  );
+
   test('background cache quantises resolutions', () {
     expect(PdfBackgroundCache.bucketFor(10), 256);
     expect(PdfBackgroundCache.bucketFor(256), 256);

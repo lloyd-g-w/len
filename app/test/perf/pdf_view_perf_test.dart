@@ -131,7 +131,7 @@ void main() {
             final first = renderer.records.first;
             report(
               'PDF open $name/$screenName: page 1 sharp $sharp ms (first pixels $firstPixels ms, '
-              '$frames frames); PDFium open + measure all pages ${renderer.firstOpenUs! ~/ 1000} ms, '
+              '$frames frames); PDFium open (measures page 1 only) ${renderer.firstOpenUs! ~/ 1000} ms, '
               'page 1 render ${first.serviceUs ~/ 1000} ms incl. open; renders: $asked',
             );
             await _settle(cache);
