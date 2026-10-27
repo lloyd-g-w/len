@@ -28,7 +28,8 @@ typedef _PageImage = ({PageBackground background, int width});
 ///
 /// Renders run one at a time on PDFium's worker (never on the UI thread),
 /// newest request first: whole pages before tiles, and the tiles in the
-/// middle of the view before those at its edges. Requests that no paint
+/// middle of the view before those at its edges. A request for an image
+/// being rendered joins that render. Requests that no paint
 /// repeated for [staleAfter] are dropped. Blobs not yet on this device are
 /// fetched through [fetch].
 class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
@@ -66,6 +67,10 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
 
   /// Pending requests with the time they were last made, oldest first.
   final LinkedHashMap<Object, int> _queue = LinkedHashMap();
+
+  /// The request being rendered (or its blob fetched): asking for it again
+  /// joins it.
+  final Set<Object> _inFlight = {};
   final Stopwatch _clock = Stopwatch()..start();
   bool _working = false;
   final Set<String> _fetching = {};
@@ -174,6 +179,10 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
   @visibleForTesting
   bool get isBusy => _working || _queue.isNotEmpty;
 
+  /// Bytes of the images cached (4 per pixel; for tests).
+  @visibleForTesting
+  int get debugImageBytes => _images.values.fold(0, (sum, i) => sum + i.width * i.height * 4);
+
   /// How many tiles are cached (for tests).
   @visibleForTesting
   int get debugTileCount => _images.keys.whereType<PdfTile>().length;
@@ -226,8 +235,7 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
         image.dispose();
         return;
       }
-      _images[key] = image;
-      _evict();
+      _store(key, image);
       notifyListeners();
     } catch (e) {
       debugPrint('Cannot render PDF page ${background.pageIndex} of $sha: $e');

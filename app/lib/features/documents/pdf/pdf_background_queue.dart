@@ -19,7 +19,9 @@ extension _PdfBackgroundQueue on PdfBackgroundCache {
   }
 
   void _request(Object key, {ui.Size? page}) {
-    if (_disposed) return;
+    // Being rendered: this request joins that render (rendering it again
+    // would only replace its image).
+    if (_disposed || _images.containsKey(key) || _inFlight.contains(key)) return;
     _queue.remove(key);
     _queue[key] = _clock.elapsedMilliseconds;
     if (key is PdfTile && page != null) _tilePages[key] = page;
@@ -50,7 +52,12 @@ extension _PdfBackgroundQueue on PdfBackgroundCache {
       while (!_disposed) {
         final key = _next();
         if (key == null) break;
-        await _render(key);
+        _inFlight.add(key);
+        try {
+          await _render(key);
+        } finally {
+          _inFlight.remove(key);
+        }
       }
     } finally {
       _working = false;
@@ -71,6 +78,15 @@ extension _PdfBackgroundQueue on PdfBackgroundCache {
       width: area.width,
       height: area.height,
     );
+  }
+
+  /// Caches [image] as [key]'s, disposing any image it replaces, and
+  /// evicts the least recently used images over the budget.
+  void _store(Object key, ui.Image image) {
+    final old = _images.remove(key);
+    if (old != null && !identical(old, image)) old.dispose();
+    _images[key] = image;
+    _evict();
   }
 
   void _evict() {
