@@ -9,7 +9,8 @@
 # --record refreshes tool/test_times.json (balances the shards) from this run.
 # Extra args go to `flutter test` (e.g. --plain-name, -r expanded).
 # LEN_TEST_SHARDS (default 32) and LEN_TEST_JOBS (default: the cores, at
-# most 16) tune it. Single files still run as usual: flutter test test/x_test.dart
+# most 16; at most 6 for slow and all) tune it. Single files still run as
+# usual: flutter test test/x_test.dart
 set -euo pipefail
 cd "$(dirname "$0")/.."
 tier=fast
@@ -17,7 +18,11 @@ case "${1:-}" in fast | slow | all) tier=$1 && shift ;; esac
 record=
 if [[ "${1:-}" == --record ]]; then record=1 && shift; fi
 cores=$(nproc)
-jobs=${LEN_TEST_JOBS:-$((cores < 16 ? cores : 16))}
+# The slow tier's benchmarks judge timings: at most 6 at a time there (as
+# dart_test.yaml's concurrency), the default tier a file per core.
+max=16
+if [[ $tier != fast ]]; then max=6; fi
+jobs=${LEN_TEST_JOBS:-$((cores < max ? cores : max))}
 shards=${LEN_TEST_SHARDS:-32}
 out=test/.shards/$tier
 mapfile -t files < <(dart run tool/test_shards.dart generate "$tier" "$shards" "$out")

@@ -56,11 +56,30 @@ List<String> testFiles(String tier) {
       if (f is File && f.path.endsWith('_test.dart'))
         f.path.substring(root.path.length + 1).replaceAll(r'\', '/'),
   ]..sort();
-  if (tier == 'all') return files;
-  return [
-    for (final f in files)
-      if (isSlow(f) == (tier == 'slow')) f,
-  ];
+  return switch (tier) {
+    'fast' => [
+      for (final f in files)
+        if (!isSlow(f)) f,
+    ],
+    // Also the files with tests of their own tagged slow (the extra seeds
+    // of heavy property tests): `-t slow` runs only those of them.
+    'slow' => [
+      for (final f in files)
+        if (isSlow(f) || hasSlowTests(f)) f,
+    ],
+    _ => files,
+  };
+}
+
+/// Whether the test file at [path] has tests or groups tagged with a slow
+/// tag of their own (`tags: 'slow'`, `tags: ['slow', ...]`).
+bool hasSlowTests(String path) {
+  final source = File('test/$path').readAsStringSync();
+  return RegExp(r'''tags:\s*\[?([^\])\n]*)''')
+      .allMatches(source)
+      .any(
+        (m) => RegExp(r'''['"](\w+)['"]''').allMatches(m[1]!).any((t) => _slowTags.contains(t[1])),
+      );
 }
 
 /// Whether the test file at [path] is in the slow tier: tagged `slow`, or
