@@ -7,6 +7,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/sync/background_pull_worker.dart';
+import 'package:len/sync/pull_applier.dart';
 import 'package:len/sync/pull_worker.dart';
 import 'package:len/sync/sync_engine.dart';
 
@@ -63,8 +64,13 @@ void main() {
   });
 
   test('a worker dying while it applies a page fails it instead of hanging', () async {
+    // A page long enough to apply (a record a slice) that the kill, sent
+    // when its header comes, lands before the end even on a busy machine
+    // (with 50 records in one slice the worker could finish first).
+    PullApplier.debugSliceRecords = 1;
+    addTearDown(() => PullApplier.debugSliceRecords = null);
     final (a, b) = twoDevices();
-    _fill(a, strokes: 50);
+    _fill(a, strokes: 600);
     await a.sync();
     final worker = (await BackgroundPullWorker.start(b.s.database, deviceId: 'b'))!;
     final body = await apiFor(a.server).pullBody(since: 0);

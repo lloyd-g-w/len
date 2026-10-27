@@ -21,14 +21,14 @@ import 'support/real_server.dart';
 // together): what the engine pushes and applies, the messages, and how an
 // open surface takes in a stroke written elsewhere.
 
-Stroke _stroke(AppServices s, String surface, {double x = 10}) => Stroke(
+Stroke _stroke(AppServices s, String surface, {double x = 10, int? createdAt}) => Stroke(
   id: s.clock.newId(),
   surfaceId: surface,
   tool: InkTool.ballpoint,
   color: 0xFF000000,
   width: 2,
   points: [StrokePoint(x, 10, 0.5), StrokePoint(x + 20, 30, 0.5)],
-  createdAt: s.clock.nowMs(),
+  createdAt: createdAt ?? s.clock.nowMs(),
 );
 
 Notebook _notebook(AppServices s) => s.notebooks.create(
@@ -225,7 +225,9 @@ void main() {
     model.changes.listen(changes.add);
 
     // Another device's stroke arrives (as sync applies it).
-    final theirs = _stroke(a, page.id, x: 400);
+    // Drawn later than mine: in the same millisecond, the random ids would
+    // decide which is on top.
+    final theirs = _stroke(a, page.id, x: 400, createdAt: mine.createdAt + 1);
     a.strokes.save([theirs]);
     b.strokes.applyRemote(a.strokes.dirtyRecords(10).single);
     final remote = RemoteChanges()..addItem(page.id, theirs.id);

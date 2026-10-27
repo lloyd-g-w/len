@@ -151,6 +151,7 @@ void main() {
 
   testWidgets('a table painted (golden)', (tester) async {
     await tester.binding.setSurfaceSize(const Size(400, 320));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final data = shopping();
     final height = TextLayout.heightOf(data, width);
     await tester.pumpWidget(

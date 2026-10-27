@@ -117,7 +117,8 @@ migrations needs no manual cleanup — but don't rely on it once we ship.
 ## Rules
 
 - `flutter analyze` must report **no issues**; both test tiers must pass
-  (`flutter test -x slow`, `flutter test -t slow`; see Tooling).
+  (`tool/test.sh`, `tool/test.sh slow`, or `flutter test -x slow` / `-t slow`;
+  see Tooling).
 - Small files (aim < 300 lines), small functions, doc comments on public APIs.
   To split a large class, prefer its own files for cohesive pieces (widgets,
   value types, codecs); otherwise `part` files: private members in a private
@@ -178,16 +179,41 @@ migrations needs no manual cleanup — but don't rely on it once we ship.
 ## Tooling (NixOS)
 
 ```sh
-nix develop -c bash -c 'cd app && flutter analyze && flutter test -x slow'  # default tier
-nix develop -c bash -c 'cd app && flutter test -t slow'   # slow tier: perf + screenshots
-nix develop -c bash -c 'cd app && flutter test'           # both tiers in one run
+nix develop -c bash -c 'cd app && flutter analyze && tool/test.sh'  # default tier, ~1.6 min
+nix develop -c bash -c 'cd app && tool/test.sh slow'   # slow tier: perf + screenshots, ~1.7 min
+nix develop -c bash -c 'cd app && tool/test.sh all'    # both tiers in one run
 # On a shared machine, full runs go through app/tool/heavy.sh (lock + memory cap):
-app/tool/heavy.sh nix develop -c bash -c 'cd app && flutter test -x slow'
-app/tool/heavy.sh nix develop -c bash -c 'cd app && flutter test -t slow'
+app/tool/heavy.sh nix develop -c bash -c 'cd app && tool/test.sh'
+app/tool/heavy.sh nix develop -c bash -c 'cd app && tool/test.sh slow'
+# One file or a few, as ever (tool/light.sh on a shared machine):
+nix develop -c bash -c 'cd app && flutter test test/editor_keyboard_test.dart'
 nix develop -c bash -c 'cd app && flutter build web --release'   # web must keep compiling
 nix develop .#android -c bash -c 'cd app && flutter build apk --debug'
 app/tool/generate_icons.sh   # after changing the icon design (commit the output)
 ```
+
+`tool/test.sh` runs the same tests as `flutter test -x slow` / `-t slow`
+(which still work, ~2.5× slower), bundled into ~32 shard files
+(`test/.shards/`, generated, ignored by git; `tool/test_shards.dart`).
+`flutter test` compiles each test file into its own whole-app kernel, one at
+a time: with ~440 files that serial compile was most of a run. A shard
+imports its files and runs each `main()` in a group named after the file
+(so failures read `shard_07.dart: <file> <test>`), with that file's golden
+directory and its own tags. Shards are balanced by `tool/test_times.json`;
+after adding big tests refresh it with `tool/test.sh --record` (or
+`tool/test.sh slow --record`). The default tier runs a shard per core (at
+most 16), the slow tier at most 6 at a time: its benchmarks judge timings.
+`LEN_TEST_SHARDS` / `LEN_TEST_JOBS` override both.
+
+Files in one shard share an isolate, so a test must leave global state as it
+found it: reset `tester.view` / `setSurfaceSize` / `debug…Override`s in
+`addTearDown`, and don't rely on the order of same-millisecond timestamps or
+on how fast a frame is. Fonts can't be unloaded: files that load Roboto
+(`loadFonts` from content_golden_test.dart, or a helper that uses it, found
+by `test_shards.dart`) get shards of their own, and each file starts with
+`PatternText`'s paragraph cache empty. A file that must run alone can say so
+with a `// test_shards: alone` comment. If a test passes alone but fails in
+`tool/test.sh`, it is one of these leaks: fix the test.
 
 CI (`.github/workflows/ci.yml`) pins the same Flutter version as `flake.nix`;
 when nixpkgs bumps Flutter, update `FLUTTER_VERSION` in both workflows.

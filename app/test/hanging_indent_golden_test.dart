@@ -39,6 +39,7 @@ void main() {
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(600, 400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final height = TextLayout.heightOf(wrappedList, wrappedListWidth);
     final controller = RichTextController(wrappedList)..wrapWidth = wrappedListWidth;
     controller.markerBuilder = (m) => ListMarkerView(marker: m);
