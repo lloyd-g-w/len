@@ -194,29 +194,21 @@ void main() {
   );
 
   group('scroll', () {
-    // The app as it is, then what-ifs simulated from outside the cache:
-    // dedupe (no second render of a key in flight), prefetch (the next
-    // page painted, as a prefetch would request it) and low-res first
-    // (a 256-px image asked for each page in view before the sharp one).
-    for (final (name, count, pagesPerSecond, dedupe, prefetch, lowRes) in [
-      ('textbook', 100, 1.0, false, 0, false),
-      ('textbook', 100, 3.0, false, 0, false),
-      ('textbook', 100, 3.0, true, 0, false),
-      ('textbook', 100, 10.0, false, 0, false),
-      ('textbook', 100, 10.0, true, 1, false),
-      ('scanned', 50, 1.0, false, 0, false),
-      ('scanned', 50, 1.0, true, 1, false),
-      ('scanned', 50, 3.0, false, 0, false),
-      ('scanned', 50, 3.0, true, 0, false),
-      ('scanned', 50, 3.0, true, 1, false),
-      ('scanned', 50, 3.0, true, 0, true),
-      ('scanned', 50, 3.0, true, 1, true),
+    // The app as it is (one render per key in flight, a page prefetched
+    // each side), then what-ifs simulated from outside the cache: no
+    // prefetch, and low-res first (a 256-px image asked for each page in
+    // view before the sharp one).
+    for (final (name, count, pagesPerSecond, prefetch, lowRes) in [
+      ('textbook', 100, 1.0, true, false),
+      ('textbook', 100, 3.0, true, false),
+      ('textbook', 100, 10.0, true, false),
+      ('textbook', 100, 10.0, false, false),
+      ('scanned', 50, 1.0, true, false),
+      ('scanned', 50, 3.0, true, false),
+      ('scanned', 50, 3.0, false, false),
+      ('scanned', 50, 3.0, true, true),
     ]) {
-      final variant = [
-        if (dedupe) 'dedupe',
-        if (prefetch > 0) 'prefetch $prefetch',
-        if (lowRes) 'low-res first',
-      ].join(' + ');
+      final variant = [if (!prefetch) 'no prefetch', if (lowRes) 'low-res first'].join(' + ');
       final label = variant.isEmpty ? 'as is' : 'what-if $variant';
       test(
         '$name: $count pages at $pagesPerSecond pages/s on a tablet ($label)',
@@ -224,7 +216,7 @@ void main() {
           const screen = ui.Size(1600, 2560);
           final stack = PageStack(count + 2, a4);
           final bgs = backgroundsOf(name, count + 2);
-          final (:cache, :renderer) = newCache(dedupe: dedupe);
+          final (:cache, :renderer) = newCache();
           final ppu = screen.width / a4.width;
           final viewH = screen.height / ppu;
           final pitch = a4.height + stack.gap;
@@ -239,8 +231,7 @@ void main() {
             if (top > count * pitch) break;
             final world = ui.Rect.fromLTWH(0, top, a4.width, viewH);
             final p = Stopwatch()..start();
-            final painted = ui.Rect.fromLTWH(0, top, a4.width, viewH + prefetch * pitch);
-            paintFrame(cache, stack, bgs, painted, ppu);
+            paintFrame(cache, stack, bgs, world, ppu, prefetch: prefetch);
             if (lowRes) {
               for (final i in stack.visible(world)) {
                 cache.imageFor(bgs[i], 256);

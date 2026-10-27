@@ -6,6 +6,8 @@ import 'dart:ui' as ui;
 import 'package:len/domain/notebook_page.dart';
 import 'package:len/features/documents/pdf/pdf_background_cache.dart';
 import 'package:len/features/documents/pdf/pdf_renderer.dart';
+import 'package:len/features/documents/pdf/pdf_tiles.dart';
+import 'package:len/features/editor/document/page_backgrounds.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 /// One render [PdfBackgroundCache] asked [CountingRenderer] for.
@@ -82,7 +84,11 @@ class CountingRenderer extends PdfRenderer {
     required int height,
     bool Function()? stillWanted,
   }) {
-    final r = RenderRecord(index, fullWidth, tile: (x ~/ 512, y ~/ 512))..asked = _now;
+    final r = RenderRecord(
+      index,
+      fullWidth,
+      tile: (x ~/ PdfTiling.tileSize, y ~/ PdfTiling.tileSize),
+    )..asked = _now;
     if (skipLiveDuplicates && _isLive(r.key)) return Future.value();
     records.add(r);
     return super
@@ -200,11 +206,14 @@ void paintFrame(
   PageStack stack,
   List<PageBackground> backgrounds,
   ui.Rect world,
-  double ppu,
-) {
+  double ppu, {
+  bool prefetch = true,
+}) {
   final recorder = ui.PictureRecorder();
   final canvas = ui.Canvas(recorder);
-  for (final i in stack.visible(world)) {
+  final shown = stack.visible(world).toList();
+  final ranks = centralRanks([for (final i in shown) stack.frameOf(i)], world);
+  for (final (k, i) in shown.indexed) {
     final frame = stack.frameOf(i);
     canvas
       ..save()
@@ -216,8 +225,17 @@ void paintFrame(
       stack.size,
       world.shift(-frame.topLeft).intersect(ui.Offset.zero & stack.size),
       ppu,
+      rank: ranks[k],
     );
     canvas.restore();
+  }
+  // As the painter does: the pages just outside the view.
+  if (prefetch && shown.isNotEmpty) {
+    for (final (i, after) in [(shown.last + 1, true), (shown.first - 1, false)]) {
+      if (i >= 0 && i < stack.count && i < backgrounds.length) {
+        cache.prefetch(backgrounds[i], stack.size, ppu, after: after);
+      }
+    }
   }
   recorder.endRecording().dispose();
 }

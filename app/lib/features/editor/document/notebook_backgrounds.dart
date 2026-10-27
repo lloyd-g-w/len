@@ -43,15 +43,24 @@ class NotebookBackgrounds extends ChangeNotifier implements PageBackgrounds {
     PageBackground background,
     Size page,
     Rect visible,
-    double pixelsPerUnit,
-  ) {
-    if (background.isPdf) return pdf.paint(canvas, background, page, visible, pixelsPerUnit);
+    double pixelsPerUnit, {
+    int rank = 0,
+  }) {
+    if (background.isPdf) {
+      return pdf.paint(canvas, background, page, visible, pixelsPerUnit, rank: rank);
+    }
+    if (rank == 0) pdf.beginFrame();
     final image = _image(background, page.width * pixelsPerUnit);
     if (image != null) {
       paintBackgroundImage(canvas, image, Offset.zero & page);
     } else if (images.isMissing(background.blob)) {
       paintMissingPdf(canvas, page, scan: true);
     }
+  }
+
+  @override
+  void prefetch(PageBackground background, Size page, double pixelsPerUnit, {required bool after}) {
+    if (background.isPdf) pdf.prefetch(background, page, pixelsPerUnit, after: after);
   }
 
   @override

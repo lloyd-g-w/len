@@ -3,6 +3,10 @@ part of 'pdf_background_cache.dart';
 /// The cache's images and render queue: looking images up (most recently
 /// used last), queueing requests, rendering tiles and evicting over budget.
 extension _PdfBackgroundQueue on PdfBackgroundCache {
+  /// Tiers of requests, served in this order: pages painted in view (and
+  /// thumbnails), tiles in view, pages just outside the view.
+  static const painted = 0, tile = 1, ahead = 2;
+
   ui.Image? _touch(Object key) {
     final hit = _images.remove(key);
     if (hit != null) _images[key] = hit; // Most recently used.
@@ -18,30 +22,39 @@ extension _PdfBackgroundQueue on PdfBackgroundCache {
     return best;
   }
 
-  void _request(Object key, {ui.Size? page}) {
+  void _request(Object key, {required int tier, int rank = 0, ui.Size? page}) {
     // Being rendered: this request joins that render (rendering it again
     // would only replace its image).
     if (_disposed || _images.containsKey(key) || _inFlight.contains(key)) return;
     _queue.remove(key);
-    _queue[key] = _clock.elapsedMilliseconds;
+    _queue[key] = (at: _clock.elapsedMilliseconds, frame: _frame, tier: tier, rank: rank);
     if (key is PdfTile && page != null) _tilePages[key] = page;
     if (!_working) unawaited(_work());
   }
 
-  /// The next request to serve: the newest whole page, else the newest tile;
-  /// stale requests are dropped on the way.
+  /// The next request to serve: the lowest tier, of it what the latest
+  /// frame asked for, of that the lowest rank, the newest of equals; stale
+  /// requests are dropped on the way.
   Object? _next() {
     final now = _clock.elapsedMilliseconds;
-    _queue.removeWhere((key, at) {
-      final stale = now - at > PdfBackgroundCache.staleAfter.inMilliseconds;
+    _queue.removeWhere((key, p) {
+      final stale = now - p.at > PdfBackgroundCache.staleAfter.inMilliseconds;
       if (stale && key is PdfTile) _tilePages.remove(key);
       return stale;
     });
     Object? next;
-    for (final key in _queue.keys) {
-      if (key is _PageImage) next = key; // The newest whole page…
+    _Pending? best;
+    for (final MapEntry(:key, value: p) in _queue.entries) {
+      final b = best;
+      final better =
+          b == null ||
+          p.tier < b.tier ||
+          p.tier == b.tier && (p.frame > b.frame || p.frame == b.frame && p.rank <= b.rank);
+      if (better) {
+        next = key;
+        best = p;
+      }
     }
-    next ??= _queue.isEmpty ? null : _queue.keys.last; // …else the newest tile.
     if (next != null) _queue.remove(next);
     return next;
   }
@@ -49,6 +62,9 @@ extension _PdfBackgroundQueue on PdfBackgroundCache {
   Future<void> _work() async {
     _working = true;
     try {
+      // Lets the rest of the frame ask for its pages first, so the most
+      // central one goes first rather than the first painted.
+      await Future<void>.value();
       while (!_disposed) {
         final key = _next();
         if (key == null) break;

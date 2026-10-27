@@ -17,6 +17,11 @@ part 'pdf_background_queue.dart';
 /// A whole page rendered [width] pixels wide.
 typedef _PageImage = ({PageBackground background, int width});
 
+/// A queued render: when it was last asked for ([at], ms) and in which
+/// [frame], its [tier] ([_PdfBackgroundQueue.painted], `tile`, `ahead`) and
+/// its [rank] within the tier (lower first).
+typedef _Pending = ({int at, int frame, int tier, int rank});
+
 /// Renders PDF page backgrounds on demand, at a resolution matching the
 /// current zoom, and caches the results (least recently used first out).
 ///
@@ -26,12 +31,14 @@ typedef _PageImage = ({PageBackground background, int width});
 /// ([PdfTiling]); until they arrive, the best whole-page image and any
 /// cached tiles of neighbouring levels are shown, so zooming stays smooth.
 ///
-/// Renders run one at a time on PDFium's worker (never on the UI thread),
-/// newest request first: whole pages before tiles, and the tiles in the
-/// middle of the view before those at its edges. A request for an image
-/// being rendered joins that render. Requests that no paint
-/// repeated for [staleAfter] are dropped. Blobs not yet on this device are
-/// fetched through [fetch].
+/// Renders run one at a time on PDFium's worker (never on the UI thread):
+/// the pages in view first, the most central one first (the `rank` the
+/// painter gives), then thumbnails, then the tiles in view (the middle of
+/// the view before its edges), then the pages just outside the view
+/// ([prefetch]; the side the view moves to first). A request for an image
+/// being rendered joins that render. Requests that no paint repeated for
+/// [staleAfter] are dropped, prefetches as soon as a frame no longer asks
+/// for them. Blobs not yet on this device are fetched through [fetch].
 class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
   PdfBackgroundCache({
     required this.blobs,
@@ -65,8 +72,17 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
   /// Page images and tiles, least recently used first.
   final LinkedHashMap<Object, ui.Image> _images = LinkedHashMap();
 
-  /// Pending requests with the time they were last made, oldest first.
-  final LinkedHashMap<Object, int> _queue = LinkedHashMap();
+  /// Pending requests, oldest first.
+  final LinkedHashMap<Object, _Pending> _queue = LinkedHashMap();
+
+  /// Frames painted so far ([beginFrame]).
+  int _frame = 0;
+
+  /// The page painted at rank 0 last, where its visible part was, and
+  /// whether the view last moved towards later pages.
+  PageBackground? _lead;
+  ui.Offset? _leadCentre;
+  bool _forward = true;
 
   /// The request being rendered (or its blob fetched): asking for it again
   /// joins it.
@@ -88,16 +104,54 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
     return math.min(max, (minWidth * math.pow(math.sqrt2, steps)).round());
   }
 
+  /// Rank of thumbnails ([imageFor]): after the pages painted in view.
+  static const _thumbnailRank = 1 << 20;
+
   @override
   ui.Image? imageFor(PageBackground background, double pixelWidth) =>
-      _imageFor(background, pixelWidth, maxWidth);
+      _imageFor(background, pixelWidth, maxWidth, _thumbnailRank);
 
-  ui.Image? _imageFor(PageBackground background, double pixelWidth, int max) {
+  ui.Image? _imageFor(PageBackground background, double pixelWidth, int max, int rank) {
     final key = (background: background, width: bucketFor(pixelWidth, max: max));
     final hit = _touch(key);
     if (hit != null) return hit;
-    _request(key);
+    _request(key, tier: _PdfBackgroundQueue.painted, rank: rank);
     return _bestFor(background);
+  }
+
+  /// Starts a frame: the pages prefetched for the previous one that this
+  /// one doesn't ask for again are dropped. A paint at rank 0 calls it.
+  void beginFrame() {
+    _frame++;
+    _queue.removeWhere((_, p) => p.tier == _PdfBackgroundQueue.ahead);
+  }
+
+  @override
+  void prefetch(
+    PageBackground background,
+    ui.Size page,
+    double pixelsPerUnit, {
+    required bool after,
+  }) {
+    if (_disposed || isMissing(background)) return;
+    final width = bucketFor(page.width * pixelsPerUnit, max: PdfTiling.wholePageWidth(page));
+    final key = (background: background, width: width);
+    if (_touch(key) != null) return; // Kept: it is about to be shown.
+    _request(key, tier: _PdfBackgroundQueue.ahead, rank: after == _forward ? 0 : 1);
+  }
+
+  /// Follows which way the view moves from where the [visible] part of the
+  /// page at rank 0 goes (or which page is at rank 0).
+  void _track(PageBackground background, ui.Rect visible) {
+    final centre = visible.center, lead = _lead, before = _leadCentre;
+    if (lead == background && before != null) {
+      final moved = (centre.dx - before.dx) + (centre.dy - before.dy);
+      if (moved.abs() > 1e-6) _forward = moved > 0;
+    } else if (lead != null && lead.blob == background.blob) {
+      _forward = background.pageIndex > lead.pageIndex;
+    }
+    _lead = background;
+    _leadCentre = centre;
   }
 
   @override
@@ -106,11 +160,16 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
     PageBackground background,
     ui.Size page,
     ui.Rect visible,
-    double pixelsPerUnit,
-  ) {
+    double pixelsPerUnit, {
+    int rank = 0,
+  }) {
+    if (rank == 0) {
+      beginFrame();
+      _track(background, visible);
+    }
     final pixelWidth = page.width * pixelsPerUnit;
     final whole = PdfTiling.wholePageWidth(page);
-    final base = _imageFor(background, pixelWidth, whole);
+    final base = _imageFor(background, pixelWidth, whole, rank);
     if (base == null && isMissing(background)) {
       paintMissingPdf(canvas, page);
       return;
@@ -159,7 +218,8 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
         (PdfTiling.rectOf(page, width, t.col, t.row).center - centre).distanceSquared;
     missing.sort((a, b) => distance(b).compareTo(distance(a))); // Farthest first…
     for (final tile in missing) {
-      _request(tile, page: page); // …so the nearest is the newest request.
+      // …so the nearest is the newest request.
+      _request(tile, page: page, tier: _PdfBackgroundQueue.tile);
     }
   }
 

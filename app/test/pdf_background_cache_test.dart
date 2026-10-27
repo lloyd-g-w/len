@@ -55,6 +55,15 @@ class _FakeRenderer extends PdfRenderer {
 
   final _finishers = <_Render, Future<void> Function()>{};
 
+  /// Finishes the oldest held render, once the cache has asked for it.
+  Future<void> releaseOne() async {
+    for (var i = 0; i < 20; i++) {
+      final r = renders.where((r) => !r.done.isCompleted).firstOrNull;
+      if (r != null) return _finishers[r]!();
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
   /// Finishes the held renders.
   Future<void> release() async {
     for (final r in renders.where((r) => !r.done.isCompleted).toList()) {
@@ -201,5 +210,64 @@ void main() {
     expect(renderer.renders.length, inInclusiveRange(100, 102));
     expect(peak, lessThanOrEqualTo(budget));
     expect(renderer.liveBytes, cache.debugImageBytes);
+  });
+
+  void paintRanked(PdfBackgroundCache cache, List<(int, Rect, int)> pages, double ppu) {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    for (final (index, visible, rank) in pages) {
+      cache.paint(canvas, page(index), a4, visible, ppu, rank: rank);
+    }
+    recorder.endRecording().dispose();
+  }
+
+  test('the most central page in view is rendered first', () async {
+    final renderer = _FakeRenderer(services.blobs, hold: true);
+    final cache = cacheOver(renderer);
+    const ppu = 1.0;
+    // Pages 3, 4 and 5 in view, 4 in the middle, then 5, then 3.
+    paintRanked(cache, [
+      (3, const Rect.fromLTWH(0, 1000, 794, 123), 2),
+      (4, Offset.zero & a4, 0),
+      (5, const Rect.fromLTWH(0, 0, 794, 300), 1),
+    ], ppu);
+    for (var i = 0; i < 3; i++) {
+      await Future<void>.delayed(Duration.zero);
+      await renderer.release();
+    }
+    await settle(cache);
+    expect([for (final r in renderer.renders) r.page], [4, 5, 3]);
+  });
+
+  test('neighbours are prefetched after the pages in view, ahead first, and dropped '
+      'when no frame asks for them', () async {
+    final renderer = _FakeRenderer(services.blobs, hold: true);
+    final cache = cacheOver(renderer);
+    const ppu = 1.0;
+    void frame(int index, double top) {
+      paintRanked(cache, [(index, Rect.fromLTWH(0, top, 794, 600), 0)], ppu);
+      cache.prefetch(page(index - 1), a4, ppu, after: false);
+      cache.prefetch(page(index + 1), a4, ppu, after: true);
+    }
+
+    // Scrolling down page 10: 11 is ahead, 9 behind.
+    frame(10, 100);
+    frame(10, 200);
+    await renderer.releaseOne(); // Page 10.
+    // Now rendering the next one.
+    for (var i = 0; i < 5; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    expect([for (final r in renderer.renders) r.page], [10, 11]);
+    // Scrolled away to page 40 while 11 renders: page 9 is no longer wanted.
+    frame(40, 0);
+    for (var i = 0; i < 6; i++) {
+      await renderer.releaseOne();
+    }
+    await settle(cache);
+    final pages = [for (final r in renderer.renders) r.page];
+    expect(pages, [10, 11, 40, 41, 39]);
+    // Prefetched at the width the page is shown at.
+    expect(renderer.renders.map((r) => r.width).toSet(), hasLength(1));
   });
 }
