@@ -13,6 +13,28 @@ extension _PdfBackgroundQueue on PdfBackgroundCache {
     return hit;
   }
 
+  /// A cached image of [key]'s page at least as wide as [key] but at most
+  /// [PdfBackgroundCache.reuseUpTo] wider (touched), if any: the narrowest.
+  ui.Image? _wideEnough(_PageImage key) {
+    _PageImage? best;
+    for (final k in _images.keys) {
+      if (k is! _PageImage || k.background != key.background) continue;
+      if (k.width < key.width || k.width > key.width * PdfBackgroundCache.reuseUpTo + 1) continue;
+      if (best == null || k.width < best.width) best = k;
+    }
+    return best == null ? null : _touch(best);
+  }
+
+  /// Whether a render of [key]'s page that [_wideEnough] would use is in
+  /// flight (so asking for [key] too would only render it twice).
+  bool _renderingWideEnough(_PageImage key) => _inFlight.any(
+    (k) =>
+        k is _PageImage &&
+        k.background == key.background &&
+        k.width >= key.width &&
+        k.width <= key.width * PdfBackgroundCache.reuseUpTo + 1,
+  );
+
   ui.Image? _bestFor(PageBackground background) {
     ui.Image? best;
     for (final MapEntry(:key, :value) in _images.entries) {

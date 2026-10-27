@@ -1,5 +1,5 @@
 import 'dart:ui' as ui;
-import 'dart:ui' show Canvas, Rect, Size;
+import 'dart:ui' show Canvas, Offset, Rect, Size;
 
 import 'package:flutter/foundation.dart';
 
@@ -45,10 +45,11 @@ abstract class PageBackgrounds implements Listenable {
   void dispose();
 }
 
-/// How central each of [frames] is in [view]: 0 for the frame nearest its
-/// centre (the page being read), 1 for the next nearest, and so on.
+/// How central each of [frames] is in [view]: 0 for the frame nearest the
+/// point a third down its middle (where the eye reads; see
+/// `DocumentLayout.currentPage`), 1 for the next nearest, and so on.
 List<int> centralRanks(List<Rect> frames, Rect view) {
-  final c = view.center;
+  final c = Offset(view.center.dx, view.top + view.height / 3);
   double gap(Rect f) {
     final dx = c.dx < f.left ? f.left - c.dx : (c.dx > f.right ? c.dx - f.right : 0.0);
     final dy = c.dy < f.top ? f.top - c.dy : (c.dy > f.bottom ? c.dy - f.bottom : 0.0);

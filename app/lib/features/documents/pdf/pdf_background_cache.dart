@@ -96,12 +96,22 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
   static const int minWidth = 256;
   static const int maxWidth = PdfTiling.wholePageMax;
 
+  /// Width steps per doubling: 2^¼ ≈ 1.19× apart (256, 304, 362, 431,
+  /// 512, … 1448, 1722, 2048), so a page is rendered at most 19% wider than
+  /// shown (a 1600-px tablet page renders at 1722, not 2048).
+  static const int stepsPerDoubling = 4;
+
+  /// How much wider than needed a cached page may be and still be used
+  /// (no new render): zooming out by up to this much reuses it.
+  static const double reuseUpTo = math.sqrt2;
+
   /// The rendering width used for a requested [pixelWidth] (whole pages),
   /// at most [max].
   static int bucketFor(double pixelWidth, {int max = maxWidth}) {
     if (!pixelWidth.isFinite || pixelWidth <= minWidth) return math.min(minWidth, max);
-    final steps = (2 * math.log(pixelWidth / minWidth) / math.ln2).ceil();
-    return math.min(max, (minWidth * math.pow(math.sqrt2, steps)).round());
+    // Less a hair, so a width on a step (1024) is that step.
+    final steps = (stepsPerDoubling * math.log(pixelWidth / minWidth) / math.ln2 - 1e-9).ceil();
+    return math.min(max, (minWidth * math.pow(2, steps / stepsPerDoubling)).round());
   }
 
   /// Rank of thumbnails ([imageFor]): after the pages painted in view.
@@ -113,9 +123,9 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
 
   ui.Image? _imageFor(PageBackground background, double pixelWidth, int max, int rank) {
     final key = (background: background, width: bucketFor(pixelWidth, max: max));
-    final hit = _touch(key);
+    final hit = _touch(key) ?? _wideEnough(key);
     if (hit != null) return hit;
-    _request(key, tier: _PdfBackgroundQueue.painted, rank: rank);
+    if (!_renderingWideEnough(key)) _request(key, tier: _PdfBackgroundQueue.painted, rank: rank);
     return _bestFor(background);
   }
 
@@ -136,7 +146,8 @@ class PdfBackgroundCache extends ChangeNotifier implements PageBackgrounds {
     if (_disposed || isMissing(background)) return;
     final width = bucketFor(page.width * pixelsPerUnit, max: PdfTiling.wholePageWidth(page));
     final key = (background: background, width: width);
-    if (_touch(key) != null) return; // Kept: it is about to be shown.
+    // Kept: it is about to be shown.
+    if (_touch(key) != null || _wideEnough(key) != null || _renderingWideEnough(key)) return;
     _request(key, tier: _PdfBackgroundQueue.ahead, rank: after == _forward ? 0 : 1);
   }
 

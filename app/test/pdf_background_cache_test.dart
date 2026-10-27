@@ -270,4 +270,21 @@ void main() {
     // Prefetched at the width the page is shown at.
     expect(renderer.renders.map((r) => r.width).toSet(), hasLength(1));
   });
+
+  test('pages render at most 19% wider than shown; zooming out a little reuses them', () async {
+    final renderer = _FakeRenderer(services.blobs);
+    final cache = cacheOver(renderer);
+    Future<void> show(double pixelWidth) async {
+      paint(cache, 0, Offset.zero & a4, pixelWidth / a4.width);
+      await settle(cache);
+    }
+
+    await show(1600); // A tablet page: 1722, not 2048.
+    await show(1500);
+    await show(1300); // Zoomed out 19%: the 1722 is still used.
+    expect([for (final r in renderer.renders) r.width], [1722]);
+    await show(1800); // Zoomed in past it.
+    await show(1650);
+    expect([for (final r in renderer.renders) r.width], [1722, 2048]);
+  });
 }

@@ -281,7 +281,10 @@ void main() {
   test('background cache quantises resolutions', () {
     expect(PdfBackgroundCache.bucketFor(10), 256);
     expect(PdfBackgroundCache.bucketFor(256), 256);
-    expect(PdfBackgroundCache.bucketFor(300), 362);
+    expect(PdfBackgroundCache.bucketFor(300), 304);
+    expect(PdfBackgroundCache.bucketFor(1600), 1722);
+    expect(PdfBackgroundCache.bucketFor(1722), 1722);
+    expect(PdfBackgroundCache.bucketFor(1723), 2048);
     expect(PdfBackgroundCache.bucketFor(1000), 1024);
     expect(PdfBackgroundCache.bucketFor(100000), PdfBackgroundCache.maxWidth);
     expect(PdfBackgroundCache.bucketFor(double.nan), 256);
