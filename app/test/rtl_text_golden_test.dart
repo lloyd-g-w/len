@@ -71,6 +71,7 @@ void main() {
       hebrew.copyWith(align: TextAlignment.end),
     ];
     await tester.binding.setSurfaceSize(const Size(1240, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final controllers = [
       for (final data in samples)
         RichTextController(data)

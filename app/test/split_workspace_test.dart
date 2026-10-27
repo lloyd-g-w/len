@@ -90,23 +90,23 @@ void main() {
     // The right pane erases what the left drew.
     final at = stroke.points.first.offset;
     expect(firstPageOf(right).eraseAlong(at, at, 4, continueEdit: false), isTrue);
-    await tester.pump();
+    await tester.pump(Duration.zero); // Fires stepped writes' turns.
     expect((strokesOn(model), stored()), (0, 0));
     expect(left.undo.canUndo && right.undo.canUndo, isTrue);
 
     // The left pane's undo undoes the latest edit, the erase.
     left.undo.undo();
-    await tester.pump();
+    await tester.pump(Duration.zero);
     expect((strokesOn(model), stored()), (1, 1));
     // Then the drawing, from the right pane.
     right.undo.undo();
-    await tester.pump();
+    await tester.pump(Duration.zero);
     expect((strokesOn(model), stored()), (0, 0));
     expect(left.undo.canUndo || right.undo.canUndo, isFalse);
     // Redo both steps: drawn, then erased again (never resurrected).
     left.undo.redo();
     left.undo.redo();
-    await tester.pump();
+    await tester.pump(Duration.zero);
     expect((strokesOn(model), stored()), (0, 0));
     expect(right.undo.canRedo, isFalse);
     await closeEditor(tester);
