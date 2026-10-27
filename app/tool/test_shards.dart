@@ -10,7 +10,8 @@
 //
 // Each file keeps what package:test would give it alone: its library `@Tags`
 // (shards hold files of one tag set and carry it) and goldens resolved next
-// to it (`goldenFileComparator`). Files that load Roboto into the engine
+// to it (`goldenFileComparator`), and starts with no planner labels cached
+// (`PatternText`: they keep the font they were laid out in). Files that load Roboto into the engine
 // (for good: [loadsFonts]) get shards of their own, so the others' goldens
 // keep the test font.
 // Files are spread over the shards by their recorded time
@@ -26,6 +27,13 @@ const _timesPath = 'tool/test_times.json';
 const _unknownSeconds = 2.0;
 
 void main(List<String> args) {
+  if (args.length == 1 && args[0] == 'fonts') {
+    stdout.writeln(_fontHelpers.join(' '));
+    for (final f in testFiles('all').where(loadsFonts)) {
+      stdout.writeln(f);
+    }
+    return;
+  }
   if (args.length == 4 && args[0] == 'generate') {
     generate(args[1], int.parse(args[2]), Directory(args[3]));
   } else if (args.length >= 2 && args[0] == 'record') {
@@ -48,12 +56,26 @@ List<String> testFiles(String tier) {
       if (f is File && f.path.endsWith('_test.dart'))
         f.path.substring(root.path.length + 1).replaceAll(r'\', '/'),
   ]..sort();
-  if (tier != 'fast') return files;
+  if (tier == 'all') return files;
   return [
     for (final f in files)
-      if (!f.startsWith('perf/') && !f.startsWith('screenshots/')) f,
+      if (isSlow(f) == (tier == 'slow')) f,
   ];
 }
+
+/// Whether the test file at [path] is in the slow tier: tagged `slow`, or
+/// with a tag dart_test.yaml adds `slow` to (`perf`, `screenshots`).
+bool isSlow(String path) => libraryTags(path).any(_slowTags.contains);
+
+final Set<String> _slowTags = () {
+  final tags = {'slow'};
+  String? tag;
+  for (final line in File('dart_test.yaml').readAsLinesSync()) {
+    if (RegExp(r'^  (\w+):').firstMatch(line) case final m?) tag = m[1];
+    if (tag != null && RegExp(r'^\s+add_tags:.*\bslow\b').hasMatch(line)) tags.add(tag);
+  }
+  return tags;
+}();
 
 /// The library `@Tags([...])` of the test file at [path].
 List<String> libraryTags(String path) {
@@ -124,13 +146,48 @@ void generate(String tier, int shardCount, Directory out) {
 
 /// Whether the test file at [path] loads fonts into the engine beyond
 /// those every file gets (`flutter_test_config.dart`): Roboto, through
-/// `loadFonts()` in content_golden_test.dart or a `FontLoader` of its own.
-/// Nothing unloads them, so in a shard with them, later files' goldens would
-/// show Roboto where they were made with the test font.
-bool loadsFonts(String path) {
-  final source = File('test/$path').readAsStringSync();
-  return source.contains('FontLoader(') || source.contains('loadFonts()');
-}
+/// `loadFonts` in content_golden_test.dart, a helper that uses it
+/// ([_fontHelpers]) or a `FontLoader` of its own. Nothing unloads them, so in
+/// a shard with them, later files' goldens would show Roboto where they were
+/// made with the test font.
+bool loadsFonts(String path) => _callsFontLoading(File('test/$path').readAsStringSync());
+
+bool _callsFontLoading(String source) =>
+    source.contains('FontLoader(') ||
+    _fontHelpers.any((name) => RegExp('\\b$name\\b').hasMatch(source));
+
+/// The public top-level functions in test/ that load fonts, directly or
+/// through another such function (`loadFonts`, `seededCanvas`, ...).
+final Set<String> _fontHelpers = () {
+  final names = {'loadFonts'};
+  final declarations = <String, String>{}; // public name → its source
+  for (final f in Directory('test').listSync(recursive: true).whereType<File>()) {
+    // flutter_test_config.dart's fonts are every file's.
+    if (!f.path.endsWith('.dart') || f.path.contains('/.shards/')) continue;
+    if (f.path.endsWith('flutter_test_config.dart')) continue;
+    final lines = f.readAsLinesSync();
+    for (var i = 0; i < lines.length; i++) {
+      final m = RegExp(r'^[A-Za-z][\w<>?, ()]*?\b([a-z]\w*)\(').firstMatch(lines[i]);
+      if (m == null || const {'void', 'main', 'if', 'for'}.contains(m[1])) continue;
+      final body = StringBuffer(lines[i]);
+      for (var j = i + 1; j < lines.length && !RegExp(r'^\S').hasMatch(lines[j]); j++) {
+        body.writeln(lines[j]);
+      }
+      declarations[m[1]!] = '${declarations[m[1]!] ?? ''}$body';
+    }
+  }
+  for (var grew = true; grew;) {
+    grew = false;
+    for (final MapEntry(key: name, value: body) in declarations.entries) {
+      if (names.contains(name)) continue;
+      if (body.contains('FontLoader(') || names.any((n) => RegExp('\\b$n\\b').hasMatch(body))) {
+        names.add(name);
+        grew = true;
+      }
+    }
+  }
+  return names;
+}();
 
 /// Whether the test file at [path] must run in an isolate of its own, as
 /// a `// test_shards: alone` comment in it says (state it cannot reset).
@@ -154,6 +211,7 @@ String _shardSource(List<String> files, List<String> tags, Uri testDir, String t
   }
   b
     ..writeln("import 'package:flutter_test/flutter_test.dart';")
+    ..writeln("import 'package:len/ink/render/pattern_text.dart';")
     ..writeln();
   for (final (i, f) in files.indexed) {
     b.writeln("import '$toTest$f' as t$i;");
@@ -166,7 +224,10 @@ String _shardSource(List<String> files, List<String> tags, Uri testDir, String t
     b
       ..writeln("  group('$f', () {")
       ..writeln(
-        "    setUpAll(() => goldenFileComparator = LocalFileComparator(Uri.parse('$golden')));",
+        '    setUpAll(() {\n'
+        "      goldenFileComparator = LocalFileComparator(Uri.parse('$golden'));\n"
+        '      PatternText.debugClearCache();\n'
+        '    });',
       )
       ..writeln('    t$i.main();')
       ..writeln('  });');

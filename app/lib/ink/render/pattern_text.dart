@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 import '../../domain/paper_pattern.dart';
@@ -9,6 +10,17 @@ import '../../domain/paper_pattern.dart';
 abstract final class PatternText {
   static final Map<(String, double, double, bool, LabelAlign, Color), ui.Paragraph> _cache = {};
   static const int _capacity = 600;
+
+  /// Drops the cached paragraphs, which keep the fonts they were laid out
+  /// in: tool/test.sh runs many test files in one isolate, some loading
+  /// Roboto, and starts each with none, as if it ran alone.
+  @visibleForTesting
+  static void debugClearCache() {
+    for (final p in _cache.values) {
+      p.dispose();
+    }
+    _cache.clear();
+  }
 
   static void paint(Canvas canvas, PatternLabel label, Color color) {
     final key = (label.text, label.size, label.box.width, label.bold, label.align, color);
