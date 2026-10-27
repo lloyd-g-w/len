@@ -87,9 +87,13 @@ tool/heavy.sh nix develop ..# -c bash -c \
 
 Pen-engine work must pass that run too. Timing metrics only run on
 `long_stroke` and recordings; their replays run three times and each frame
-keeps its fastest live build and pen-up handling, so load on the machine
-does not tip `perf.flatness` (`perf_flatness_test.dart` checks that it
-still fails builders doing O(length) work per frame: 6–7× against 1.0×).
+keeps its fastest live build and pen-up handling, so light load on the
+machine does not tip `perf.flatness` (`perf_flatness_test.dart` checks that
+it still fails builders doing O(length) work per frame: 6–7× against 1.0×).
+A full default tier (a test file per core) still skewed it to 2.45× now and
+then, so outside the slow tier it is held to 4× (2× its limit,
+`flatnessFactor` in `judge.dart`): still a blow-up bound for O(length)
+builders.
 The absolute ones (`perf.frameCost`, `perf.commit`) still grow on a machine
 busy all through (a full test run beside other work: `perf.commit` 9.5 ms
 against ≤ 4 alone), so where the timed replays waited for a CPU or the load
