@@ -15,7 +15,7 @@ typedef PdfTile = ({PageBackground background, int width, int col, int row});
 /// column are smaller).
 abstract final class PdfTiling {
   /// Side of a tile in pixels.
-  static const int tileSize = 512;
+  static const int tileSize = 1024;
 
   /// The widest page rendered as a single image.
   static const int wholePageMax = 2048;

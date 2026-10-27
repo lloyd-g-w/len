@@ -82,22 +82,25 @@ void main() {
 
     test('tiles cover the page exactly; only visible ones are listed', () {
       const width = 4096;
+      final cols = width ~/ PdfTiling.tileSize;
       final rows = (PdfTiling.heightAt(width, a4) / PdfTiling.tileSize).ceil();
       final all = PdfTiling.range(a4, Offset.zero & a4, width)!;
-      expect((all.col0, all.col1, all.row0, all.row1), (0, 7, 0, rows - 1));
+      expect((all.col0, all.col1, all.row0, all.row1), (0, cols - 1, 0, rows - 1));
       var area = 0.0;
       for (var r = 0; r < rows; r++) {
-        for (var c = 0; c < 8; c++) {
+        for (var c = 0; c < cols; c++) {
           final rect = PdfTiling.rectOf(a4, width, c, r);
           area += rect.width * rect.height;
         }
       }
       expect(area, closeTo(a4.width * a4.height, 1e-6));
-      // 1 page unit ≈ 5.16 px: a 100-unit square near the middle spans 2×2 tiles.
+      // 1 page unit ≈ 5.16 px: a 100-unit square near the middle (pixels
+      // 1960–2476 across, 2786–3302 down) spans 2×2 tiles of 1024 px.
+      expect(PdfTiling.tileSize, 1024);
       final some = PdfTiling.range(a4, const Rect.fromLTWH(380, 540, 100, 100), width)!;
-      expect((some.col0, some.col1, some.row0, some.row1), (3, 4, 5, 6));
+      expect((some.col0, some.col1, some.row0, some.row1), (1, 2, 2, 3));
       expect(PdfTiling.range(a4, const Rect.fromLTWH(900, 0, 10, 10), width), isNull);
-      final last = PdfTiling.pixels(a4, width, 7, rows - 1);
+      final last = PdfTiling.pixels(a4, width, cols - 1, rows - 1);
       expect(last.x + last.width, width);
       expect(last.y + last.height, PdfTiling.heightAt(width, a4));
     });
