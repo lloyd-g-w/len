@@ -59,7 +59,7 @@ Download the latest build from
 | Linux (x64) | `len-X.Y.Z-linux-x64.flatpak` | `flatpak install --user len-X.Y.Z-linux-x64.flatpak` (fetches the GNOME runtime from Flathub, which brings everything Len needs, audio recording included). |
 | Linux (x64) | `len-X.Y.Z-linux-x64.AppImage` | `chmod +x` it and run it; `./len-X.Y.Z-linux-x64.AppImage --install-desktop-entry` adds it to the application menu and "Open with" (`--uninstall-desktop-entry` removes it). Needs the same system libraries as the tarball (below), and glibc 2.39+ (Ubuntu 24.04, Fedora 40, Debian 13 or newer) for both. AppImageUpdate / Gear Lever update it in place. |
 | Linux (x64) | `len-X.Y.Z-linux-x64.tar.gz` | Unpack, run `./len`; `./install-desktop-entry.sh` adds it to your application menu (`--uninstall` removes it). Needs GTK 3, libsecret (the sync token goes to the desktop's keyring) and GStreamer (with the -good and an AAC plugin, for audio playback); recording uses `parecord` and `ffmpeg`. |
-| Web | `len-X.Y.Z-web.zip` | Static site: unzip and serve it over HTTPS with any web server (headers: see *Develop*). Install it from the browser (PWA) to use it offline. |
+| Web | `len-X.Y.Z-web.zip` | Static site: unzip and serve it over HTTPS with any web server (headers: see *Develop*). Install it from the browser (PWA) to use it offline. Or run the Docker image `ghcr.io/lloyd-g-w/len-site` ([site/README.md](site/README.md)). |
 
 Len is distributed through GitHub Releases only; it is not published to app stores.
 
@@ -159,8 +159,8 @@ matches the pubspec, builds the APKs (universal + per ABI), the Linux tarball
 and a Flatpak and an AppImage made from it, the Windows installer and zip, the
 web zip and winget manifests for the installer, attaches them to a GitHub
 release, and
-pushes the sync server image to `ghcr.io/<owner>/len-sync` (`X.Y.Z`, `X.Y`,
-`latest`; amd64 + arm64). CI ([ci.yml](.github/workflows/ci.yml)) runs on
+pushes the sync server and web app images to `ghcr.io/<owner>/len-sync` and
+`len-site` (`X.Y.Z`, `X.Y`, `latest`; amd64 + arm64). CI ([ci.yml](.github/workflows/ci.yml)) runs on
 every push / PR: analyze + the fast test tier (app) and the server tests
 only; builds, the slow tier, end-to-end and the web walk-through run
 locally (see *Develop*). Both pin

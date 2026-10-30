@@ -1,0 +1,61 @@
+name: Site image
+
+# Publishes the web app image on every push to main that changes it:
+# ghcr.io/<owner>/len-site:latest and :sha-<short> (nginx serving
+# tool/build_web.sh's output; site/Dockerfile). Tagged releases
+# (release.yml) add the version tags.
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", "site/**", ".github/workflows/site-image.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: site-image
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  FLUTTER_VERSION: "3.47.4"
+
+jobs:
+  image:
+    name: Site image → GHCR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: tool/build_web.sh
+        working-directory: app
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/len-site
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-
+          labels: |
+            org.opencontainers.image.title=Len web app
+            org.opencontainers.image.description=The Len notes app for the web (PWA), served by nginx
+      # No RUN steps in the Dockerfile, so arm64 needs no QEMU.
+      - uses: docker/build-push-action@v6
+        with:
+          context: site
+          build-contexts: web=app/build/web
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

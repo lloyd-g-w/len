@@ -4,7 +4,8 @@ name: Release
 #   git tag v0.2.0 && git push origin v0.2.0
 # Builds the apps (APKs, Linux tarball + Flatpak + AppImage, Windows zip + installer,
 # web zip), attaches them to a GitHub release and pushes the sync
-# server image to ghcr.io/<owner>/len-sync. See README "Release".
+# server and web app images to ghcr.io/<owner>/len-sync and len-site.
+# See README "Release".
 #
 # Secrets (Settings → Secrets and variables → Actions), all optional:
 #   ANDROID_KEYSTORE_BASE64   base64 of the release keystore (.jks)
@@ -264,6 +265,48 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=server-release
           cache-to: type=gha,scope=server-release,mode=max
+
+  site-image:
+    name: Site image → GHCR
+    needs: [version, web]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      # The same build as the release's web zip.
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: dist
+      - run: mkdir web && unzip -q dist/len-${{ needs.version.outputs.version }}-web.zip -d web
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/len-site
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+          labels: |
+            org.opencontainers.image.title=Len web app
+            org.opencontainers.image.description=The Len notes app for the web (PWA), served by nginx
+      - uses: docker/build-push-action@v6
+        with:
+          context: site
+          build-contexts: web=web
+          platforms: linux/amd64,linux/arm64
+          # Manual runs (workflow_dispatch) build everything but publish nothing.
+          push: ${{ github.ref_type == 'tag' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
   release:
     name: GitHub release
