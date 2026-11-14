@@ -49,6 +49,19 @@ void main() {
       expect(tabs.splitFraction, 0.6);
     });
 
+    test('without tabs, only the notebook that was shown reopens', () {
+      final a = addNotebook(s, 'A'), b = addNotebook(s, 'B'), c = addNotebook(s, 'C');
+      keepWorkspace(s, [a.id, b.id, c.id], active: b.id, split: c.id);
+
+      final tabs = OpenNotebooks()..tabbed = false;
+      addTearDown(tabs.dispose);
+      final memory = WorkspaceMemory(settings: s.settings, tabs: tabs, isClosed: () => false);
+      addTearDown(memory.dispose);
+      expect(memory.restore(s.notebooks.get)?.id, b.id);
+      expect([for (final t in tabs.tabs) t.title], ['B']);
+      expect(tabs.splitId, isNull);
+    });
+
     test('trashed and deleted notebooks are left out; nothing kept, nothing opens', () {
       final a = addNotebook(s, 'A'), b = addNotebook(s, 'B');
       keepWorkspace(s, [a.id, b.id], active: b.id);

@@ -296,8 +296,13 @@ class AppServices {
   /// for other apps.
   late final ClipboardMirror clipboardMirror = ClipboardMirror(images: images);
 
-  /// Notebooks open in editor tabs (with each tab's place in memory).
-  final OpenNotebooks openNotebooks = OpenNotebooks();
+  /// Notebooks open in editor tabs (with each tab's place in memory); one
+  /// at a time while the Notebook tabs setting is off (followed live).
+  late final OpenNotebooks openNotebooks = () {
+    final open = OpenNotebooks()..tabbed = preferences.notebookTabs;
+    preferences.addListener(() => open.tabbed = preferences.notebookTabs);
+    return open;
+  }();
 
   /// Recent notebooks and the workspace kept across launches.
   late final WorkspaceMemory workspace = WorkspaceMemory(

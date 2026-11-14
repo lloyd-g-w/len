@@ -162,6 +162,11 @@ class SettingsRepository {
   bool get canvasMinimap => _get('canvas_minimap') == 'true';
   set canvasMinimap(bool value) => _set('canvas_minimap', '$value');
 
+  /// Whether the editor keeps several notebooks open in tabs (default on);
+  /// off, opening a notebook replaces the one shown.
+  bool get notebookTabs => _get('notebook_tabs') != 'false';
+  set notebookTabs(bool value) => _set('notebook_tabs', '$value');
+
   /// Whether other devices' pointers carry their device's name tag
   /// (default on).
   bool get pointerTags => _get('pointer_tags') != 'false';
