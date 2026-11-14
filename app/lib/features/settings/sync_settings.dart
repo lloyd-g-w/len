@@ -258,7 +258,7 @@ class _SyncSettingsState extends State<SyncSettings> {
             ? SigninReturn.code
             : returnTo,
         port: listener?.port,
-        device: 'Len on ${SyncController.deviceName}',
+        device: 'Len on ${_sync.deviceName.value}',
       );
       if (!mounted) return;
       final answer = await showBrowserSigninDialog(
