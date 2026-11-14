@@ -581,6 +581,11 @@ again. Text being typed reads once its write lands. The nodes take no pointers.
   notebooks through `openNotebook()`, which pushes one `EditorWorkspace` route; it shows
   the active tab's `EditorScreen` (keyed by notebook), which saves its view on dispose
   and restores it on creation. Closing the last tab leaves the workspace.
+  Settings → General → *Notebook tabs* (`notebookTabs`, default on; `AppServices` sets
+  `OpenNotebooks.tabbed` from it, live) turns tabs off: then one notebook stays open, opening
+  another replaces it, and the editor gets no `tabs` (no strip, switcher or tab shortcuts;
+  split view offers only the same notebook). Turned off, the other tabs close as `close`
+  closes them; a restored workspace reopens only the notebook that was shown.
   `WorkspaceMemory` (`tabs/workspace_memory.dart`, in `AppServices`) keeps the tabs,
   the active one and the split view in the settings (`workspace`) while the workspace
   is shown, and the notebooks opened lately (`recent_notebooks`, the library's Recent

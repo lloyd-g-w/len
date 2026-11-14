@@ -93,6 +93,11 @@ class AppPreferences extends ChangeNotifier {
   bool get canvasMinimap => _settings.canvasMinimap;
   set canvasMinimap(bool value) => _update(() => _settings.canvasMinimap = value);
 
+  /// Whether the editor keeps several notebooks open in tabs; off, opening
+  /// a notebook replaces the one shown (`OpenNotebooks.tabbed` follows).
+  bool get notebookTabs => _settings.notebookTabs;
+  set notebookTabs(bool value) => _update(() => _settings.notebookTabs = value);
+
   /// Whether other devices' pointers (live sync) carry their name tag, the
   /// plate with the device's initial; off leaves the bare dot or laser.
   bool get pointerTags => _settings.pointerTags;

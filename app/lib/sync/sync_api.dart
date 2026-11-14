@@ -65,8 +65,10 @@ class SyncApi {
   final Duration timeout;
   final http.Client _client;
 
+  /// No `Authorization` without a token (browser sign-in, before it has
+  /// one).
   Map<String, String> get _headers => {
-    'Authorization': 'Bearer $token',
+    if (token.isNotEmpty) 'Authorization': 'Bearer $token',
     'Content-Type': 'application/json; charset=utf-8',
   };
 
@@ -89,9 +91,43 @@ class SyncApi {
     }
     final json = decodeObject(response.body);
     if (json == null) {
-      throw SyncException.unreadable(response.bodyBytes, otherwise: SyncException.notLen);
+      // A sign-in proxy guarding the API answers with its login page.
+      final html = response.headers['content-type']?.startsWith('text/html') ?? false;
+      throw SyncException.unreadable(
+        response.bodyBytes,
+        otherwise: html ? SyncException.signinPage : SyncException.notLen,
+      );
     }
     return ServerInfo.fromJson(json);
+  }
+
+  /// Trades a browser sign-in's [code] and the [verifier] its challenge
+  /// was made from for the server's access token (`POST /v1/signin/token`).
+  /// Throws [SyncException]: [SyncFailure.auth] when the code is unknown,
+  /// used or expired.
+  Future<String> signinToken({required String code, required String verifier}) async {
+    final response = await _request(
+      () => _client.post(
+        _uri('v1/signin/token'),
+        headers: _headers,
+        body: jsonEncode({'code': code, 'verifier': verifier}),
+      ),
+    );
+    if (response.statusCode == 401 || response.statusCode == 400) {
+      throw const SyncException(
+        'The sign-in didn’t work (it expired or was already used) — sign in again',
+        kind: SyncFailure.auth,
+      );
+    }
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      throw SyncException.noBrowserSignin;
+    }
+    _expectOk(response);
+    final token = decodeObject(response.body)?['token'];
+    if (token is! String || token.isEmpty || !_tokenChars.hasMatch(token)) {
+      throw SyncException.unreadable(response.bodyBytes);
+    }
+    return token;
   }
 
   /// Uploads [records], split into as many requests as the server's count

@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app_services.dart';
+import '../../platform/signin_listener.dart';
+import '../../sync/browser_signin.dart';
 import '../../sync/server_only_files.dart';
 import '../../sync/sync_api.dart';
 import '../../sync/sync_controller.dart';
@@ -12,6 +15,7 @@ import '../../sync/sync_setup_link.dart';
 import '../../ui/app_dialogs.dart';
 import '../../ui/app_theme.dart';
 import '../documents/progress_dialog.dart';
+import 'browser_signin_dialog.dart';
 import 'device_name_tile.dart';
 import 'name_tags_tile.dart';
 import 'settings_section.dart';
@@ -25,7 +29,8 @@ part 'sync_settings_views.dart';
 /// Name tags switch; otherwise
 /// (or while changing) the URL and token form, with a connection test. A
 /// setup link fills the form: pasted into the URL field, or opened with Len
-/// ([IncomingFiles.syncSetup]).
+/// ([IncomingFiles.syncSetup]). Sign in with browser… gets the token from
+/// a server behind a sign-in proxy ([BrowserSignin]).
 class SyncSettings extends StatefulWidget {
   const SyncSettings({super.key, this.reveal = false});
 
@@ -154,18 +159,24 @@ class _SyncSettingsState extends State<SyncSettings> {
     if (_tokenError != null) setState(() => _tokenError = null);
   }
 
-  Future<void> _testAndSave() async {
+  /// The URL field's address, completed (and shown so); null (said under
+  /// the field) if it isn't one.
+  String? _checkedUrl() {
     final url = SyncSettings.completeUrl(_url.text);
     // Show what is used ("https://" added).
     if (url != _url.text) _url.text = url;
     final urlError = SyncSettings.validateUrl(url);
-    if (urlError != null) {
-      setState(() {
-        _urlError = urlError;
-        _testError = _tokenError = null;
-      });
-      return;
-    }
+    if (urlError == null) return url;
+    setState(() {
+      _urlError = urlError;
+      _testError = _tokenError = null;
+    });
+    return null;
+  }
+
+  Future<void> _testAndSave() async {
+    final url = _checkedUrl();
+    if (url == null) return;
     // What was tested is what gets saved: the fields may change (or Cancel
     // may restore them) while the server answers.
     final token = _token.text.trim();
@@ -206,6 +217,71 @@ class _SyncSettingsState extends State<SyncSettings> {
     } finally {
       if (mounted && attempt == _attempt) setState(() => _busy = false);
     }
+  }
+
+  /// Sign in with browser…: the server's sign-in page (behind its sign-in
+  /// proxy) hands this device a code, traded for the token, which fills
+  /// the token field; then connects as Connect does. Desktops hear the
+  /// page's answer on a loopback listener, Android as a `len://signin`
+  /// link, browsers as a pasted code.
+  Future<void> _signInWithBrowser() async {
+    final url = _checkedUrl();
+    if (url == null) return;
+    final attempt = ++_attempt;
+    setState(() {
+      _busy = true;
+      _testError = _tokenError = null;
+    });
+    SigninListener? listener;
+    var signedIn = false;
+    try {
+      final info = await _sync.serverInfo(url);
+      if (!info.signin) throw SyncException.noBrowserSignin;
+      if (attempt != _attempt || !mounted) return;
+      final returnTo = kIsWeb
+          ? SigninReturn.code
+          : switch (defaultTargetPlatform) {
+              TargetPlatform.android || TargetPlatform.iOS => SigninReturn.app,
+              _ => SigninReturn.loopback,
+            };
+      if (returnTo == SigninReturn.loopback) {
+        try {
+          listener = await startSigninListener();
+        } on Exception catch (e) {
+          debugPrint('Sign-in listener failed: $e');
+        }
+      }
+      final signin = BrowserSignin(
+        serverUrl: url,
+        // Without a listener, the page shows the code to paste.
+        returnTo: returnTo == SigninReturn.loopback && listener == null
+            ? SigninReturn.code
+            : returnTo,
+        port: listener?.port,
+        device: 'Len on ${SyncController.deviceName}',
+      );
+      if (!mounted) return;
+      final answer = await showBrowserSigninDialog(
+        context,
+        signin: signin,
+        answers: [?listener?.callbacks, _services.incomingFiles.signinLinks],
+        open: () => unawaited(launchUrl(signin.url, mode: LaunchMode.externalApplication)),
+      );
+      final code = answer?.code;
+      if (code == null || attempt != _attempt || !mounted) return;
+      final token = await _sync.signinToken(url: url, code: code, verifier: signin.verifier);
+      if (attempt != _attempt || !mounted) return;
+      _token.text = token;
+      signedIn = true;
+    } on SyncException catch (e) {
+      if (attempt == _attempt) _testError = e.message;
+    } on ArgumentError {
+      if (attempt == _attempt) _urlError = 'This address isn’t valid';
+    } finally {
+      unawaited(listener?.close());
+      if (mounted && attempt == _attempt) setState(() => _busy = false);
+    }
+    if (signedIn && mounted) await _testAndSave();
   }
 
   Future<void> _turnOff() async {
