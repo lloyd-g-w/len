@@ -1580,11 +1580,15 @@ replayed in step with the ink.
   are not part of a surface, like renaming): its message offers Undo, and
   "Reset trim" in the list restores the whole recording at any time.
   Export keeps to the trim without decoding (`cutAudio` in
-  `recording_export.dart`; `exportGroups` gives each exported file its
-  blobs and the cut in them). Raw AAC joins all parts and keeps the whole
+  `recording_export.dart`; `exportGroupOf` gives the exported file its
+  blobs, where each starts and the cut in them). Every recording exports
+  as one file. Raw AAC joins all parts and keeps the whole
   frames overlapping the range (`AdtsReader.cut`, ≈ 23 ms at 44.1 kHz,
-  exact sample counting). Browser recordings export one file per part the
-  trim touches, the first and last cut inside: WebM (`webm_cut.dart` on
+  exact sample counting). Browser recordings join the parts the trim
+  touches into one file (`joinAudio`: each part a complete file of the same
+  codec and settings, its packets moved to where the part starts, never
+  before the previous part's audio ends; the first part's header and
+  tracks) and cut it inside: WebM (`webm_cut.dart` on
   `ebml.dart`) keeps the EBML header, Info (Duration rewritten) and Tracks,
   and the blocks overlapping the range, timecodes rebased to 0 and
   regrouped into clusters of known size (browsers write unknown sizes);
@@ -1594,9 +1598,13 @@ replayed in step with the ink.
   each fragment rewritten with explicit `trun` tables and its `tfdt`
   rebased; `sidx` / `mfra` are dropped. Opus and AAC packets are all
   keyframes, so the cut is exact to a packet (20–60 ms). Input the cutters
-  don't understand (malformed, several tracks, plain MP4, encryption)
-  exports the whole part, and only then does the message say the audio
-  may start earlier or end later than the trim.
+  don't understand (malformed, several tracks, plain MP4, encryption,
+  parts whose tracks differ) exports one file per part ("Lecture (part
+  2).webm", `partGroupsOf`), each cut where it can be, else whole, and
+  only then does the message say the audio may start earlier or end later
+  than the trim. A joined MP4 keeps each part's own AAC priming frames
+  after the first (≈ 23 ms at each 5-minute join; playing part by part
+  has them too).
 - **Freeing a trim's storage** (`domain/recording_release.dart`,
   `trim_release.dart`, `ui/free_up_space.dart`). The trim stays adjustable
   until the user frees it: a recording whose trim leaves parts wholly
@@ -4183,7 +4191,9 @@ boxes, the text of imported PDF pages and recognised handwriting (see
 - **Queries.** `SearchQuery` splits the input into words; each must occur
   as a word prefix (`"term"*`), ignoring case and accents. The same rules
   in Dart (`SearchText.fold` keeps offsets) find highlight ranges and build
-  snippets. Hits carry the notebook, surface and page number (counted in
+  snippets (`SearchSnippet`: whitespace collapsed, a run breaking a line
+  shown as " / ", so table cells, list items and short lines stay apart;
+  never starting or ending on one). Hits carry the notebook, surface and page number (counted in
   SQL from the page order); trashed/deleted notebooks and deleted pages are
   left out. Library results rank by bm25 (title matches first); in-notebook
   results are in reading order.
@@ -4552,7 +4562,9 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   `LiveLink` after a reconnect). Presence lists the other devices there (by the names they
   gave, see "Device names"); `RoomPresence`
   (`features/editor/live_ink/`) shows a plate with each one's initial before the sync alert in
-  the editor's bar. A dropped connection empties every room's presence (`disconnected`).
+  the editor's bar (`RoomPresence.initialsOf`: where initials collide, the first letters of
+  the first two words, "GT" and "GS" for "Galaxy Tab S9" and "Galaxy S23"; still alike,
+  numbered, "P" and "P2"; the slot has room for two letters). A dropped connection empties every room's presence (`disconnected`).
   The editor's chrome (View → Name tags) and `PointerRelay` follow
   `SharedNotebook.othersHere` (whether anyone else is there), which changes only when the first
   device comes or the last goes, so other presence messages (any room's) rebuild just the plates.
@@ -4609,7 +4621,7 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   paints them through `frameOf` (a page's frame, the canvas as is): a small dot for hovering
   (`Palette.pointerOn` the page's paper, ringed with the paper: `paperOf`, not the theme),
   the laser as `LaserPaint` draws the local one, each labelled with the device's plate
-  (`RoomPresence.initialOf`, the presence plate's colours) — its *name tag*, unless the local
+  (`RoomPresence.initialsOf`, as the bar's plates, in the presence plate's colours) — its *name tag*, unless the local
   setting `pointer_tags` (`AppPreferences.pointerTags`, default on; "⋯" → View → *Name tags*
   in pages and canvases while another device is in the notebook — the chrome rebuilds on
   presence — and Settings → Sync once connected) is off: then only the dot or laser
