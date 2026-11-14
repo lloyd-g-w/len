@@ -11,9 +11,12 @@ defaults, unknown fields and values tolerated.
 
 ## Transport & auth
 
-- HTTP + JSON (UTF-8). All endpoints except `/v1/health` require
+- HTTP + JSON (UTF-8). All endpoints except `/v1/health` (and the
+  [browser sign-in](#browser-sign-in)'s) require
   `Authorization: Bearer <token>`, where `<token>` equals the server's `LEN_SYNC_TOKEN`
   (clients send it to `/v1/health` too, which ignores it, so a proxy guarding every path works).
+- Clients get the token typed, from a setup link (`len://sync?url=…&token=…`), or by
+  [signing in through the browser](#browser-sign-in) when a sign-in proxy guards the server.
 - Token comparison must be constant-time.
 - The app keeps the token in the platform's secure store (Keystore, Secret Service, DPAPI;
   in the database only as a fallback and in browsers), see ARCHITECTURE "Sync" → Sync token.
@@ -57,7 +60,7 @@ Whenever a record is stored/replaced it gets a new `seq` (max seq + 1).
 
 ### `GET /v1/health`
 No auth.
-`200 {"status":"ok","protocol":1,"maxBlobBytes":209715200,"blobsCollectedAt":0,"serverId":"9f…"}`
+`200 {"status":"ok","protocol":1,"maxBlobBytes":209715200,"blobsCollectedAt":0,"serverId":"9f…","signin":false}`
 
 `protocol` is the protocol version (this document: 1). `maxBlobBytes` is the largest blob the
 server accepts (`LEN_BLOB_MAX_BYTES`), so clients can skip blobs that are too large without
@@ -66,7 +69,9 @@ sending them. `blobsCollectedAt` is when (ms since epoch) the server last delete
 change history, see [Server identity](#server-identity). Clients ignore unknown fields. An answer
 that is not this JSON object means the URL does not lead to a Len sync server; a higher
 `protocol` means the server is newer than the client, a lower one or missing fields that it is
-older: clients stop and say which side to update.
+older: clients stop and say which side to update. `signin` says whether the server offers
+[browser sign-in](#browser-sign-in) (missing: no). An HTML answer is most likely a sign-in proxy's
+login page guarding `/v1/`: clients say so (the proxy must let `/v1/` through).
 
 ### `POST /v1/push`
 Body: `{"since": <int>, "records": [Record, …]}` — at most 1000 records, body at most 32 MiB.
@@ -280,6 +285,40 @@ connection; a push unanswered for 15 s too). After `hello`:
   knows makes a cycle (a pull) instead. Messages are applied between cycles, never during one.
 - **Rooms.** Len joins the room of every open notebook (once, however many views show it), and
   sends `hello` with its device id and platform name; presence shows the others.
+
+### Browser sign-in
+
+For a server behind a **sign-in proxy** (authentik, Authelia, oauth2-proxy… doing forward auth):
+the user signs in to the proxy in the browser and the app gets the token, which is never typed.
+On only when the server has `LEN_SIGNIN_USER_HEADER` set (the header the proxy passes the
+signed-in user's name in, e.g. `X-authentik-username`); otherwise these routes are `404`. The
+proxy guards `/signin` (and sets or strips that header on every request it passes there) and
+lets `/v1/` through: the API checks its own token, and apps cannot do the proxy's interactive
+login on every request. It is OAuth's flow for native apps (RFC 8252) with PKCE (RFC 7636):
+
+1. The app makes a random `verifier` (43–128 of `A-Z a-z 0-9 - . _ ~`), its `challenge` =
+   base64url(SHA-256(verifier)) without padding, and a random `state` (16–128 base64url
+   characters), and opens in the browser
+   `GET /signin?challenge=…&state=…&return=loopback|app|code[&port=…][&device=…]`:
+   - `loopback` (desktops): the app listens on `http://127.0.0.1:<port>/callback`;
+   - `app` (Android): the answer goes to `len://signin?…`;
+   - `code` (browsers): the page shows the code to paste into the app.
+2. The proxy signs the user in; the page (`403` without the user header, `400` for a broken
+   link) asks "Allow *device* to sync?" naming the user. Allow / Cancel post the form back to
+   `POST /signin`, accepted only from the page itself (an `Origin` matching `Host` or
+   `X-Forwarded-Host`, or `Sec-Fetch-Site: same-origin`; else `403`).
+3. On Allow the server issues a **code**: random, single-use, valid 5 minutes, bound to the
+   challenge. The answer page sends the app `?code=…&state=…` (Cancel: `?error=cancelled&state=…`)
+   to the loopback or `len://signin` (a script, and a *Return to Len* link), and shows the code
+   as a fallback (the only way for `code`). The app ignores answers whose `state` is not its own.
+4. `POST /v1/signin/token` `{"code": "…", "verifier": "…"}` (no bearer token) → `200
+   {"token": "<LEN_SYNC_TOKEN>"}`; `401` for an unknown, used, expired code or a wrong verifier
+   (the code is used up either way), `400` malformed. The app then connects as with a typed token.
+
+A code that leaks (another app claiming `len://`, browser history, a log) is worthless without
+the verifier, which never leaves the app. The pages send `Cache-Control: no-store`,
+`X-Frame-Options: DENY` and a CSP without framing or foreign scripts. The server logs each Allow
+with the user's name.
 
 ### Errors
 `401` missing/bad token, `400` malformed request (body `{"error": "…"}`, plus `index` for an
