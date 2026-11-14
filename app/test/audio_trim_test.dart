@@ -167,9 +167,9 @@ void main() {
     });
 
     test('export cuts to the trim; uncut audio stays as it is', () {
-      final g = exportGroups(_lecture(trimStart: 1000)).single;
+      final g = exportGroupOf(_lecture(trimStart: 1000));
       expect((g.fromMs, g.toMs), (1000, null));
-      expect(exportGroups(_lecture()).single.fromMs, isNull);
+      expect(exportGroupOf(_lecture()).fromMs, isNull);
     });
   });
 }

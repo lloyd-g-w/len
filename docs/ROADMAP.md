@@ -148,6 +148,9 @@ Status: ✅ done · 🚧 in progress · ⬜ planned
   in Dart instead of whole parts). Done: WebM and fragmented MP4 are cut to the packets
   overlapping the trim (timecodes / `tfdt` rebased, durations rewritten, Cues / SeekHead /
   `sidx` dropped), checked with ffprobe; files that don't parse export whole, with the caveat
+- ✅ One file for a browser recording: its parts (one per 5 minutes) are joined in Dart into
+  one WebM / MP4 file, cut to the trim, as Android and desktop recordings share (parts that
+  can't be joined still export one file each)
 
 ## Pages & documents
 - ✅ Templates: blank, narrow/college/wide ruled, small/large grid, dotted, isometric, Cornell,

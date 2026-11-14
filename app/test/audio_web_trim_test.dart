@@ -233,6 +233,29 @@ void main() {
         // Whole packets overlapping the range: up to one more at either end.
         expect(probed.$2, closeTo(1.0, 0.13));
       });
+
+      test('$name: two parts join into one file that still decodes', () async {
+        final file = _fixture(name);
+        final one = await probe(file, name);
+        if (one == null) {
+          markTestSkipped('ffmpeg not installed');
+          return;
+        }
+        final length = ((one.$2 - one.$1) * 1000).round();
+        final joined = joinAudio(mime, [file, file], [0, length])!;
+        final probed = (await probe(joined, name))!;
+        expect(probed.$2 - probed.$1, closeTo(2 * (one.$2 - one.$1), 0.15));
+        // Cut across the join.
+        final cut = joinAudio(
+          mime,
+          [file, file],
+          [0, length],
+          fromMs: length - 500,
+          toMs: length + 500,
+        )!;
+        final c = (await probe(cut, name))!;
+        expect(c.$2, closeTo(1.0, 0.15));
+      });
     }
 
     test('browser and live WebM have unknown sizes', () {
@@ -263,27 +286,99 @@ void main() {
       trimEndMs: trimEnd,
     );
 
-    test('groups carry the cut that keeps to the trim', () {
-      // (the parts' blobs by their first letter, from, to)
-      List<(String, int?, int?)> groups(Recording r) => [
-        for (final g in exportGroups(r)) (g.blobs.map((b) => b[0]).join(), g.fromMs, g.toMs),
-      ];
-      expect(groups(lecture('audio/webm', trimStart: 310000, trimEnd: 590000)), [
-        ('b', 10000, 290000),
+    test('one file carries the parts the trim touches and the cut that keeps to it', () {
+      // (the parts' blobs by their first letter, their starts, from, to)
+      List<Object?> group(Recording r) {
+        final g = exportGroupOf(r);
+        return [g.blobs.map((b) => b[0]).join(), g.startsMs, g.fromMs, g.toMs];
+      }
+
+      expect(group(lecture('audio/webm', trimStart: 310000, trimEnd: 590000)), [
+        'b',
+        [0],
+        10000,
+        290000,
       ]);
-      expect(groups(lecture('audio/mp4', trimStart: 10000, trimEnd: 610000)), [
+      expect(group(lecture('audio/mp4', trimStart: 10000, trimEnd: 610000)), [
+        'abc',
+        [0, 300000, 600000],
+        10000,
+        610000,
+      ]);
+      expect(group(lecture('audio/webm')), [
+        'abc',
+        [0, 300000, 600000],
+        null,
+        null,
+      ]);
+      expect(group(lecture(Recording.adtsMime, trimStart: 310000, trimEnd: 590000)), [
+        'abc',
+        null,
+        310000,
+        590000,
+      ]);
+      // Should they not join: one file per part, each cut to the trim.
+      List<(String, int?, int?)> parts(Recording r) => [
+        for (final g in partGroupsOf(exportGroupOf(r)))
+          (g.blobs.map((b) => b[0]).join(), g.fromMs, g.toMs),
+      ];
+      expect(parts(lecture('audio/mp4', trimStart: 10000, trimEnd: 610000)), [
         ('a', 10000, null),
         ('b', null, null),
         ('c', null, 10000),
       ]);
-      expect(groups(lecture('audio/webm')), [
+      expect(parts(lecture('audio/webm')), [
         ('a', null, null),
         ('b', null, null),
         ('c', null, null),
       ]);
-      expect(groups(lecture(Recording.adtsMime, trimStart: 310000, trimEnd: 590000)), [
-        ('abc', 310000, 590000),
-      ]);
+    });
+
+    test('parts join into one file, each from where it starts (WebM, MP4)', () {
+      // Three 3-s WebM parts recorded as 3 s each: blocks every 20 ms on.
+      final webm = WebmCut.join([for (var i = 0; i < 3; i++) (bytes: _webm(), startMs: 3000 * i)])!;
+      final w = readWebm(webm);
+      expect(w.times.length, 3 * 150);
+      expect(w.times.take(3), [0, 20, 40]);
+      expect(w.times.skip(150).first, 3000);
+      expect(w.times.last, 8980);
+      // Cut across the joins: 2.5 s … 6.5 s.
+      final cut = readWebm(
+        WebmCut.join(
+          [for (var i = 0; i < 3; i++) (bytes: _webm(), startMs: 3000 * i)],
+          fromMs: 2500,
+          toMs: 6500,
+        )!,
+      );
+      expect(cut.times.first, 0);
+      expect(cut.duration, closeTo(4000, 30));
+      // A part recorded longer than its audio leaves a gap; shorter never
+      // overlaps.
+      final overlap = readWebm(
+        WebmCut.join([(bytes: _webm(), startMs: 0), (bytes: _webm(), startMs: 2000)])!,
+      );
+      for (var i = 1; i < overlap.times.length; i++) {
+        expect(overlap.times[i], greaterThan(overlap.times[i - 1]));
+      }
+      // Parts with other tracks don't join.
+      expect(
+        WebmCut.join([(bytes: _webm(), startMs: 0), (bytes: Uint8List(10), startMs: 3000)]),
+        isNull,
+      );
+
+      final mp4 = readMp4(
+        Mp4Cut.join([(bytes: _mp4(), startMs: 0), (bytes: _mp4(), startMs: 1000)])!,
+      );
+      expect(mp4.times.length, 80);
+      expect(mp4.times[40], (1000 * 44100 / 1000).round());
+      final mp4Cut = readMp4(
+        Mp4Cut.join(
+          [(bytes: _mp4(), startMs: 0), (bytes: _mp4(), startMs: 1000)],
+          fromMs: 500,
+          toMs: 1500,
+        )!,
+      );
+      expect(mp4Cut.times.first, 0);
     });
 
     test('cutAudio leaves uncut audio alone and gives up on what it cannot cut', () {

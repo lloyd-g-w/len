@@ -13,9 +13,20 @@ abstract final class Mp4Cut {
   /// [bytes] cut to the samples overlapping [fromMs]…[toMs] (ms from the
   /// first sample; null leaves that end open), or null when [bytes] isn't
   /// fragmented MP4 this can cut or nothing lies in the range.
-  static Uint8List? cut(Uint8List bytes, {int? fromMs, int? toMs}) {
+  static Uint8List? cut(Uint8List bytes, {int? fromMs, int? toMs}) =>
+      join([(bytes: bytes, startMs: 0)], fromMs: fromMs, toMs: toMs);
+
+  /// [parts] (fragmented MP4 files of one recording, each [startMs] into
+  /// the whole, as browsers record it: one track, the same settings
+  /// throughout) as one file, cut to the samples overlapping
+  /// [fromMs]…[toMs] of the whole (ms from the first part's first sample;
+  /// null leaves that end open): each part's fragments moved to its start
+  /// (`tfdt`), the first part's `ftyp` and `moov`. Null when a part isn't
+  /// fragmented MP4 this can cut, the parts' tracks differ in id or
+  /// timescale, or nothing lies in the range.
+  static Uint8List? join(List<({Uint8List bytes, int startMs})> parts, {int? fromMs, int? toMs}) {
     try {
-      return _cut(bytes, fromMs, toMs);
+      return _join(parts, fromMs, toMs);
     } on RangeError {
       return null;
     } on FormatException {
@@ -23,24 +34,42 @@ abstract final class Mp4Cut {
     }
   }
 
-  static Uint8List? _cut(Uint8List d, int? fromMs, int? toMs) {
-    final data = ByteData.sublistView(d);
+  static Uint8List? _join(List<({Uint8List bytes, int startMs})> parts, int? fromMs, int? toMs) {
     Uint8List? ftyp;
     _Movie? movie;
+    Uint8List? moov; // The first part's.
     final samples = <_Sample>[];
     var fragments = 0;
-    for (final box in _boxes(data, 0, d.length)) {
-      switch (box.type) {
-        case 'ftyp':
-          ftyp = Uint8List.sublistView(d, box.start, box.end);
-        case 'moov':
-          movie = _Movie.read(data, box);
-          if (movie == null) return null;
-        case 'moof':
-          if (movie == null) return null;
-          final next = samples.isEmpty ? 0 : samples.last.time + samples.last.duration;
-          if (!_readFragment(data, box, movie, fragments++, next, samples)) return null;
+    for (final part in parts) {
+      final d = part.bytes;
+      final data = ByteData.sublistView(d);
+      _Movie? own;
+      final read = <_Sample>[];
+      for (final box in _boxes(data, 0, d.length)) {
+        switch (box.type) {
+          case 'ftyp':
+            ftyp ??= Uint8List.sublistView(d, box.start, box.end);
+          case 'moov':
+            own = _Movie.read(data, box);
+            if (own == null) return null;
+          case 'moof':
+            if (own == null) return null;
+            final next = read.isEmpty ? 0 : read.last.time + read.last.duration;
+            if (!_readFragment(d, box, own, fragments++, next, read)) return null;
+        }
       }
+      if (own == null || read.isEmpty) return null;
+      if (movie == null) {
+        (movie, moov) = (own, d);
+      } else if (own.trackId != movie.trackId || own.timescale != movie.timescale) {
+        return null;
+      }
+      // From its own first sample, moved to where it starts (not before
+      // the last part's audio ends: decode times only grow).
+      var at = (part.startMs * movie.timescale / 1000).round();
+      if (samples.isNotEmpty) at = max(at, samples.last.time + samples.last.duration);
+      final shift = at - read.first.time;
+      samples.addAll([for (final s in read) s.shifted(shift)]);
     }
     if (movie == null || samples.isEmpty) return null;
 
@@ -59,14 +88,14 @@ abstract final class Mp4Cut {
 
     final out = BytesBuilder(copy: false);
     if (ftyp != null) out.add(ftyp);
-    out.add(movie.withDuration(d, duration));
+    out.add(movie.withDuration(moov!, duration));
     var sequence = 1;
     for (var i = 0; i < keep.length;) {
       var j = i;
       while (j < keep.length && keep[j].fragment == keep[i].fragment) {
         j++;
       }
-      out.add(_fragment(d, movie, keep.sublist(i, j), sequence++, base));
+      out.add(_fragment(movie, keep.sublist(i, j), sequence++, base));
       i = j;
     }
     return out.takeBytes();
@@ -75,13 +104,14 @@ abstract final class Mp4Cut {
   /// Reads the samples of the fragment [moof] (number [index]; decode time
   /// [next] when it has no `tfdt`) into [samples]; false when unsupported.
   static bool _readFragment(
-    ByteData data,
+    Uint8List d,
     _Box moof,
     _Movie movie,
     int index,
     int next,
     List<_Sample> samples,
   ) {
+    final data = ByteData.sublistView(d);
     final trafs = [
       for (final b in _boxes(data, moof.dataStart, moof.end))
         if (b.type == 'traf') b,
@@ -140,7 +170,7 @@ abstract final class Mp4Cut {
               p += 4;
             }
             if (offset < 0 || offset + size > data.lengthInBytes) return false;
-            samples.add(_Sample(index, time, duration, size, sampleFlags, cto, offset));
+            samples.add(_Sample(d, index, time, duration, size, sampleFlags, cto, offset));
             time += duration;
             offset += size;
           }
@@ -153,7 +183,7 @@ abstract final class Mp4Cut {
   }
 
   /// A fragment holding [samples] (decode times rebased by [base]).
-  static Uint8List _fragment(Uint8List d, _Movie movie, List<_Sample> samples, int seq, int base) {
+  static Uint8List _fragment(_Movie movie, List<_Sample> samples, int seq, int base) {
     final cto = samples.any((s) => s.cto != 0);
     final negative = samples.any((s) => s.cto < 0);
     final tfhd = _full('tfhd', 0, 0x020000, [movie.trackId]);
@@ -177,7 +207,7 @@ abstract final class Mp4Cut {
     ByteData.sublistView(moof).setUint32(trunAt + 16, moof.length + 8);
     final mdat = BytesBuilder(copy: false);
     for (final s in samples) {
-      mdat.add(Uint8List.sublistView(d, s.offset, s.offset + s.size));
+      mdat.add(Uint8List.sublistView(s.data, s.offset, s.offset + s.size));
     }
     return _concat([
       moof,
@@ -275,11 +305,26 @@ class _Movie {
 }
 
 /// One audio sample: its fragment, decode [time] and [duration] (media
-/// timescale), [size], [flags], composition offset and file [offset].
+/// timescale), [size], [flags], composition offset and [offset] in the
+/// file [data].
 class _Sample {
-  _Sample(this.fragment, this.time, this.duration, this.size, this.flags, this.cto, this.offset);
+  _Sample(
+    this.data,
+    this.fragment,
+    this.time,
+    this.duration,
+    this.size,
+    this.flags,
+    this.cto,
+    this.offset,
+  );
 
+  final Uint8List data;
   final int fragment, time, duration, size, flags, cto, offset;
+
+  /// This sample [by] later.
+  _Sample shifted(int by) =>
+      by == 0 ? this : _Sample(data, fragment, time + by, duration, size, flags, cto, offset);
 }
 
 /// A box: its [type], where it [start]s, its data starts and it [end]s.

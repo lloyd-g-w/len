@@ -88,17 +88,15 @@ void main() {
 
     test('browser recordings export the parts the trim touches, cut to it', () {
       final trimmed = _lecture(trimStart: 310000, trimEnd: 590000);
-      expect([for (final g in exportGroups(trimmed)) (g.blobs, g.fromMs, g.toMs)].single.$1, [
-        'bb' * 32,
-      ]);
-      expect(
-        (exportGroups(trimmed).single.fromMs, exportGroups(trimmed).single.toMs),
-        (10000, 290000),
-      );
+      final g = exportGroupOf(trimmed);
+      expect(g.blobs, ['bb' * 32]);
+      expect((g.fromMs, g.toMs), (10000, 290000));
       // Raw AAC joins and is cut in the whole audio.
-      final adts = _lecture(trimStart: 310000, trimEnd: 590000, mime: Recording.adtsMime);
-      expect(exportGroups(adts).single.blobs.length, 3);
-      expect((exportGroups(adts).single.fromMs, exportGroups(adts).single.toMs), (310000, 590000));
+      final adts = exportGroupOf(
+        _lecture(trimStart: 310000, trimEnd: 590000, mime: Recording.adtsMime),
+      );
+      expect(adts.blobs.length, 3);
+      expect((adts.startsMs, adts.fromMs, adts.toMs), (null, 310000, 590000));
     });
   });
 

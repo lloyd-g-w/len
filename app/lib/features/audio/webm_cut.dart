@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'ebml.dart';
@@ -40,9 +41,19 @@ abstract final class WebmCut {
   /// [bytes] cut to the blocks overlapping [fromMs]…[toMs] (ms from the
   /// first block; null leaves that end open), or null when [bytes] isn't
   /// WebM this can cut or nothing lies in the range.
-  static Uint8List? cut(Uint8List bytes, {int? fromMs, int? toMs}) {
+  static Uint8List? cut(Uint8List bytes, {int? fromMs, int? toMs}) =>
+      join([(bytes: bytes, startMs: 0)], fromMs: fromMs, toMs: toMs);
+
+  /// [parts] (WebM files of one recording, each [startMs] into the whole,
+  /// as browsers record it: the same track settings throughout) as one
+  /// file, cut to the blocks overlapping [fromMs]…[toMs] of the whole (ms
+  /// from the first part's first block; null leaves that end open): each
+  /// part's blocks moved to its start, the first part's header and
+  /// tracks. Null when a part isn't WebM this can cut, the parts differ
+  /// in their tracks or timecode scale, or nothing lies in the range.
+  static Uint8List? join(List<({Uint8List bytes, int startMs})> parts, {int? fromMs, int? toMs}) {
     try {
-      return _cut(bytes, fromMs, toMs);
+      return _join(parts, fromMs, toMs);
     } on RangeError {
       return null;
     } on FormatException {
@@ -50,7 +61,80 @@ abstract final class WebmCut {
     }
   }
 
-  static Uint8List? _cut(Uint8List d, int? fromMs, int? toMs) {
+  static Uint8List? _join(List<({Uint8List bytes, int startMs})> parts, int? fromMs, int? toMs) {
+    final read = <_Parsed>[];
+    var clusters = 0;
+    for (final part in parts) {
+      final parsed = _read(part.bytes, clusters);
+      if (parsed == null) return null;
+      clusters += parsed.clusters;
+      read.add(parsed);
+    }
+    if (read.isEmpty) return null;
+    final first = read.first, scale = first.scale;
+    final blocks = <_Block>[];
+    for (final (i, p) in read.indexed) {
+      if (p.scale != scale || !_sameTracks(first.kept, p.kept)) return null;
+      // Each part from its own first block, moved to where it starts (not
+      // before the last part's audio ends: timecodes only grow).
+      var at = (parts[i].startMs * 1000000 / scale).round();
+      if (blocks.isNotEmpty) {
+        final last = blocks.last;
+        final previous = blocks.length > 1 && blocks[blocks.length - 2].data == last.data
+            ? blocks[blocks.length - 2]
+            : null;
+        at = max(at, last.endTime(null, previous));
+      }
+      final shift = at - p.blocks.first.time;
+      blocks.addAll([for (final b in p.blocks) b.shifted(shift)]);
+    }
+
+    double ms(int units) => units * scale / 1000000;
+    final start = blocks.first.time;
+    final keep = <_Block>[];
+    int? keptEnd;
+    for (final (i, b) in blocks.indexed) {
+      final end = b.endTime(
+        i + 1 < blocks.length && blocks[i + 1].data == b.data ? blocks[i + 1] : null,
+        i > 0 && blocks[i - 1].data == b.data ? blocks[i - 1] : null,
+      );
+      if (fromMs != null && ms(end - start) <= fromMs) continue;
+      if (toMs != null && ms(b.time - start) >= toMs) break;
+      keep.add(b);
+      keptEnd = end;
+    }
+    if (keep.isEmpty) return null;
+
+    final base = keep.first.time;
+    final segmentBody = <Uint8List>[
+      Ebml.element(_info, [first.info, Ebml.floatElement(_duration, (keptEnd! - base).toDouble())]),
+      ...first.kept,
+      ..._clusters(keep, base),
+    ];
+    return _concat([first.header, Ebml.element(_segment, segmentBody)]);
+  }
+
+  /// Whether two files' level-1 elements kept besides the clusters (their
+  /// tracks, tags) are the same bytes.
+  static bool _sameTracks(List<Uint8List> a, List<Uint8List> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!_equal(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  static bool _equal(Uint8List a, Uint8List b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  /// The parts of WebM file [d] a cut keeps, its clusters numbered from
+  /// [firstCluster]; null when it doesn't parse or has no blocks.
+  static _Parsed? _read(Uint8List d, int firstCluster) {
     final header = Ebml.read(d, 0, d.length);
     if (header == null || header.id != 0x1A45DFA3 || header.unknown) return null;
     final segment = Ebml.read(d, header.end, d.length);
@@ -64,7 +148,7 @@ abstract final class WebmCut {
       final e = Ebml.read(d, pos, segment.end);
       if (e == null) return null;
       if (e.id == _cluster) {
-        final end = _readCluster(d, e, segment.end, clusters++, blocks);
+        final end = _readCluster(d, e, segment.end, firstCluster + clusters++, blocks);
         if (end == null) return null;
         pos = end;
         continue;
@@ -90,33 +174,14 @@ abstract final class WebmCut {
       }
     }
     if (info == null || blocks.isEmpty || scale <= 0) return null;
-
-    double ms(int units) => units * scale / 1000000;
-    final first = blocks.first.time;
-    final keep = <_Block>[];
-    int? keptEnd;
-    for (final (i, b) in blocks.indexed) {
-      final end = b.endTime(
-        i + 1 < blocks.length ? blocks[i + 1] : null,
-        i > 0 ? blocks[i - 1] : null,
-      );
-      if (fromMs != null && ms(end - first) <= fromMs) continue;
-      if (toMs != null && ms(b.time - first) >= toMs) break;
-      keep.add(b);
-      keptEnd = end;
-    }
-    if (keep.isEmpty) return null;
-
-    final base = keep.first.time;
-    final segmentBody = <Uint8List>[
-      Ebml.element(_info, [info, Ebml.floatElement(_duration, (keptEnd! - base).toDouble())]),
-      ...kept,
-      ..._clusters(d, keep, base),
-    ];
-    return _concat([
-      Uint8List.sublistView(d, header.start, header.end),
-      Ebml.element(_segment, segmentBody),
-    ]);
+    return (
+      header: Uint8List.sublistView(d, header.start, header.end),
+      info: info,
+      kept: kept,
+      blocks: blocks,
+      scale: scale,
+      clusters: clusters,
+    );
   }
 
   /// Reads the blocks of [cluster] (number [index]) into [blocks]; returns
@@ -167,7 +232,7 @@ abstract final class WebmCut {
 
   /// [blocks] (timestamps rebased by [base]) in clusters: a new one where
   /// the original cluster changes or a block's offset outgrows 16 bits.
-  static List<Uint8List> _clusters(Uint8List d, List<_Block> blocks, int base) {
+  static List<Uint8List> _clusters(List<_Block> blocks, int base) {
     final out = <Uint8List>[];
     var body = <Uint8List>[];
     var clusterTime = 0, cluster = -1;
@@ -183,7 +248,7 @@ abstract final class WebmCut {
         clusterTime = time;
         body = [Ebml.uintElement(_timecode, time)];
       }
-      final copy = Uint8List.fromList(Uint8List.sublistView(d, b.start, b.end));
+      final copy = Uint8List.fromList(Uint8List.sublistView(b.data, b.start, b.end));
       final relative = time - clusterTime;
       copy[b.timecodeAt - b.start] = relative >> 8;
       copy[b.timecodeAt - b.start + 1] = relative & 0xFF;
@@ -194,14 +259,32 @@ abstract final class WebmCut {
   }
 }
 
-/// A block of a WebM cluster: its element's bytes [start]…[end], where its
-/// 16-bit relative timecode sits ([timecodeAt]), its absolute [time] (in
-/// timecode units) and the cluster it was in.
-class _Block {
-  _Block(this.start, this.end, this.timecodeAt, this.time, this.cluster, this.duration);
+/// What a cut keeps of a WebM file: its EBML [header], its segment's
+/// [info] (without the duration), the other level-1 elements [kept] (its
+/// tracks), its [blocks], its timecode [scale] (ns) and how many
+/// [clusters] it has.
+typedef _Parsed = ({
+  Uint8List header,
+  Uint8List info,
+  List<Uint8List> kept,
+  List<_Block> blocks,
+  int scale,
+  int clusters,
+});
 
+/// A block of a WebM cluster: its element's bytes [start]…[end] of [data],
+/// where its 16-bit relative timecode sits ([timecodeAt]), its absolute
+/// [time] (in timecode units) and the cluster it was in.
+class _Block {
+  _Block(this.data, this.start, this.end, this.timecodeAt, this.time, this.cluster, this.duration);
+
+  final Uint8List data;
   final int start, end, timecodeAt, time, cluster;
   final int? duration;
+
+  /// This block [by] timecode units later.
+  _Block shifted(int by) =>
+      by == 0 ? this : _Block(data, start, end, timecodeAt, time + by, cluster, duration);
 
   /// The block in [element] whose header is at [from]…[to], in a cluster at
   /// [clusterTime]; null when malformed.
@@ -223,7 +306,7 @@ class _Block {
     final at = from + trackLength;
     if (trackLength > 8 || at + 3 > to) return null;
     final relative = (d[at] << 8 | d[at + 1]).toSigned(16);
-    return _Block(element.start, element.end, at, clusterTime + relative, cluster, duration);
+    return _Block(d, element.start, element.end, at, clusterTime + relative, cluster, duration);
   }
 
   /// Where this block's audio ends: its duration if it has one, else where
