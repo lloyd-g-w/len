@@ -513,7 +513,9 @@ void main() {
       ]),
     );
     await tester.pump();
-    expect(find.text('W'), findsNWidgets(2));
+    // Alike: numbered (R27-9).
+    expect(find.text('W'), findsOneWidget);
+    expect(find.text('W2'), findsOneWidget);
     expect(find.text('+3'), findsOneWidget);
     // In their slot as large as they are (not shrunk to fit it).
     for (final plate in find.byType(Container).evaluate()) {
