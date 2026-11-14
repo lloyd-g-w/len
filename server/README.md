@@ -128,6 +128,105 @@ content-addressed files in a blob directory next to it.
    (`/v1/live?ticket=…`, valid for 30 s and one connection), as they cannot send the token in
    a header there; the token itself never appears in a URL or a proxy's access log.
 
+## Behind authentik with Traefik (sign in with the browser)
+
+With a sign-in proxy in front (here [authentik](https://goauthentik.io)'s forward auth through
+Traefik), devices get the token by signing in in the browser: Settings → Sync → enter the
+server's address → **Sign in with browser…**. The page asks "Allow Len to sync?" as the
+authentik user; on *Allow* the app gets the token (desktops: a redirect to a listener of the
+app on `127.0.0.1`; Android: a `len://signin` link; the web app: a code to paste). Details:
+[`docs/SYNC_PROTOCOL.md`](../docs/SYNC_PROTOCOL.md#browser-sign-in).
+
+What the proxy guards and what it lets through:
+
+| Path | Through authentik? | Why |
+|---|---|---|
+| `/signin` (and everything else outside `/v1/`) | **yes** | The sign-in page: authentik signs the user in and passes `X-authentik-username`. |
+| `/v1/…` (API, `/v1/live` WebSocket, `/v1/events`, `/v1/signin/token`) | **no** | The server checks its own token there (or a one-time sign-in code); apps can't do authentik's login on every request. |
+| `/outpost.goauthentik.io/…` | to authentik | authentik's own callback (single-application mode). |
+
+1. **authentik**: *Applications → Providers → Create → Proxy Provider*, mode *Forward auth
+   (single application)*, external host `https://sync.example.com`. Create an *Application*
+   for it (bind the users or groups who may sync to it), and add it to the *authentik Embedded
+   Outpost* (or your own proxy outpost). Instead of the separate Traefik router below, you can
+   also exempt the API in the provider (*Advanced protocol settings → Unauthenticated Paths*):
+   `^/v1/` (in *Forward auth (domain level)* mode the full URL:
+   `^https://sync\.example\.com/v1/`).
+2. **len-sync**: set `LEN_SIGNIN_USER_HEADER=X-authentik-username`, don't publish its port (only
+   Traefik must reach it), and give it two routers: the default one through authentik, and one
+   for `/v1/` without it, at a higher priority:
+
+   ```yaml
+   services:
+     len-sync:
+       image: ghcr.io/lloyd-g-w/len-sync:latest
+       restart: unless-stopped
+       environment:
+         LEN_SYNC_TOKEN: ${LEN_SYNC_TOKEN:?set LEN_SYNC_TOKEN in .env}
+         LEN_SIGNIN_USER_HEADER: X-authentik-username
+       volumes:
+         - len-data:/data
+       networks: [traefik]
+       # no "ports:": reachable only through Traefik
+       labels:
+         traefik.enable: "true"
+         traefik.http.services.len-sync.loadbalancer.server.port: "8080"
+         # The sign-in page and anything else: through authentik.
+         traefik.http.routers.len-sync.rule: Host(`sync.example.com`)
+         traefik.http.routers.len-sync.entrypoints: websecure
+         traefik.http.routers.len-sync.tls.certresolver: letsencrypt
+         traefik.http.routers.len-sync.middlewares: authentik@docker
+         traefik.http.routers.len-sync.priority: "10"
+         # The API (bearer token, WebSockets, SSE, sign-in codes): straight through.
+         traefik.http.routers.len-sync-api.rule: Host(`sync.example.com`) && PathPrefix(`/v1/`)
+         traefik.http.routers.len-sync-api.entrypoints: websecure
+         traefik.http.routers.len-sync-api.tls.certresolver: letsencrypt
+         traefik.http.routers.len-sync-api.service: len-sync
+         traefik.http.routers.len-sync-api.priority: "20"
+         # authentik's callback on this host (single-application mode).
+         traefik.http.routers.len-sync-auth.rule: Host(`sync.example.com`) && PathPrefix(`/outpost.goauthentik.io/`)
+         traefik.http.routers.len-sync-auth.entrypoints: websecure
+         traefik.http.routers.len-sync-auth.tls.certresolver: letsencrypt
+         traefik.http.routers.len-sync-auth.service: authentik
+         traefik.http.routers.len-sync-auth.priority: "15"
+
+   networks:
+     traefik:
+       external: true
+   volumes:
+     len-data:
+   ```
+
+   The `authentik@docker` middleware and `authentik` service are the usual ones from
+   [authentik's Traefik docs](https://docs.goauthentik.io/add-secure-apps/providers/proxy/server_traefik/),
+   as labels on the authentik server (embedded outpost) container:
+
+   ```yaml
+   traefik.http.services.authentik.loadbalancer.server.port: "9000"
+   traefik.http.middlewares.authentik.forwardauth.address: http://authentik-server:9000/outpost.goauthentik.io/auth/traefik
+   traefik.http.middlewares.authentik.forwardauth.trustForwardHeader: "true"
+   traefik.http.middlewares.authentik.forwardauth.authResponseHeaders: X-authentik-username,X-authentik-groups,X-authentik-entitlements,X-authentik-email,X-authentik-name,X-authentik-uid,X-authentik-jwt,X-authentik-meta-jwks,X-authentik-meta-outpost,X-authentik-meta-provider,X-authentik-meta-app,X-authentik-meta-version
+   ```
+
+   (Body size: Traefik sets no request body limit by default, so blob uploads pass.
+   WebSockets on `/v1/live` pass as they are.)
+3. In Len: Settings → Sync → `https://sync.example.com` → **Sign in with browser…**. Typing the
+   token (or a setup link) keeps working.
+
+**Why the header can be trusted:** Traefik's forward auth replaces every header listed in
+`authResponseHeaders` with authentik's answer, dropping one a client sent itself, so a request
+reaching `/signin` through the guarded router carries the name authentik signed in. That only
+holds if nothing reaches the server around the proxy (no published port, no other router to
+`/signin`) and `X-authentik-username` is in `authResponseHeaders`; whoever can send the header
+to the server directly can get the token. Keep Traefik's default path sanitising
+(`entryPoints.<name>.http.sanitizePath`, on by default) so `/v1/../signin` can't take the
+unguarded router. Without `LEN_SIGNIN_USER_HEADER` the sign-in is off and `/signin` is `404`.
+
+What the app gets is the server's one `LEN_SYNC_TOKEN` (as with a setup link): taking a user
+out of authentik doesn't stop a device that already signed in; change `LEN_SYNC_TOKEN` for that.
+If the whole site is guarded (no `/v1/` exemption), the app says that a sign-in page answers
+instead of the server.
+
 ## Configuration
 
 | Variable         | Default        | Notes                                    |
@@ -138,6 +237,7 @@ content-addressed files in a blob directory next to it.
 | `LEN_BLOB_MAX_BYTES` | `209715200` (200 MiB) | Maximum size of one blob upload; positive integer. |
 | `LEN_BLOB_IDLE_TIMEOUT` | `60` | Seconds a blob upload may send no data before it is abandoned (stalled clients); positive integer. |
 | `LEN_CORS_ORIGINS` | `*`          | Browser origins allowed to call the API (CORS), see below. |
+| `LEN_SIGNIN_USER_HEADER` | (off)  | Header a sign-in proxy passes the user's name in (e.g. `X-authentik-username`): turns on [browser sign-in](#behind-authentik-with-traefik-sign-in-with-the-browser). Only behind such a proxy. |
 | `PORT`           | `8080`         |                                          |
 | `HOST`           | `0.0.0.0`      |                                          |
 
@@ -252,7 +352,8 @@ Layout: `bin/server.dart` (wiring), `lib/src/config.dart` (env config),
 (`/v1/events`), `lib/src/live_api.dart` (`/v1/live`: tickets, the WebSocket
 upgrade), `lib/src/live_hub.dart` (live connections, fan-out, rooms),
 `lib/src/live_connection.dart` (one connection: messages, bounded outbox,
-limits), `lib/src/live_tickets.dart`, `lib/src/push_request.dart` (a push's
+limits), `lib/src/live_tickets.dart`, `lib/src/browser_signin.dart` (`/signin`, sign-in codes),
+`lib/src/push_request.dart` (a push's
 validation, shared by HTTP and live pushes), `lib/src/blob_gc.dart` (blob garbage
 collection), `lib/src/gc_command.dart` with `bin/gc.dart` (its admin
 command) and `lib/src/new_id_command.dart` (`server new-id`).

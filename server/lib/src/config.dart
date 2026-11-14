@@ -27,6 +27,7 @@ class Config {
     this.blobMaxBytes = defaultMaxBlobBytes,
     this.blobIdleTimeout = defaultBlobIdleTimeout,
     this.cors = const CorsPolicy.any(),
+    this.signinUserHeader,
   });
 
   /// Minimum accepted length of [token].
@@ -60,12 +61,23 @@ class Config {
   /// a comma-separated list of origins such as `https://len.example.com`.
   final CorsPolicy cors;
 
+  /// The header a sign-in proxy in front of the server passes the signed-in
+  /// user's name in (`LEN_SIGNIN_USER_HEADER`, e.g. `X-authentik-username`):
+  /// set, apps can get the token by signing in through the browser at
+  /// `/signin`. Null (unset): browser sign-in is off.
+  ///
+  /// Only set it when the proxy guards `/signin` and sets (or strips) this
+  /// header on every request it passes there, and the server cannot be
+  /// reached around the proxy: whoever can send it can get the token.
+  final String? signinUserHeader;
+
   /// Builds a [Config] from [env] (typically `Platform.environment`).
   ///
   /// Throws a [ConfigException] if the token is missing or too short, or if
   /// `PORT` is not a valid port number, `LEN_BLOB_MAX_BYTES` is not a
   /// positive integer, `LEN_BLOB_IDLE_TIMEOUT` is not a positive number of
-  /// seconds, or `LEN_CORS_ORIGINS` is not a valid origin list.
+  /// seconds, `LEN_CORS_ORIGINS` is not a valid origin list, or
+  /// `LEN_SIGNIN_USER_HEADER` is not a header name.
   factory Config.fromEnvironment(Map<String, String> env) {
     final dbPath = dbPathFrom(env);
     return Config(
@@ -77,7 +89,23 @@ class Config {
       blobMaxBytes: _readBlobMaxBytes(env['LEN_BLOB_MAX_BYTES']),
       blobIdleTimeout: _readIdleTimeout(env['LEN_BLOB_IDLE_TIMEOUT']),
       cors: _readCorsOrigins(env['LEN_CORS_ORIGINS']),
+      signinUserHeader: _readHeaderName(env['LEN_SIGNIN_USER_HEADER']),
     );
+  }
+
+  /// An HTTP header name (RFC 9110 token characters), or null if unset.
+  static String? _readHeaderName(String? raw) {
+    final value = _nonEmpty(raw);
+    if (value == null) return null;
+    if (!RegExp(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$").hasMatch(value)) {
+      throw ConfigException(
+        'LEN_SIGNIN_USER_HEADER must be a header name like "X-authentik-username", got "$raw".',
+      );
+    }
+    if (const {'authorization', 'cookie', 'host'}.contains(value.toLowerCase())) {
+      throw ConfigException('LEN_SIGNIN_USER_HEADER cannot be "$value".');
+    }
+    return value;
   }
 
   /// The database path from `LEN_DB_PATH` (default `/data/len.db`).

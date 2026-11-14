@@ -41,6 +41,7 @@ Future<void> main(List<String> args) async {
           maxBlobBytes: config.blobMaxBytes,
           blobIdleTimeout: config.blobIdleTimeout,
           cors: config.cors,
+          signinUserHeader: config.signinUserHeader,
           events: events,
           live: live,
         ),
@@ -49,7 +50,8 @@ Future<void> main(List<String> args) async {
   final server = await shelf_io.serve(handler, config.host, config.port);
   stdout.writeln(
     'len-sync: listening on ${config.host}:${server.port}, '
-    'db ${config.dbPath}, blobs ${config.blobDir}',
+    'db ${config.dbPath}, blobs ${config.blobDir}'
+    '${config.signinUserHeader == null ? '' : ', browser sign-in (user in ${config.signinUserHeader})'}',
   );
 
   await _waitForShutdownSignal();

@@ -111,12 +111,16 @@
                 <data android:pathPattern=".*\\..*\\..*\\.len"/>
             </intent-filter>
             <!-- Sync setup links (len://sync?url=…&token=…) from another
-                 device's QR code or a message fill Settings → Sync. -->
+                 device's QR code or a message fill Settings → Sync; the
+                 server's browser sign-in page answers with
+                 len://signin?code=…&state=… (sync/browser_signin.dart). -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="len" android:host="sync"/>
+                <data android:scheme="len"/>
+                <data android:host="sync"/>
+                <data android:host="signin"/>
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>

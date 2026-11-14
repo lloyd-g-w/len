@@ -6,6 +6,7 @@ class ServerInfo {
     required this.serverId,
     required this.maxBlobBytes,
     required this.blobsCollectedAt,
+    this.signin = false,
   });
 
   /// The protocol version this app speaks.
@@ -21,6 +22,10 @@ class ServerInfo {
   /// When the server last deleted blobs by garbage collection (0 = never).
   final int blobsCollectedAt;
 
+  /// Whether apps can get the token by signing in through the browser
+  /// (`/signin` behind a sign-in proxy, see browser_signin.dart).
+  final bool signin;
+
   /// Parses a health answer; throws [SyncException] when it is not one of a
   /// Len sync server speaking [protocol].
   factory ServerInfo.fromJson(Map<String, Object?>? json) {
@@ -33,6 +38,11 @@ class ServerInfo {
       throw SyncException.serverTooOld;
     }
     if (max <= 0 || collected < 0) throw SyncException.unexpected;
-    return ServerInfo(serverId: id, maxBlobBytes: max, blobsCollectedAt: collected);
+    return ServerInfo(
+      serverId: id,
+      maxBlobBytes: max,
+      blobsCollectedAt: collected,
+      signin: json['signin'] == true,
+    );
   }
 }

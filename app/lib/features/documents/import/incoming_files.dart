@@ -17,7 +17,9 @@ import 'import_targets.dart';
 /// delivered as soon as a [handler] is set.
 ///
 /// Links opened with Len ([links]; `len://sync?…` on Android) arrive the
-/// same way: a sync setup link waits in [syncSetup] until Settings takes it.
+/// same way: a sync setup link waits in [syncSetup] until Settings takes it;
+/// a browser sign-in's answer (`len://signin?…`) goes to [signinLinks],
+/// where a sign-in under way listens.
 class IncomingFiles {
   IncomingFiles([Stream<List<XFile>>? source, Stream<String>? links]) {
     _subscription = source?.listen(add);
@@ -31,10 +33,20 @@ class IncomingFiles {
   /// (Settings fills the sync form with it and clears it).
   final ValueNotifier<SyncSetupLink?> syncSetup = ValueNotifier(null);
 
-  /// Hands over a link opened with Len; links other than sync setup ones
-  /// are ignored.
+  /// Browser sign-in answers opened with Len (`len://signin?…`); nobody
+  /// keeps them: only the sign-in that asked can use one.
+  Stream<String> get signinLinks => _signinLinks.stream;
+  final _signinLinks = StreamController<String>.broadcast();
+
+  /// Hands over a link opened with Len; links other than sync setup and
+  /// sign-in ones are ignored.
   void addLink(String link) {
-    if (SyncSetupLink.parse(link) case final setup?) syncSetup.value = setup;
+    if (SyncSetupLink.parse(link) case final setup?) {
+      syncSetup.value = setup;
+    } else if (Uri.tryParse(link.trim()) case final uri?
+        when uri.isScheme('len') && uri.host == 'signin') {
+      _signinLinks.add(link.trim());
+    }
   }
 
   final List<List<XFile>> _pending = [];
@@ -67,5 +79,6 @@ class IncomingFiles {
     unawaited(_subscription?.cancel());
     unawaited(_links?.cancel());
     syncSetup.dispose();
+    unawaited(_signinLinks.close());
   }
 }
