@@ -20,12 +20,12 @@ class DeviceNameTile extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: name,
     builder: (context, _) => SettingsTile(
-      icon: Symbols.devices_sharp,
+      icon: Symbols.devices_rounded,
       title: 'Device name',
       subtitle: name.value,
       onTap: () => unawaited(_rename(context)),
       trailing: Icon(
-        Symbols.edit_sharp,
+        Symbols.edit_rounded,
         size: Glyphs.menu,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
