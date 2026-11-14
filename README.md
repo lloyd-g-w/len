@@ -32,7 +32,11 @@ optional sync through a tiny server you host yourself.
 - **Capture area**: drag a rectangle over pages or the canvas (or pick Copy as image for a
   lasso selection) to copy exactly what is there — paper, template, PDF, images, ink, text
   — as a sharp PNG; then save or share it, or insert it as an image.
-- **Minimap** on infinite canvases: see where content is, tap or drag to move.
+- **Minimap** on infinite canvases: a live miniature of the content in its colours with the view
+  framed. Tap to glide there (double-tap to zoom in there), drag to move, drag a corner of the
+  view's frame to zoom the canvas, or use its −, + and *Fit content* buttons; pinch, scroll or
+  Ctrl+scroll on it to zoom and pan the map itself. Small, medium or large, foldable into a
+  button, remembered.
 - **Pages**: templates, planners, PDFs to annotate, document scan (edge detection,
   colour / greyscale / B&W clean-up), saved notebook styles with a default.
 - **Version history**: versions of a notebook or canvas kept as you write (thinned over

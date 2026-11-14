@@ -13,12 +13,14 @@ import 'package:len/domain/chunk_digest.dart';
 import 'package:len/domain/chunk_grid.dart';
 import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
+import 'package:len/domain/preferences.dart';
 import 'package:len/domain/stroke.dart';
 import 'package:len/features/editor/canvas/canvas_minimap.dart';
 import 'package:len/features/editor/canvas/canvas_navigation.dart';
 import 'package:len/features/editor/canvas/canvas_view.dart';
 import 'package:len/features/editor/canvas/minimap_geometry.dart';
 import 'package:len/features/editor/canvas/minimap_painter.dart';
+import 'package:len/features/editor/canvas/minimap_sketch.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ink/input/live_ink.dart';
 import 'package:len/ink/surface_model.dart';
@@ -42,7 +44,11 @@ Stroke _wave(String id, String surface, Offset at) => Stroke(
 );
 
 /// A canvas with ink in three far-apart places and the minimap on.
-Future<AppServices> _pumpCanvas(WidgetTester tester, {bool minimap = true}) async {
+Future<AppServices> pumpMinimapCanvas(
+  WidgetTester tester, {
+  bool minimap = true,
+  void Function(AppServices services)? before,
+}) async {
   tester.view
     ..physicalSize = const Size(1000, 700)
     ..devicePixelRatio = 1;
@@ -63,6 +69,7 @@ Future<AppServices> _pumpCanvas(WidgetTester tester, {bool minimap = true}) asyn
     _wave('c', nb.id, const Offset(-1800, 2600)),
   ]);
   pinCanvasView(services, nb.id, const Size(1000, 700));
+  before?.call(services);
   await tester.pumpWidget(
     AppScope(
       services: services,
@@ -76,23 +83,23 @@ Future<AppServices> _pumpCanvas(WidgetTester tester, {bool minimap = true}) asyn
   return services;
 }
 
-CanvasNavigation _nav(WidgetTester tester) =>
+CanvasNavigation canvasNav(WidgetTester tester) =>
     tester.widget<CanvasView>(find.byType(CanvasView)).navigation;
 
-final _mapPaint = find.descendant(
+final minimapPaint = find.descendant(
   of: find.byType(CanvasMinimap),
   matching: find.byWidgetPredicate((w) => w is CustomPaint && w.painter is MinimapPainter),
 );
 
 /// Where world point [world] is on screen, on the map.
-Offset _onMap(WidgetTester tester, Offset world) {
-  final paint = tester.widget<CustomPaint>(_mapPaint);
+Offset onMinimap(WidgetTester tester, Offset world) {
+  final paint = tester.widget<CustomPaint>(minimapPaint);
   final painter = paint.painter! as MinimapPainter;
-  final box = tester.getRect(_mapPaint);
+  final box = tester.getRect(minimapPaint);
   return box.topLeft + MinimapProjection(painter.frame(), box.size).toMap(world);
 }
 
-bool _mapShown(WidgetTester tester) => tester
+bool minimapShown(WidgetTester tester) => tester
     .widget<ChromeFade>(
       find.descendant(of: find.byType(CanvasMinimap), matching: find.byType(ChromeFade)).first,
     )
@@ -100,17 +107,17 @@ bool _mapShown(WidgetTester tester) => tester
 
 /// The world area the map shows.
 Rect _shown(WidgetTester tester) =>
-    (tester.widget<CustomPaint>(_mapPaint).painter! as MinimapPainter).frame();
+    (tester.widget<CustomPaint>(minimapPaint).painter! as MinimapPainter).frame();
 
 /// Map pixels per world unit.
 double _mapScale(WidgetTester tester) =>
-    MinimapProjection(_shown(tester), tester.getSize(_mapPaint)).scale;
+    MinimapProjection(_shown(tester), tester.getSize(minimapPaint)).scale;
 
 /// The world point under [screen], on the map.
 Offset _toWorld(WidgetTester tester, Offset screen) => MinimapProjection(
   _shown(tester),
-  tester.getSize(_mapPaint),
-).toWorld(screen - tester.getTopLeft(_mapPaint));
+  tester.getSize(minimapPaint),
+).toWorld(screen - tester.getTopLeft(minimapPaint));
 
 /// The canvas's viewport: scale and offset.
 (double, Offset) _viewOf(CanvasNavigation nav) => (nav.viewport.scale, nav.viewport.offset);
@@ -147,7 +154,7 @@ Future<void> _pinch(WidgetTester tester, Offset at, {required double spread}) as
   await tester.pumpAndSettle();
 }
 
-Future<void> _close(WidgetTester tester) async {
+Future<void> closeMinimapCanvas(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox());
   await tester.pump();
 }
@@ -310,10 +317,13 @@ void main() {
     });
   });
 
-  test('minimapSize follows the free area within limits', () {
-    expect(minimapSize(const Size(1600, 1000)), const Size(176, 110));
-    expect(minimapSize(const Size(400, 800), phone: true), const Size(120, 120));
+  test('minimapSize follows the free area and the size chosen, within limits', () {
+    expect(minimapSize(const Size(1600, 1000)), const Size(192, 120));
+    expect(minimapSize(const Size(400, 800), phone: true), const Size(144, 144));
     expect(minimapSize(const Size(3000, 1000)).aspectRatio, closeTo(1.6, 1e-9));
+    expect(minimapSize(const Size(1600, 1000), scale: MinimapScale.large).width, 264);
+    // Never more than half a narrow screen.
+    expect(minimapSize(const Size(300, 600), scale: MinimapScale.large).width, 150);
   });
 
   testWidgets('painting a vast canvas draws a bounded number of blocks', (tester) async {
@@ -327,6 +337,7 @@ void main() {
       view: () => const Rect.fromLTWH(0, 0, 1000, 700),
       colors: const MinimapColors(
         paper: Color(0xFFFFFFFF),
+        veil: Color(0x14000000),
         ink: Color(0xFF000000),
         view: Color(0xFF1C4ED8),
       ),
@@ -342,7 +353,7 @@ void main() {
     testWidgets('off by default; ⋯ → View → Minimap and Shift+M toggle it, remembered', (
       tester,
     ) async {
-      final services = await _pumpCanvas(tester, minimap: false);
+      final services = await pumpMinimapCanvas(tester, minimap: false);
       expect(find.byType(CanvasMinimap), findsNothing);
       await tester.tap(find.byTooltip('More options'));
       await tester.pumpAndSettle();
@@ -358,25 +369,25 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(CanvasMinimap), findsNothing);
       expect(services.settings.canvasMinimap, isFalse);
-      await _close(tester);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('sits clear of the chrome, shows content and the view', (tester) async {
-      await _pumpCanvas(tester);
-      expect(_mapShown(tester), isTrue);
+      await pumpMinimapCanvas(tester);
+      expect(minimapShown(tester), isTrue);
       final map = tester.getRect(find.byType(CanvasMinimap));
-      final nav = _nav(tester);
+      final nav = canvasNav(tester);
       expect(map.bottom, lessThanOrEqualTo(700 - nav.insets.bottom));
       expect(map.top, greaterThan(nav.insets.top));
       expect(map.right, lessThan(1000));
       // All three waves are inside the frame.
-      final painter = tester.widget<CustomPaint>(_mapPaint).painter! as MinimapPainter;
+      final painter = tester.widget<CustomPaint>(minimapPaint).painter! as MinimapPainter;
       final frame = painter.frame();
       for (final at in const [Offset(100, 200), Offset(3000, 1500), Offset(-1800, 2600)]) {
         expect(frame.contains(at), isTrue);
       }
       expect(frame.contains(nav.visibleArea.center), isTrue);
-      await _close(tester);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('a semantics node of its own, never merged into the editor\'s', (tester) async {
@@ -385,25 +396,25 @@ void main() {
       // tappable "Minimap" with the tip in its label; on the web that node
       // then lay over the whole canvas, and no Minimap button was left.
       final semantics = tester.ensureSemantics();
-      await _pumpCanvas(tester);
+      await pumpMinimapCanvas(tester);
       final label = find.descendant(
         of: find.byType(CanvasMinimap),
         matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.label == 'Minimap'),
       );
       expect(tester.widget<Semantics>(label).container, isTrue);
-      final map = tester.getSemantics(_mapPaint);
+      final map = tester.getSemantics(minimapPaint);
       expect(map.label, 'Minimap');
       expect(map.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
-      expect(map.rect.size, tester.getSize(_mapPaint));
+      expect(map.rect.size, tester.getSize(minimapPaint));
       semantics.dispose();
-      await _close(tester);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('tap glides there; dragging the frame pans live', (tester) async {
-      await _pumpCanvas(tester);
-      final nav = _nav(tester);
+      await pumpMinimapCanvas(tester);
+      final nav = canvasNav(tester);
       final scale = nav.viewport.scale;
-      await tester.tapAt(_onMap(tester, const Offset(3200, 1500)));
+      await tester.tapAt(onMinimap(tester, const Offset(3200, 1500)));
       await tester.pump(const Duration(milliseconds: 50));
       expect((nav.visibleArea.center - const Offset(3200, 1500)).distance, greaterThan(100));
       await tester.pumpAndSettle();
@@ -412,28 +423,28 @@ void main() {
 
       // Grab the frame off-centre: the grabbed point follows the finger.
       final centre = nav.visibleArea.center;
-      final grabAt = _onMap(tester, centre + const Offset(150, 100));
-      final before = _onMap(tester, Offset.zero);
+      final grabAt = onMinimap(tester, centre + const Offset(150, 100));
+      final before = onMinimap(tester, Offset.zero);
       final drag = await tester.startGesture(grabAt);
       await drag.moveBy(const Offset(10, 0));
       await tester.pump();
       await drag.moveBy(const Offset(20, 10));
       await tester.pump();
       // The map holds still under the finger while dragging.
-      expect(_onMap(tester, Offset.zero), before);
-      final moved = _onMap(tester, nav.visibleArea.center + const Offset(150, 100));
+      expect(onMinimap(tester, Offset.zero), before);
+      final moved = onMinimap(tester, nav.visibleArea.center + const Offset(150, 100));
       expect((moved - (grabAt + const Offset(30, 10))).distance, lessThan(1));
       await drag.up();
       await tester.pumpAndSettle();
-      await _close(tester);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('a pinch zooms the map about the fingers, never the canvas', (tester) async {
-      await _pumpCanvas(tester);
-      final nav = _nav(tester);
+      await pumpMinimapCanvas(tester);
+      final nav = canvasNav(tester);
       final view = _viewOf(nav);
       final before = _mapScale(tester);
-      final centre = tester.getCenter(_mapPaint);
+      final centre = tester.getCenter(minimapPaint);
       // The world point between the fingers stays between them (about the
       // map's centre it would move 20 × (zoom − 1) px; the fingers' first
       // wobble, at the fit, can't pan it).
@@ -441,7 +452,7 @@ void main() {
       final world = _toWorld(tester, focal);
       await _pinch(tester, focal, spread: 12);
       expect(_mapScale(tester), greaterThan(before * 1.5));
-      expect((_onMap(tester, world) - focal).distance, lessThan(6));
+      expect((onMinimap(tester, world) - focal).distance, lessThan(6));
       expect(_viewOf(nav), view);
       expect(_fitButtonShown(tester), isTrue);
 
@@ -464,15 +475,15 @@ void main() {
       await tester.pump();
       expect(_mapScale(tester), greaterThan(out * 1.4));
       expect(_viewOf(nav), view);
-      await _close(tester);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('zoomed out no further than everything, in no further than a few blocks', (
       tester,
     ) async {
-      await _pumpCanvas(tester);
+      await pumpMinimapCanvas(tester);
       final fit = _shown(tester);
-      final centre = tester.getCenter(_mapPaint);
+      final centre = tester.getCenter(minimapPaint);
       await _pinch(tester, centre, spread: -3);
       expect(_shown(tester), fit);
       expect(_fitButtonShown(tester), isFalse);
@@ -482,14 +493,14 @@ void main() {
       final shown = _shown(tester);
       expect(shown.width, closeTo(fit.width / MinimapView.maxZoom(fit, 512), 1e-6));
       expect(_contains(fit, shown), isTrue);
-      await _close(tester);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('the wheel and two fingers pan the map, never the canvas', (tester) async {
-      await _pumpCanvas(tester);
-      final nav = _nav(tester);
+      await pumpMinimapCanvas(tester);
+      final nav = canvasNav(tester);
       final view = _viewOf(nav);
-      final centre = tester.getCenter(_mapPaint);
+      final centre = tester.getCenter(minimapPaint);
       await _pinch(tester, centre, spread: 12);
       final zoomed = _shown(tester);
       final scale = _mapScale(tester);
@@ -531,36 +542,36 @@ void main() {
       await tester.pump();
       expect(_shown(tester).top, lessThan(dragged.top));
       expect(_viewOf(nav), view);
-      await _close(tester);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('a tap goes to the right place on a zoomed and panned map', (tester) async {
-      await _pumpCanvas(tester);
-      final nav = _nav(tester);
+      await pumpMinimapCanvas(tester);
+      final nav = canvasNav(tester);
       final scale = nav.viewport.scale;
-      final centre = tester.getCenter(_mapPaint);
+      final centre = tester.getCenter(minimapPaint);
       await _pinch(tester, centre + const Offset(30, 10), spread: 10);
       await tester.sendEventToBinding(
         PointerScrollEvent(position: centre, scrollDelta: const Offset(15, 10)),
       );
       await tester.pump();
       const target = Offset(2800, 1400);
-      final at = _onMap(tester, target);
-      expect(tester.getRect(_mapPaint).contains(at), isTrue);
+      final at = onMinimap(tester, target);
+      expect(tester.getRect(minimapPaint).contains(at), isTrue);
       await tester.tapAt(at);
       await tester.pumpAndSettle();
       expect((nav.visibleArea.center - target).distance, lessThan(1));
       expect(nav.viewport.scale, scale);
-      await _close(tester);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('dragging the frame on a zoomed map moves the canvas', (tester) async {
-      await _pumpCanvas(tester);
-      final nav = _nav(tester);
-      await _pinch(tester, _onMap(tester, nav.visibleArea.center), spread: 6);
+      await pumpMinimapCanvas(tester);
+      final nav = canvasNav(tester);
+      await _pinch(tester, onMinimap(tester, nav.visibleArea.center), spread: 6);
       final shown = _shown(tester);
       final start = nav.visibleArea.center;
-      final grab = _onMap(tester, start);
+      final grab = onMinimap(tester, start);
       final drag = await tester.startGesture(grab);
       await drag.moveBy(const Offset(10, 0));
       await tester.pump();
@@ -569,25 +580,25 @@ void main() {
       // The map holds still; the view follows the finger.
       expect(_shown(tester), shown);
       expect(
-        (_onMap(tester, nav.visibleArea.center) - (grab + const Offset(20, 5))).distance,
+        (onMinimap(tester, nav.visibleArea.center) - (grab + const Offset(20, 5))).distance,
         lessThan(1),
       );
       await drag.up();
       await tester.pumpAndSettle();
       expect(nav.visibleArea.center.dx, greaterThan(start.dx));
-      await _close(tester);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('a zoomed map follows the view; panned away, it marks the edge', (tester) async {
-      await _pumpCanvas(tester);
-      final nav = _nav(tester);
-      await _pinch(tester, _onMap(tester, nav.visibleArea.center), spread: 10);
+      await pumpMinimapCanvas(tester);
+      final nav = canvasNav(tester);
+      await _pinch(tester, onMinimap(tester, nav.visibleArea.center), spread: 10);
       final shown = _shown(tester);
       // The view walks off the map's area: the map comes along, still zoomed.
       nav.centreOn(nav.visibleArea.center + Offset(shown.width, 0), animate: false);
       await tester.pump();
       final followed = _shown(tester);
-      expect(followed.width, shown.width);
+      expect(followed.width, closeTo(shown.width, 1e-6));
       expect(followed.left, greaterThan(shown.left));
       expect(MinimapView.tracks(followed, nav.visibleArea), isTrue);
 
@@ -595,7 +606,7 @@ void main() {
       for (var i = 0; i < 6; i++) {
         await tester.sendEventToBinding(
           PointerScrollEvent(
-            position: tester.getCenter(_mapPaint),
+            position: tester.getCenter(minimapPaint),
             scrollDelta: const Offset(0, 120),
           ),
         );
@@ -606,14 +617,14 @@ void main() {
       nav.viewport.panBy(const Offset(-30, 0));
       await tester.pump();
       expect(_shown(tester), away);
-      await _close(tester);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('the fit button and the menu fit the map again', (tester) async {
-      await _pumpCanvas(tester);
+      await pumpMinimapCanvas(tester);
       final fit = _shown(tester);
       expect(_fitButtonShown(tester), isFalse);
-      final centre = tester.getCenter(_mapPaint);
+      final centre = tester.getCenter(minimapPaint);
       await _pinch(tester, centre, spread: 10);
       expect(_shown(tester).width, lessThan(fit.width));
       await tester.tap(find.byTooltip(CanvasMinimap.fitLabel));
@@ -627,16 +638,16 @@ void main() {
       await tester.tap(find.text(CanvasMinimap.fitLabel));
       await tester.pumpAndSettle();
       expect(_shown(tester), fit);
-      await _close(tester);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('a pen or a drag on the map neither writes nor selects on the canvas', (
       tester,
     ) async {
-      await _pumpCanvas(tester);
+      await pumpMinimapCanvas(tester);
       final model = tester.widget<CanvasView>(find.byType(CanvasView)).model;
       final strokes = model.loadedStrokeCount;
-      final centre = tester.getCenter(_mapPaint);
+      final centre = tester.getCenter(minimapPaint);
       for (final kind in [PointerDeviceKind.stylus, PointerDeviceKind.touch]) {
         final pen = await tester.startGesture(centre - const Offset(30, 10), kind: kind);
         for (var i = 0; i < 8; i++) {
@@ -647,38 +658,38 @@ void main() {
         await tester.pumpAndSettle();
       }
       expect(model.loadedStrokeCount, strokes);
-      expect(_mapShown(tester), isTrue);
-      await _close(tester);
+      expect(minimapShown(tester), isTrue);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('steps aside while writing, back after a pause', (tester) async {
-      await _pumpCanvas(tester);
+      await pumpMinimapCanvas(tester);
       final pen = await tester.startGesture(const Offset(300, 400), kind: PointerDeviceKind.stylus);
       for (var i = 0; i < 10; i++) {
         await pen.moveBy(const Offset(8, 3));
         await tester.pump(const Duration(milliseconds: 16));
       }
-      expect(_mapShown(tester), isFalse);
+      expect(minimapShown(tester), isFalse);
       await pen.up();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(_mapShown(tester), isFalse);
+      expect(minimapShown(tester), isFalse);
       await tester.pump(CanvasMinimap.afterWriting);
       await tester.pumpAndSettle();
-      expect(_mapShown(tester), isTrue);
-      await _close(tester);
+      expect(minimapShown(tester), isTrue);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('hidden in focus mode; its menu hides it', (tester) async {
-      final services = await _pumpCanvas(tester);
+      final services = await pumpMinimapCanvas(tester);
       await tester.sendKeyEvent(LogicalKeyboardKey.f11);
       await tester.pumpAndSettle();
-      expect(_mapShown(tester), isFalse);
+      expect(minimapShown(tester), isFalse);
       await tester.sendKeyEvent(LogicalKeyboardKey.f11);
       await tester.pumpAndSettle();
-      expect(_mapShown(tester), isTrue);
+      expect(minimapShown(tester), isTrue);
 
       // Its menu holds one row (R12-1: no "Keep in focus mode").
-      await tester.longPressAt(tester.getCenter(_mapPaint));
+      await tester.longPressAt(tester.getCenter(minimapPaint));
       await tester.pumpAndSettle();
       expect(find.text('Keep in focus mode'), findsNothing);
       expect(find.text('Hide minimap'), findsOneWidget);
@@ -686,22 +697,22 @@ void main() {
       await tester.pumpAndSettle();
 
       // Right-click: hide it.
-      await tester.tapAt(tester.getCenter(_mapPaint), buttons: kSecondaryButton);
+      await tester.tapAt(tester.getCenter(minimapPaint), buttons: kSecondaryButton);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Hide minimap'));
       await tester.pumpAndSettle();
       expect(find.byType(CanvasMinimap), findsNothing);
       expect(services.settings.canvasMinimap, isFalse);
-      await _close(tester);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('its menu stays above and left of the map, clear of a phone\'s bottom bar', (
       tester,
     ) async {
-      await _pumpCanvas(tester);
+      await pumpMinimapCanvas(tester);
       tester.view.physicalSize = const Size(400, 800);
       await tester.pumpAndSettle();
-      final map = tester.getRect(_mapPaint);
+      final map = tester.getRect(minimapPaint);
       expect(map.bottom, lessThan(800 - 48), reason: 'above the phone\'s bottom toolbar');
       // Pressed at its far corner, a menu at the press would hang over the bar.
       await tester.longPressAt(map.bottomRight - const Offset(4, 4));
@@ -715,7 +726,7 @@ void main() {
       expect(row.right, lessThanOrEqualTo(map.right));
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      await _close(tester);
+      await closeMinimapCanvas(tester);
     });
 
     testWidgets('an empty canvas shows no map until there is ink', (tester) async {
@@ -742,7 +753,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(_mapShown(tester), isFalse);
+      expect(minimapShown(tester), isFalse);
       final pen = await tester.startGesture(const Offset(300, 400), kind: PointerDeviceKind.stylus);
       for (var i = 0; i < 10; i++) {
         await pen.moveBy(const Offset(8, 3));
@@ -751,8 +762,8 @@ void main() {
       await pen.up();
       await tester.pump(CanvasMinimap.refreshDelay + CanvasMinimap.afterWriting);
       await tester.pumpAndSettle();
-      expect(_mapShown(tester), isTrue);
-      await _close(tester);
+      expect(minimapShown(tester), isTrue);
+      await closeMinimapCanvas(tester);
     });
   });
 
@@ -782,7 +793,8 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(reader.densityReads, 1);
+    expect(reader.digestReads, 1);
+    expect(reader.reads, 1, reason: 'every chunk in one batch');
     // Pan along the ink: chunks load and far ones are evicted.
     var evictions = 0;
     final sub = model.invalidations.listen((_) => evictions++);
@@ -793,11 +805,14 @@ void main() {
     }
     expect(evictions, greaterThan(0));
     expect(model.strokeById('s0'), isNull); // evicted
-    expect(reader.densityReads, 1);
-    // A real edit still refreshes it.
+    expect(reader.digestReads, 1);
+    // A real edit still refreshes it, reading only the chunks it changed.
     model.addStroke(_wave('new', 's', const Offset(200, 3000)));
     await tester.pump(CanvasMinimap.refreshDelay);
-    expect(reader.densityReads, 2);
+    expect(reader.digestReads, 2);
+    expect(reader.reads, 2);
+    final range = reader.lastRange!;
+    expect((range.maxX - range.minX + 1) * (range.maxY - range.minY + 1), lessThanOrEqualTo(4));
     await tester.pumpWidget(const SizedBox());
   });
 }
@@ -807,21 +822,25 @@ class _CountingReader implements StrokeReader {
   _CountingReader(this._inner);
 
   final StrokeReader _inner;
-  int densityReads = 0;
+  int digestReads = 0;
+  int reads = 0;
+  ChunkRange? lastRange;
 
   @override
-  FutureOr<ChunkLoad> read(String surfaceId, ChunkRange range, {Set<ChunkKey> skip = const {}}) =>
-      _inner.read(surfaceId, range, skip: skip);
-
-  @override
-  FutureOr<Map<ChunkKey, ChunkDigest>> chunkDigests(String surfaceId, ChunkRange range) =>
-      _inner.chunkDigests(surfaceId, range);
-
-  @override
-  FutureOr<Map<ChunkKey, int>> chunkDensity(String surfaceId) {
-    densityReads++;
-    return _inner.chunkDensity(surfaceId);
+  FutureOr<ChunkLoad> read(String surfaceId, ChunkRange range, {Set<ChunkKey> skip = const {}}) {
+    reads++;
+    lastRange = range;
+    return _inner.read(surfaceId, range, skip: skip);
   }
+
+  @override
+  FutureOr<Map<ChunkKey, ChunkDigest>> chunkDigests(String surfaceId, ChunkRange range) {
+    if (range == MinimapSketch.everywhere) digestReads++;
+    return _inner.chunkDigests(surfaceId, range);
+  }
+
+  @override
+  FutureOr<Map<ChunkKey, int>> chunkDensity(String surfaceId) => _inner.chunkDensity(surfaceId);
 
   @override
   FutureOr<Rect?> contentBounds(String surfaceId) => _inner.contentBounds(surfaceId);

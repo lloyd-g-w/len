@@ -93,6 +93,14 @@ class AppPreferences extends ChangeNotifier {
   bool get canvasMinimap => _settings.canvasMinimap;
   set canvasMinimap(bool value) => _update(() => _settings.canvasMinimap = value);
 
+  /// The minimap's size (null: by device).
+  MinimapScale? get minimapScale => _settings.minimapScale;
+  set minimapScale(MinimapScale? value) => _update(() => _settings.minimapScale = value);
+
+  /// Whether the minimap is folded into its button.
+  bool get minimapCollapsed => _settings.minimapCollapsed;
+  set minimapCollapsed(bool value) => _update(() => _settings.minimapCollapsed = value);
+
   /// Whether other devices' pointers (live sync) carry their name tag, the
   /// plate with the device's initial; off leaves the bare dot or laser.
   bool get pointerTags => _settings.pointerTags;

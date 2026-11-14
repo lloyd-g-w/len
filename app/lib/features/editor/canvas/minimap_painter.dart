@@ -6,26 +6,39 @@ import 'package:flutter/rendering.dart';
 
 import '../../../ui/app_theme.dart';
 import 'minimap_geometry.dart';
+import 'minimap_raster.dart';
 
 /// Colours of the minimap: they sit on the canvas's paper.
 @immutable
 class MinimapColors {
-  const MinimapColors({required this.paper, required this.ink, required this.view});
+  const MinimapColors({
+    required this.paper,
+    required this.ink,
+    required this.view,
+    required this.veil,
+  });
 
   final Color paper;
 
-  /// Blocks of content (denser: stronger).
+  /// Blocks of content (denser: stronger), the origin's cross.
   final Color ink;
 
   /// The frame of the visible area.
   final Color view;
 
-  @override
-  bool operator ==(Object other) =>
-      other is MinimapColors && other.paper == paper && other.ink == ink && other.view == view;
+  /// Laid over the map outside the visible area.
+  final Color veil;
 
   @override
-  int get hashCode => Object.hash(paper, ink, view);
+  bool operator ==(Object other) =>
+      other is MinimapColors &&
+      other.paper == paper &&
+      other.ink == ink &&
+      other.view == view &&
+      other.veil == veil;
+
+  @override
+  int get hashCode => Object.hash(paper, ink, view, veil);
 }
 
 /// The minimap's blocks recorded once as a picture, in map pixels about the
@@ -82,11 +95,12 @@ class MinimapBlocks {
   }
 }
 
-/// Draws a minimap: the content's blocks, the origin, and the visible area
-/// as a frame (or, when it lies off the map, a mark on the edge toward it).
-/// Its cost is bounded by the blocks ([MinimapContent] caps them), whatever
-/// the canvas holds, and the blocks are replayed from [blocks] until the
-/// map's scale changes.
+/// Draws a minimap: the content's miniature (the [MinimapRaster]'s
+/// images, scaled while the map moves) or, without one, its blocks
+/// (replayed from [blocks] until the map's scale changes); the origin; the
+/// area outside the view veiled and the view's frame with its corner
+/// handles (or, when the view lies off the map, a mark on the edge toward
+/// it). Its cost is bounded whatever the canvas holds.
 class MinimapPainter extends CustomPainter {
   MinimapPainter({
     required this.content,
@@ -95,9 +109,15 @@ class MinimapPainter extends CustomPainter {
     required this.colors,
     required super.repaint,
     MinimapBlocks? blocks,
+    this.raster,
+    this.handles = false,
   }) : blocks = blocks ?? MinimapBlocks();
 
+  /// The blocks, drawn while there is no miniature.
   final MinimapContent content;
+
+  /// The miniature, if there is one yet.
+  final MinimapRaster? raster;
 
   /// The world area the map shows (read when painting: it animates).
   final Rect Function() frame;
@@ -109,10 +129,19 @@ class MinimapPainter extends CustomPainter {
   /// The cached blocks (owned by the map, which disposes them).
   final MinimapBlocks blocks;
 
+  /// Whether the frame shows its corner handles (resizing zooms).
+  final bool handles;
+
   /// Smallest size a block or the view frame is drawn at, in map pixels,
   /// so a lone word on a vast canvas, or a close-up, still shows.
   static const double minBlock = 2;
   static const double minView = 6;
+
+  /// The frame shows corner handles from this size (map pixels) up.
+  static const double handlesFrom = 24;
+
+  /// A corner handle's side (map pixels).
+  static const double handle = 6;
 
   /// Blocks this light at least, so faint content still reads.
   static const double minAlpha = 0.3;
@@ -120,21 +149,56 @@ class MinimapPainter extends CustomPainter {
   /// Size of the mark on the edge pointing at a view off the map.
   static const double edgeMark = 5;
 
-  /// How many blocks the last paint drew (for tests of the cost bound).
-  int get lastBlocks => blocks.count;
+  /// How many blocks the last paint drew (0 with a miniature; for tests of
+  /// the cost bound).
+  int lastBlocks = 0;
+
+  /// The view's frame as drawn on a map of [map]: never smaller than
+  /// [minView].
+  static Rect viewOnMap(MinimapProjection map, Rect view) {
+    final r = map.rectToMap(view);
+    return Rect.fromCenter(
+      center: r.center,
+      width: math.max(minView, r.width),
+      height: math.max(minView, r.height),
+    );
+  }
+
+  /// Whether a frame drawn as [shown] carries corner handles.
+  static bool hasHandles(Rect shown) =>
+      shown.width >= handlesFrom && shown.height >= handlesFrom * 0.6;
 
   @override
   void paint(Canvas canvas, Size size) {
     final map = MinimapProjection(frame(), size);
     canvas
       ..clipRect(Offset.zero & size)
-      ..drawColor(colors.paper, BlendMode.src)
-      ..save()
-      ..translate(map.origin.dx, map.origin.dy)
-      ..drawPicture(blocks.of(content, colors, map.scale))
-      ..restore();
+      ..drawColor(colors.paper, BlendMode.src);
+    final raster = this.raster;
+    if (raster?.overview case final overview?) {
+      _paintImage(canvas, map, overview);
+      if (raster!.detail case final detail?) _paintImage(canvas, map, detail);
+      lastBlocks = 0;
+    } else {
+      canvas
+        ..save()
+        ..translate(map.origin.dx, map.origin.dy)
+        ..drawPicture(blocks.of(content, colors, map.scale))
+        ..restore();
+      lastBlocks = blocks.count;
+    }
     _paintOrigin(canvas, map);
     _paintView(canvas, map, size);
+  }
+
+  void _paintImage(Canvas canvas, MinimapProjection map, MinimapImage image) {
+    final src = Offset.zero & Size(image.image.width.toDouble(), image.image.height.toDouble());
+    canvas.drawImageRect(
+      image.image,
+      src,
+      map.rectToMap(image.world),
+      Paint()..filterQuality = FilterQuality.medium,
+    );
   }
 
   /// A small cross where the canvas starts ("Back to start").
@@ -150,24 +214,35 @@ class MinimapPainter extends CustomPainter {
   }
 
   void _paintView(Canvas canvas, MinimapProjection map, Size size) {
-    final r = map.rectToMap(view());
-    final shown = Rect.fromCenter(
-      center: r.center,
-      width: math.max(minView, r.width),
-      height: math.max(minView, r.height),
-    );
+    final shown = viewOnMap(map, view());
     final bounds = Offset.zero & size;
     if (!shown.overlaps(bounds)) return _paintEdgeMark(canvas, bounds, shown.center);
     final rrect = RRect.fromRectAndRadius(shown, const Radius.circular(Radii.xs));
-    canvas
-      ..drawRRect(rrect, Paint()..color = colors.view.withValues(alpha: 0.12))
-      ..drawRRect(
-        rrect.deflate(Hairline.width * 0.75),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = Hairline.width * 1.5
-          ..color = colors.view,
-      );
+    // Outside the view dimmed, inside clear: the view reads at a glance.
+    canvas.drawPath(
+      Path()
+        ..fillType = PathFillType.evenOdd
+        ..addRect(bounds.inflate(1))
+        ..addRRect(rrect),
+      Paint()..color = colors.veil,
+    );
+    final line = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = Hairline.width * 1.5
+      ..color = colors.view;
+    canvas.drawRRect(rrect.deflate(Hairline.width * 0.75), line);
+    if (!handles || !hasHandles(shown)) return;
+    final fill = Paint()..color = colors.view;
+    final rim = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = Hairline.width
+      ..color = colors.paper;
+    for (final corner in [shown.topLeft, shown.topRight, shown.bottomRight, shown.bottomLeft]) {
+      final r = Rect.fromCenter(center: corner, width: handle, height: handle);
+      canvas
+        ..drawRect(r, fill)
+        ..drawRect(r, rim);
+    }
   }
 
   /// A small arrowhead on the map's edge, pointing at the view off it
@@ -194,5 +269,9 @@ class MinimapPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(MinimapPainter old) =>
-      old.content != content || old.colors != colors || old.blocks != blocks;
+      old.content != content ||
+      old.colors != colors ||
+      old.blocks != blocks ||
+      old.raster != raster ||
+      old.handles != handles;
 }

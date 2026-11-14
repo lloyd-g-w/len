@@ -175,6 +175,38 @@ class CanvasNavigation extends ChangeNotifier {
     viewport.setView(scale: viewport.scale, offset: offset);
   }
 
+  /// Zooms one step in ([steps] > 0) or out about the middle of the free
+  /// area (the minimap's − and + buttons).
+  void zoomStep(int steps) {
+    final centre = _freeArea.center;
+    steps > 0 ? zoomIn(focal: centre) : zoomOut(focal: centre);
+  }
+
+  /// Glides to the next zoom step in with world point [world] in the
+  /// middle of the free area (a double tap on the minimap).
+  void zoomInOn(Offset world) {
+    final scale = zoomSteps.firstWhere(
+      (s) => s > viewport.scale * 1.01,
+      orElse: () => viewport.maxScale,
+    );
+    animator.animateTo(scale: scale, offset: _freeArea.center - world * scale);
+  }
+
+  /// Shows world rectangle [world] as large as the free area holds it,
+  /// centred: gliding there, or at once (resizing the minimap's frame).
+  void showArea(Rect world, {bool animate = true}) {
+    final area = _freeArea;
+    final fit = math.min(
+      area.width / math.max(world.width, 1e-3),
+      area.height / math.max(world.height, 1e-3),
+    );
+    final scale = fit.clamp(viewport.minScale, viewport.maxScale);
+    final offset = area.center - world.center * scale;
+    if (animate) return animator.animateTo(scale: scale, offset: offset);
+    animator.stop();
+    viewport.setView(scale: scale, offset: offset);
+  }
+
   /// Back to where a new canvas starts: the origin at the top left (below
   /// the chrome), 100 %.
   void goToOrigin() => animator.animateTo(scale: 1, offset: Offset(_insets.left, _insets.top));

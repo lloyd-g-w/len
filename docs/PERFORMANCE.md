@@ -119,6 +119,14 @@ to trust.
   5 ms (reader isolate), merged into 999 blocks in 1–2 ms (UI thread, half a
   second after the last edit) and painted in 0.7 ms. Writing is unaffected
   (8.3 → 8.6 paints a move; the map steps aside).
+  The miniature (feat/minimap2; debug JIT, flutter_tester, 10k strokes in 70
+  tiles; measured on a loaded machine, so upper bounds): everything read and
+  simplified once in ~0.4–0.9 s (reads on the reader isolate in the app, 96
+  chunks a batch), the first image in ~0.16–0.3 s total, tile pictures
+  recorded in 6 ms slices; an edit re-reads only its chunks (~20–45 ms) and
+  records one tile again. In the harness `Picture.toImage` rasterises on the
+  CPU within the turn (most of the longest turn); natively that work is on the
+  raster thread. Per frame the map draws one or two images, never the content.
 - **Shape fill.** 2,000 overlapping shapes: tiles 2.5–2.7 s for the first
   screen and pan frames p50 22–24 ms whether outlined or filled (fill paths
   are memoised per stroke, drawn into the same tiles).

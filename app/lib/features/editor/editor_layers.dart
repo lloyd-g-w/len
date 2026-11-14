@@ -91,6 +91,7 @@ class EditorLayers extends StatelessWidget {
     final prefs = session.services.preferences;
     if (nav == null || model == null || !prefs.canvasMinimap) return null;
     final covered = layout.covered;
+    final scale = prefs.minimapScale ?? CanvasMinimap.defaultScale(phone: layout.phone);
     return ValueListenableBuilder(
       valueListenable: audio.stripHeight,
       builder: (context, strip, _) {
@@ -110,9 +111,13 @@ class EditorLayers extends StatelessWidget {
               model: model,
               live: session.live,
               paperColor: notebook.paperColor,
-              size: minimapSize(free, phone: layout.phone),
+              size: minimapSize(free, phone: layout.phone, scale: scale),
               visible: !layout.focus,
               onHide: () => prefs.canvasMinimap = false,
+              collapsed: prefs.minimapCollapsed,
+              onCollapsed: (folded) => prefs.minimapCollapsed = folded,
+              scale: scale,
+              onScale: (size) => prefs.minimapScale = size,
             ),
           ),
         );

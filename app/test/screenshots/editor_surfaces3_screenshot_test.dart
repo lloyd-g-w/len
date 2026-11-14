@@ -11,6 +11,7 @@ import 'package:len/domain/notebook.dart';
 import 'package:len/domain/paper.dart';
 import 'package:len/features/editor/canvas/canvas_minimap.dart';
 import 'package:len/features/editor/canvas/canvas_view.dart';
+import 'package:len/features/editor/canvas/minimap_painter.dart';
 import 'package:len/features/editor/zoom/zoom_box.dart';
 import 'package:len/features/inklab/inklab_screen.dart';
 import 'package:len/features/inklab/inklab_stats_bar.dart';
@@ -24,7 +25,7 @@ import 'screenshot_harness.dart';
 
 final _mapPaint = find.descendant(
   of: find.byType(CanvasMinimap),
-  matching: find.byType(CustomPaint),
+  matching: find.byWidgetPredicate((w) => w is CustomPaint && w.painter is MinimapPainter),
 );
 
 /// Two fingers spread on the minimap: it zooms in on itself.
@@ -175,7 +176,7 @@ void main() {
   }
 
   // 6a. Minimap (canvas): content far apart, the frame on the view; ⋯ → View;
-  // its own menu (long-press).
+  // the map zoomed in itself; its own menu (long-press); folded.
   for (final screen in [phoneScreen, tabletScreen]) {
     for (final mode in modes) {
       final shot = '${screen.name}_${mode.name}';
@@ -194,11 +195,20 @@ void main() {
           await shoot(tester, 'e_minimap_zoomed_$shot');
           // The map zoomed in on itself (two fingers): the fit button above it.
           await _pinchMap(tester);
+          // The sharper image of the part shown (recorded a slice at a time).
+          for (var i = 0; i < 5; i++) {
+            await tester.pump(CanvasMinimap.rasterDelay);
+          }
           await shoot(tester, 'e_minimap_map_zoomed_$shot');
           await tester.longPress(find.byType(CanvasMinimap));
           await settle(tester);
           await shoot(tester, 'e_minimap_menu_$shot');
           await dismiss(tester, screen.size.center(Offset.zero));
+          await tester.tap(find.byTooltip('Fold minimap'));
+          await settle(tester);
+          await shoot(tester, 'e_minimap_folded_$shot');
+          await tester.tap(find.byTooltip('Show minimap'));
+          await settle(tester);
           await tester.tap(find.byTooltip('More options'));
           await settle(tester);
           await tester.tap(find.text('View'));
