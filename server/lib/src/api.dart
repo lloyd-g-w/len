@@ -10,6 +10,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import 'blob_api.dart';
 import 'blob_store.dart';
+import 'browser_signin.dart';
 import 'change_events.dart';
 import 'cors.dart';
 import 'live_api.dart';
@@ -29,8 +30,9 @@ const defaultPullLimit = 500;
 const maxPullLimit = 1000;
 
 /// Paths reachable without a bearer token (`/v1/live` checks the token or
-/// a ticket itself).
-const _publicPaths = {'v1/health', 'v1/live'};
+/// a ticket itself; the sign-in's routes check the proxy's user header or
+/// a sign-in code).
+const _publicPaths = {'v1/health', 'v1/live', signinPath, signinTokenPath};
 
 /// Builds the complete request handler: CORS middleware ([cors], outermost,
 /// so preflights and auth errors are covered), then auth, then the protocol
@@ -42,6 +44,10 @@ const _publicPaths = {'v1/health', 'v1/live'};
 ///
 /// `GET /v1/events` streams through [events], `GET /v1/live` connects to
 /// [live] (new ones if not given; the caller closes them at shutdown).
+///
+/// With [signinUserHeader] (`LEN_SIGNIN_USER_HEADER`), apps can get the
+/// token by signing in through a proxy in the browser ([BrowserSignin]):
+/// `/signin` and `POST /v1/signin/token`; without, both are 404.
 Handler buildHandler({
   required RecordStore store,
   required BlobStore blobs,
@@ -52,11 +58,16 @@ Handler buildHandler({
   ChangeEvents? events,
   LiveHub? live,
   LiveTickets? tickets,
+  String? signinUserHeader,
+  SigninCodes? signinCodes,
 }) {
   final feed = _Feed(store, events ?? ChangeEvents(), live ?? LiveHub());
   final liveTickets = tickets ?? LiveTickets();
+  final signin = signinUserHeader == null
+      ? null
+      : BrowserSignin(userHeader: signinUserHeader, token: token, codes: signinCodes);
   final router = Router(notFoundHandler: _notFound)
-    ..get('/v1/health', (Request request) => _health(store, maxBlobBytes))
+    ..get('/v1/health', (Request request) => _health(store, maxBlobBytes, signin: signin != null))
     ..post('/v1/push', (Request request) => _push(request, feed))
     ..get('/v1/pull', (Request request) => _pull(request, feed))
     ..get(
@@ -75,6 +86,12 @@ Handler buildHandler({
     )
     ..post('/v1/live/ticket', (Request request) => issueTicket(liveTickets));
   addBlobRoutes(router, blobs, maxBytes: maxBlobBytes, idleTimeout: blobIdleTimeout);
+  if (signin != null) {
+    router
+      ..get('/$signinPath', signin.page)
+      ..post('/$signinPath', signin.answer)
+      ..post('/$signinTokenPath', signin.exchange);
+  }
   return const Pipeline()
       .addMiddleware(corsMiddleware(cors))
       .addMiddleware(_internalErrors)
@@ -237,13 +254,16 @@ String? _bearerToken(String? header) {
 }
 
 /// `GET /v1/health`: liveness plus what clients need to know up front.
-Response _health(RecordStore store, int maxBlobBytes) => _json(HttpStatus.ok, {
-  'status': 'ok',
-  'protocol': protocolVersion,
-  'maxBlobBytes': maxBlobBytes,
-  'blobsCollectedAt': store.blobsCollectedAt,
-  'serverId': store.serverId,
-});
+/// `signin`: whether apps can sign in through the browser.
+Response _health(RecordStore store, int maxBlobBytes, {required bool signin}) =>
+    _json(HttpStatus.ok, {
+      'status': 'ok',
+      'protocol': protocolVersion,
+      'maxBlobBytes': maxBlobBytes,
+      'blobsCollectedAt': store.blobsCollectedAt,
+      'serverId': store.serverId,
+      'signin': signin,
+    });
 
 Response _notFound(Request request) => _json(HttpStatus.notFound, {'error': 'not found'});
 
