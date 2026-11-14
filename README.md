@@ -17,8 +17,9 @@ optional sync through a tiny server you host yourself.
   the selected tool for its few options in a small menu.
 - **Pen, highlighter, eraser**: the highlighter uses the pen's engine (flat or round
   ends) and sits behind the ink; pixel or stroke eraser, or scribble over ink to erase it.
-- **Shapes**: draw and hold to snap (a smooth stroke becomes a curve), or the Shape tool
-  (Shift for regular shapes; curves anchor by anchor); drag a selected shape's handles —
+- **Shapes**: draw and hold to snap (a smooth stroke becomes a curve; nearly square,
+  equilateral or level becomes exactly so), or the Shape tool (Shift for regular shapes;
+  curves anchor by anchor); drag a selected shape's handles —
   corners, sides, centre, radii, a line's bend, a curve's anchors and tangents — to reshape
   it, with snapping; closed shapes take a fill. Line and arrow ends dropped on a shape stay
   attached (connectors): they follow it when it moves, turns or is reshaped.

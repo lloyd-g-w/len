@@ -1930,7 +1930,10 @@ beat the ellipse clearly, as five or more corners must (below), then 3 → trian
 → diamond (diagonals along the axes), rectangle (right angles; rotated or,
 within 6°, axis-aligned, each side midway between its corners), else
 polygon (five or more corners must have half the ellipse's error: a ring
-around a word is no hexagon). Strokes
+around a word is no hexagon). A rectangle within 8 % of square is a
+square; a triangle with sides within 8 % of their mean is equilateral
+(about its centroid), and one with a side within 6° of level is turned
+level (`shapes/shape_cleanup.dart`). Strokes
 under 48 screen px long and closed ones under 48 px across stay as
 written (letters such as "l", "o" or "0"). A stroke that is none of these
 but smooth, at least 128 px across (`HoldToStraighten.minCurve`: a held
