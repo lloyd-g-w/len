@@ -38,8 +38,9 @@ class VersionSnapshots {
   /// the body of a version made here.
   final VersionContent content;
 
-  /// How this device names itself (`Android`).
-  final String deviceName;
+  /// What this device is called now (`DeviceName`), for the versions it
+  /// makes.
+  final String Function() deviceName;
 
   /// Whether to pause making an automatic version (a pointer is down:
   /// writing).
@@ -116,18 +117,35 @@ class VersionSnapshots {
   /// write to the notebook between them): the version, its summary
   /// counting only its pages and strokes, and [finish], to run once it is
   /// saved, which stores its new blobs and returns it with its full
-  /// summary and size. Null when the notebook is gone.
-  ({NotebookVersion version, Future<NotebookVersion> Function() finish})? buildNow(
-    String notebookId, {
-    VersionKind kind = VersionKind.auto,
-    String? name,
-  }) {
+  /// summary and size, or [discard] if it is not saved (its blobs are
+  /// `BlobStore.coming` until either). Null when the notebook is gone.
+  ({NotebookVersion version, Future<NotebookVersion> Function() finish, void Function() discard})?
+  buildNow(String notebookId, {VersionKind kind = VersionKind.auto, String? name}) {
     final versions = repositories.versions;
     final read = _read(notebookId);
     if (read == null) return null;
     final (:notebook, :pageRows, :canvas) = read;
     final previous = versions.latest(notebookId);
     final pending = PendingBlobs(blobs);
+    try {
+      return _buildNow(notebookId, kind, name, notebook, pageRows, canvas, previous, pending);
+    } on Object {
+      pending.discard();
+      rethrow;
+    }
+  }
+
+  ({NotebookVersion version, Future<NotebookVersion> Function() finish, void Function() discard})
+  _buildNow(
+    String notebookId,
+    VersionKind kind,
+    String? name,
+    Map<String, Object?> notebook,
+    List<Row> pageRows,
+    bool canvas,
+    NotebookVersion? previous,
+    PendingBlobs pending,
+  ) {
     var strokes = 0;
     final counts = <String, int>{};
     final pages = <VersionPage>[];
@@ -158,7 +176,7 @@ class VersionSnapshots {
       return _summed(made, body, previous, counts, WorkSlices());
     }
 
-    return (version: made, finish: finish);
+    return (version: made, finish: finish, discard: pending.discard);
   }
 
   /// The notebook's fields and live pages, or null when it is gone.
@@ -217,7 +235,7 @@ class VersionSnapshots {
       kind: kind,
       name: name,
       deviceId: versions.deviceId,
-      deviceName: deviceName,
+      deviceName: deviceName(),
       notebook: notebook,
       table: table,
       summary: VersionSummary(pages: body.pages.length, strokes: strokes),

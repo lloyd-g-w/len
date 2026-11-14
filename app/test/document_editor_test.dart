@@ -18,6 +18,7 @@ import 'package:len/ink/render/ink_painters.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'support/page_actions.dart';
+import 'support/stored.dart';
 import 'support/tester_clock.dart';
 
 /// A notebook with three differently shaped pages, some with ink.
@@ -100,7 +101,8 @@ Future<void> closeEditor(WidgetTester tester) async {
   await tester.pump();
 }
 
-List<Stroke> inkOf(AppServices s, NotebookPage page) => SurfaceCopier(s.strokes).loadAll(page.id);
+List<Stroke> inkOf(AppServices s, NotebookPage page) =>
+    SurfaceCopier(storedStrokes(s)).loadAll(page.id);
 
 void main() {
   testWidgets('paged documents paint the live highlighter under the committed ink', (tester) async {

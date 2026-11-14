@@ -14,6 +14,7 @@ import 'ui/hit_overhang.dart';
 import 'ui/messages.dart';
 import 'ui/system_bars.dart';
 import 'ui/touch_menus.dart';
+import 'ui/web_shader_warm_up.dart';
 
 /// The root widget: provides [AppServices] and builds the themed app.
 class LenApp extends StatefulWidget {
@@ -124,9 +125,11 @@ class _LenAppState extends State<LenApp> with WidgetsBindingObserver {
             darkTheme: _dark,
             themeMode: themeModeOf(preferences.themeMode),
             themeAnimationDuration: Motion.medium,
-            builder: (context, child) => HitOverhangScope(
-              child: FocusRing(
-                child: SystemBars(child: TouchMenus(child: child!)),
+            builder: (context, child) => WebShaderWarmUp(
+              child: HitOverhangScope(
+                child: FocusRing(
+                  child: SystemBars(child: TouchMenus(child: child!)),
+                ),
               ),
             ),
             scaffoldMessengerKey: _messenger,

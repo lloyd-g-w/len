@@ -213,6 +213,7 @@ class EditorLayers extends StatelessWidget {
           EditorSearchLayer(
             controller: search,
             covered: layout.covered,
+            darkPaper: notebook.paperColor.isDark,
             onClose: focusNode.requestFocus,
           ),
         ),

@@ -295,6 +295,18 @@ class SettingsRepository {
   String? get workspace => _get('workspace');
   set workspace(String? value) => value == null ? _remove('workspace') : _set('workspace', value);
 
+  /// The name the user gave this device (Settings → Sync), or null for
+  /// the suggested one (`DeviceName`).
+  String? get deviceName => _get('device_name');
+  set deviceName(String? value) =>
+      value == null ? _remove('device_name') : _set('device_name', value);
+
+  /// The name the system gives this device (Android's device name), once
+  /// asked: the suggested name from then on (`DeviceName.detect`).
+  String? get systemDeviceName => _get('system_device_name');
+  set systemDeviceName(String? value) =>
+      value == null ? _remove('system_device_name') : _set('system_device_name', value);
+
   String? _get(String key) {
     final rows = _database.select('SELECT value FROM settings WHERE key = ?', [key]);
     return rows.isEmpty ? null : rows.first['value'] as String;

@@ -99,6 +99,31 @@ void main() {
     expect(ids(queries.touchedBy('p', ['b']).shapes), containsAll(['b2', 'a', 'c']));
   });
 
+  test('a shape changed: its live strokes, to merge; versions read live or deleted', () {
+    expect(queries.touchedBy('p', ['ink']).edited, isEmpty);
+    expect(ids(queries.touchedBy('p', ['b']).edited), {'b'});
+    // Edited on two devices at once: both strokes of it.
+    ShapeGeometry moved(double dy) =>
+        _box(100).map((p) => p + Offset(0, dy)).editing('b', b.shape!);
+    db.transaction(() {
+      strokes.delete(['b']);
+      strokes.save([_on(shapeStroke(moved(30), id: 'b2')), _on(shapeStroke(moved(60), id: 'b3'))]);
+    });
+    expect(ids(queries.touchedBy('p', ['b3']).edited), {'b2', 'b3'});
+    expect(ids(queries.touchedBy('p', ['b']).edited), {'b2', 'b3'}); // its tombstone
+    // A line changed: its own strokes too, checked as lines.
+    final ab2 = _on(shapeStroke(ab.shape!.editing('ab', ab.shape!), id: 'ab2'));
+    strokes.save([ab2]);
+    final read = queries.touchedBy('p', ['ab2']);
+    expect(ids(read.edited), {'ab', 'ab2'});
+    expect(ids(read.lines), containsAll(['ab', 'ab2']));
+    // The base of a merge, deleted, keeps its look and shape.
+    final versions = queries.versions(['b', 'b2', 'ink', 'unknown']);
+    expect(versions.keys, {'b', 'b2'});
+    expect(versions['b']!.shape, b.shape);
+    expect(versions['b']!.color, b.color);
+  });
+
   test('a line changed: itself and its shapes', () {
     final read = queries.touchedBy('p', ['ca']);
     expect(ids(read.lines), {'ca'});

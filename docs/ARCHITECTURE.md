@@ -255,13 +255,14 @@ draws a few dozen images, however much ink is on screen.
 - **Web (JavaScript)**: CanvasKit makes every picture into an image on the
   UI thread, drawing it on one shared offscreen surface and reading the
   pixels back (a GPU round trip; the surface is resized whenever the size
-  asked for changes). Tiles, level-of-detail rasters and page thumbnails
-  therefore go through `RasterBatch` (`render/raster_batch.dart`): there it
-  draws the small pictures asked for until an atlas is full (or a turn
-  passes without more) side by side into one 512² atlas, a tile's size, so
-  one read-back serves many rasters and the surface never changes size;
-  each raster is a `RasterImage` (its own handle on the atlas, the part it
-  occupies, its share of the memory). Tiles fill an atlas alone and are
+  asked for changes, which Len never lets happen: see below). Tiles,
+  level-of-detail rasters and page thumbnails therefore go through
+  `RasterBatch` (`render/raster_batch.dart`): there it draws the small
+  pictures asked for until an atlas is full (or a turn passes without
+  more) side by side into one 512² atlas, a tile's size, so one read-back
+  serves many rasters and the surface never changes size; each raster is
+  a `RasterImage` (its own handle on the atlas, the part it occupies, its
+  share of the memory). Tiles fill an atlas alone and are
   made at once, as before (queued, the visible ones waited behind others
   and pages showed as vectors longer). And `InkTileCache` spares renders
   there: a loading surface renders no tile for up to a second (empty
@@ -270,6 +271,22 @@ draws a few dozen images, however much ink is on screen.
   rests (1.2 s, or 24 over a tile) instead of after every stroke. Natively
   and in the WebAssembly build (Skwasm rasterises off the UI thread) each
   raster is its own `Picture.toImage`, as before.
+  Everything else made into an image goes through `RasterBatch.image` (an
+  image of its own, exactly the size asked for): library covers
+  (`imageNow`: `toImageSync` natively, later in the JavaScript build, the
+  old cover showing meanwhile), history previews, selection images for
+  other apps, exports, the eyedropper's 1-px probe. In the JavaScript build
+  a picture that fits an atlas is drawn on one and its pixels cut out on
+  the CPU (`toByteData` of the CPU-backed atlas, `decodeImageFromPixels`),
+  a larger one in 512² slices, one read-back a turn, stitched the same
+  way (the eyedropper's snapshot too: `OffsetLayer.toImage` per slice), so
+  the shared surface is never resized (0.15–0.4 s each way under software
+  GL). Two warm-ups run only there: `RasterBatch.warmUp` sizes that surface
+  and compiles the ink programs while the database opens, and
+  `WebShaderWarmUp` (in `MaterialApp.builder`) paints common draws beneath
+  the app for its first three frames (plain, in a rounded clip, on a
+  layer), so their GPU programs compile at start (PERFORMANCE "Web long
+  tasks 2").
 - **Pages ahead**: paged documents load (`DocumentController`) and render
   (`InkTileCache.prefetch`) the pages within half a screen of the view, so
   a page scrolls in complete and without vector frames.
@@ -297,7 +314,17 @@ Two more things keep pen-up and first show off the frame:
   inserts and deletes reach SQLite in a post-frame callback after the frame
   that shows them (`len.persistStrokes`), not inside the pointer-up
   handler. Reads, `reload`, `dispose` and `SurfaceModel.flushAll()`
-  (exports, page copies and deletions) flush first.
+  (exports, page copies and deletions) flush first. A large edit is written in steps across
+  turns inside one transaction (`SteppedWrites`, `AppDatabase.steps`: 4 ms of steps a turn, a
+  move's tombstones before its new rows); other transactions and pushes finish it first, but a
+  raw read between two turns sees the steps so far. Tests reading storage after an edit in an
+  editor go through `storedStrokes` (`test/support/stored.dart`, which finishes them as the app's
+  readers do): a bare `pump` runs only the first turn, and a JIT-cold first step (the first test
+  of a file, a busy machine) can use up the turn after the tombstones, so the
+  arrow-nudge test in `editor_keyboard_test.dart` and the shape-handle test in
+  `shape_edit_test.dart` found the moved strokes gone. They read storage straight after a bare
+  pump since the stepped writes came in (perf round 15) and failed more and more as the app grew
+  (one run in four or five of the keyboard file alone on main); the app was right.
 - **Outlines off the frame** (`OutlinePreparer`, `platform/
   outline_preparer*`): strokes read from storage get their outlines built
   before the model adds them — on up to three worker isolates
@@ -500,7 +527,8 @@ again. Text being typed reads once its write lands. The nodes take no pointers.
   canvas background), `editorScreenShortcuts` and `canvasMenuAt`. It composes
   `EditorCanvas` (surface, "Add page" footer, content layer) with `EditorChrome`
   (`chrome/`): `EditorTopBar` (fixed clusters: navigation — back, ▦ pages, the title,
-  start-aligned, tap to rename, with the folder as a quiet subtitle — then the tools when
+  start-aligned, tap to rename, with the folder as a quiet subtitle, left out (for screen
+  readers only) where both lines don't fit the bar at large text — then the tools when
   they are docked inside the bar, then actions — the 🎙▾ audio split button, undo/redo and
   "⋯" `EditorMoreMenu`; phones keep back, the title, undo/redo and ⋯), the toolbar
   (inside the bar, attached under it, the phone's bottom row — which gives way while the soft
@@ -874,7 +902,9 @@ button and in Settings → Sync (with Retry); a raised server limit is noticed
 automatically. Any other failed upload is retried next sync, and records
 referencing a still-pending blob are held back for up to
 `SyncEngine.maxHoldBackAttempts` syncs, so a record normally never reaches the
-server before its blob. Blobs are fetched lazily when a page needs them
+server before its blob; so are, over the live connection too, records naming a blob
+not stored yet (`BlobStore.coming`: a version made in one turn, saved before its
+blobs, `PendingBlobs`). Blobs are fetched lazily when a page needs them
 (`SyncController.fetchBlob`).
 
 `BlobReferences` is the reference graph (live page backgrounds, elements,
@@ -1554,17 +1584,40 @@ replayed in step with the ink.
   "Keep all", Cancel, Save. Saving is not an editor undo step (recordings
   are not part of a surface, like renaming): its message offers Undo, and
   "Reset trim" in the list restores the whole recording at any time.
-  Export of raw AAC keeps the whole frames overlapping the range
-  (`AdtsReader.cut`, ≈ 23 ms at 44.1 kHz, exact sample counting); browser
-  recordings (MP4 / WebM files, which would need remuxing) export the whole
-  parts the trim touches (`exportGroups`; the message says so when that is
-  wider, `exportsWider`).
+  Export keeps to the trim without decoding (`cutAudio` in
+  `recording_export.dart`; `exportGroupOf` gives the exported file its
+  blobs, where each starts and the cut in them). Every recording exports
+  as one file. Raw AAC joins all parts and keeps the whole
+  frames overlapping the range (`AdtsReader.cut`, ≈ 23 ms at 44.1 kHz,
+  exact sample counting). Browser recordings join the parts the trim
+  touches into one file (`joinAudio`: each part a complete file of the same
+  codec and settings, its packets moved to where the part starts, never
+  before the previous part's audio ends; the first part's header and
+  tracks) and cut it inside: WebM (`webm_cut.dart` on
+  `ebml.dart`) keeps the EBML header, Info (Duration rewritten) and Tracks,
+  and the blocks overlapping the range, timecodes rebased to 0 and
+  regrouped into clusters of known size (browsers write unknown sizes);
+  Cues and SeekHead are dropped. Fragmented MP4 (`mp4_cut.dart`) keeps
+  `ftyp` and `moov` (`mvhd` / `tkhd` / `mdhd` / `mehd` / edit-list
+  durations rewritten where set) and the samples overlapping the range,
+  each fragment rewritten with explicit `trun` tables and its `tfdt`
+  rebased; `sidx` / `mfra` are dropped. Opus and AAC packets are all
+  keyframes, so the cut is exact to a packet (20–60 ms). Input the cutters
+  don't understand (malformed, several tracks, plain MP4, encryption,
+  parts whose tracks differ) exports one file per part ("Lecture (part
+  2).webm", `partGroupsOf`), each cut where it can be, else whole, and
+  only then does the message say the audio may start earlier or end later
+  than the trim. A joined MP4 keeps each part's own AAC priming frames
+  after the first (≈ 23 ms at each 5-minute join; playing part by part
+  has them too).
 - **Freeing a trim's storage** (`domain/recording_release.dart`,
   `trim_release.dart`, `ui/free_up_space.dart`). The trim stays adjustable
   until the user frees it: a recording whose trim leaves parts wholly
   outside offers "Free up 12 MB…" in its menu (the bytes of those parts on
   this device not shared with another recording, e.g. a duplicated
-  notebook's — `NotebookAudio.releasableSize`). Confirmed, the row is
+  notebook's, nor named by a version of the notebook: those stay while one
+  does, and the dialog and message say how much — `NotebookAudio.releasableSize`,
+  see "Version history"). Confirmed, the row is
   rewritten without them (`withoutPartsOutsideTrim`): the kept parts, their
   duration, the trim and the timeline (`RecordingTimeline.slice`, wall times
   kept, so ink maps to the same moments) moved to begin at the first kept
@@ -2348,7 +2401,9 @@ surface.
   shape is a new stroke; attachments name the shape by its identity
   across edits, `Stroke.shapeId` (`ShapeGeometry.origin`, synced `sh.o`:
   the id of the stroke it was first drawn as; absent, the stroke's own
-  id). Following: every selection edit goes through `_replace`, where
+  id), and every edit names the strokes it replaced, nearest first
+  (`ShapeGeometry.replaces`, synced `sh.r`, at most 8; `editing`; a copy
+  or a shape moved to another page has none, `detached`). Following: every selection edit goes through `_replace`, where
   `_SelectionConnectors._connect` gives each edited shape its old shape
   id (`_identified`; one moved to another page becomes a shape of its
   own there, and a selected line landing on that page with it is
@@ -2390,8 +2445,29 @@ surface.
   from theirs, so two devices repairing at once write one record, and a
   repaired line sits: no loop. A reference to a shape not on the line's
   surface (deleted, erased, moved to another page) is ignored and the end
-  stays put; undoing a deletion restores the attachment. Only closed
-  shapes are targets, so connectors never chain.
+  stays put; undoing a deletion restores the attachment. Two edits of one
+  stroke made at once (box moved here, arrow recoloured there: both
+  devices replaced the arrow) leave two live strokes of one shape
+  ("twins"); the repair first merges them (`ShapeMerge`, reading the
+  changed shapes' strokes, `ConnectorShapes.edited`): a twin another
+  names in its lineage is superseded and only deleted; the rest become
+  one stroke carrying each twin's changes against the version they
+  started from (the nearest common lineage entry, read live or deleted,
+  `ConnectorQueries.versions`): look parts, each end of a line with its
+  attachment, its bend, else the outline whole; the least id wins a part
+  both changed, and everything without a known base (edits by clients
+  before lineages). Its id is a UUID v5 of the twins' ids, so merges made
+  at once are one record; then it is repaired like any line. Undo and
+  redo do the same (`SurfaceModel._applyConnected`, `ConnectorRepair
+  .fixesFor` on what the step put back): a line restored whose shape
+  moved since (synced in) goes back onto it, and a version restored
+  beside a later edit of its shape yields to it, all in the same undo
+  step (`UndoHistory.amendTaken`), so redo and undo again take it along.
+  Clients before lineages ignore `sh.r`, do not merge, and still repair
+  (docs/SYNC_PROTOCOL.md). Tests: `connector_sync_test` (scenarios),
+  `connector_convergence_test` (three devices, random edits, undo, an
+  old client among them: one stroke a shape, every end on its shape,
+  settled). Only closed shapes are targets, so connectors never chain.
 - **Selections across pages** (paged notebooks, continuous flow): the
   selection stays bound to the active page's surface, but
   `SelectionController.surfaces` (a `SelectionSurfaces`, given by
@@ -2642,10 +2718,16 @@ GoodNotes-style rich text inside a box.
   natively and each part shows where it will be stored (the editor measures the field's room
   line once and corrects the placeholders by what the field adds,
   `RichTextController.roomExtra`; the field is as wide as the first box, so a part on a
-  narrower page shows wider while edited, its room measured at the field's width). The other pages' boxes are hidden meanwhile and drawn as
+  narrower page shows wider while edited, its room measured at the field's width). A table's
+  header row repeated on the pages it goes on to (`TextFlow.header`, display only, drawn by
+  `TableLayout` in a band above a part's rows) is kept room for at the break and painted
+  there by the field's table layer while edited (`TableEditorLayer.repeatedHeaders`, from the
+  header row's own cell layouts: typed in live, nothing more laid out). The other pages' boxes are hidden meanwhile and drawn as
   typed in other views (lifted content). One page at a time (single-page flow) the box tapped
   is edited alone and its chain flows again when it ends (a style given to its first line, when
-  that line goes on with the page before, goes to the parts holding the paragraph's start). Either way the end is one
+  that line goes on with the page before, goes to the parts holding the paragraph's start; a
+  table in it going on from or into other pages gives its columns, widths and header to its
+  parts there, `TableFlow.carry`, all the way along a table over three or more pages). Either way the end is one
   notebook-wide undo step (`PageModels.group`; pages added for the text are recorded last, so
   undo deletes them with their text and redo restores both). The session lays the text out
   once per keystroke (`TextLayoutCache`: width, height, split and the field's breaks read one
@@ -3638,7 +3720,8 @@ shares between versions (and between devices of one platform family).
   again. If the last of `attempts` (4) is overtaken too, it is made once more
   inside that transaction in one turn (`VersionSnapshots.buildNow`: packs
   hashed there, their blobs stored and its summary completed after it,
-  `PendingBlobs`), so nothing synced in can be removed and kept in no
+  `PendingBlobs`; until they are stored, `BlobStore.coming`, sync holds that version
+  back), so nothing synced in can be removed and kept in no
   version; a long turn, but only then. Then, as local edits
   that sync like any: the notebook's settings, its pages (kept ids are
   rewritten, missing ones written back under their ids, others deleted with
@@ -3663,7 +3746,29 @@ shares between versions (and between devices of one platform family).
   Steps on other surfaces (another notebook in split view) stay.
 - **Audio** is kept by blob reference: a version names a recording's parts
   and waveform, so audio freed after a trim ("Free space") stays on the
-  server and devices until no version names it (thinned or deleted).
+  server and devices until no version names it (thinned or deleted). That
+  is deliberate (restoring a version brings back the recording it was made
+  with); a trim's Free up counts those bytes apart
+  (`BlobReferences.namedByVersions`, `releasableBytes` → `(freed, held)`)
+  and its dialog and message say older versions keep them until thinned or
+  deleted (one clause; with all of it kept, no "released after a week"). On a
+  phone at large text its message is one line ("Trimmed audio deleted", Undo;
+  `showMessage(short:)`).
+- **Device names** (`sync/device_name.dart`, `platform/device_label*.dart`):
+  `SyncController.deviceName` is what this device is called — the user's
+  name (Settings → Sync → *Device name*, `DeviceNameTile`; local setting
+  `device_name`), else the suggestion: Android's device name (`len/device`
+  channel, `DeviceNameChannel.kt`; asked at start, kept as
+  `system_device_name`), else the platform with the host name
+  (`Linux (studio)`) or the browser (`browserDeviceName`: `Firefox on
+  Linux`), cut to 64 UTF-16 units never inside a surrogate pair
+  (`DeviceName.cut`). Versions are made with it; the live `hello` carries it, sent again
+  on a rename (`LiveLink.introduce`), so presence plates and name tags
+  follow. History rows and the preview call another device what its newest
+  version says (`VersionRepository.deviceNames`, `VersionDevices`), falling
+  back to the version's own name (old records: platform names); a row cuts
+  a name past 28 characters ("…", so what changed still shows), screen
+  readers hear it whole.
 - **UI** (`features/history/`): "Version history…" in the editor's ⋯ menu
   and the library's notebook menu opens `showVersionHistory`
   (`showDialogOrSheet` + `SheetHeader`): the versions newest first, grouped
@@ -4091,20 +4196,29 @@ boxes, the text of imported PDF pages and recognised handwriting (see
 - **Queries.** `SearchQuery` splits the input into words; each must occur
   as a word prefix (`"term"*`), ignoring case and accents. The same rules
   in Dart (`SearchText.fold` keeps offsets) find highlight ranges and build
-  snippets. Hits carry the notebook, surface and page number (counted in
+  snippets (`SearchSnippet`: whitespace collapsed, a run breaking a line
+  shown as " / ", so table cells, list items and short lines stay apart;
+  never starting or ending on one). Hits carry the notebook, surface and page number (counted in
   SQL from the page order); trashed/deleted notebooks and deleted pages are
   left out. Library results rank by bm25 (title matches first); in-notebook
   results are in reading order.
 - **Library.** While searching the library section, `LibrarySearchResults`
   (a sliver below the title matches) lists content matches grouped by
-  notebook, with page chips and highlighted snippets. Tapping one files a
+  notebook (its folder path under the title, as the Notebooks rows), with
+  page labels and highlighted snippets in rows of `Targets.menuRowHeight`
+  (at large text on a phone the page goes above the snippet). It lists 300
+  hits at most and says "300+ matches" past them. Tapping one files a
   `SearchJump` with `SearchService` and opens the notebook the usual way;
   the editor's search takes the jump, fills in the query and reveals and
   highlights the match.
 - **Editor (Ctrl+F or the search button).** `EditorSearchController` holds
   the query, matches (one per occurrence in a text box — highlighted where the
   box's layout puts the words, `textMatchRects` — or in PDF text) and
-  the current one; Enter/F3 and Shift+Enter/Shift+F3 move, Esc closes.
+  the current one; Enter/F3 and Shift+Enter/Shift+F3 move, Esc closes. It
+  reads up to 1000 index hits and lists 1000 matches at most ("1000+
+  matches", "1 of 1000+" past them); the match list keeps the current match
+  in view as it moves. Marks on a page follow its paper, not the theme
+  (`Palette.searchMatch` of the paper's brightness).
   It reaches the editor only through `EditorSearchHost` (document: page
   frames + `goToPage` + pan; canvas: viewport pan, zooming out if needed),
   so the editor hook is a controller, a shortcut, a button (the top bar's
@@ -4236,7 +4350,7 @@ dialog on tablets / desktops, bottom sheet on phones; `sheet_parts.dart`: `Sheet
 left-aligned Heading and ✕, `SheetActions` with Cancel and one filled primary, stacked on
 phones), confirms (`app_dialogs.dart`: `confirmAction`, `AppDialog` with a left-aligned title
 and a tinted `DialogIcon` only when destructive or in progress, `DialogBody` width) and
-messages (`messages.dart`: `showMessage`; `MessageQueue` counts the snack bars up per messenger,
+messages (`messages.dart`: `showMessage`, with optional `short` copy shown on one line beside the action on phones at large text, `shortMessages`; `MessageQueue` counts the snack bars up per messenger,
 keeps app-wide whether one is up and when one last was (`MessageQueue.activity`) and `MessageQueue.stepAside` fades standing notices such as the missing-PDF card while one shows,
 so one message shows at a time), segmented buttons that stack rather than shrink when they
 don't fit (`fit_segments.dart`: `FitSegments`). Floating chrome: `floating_panel.dart`
@@ -4293,8 +4407,9 @@ deletion, so the pull can tell an edit and a deletion that did not know each
 other (`PullApplier`: the edit is kept, see "Deletion conflicts" below). Remote records are parsed strictly
 (`RecordFields`): every field of the collection's format is required, and a
 malformed record is skipped. Fix-ups derived from what was applied run
-right after it, before the next push (`SyncEngine.afterApply`: connectors left off
-their shapes by concurrent edits, `ConnectorRepair`, see "Editing tools"), and add
+right after it, before the next push (`SyncEngine.afterApply`: shapes edited twice at
+once merged and connectors left off their shapes by concurrent edits, `ConnectorRepair`, see
+"Editing tools"), and add
 what they wrote to the changes. Open screens subscribe to
 `SyncController.remoteChanges` and reload only the affected surfaces.
 
@@ -4449,9 +4564,12 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   bodies, and unlike `EventSource` it sends the `Authorization` header.
 - **Rooms and presence** (`LiveRooms`, `SyncController.rooms`): `SharedNotebook` joins the
   room of its notebook (counted: two views, one join; left on dispose; joined again by
-  `LiveLink` after a reconnect). Presence lists the other devices there; `RoomPresence`
+  `LiveLink` after a reconnect). Presence lists the other devices there (by the names they
+  gave, see "Device names"); `RoomPresence`
   (`features/editor/live_ink/`) shows a plate with each one's initial before the sync alert in
-  the editor's bar. A dropped connection empties every room's presence (`disconnected`).
+  the editor's bar (`RoomPresence.initialsOf`: where initials collide, the first letters of
+  the first two words, "GT" and "GS" for "Galaxy Tab S9" and "Galaxy S23"; still alike,
+  numbered, "P" and "P2"; the slot has room for two letters). A dropped connection empties every room's presence (`disconnected`).
   The editor's chrome (View → Name tags) and `PointerRelay` follow
   `SharedNotebook.othersHere` (whether anyone else is there), which changes only when the first
   device comes or the last goes, so other presence messages (any room's) rebuild just the plates.
@@ -4465,7 +4583,12 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   there, a list slice and a small JSON message 20 times a second, never per point (about 0.15 µs a
   point on average, `test/perf/live_ink_relay_perf_test.dart`). It follows the room's presence too:
   a device joining mid-stroke (another view opening the notebook, a reconnect) gets the stroke
-  again from its start, in messages of at most 300 points, even one begun while nobody was there. On the
+  again from its start, in messages of at most 300 points, even one begun while nobody was there.
+  The `end` carries the points not sent yet (those of the last 50 ms, the rate held back; the
+  relay keeps the live stroke's list, which `LiveInk.finish` hands over rather than clears), so
+  other devices draw the whole stroke until its records land, not a stroke missing its tail
+  until then; a stroke replaced as it ends (snapped) goes whole again, its points beyond one
+  message in messages just before the end. On the
   other side `RemoteInk` (`ink/remote_ink.dart`, one per `SharedNotebook`) keeps the strokes
   being written per writer connection, each with a `LiveStrokeBuilder` that extends its outline
   by the points a message adds (as the writer's own live ink is built; whole again only when
@@ -4483,7 +4606,8 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   stroke in (`test/live_pointers_test.dart` checks every frame on a canvas whose reads answer
   late). A record that overtakes its `end` is remembered for 2 s. It also
   goes on `end` without strokes, 2 s after `end` without the records (afresh once they arrived
-  on a surface still reloading), 3 s after the last points, or when the writer is no longer in
+  on a surface still reloading), 3 s after the last points (or after its first message, if
+  that was not taken: its start missed), or when the writer is no longer in
   the room's presence (left, or this device's connection dropped).
 - **Pointers** (same section): `PointerRelay` (`features/editor/live_ink/`, one per
   `EditorSession`) shows where this editor points: `InkEvents.hovered` (the input's hover, in
@@ -4502,7 +4626,7 @@ Never more than one run at a time (`syncNow` queues one follow-up).
   paints them through `frameOf` (a page's frame, the canvas as is): a small dot for hovering
   (`Palette.pointerOn` the page's paper, ringed with the paper: `paperOf`, not the theme),
   the laser as `LaserPaint` draws the local one, each labelled with the device's plate
-  (`RoomPresence.initialOf`, the presence plate's colours) — its *name tag*, unless the local
+  (`RoomPresence.initialsOf`, as the bar's plates, in the presence plate's colours) — its *name tag*, unless the local
   setting `pointer_tags` (`AppPreferences.pointerTags`, default on; "⋯" → View → *Name tags*
   in pages and canvases while another device is in the notebook — the chrome rebuilds on
   presence — and Settings → Sync once connected) is off: then only the dot or laser
@@ -4527,6 +4651,13 @@ server (`server/lib/src/live_hub.dart`) fans a push's records out once encoded t
 connection; it upgrades the socket itself (`live_api.dart`, not `shelf_web_socket`, whose channel
 writes without backpressure), so a client that does not read is seen (the socket's `addStream`
 pauses) and bounded: past 1 MiB waiting, its records become one `resync`.
+
+Sync tests on a busy machine (green-suite round): the push-splitting test encodes, decodes and
+stores ~5 MB (300 strokes of 1 000 points, two requests; it was 10 MB) with a 2-minute timeout,
+and the concurrent-convergence property (`sync_properties_test.dart`, again with pulls in a
+worker in `sync_worker_test.dart`, ~0.3 s a scenario there) checks 20 scenarios in the default
+tier and 20 more in the slow tier: both timed out at 30 s beside a loaded full run, and passed
+alone; nothing in them waited on real time, the work was only slower.
 
 Why SSE (as the fallback) rather than long-polling `/v1/pull?wait=…`: one request per change
 instead of one per change and per timeout, an event costs a few bytes on an
@@ -4605,8 +4736,8 @@ again.
   meter (≈ the loudness of the last buffer every 100 ms), not from decoding
   the audio; recordings without one show a flat scrubber. Trimming is
   non-destructive (parts wholly outside the trim keep their storage until
-  "Free up …"), trimmed browser recordings export the whole parts the trim
-  touches, and Windows has no system media controls (SMTC; media keys only
+  "Free up …"), trimmed browser recordings export one file per
+  part the trim touches (cut exactly; the parts are not joined), and Windows has no system media controls (SMTC; media keys only
   while Len is in front); exporting reads the whole audio into memory.
 - Planners: fixed headings ("Week", "Schedule", "Priorities", "To do", "Notes") are English
   whatever the planner's language; the language list is curated (scripts the bundled Inter

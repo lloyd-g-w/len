@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +18,7 @@ import 'package:len/features/library/new_notebook/default_title.dart';
 import 'package:len/features/library/thumbnails/thumbnail_cache.dart';
 import 'package:len/features/library/thumbnails/thumbnail_renderer.dart';
 import 'package:len/ink/render/content_painter.dart';
+import 'package:len/ink/render/raster_batch.dart';
 import 'package:len/ink/render/stroke_renderer.dart';
 
 import 'data_test.dart' show FakeClock, stroke;
@@ -558,6 +560,49 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
       expect(cache.imageFor(drawn), isNot(same(first)));
     });
+
+    test(
+      'batched (JavaScript), previews come from an atlas, the old one showing meanwhile',
+      () async {
+        final paged = create(NotebookKind.paged);
+        final page = services.pages.pagesOf(paged.id).single;
+        services.strokes.save([stroke('a', const Offset(100, 100), surface: page.id)]);
+        final batch = RasterBatch(batching: true);
+        final cache = ThumbnailCache(
+          renderer: renderer,
+          stats: SurfaceStats(services.database),
+          width: 40,
+          batch: batch,
+        );
+        addTearDown(cache.dispose);
+        Future<void> next() {
+          final done = Completer<void>();
+          void ready() {
+            cache.removeListener(ready);
+            done.complete();
+          }
+
+          cache.addListener(ready);
+          return done.future.timeout(const Duration(seconds: 10));
+        }
+
+        var notified = next();
+        expect(cache.imageFor(paged), isNull);
+        await notified;
+        final first = cache.imageFor(paged)!;
+        expect((first.width, first.height), (40, ThumbnailRenderer.heightFor(40)));
+        expect(batch.readbacks, 1);
+
+        services.strokes.save([stroke('b', const Offset(200, 200), surface: page.id)]);
+        cache.invalidate([paged.id]); // Notifies at once.
+        notified = next();
+        expect(cache.imageFor(paged), same(first)); // Until the new one is made.
+        await notified;
+        final second = cache.imageFor(paged)!;
+        expect(second, isNot(same(first)));
+        expect(batch.readbacks, 2);
+      },
+    );
 
     testWidgets('more covers on screen than its capacity settle (no re-render loop)', (
       tester,

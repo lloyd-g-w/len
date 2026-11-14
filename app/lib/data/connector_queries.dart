@@ -2,16 +2,43 @@ import 'dart:convert';
 
 import 'package:sqlite3/common.dart';
 
-import '../domain/shape_geometry.dart';
 import '../domain/shaped.dart';
+import '../domain/stroke.dart';
 import 'app_database.dart';
 import 'stroke_queries.dart';
 import 'stroke_row.dart';
 
 /// The shape strokes a connector repair (`ConnectorRepair`) reads: the
-/// [lines] to check and the [shapes] their ends may be attached to (every
-/// stroke of each shape they name, the lines among them too).
-typedef ConnectorShapes = ({List<ShapeRow> shapes, List<ShapeRow> lines});
+/// [lines] to check, the [shapes] their ends may be attached to (every
+/// stroke of each shape they name, the lines among them too) and the live
+/// strokes of the shapes [edited] (any kind; two or more of one shape are
+/// edits made at once on two devices, to merge).
+typedef ConnectorShapes = ({List<ShapeRow> shapes, List<ShapeRow> lines, List<ShapeRow> edited});
+
+const ConnectorShapes _none = (shapes: [], lines: [], edited: []);
+
+/// A version of a shape stroke as a merge (`ShapeMerge`) reads it, live
+/// or deleted: its look and its shape, not its points.
+class ShapeVersion {
+  const ShapeVersion({
+    required this.id,
+    required this.tool,
+    required this.color,
+    required this.width,
+    required this.style,
+    required this.shape,
+  });
+
+  ShapeVersion.of(Stroke s)
+    : this(id: s.id, tool: s.tool, color: s.color, width: s.width, style: s.style, shape: s.shape!);
+
+  final String id;
+  final InkTool tool;
+  final int color;
+  final double width;
+  final StrokeStyle style;
+  final ShapeGeometry shape;
+}
 
 /// A live shape stroke as a connector repair reads it: its id and shape
 /// alone (its points, the most of a row to decode, are read only for the
@@ -72,23 +99,25 @@ class ConnectorQueries {
   static const int maxNames = 64;
 
   /// The live shape strokes on [surfaceId] (drawn with the Shape tool or
-  /// snapped), every line checked — none when no line there is attached
-  /// to a shape (a quick test first).
+  /// snapped), every one of them checked: every line (none when no line
+  /// there is attached to a shape, a quick test first), every shape for
+  /// merging.
   ConnectorShapes all(String surfaceId) {
     final attached = _db.select('SELECT EXISTS (SELECT 1 FROM $_attached) AS found', [surfaceId]);
-    if (attached.first['found'] != 1) return (shapes: const [], lines: const []);
     final shapes = _rows('SELECT id, style FROM $_shapes', [surfaceId]);
-    return (shapes: shapes, lines: shapes);
+    return (shapes: shapes, lines: attached.first['found'] == 1 ? shapes : [], edited: shapes);
   }
 
   /// What a change to strokes [changed] on [surfaceId] (applied from other
   /// devices: live, or deleted since) can have left off its shapes: the
   /// live lines among them, and those attached to a closed shape one of
   /// them is (or was) a stroke of; with every live stroke of the shapes
-  /// these lines name. Nothing more is read when none of [changed] is a
-  /// shape (ink, text, images); [all] when too many shapes changed.
+  /// these lines name; and the live strokes of every shape one of
+  /// [changed] is (or was) a stroke of, those that are lines checked too.
+  /// Nothing more is read when none of [changed] is a shape (ink, text,
+  /// images); [all] when too many shapes changed.
   ConnectorShapes touchedBy(String surfaceId, Iterable<String> changed) {
-    final names = <String>{}, lines = <String>{};
+    final names = <String>{}, lines = <String>{}, identities = <String>{};
     final rows = _db.select(
       'SELECT id, style FROM strokes '
       "WHERE id IN (SELECT value FROM json_each(?)) AND style LIKE '%\"sh\"%'",
@@ -97,11 +126,18 @@ class ConnectorQueries {
     for (final r in rows) {
       final shape = _shapeOf(r['style']);
       if (shape == null) continue;
-      if (shape.isClosed) names.add(shape.origin ?? r['id'] as String);
+      final identity = shape.origin ?? r['id'] as String;
+      identities.add(identity);
+      if (shape.isClosed) names.add(identity);
       if (shape.isAttached) lines.add(r['id'] as String);
     }
-    if (names.isEmpty && lines.isEmpty) return (shapes: const [], lines: const []);
-    if (names.length > maxNames) return all(surfaceId);
+    if (identities.isEmpty) return _none;
+    if (identities.length > maxNames) return all(surfaceId);
+    final edited = _named(surfaceId, identities);
+    for (final s in edited) {
+      if (s.shape.isAttached) lines.add(s.id);
+    }
+    if (names.isEmpty && lines.isEmpty) return (shapes: const [], lines: const [], edited: edited);
     final named = jsonEncode(names.toList());
     final attached = [
       for (final s in _rows(
@@ -112,9 +148,43 @@ class ConnectorQueries {
       ))
         if (s.shape.isAttached) s,
     ];
-    if (attached.isEmpty) return (shapes: const [], lines: const []);
+    if (attached.isEmpty) return (shapes: const [], lines: const [], edited: edited);
     final targets = {for (final s in attached) ..._names(s)};
-    return (shapes: [...attached, ..._named(surfaceId, targets)], lines: attached);
+    return (shapes: [...attached, ..._named(surfaceId, targets)], lines: attached, edited: edited);
+  }
+
+  /// The shape strokes of [ids] stored here, live or deleted (a deleted
+  /// one keeps its look and shape), as a merge reads them.
+  Map<String, ShapeVersion> versions(Iterable<String> ids) => {
+    for (final v in [
+      for (final r in _db.select(
+        'SELECT id, tool, color, width, style FROM strokes '
+        "WHERE id IN (SELECT value FROM json_each(?)) AND style LIKE '%\"sh\"%'",
+        [jsonEncode(ids.toList())],
+      ))
+        ?_versionOf(r),
+    ])
+      v.id: v,
+  };
+
+  static ShapeVersion? _versionOf(Row r) {
+    final style = r['style'];
+    if (style is! String) return null;
+    try {
+      final json = StrokeQueries.decodeStyle(style);
+      final shape = StrokeRow.shapeOf(json);
+      if (shape == null) return null;
+      return ShapeVersion(
+        id: r['id'] as String,
+        tool: InkTool.parse(r['tool'] as String),
+        color: r['color'] as int,
+        width: (r['width'] as num).toDouble(),
+        style: StrokeStyle.fromJson(json),
+        shape: shape,
+      );
+    } on FormatException {
+      return null;
+    }
   }
 
   /// The live strokes on [surfaceId] of the shapes [names] ([Shaped.shapeId]):

@@ -88,6 +88,10 @@ void main() {
       () => a.sync.rooms.othersIn('nb').isNotEmpty && b.sync.rooms.othersIn('nb').isNotEmpty,
     );
     expect(b.sync.rooms.othersIn('nb').single.deviceId, a.settings.deviceId());
+    expect(b.sync.rooms.othersIn('nb').single.name, a.sync.deviceName.suggested);
+    // Renamed in Settings → Sync: the others see the new name at once.
+    a.sync.deviceName.rename('Studio laptop');
+    await waitFor(() => b.sync.rooms.othersIn('nb').single.name == 'Studio laptop');
     final remote = RemoteInk(b.sync.rooms, room: 'nb');
     addTearDown(remote.dispose);
     a.sync.rooms.send('nb', {

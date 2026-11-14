@@ -34,8 +34,11 @@ abstract final class TableFlow {
     if (hasNext && last.end == data.lineCount) {
       for (var k = edited + 1; k < parts.length && _goesOn(parts[k]); k++) {
         final t = TextTables.of(parts[k].paras).first;
+        // (Whether it goes on past this part: before it is reshaped, which
+        // changes its line count.)
+        final through = t.end == parts[k].lineCount;
         parts[k] = _reshaped(parts[k], t, last.spec);
-        if (t.end != parts[k].lineCount) break;
+        if (!through) break;
       }
     }
   }

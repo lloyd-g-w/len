@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../../data/surface_stats.dart';
 import '../../../domain/notebook.dart';
 import '../../../ink/fonts/text_fonts.dart';
+import '../../../ink/render/raster_batch.dart';
 import 'thumbnail_renderer.dart';
 
 /// In-memory cache of notebook preview images.
@@ -19,13 +20,21 @@ import 'thumbnail_renderer.dart';
 /// go first: after a fling, the covers on screen render before those
 /// scrolled past.
 class ThumbnailCache extends ChangeNotifier {
-  ThumbnailCache({required this.renderer, required this.stats, this.width = 320}) {
+  ThumbnailCache({
+    required this.renderer,
+    required this.stats,
+    this.width = 320,
+    RasterBatch? batch,
+  }) : batch = batch ?? RasterBatch.shared {
     _imageChanges = renderer.images?.changes.listen(_onImage);
     TextFonts.changes.addListener(_onFonts);
   }
 
   final ThumbnailRenderer renderer;
   final SurfaceStats stats;
+
+  /// Makes the previews' images (see [ThumbnailRenderer.renderNow]).
+  final RasterBatch batch;
 
   /// Pixel width of rendered previews.
   final int width;
@@ -157,13 +166,42 @@ class ThumbnailCache extends ChangeNotifier {
       return false;
     }
     ui.Image? image;
+    Future<ui.Image>? later;
     try {
-      image = source == null ? null : renderer.render(notebook, width: width, source: source);
+      final made = source == null
+          ? null
+          : renderer.renderNow(notebook, width: width, source: source, batch: batch);
+      if (made is Future<ui.Image>) {
+        later = made;
+      } else {
+        image = made;
+      }
       for (final blob in renderer.pendingImages) {
         (_waitingFor[blob] ??= {}).add(notebook.id);
       }
     } on Object catch (e) {
       debugPrint('Thumbnail of ${notebook.id} failed: $e');
+    }
+    if (later != null) {
+      // The JavaScript build: the old preview shows until the new one is
+      // made (on an atlas).
+      final entry = _entries[notebook.id] = _Entry(old?.image, fingerprint, notebook.updatedAt)
+        ..usedIn = _generation;
+      _evict();
+      unawaited(
+        later.then(
+          (made) {
+            if (_disposed || _entries[notebook.id] != entry) return made.dispose();
+            entry.image?.dispose();
+            entry.image = made;
+            _notify();
+          },
+          onError: (Object e) {
+            debugPrint('Thumbnail of ${notebook.id} failed: $e');
+          },
+        ),
+      );
+      return false;
     }
     final hadImage = old?.image != null;
     old?.image?.dispose();
@@ -204,7 +242,8 @@ class ThumbnailCache extends ChangeNotifier {
 class _Entry {
   _Entry(this.image, this.fingerprint, this.checkedAt);
 
-  final ui.Image? image;
+  /// The preview (replaced in place once a later one is made).
+  ui.Image? image;
 
   /// What the preview was rendered from; null forces a new render.
   Object? fingerprint;

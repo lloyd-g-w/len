@@ -124,6 +124,15 @@ class UndoHistory {
     return edit;
   }
 
+  /// Replaces the step [takeUndo] or [takeRedo] last took (now the top of
+  /// the other stack) by [edit]: applying it brought more along (lines
+  /// put back on their shapes, `ConnectorRepair`), so undoing or redoing
+  /// it again takes that along too. [undone]: it was taken by [takeUndo].
+  void amendTaken(InkEdit edit, {required bool undone}) {
+    final stack = undone ? _redo : _undo;
+    if (stack.isNotEmpty) stack[stack.length - 1] = edit;
+  }
+
   /// Pops the edit to redo; the caller applies it.
   InkEdit? takeRedo() {
     if (_redo.isEmpty) return null;

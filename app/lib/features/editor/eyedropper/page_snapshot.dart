@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../../ink/images/image_pixel.dart';
+import '../../../ink/render/raster_batch.dart';
 
 /// The surface as shown when the eyedropper started, in device pixels: the
 /// loupe enlarges it, and where no content gives a colour, its pixels do.
@@ -18,7 +19,7 @@ class PageSnapshot {
       await SchedulerBinding.instance.endOfFrame;
       if (!boundary.attached) return null;
       final origin = boundary.localToGlobal(Offset.zero);
-      final image = await boundary.toImage(pixelRatio: dpr);
+      final image = await _capture(boundary, dpr);
       final bytes = await image.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
       if (bytes == null) {
         image.dispose();
@@ -28,6 +29,25 @@ class PageSnapshot {
     } catch (_) {
       return null; // Not painted (yet), or the view went.
     }
+  }
+
+  /// [boundary] as an image. In the JavaScript build in tile-sized
+  /// slices ([RasterBatch.stitch]): the shared surface keeps its size.
+  static Future<ui.Image> _capture(RenderRepaintBoundary boundary, double dpr) {
+    final batch = RasterBatch.shared;
+    if (!batch.batching) return boundary.toImage(pixelRatio: dpr);
+    // What RenderRepaintBoundary.toImage draws, a part at a time.
+    // ignore: invalid_use_of_protected_member
+    final layer = boundary.layer! as OffsetLayer;
+    final size = batch.atlasSize;
+    // Just under [size] device pixels a slice, so rounding up keeps it there.
+    final extent = (size - 0.01) / dpr;
+    return batch.stitch(
+      (boundary.size.width * dpr).ceil(),
+      (boundary.size.height * dpr).ceil(),
+      (left, top) =>
+          layer.toImage(Rect.fromLTWH(left / dpr, top / dpr, extent, extent), pixelRatio: dpr),
+    );
   }
 
   /// The captured pixels.

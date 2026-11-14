@@ -49,14 +49,13 @@ abstract final class KappaCurve {
   }
 
   /// [shape] (a curve through points) with its points [through] and
-  /// [corners] instead, rebuilt.
+  /// [corners] instead, rebuilt (same identity and lineage).
   static ShapeGeometry reshaped(ShapeGeometry shape, List<Offset> through, {List<int>? corners}) =>
       geometry(
         through,
         closed: shape.isClosed,
         corners: corners ?? shape.corners,
-        origin: shape.origin,
-      );
+      ).withLineage(shape.origin, shape.replaces);
 
   /// [shape] (a curve through points) with a point added where [at] (on
   /// or near its line) is, between the points either side of it.

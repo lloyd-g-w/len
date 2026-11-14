@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -93,6 +94,192 @@ class RasterBatch {
     _arrived = true;
     _timer ??= Timer(Duration.zero, _flush);
     return request.done.future;
+  }
+
+  /// In the JavaScript build, readies the shared surface while the app
+  /// starts: sized for tiles and atlases (it starts at 1 × 1) and the
+  /// programs ink tiles draw with compiled (filled and stroked paths,
+  /// rectangles, images), each a GPU round trip of 0.1–0.3 s under
+  /// software GL that would otherwise come with the first ink shown.
+  Future<void> warmUp() async {
+    if (!batching) return;
+    final path = ui.Path()
+      ..moveTo(20, 20)
+      ..cubicTo(80, 0, 120, 90, 200, 40)
+      ..lineTo(210, 60)
+      ..quadraticBezierTo(120, 110, 18, 30)
+      ..close();
+    final ink = ui.Paint()..color = const ui.Color(0xFF202020);
+    var recorder = ui.PictureRecorder();
+    ui.Canvas(recorder)
+      ..drawPath(path, ink)
+      ..drawPath(
+        path,
+        ui.Paint()
+          ..style = ui.PaintingStyle.stroke
+          ..strokeWidth = 3
+          ..strokeCap = ui.StrokeCap.round
+          ..color = const ui.Color(0x80FFEB3B),
+      )
+      ..drawRect(const ui.Rect.fromLTWH(10, 120, 60, 30), ink)
+      ..drawCircle(const ui.Offset(120, 150), 6, ink);
+    var picture = recorder.endRecording();
+    final ui.Image image;
+    try {
+      readbacks++;
+      image = await picture.toImage(atlasSize, atlasSize);
+    } finally {
+      picture.dispose();
+    }
+    await Future<void>.delayed(Duration.zero);
+    final half = atlasSize / 2;
+    recorder = ui.PictureRecorder();
+    ui.Canvas(recorder)
+      ..drawImage(image, ui.Offset.zero, ui.Paint()..filterQuality = ui.FilterQuality.none)
+      ..drawImageRect(
+        image,
+        ui.Rect.fromLTWH(0, 0, half, half),
+        ui.Rect.fromLTWH(half, half, half / 2, half / 2),
+        ui.Paint()..filterQuality = ui.FilterQuality.medium,
+      );
+    picture = recorder.endRecording();
+    try {
+      readbacks++;
+      (await picture.toImage(atlasSize, atlasSize)).dispose();
+    } finally {
+      picture.dispose();
+      image.dispose();
+    }
+  }
+
+  /// An image of [picture] (drawn from the origin) of its own, exactly
+  /// [width] × [height] pixels: for callers that keep whole images
+  /// (library covers, history previews) or read their pixels (exports,
+  /// copies, colour picking).
+  ///
+  /// Natively and in WebAssembly this is [ui.Picture.toImage]. In the
+  /// JavaScript build the shared surface is never resized for it (a resize
+  /// cost 0.15–0.4 s under software GL, and as much again to go back to
+  /// the tiles' size): a picture that fits an atlas is drawn on one
+  /// ([rasterize]) and its pixels copied out on the CPU (the atlas is a
+  /// CPU image there); a larger one is drawn in atlas-sized slices, one
+  /// read-back an event-loop turn, and stitched. The picture must stay
+  /// undisposed until the future completes.
+  Future<ui.Image> image(ui.Picture picture, int width, int height) async {
+    if (!batching) return picture.toImage(width, height);
+    if (width == atlasSize && height == atlasSize) {
+      readbacks++;
+      return picture.toImage(width, height);
+    }
+    if (width <= atlasSize && height <= atlasSize) {
+      return _cut(await rasterize(picture, width, height));
+    }
+    return stitch(width, height, (left, top) async {
+      final recorder = ui.PictureRecorder();
+      ui.Canvas(recorder)
+        ..translate(-left.toDouble(), -top.toDouble())
+        ..drawPicture(picture);
+      final slice = recorder.endRecording();
+      try {
+        readbacks++;
+        return await slice.toImage(atlasSize, atlasSize);
+      } finally {
+        slice.dispose();
+      }
+    });
+  }
+
+  /// [image] where the caller can't wait: natively and in WebAssembly
+  /// [ui.Picture.toImageSync] (an image at once), in the JavaScript build
+  /// [image] (later, without resizing the shared surface).
+  FutureOr<ui.Image> imageNow(ui.Picture picture, int width, int height) =>
+      batching ? image(picture, width, height) : picture.toImageSync(width, height);
+
+  /// A [width] × [height] image put together from [atlasSize]² slices,
+  /// [slice] giving the one whose top left is at (`left`, `top`); one a
+  /// turn. Their pixels are copied on the CPU (images made of pictures
+  /// are CPU images in the JavaScript build).
+  Future<ui.Image> stitch(
+    int width,
+    int height,
+    Future<ui.Image> Function(int left, int top) slice,
+  ) async {
+    final pixels = Uint8List(width * height * 4);
+    for (var top = 0; top < height; top += atlasSize) {
+      for (var left = 0; left < width; left += atlasSize) {
+        if (left + top > 0) await Future<void>.delayed(Duration.zero);
+        final image = await slice(left, top);
+        try {
+          final data = await image.toByteData();
+          if (data == null) throw StateError('No pixels of a slice');
+          _copy(
+            data,
+            image.width,
+            left,
+            top,
+            math.min(atlasSize, width - left),
+            math.min(atlasSize, height - top),
+            pixels,
+            width,
+          );
+        } finally {
+          image.dispose();
+        }
+      }
+    }
+    return _fromPixels(pixels, width, height);
+  }
+
+  /// [raster] as an image of its own.
+  static Future<ui.Image> _cut(RasterImage raster) async {
+    if (raster.whole) return raster.image;
+    try {
+      final data = await raster.image.toByteData();
+      if (data == null) throw StateError('No pixels of an atlas');
+      final pixels = Uint8List(raster.width * raster.height * 4);
+      _copy(
+        data,
+        raster.image.width,
+        -raster.source.left.round(),
+        -raster.source.top.round(),
+        raster.width,
+        raster.height,
+        pixels,
+        raster.width,
+      );
+      return await _fromPixels(pixels, raster.width, raster.height);
+    } finally {
+      raster.dispose();
+    }
+  }
+
+  /// Copies [width] × [height] pixels from [from] (rows of [fromWidth]
+  /// pixels, RGBA) to [to] (rows of [toWidth]), from's origin landing at
+  /// ([left], [top]) of [to]: negative to take a part further in.
+  static void _copy(
+    ByteData from,
+    int fromWidth,
+    int left,
+    int top,
+    int width,
+    int height,
+    Uint8List to,
+    int toWidth,
+  ) {
+    final source = from.buffer.asUint8List(from.offsetInBytes, from.lengthInBytes);
+    final x0 = math.max(0, -left), y0 = math.max(0, -top);
+    final dx = math.max(0, left), dy = math.max(0, top);
+    for (var y = 0; y < height; y++) {
+      final start = ((y0 + y) * fromWidth + x0) * 4;
+      final at = ((dy + y) * toWidth + dx) * 4;
+      to.setRange(at, at + width * 4, source, start);
+    }
+  }
+
+  static Future<ui.Image> _fromPixels(Uint8List pixels, int width, int height) {
+    final done = Completer<ui.Image>();
+    ui.decodeImageFromPixels(pixels, width, height, ui.PixelFormat.rgba8888, done.complete);
+    return done.future;
   }
 
   /// Area the queued pictures take on atlases.

@@ -7,6 +7,7 @@ import 'package:flutter/painting.dart';
 import '../../data/versions/work_slices.dart';
 import '../../domain/stroke.dart';
 import '../../ink/render/ink_sketch.dart';
+import '../../ink/render/raster_batch.dart';
 
 /// What [VersionInkImages] renders: a sheet's [strokes], the part of the
 /// world at [frame] (world units) scaled to [width] × [height] pixels (a
@@ -99,7 +100,7 @@ class VersionInkImages {
     final picture = recorder.endRecording();
     try {
       if (!drawn) return null;
-      return await picture.toImage(key.width, key.height);
+      return await RasterBatch.shared.image(picture, key.width, key.height);
     } finally {
       picture.dispose();
     }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -17,6 +18,7 @@ import '../../../domain/surface_element.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/render/content_painter.dart';
 import '../../../ink/render/paper_painter.dart';
+import '../../../ink/render/raster_batch.dart';
 import '../../../ink/viewport.dart';
 
 /// The surface a notebook preview shows, with its paper and, for paged
@@ -65,6 +67,37 @@ class ThumbnailRenderer {
   /// nothing drawn yet (the library then shows the plain cover). Pass the
   /// [source] when already known, to skip looking it up again.
   ui.Image? render(Notebook notebook, {required int width, PreviewSource? source}) {
+    final picture = record(notebook, width: width, source: source);
+    if (picture == null) return null;
+    try {
+      return picture.toImageSync(width, heightFor(width));
+    } finally {
+      picture.dispose();
+    }
+  }
+
+  /// [render] through [batch]: at once natively and in WebAssembly, later
+  /// in the JavaScript build (on an atlas: the shared surface keeps the
+  /// tiles' size; see [RasterBatch.image]).
+  FutureOr<ui.Image>? renderNow(
+    Notebook notebook, {
+    required int width,
+    PreviewSource? source,
+    required RasterBatch batch,
+  }) {
+    final picture = record(notebook, width: width, source: source);
+    if (picture == null) return null;
+    final image = batch.imageNow(picture, width, heightFor(width));
+    if (image is Future<ui.Image>) return image.whenComplete(picture.dispose);
+    picture.dispose();
+    return image;
+  }
+
+  /// The height of a preview [width] pixels wide.
+  static int heightFor(int width) => (width / aspect).round();
+
+  /// The picture of [render] (the caller disposes it), or null.
+  ui.Picture? record(Notebook notebook, {required int width, PreviewSource? source}) {
     developer.Timeline.startSync('len.thumbnail');
     try {
       return _render(notebook, width: width, source: source);
@@ -73,9 +106,9 @@ class ThumbnailRenderer {
     }
   }
 
-  ui.Image? _render(Notebook notebook, {required int width, PreviewSource? source}) {
+  ui.Picture? _render(Notebook notebook, {required int width, PreviewSource? source}) {
     _pending = const {};
-    final height = (width / aspect).round();
+    final height = heightFor(width);
     final size = Size(width.toDouble(), height.toDouble());
     if (notebook.kind == NotebookKind.canvas) return _renderCanvas(notebook, size);
     final page = (source ?? sourceOf(notebook))?.page;
@@ -89,7 +122,7 @@ class ThumbnailRenderer {
     return _paint(size, world, page.paper, ink, items, color: page.paperColor, page: page.bounds);
   }
 
-  ui.Image? _renderCanvas(Notebook notebook, Size size) {
+  ui.Picture? _renderCanvas(Notebook notebook, Size size) {
     final all = {
       ...strokes.populatedChunks(notebook.id, _everywhere),
       ...?elements?.populatedChunks(notebook.id, _everywhere),
@@ -184,7 +217,7 @@ class ThumbnailRenderer {
     return Rect.fromCenter(center: content.center, width: w, height: h);
   }
 
-  ui.Image _paint(
+  ui.Picture _paint(
     Size size,
     Rect world,
     Paper paper,
@@ -225,11 +258,6 @@ class ThumbnailRenderer {
     _pending = {..._stillDecoding(items, pixelScale), ..._paperPending};
     _paperPending.clear();
     viewport.dispose();
-    final picture = recorder.endRecording();
-    try {
-      return picture.toImageSync(size.width.round(), size.height.round());
-    } finally {
-      picture.dispose();
-    }
+    return recorder.endRecording();
   }
 }

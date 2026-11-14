@@ -25,6 +25,7 @@ import 'lifted_content.dart';
 import 'pen/eraser_config.dart';
 import 'render/outline_preparer.dart';
 import 'scribble_hits.dart';
+import 'selection/connector_repair.dart';
 import 'stroke_hit_test.dart';
 import 'surface_change.dart';
 import 'surface_loader.dart';

@@ -45,6 +45,26 @@ class BlobStore with _BlobCleanup {
   /// Whether [id] looks like a blob id.
   static bool isValidId(String id) => _sha256.hasMatch(id);
 
+  /// Blobs that records already name but that are stored only in a moment
+  /// (`PendingBlobs`: a version made in one turn, saved before its blobs):
+  /// sync holds back the records naming them, as it does those whose blobs
+  /// are not uploaded yet, so no device gets a version it can't open.
+  Set<String> get coming => _coming.keys.toSet();
+  final Map<String, int> _coming = {};
+
+  /// Notes that blob [sha] is [coming] (until [arrived]).
+  void willStore(String sha) => _coming[sha] = (_coming[sha] ?? 0) + 1;
+
+  /// Blob [sha] noted by [willStore] was stored (or won't be).
+  void arrived(String sha) {
+    final n = (_coming[sha] ?? 0) - 1;
+    if (n > 0) {
+      _coming[sha] = n;
+    } else {
+      _coming.remove(sha);
+    }
+  }
+
   /// Whether the blob is available locally.
   Future<bool> has(String sha) async =>
       isValidId(sha) && _isRecorded(sha) && await backend.contains(sha);

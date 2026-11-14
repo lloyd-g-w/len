@@ -478,7 +478,10 @@ void main() {
       drag([const Offset(150, 200)]);
       drag([const Offset(150, 180), const Offset(200, 200), const Offset(250, 230)]);
       final moved = content.selection.strokes.single;
-      expect(moved.shape, tri.shape!.map((p) => p + const Offset(100, 50)).withOrigin(tri.id));
+      expect(
+        moved.shape,
+        tri.shape!.map((p) => p + const Offset(100, 50)).editing(tri.id, tri.shape!),
+      );
       expect(content.selection.shape, moved.shape);
     });
   });

@@ -147,11 +147,13 @@ class NotebookAudio extends ChangeNotifier {
   }
 
   /// The bytes freeing [recording]'s audio outside its trim would release
-  /// on this device, or null when no part lies wholly outside it.
-  int? releasableSize(Recording recording) => releasableBytes(
+  /// on this device, and those versions of the notebook keep
+  /// ([releasableBytes]); null when no part lies wholly outside it.
+  ({int freed, int held})? releasableSize(Recording recording) => releasableBytes(
     recording,
     blobs: services.blobs,
     shared: services.recordings.audioBlobsBesides(recording.id),
+    namedByVersions: services.sync.engine.blobReferences.namedByVersions,
   );
 
   /// Drops recording [id]'s parts lying wholly outside its trim (see

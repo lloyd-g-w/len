@@ -22,10 +22,13 @@ const _t0 = 1000000;
 const _part = 300000; // 5 min.
 const _mb = 1024 * 1024;
 
-Future<(AppServices, String, List<String>)> _pump(WidgetTester tester) async {
+Future<(AppServices, String, List<String>)> _pump(
+  WidgetTester tester, {
+  Size size = const Size(1280, 800),
+}) async {
   await loadFonts();
   tester.view
-    ..physicalSize = const Size(1280, 800)
+    ..physicalSize = size
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final audio = FakeAudio();
@@ -55,6 +58,8 @@ Future<(AppServices, String, List<String>)> _pump(WidgetTester tester) async {
     segments: const [RecordingSegment(_t0, 3 * _part)],
   );
   services.recordings.trim(r.id, 310000, 590000);
+  // (Phones have Recordings in a menu: the editor opens with the list.)
+  services.openNotebooks.requestRecordings(nb.id);
   await tester.pumpWidget(
     AppScope(
       services: services,
@@ -102,7 +107,8 @@ void main() {
     expect(recording().parts.length, 3);
     expect((recording().trimStartMs, recording().trimEndMs), (310000, 590000));
 
-    // Export keeps to the parts the trim touches and says so.
+    // The fake audio can't be cut: export falls back to the parts the trim
+    // touches and says so.
     await tester.tap(find.byTooltip('Recordings'));
     await tester.pumpAndSettle();
     final list = tester.widget<RecordingsList>(find.byType(RecordingsList));
@@ -139,6 +145,58 @@ void main() {
     await _menu(tester);
     expect(find.textContaining('Free up'), findsNothing);
     expect(find.text('1 MB on this device'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
+
+  testWidgets('audio a version keeps: Free up says it stays until versions go', (tester) async {
+    final (services, id, shas) = await _pump(tester);
+    final notebook = services.recordings.get(id)!.notebookId;
+    // A version made before the trim names all three parts.
+    await tester.runAsync(() => services.versions.save(notebook, name: 'Before'));
+    expect(services.sync.engine.blobReferences.namedByVersions(shas[0]), isTrue);
+
+    await _menu(tester);
+    await tester.tap(find.text('Free up space…'));
+    await tester.pumpAndSettle();
+    expect(find.text('Free up space?'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'The trim can’t be widened past what’s left. Older versions keep this audio (3 MB) '
+        'until they are thinned out or deleted.',
+      ),
+      findsOneWidget,
+    );
+    // Nothing is released after a week: the versions keep it all.
+    expect(find.textContaining('after a week'), findsNothing);
+    await tester.tap(find.widgetWithText(FilledButton, 'Free up'));
+    await tester.pumpAndSettle();
+    expect(services.recordings.get(id)!.parts.map((p) => p.blob), [shas[1]]);
+    expect(
+      find.text('Deleted the audio trimmed away from “Mitosis”; older versions keep 3 MB of it'),
+      findsOneWidget,
+    );
+    // Still kept for the version (garbage collection asks the same).
+    expect(services.sync.engine.blobReferences.keeps(shas[0], services.clock.nowMs()), isTrue);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
+
+  testWidgets('a phone at large text says it in one line', (tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final (services, id, _) = await _pump(tester, size: const Size(390, 844));
+    await _menu(tester);
+    await tester.tap(find.text('Free up 3 MB…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Free up'));
+    await tester.pumpAndSettle();
+    expect(services.recordings.get(id)!.parts.length, 1);
+    expect(find.text('Trimmed audio deleted'), findsOneWidget);
+    // Screen readers hear the sentence.
+    expect(find.bySemanticsLabel('Deleted 3 MB of audio from “Mitosis”'), findsOneWidget);
+    expect(find.text('Undo'), findsOneWidget);
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/free_up_phone_2x.png'));
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
   });

@@ -72,6 +72,22 @@ class VersionRepository extends SyncableTable {
       ),
   ];
 
+  /// What each device that made a live version is called now: the name
+  /// on its newest version (devices name themselves when they make one,
+  /// `DeviceName`), so a device renamed shows its new name on its older
+  /// versions too once it made another. Devices that gave none are left out.
+  Map<String, String> deviceNames() => {
+    // SQLite takes the bare columns from the row of the MAX.
+    for (final row in db.select(
+      "SELECT json_extract(data, '\$.deviceId') AS device, "
+      "json_extract(data, '\$.deviceName') AS name, MAX(created_at) "
+      'FROM versions WHERE deleted = 0 GROUP BY device',
+    ))
+      if ((row['device'], row['name']) case (final String device, final String name)
+          when name.isNotEmpty)
+        device: name,
+  };
+
   /// Notebook id of a stored version (live or tombstoned), if known.
   String? notebookOf(String id) {
     final rows = db.select('SELECT notebook_id FROM versions WHERE id = ?', [id]);

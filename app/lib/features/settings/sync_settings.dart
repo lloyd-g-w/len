@@ -16,6 +16,7 @@ import '../../ui/app_dialogs.dart';
 import '../../ui/app_theme.dart';
 import '../documents/progress_dialog.dart';
 import 'browser_signin_dialog.dart';
+import 'device_name_tile.dart';
 import 'name_tags_tile.dart';
 import 'settings_section.dart';
 import 'sync_setup_dialog.dart';
@@ -24,7 +25,8 @@ import 'sync_status_line.dart';
 part 'sync_settings_views.dart';
 
 /// Sync: once connected the server, its status, Sync now, Change…, Set up
-/// another device… and Turn off sync…, then the Name tags switch; otherwise
+/// another device… and Turn off sync…, then this device's name and the
+/// Name tags switch; otherwise
 /// (or while changing) the URL and token form, with a connection test. A
 /// setup link fills the form: pasted into the URL field, or opened with Len
 /// ([IncomingFiles.syncSetup]). Sign in with browser… gets the token from
@@ -256,7 +258,7 @@ class _SyncSettingsState extends State<SyncSettings> {
             ? SigninReturn.code
             : returnTo,
         port: listener?.port,
-        device: 'Len on ${SyncController.deviceName}',
+        device: 'Len on ${_sync.deviceName.value}',
       );
       if (!mounted) return;
       final answer = await showBrowserSigninDialog(
@@ -370,6 +372,8 @@ class _SyncSettingsState extends State<SyncSettings> {
             child: _sync.isConfigured && !_editing ? _connected(context) : _form(context),
           ),
         ),
+        // Named before connecting too: versions made here carry the name.
+        DeviceNameTile(name: _sync.deviceName),
         // Live sync shows other devices' pointers once connected.
         ListenableBuilder(
           listenable: _sync,

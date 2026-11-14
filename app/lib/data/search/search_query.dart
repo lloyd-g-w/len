@@ -160,11 +160,14 @@ class SearchSnippet {
     if (start > 0) {
       final space = text.lastIndexOf(' ', start);
       start = space == -1 || anchor - space > context + 16 ? start : space + 1;
+      // Not on a line break's separator.
+      if (text.startsWith('/ ', start) && start + 2 <= anchor) start += 2;
     }
     var end = (start + length).clamp(0, text.length);
     if (end < text.length) {
       final space = text.lastIndexOf(' ', end);
       if (space > anchor) end = space;
+      if (end - 2 > anchor && text.startsWith(' /', end - 2)) end -= 2;
     }
     final prefix = start > 0 ? '…' : '';
     final suffix = end < text.length ? '…' : '';
@@ -175,20 +178,28 @@ class SearchSnippet {
     ]);
   }
 
-  /// [body] with whitespace runs collapsed to one space and trimmed, and
-  /// for each offset of [body] (and its end) the matching offset in it.
+  /// What a line break (a run of whitespace with one in it) shows as in a
+  /// snippet: table cells, list items and short lines stay apart
+  /// (UX_AUDIT R27-17).
+  static const String _lineBreak = ' / ';
+
+  /// [body] with whitespace runs collapsed to one space ([_lineBreak]
+  /// where the run breaks a line) and trimmed, and each offset of [body]
+  /// mapped to its offset in the result (one entry more than [body]'s
+  /// length).
   static (String, List<int>) _collapse(String body) {
     final out = StringBuffer();
     final offsets = List<int>.filled(body.length + 1, 0);
-    var pendingSpace = false;
+    var pendingSpace = false, pendingBreak = false;
     for (var i = 0; i < body.length; i++) {
       final c = body.codeUnitAt(i);
-      if (c == 32 || (c >= 9 && c <= 13) || c == 0xA0) {
+      if (c == 32 || (c >= 9 && c <= 13) || c == 0xA0 || c == 0x2028 || c == 0x2029) {
         pendingSpace = out.isNotEmpty;
+        pendingBreak = pendingSpace && (pendingBreak || (c >= 10 && c <= 13) || c >= 0x2028);
         offsets[i] = out.length;
       } else {
-        if (pendingSpace) out.write(' ');
-        pendingSpace = false;
+        if (pendingSpace) out.write(pendingBreak ? _lineBreak : ' ');
+        pendingSpace = pendingBreak = false;
         offsets[i] = out.length;
         out.writeCharCode(c);
       }

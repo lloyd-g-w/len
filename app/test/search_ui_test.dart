@@ -106,6 +106,8 @@ int currentPage(WidgetTester tester) =>
 
 void main() {
   searchBarClearsTheFirstMatch();
+  matchListFollowsTheCurrentMatch();
+  tooManyMatchesSaySo();
   testWidgets('library: full-text results grouped by notebook open the page and highlight', (
     tester,
   ) async {
@@ -344,6 +346,96 @@ void main() {
       expect(find.byTooltip('Show results'), findsOneWidget, reason: 'the list folded away');
       expect(top, greaterThan(tester.getRect(bar).bottom), reason: 'not under the bar');
     }
+  });
+}
+
+/// A notebook of [pages] pages, each with a text box "Item n quark".
+Notebook manyMatches(AppServices services, int pages) {
+  final nb = services.notebooks.create(
+    title: 'Many',
+    kind: NotebookKind.paged,
+    paper: PaperStyle.blank,
+    coverColor: 0,
+  );
+  for (var i = 1; i < pages; i++) {
+    services.pages.addPage(nb.id);
+  }
+  services.elements.save([
+    for (final (i, p) in services.pages.pagesOf(nb.id).indexed)
+      textBox('t$i', p.id, 'Item $i quark', const Offset(90, 100)),
+  ]);
+  return nb;
+}
+
+void matchListFollowsTheCurrentMatch() {
+  testWidgets('editor: the match list keeps the current match in view when stepping', (
+    tester,
+  ) async {
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    final nb = manyMatches(services, 30);
+    await pumpEditorFor(tester, services, nb, size: const Size(1024, 768));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    await typeSearch(tester, 'quark');
+    final search = tester.widget<EditorSearchBar>(find.byType(EditorSearchBar)).controller;
+    final list = find.descendant(of: find.byType(EditorSearchBar), matching: find.byType(ListView));
+    void expectCurrentRowShown() {
+      final row = find.textContaining('Item ${search.current} quark', findRichText: true);
+      expect(row, findsOneWidget, reason: 'match ${search.current + 1} is listed');
+      final r = tester.getRect(row);
+      final shown = tester.getRect(list);
+      expect(r.top >= shown.top - 1 && r.bottom <= shown.bottom + 1, isTrue);
+    }
+
+    for (var i = 0; i < 20; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.f3);
+      await tester.pumpAndSettle();
+      expectCurrentRowShown();
+    }
+    // Back up, and round from the first match to the last.
+    for (var i = 0; i < 20; i++) {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.f3);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expectCurrentRowShown();
+    }
+    expect(search.current, 29);
+
+    // Hidden and shown again, the list opens at the current match.
+    await tester.tap(find.byTooltip('Hide results'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Show results'));
+    await tester.pumpAndSettle();
+    expectCurrentRowShown();
+  });
+}
+
+void tooManyMatchesSaySo() {
+  testWidgets('editor: more matches than are listed say so', (tester) async {
+    final services = AppServices.create(AppDatabase.inMemory());
+    addTearDown(services.dispose);
+    final nb = manyMatches(services, 2);
+    final page = services.pages.pagesOf(nb.id).first;
+    final many = List.filled(EditorSearchController.maxMatches + 5, 'quark').join(' ');
+    services.elements.save([textBox('many', page.id, many, const Offset(90, 300))]);
+    await pumpEditorFor(tester, services, nb);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    await typeSearch(tester, 'quark');
+    final search = tester.widget<EditorSearchBar>(find.byType(EditorSearchBar)).controller;
+    expect(search.matches, hasLength(EditorSearchController.maxMatches));
+    expect(find.text('1000+ matches'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f3);
+    await tester.pumpAndSettle();
+    expect(find.text('1 of 1000+'), findsOneWidget);
+    await typeSearch(tester, 'item');
+    expect(find.text('2 matches'), findsOneWidget);
   });
 }
 

@@ -227,7 +227,7 @@ void main() {
     // The same shape, moved (a new stroke keeping its identity).
     expect(
       content.selection.shape,
-      small.shape!.map((p) => p + const Offset(40, 0)).withOrigin(small.id),
+      small.shape!.map((p) => p + const Offset(40, 0)).editing(small.id, small.shape!),
     );
   });
 
@@ -241,7 +241,7 @@ void main() {
     drag([const Offset(205, 175), const Offset(225, 175), const Offset(245, 175)]);
     expect(
       content.selection.shape,
-      line.shape!.map((p) => p + const Offset(40, 0)).withOrigin(line.id),
+      line.shape!.map((p) => p + const Offset(40, 0)).editing(line.id, line.shape!),
     );
   });
 }
