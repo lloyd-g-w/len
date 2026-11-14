@@ -5,6 +5,8 @@ export 'src/api.dart' show buildHandler, bearerAuth, constantTimeEquals;
 export 'src/blob_api.dart' show defaultBlobIdleTimeout, defaultMaxBlobBytes;
 export 'src/blob_gc.dart';
 export 'src/blob_store.dart';
+export 'src/browser_signin.dart'
+    show BrowserSignin, SigninCodes, challengeOf, defaultSigninCodeLifetime;
 export 'src/change_events.dart';
 export 'src/config.dart';
 export 'src/cors.dart';
