@@ -28,7 +28,8 @@ import java.util.concurrent.Executors
  * delivers the launch intent's files before the UI is up). The copies
  * are deleted when the next engine starts.
  *
- * `len://` links (sync setup links, opened from a QR code or a message)
+ * `len://` links (sync setup links, opened from a QR code or a message;
+ * browser sign-in answers from the sync server's page)
  * go to Dart as a `link` call with the link, queued the same way.
  */
 class IncomingFiles(private val context: Context, messenger: BinaryMessenger) {

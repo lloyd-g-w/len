@@ -51,6 +51,26 @@ class SyncException implements Exception {
     kind: SyncFailure.incompatible,
   );
 
+  /// A web page (a sign-in proxy's login, most likely) answers for the
+  /// API.
+  static const signinPage = SyncException(
+    'A web page answers at this URL instead of a Len sync server — if a sign-in proxy '
+    'guards it, it must let /v1/ through (see How to run a server)',
+    kind: SyncFailure.incompatible,
+    details:
+        'GET /v1/health answered with HTML. Behind a sign-in proxy (authentik…), exempt '
+        '/v1/ from its sign-in: the server checks its own token there (server/README.md).',
+  );
+
+  /// The server doesn't hand its token out through the browser.
+  static const noBrowserSignin = SyncException(
+    'This server doesn’t offer signing in with a browser — enter its access token',
+    kind: SyncFailure.incompatible,
+    details:
+        'Browser sign-in needs a sign-in proxy (e.g. authentik) in front of /signin and '
+        'LEN_SIGNIN_USER_HEADER set on the server (server/README.md).',
+  );
+
   static const serverTooOld = SyncException(
     'The sync server is too old for this version of Len — update the server',
     kind: SyncFailure.incompatible,
