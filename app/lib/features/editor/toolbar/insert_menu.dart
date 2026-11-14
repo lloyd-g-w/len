@@ -7,23 +7,31 @@ import '../../../ui/roving_focus.dart';
 import '../chrome/canvas_guard.dart';
 import '../tools/tool_icons.dart';
 
-/// What Insert ⊕ offers: an image, a photo (Android), and in paged
-/// notebooks scanned pages and pages from a PDF. Null entries are left out. (A page with a
+/// What Insert ⊕ offers: an image, a photo (Android), in paged
+/// notebooks scanned pages and pages from a PDF, and a capture of an
+/// area as an image. Null entries are left out. (A page with a
 /// template: hold "Add page after" in the page menu, UX_AUDIT R9-3.)
 @immutable
 class InsertActions {
-  const InsertActions({required this.image, this.photo, this.scan, this.pdfPages});
+  const InsertActions({required this.image, this.photo, this.scan, this.pdfPages, this.capture});
 
   final VoidCallback image;
   final VoidCallback? photo;
   final VoidCallback? scan;
   final VoidCallback? pdfPages;
 
+  /// Capture area: a picture of part of the page, copied.
+  final VoidCallback? capture;
+
+  /// The capture command's name.
+  static const String captureLabel = 'Capture area';
+
   List<(IconData, String, VoidCallback)> get _entries => [
     (Symbols.image_rounded, 'Image…', image),
     if (photo case final photo?) (Symbols.photo_camera_rounded, 'Take photo', photo),
     if (scan case final scan?) (Symbols.document_scanner_rounded, 'Scan document…', scan),
     if (pdfPages case final pdf?) (Symbols.picture_as_pdf_rounded, 'Pages from PDF…', pdf),
+    if (capture case final capture?) (Symbols.screenshot_region_rounded, captureLabel, capture),
   ];
 
   /// The entries as menu items of a [ChromeMenuAnchor].

@@ -54,6 +54,7 @@ extension _EditorWiring on _EditorScreenState {
     final edited = _session.edited;
     _search.dispose();
     if (_audio.onNotice == _onAudioNotice) _audio.onNotice = null;
+    _capture.dispose();
     _session.dispose(); // Commits a text box still being edited.
     _shared.removeListener(_onShared);
     // The last editor of the notebook disposes what they shared (and

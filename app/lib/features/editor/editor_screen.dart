@@ -21,6 +21,7 @@ import '../documents/export/print_flow.dart';
 import '../search/editor/editor_search_controller.dart';
 import '../settings/keyboard_shortcuts.dart';
 import '../settings/settings_screen.dart';
+import 'capture/area_capture.dart';
 import 'chrome/canvas_context_menu.dart';
 import 'chrome/canvas_guard.dart';
 import 'chrome/chrome_layout.dart';
@@ -109,6 +110,9 @@ class _EditorScreenState extends State<_EditorView> {
     colours: PageColours(session: _session, canvas: _canvasKey, area: _areaKey),
     addRecent: _session.tools.addRecentColor,
   );
+
+  /// "Capture area" and "Copy as image" in this editor.
+  late final AreaCapture _capture = AreaCapture(session: _session, colours: _eyedropper.colours);
 
   final HudController _hud = HudController();
 

@@ -217,12 +217,14 @@ class EditorImages {
   // Inserting
 
   /// Prepares, stores and places one image; returns the new element, or
-  /// null if it failed (the user has been told why).
+  /// null if it failed (the user has been told why). With [size] it is
+  /// that large (world units) rather than one unit a pixel.
   Future<SurfaceElement?> insertBytes(
     BuildContext context,
     Uint8List bytes, {
     Offset? screen,
     String? name,
+    Size? size,
   }) async {
     final data = await _prepare(context, bytes, name);
     if (data == null || !context.mounted) return null;
@@ -236,6 +238,7 @@ class EditorImages {
       at: at,
       area: content.viewport.visibleWorld,
       page: content.viewport.contentBounds,
+      size: size,
     );
     final element = ImagePlacement.insert(
       content.model,

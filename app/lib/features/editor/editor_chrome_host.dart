@@ -4,6 +4,7 @@ import '../../ui/app_theme.dart';
 import '../audio/notebook_audio.dart';
 import '../audio/ui/audio_bar_button.dart';
 import '../settings/sync_alert_button.dart';
+import 'capture/area_capture.dart';
 import 'chrome/bar_button.dart';
 import 'chrome/chrome_layout.dart';
 import 'chrome/editor_chrome.dart';
@@ -64,6 +65,7 @@ class EditorChromeHost extends StatelessWidget {
   const EditorChromeHost({
     super.key,
     required this.session,
+    this.capture,
     required this.layout,
     required this.commands,
     required this.title,
@@ -96,6 +98,9 @@ class EditorChromeHost extends StatelessWidget {
   final bool presenting;
 
   final EditorSession session;
+
+  /// Insert ⊕'s "Capture area".
+  final AreaCapture? capture;
   final ChromeLayout layout;
   final EditorScreenCommands commands;
   final String title;
@@ -128,6 +133,7 @@ class EditorChromeHost extends StatelessWidget {
       photo: images.canUseCamera ? () => images.takePhoto(context) : null,
       scan: commands == null ? null : () => commands.insertScan(context),
       pdfPages: commands == null ? null : () => commands.insertPdf(context),
+      capture: capture == null ? null : () => capture!.start(context),
     );
   }
 

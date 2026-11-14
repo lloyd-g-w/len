@@ -9,6 +9,8 @@ import '../search/editor/editor_search_controller.dart';
 import '../search/editor/editor_search_layer.dart';
 import 'canvas/canvas_empty_hint.dart';
 import 'canvas/canvas_minimap.dart';
+import 'capture/area_capture.dart';
+import 'capture/capture_actions.dart';
 import 'chrome/canvas_context_menu.dart';
 import 'chrome/canvas_guard.dart';
 import 'chrome/chrome_layout.dart';
@@ -34,6 +36,7 @@ class EditorLayers extends StatelessWidget {
     super.key,
     required this.session,
     required this.canvasKey,
+    this.capture,
     required this.notebook,
     required this.layout,
     required this.focusNode,
@@ -57,6 +60,9 @@ class EditorLayers extends StatelessWidget {
 
   /// The surface's repaint boundary (captured by the eyedropper).
   final GlobalKey canvasKey;
+
+  /// The selection menu's "Copy as image".
+  final AreaCapture? capture;
   final Notebook notebook;
   final ChromeLayout layout;
   final FocusNode focusNode;
@@ -154,7 +160,10 @@ class EditorLayers extends StatelessWidget {
               guard: guard,
               chromeInsets: layout.covered,
               onFollowLink: onFollowLink,
-              selectionActions: () => [linkSelectionAction(context, session)],
+              selectionActions: () => [
+                linkSelectionAction(context, session),
+                if (capture case final capture?) copyAsImageAction(context, capture),
+              ],
             ),
           ),
         ),

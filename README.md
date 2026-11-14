@@ -29,6 +29,9 @@ optional sync through a tiny server you host yourself.
   stop writing; quick colours and sizes like the pen's.
 - **Zoom window**: write large in a docked box, small on the page; it moves along the
   lines and pages (left to right or right to left).
+- **Capture area**: drag a rectangle over pages or the canvas (or pick Copy as image for a
+  lasso selection) to copy exactly what is there — paper, template, PDF, images, ink, text
+  — as a sharp PNG; then save or share it, or insert it as an image.
 - **Minimap** on infinite canvases: see where content is, tap or drag to move.
 - **Pages**: templates, planners, PDFs to annotate, document scan (edge detection,
   colour / greyscale / B&W clean-up), saved notebook styles with a default.

@@ -2918,6 +2918,29 @@ what is beneath show. With no opaque content there, the capture's pixel
 gives the page as shown (paper, template lines, a PDF), else the page's
 paper colour.
 
+**Area capture** (`features/editor/capture/`). Insert ⊕ → Capture area
+shows the `CaptureLayer` over the navigator (as the eyedropper's: it takes
+every pointer, a press on the chrome — `PageColours.onSurface` — or Escape
+cancels, a palm is ignored): a drag over the page or canvas marks a
+rectangle, which may cross pages. The selection menu's ⋯ → Copy as image
+takes the lasso selection's frame instead. `AreaCapture` maps the rectangle
+into document (or world) units and `AreaCapturer` renders it from what is
+stored, not from the screen: `AreaImage` paints each page it touches with
+`paintWholePage` at its layout frame (backgrounds — PDF pages, scans, image
+templates — rendered afresh by `NotebookExporter.rasterBackground`, as PNG
+export does), or a canvas's paper, pattern from the world's origin, and
+content in world coordinates; the desk between pages stays transparent and
+the image is trimmed to the pages. Resolution: the screen's (zoom × device
+pixels) but at least 3 px a unit (288 dpi), at most 8, and at most 4096 px
+on the long side (`AreaImage.scaleFor`). The PNG goes to the system
+clipboard through `Pasteboard.write` started within the gesture (the web's
+clipboard needs one; the picture follows when rendered) — not through
+`ClipboardMirror`, so Ctrl+V in Len pastes it as an image — and the
+`CaptureResultBar` beside the rectangle offers Save as PNG… (Share… on
+Android; `platform/file_export`'s `saveOrShare`) and Insert as image
+(`EditorImages.insertBytes` with the area's size: one undoable edit,
+selected), or Done.
+
 The ink panels (`features/editor/pen/`) are the tool options themselves,
 one flat panel each (no colours, no size, nothing collapsed):
 `PenOptionsPanel` (title and Reset, live preview, pressure sensitivity,
@@ -2964,8 +2987,8 @@ size), and the active tool's quick controls hang beside it in a smaller
 `EditorTool` value and a descriptor. The tools are Pen (P), Highlighter (H),
 Eraser (E), Lasso (L), Shapes (S; its icon is the current shape), Text (T) and
 Laser pointer (K), then **Insert ⊕** (`toolbar/insert_menu.dart`; a button, not
-a tool: Image…, Take photo on Android, and in notebooks Pages from PDF…; a page
-with a template is "Add page after" held down in the page menu).
+a tool: Image…, Take photo on Android, in notebooks Pages from PDF…, and Capture
+area; a page with a template is "Add page after" held down in the page menu).
 
 - **`ToolCluster`** (`toolbar/tool_cluster.dart`): the tool buttons in fixed
   cells (44 dp with a pointer, 48 on touch) over one neutral `xs` plate

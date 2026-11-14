@@ -42,7 +42,11 @@ class PageColours {
   /// Whether [global] is on the page: the surface is the topmost thing
   /// there (no chrome, menu or panel over it) and, in a paged document, a
   /// page lies under it.
-  bool onPage(Offset global) {
+  bool onPage(Offset global) => onSurface(global) && surfaceAt(global) != null;
+
+  /// Whether the surface is the topmost thing at [global] (no chrome, menu
+  /// or panel over it), on a page or on the desk between pages.
+  bool onSurface(Offset global) {
     final box = _canvasBox;
     final layers = area.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || layers == null || !layers.attached || !box.attached) return false;
@@ -55,7 +59,7 @@ class PageColours {
     for (final entry in result.path) {
       if (entry.target case final RenderObject target) taker = _layerOf(target, layers) ?? taker;
     }
-    return taker == box && surfaceAt(global) != null;
+    return taker == box;
   }
 
   /// The child of [layers] holding [node]; null for [layers] itself and
