@@ -379,37 +379,50 @@ paper colour (`notebooks.paper_color`). Paged documents glide too (single-page f
 only when zoomed in; at the whole page it settles back or turns the page).
 
 **Minimap** (`canvas/canvas_minimap.dart`, a layer of `EditorLayers`; "⋯" → View →
-*Minimap*, Shift+M; local setting `canvas_minimap`): a `FloatingPanel`
-window onto the paper in the bottom-right corner, clear of the chrome and the audio strip
-(`ChromeLayout.covered`), shaped like the free area (1:1 to 16:10; 176 dp, 120 on phones).
-Content comes from storage — `StrokeReader.chunkDensity` (items per populated chunk, in the
-background reader), re-read 500 ms after a non-load `SurfaceChange` (the model flushed
-first) — and `MinimapContent` merges the chunks into at most 48 × 48 soft blocks, shaded by
-density, so painting costs the same on any canvas; the blocks are recorded once into a
-picture (`MinimapBlocks`, keyed by content, colours and map scale) and replayed translated,
-so a frame of a pan draws only the picture, the origin cross and the view's frame (in the
-accent for the paper's brightness). `MinimapFrame` picks the fit: content ∪ the visible area
-(`CanvasNavigation.visibleArea`, the screen minus the chrome) with 12 % room, held still
-while the view moves inside it and refitted (gliding, `Motion.medium`) when the view leaves
-it or it grows 1.8× larger than needed. The map has its own viewport (`MinimapView`): a
-world rectangle inside the fit, from the fit itself (the default) to `maxZoom` closer (three
-blocks across, at least 2×). Input: one pointer (touch, pen, mouse) moves the *canvas* — a
-tap glides there (`CanvasNavigation.centreOn`, through the map's viewport); a drag moves the
-view live, the map frozen under the finger (grabbing the frame keeps the grabbed point under
-it, elsewhere centres the view there). Everything else moves the *map*, never the canvas: two
-fingers or a trackpad pinch (zoom about the focal point) and drag (pan); the wheel pans it
-(Shift: across), Ctrl/⌘+wheel and `PointerScaleEvent` zoom it about the pointer (claimed
-through the pointer-signal resolver); a second finger turns a drag into a map gesture for good.
-Zoomed or panned, the map stays put as the view and content change: it follows the view
-(`MinimapView.follow`, nudged just enough to keep the view's centre 10 % inside its edges)
+*Minimap*, Shift+M; local settings `canvas_minimap`, `canvas_minimap_size`,
+`canvas_minimap_collapsed`): a `FloatingPanel` window onto the paper in the bottom-right
+corner, clear of the chrome and the audio strip (`ChromeLayout.covered`), shaped like the free
+area (1:1 to 16:10; longer side 144 / 192 / 264 dp for small / medium / large, small by
+default on phones, at most half the free width), with a row of buttons under it
+(`MinimapControls`: zoom the canvas out and in a step, *Fit content*, fold) — folded, a single
+map `BarButton` (`MinimapFoldedButton`). Content: `MinimapSketch` keeps the whole canvas
+lightly simplified (stroke points ≥ 2 world units apart, more on vast canvases; elements as they
+are), grouped in 8 × 8-chunk tiles. It is brought up to date from storage — 500 ms after a
+non-load `SurfaceChange` (the model flushed first) — by comparing every chunk's digest
+(`StrokeReader.chunkDigests`) with the last read and re-reading only chunks that differ, 96 at
+a time (background reader). `MinimapRaster` records one picture per tile (strokes as lines in
+their colours, at least 0.8 px wide at the scale's power of two; elements by `ElementRenderer`)
+and composes them, a 6 ms slice at a time, into an image of the fit (`overview`) and, while the
+map is zoomed or panned, a sharper `detail` of what it shows (`Picture.toImage`) — 80 ms after
+the content or the area shown changes and the map holds still; per frame the painter only draws
+these images (scaled while the map glides or is held), the origin cross, a veil outside the
+view and the view's frame (accent for the paper's brightness) with corner handles. Over 40,000
+items, and while the first miniature is made, the map shows `MinimapContent`'s 48 × 48 density
+blocks instead (recorded once into a picture, `MinimapBlocks`, keyed by content, colours and
+map scale). `MinimapFrame` picks the fit: content ∪ the visible area
+(`CanvasNavigation.visibleArea`, the screen minus the chrome) with 12 % room, held still while
+the view moves inside it and refitted (gliding, `Motion.medium`) when the view leaves it or it
+grows 1.8× larger than needed. The map has its own viewport (`MinimapView`): a world rectangle
+inside the fit, from the fit itself (the default) to `maxZoom` closer (three blocks across, at
+least 2×). Input: one pointer (touch, pen, mouse) moves the *canvas* — a tap glides there
+(`CanvasNavigation.centreOn`, through the map's viewport), a second tap soon after zooms in
+there (`zoomInOn`); a drag moves the view live, the map frozen under the finger (grabbing the
+frame keeps the grabbed point under it, elsewhere centres the view there); dragging a corner
+handle of the frame resizes it about the opposite corner (`showArea`: zooms the canvas, the
+view's shape kept). Everything else moves the *map*, never the canvas: two fingers or a
+trackpad pinch (zoom about the focal point) and drag (pan); the wheel pans it (Shift: across),
+Ctrl/⌘+wheel and `PointerScaleEvent` zoom it about the pointer (claimed through the
+pointer-signal resolver); a second finger turns a drag (or a corner resize) into a map gesture
+for good. Zoomed or panned, the map stays put as the view and content change: it follows the
+view (`MinimapView.follow`, nudged just enough to keep the view's centre 10 % inside its edges)
 while the view is on it, and once the user pans it away it stays there and a small arrowhead
 on its edge points at the view; it fits again only when the fit shrinks to it, when zoomed all
 the way out, or on demand: a round fit button (`BarButton` on a pill `FloatingPanel`, shown
 above the map only while it is zoomed or panned) or *Fit minimap* in its menu. Long-press /
-right-click opens its menu (*Fit minimap* when zoomed, *Hide minimap*). It fades out
-(`ChromeFade`) while the pen draws (back 1.2 s after it lifts, not between strokes), on an
-empty canvas and in focus mode. Paged documents have none (the page overview and navigator
-serve them).
+right-click opens its menu (*Fit minimap* when zoomed, *Small* / *Medium* / *Large*, *Fold
+minimap*, *Hide minimap*). It fades out (`ChromeFade`) while the pen draws (back 1.2 s after it
+lifts, not between strokes), on an empty canvas and in focus mode. Paged documents have none
+(the page overview and navigator serve them).
 
 World coordinates are stored as `float32`, which stays sub-unit precise to
 roughly ±8 million units from the origin — thousands of screens in every
@@ -1988,7 +2001,10 @@ beat the ellipse clearly, as five or more corners must (below), then 3 → trian
 → diamond (diagonals along the axes), rectangle (right angles; rotated or,
 within 6°, axis-aligned, each side midway between its corners), else
 polygon (five or more corners must have half the ellipse's error: a ring
-around a word is no hexagon). Strokes
+around a word is no hexagon). A rectangle within 8 % of square is a
+square; a triangle with sides within 8 % of their mean is equilateral
+(about its centroid), and one with a side within 6° of level is turned
+level (`shapes/shape_cleanup.dart`). Strokes
 under 48 screen px long and closed ones under 48 px across stay as
 written (letters such as "l", "o" or "0"). A stroke that is none of these
 but smooth, at least 128 px across (`HoldToStraighten.minCurve`: a held
@@ -3002,6 +3018,29 @@ what is beneath show. With no opaque content there, the capture's pixel
 gives the page as shown (paper, template lines, a PDF), else the page's
 paper colour.
 
+**Area capture** (`features/editor/capture/`). Insert ⊕ → Capture area
+shows the `CaptureLayer` over the navigator (as the eyedropper's: it takes
+every pointer, a press on the chrome — `PageColours.onSurface` — or Escape
+cancels, a palm is ignored): a drag over the page or canvas marks a
+rectangle, which may cross pages. The selection menu's ⋯ → Copy as image
+takes the lasso selection's frame instead. `AreaCapture` maps the rectangle
+into document (or world) units and `AreaCapturer` renders it from what is
+stored, not from the screen: `AreaImage` paints each page it touches with
+`paintWholePage` at its layout frame (backgrounds — PDF pages, scans, image
+templates — rendered afresh by `NotebookExporter.rasterBackground`, as PNG
+export does), or a canvas's paper, pattern from the world's origin, and
+content in world coordinates; the desk between pages stays transparent and
+the image is trimmed to the pages. Resolution: the screen's (zoom × device
+pixels) but at least 3 px a unit (288 dpi), at most 8, and at most 4096 px
+on the long side (`AreaImage.scaleFor`). The PNG goes to the system
+clipboard through `Pasteboard.write` started within the gesture (the web's
+clipboard needs one; the picture follows when rendered) — not through
+`ClipboardMirror`, so Ctrl+V in Len pastes it as an image — and the
+`CaptureResultBar` beside the rectangle offers Save as PNG… (Share… on
+Android; `platform/file_export`'s `saveOrShare`) and Insert as image
+(`EditorImages.insertBytes` with the area's size: one undoable edit,
+selected), or Done.
+
 The ink panels (`features/editor/pen/`) are the tool options themselves,
 one flat panel each (no colours, no size, nothing collapsed):
 `PenOptionsPanel` (title and Reset, live preview, pressure sensitivity,
@@ -3048,8 +3087,8 @@ size), and the active tool's quick controls hang beside it in a smaller
 `EditorTool` value and a descriptor. The tools are Pen (P), Highlighter (H),
 Eraser (E), Lasso (L), Shapes (S; its icon is the current shape), Text (T) and
 Laser pointer (K), then **Insert ⊕** (`toolbar/insert_menu.dart`; a button, not
-a tool: Image…, Take photo on Android, and in notebooks Pages from PDF…; a page
-with a template is "Add page after" held down in the page menu).
+a tool: Image…, Take photo on Android, in notebooks Pages from PDF…, and Capture
+area; a page with a template is "Add page after" held down in the page menu).
 
 - **`ToolCluster`** (`toolbar/tool_cluster.dart`): the tool buttons in fixed
   cells (44 dp with a pointer, 48 on touch) over one neutral `xs` plate

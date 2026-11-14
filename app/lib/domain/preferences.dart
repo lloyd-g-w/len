@@ -21,6 +21,15 @@ enum PenButtonAction {
       values.firstWhere((v) => v.name == value, orElse: () => eraser);
 }
 
+/// How large the canvas minimap is drawn (null in settings: by device).
+enum MinimapScale {
+  small,
+  medium,
+  large;
+
+  static MinimapScale? parse(String? value) => values.where((v) => v.name == value).firstOrNull;
+}
+
 /// Where the editor's tool palette sits.
 enum ToolbarPlacement {
   /// Docked: inside the top bar when it fits there on one row, else a row

@@ -13,10 +13,16 @@ abstract final class ImagePlacement {
   static const double maxShare = 0.7;
 
   /// The world box for an image of [data] centred on [at]: its natural
-  /// size (one pixel per world unit), shrunk to fit [maxShare] of [area],
-  /// and kept inside [page] when given.
-  static Rect boxFor(ImageData data, {required Offset at, required Rect area, Rect? page}) {
-    final natural = data.croppedSize;
+  /// size (one pixel per world unit, or [size] when given), shrunk to fit
+  /// [maxShare] of [area], and kept inside [page] when given.
+  static Rect boxFor(
+    ImageData data, {
+    required Offset at,
+    required Rect area,
+    Rect? page,
+    Size? size,
+  }) {
+    final natural = size ?? data.croppedSize;
     final w = math.max(1.0, natural.width), h = math.max(1.0, natural.height);
     final fit = page == null ? area : area.intersect(page);
     final scale = [

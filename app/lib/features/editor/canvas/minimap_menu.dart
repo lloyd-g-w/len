@@ -3,11 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../domain/preferences.dart';
+import '../../../ui/app_theme.dart';
 import '../../../ui/menus.dart';
 
 /// The minimap's own menu (long-press or right-click on it): fit it to
-/// everything again once zoomed or panned ([onFit]), and hide it (⋯ → View
-/// → Minimap or Shift+M brings it back).
+/// everything again once zoomed or panned ([onFit]), its size, fold it into
+/// its button, hide it (⋯ → View → Minimap or Shift+M brings it back).
 class MinimapMenu extends StatelessWidget {
   const MinimapMenu({
     super.key,
@@ -15,6 +17,9 @@ class MinimapMenu extends StatelessWidget {
     required this.child,
     this.onHide,
     this.onFit,
+    this.onCollapse,
+    this.scale,
+    this.onScale,
     this.keepClear = EdgeInsets.zero,
   });
 
@@ -23,6 +28,13 @@ class MinimapMenu extends StatelessWidget {
 
   /// Fits the map to everything again (no row without it).
   final VoidCallback? onFit;
+
+  /// Folds the map into its button.
+  final VoidCallback? onCollapse;
+
+  /// The map's size, checked; [onScale] picks another.
+  final MinimapScale? scale;
+  final ValueChanged<MinimapScale>? onScale;
   final Widget child;
 
   /// Room at the screen's edges the menu stays out of, beside the safe
@@ -44,6 +56,12 @@ class MinimapMenu extends StatelessWidget {
     );
   }
 
+  static const _sizes = {
+    MinimapScale.small: 'Small',
+    MinimapScale.medium: 'Medium',
+    MinimapScale.large: 'Large',
+  };
+
   @override
   Widget build(BuildContext context) => MenuEdgeMargin(
     keepClear: keepClear,
@@ -51,12 +69,29 @@ class MinimapMenu extends StatelessWidget {
       controller: controller,
       reservedPadding: menuReservedPadding(context),
       menuChildren: [
-        if (onFit != null)
+        if (onFit != null) ...[
           MenuItemButton(
             leadingIcon: const Icon(Symbols.fit_screen_rounded),
             onPressed: onFit,
             child: const Text('Fit minimap'),
           ),
+          const Divider(),
+        ],
+        for (final MapEntry(key: size, value: label) in _sizes.entries)
+          MenuItemButton(
+            // A leading slot on every row keeps the labels aligned.
+            leadingIcon: size == scale
+                ? const Icon(Symbols.check_rounded)
+                : const SizedBox(width: Glyphs.menu),
+            onPressed: onScale == null ? null : () => onScale!(size),
+            child: Text(label),
+          ),
+        const Divider(),
+        MenuItemButton(
+          leadingIcon: const Icon(Symbols.collapse_content_rounded),
+          onPressed: onCollapse,
+          child: const Text('Fold minimap'),
+        ),
         MenuItemButton(
           leadingIcon: const Icon(Symbols.visibility_off_rounded),
           onPressed: onHide,

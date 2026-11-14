@@ -162,6 +162,15 @@ class SettingsRepository {
   bool get canvasMinimap => _get('canvas_minimap') == 'true';
   set canvasMinimap(bool value) => _set('canvas_minimap', '$value');
 
+  /// The minimap's size (null: by device, small on phones).
+  MinimapScale? get minimapScale => MinimapScale.parse(_get('canvas_minimap_size'));
+  set minimapScale(MinimapScale? value) =>
+      value == null ? _remove('canvas_minimap_size') : _set('canvas_minimap_size', value.name);
+
+  /// Whether the minimap is folded into its button (default: no).
+  bool get minimapCollapsed => _get('canvas_minimap_collapsed') == 'true';
+  set minimapCollapsed(bool value) => _set('canvas_minimap_collapsed', '$value');
+
   /// Whether the editor keeps several notebooks open in tabs (default on);
   /// off, opening a notebook replaces the one shown.
   bool get notebookTabs => _get('notebook_tabs') != 'false';

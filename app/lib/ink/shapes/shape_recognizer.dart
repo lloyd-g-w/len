@@ -4,6 +4,7 @@ import 'dart:ui';
 import '../../domain/shape_geometry.dart';
 import 'conic_fit.dart';
 import 'polyline.dart';
+import 'shape_cleanup.dart';
 
 /// Recognises a hand-drawn stroke as a clean shape ("hold to snap"),
 /// where the hand drew it: same place, size and rotation.
@@ -21,7 +22,9 @@ import 'polyline.dart';
 ///   barely needs (a bowed side, the overshoot closing the loop) is
 ///   dropped. 3 corners → triangle; 4 →
 ///   diamond with diagonals along the axes, rectangle when right-angled
-///   (axis-aligned when nearly so); up to 8 → polygon. Nearly round
+///   (axis-aligned when nearly so, square when nearly so); up to 8 →
+///   polygon. Triangles nearly equilateral become so, and one with a side
+///   nearly level is turned level ([ShapeCleanup]). Nearly round
 ///   ellipses become circles. Anything else (a scribble) is not recognised
 ///   (smooth strokes may still be curves: `CurveRecognizer`).
 abstract final class ShapeRecognizer {
@@ -191,7 +194,9 @@ abstract final class ShapeRecognizer {
   static const double cornerSlack = 0.004;
 
   static ShapeGeometry _polygonShape(List<Offset> corners) {
-    if (corners.length == 3) return ShapeGeometry(ShapeKind.triangle, corners);
+    if (corners.length == 3) {
+      return ShapeGeometry(ShapeKind.triangle, ShapeCleanup.triangle(corners));
+    }
     if (corners.length == 4) {
       if (_axisDiagonals(corners)) {
         final r = Polyline.bounds(corners);
@@ -246,11 +251,13 @@ abstract final class ShapeRecognizer {
     final local = [for (final p in c) _rotate(p - centre, -angle)];
     final xs = [for (final p in local) p.dx]..sort();
     final ys = [for (final p in local) p.dy]..sort();
-    final r = Rect.fromLTRB(
-      (xs[0] + xs[1]) / 2,
-      (ys[0] + ys[1]) / 2,
-      (xs[2] + xs[3]) / 2,
-      (ys[2] + ys[3]) / 2,
+    final r = ShapeCleanup.square(
+      Rect.fromLTRB(
+        (xs[0] + xs[1]) / 2,
+        (ys[0] + ys[1]) / 2,
+        (xs[2] + xs[3]) / 2,
+        (ys[2] + ys[3]) / 2,
+      ),
     );
     return [
       for (final p in [r.topLeft, r.topRight, r.bottomRight, r.bottomLeft])

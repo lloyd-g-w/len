@@ -172,6 +172,7 @@ extension _EditorLayout on _EditorScreenState {
     child: EditorLayers(
       key: _areaKey,
       canvasKey: _canvasKey,
+      capture: _capture,
       session: _session,
       notebook: _notebook,
       layout: layout,
@@ -226,6 +227,7 @@ extension _EditorLayout on _EditorScreenState {
         presenting: _presenting,
         split: widget.split,
         session: _session,
+        capture: _capture,
         layout: layout,
         commands: _commands,
         title: _notebook.title,

@@ -17,8 +17,9 @@ optional sync through a tiny server you host yourself.
   the selected tool for its few options in a small menu.
 - **Pen, highlighter, eraser**: the highlighter uses the pen's engine (flat or round
   ends) and sits behind the ink; pixel or stroke eraser, or scribble over ink to erase it.
-- **Shapes**: draw and hold to snap (a smooth stroke becomes a curve), or the Shape tool
-  (Shift for regular shapes; curves anchor by anchor); drag a selected shape's handles —
+- **Shapes**: draw and hold to snap (a smooth stroke becomes a curve; nearly square,
+  equilateral or level becomes exactly so), or the Shape tool (Shift for regular shapes;
+  curves anchor by anchor); drag a selected shape's handles —
   corners, sides, centre, radii, a line's bend, a curve's anchors and tangents — to reshape
   it, with snapping; closed shapes take a fill. Line and arrow ends dropped on a shape stay
   attached (connectors): they follow it when it moves, turns or is reshaped.
@@ -28,7 +29,14 @@ optional sync through a tiny server you host yourself.
   stop writing; quick colours and sizes like the pen's.
 - **Zoom window**: write large in a docked box, small on the page; it moves along the
   lines and pages (left to right or right to left).
-- **Minimap** on infinite canvases: see where content is, tap or drag to move.
+- **Capture area**: drag a rectangle over pages or the canvas (or pick Copy as image for a
+  lasso selection) to copy exactly what is there — paper, template, PDF, images, ink, text
+  — as a sharp PNG; then save or share it, or insert it as an image.
+- **Minimap** on infinite canvases: a live miniature of the content in its colours with the view
+  framed. Tap to glide there (double-tap to zoom in there), drag to move, drag a corner of the
+  view's frame to zoom the canvas, or use its −, + and *Fit content* buttons; pinch, scroll or
+  Ctrl+scroll on it to zoom and pan the map itself. Small, medium or large, foldable into a
+  button, remembered.
 - **Pages**: templates, planners, PDFs to annotate, document scan (edge detection,
   colour / greyscale / B&W clean-up), saved notebook styles with a default.
 - **Version history**: versions of a notebook or canvas kept as you write (thinned over

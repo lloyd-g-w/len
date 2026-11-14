@@ -131,17 +131,14 @@ class NotebookExporter {
     ExportReport? report,
   }) async {
     SurfaceModel.flushAll(); // Ink drawn a moment ago.
-    final paperOnly = page.background == null && page.paper.image != null;
-    final background = backgrounds || paperOnly
-        ? await _background(page, page.width * scale)
-        : null;
-    if (background == null && paperOnly) report?.missingImages++;
-    if (background == null && backgrounds && page.background != null) {
-      report?.missingBackgrounds++;
-    }
     final elements = _copier.loadAllElements(page.id);
-    await _loadImages(elements, scale, report);
-    if (!paperOnly) await _loadTemplate(page.paper, page.width * scale, report);
+    final background = await rasterBackground(
+      page,
+      elements,
+      scale,
+      backgrounds: backgrounds,
+      report: report,
+    );
     final image = await renderPageImage(
       page,
       strokes: _copier.loadAll(page.id),
@@ -158,6 +155,37 @@ class NotebookExporter {
       image.dispose();
     }
   }
+
+  /// Gets [page] ready to be drawn at [scale] pixels per page unit
+  /// (`paintWholePage`): decodes its image template and the images among
+  /// [elements], and returns its background (an imported PDF page or scan,
+  /// left out without [backgrounds]; an image template on a page without
+  /// one) as an image the caller disposes. [report] collects what can't be
+  /// had.
+  Future<ui.Image?> rasterBackground(
+    NotebookPage page,
+    List<SurfaceElement> elements,
+    double scale, {
+    bool backgrounds = true,
+    ExportReport? report,
+  }) async {
+    final paperOnly = page.background == null && page.paper.image != null;
+    final background = backgrounds || paperOnly
+        ? await _background(page, page.width * scale)
+        : null;
+    if (background == null && paperOnly) report?.missingImages++;
+    if (background == null && backgrounds && page.background != null) {
+      report?.missingBackgrounds++;
+    }
+    await _loadImages(elements, scale, report);
+    if (!paperOnly) await _loadTemplate(page.paper, page.width * scale, report);
+    return background;
+  }
+
+  /// Decodes the images among [elements] for drawing at [scale] pixels
+  /// per unit.
+  Future<void> loadImages(List<SurfaceElement> elements, double scale) =>
+      _loadImages(elements, scale, null);
 
   /// Room left around a canvas's drawing when it is exported (world units:
   /// half an inch).

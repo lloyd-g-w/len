@@ -93,6 +93,14 @@ class AppPreferences extends ChangeNotifier {
   bool get canvasMinimap => _settings.canvasMinimap;
   set canvasMinimap(bool value) => _update(() => _settings.canvasMinimap = value);
 
+  /// The minimap's size (null: by device).
+  MinimapScale? get minimapScale => _settings.minimapScale;
+  set minimapScale(MinimapScale? value) => _update(() => _settings.minimapScale = value);
+
+  /// Whether the minimap is folded into its button.
+  bool get minimapCollapsed => _settings.minimapCollapsed;
+  set minimapCollapsed(bool value) => _update(() => _settings.minimapCollapsed = value);
+
   /// Whether the editor keeps several notebooks open in tabs; off, opening
   /// a notebook replaces the one shown (`OpenNotebooks.tabbed` follows).
   bool get notebookTabs => _settings.notebookTabs;

@@ -1,6 +1,7 @@
 @Tags(['perf'])
 library;
 
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
@@ -16,6 +17,8 @@ import 'package:len/features/editor/canvas/canvas_minimap.dart';
 import 'package:len/features/editor/canvas/canvas_view.dart';
 import 'package:len/features/editor/canvas/minimap_geometry.dart';
 import 'package:len/features/editor/canvas/minimap_painter.dart';
+import 'package:len/features/editor/canvas/minimap_raster.dart';
+import 'package:len/features/editor/canvas/minimap_sketch.dart';
 import 'package:len/features/editor/editor_screen.dart';
 import 'package:len/ui/app_theme.dart';
 
@@ -108,6 +111,7 @@ void main() {
         view: () => const Rect.fromLTWH(0, 0, 1280, 800),
         colors: const MinimapColors(
           paper: Color(0xFFFFFFFF),
+          veil: Color(0x14000000),
           ink: Color(0xFF1F2937),
           view: Color(0xFF2B6CB0),
         ),
@@ -124,6 +128,38 @@ void main() {
         '${content.cells.length} blocks in ${merge / 1000} ms, '
         'painted (${painter.lastBlocks} blocks) in ${paint / 1000} ms',
       );
+
+      // The miniature: everything read once (in batches; on the reader
+      // isolate in the app), tile pictures recorded, an image made; then
+      // one edit read again and drawn.
+      final sketch = MinimapSketch();
+      var watch = Stopwatch()..start();
+      await sketch.update(services.strokes, nb.id);
+      final load = watch.elapsedMicroseconds;
+      final raster = MinimapRaster();
+      Future<(int, int)> draw() async {
+        var done = false;
+        final watch = Stopwatch()..start();
+        raster.sync(sketch);
+        unawaited(raster.render(sketch, content.bounds!, size * 2).whenComplete(() => done = true));
+        final turn = await longestTurnUntil(() => done);
+        return (watch.elapsedMilliseconds, turn);
+      }
+
+      final (first, firstTurn) = await draw();
+      final (again, againTurn) = await draw();
+      services.strokes.save([_on(ink.first, nb.id).withId('edit')]);
+      watch = Stopwatch()..start();
+      await sketch.update(services.strokes, nb.id);
+      final reread = watch.elapsedMicroseconds;
+      final (redraw, redrawTurn) = await draw();
+      report(
+        'MINIMAP miniature: ${sketch.tiles.length} tiles; all read and sketched in '
+        '${load / 1000} ms; images (total, longest UI turn): first $first / $firstTurn ms, '
+        'again (pictures kept) $again / $againTurn ms; an edit re-read in ${reread / 1000} ms, '
+        'drawn in $redraw / $redrawTurn ms',
+      );
+      raster.dispose();
       services.dispose();
     });
   });
