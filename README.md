@@ -40,7 +40,8 @@ optional sync through a tiny server you host yourself.
   RTF), bundled fonts plus your own (import a TTF / OTF once; it syncs, goes into
   backups and PDF exports).
 - **More**: images, audio recordings with ink replay, search (handwriting on
-  Android), split view, tabs, PDF / PNG export, Len files and backups.
+  Android), split view, tabs (or one notebook at a time), PDF / PNG export, Len files
+  and backups.
 - **Keyboard access**: shortcuts (Ctrl/⌘+/ lists them), arrow keys within every group,
   context menus with the Menu key or Shift+F10.
 - **Screen readers**: every control is named; pages read as "Page 3 of 12, bookmarked"
