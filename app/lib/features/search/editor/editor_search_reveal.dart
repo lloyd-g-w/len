@@ -6,7 +6,7 @@ extension _SearchReveal on EditorSearchController {
   void _run() {
     _parsed = SearchQuery(_query);
     final previous = currentMatch;
-    final matches = findEditorSearchMatches(
+    final (:matches, :truncated) = findEditorSearchMatches(
       search,
       host,
       _parsed,
@@ -15,6 +15,7 @@ extension _SearchReveal on EditorSearchController {
       limit: EditorSearchController.maxMatches,
     );
     _matches = matches;
+    _truncated = truncated;
     // Stay on the same match when results are refreshed.
     _current = previous == null
         ? -1

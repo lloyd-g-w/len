@@ -267,6 +267,7 @@ class _LibraryContentState extends State<LibraryContent> {
             LibrarySearchResults(
               query: _c.query.trim(),
               padding: EdgeInsets.symmetric(horizontal: gutter),
+              locationOf: _c.locationOf,
               onOpen: (context, notebook, hit) => unawaited(
                 openSearchResult(
                   context,

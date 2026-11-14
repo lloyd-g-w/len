@@ -25,7 +25,7 @@ class Versions extends ChangeNotifier {
   Versions({
     required this.repositories,
     required BlobStore blobs,
-    required String deviceName,
+    required String Function() deviceName,
     Future<bool> Function(String sha)? fetch,
     bool Function()? hold,
   }) : content = VersionContent(

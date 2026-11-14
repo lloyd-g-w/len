@@ -111,9 +111,14 @@ class SyncLedger {
       }
       if (known == null || _newer(version, known)) newest[key] = version;
       if (live) {
-        _edits.putIfAbsent(key, () => []).add(version);
+        // A row edited in place may hold an older edit at a newer version
+        // (a copy a deletion conflict brought back, an edit kept over a
+        // deletion): the edit is the one its content comes from, which a
+        // deletion knowing it may delete again (`EditOrigins`).
+        final edit = _originOf(s, key) ?? version;
+        _edits.putIfAbsent(key, () => []).add(edit);
         if (_content.contains(key.split('/').first)) {
-          _contents.putIfAbsent(key, () => {})[version] = content(s, key)!;
+          _contents.putIfAbsent(key, () => {})[edit] = content(s, key)!;
         }
       }
       if (!live && old != null && old.$2) {
@@ -124,13 +129,13 @@ class SyncLedger {
         created.add(key);
         if (key.startsWith('strokes/')) {
           final id = key.substring('strokes/'.length);
-          final line = s.database.db.select(
+          final shape = s.database.db.select(
             "SELECT surface_id, coalesce(json_extract(style, '\$.sh.o'), id) AS shape "
-            "FROM strokes WHERE id = ? AND json_extract(style, '\$.sh.a') IS NOT NULL",
+            "FROM strokes WHERE id = ? AND json_extract(style, '\$.sh') IS NOT NULL",
             [id],
           );
-          if (line.isNotEmpty) {
-            _lines[id] = (line.single['surface_id'] as String, line.single['shape'] as String);
+          if (shape.isNotEmpty) {
+            _shapes[id] = (shape.single['surface_id'] as String, shape.single['shape'] as String);
           }
           points[id] = base64Encode(
             s.database.db.select('SELECT points FROM strokes WHERE id = ?', [id]).single['points']
@@ -142,11 +147,26 @@ class SyncLedger {
     }
   }
 
-  /// Whether line [id] (deleted) was replaced by a connector repair
-  /// (`ConnectorRepair`): it was attached, and another line of its shape
-  /// id is on its surface (live, or deleted since with the page).
+  /// The edit whose content row [key] (`table/id`, live) of [s] holds when
+  /// it is an older one than its version (`EditOrigins`), else null.
+  static RowVersion? _originOf(AppServices s, String key) {
+    final [table, id] = key.split('/');
+    if (!_content.contains(table)) return null;
+    final rows = s.database.db.select(
+      'SELECT origin_at, origin_device FROM $table '
+      'WHERE id = ? AND origin_for = updated_at AND origin_at IS NOT NULL',
+      [id],
+    );
+    if (rows.isEmpty) return null;
+    return (at: rows.single['origin_at'] as int, device: rows.single['origin_device'] as String);
+  }
+
+  /// Whether shape stroke [id] (deleted) was replaced by a connector
+  /// repair or a merge of concurrent edits (`ConnectorRepair`,
+  /// `ShapeMerge`): another stroke of its shape id is on its surface
+  /// (live, or deleted since with the page).
   bool _repaired(Iterable<AppServices> devices, String id) {
-    final (surface, shape) = _lines[id] ?? (null, null);
+    final (surface, shape) = _shapes[id] ?? (null, null);
     if (surface == null) return false;
     return devices.any(
       (s) => s.database.db.select(
@@ -157,8 +177,8 @@ class SyncLedger {
     );
   }
 
-  /// Attached lines created: id → (surface, shape id).
-  final Map<String, (String, String)> _lines = {};
+  /// Shape strokes created: id → (surface, shape id).
+  final Map<String, (String, String)> _shapes = {};
 
   /// What live row [key] (`table/id`) of [s] holds: its record's data, as
   /// JSON; null if it is not live.

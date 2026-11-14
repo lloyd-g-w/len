@@ -56,7 +56,11 @@ class VersionPreview extends StatelessWidget {
       filled: true,
       onPressed: () => unawaited(_restore(context)),
     );
-    final heading = _Heading(v, madeOn: VersionLabels.madeOn(v, thisDevice: _thisDevice));
+    final devices = (
+      thisDevice: services.strokes.deviceId,
+      names: services.versions.store.deviceNames(),
+    );
+    final heading = _Heading(v, madeOn: VersionLabels.madeOn(v, devices));
     // Short ("Today, 11:42"), so it keeps one line at large text (R25-7).
     final when = VersionLabels.at(v, now: services.clock.nowDate());
     return EscapeCloses(
@@ -64,11 +68,7 @@ class VersionPreview extends StatelessWidget {
         appBar: compact
             ? _CompactBar(context, title: when)
             : AppBar(
-                title: _Title(
-                  v,
-                  when: when,
-                  madeOn: VersionLabels.madeOn(v, thisDevice: _thisDevice),
-                ),
+                title: _Title(v, when: when, madeOn: VersionLabels.madeOn(v, devices)),
                 actions: [
                   copy,
                   const SizedBox(width: Gaps.xs),
@@ -81,8 +81,6 @@ class VersionPreview extends StatelessWidget {
       ),
     );
   }
-
-  String get _thisDevice => services.strokes.deviceId;
 
   /// A canvas version, under [heading] (phones).
   Widget _canvas(Widget? heading) => Column(

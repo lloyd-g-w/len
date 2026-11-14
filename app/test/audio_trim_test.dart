@@ -166,10 +166,10 @@ void main() {
       expect((playback.startMs, playback.endMs), (4000, 20000));
     });
 
-    test('export cuts raw AAC to the trim, other formats stay whole', () {
-      expect(exportsTrimmed(_lecture(trimStart: 1000)), isTrue);
-      expect(exportsTrimmed(_lecture(trimStart: 1000, mime: 'audio/webm')), isFalse);
-      expect(exportsTrimmed(_lecture()), isFalse);
+    test('export cuts to the trim; uncut audio stays as it is', () {
+      final g = exportGroupOf(_lecture(trimStart: 1000));
+      expect((g.fromMs, g.toMs), (1000, null));
+      expect(exportGroupOf(_lecture()).fromMs, isNull);
     });
   });
 }

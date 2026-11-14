@@ -1,6 +1,11 @@
 import '../../core/format.dart';
 import '../../domain/notebook_version.dart';
 
+/// Who made versions: this device's id, and what the others are called
+/// now (`VersionRepository.deviceNames`; a version's own name is the
+/// fallback).
+typedef VersionDevices = ({String thisDevice, Map<String, String> names});
+
 /// How versions are named in the history (sentence case, no full stops).
 abstract final class VersionLabels {
   /// The time of day it was made: `14:02`.
@@ -37,16 +42,18 @@ abstract final class VersionLabels {
     _ => 'Edited',
   };
 
-  /// Which device made it: `This device`, `Android`.
-  static String device(NotebookVersion v, {required String thisDevice}) => v.deviceId == thisDevice
-      ? 'This device'
-      : v.deviceName.isEmpty
-      ? 'Another device'
-      : v.deviceName;
+  /// Which device made it: `This device`, `Studio laptop`; what the
+  /// device is called now ([VersionDevices.names]), else what it was called
+  /// when it made it (`Android`: versions from before devices had names).
+  static String device(NotebookVersion v, VersionDevices devices) {
+    if (v.deviceId == devices.thisDevice) return 'This device';
+    final name = devices.names[v.deviceId] ?? v.deviceName;
+    return name.isEmpty ? 'Another device' : name;
+  }
 
   /// Where it was made, after its title: `on this device`, `on Android`.
-  static String madeOn(NotebookVersion v, {required String thisDevice}) {
-    final device = VersionLabels.device(v, thisDevice: thisDevice);
+  static String madeOn(NotebookVersion v, VersionDevices devices) {
+    final device = VersionLabels.device(v, devices);
     return 'on ${device == 'This device' || device == 'Another device' ? device.toLowerCase() : device}';
   }
 

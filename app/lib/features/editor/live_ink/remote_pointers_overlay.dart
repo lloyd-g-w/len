@@ -136,6 +136,11 @@ class RemotePointersPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // As the bar's presence plates show them (two letters where initials
+    // collide).
+    final members = pointers.rooms.othersIn(pointers.room);
+    final initials = RoomPresence.initialsOf([for (final m in members) m.name ?? 'Another device']);
+    final initialOf = {for (final (i, m) in members.indexed) m.connection: initials[i]};
     for (final p in pointers.pointers) {
       final frame = frameOf(p.surface);
       if (frame == null) continue;
@@ -162,13 +167,18 @@ class RemotePointersPainter extends CustomPainter {
           tip = toScreen(head) + Offset.fromDirection(0.8, LaserPainter.dotRadius(p.laser.config));
         }
       }
-      if (tags && tip != null) _plate(canvas, tip + plateOffset, pointers.nameOf(p.connection));
+      if (tags && tip != null) {
+        _plate(
+          canvas,
+          tip + plateOffset,
+          initialOf[p.connection] ?? RoomPresence.initialOf('Another device'),
+        );
+      }
     }
   }
 
-  /// The device's plate (its initial) with its top left at [at].
-  void _plate(Canvas canvas, Offset at, String? name) {
-    final text = RoomPresence.initialOf(name ?? 'Another device');
+  /// A device's plate ([text], its initials) with its top left at [at].
+  void _plate(Canvas canvas, Offset at, String text) {
     final painter = _initials[text] ??= TextPainter(
       text: TextSpan(text: text, style: label),
       textDirection: TextDirection.ltr,

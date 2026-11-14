@@ -140,6 +140,12 @@ extension _SyncSettingsViews on _SyncSettingsState {
                   )
                 : const Text('Connect'),
           ),
+          // The token from a server behind a sign-in proxy (authentik…).
+          OutlinedButton.icon(
+            onPressed: _busy ? null : () => unawaited(_signInWithBrowser()),
+            icon: const Icon(Symbols.open_in_browser_rounded, size: Glyphs.menu),
+            label: const Text('Sign in with browser…'),
+          ),
           if (_editing) TextButton(onPressed: _cancelEditing, child: const Text('Cancel')),
           // What "your own Len server" is, and how to run one (R14-9).
           if (!_sync.isConfigured)

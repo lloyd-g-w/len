@@ -128,9 +128,11 @@ void main() {
     final webm = r('Talk', 'audio/webm', 2);
     expect(aac.joinable, isTrue);
     expect(webm.joinable, isFalse);
-    expect(exportGroups(aac), [aac.blobs.toList()]);
-    expect(exportGroups(webm), hasLength(2));
-    expect(recordingFileNames([aac, webm]), ['Lecture.aac', 'Talk.webm', 'Talk (part 2).webm']);
+    expect(exportGroupOf(aac).blobs, aac.blobs.toList());
+    expect(exportGroupOf(aac).startsMs, isNull);
+    // A browser recording's parts are joined into one file too (R27-10).
+    expect(exportGroupOf(webm).startsMs, [0, 10]);
+    expect(recordingFileNames([aac, webm]), ['Lecture.aac', 'Talk.webm']);
   });
 
   group('recording in parts', () {

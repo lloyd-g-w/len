@@ -102,4 +102,75 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Page 2 deleted'), findsNothing);
   });
+
+  group('short copy on phones at large text', () {
+    Future<void> show(WidgetTester tester, Size size, double scale) async {
+      tester.view
+        ..physicalSize = size
+        ..devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      late BuildContext context;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Builder(
+              builder: (c) {
+                context = c;
+                return const SizedBox.expand();
+              },
+            ),
+          ),
+        ),
+      );
+      final short = shortMessages(context);
+      showMessage(
+        context,
+        'Stylus detected: fingers now pan and zoom',
+        short: 'Fingers now pan',
+        action: SnackBarAction(label: short ? 'Undo' : 'Keep finger drawing', onPressed: () {}),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    for (final width in [360.0, 390.0]) {
+      testWidgets('a ${width.round()}-dp phone at 2× text: one line beside its action', (
+        tester,
+      ) async {
+        await show(tester, Size(width, 800), 2);
+        final semantics = tester.ensureSemantics();
+        final text = find.text('Fingers now pan');
+        expect(text, findsOneWidget);
+        final line = MediaQuery.textScalerOf(tester.element(text)).scale(15) * 1.6;
+        expect(tester.getRect(text).height, lessThan(line), reason: 'one line');
+        expect(tester.getCenter(find.text('Undo')).dy, closeTo(tester.getCenter(text).dy, 1));
+        // Screen readers hear the whole sentence; the action is a button.
+        expect(find.bySemanticsLabel('Stylus detected: fingers now pan and zoom'), findsOneWidget);
+        expect(
+          tester.getSemantics(find.text('Undo')),
+          isSemantics(label: 'Undo', isButton: true, hasTapAction: true),
+        );
+        semantics.dispose();
+        if (width == 390) {
+          await expectLater(
+            find.byType(SnackBar),
+            matchesGoldenFile('goldens/message_short_phone_2x.png'),
+          );
+        }
+      });
+    }
+
+    testWidgets('phones at normal text and wide windows at large text keep the sentence', (
+      tester,
+    ) async {
+      await show(tester, const Size(390, 800), 1);
+      expect(find.text('Stylus detected: fingers now pan and zoom'), findsOneWidget);
+      expect(find.text('Keep finger drawing'), findsOneWidget);
+      await show(tester, const Size(1280, 800), 2);
+      expect(find.text('Stylus detected: fingers now pan and zoom'), findsOneWidget);
+      expect(find.text('Keep finger drawing'), findsOneWidget);
+    });
+  });
 }

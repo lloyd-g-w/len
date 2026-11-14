@@ -230,6 +230,79 @@ and the app functions it ran under.
   task over 500 ms in any step once the page has started (it was the big
   notebook only).
 
+## Web long tasks 2 (branch perf/web-js-long-tasks, Oct 2026)
+
+The JavaScript build's remaining long tasks, measured with the walk
+(`tool/web_explore.sh`, Chromium headed under Xvfb with SwiftShader, a
+shared machine, `LEN_EXPLORE_PROFILE=1`). The walk now also prints, per
+step, the programs linked in each WebGL context (and how many with sources
+linked before in another), the ms waited on them, and writes their GLSL to
+`<step>.glsl`. Long tasks below are those of the 33 main steps after the
+first launch (the first launch, the offline reload and the restore start
+a page; they are the engine's start) and `open_big`, from the trace, by
+what their time went to. Before: main at `857e875f` built `--profile` (so
+the trace names functions; a release run on a busier machine showed the
+same kinds, 85 tasks, max 1.5 s); after: this branch, release; one run
+each, so read single tasks as ±0.3 s.
+
+| | Before | After |
+|---|---|---|
+| Surface resizes (picture-to-image surface) | 10 (covers 320 × 444, selection image, eyedropper 1201 × 801, first tile 1 → 512) | 0 |
+| Read-back tasks > 200 ms outside `open_big` | 3 (0.24–0.28 s; the first ink's mostly the resize) | 0 |
+| First ink (`draw_mouse`) | 2 tasks: 237 ms (resize) + 477 ms (programs of the tile surface) | none |
+| Shaders compiled in main steps (2 a program) / waited | 260 / 12.7 s | 214 / 11.3 s |
+| Shader-compile tasks > 200 ms, main steps | 29, longest 0.89 s | 30, longest 0.85 s |
+| All long tasks, main steps (PerformanceObserver) | 38, 13.6 s in all | 36, 12.0 s |
+| `open_big`: read-backs, tasks > 200 ms, longest | 63, 33, 0.97 s | 80, 32, 0.72 s |
+| Start (`first_launch`): longest task, step | 0.89 s, 8.8 s | 1.9 s, 11.1 s |
+| WebAssembly build, longest task once started | 353 ms (scan; PERFORMANCE "Web read-backs") | 346 ms (scan); restore, `open_big` < 200 ms |
+
+- **No resizes.** Changing the shared surface's size cost 0.15–0.4 s each
+  way (`resizeCanvas`, the drawing buffer reallocated, waiting for the GPU)
+  and every non-tile size did it twice (there and back to 512²). Library
+  covers, history previews, selection images, exports and the 1-px colour
+  probe now go through `RasterBatch.image`: cut from a shared atlas on the
+  CPU, or stitched from 512² slices one read-back a turn; the eyedropper's
+  snapshot is taken in slices (`OffsetLayer.toImage`). Covers come a turn
+  later (the old cover shows meanwhile).
+- **Warm-ups at start.** `RasterBatch.warmUp` sizes the surface and draws
+  ink on it while the database opens (two read-backs, ~75 ms); the first
+  stroke no longer pays for them. `WebShaderWarmUp` paints common draws
+  (rects, rounded rects, circles, arcs, paths filled and stroked, images
+  at three filter qualities, shadows and the design's blurred boxes,
+  text) beneath the app for its first three frames, plain, in a rounded
+  clip and on a layer: ~22 programs (2 s under software GL, in the start's
+  frames) that later steps no longer compile (new notebook 14 → 10, phone
+  26 → 21, the big notebook 32 → 25): 18 % fewer compiles after the
+  start, the longest shorter, but as many tasks over 200 ms (those left
+  still come several to a frame). Programs are many and keyed by
+  geometry × clip × paint × blur kernel × layer (65 distinct in the
+  walk's first session, a long tail: most steps add 1–7 combinations of
+  their own), so a synthetic warm-up only catches the common ones; more
+  would lengthen every start for compiles a session may never need.
+  What the warm-up costs a real GPU's first visit (uncompiled programs) is
+  to verify on the tablet (Chrome, Android).
+- **Tried and dropped.** 256-px tiles in the JavaScript build (smaller
+  GPU work per read-back): `open_big` read back 131 tiles at the same
+  ~170 ms each (22.5 s, longest 1.4 s): a tile's cost is the ink drawn,
+  not its area. Not repainting for tiles off screen or drawn as vectors
+  until the screen's tiles were all made (fewer frames for read-backs to
+  wait behind): no measurable change (9.8 s, longest 0.82 s). CPU-only
+  CanvasKit (`canvasKitForceCpuOnly`): no GL work at all, but every frame
+  rasterised on the CPU made 340 tasks over 200 ms (max 0.76 s), and the
+  engine's software image path leaks `VideoFrame`s (console errors). A
+  CPU surface for pictures only is not reachable from the app (the engine
+  then also decodes images the software way).
+- **What remains is GPU work under software GL**: an ink tile is drawn
+  when it is read back (0.15–0.8 s for the big notebook's dense tiles,
+  whatever the tile's size), and each first use of a draw combination in
+  the page's context compiles a program (0.1–0.3 s each, several per
+  task). On a real GPU both are milliseconds and Chrome caches programs
+  on disk between visits; the walk's fresh profile and SwiftShader are
+  the worst case. The app's own work in the JavaScript build adds 6–8
+  tasks of 0.2–0.35 s on this machine (framework build and layout,
+  garbage collection; dart2js), absent in the WebAssembly build.
+
 ## Leftovers 2 (branch perf/leftovers-2, Oct 2026)
 
 Debug JIT in the harness on a shared machine; trust the counts.
@@ -656,9 +729,13 @@ perf/test-suite):
 - Web (JavaScript): every ink tile is still a GPU read-back on the main
   thread (CanvasKit has no other way to make an image of a picture; see
   "Web read-backs"); small rasters share atlases, writing and loading
-  spare renders. Shader compiles are the other large cost under software
-  GL. The restore's final transaction marks every imported row for sync at
-  once.
+  spare renders, and the shared surface is never resized ("Web long
+  tasks 2"). Shader compiles are the other large cost under software GL:
+  common programs compile at start, the long tail of draw combinations
+  when first used. Under SwiftShader both still make tasks of 0.2–0.85 s
+  (a dense tile, a screen's new programs); on a real GPU they are
+  milliseconds. The restore's final transaction marks every imported row
+  for sync at once.
 
 - A first pull (natively) is bound by SQLite inserts in the pull worker
   (~60 µs a stroke with its chunk rows); 2M strokes take about two

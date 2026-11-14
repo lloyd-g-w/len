@@ -21,7 +21,9 @@ class OpenTab {
 /// (shown), the others keep their place ([EditorViewState]) in memory.
 ///
 /// At most [maxTabs] stay open; opening one more closes the least recently
-/// used. Lives in `AppServices`, so tabs survive going back to the library.
+/// used. Without [tabbed] (Settings → General → Notebook tabs off) only one
+/// stays open: opening another replaces it. Lives in `AppServices`, so tabs
+/// survive going back to the library.
 ///
 /// Split view (tablets in landscape, desktops) shows a second tab — or the
 /// active notebook a second time — beside the active one ([splitId]).
@@ -29,6 +31,25 @@ class OpenNotebooks extends ChangeNotifier {
   OpenNotebooks({this.maxTabs = 8});
 
   final int maxTabs;
+
+  /// Whether several notebooks stay open (the setting; default on).
+  /// Turned off, only the active notebook stays open: the others close as
+  /// [close] closes them (their editors, if shown, save their places).
+  bool get tabbed => _tabbed;
+  bool _tabbed = true;
+  set tabbed(bool value) {
+    if (value == _tabbed) return;
+    _tabbed = value;
+    if (!value && _tabs.length > 1) {
+      captureViews?.call();
+      for (final tab in [..._tabs]) {
+        if (tab.id != _activeId) _remove(tab.id);
+      }
+    }
+    notifyListeners(); // Editors show or hide the tab strip.
+  }
+
+  int get _limit => _tabbed ? maxTabs : 1;
 
   final List<OpenTab> _tabs = [];
   final Map<String, EditorViewState> _views = {};
@@ -62,14 +83,15 @@ class OpenNotebooks extends ChangeNotifier {
   VoidCallback? captureViews;
 
   /// Opens [notebook] in a tab (after the active one) and activates it;
-  /// with [view], shows it there (e.g. at a linked page).
+  /// with [view], shows it there (e.g. at a linked page). Without
+  /// [tabbed] it replaces the open notebook.
   void open(Notebook notebook, {EditorViewState? view}) {
     captureViews?.call();
     if (!contains(notebook.id)) {
       final at = _tabs.indexWhere((t) => t.id == _activeId);
       final tab = OpenTab(id: notebook.id, title: notebook.title, kind: notebook.kind);
       _tabs.insert(at == -1 ? _tabs.length : at + 1, tab);
-      while (_tabs.length > maxTabs) {
+      while (_tabs.length > _limit) {
         // Never the tab shown in the split view's second pane (it is
         // shown, so not "least recently used").
         final victim = _recent.firstWhere(

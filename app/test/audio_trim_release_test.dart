@@ -86,18 +86,17 @@ void main() {
       expect(w.slice(0, 200000).levels.length, 90);
     });
 
-    test('browser recordings export the parts the trim touches', () {
+    test('browser recordings export the parts the trim touches, cut to it', () {
       final trimmed = _lecture(trimStart: 310000, trimEnd: 590000);
-      expect(exportGroups(trimmed), [
-        ['bb' * 32],
-      ]);
-      expect(exportsWider(trimmed), isTrue);
-      expect(exportsWider(_lecture(trimStart: _part, trimEnd: 2 * _part)), isFalse);
-      expect(exportsWider(_lecture()), isFalse);
-      // Raw AAC joins and is cut exactly.
-      final adts = _lecture(trimStart: 310000, trimEnd: 590000, mime: Recording.adtsMime);
-      expect(exportGroups(adts).single.length, 3);
-      expect(exportsWider(adts), isFalse);
+      final g = exportGroupOf(trimmed);
+      expect(g.blobs, ['bb' * 32]);
+      expect((g.fromMs, g.toMs), (10000, 290000));
+      // Raw AAC joins and is cut in the whole audio.
+      final adts = exportGroupOf(
+        _lecture(trimStart: 310000, trimEnd: 590000, mime: Recording.adtsMime),
+      );
+      expect(adts.blobs.length, 3);
+      expect((adts.startsMs, adts.fromMs, adts.toMs), (null, 310000, 590000));
     });
   });
 
@@ -129,9 +128,19 @@ void main() {
       );
       expect(releasableBytes(saved, blobs: s.blobs, shared: {}), isNull);
       final trimmed = s.recordings.trim(saved.id, 310000, 590000)!;
-      expect(releasableBytes(trimmed, blobs: s.blobs, shared: {}), 5000);
+      expect(releasableBytes(trimmed, blobs: s.blobs, shared: {}), (freed: 5000, held: 0));
       // A blob another recording shares is not freed.
-      expect(releasableBytes(trimmed, blobs: s.blobs, shared: {shas[2]}), 1000);
+      expect(releasableBytes(trimmed, blobs: s.blobs, shared: {shas[2]}), (freed: 1000, held: 0));
+      // What a version names stays while it does.
+      expect(
+        releasableBytes(
+          trimmed,
+          blobs: s.blobs,
+          shared: {},
+          namedByVersions: (sha) => sha == shas[0],
+        ),
+        (freed: 4000, held: 1000),
+      );
 
       final released = (await releaseOutsideTrim(
         saved.id,

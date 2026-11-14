@@ -9,6 +9,7 @@ import '../../../domain/surface_element.dart';
 import '../../../ink/images/element_images.dart';
 import '../../../ink/render/content_painter.dart';
 import '../../../ink/render/paper_painter.dart';
+import '../../../ink/render/raster_batch.dart';
 import 'document_painters.dart';
 
 /// Paints a complete page — paper, background, template, bookmark, ink and
@@ -109,7 +110,11 @@ Future<ui.Image> renderPageImage(
   );
   final picture = recorder.endRecording();
   try {
-    return await picture.toImage((page.width * scale).ceil(), (page.height * scale).ceil());
+    return await RasterBatch.shared.image(
+      picture,
+      (page.width * scale).ceil(),
+      (page.height * scale).ceil(),
+    );
   } finally {
     picture.dispose();
   }

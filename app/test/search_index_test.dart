@@ -511,5 +511,25 @@ void main() {
       expect(snippet.text.substring(h.start, h.end), 'needle');
       expect(SearchSnippet.of('short needle', SearchQuery('needle')).text, 'short needle');
     });
+
+    test('line breaks show as " / " in snippets, so table cells stay apart (R27-17)', () {
+      final snippet = SearchSnippet.of(
+        'Rule\nFormula\n\nIntegration by parts \n ∫u dv',
+        SearchQuery('parts'),
+      );
+      expect(snippet.text, 'Rule / Formula / Integration by parts / ∫u dv');
+      final h = snippet.highlights.single;
+      expect(snippet.text.substring(h.start, h.end), 'parts');
+      // Cut on either side: never starting or ending on a separator.
+      final long = SearchSnippet.of(
+        '${'cell\n' * 30}the needle is here${'\ntail' * 30}',
+        SearchQuery('needle'),
+      );
+      expect(long.text, isNot(startsWith('…/')));
+      expect(long.text, isNot(startsWith('… /')));
+      expect(long.text, isNot(endsWith('/…')));
+      expect(long.text, isNot(endsWith('/ …')));
+      expect(long.text, contains('cell / the needle is here / tail'));
+    });
   });
 }

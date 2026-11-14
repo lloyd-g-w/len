@@ -98,13 +98,38 @@ mixin _SurfaceEditing on _SurfaceState {
   void undo() {
     if (_disposed) return;
     final edit = history.takeUndo();
-    if (edit != null) _apply(edit.inverse);
+    if (edit == null) return;
+    final applied = _applyConnected(edit.inverse);
+    if (!identical(applied, edit.inverse)) history.amendTaken(applied.inverse, undone: true);
   }
 
   void redo() {
     if (_disposed) return;
     final edit = history.takeRedo();
-    if (edit != null) _apply(edit);
+    if (edit == null) return;
+    final applied = _applyConnected(edit);
+    if (!identical(applied, edit)) history.amendTaken(applied, undone: false);
+  }
+
+  /// Applies [edit] (an undo or redo step) and, in the same step, brings
+  /// what it restored together with what changed beneath it since
+  /// (`ConnectorRepair.fixesFor`): a line put back whose shape moved since
+  /// (synced in) goes back onto it, and a stroke of a shape edited since on
+  /// another device merges with that edit. Returns what was applied:
+  /// [edit] itself when nothing was to do, else [edit] with the fixes.
+  InkEdit _applyConnected(InkEdit edit) {
+    _apply(edit);
+    if (!edit.added.any((s) => s.shape != null) && !edit.removed.any((s) => s.shape != null)) {
+      return edit;
+    }
+    flush(); // The fixes read what is stored.
+    final (:removed, :added) = ConnectorRepair(
+      _repository,
+    ).fixesFor(surfaceId, {for (final s in edit.added) s.id, for (final s in edit.removed) s.id});
+    if (added.isEmpty && removed.isEmpty) return edit;
+    final fix = InkEdit(added: added, removed: removed);
+    _apply(fix);
+    return edit.mergedWith(fix);
   }
 
   void _apply(InkEdit edit) {

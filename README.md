@@ -48,7 +48,8 @@ optional sync through a tiny server you host yourself.
   RTF), bundled fonts plus your own (import a TTF / OTF once; it syncs, goes into
   backups and PDF exports).
 - **More**: images, audio recordings with ink replay, search (handwriting on
-  Android), split view, tabs, PDF / PNG export, Len files and backups.
+  Android), split view, tabs (or one notebook at a time), PDF / PNG export, Len files
+  and backups.
 - **Keyboard access**: shortcuts (Ctrl/⌘+/ lists them), arrow keys within every group,
   context menus with the Menu key or Shift+F10.
 - **Screen readers**: every control is named; pages read as "Page 3 of 12, bookmarked"
@@ -111,7 +112,8 @@ window, a scan and version history (save, preview) — by label through the sema
 uncaught exception, failed request or failed check fails it, as does a task
 over 500 ms in a WebAssembly build once the page has started; long tasks
 (with `LEN_EXPLORE_PROFILE=1`, where each one's time went, and the GPU
-read-backs, surface resizes and shader compiles of each step) and the JS heap
+read-backs, surface resizes and shader compiles of each step, the programs
+linked per WebGL context and their GLSL in `<step>.glsl`) and the JS heap
 are reported. Screenshots of each step and `report.json` go to `$LEN_EXPLORE_OUT` (default
 `/tmp/len-web-explore`); options are at the top of `tool/web_explore.py`.
 

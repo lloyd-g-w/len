@@ -94,4 +94,77 @@ void main() {
       p.dispose();
     }
   });
+
+  group('image', () {
+    /// A picture of four [size]² quadrants: red, green / blue, white.
+    ui.Picture quadrants(int width, int height) {
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
+      final w = width / 2, h = height / 2;
+      canvas
+        ..drawRect(ui.Rect.fromLTWH(0, 0, w, h), ui.Paint()..color = const ui.Color(0xFFFF0000))
+        ..drawRect(ui.Rect.fromLTWH(w, 0, w, h), ui.Paint()..color = const ui.Color(0xFF00FF00))
+        ..drawRect(ui.Rect.fromLTWH(0, h, w, h), ui.Paint()..color = const ui.Color(0xFF0000FF))
+        ..drawRect(ui.Rect.fromLTWH(w, h, w, h), ui.Paint()..color = const ui.Color(0xFFFFFFFF));
+      return recorder.endRecording();
+    }
+
+    Future<void> expectQuadrants(ui.Image image, int width, int height) async {
+      expect((image.width, image.height), (width, height));
+      final data = (await image.toByteData())!;
+      int at(int x, int y) => data.getUint32((y * width + x) * 4);
+      for (final (x, y, colour) in [
+        (0, 0, 0xFF0000FF),
+        (width ~/ 2 - 1, height ~/ 2 - 1, 0xFF0000FF),
+        (width ~/ 2, 0, 0x00FF00FF),
+        (width - 1, height ~/ 2 - 1, 0x00FF00FF),
+        (0, height - 1, 0x0000FFFF),
+        (width - 1, height - 1, 0xFFFFFFFF),
+        (width ~/ 2, height ~/ 2, 0xFFFFFFFF),
+      ]) {
+        expect(at(x, y), colour, reason: '($x, $y)');
+      }
+    }
+
+    test('natively it is the picture made into an image', () async {
+      final batch = RasterBatch(batching: false);
+      final picture = quadrants(40, 30);
+      final image = await batch.image(picture, 40, 30);
+      await expectQuadrants(image, 40, 30);
+      expect(batch.imageNow(picture, 40, 30), isA<ui.Image>());
+      image.dispose();
+      picture.dispose();
+    });
+
+    test('batched, a small picture is cut from an atlas it shared', () async {
+      final batch = RasterBatch(batching: true, atlasSize: 128);
+      final pictures = [quadrants(40, 30), quadrants(50, 64)];
+      final images = await Future.wait([
+        batch.image(pictures[0], 40, 30),
+        batch.image(pictures[1], 50, 64),
+      ]);
+      expect(batch.readbacks, 1);
+      await expectQuadrants(images[0], 40, 30);
+      await expectQuadrants(images[1], 50, 64);
+      final later = batch.imageNow(pictures[0], 40, 30);
+      expect(later, isA<Future<ui.Image>>());
+      (await later).dispose();
+      for (final i in images) {
+        i.dispose();
+      }
+      for (final p in pictures) {
+        p.dispose();
+      }
+    });
+
+    test('batched, a large picture is stitched from atlas-sized slices', () async {
+      final batch = RasterBatch(batching: true, atlasSize: 64);
+      final picture = quadrants(150, 70);
+      final image = await batch.image(picture, 150, 70);
+      expect(batch.readbacks, 6); // 3 × 2 slices, every one atlas-sized.
+      await expectQuadrants(image, 150, 70);
+      image.dispose();
+      picture.dispose();
+    });
+  });
 }

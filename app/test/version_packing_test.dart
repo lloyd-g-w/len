@@ -36,7 +36,7 @@ void main() {
     versions = Versions(
       repositories: s.sync.engine.repositories,
       blobs: s.blobs,
-      deviceName: 'Test',
+      deviceName: () => 'Test',
       hold: () {
         onHold?.call();
         return held;

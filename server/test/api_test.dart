@@ -62,6 +62,7 @@ void main() {
         'maxBlobBytes': defaultMaxBlobBytes,
         'blobsCollectedAt': 0,
         'serverId': store.serverId,
+        'signin': false,
       });
     });
 

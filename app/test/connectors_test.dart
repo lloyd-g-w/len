@@ -97,6 +97,46 @@ void main() {
       expect(() => ShapeGeometry.fromJson({...box.toJson(), 'o': 3}), throwsFormatException);
     });
 
+    test('a lineage (r) round-trips, survives edits, is bounded; absent for old data', () {
+      final box = ShapeGeometry(ShapeKind.rectangle, const [
+        Offset(0, 0),
+        Offset(10, 0),
+        Offset(10, 10),
+        Offset(0, 10),
+      ]);
+      expect(box.replaces, isEmpty);
+      expect(box.toJson().containsKey('r'), isFalse);
+      final once = box.map((p) => p * 2).editing('s1', box);
+      expect(once.origin, 's1');
+      expect(once.replaces, ['s1']);
+      expect(once.toJson()['r'], ['s1']);
+      expect(ShapeGeometry.fromJson(once.toJson()), once);
+      // Edits keep it; an edit of an edit names the nearest first.
+      expect(once.map((p) => p + const Offset(1, 1)).replaces, ['s1']);
+      final twice = once.withPoint(0, const Offset(1, 0)).editing('s2', once);
+      expect(twice.origin, 's1');
+      expect(twice.replaces, ['s2', 's1']);
+      // At most maxLineage, the oldest dropped; a copy has none.
+      var long = box;
+      for (var i = 0; i < 12; i++) {
+        long = long.editing('e$i', long);
+      }
+      expect(long.replaces, hasLength(ShapeGeometry.maxLineage));
+      expect(long.replaces.first, 'e11');
+      expect(long.detached.replaces, isEmpty);
+      expect(long.detached.origin, isNull);
+      // An old client ignores `r`; malformed, the shape is malformed.
+      for (final r in [
+        <String>[],
+        [''],
+        [3],
+        'x',
+        List.filled(9, 'x'),
+      ]) {
+        expect(() => ShapeGeometry.fromJson({...box.toJson(), 'r': r}), throwsFormatException);
+      }
+    });
+
     test('malformed attachments make the shape malformed', () {
       for (final a in [
         [null],
@@ -477,6 +517,24 @@ void main() {
       expect(arrowNow().shape, before);
     });
 
+    test('edits name the strokes they replace: the box and its followers', () {
+      box();
+      attachedArrow();
+      content.selection.select([boxNow()], const []);
+      transform(Affine.translation(const Offset(30, 0)));
+      final (box1, arrow1) = (boxNow(), arrowNow());
+      expect(box1.shape!.replaces, ['box']);
+      expect(arrow1.shape!.replaces, ['arrow']); // followed
+      content.selection
+        ..select([arrowNow()], const [])
+        ..recolor(0xFFE03131);
+      expect(arrowNow().shape!.replaces, [arrow1.id, 'arrow']);
+      expect(arrowNow().shapeId, 'arrow');
+      model.flush();
+      // As stored.
+      expect(repository.queries.strokesByIds('s', [arrowNow().id]).single.shape, arrowNow().shape);
+    });
+
     test('restyled or bent the arrow stays attached', () {
       box();
       attachedArrow();
@@ -525,6 +583,7 @@ void main() {
       final copyArrow = copies.firstWhere((s) => s.shape!.kind == ShapeKind.arrow);
       expect(copyArrow.shape!.tip!.id, copyBox.id);
       expect(copyBox.shapeId, copyBox.id); // a shape of its own
+      expect(copyBox.shape!.replaces, isEmpty);
       // Only the arrow copied: it lets go.
       content.selection
         ..select([

@@ -45,10 +45,16 @@ class LibrarySearchResults extends StatefulWidget {
     required this.onOpen,
     this.padding = EdgeInsets.zero,
     this.whenEmpty,
+    this.locationOf,
   });
 
   final String query;
   final OpenSearchResult onOpen;
+
+  /// Where a notebook is ("School › Maths", "Library"), shown under its
+  /// title: notebooks of the same name in different folders (a "Lecture 4"
+  /// per course) are told apart.
+  final String Function(Notebook)? locationOf;
   final EdgeInsets padding;
   final Widget? whenEmpty;
 
@@ -59,6 +65,9 @@ class LibrarySearchResults extends StatefulWidget {
 class _LibrarySearchResultsState extends State<LibrarySearchResults> {
   late final AppServices _services = AppScope.read(context);
   List<NotebookHits> _groups = const [];
+
+  /// Whether there were more hits than shown (a very common word).
+  bool _truncated = false;
   late SearchQuery _query;
   Timer? _debounce;
   StreamSubscription<Object?>? _remote;
@@ -98,7 +107,10 @@ class _LibrarySearchResultsState extends State<LibrarySearchResults> {
 
   void _refresh() {
     _query = SearchQuery(widget.query);
-    final hits = _services.search.search(widget.query);
+    const limit = SearchIndex.defaultLimit;
+    var hits = _services.search.search(widget.query, limit: limit + 1);
+    _truncated = hits.length > limit;
+    if (_truncated) hits = hits.take(limit).toList();
     _groups = groupByNotebook(
       hits,
       _services.notebooks.get,
@@ -134,7 +146,8 @@ class _LibrarySearchResultsState extends State<LibrarySearchResults> {
                   const SectionLabel('Pages'),
                   const SizedBox(width: Gaps.sm),
                   Text(
-                    count == 1 ? '1 match' : '$count matches',
+                    // The best ones of more: "297+ matches".
+                    _truncated ? '$count+ matches' : (count == 1 ? '1 match' : '$count matches'),
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontFeatures: AppTheme.tabularFigures,
                     ),
@@ -154,6 +167,7 @@ class _LibrarySearchResultsState extends State<LibrarySearchResults> {
               group: _groups[i],
               query: _query,
               onOpen: widget.onOpen,
+              location: widget.locationOf?.call(_groups[i].notebook),
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 120)), // Clear of the FAB.

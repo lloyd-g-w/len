@@ -16,6 +16,7 @@ import 'package:len/ink/tools/laser.dart';
 import 'package:len/ui/app_theme.dart';
 
 import 'support/real_async.dart';
+import 'support/stored.dart';
 
 /// Opens [notebook] in the editor with fresh in-memory services.
 Future<(AppServices, Notebook)> openCanvas(
@@ -83,7 +84,7 @@ Future<void> mouseDrag(WidgetTester tester, List<Offset> points) async {
   await tester.pump();
 }
 
-List<Stroke> liveStrokes(AppServices s, String surface) => s.strokes.loadChunks(surface, [
+List<Stroke> liveStrokes(AppServices s, String surface) => storedStrokes(s).loadChunks(surface, [
   for (var x = -2; x <= 3; x++)
     for (var y = -2; y <= 3; y++) (x: x, y: y),
 ]);

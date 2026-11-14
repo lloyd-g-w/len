@@ -48,9 +48,9 @@ class EditorSearchMatch {
 }
 
 /// The matches of [query] ([parsed]) in notebook [notebookId], in reading
-/// order ([limit] at most, give or take one hit's occurrences), placed on
-/// the pages [host] shows.
-List<EditorSearchMatch> findEditorSearchMatches(
+/// order ([limit] at most), placed on the pages [host] shows, and whether
+/// there were more.
+({List<EditorSearchMatch> matches, bool truncated}) findEditorSearchMatches(
   SearchService search,
   EditorSearchHost host,
   SearchQuery parsed, {
@@ -58,7 +58,8 @@ List<EditorSearchMatch> findEditorSearchMatches(
   required String notebookId,
   required int limit,
 }) {
-  final hits = search.search(query, notebookId: notebookId);
+  // Each hit holds a match at least: [limit] of them are enough.
+  final hits = search.search(query, notebookId: notebookId, limit: limit + 1);
   final matches = <EditorSearchMatch>[];
   for (final hit in hits) {
     if (!hit.isContent || hit.surfaceId == null) continue;
@@ -114,10 +115,11 @@ List<EditorSearchMatch> findEditorSearchMatches(
         );
       }
     }
-    if (matches.length >= limit) break;
+    if (matches.length > limit) break;
   }
   matches.sort(_inReadingOrder);
-  return matches;
+  final truncated = matches.length > limit || hits.length > limit;
+  return (matches: truncated ? matches.sublist(0, limit) : matches, truncated: truncated);
 }
 
 /// Page order; on a page, PDF text first (in text order), then text

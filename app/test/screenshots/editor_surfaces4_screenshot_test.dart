@@ -153,6 +153,28 @@ void main() {
     });
   }
 
+  // At 2× text a phone gets the one-line notice ("Fingers now pan", Undo).
+  testWidgets('e_snack stylus detected, phone at 2× text', (tester) async {
+    await guardOverflows('e_snack_stylus_detected_phone_2x', () async {
+      final s = bareServices();
+      final nb = s.notebooks.create(
+        title: 'Meeting notes',
+        kind: NotebookKind.paged,
+        paper: PaperStyle.gridLarge,
+        coverColor: 0xFF1971C2,
+      );
+      await pumpNotebook(tester, s, nb, screen: phoneScreen, textScale: 2);
+      final pen = await tester.startGesture(const Offset(120, 420), kind: PointerDeviceKind.stylus);
+      for (var i = 1; i <= 12; i++) {
+        await pen.moveTo(Offset(120 + i * 12.0, 420 + (i.isEven ? 8 : -8)));
+      }
+      await pen.up();
+      await settle(tester);
+      expect(find.text('Fingers now pan'), findsOneWidget);
+      await shoot(tester, 'e_snack_stylus_detected_phone_2x');
+    });
+  });
+
   // 9. The gesture HUD and tips, dark.
   for (final screen in [phoneScreen, tabletScreen]) {
     testWidgets('e_hud ${screen.name} dark', (tester) async {

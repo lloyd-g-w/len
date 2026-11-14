@@ -16,11 +16,11 @@ enum VersionAction { restore, copy, rename, delete, deleteOlder }
 /// What a row of the history says, worked out once when the list is
 /// (not with every build of the row as it scrolls into view).
 class VersionRowLabels {
-  VersionRowLabels(NotebookVersion v, {required bool first, required String thisDevice})
+  VersionRowLabels(NotebookVersion v, {required bool first, required VersionDevices devices})
     : title = VersionLabels.title(v),
       time = VersionLabels.time(v),
-      details = _details(v, first: first, thisDevice: thisDevice),
-      semantics = _semantics(v, first: first, thisDevice: thisDevice);
+      details = _details(v, first: first, devices: devices),
+      semantics = _semantics(v, first: first, devices: devices);
 
   /// Its name, or what made it.
   final String title;
@@ -34,15 +34,32 @@ class VersionRowLabels {
   /// All of it, for screen readers.
   final String semantics;
 
-  static String _details(NotebookVersion v, {required bool first, required String thisDevice}) {
+  static String _details(
+    NotebookVersion v, {
+    required bool first,
+    required VersionDevices devices,
+  }) {
     final summary = VersionLabels.summary(v, first: first);
-    final device = VersionLabels.device(v, thisDevice: thisDevice);
+    final device = _shortened(VersionLabels.device(v, devices));
     return '$device, ${summary[0].toLowerCase()}${summary.substring(1)}';
   }
 
-  static String _semantics(NotebookVersion v, {required bool first, required String thisDevice}) =>
+  /// The longest device name a row shows whole (a longer one is cut, so
+  /// what changed still shows; screen readers hear it all).
+  static const deviceMax = 28;
+
+  static String _shortened(String device) {
+    final chars = device.characters;
+    return chars.length <= deviceMax ? device : '${chars.take(deviceMax - 1).string.trimRight()}…';
+  }
+
+  static String _semantics(
+    NotebookVersion v, {
+    required bool first,
+    required VersionDevices devices,
+  }) =>
       '${VersionLabels.title(v)}, ${VersionLabels.time(v)}, '
-      '${VersionLabels.device(v, thisDevice: thisDevice)}. '
+      '${VersionLabels.device(v, devices)}. '
       '${VersionLabels.summary(v, first: first)}';
 }
 
@@ -144,29 +161,57 @@ class VersionRow extends StatelessWidget {
         textDirection: Directionality.of(context),
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
+    // The bookmark and its gap take this much of the title line.
+    const mark = Glyphs.menu + Gaps.xs;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // As in [VersionRowText]: the time begins the details line when a
+        // word of the name has no room beside it (UX_AUDIT R27-7).
+        final below = VersionRowText.timeBelow(
+          title: labels.title,
+          titleStyle: VersionRowText.styleOf(context, text.labelLarge),
+          time: labels.time,
+          timeStyle: VersionRowText.styleOf(context, _timeStyle(text)),
+          scaler: MediaQuery.textScalerOf(context),
+          width: constraints.maxWidth - mark,
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Symbols.bookmark_rounded, size: Glyphs.menu, fill: 1),
-            const SizedBox(width: Gaps.xs),
-            Flexible(
-              child: Text(
-                labels.title,
-                style: text.labelLarge,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                const Icon(Symbols.bookmark_rounded, size: Glyphs.menu, fill: 1),
+                const SizedBox(width: Gaps.xs),
+                Flexible(
+                  child: Text(
+                    labels.title,
+                    style: text.labelLarge,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (!below) ...[
+                  const SizedBox(width: Gaps.sm),
+                  Text(labels.time, style: _timeStyle(text)),
+                ],
+              ],
             ),
-            const SizedBox(width: Gaps.sm),
-            Text(labels.time, style: _timeStyle(text)),
+            Text.rich(
+              TextSpan(
+                children: [
+                  if (below) TextSpan(text: labels.time, style: _timeStyle(text)),
+                  TextSpan(text: below ? ' · ${labels.details}' : labels.details),
+                ],
+              ),
+              style: text.bodySmall,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
-        ),
-        Text(labels.details, style: text.bodySmall, maxLines: 3, overflow: TextOverflow.ellipsis),
-      ],
+        );
+      },
     );
   }
 

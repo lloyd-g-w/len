@@ -117,7 +117,15 @@ abstract final class Connectors {
   }
 
   /// [line] stroke rebuilt as [shape], with id [id]: an edit of it, so it
-  /// keeps its shape id ([Stroke.shapeId]; docs/SYNC_PROTOCOL.md, `sh.o`).
+  /// keeps its shape id ([Stroke.shapeId]; docs/SYNC_PROTOCOL.md, `sh.o`)
+  /// and names [line] as the stroke it replaces (`sh.r`). An [id] equal to
+  /// [line]'s (a preview of it) keeps its lineage as it is.
   static Stroke rebuilt(Stroke line, ShapeGeometry shape, {required String id}) =>
-      ShapeBuilder.reshaped(line, shape.withOrigin(line.shapeId), id: id);
+      ShapeBuilder.reshaped(
+        line,
+        id == line.id
+            ? shape.withLineage(line.shapeId, line.shape!.replaces)
+            : shape.editing(line.id, line.shape!),
+        id: id,
+      );
 }

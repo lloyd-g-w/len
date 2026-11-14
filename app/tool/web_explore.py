@@ -262,13 +262,30 @@ INIT = '''(() => {
 # (read-backs by size, size changes of the surface read from, shader
 # compiles), so a step tells which caches read pixels back without names.
 GL_COUNTERS = '''(() => {
-  const gl = window.lenGl = { readbacks: {}, resizes: 0, shaders: [0, 0] };
-  const sizes = new WeakMap();
+  const gl = window.lenGl = { readbacks: {}, resizes: 0, shaders: [0, 0], programs: {}, linked: [] };
+  const sizes = new WeakMap(), ids = new WeakMap(), sources = new WeakMap(), linked = new Set();
+  // Per context (c1, c2, … in the order they first compiled or read
+  // back; * marks one that read pixels back): programs linked, how many
+  // of them with sources linked before (any context), ms waited on them.
+  let contexts = 0;
+  const of = (c) => { if (!ids.has(c)) ids.set(c, 'c' + ++contexts);
+    const id = ids.get(c); return gl.programs[id] || (gl.programs[id] = [0, 0, 0, false]); };
   for (const C of [window.WebGLRenderingContext, window.WebGL2RenderingContext]) {
     if (!C) continue;
     const p = C.prototype, read = p.readPixels, shader = p.getShaderParameter,
-      program = p.getProgramParameter, compile = p.compileShader;
+      program = p.getProgramParameter, compile = p.compileShader, source = p.shaderSource,
+      attach = p.attachShader, link = p.linkProgram;
+    p.shaderSource = function shaderSource(s, text) { sources.set(s, text); return source.apply(this, arguments); };
+    p.attachShader = function attachShader(prog, s) {
+      sources.set(prog, (sources.get(prog) || '') + '\\n' + (sources.get(s) || ''));
+      return attach.apply(this, arguments); };
+    p.linkProgram = function linkProgram(prog) {
+      const r = of(this), key = sources.get(prog) || '';
+      r[0]++; if (linked.has(key)) r[1]++; linked.add(key);
+      gl.linked.push(ids.get(this) + ' ' + key);
+      return link.apply(this, arguments); };
     p.readPixels = function readPixels(x, y, w, h) {
+      of(this)[3] = true;
       const size = this.drawingBufferWidth + 'x' + this.drawingBufferHeight;
       if (sizes.has(this) && sizes.get(this) !== size) gl.resizes++;
       sizes.set(this, size);
@@ -278,7 +295,8 @@ GL_COUNTERS = '''(() => {
         r[0]++; r[1] += performance.now() - start; }
     };
     const timed = (f) => function () { const start = performance.now();
-      try { return f.apply(this, arguments); } finally { gl.shaders[1] += performance.now() - start; } };
+      try { return f.apply(this, arguments); } finally {
+        const ms = performance.now() - start; gl.shaders[1] += ms; of(this)[2] += ms; } };
     p.getShaderParameter = timed(shader);
     p.getProgramParameter = timed(program);
     p.compileShader = function compileShader() { gl.shaders[0]++; return compile.apply(this, arguments); };
@@ -286,22 +304,32 @@ GL_COUNTERS = '''(() => {
 })()'''
 
 
-async def print_gl(page):
-    """What WebGL blocked on since the last call (GL_COUNTERS), reset."""
+async def print_gl(page, name):
+    """What WebGL blocked on since the last call (GL_COUNTERS), reset. The
+    sources of the programs linked go to $LEN_EXPLORE_OUT/<name>.glsl."""
     gl = await page.evaluate('''() => { const g = window.lenGl; if (!g) return null;
-      const r = JSON.parse(JSON.stringify(g)); g.readbacks = {}; g.resizes = 0; g.shaders = [0, 0];
-      return r; }''')
+      const r = JSON.parse(JSON.stringify(g)); g.readbacks = {}; g.resizes = 0; g.shaders = [0, 0]; g.linked = [];
+      for (const v of Object.values(g.programs)) { v[0] = v[1] = v[2] = 0; } return r; }''')
     if not gl:
         return None
+    if gl.get('linked'):
+        with open(os.path.join(OUT, f'{name}.glsl'), 'w') as f:
+            f.write('\n\n// ----- program in '.join([''] + gl['linked']))
     reads = sorted(gl['readbacks'].items(), key=lambda kv: -kv[1][1])
     count, ms = sum(r[0] for _, r in reads), sum(r[1] for _, r in reads)
     sizes = ', '.join(f'{k} {n}× {t:.0f} ms' for k, (n, t) in reads[:6])
     print(f'  gl: {count} read-backs {ms:.0f} ms{f" ({sizes})" if sizes else ""}, '
           f'{gl["resizes"]} surface resizes, {gl["shaders"][0]} shaders compiled '
           f'({gl["shaders"][1]:.0f} ms waited)')
+    programs = {k + ('*' if v[3] else ''): v for k, v in gl.get('programs', {}).items() if v[0] or v[2] >= 1}
+    if programs:
+        print('    programs linked: ' + ', '.join(
+            f'{k} {v[0]} ({v[1]} linked before) {v[2]:.0f} ms' for k, v in programs.items()))
     return {'readbacks': count, 'readback_ms': round(ms), 'resizes': gl['resizes'],
             'shaders': gl['shaders'][0], 'shader_ms': round(gl['shaders'][1]),
-            'by_size': {k: [n, round(t)] for k, (n, t) in gl['readbacks'].items()}}
+            'by_size': {k: [n, round(t)] for k, (n, t) in gl['readbacks'].items()},
+            'programs': {k + ('*' if v[3] else ''): [v[0], v[1], round(v[2])]
+                         for k, v in gl.get('programs', {}).items() if v[0] or v[2] >= 1}}
 
 
 class Watch:
@@ -695,7 +723,7 @@ class Walk:
             self.cdp.remove_listener('Tracing.dataCollected', collect)
             self.cdp.remove_listener('Tracing.tracingComplete', complete)
             print_long_tasks(profile, trace)
-        gl = await print_gl(page) if PROFILE else None
+        gl = await print_gl(page, f'{self.name}-{self.n:02}-{title}') if PROFILE else None
         if origin != self.origin:  # A new page (or reloaded): its own list.
             self.origin, self.tasks_seen = origin, 0
         new = [t for t in tasks[self.tasks_seen:] if not t[2]]
@@ -1336,7 +1364,14 @@ class Walk:
         """The restored big notebook opens, its last page too."""
         page = self.page
         await page.keyboard.press('Escape')
-        await tap(page, 'Back')
+        # Escape may have left Settings already (it closes the screen once
+        # the snack bar is gone).
+        back = page.get_by_role('button', name='Back', exact=True)
+        try:
+            await back.first.wait_for(timeout=3000)
+            await back.first.click(timeout=30000)
+        except PlaywrightTimeout:
+            pass
         await tap(page, BIG, exact=False)
         await page.get_by_role('button', name='Back', exact=True).wait_for(timeout=60000)
         last_image = (BIG_IMAGES - 1) * BIG_PAGES // BIG_IMAGES + 1  # A page with an image.

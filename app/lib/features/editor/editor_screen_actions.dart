@@ -9,10 +9,15 @@ extension _EditorActions on _EditorScreenState {
   void _onStylusDetected() {
     if (_session.tools.stylusOnly != null) return _tips.offer(EditorTip.penButton);
     _setStylusOnly(true);
+    // On a phone at large text: one line, "Undo" for the action.
     showMessage(
       context,
       'Stylus detected: fingers now pan and zoom',
-      action: SnackBarAction(label: 'Keep finger drawing', onPressed: () => _setStylusOnly(false)),
+      short: 'Fingers now pan',
+      action: SnackBarAction(
+        label: shortMessages(context) ? 'Undo' : 'Keep finger drawing',
+        onPressed: () => _setStylusOnly(false),
+      ),
     );
   }
 

@@ -109,10 +109,11 @@ class WorkspaceMemory {
     };
     final open = [for (final id in kept.tabs) ?find(id)];
     if (open.isEmpty) return null;
-    for (final n in open) {
+    final active = find(kept.active) ?? open.last;
+    // Without tabs, only the notebook that was shown.
+    for (final n in tabs.tabbed ? open : [active]) {
       if (!tabs.contains(n.id)) tabs.open(n);
     }
-    final active = find(kept.active) ?? open.last;
     tabs.activate(active.id);
     if (find(kept.split) case final split?) {
       tabs.openSplit(split.id);

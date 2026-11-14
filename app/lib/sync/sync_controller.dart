@@ -9,6 +9,7 @@ import '../data/settings_repository.dart';
 import '../data/sync_token_store.dart';
 import '../platform/live_socket.dart';
 import 'blob_sync.dart';
+import 'device_name.dart';
 import 'freed_files.dart';
 import 'live_channel.dart';
 import 'live_events.dart';
@@ -159,7 +160,7 @@ class SyncController extends ChangeNotifier with _SyncRequests {
     },
     onMessage: _onLiveMessage,
     onChanged: _onSocketChanged,
-    identity: () => (deviceId: engine.repositories.strokes.deviceId, name: deviceName),
+    identity: () => (deviceId: engine.repositories.strokes.deviceId, name: deviceName.value),
     random: jitter,
   );
   final _s = _Socket();
@@ -168,17 +169,8 @@ class SyncController extends ChangeNotifier with _SyncRequests {
   /// their live messages.
   late final LiveRooms rooms = LiveRooms(_socket);
 
-  /// How this device is named to others in a room.
-  static String get deviceName => kIsWeb
-      ? 'Browser'
-      : switch (defaultTargetPlatform) {
-          TargetPlatform.android => 'Android',
-          TargetPlatform.iOS => 'iPad',
-          TargetPlatform.linux => 'Linux',
-          TargetPlatform.macOS => 'Mac',
-          TargetPlatform.windows => 'Windows',
-          TargetPlatform.fuchsia => 'Device',
-        };
+  /// What this device is called to others: in rooms, and on its versions.
+  late final DeviceName deviceName = DeviceName(settings)..addListener(_socket.introduce);
 
   /// Whether the app is in the foreground (the live connection is open
   /// only then); the app sets it from its lifecycle.
@@ -476,6 +468,7 @@ class SyncController extends ChangeNotifier with _SyncRequests {
     _live.dispose();
     _socket.dispose();
     rooms.dispose();
+    deviceName.dispose();
     _api?.close();
     unawaited(_remoteChanges.close());
     unawaited(_notices.close());

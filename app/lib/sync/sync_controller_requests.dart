@@ -23,6 +23,32 @@ mixin _SyncRequests {
     }
   }
 
+  /// What the server at [url] says of itself, without a token (whether it
+  /// offers browser sign-in). Throws [SyncException].
+  Future<ServerInfo> serverInfo(String url) async {
+    final api = apiFactory(SyncController._normalizeUrl(url), '');
+    try {
+      return await api.serverInfo();
+    } finally {
+      api.close();
+    }
+  }
+
+  /// The access token a browser sign-in's [code] (with its [verifier])
+  /// gets from the server at [url]. Throws [SyncException].
+  Future<String> signinToken({
+    required String url,
+    required String code,
+    required String verifier,
+  }) async {
+    final api = apiFactory(SyncController._normalizeUrl(url), '');
+    try {
+      return await api.signinToken(code: code, verifier: verifier);
+    } finally {
+      api.close();
+    }
+  }
+
   /// Downloads blob [sha] from the server if it is not stored locally.
   /// Returns whether it is available now; never throws (a missing blob is
   /// retried the next time it is needed). A file Free up removed here that

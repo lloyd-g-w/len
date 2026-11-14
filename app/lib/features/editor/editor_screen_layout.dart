@@ -7,12 +7,14 @@ extension _EditorLayout on _EditorScreenState {
   /// the chrome.
   Widget _buildScreen(BuildContext context) {
     final open = _services.openNotebooks;
-    final tabs = open.contains(_notebook.id) && !widget.secondPane ? open : null;
+    // Without tabs (the setting): no strip, switcher or tab shortcuts.
+    final tabbed = open.tabbed ? open : null;
+    final tabs = open.contains(_notebook.id) && !widget.secondPane ? tabbed : null;
     // The second pane's bar lines up with the first's tab strip.
     final primaryWidth = widget.secondPane ? SplitView.primaryWidthOf(context) : null;
     final band =
         primaryWidth != null &&
-        EditorTopBar.showsStrip(Size(primaryWidth, MediaQuery.sizeOf(context).height), open);
+        EditorTopBar.showsStrip(Size(primaryWidth, MediaQuery.sizeOf(context).height), tabbed);
     // Back (e.g. Android's) leaves focus mode before leaving the editor;
     // a box being typed in finishes first (its own handler, after this one).
     // A stylus at the screen's edge writes rather than going Back.

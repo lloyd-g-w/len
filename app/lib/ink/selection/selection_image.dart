@@ -7,6 +7,7 @@ import '../../domain/stroke.dart';
 import '../../domain/surface_element.dart';
 import '../images/element_images.dart';
 import '../render/content_painter.dart';
+import '../render/raster_batch.dart';
 
 /// Where and how large [SelectionImage] draws a selection: the world
 /// [area] it shows, at [scale] pixels per world unit, [width] × [height]
@@ -84,7 +85,7 @@ abstract final class SelectionImage {
     ContentPainter.paint(canvas, strokes, elements, images: images, pixelScale: layout.scale);
     final picture = recorder.endRecording();
     try {
-      return await picture.toImage(layout.width, layout.height);
+      return await RasterBatch.shared.image(picture, layout.width, layout.height);
     } finally {
       picture.dispose();
     }

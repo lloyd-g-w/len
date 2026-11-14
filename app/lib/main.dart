@@ -12,6 +12,7 @@ import 'data/install_identity.dart';
 import 'data/settings_repository.dart';
 import 'data/write_back.dart';
 import 'ink/lab/perf_probe.dart';
+import 'ink/render/raster_batch.dart';
 import 'ink/render/stored_rasters.dart';
 import 'platform/app_directory.dart';
 import 'platform/blob_backend.dart';
@@ -30,6 +31,9 @@ Future<void> main(List<String> args) async {
   StartupTrace.begin();
   WidgetsFlutterBinding.ensureInitialized();
   StartupTrace.watchFrames();
+  // JavaScript build: the surface pictures are made into images on sized
+  // and its ink programs compiled while the database opens.
+  unawaited(RasterBatch.shared.warmUp());
   registerFontLicenses();
   // Web: one tab at a time owns the database; another can take it over.
   final tabs = openTabHandover();
@@ -97,6 +101,7 @@ Future<void> _start(List<String> args, TabHandover? tabs) async {
   if (PerfProbe.requested) PerfProbe.start();
   services.versionRecorder.enabled = true;
   unawaited(services.fonts.refresh()); // Imported fonts, before text shows.
+  unawaited(services.sync.deviceName.detect()); // Android's device name.
   runApp(LenApp(services: services));
   StartupTrace.mark('runApp');
   StartupTrace.watchTurns();

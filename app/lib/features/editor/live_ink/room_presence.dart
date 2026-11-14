@@ -6,7 +6,7 @@ import '../../../sync/live_rooms.dart';
 import '../../../ui/app_theme.dart';
 
 /// Who else has this notebook open right now (live sync's presence): a
-/// small plate per other device with its initial, in the editor's bar
+/// small plate per other device with its initial ([initialsOf]), in the editor's bar
 /// before the actions; nothing while the notebook is open here alone.
 ///
 /// While others are here the plates sit in a slot of a fixed size (room
@@ -33,6 +33,56 @@ class RoomPresence extends StatefulWidget {
   /// The letter a device [name] shows as (its plate, its pointer's label).
   static String initialOf(String name) =>
       name.trim().isEmpty ? '?' : name.trim().characters.first.toUpperCase();
+
+  /// What each of [names] (the devices in a room) shows as, in order: its
+  /// initial ([initialOf]), or where several share one, the first letters
+  /// of its first two words ("Galaxy Tab S9", "Galaxy S23": "GT", "GS";
+  /// a name of one word, its first two letters); should those still
+  /// collide, the initial with a number after the first ("G", "G2")
+  /// (UX_AUDIT R27-9).
+  static List<String> initialsOf(List<String> names) {
+    final initials = [for (final n in names) initialOf(n)];
+    final groups = <String, List<int>>{};
+    for (final (i, initial) in initials.indexed) {
+      (groups[initial] ??= []).add(i);
+    }
+    final out = [...initials];
+    for (final MapEntry(key: initial, value: group) in groups.entries) {
+      if (group.length < 2) continue;
+      final two = [for (final i in group) _twoLetters(names[i]) ?? initial];
+      if (two.toSet().length == group.length) {
+        for (final (k, i) in group.indexed) {
+          out[i] = two[k];
+        }
+      } else {
+        for (final (k, i) in group.indexed) {
+          out[i] = k == 0 ? initial : '$initial${k + 1}';
+        }
+      }
+    }
+    return out;
+  }
+
+  /// The first letters (or digits) of [name]'s first two words, upper
+  /// case; for one word, its first two; null for a name with fewer.
+  static String? _twoLetters(String name) {
+    final words = [
+      for (final w in name.trim().split(RegExp(r'\s+')))
+        if (_alnum(w).isNotEmpty) _alnum(w),
+    ];
+    if (words.isEmpty) return null;
+    if (words.length == 1) {
+      final w = words.single.characters;
+      return w.length < 2 ? null : w.take(2).toString().toUpperCase();
+    }
+    return '${words[0].characters.first}${words[1].characters.first}'.toUpperCase();
+  }
+
+  /// [word] from its first letter or digit on ("(studio)": "studio)").
+  static String _alnum(String word) {
+    final at = word.indexOf(RegExp(r'[\p{L}\p{N}]', unicode: true));
+    return at < 0 ? '' : word.substring(at);
+  }
 
   @override
   State<RoomPresence> createState() => _RoomPresenceState();
@@ -114,7 +164,8 @@ class _RoomPresenceState extends State<RoomPresence> {
                 mainAxisSize: MainAxisSize.min,
                 spacing: Gaps.xs,
                 children: [
-                  for (final name in names.take(shown)) _Plate(text: RoomPresence.initialOf(name)),
+                  for (final initial in RoomPresence.initialsOf(names).take(shown))
+                    _Plate(text: initial),
                   if (others.length > shown) _Plate(text: '+${others.length - shown}'),
                 ],
               ),
@@ -127,7 +178,7 @@ class _RoomPresenceState extends State<RoomPresence> {
 
   static double _padding(bool compact) => compact ? Gaps.xs : Gaps.sm;
 
-  /// The slot for [most] plates: each as wide as an initial needs, the
+  /// The slot for [most] plates: each as wide as two letters need, the
   /// last as a two-digit count does, as tall as their text.
   Size _slot(BuildContext context, int most) {
     final style = _Plate.styleOf(context);
@@ -144,7 +195,8 @@ class _RoomPresenceState extends State<RoomPresence> {
       return size;
     }
 
-    final initial = measure('W'), count = measure('+88');
+    // Two letters: where initials collide ([initialsOf]).
+    final initial = measure('WW'), count = measure('+88');
     const plate = RoomPresence.plate;
     double width(Size text) => math.max(plate, text.width + 2 * _Plate.inset);
     final last = math.max(width(initial), width(count));

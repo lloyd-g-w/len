@@ -108,9 +108,12 @@ class SearchIndex {
   /// Whether queries use FTS5 (else `LIKE` on folded text, slower).
   bool get usesFts => _fts;
 
+  /// Most hits a search returns unless told otherwise.
+  static const int defaultLimit = 300;
+
   /// Content and title hits for [query], at most [limit], best first —
   /// or, with [notebookId], only that notebook's content in page order.
-  List<SearchHit> search(SearchQuery query, {String? notebookId, int limit = 300}) {
+  List<SearchHit> search(SearchQuery query, {String? notebookId, int limit = defaultLimit}) {
     if (query.isEmpty) return const [];
     final (from, where, args) = _matchClause(query);
     final rows = db.select(
